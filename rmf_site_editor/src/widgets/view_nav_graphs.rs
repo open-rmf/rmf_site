@@ -220,7 +220,7 @@ impl<'w, 's> ViewNavGraphs<'w, 's> {
                                     None => return None,
                                 };
 
-                                match rmf_site_format::Site::from_bytes(&file.read().await) {
+                                match rmf_site_format::Site::from_bytes_ron(&file.read().await) {
                                     Ok(from_site) => Some((
                                         file.path().to_owned(),
                                         ImportNavGraphs {

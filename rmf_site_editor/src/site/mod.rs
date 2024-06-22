@@ -99,6 +99,9 @@ pub use sdf::*;
 pub mod save;
 pub use save::*;
 
+pub mod sdf_exporter;
+pub use sdf_exporter::*;
+
 pub mod site;
 pub use site::*;
 
@@ -334,8 +337,8 @@ impl Plugin for SitePlugin {
                 update_walls,
                 update_transforms_for_changed_poses,
                 align_site_drawings,
-                clear_old_issues_on_new_validate_event,
                 export_lights,
+                set_camera_transform_for_changed_site,
             )
                 .run_if(AppState::in_site_mode())
                 .in_set(SiteUpdateSet::BetweenVisibilityAndTransform),

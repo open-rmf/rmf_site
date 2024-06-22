@@ -68,14 +68,16 @@ impl Default for FuelCacheProgressChannel {
 
 pub fn handle_update_fuel_cache_requests(
     mut events: EventReader<UpdateFuelCache>,
-    mut gallery_status: ResMut<AssetGalleryStatus>,
+    gallery_status: Option<ResMut<AssetGalleryStatus>>,
     fuel_client: Res<FuelClient>,
     update_channel: Res<FuelCacheUpdateChannel>,
     progress_channel: Res<FuelCacheProgressChannel>,
 ) {
     if events.read().last().is_some() {
         info!("Updating fuel cache, this might take a few minutes");
-        gallery_status.fetching_cache = true;
+        if let Some(mut gallery_status) = gallery_status {
+            gallery_status.fetching_cache = true;
+        }
         let mut fuel_client = fuel_client.clone();
         let sender = update_channel.sender.clone();
         let progress = progress_channel.sender.clone();
@@ -109,14 +111,16 @@ pub fn handle_update_fuel_cache_requests(
 pub fn read_update_fuel_cache_results(
     channels: Res<FuelCacheUpdateChannel>,
     mut fuel_client: ResMut<FuelClient>,
-    mut gallery_status: ResMut<AssetGalleryStatus>,
+    gallery_status: Option<ResMut<AssetGalleryStatus>>,
 ) {
     if let Ok(result) = channels.receiver.try_recv() {
         match result.0 {
             Some(models) => fuel_client.models = Some(models),
             None => error!("Failed updating fuel cache"),
         }
-        gallery_status.fetching_cache = false;
+        if let Some(mut gallery_status) = gallery_status {
+            gallery_status.fetching_cache = false;
+        }
     }
 }
 

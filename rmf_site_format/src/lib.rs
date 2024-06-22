@@ -29,6 +29,9 @@ pub use asset_source::*;
 pub mod category;
 pub use category::*;
 
+pub mod camera_poses;
+pub use camera_poses::*;
+
 pub mod constraint;
 pub use constraint::*;
 
@@ -97,6 +100,9 @@ pub use point::*;
 
 pub mod recall;
 pub use recall::*;
+
+pub mod sdf;
+pub use sdf::*;
 
 pub mod semver;
 pub use semver::*;

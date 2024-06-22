@@ -8,7 +8,7 @@ use crate::{
     Level as SiteLevel, LevelElevation, LevelProperties as SiteLevelProperties, Motion, NameInSite,
     NameOfSite, NavGraph, Navigation, OrientationConstraint, PixelsPerMeter, Pose,
     PreferredSemiTransparency, RankingsInLevel, ReverseLane, Rotation, Site, SiteProperties,
-    Texture as SiteTexture, TextureGroup, DEFAULT_NAV_GRAPH_COLORS,
+    Texture as SiteTexture, TextureGroup, UserCameraPose, DEFAULT_NAV_GRAPH_COLORS,
 };
 use glam::{DAffine2, DMat3, DQuat, DVec2, DVec3, EulerRot};
 use serde::{Deserialize, Serialize};
@@ -33,6 +33,8 @@ pub struct BuildingMap {
     pub name: String,
     #[serde(default)]
     pub coordinate_system: CoordinateSystem,
+    #[serde(default)]
+    pub reference_level_name: Option<String>,
     pub levels: BTreeMap<String, Level>,
     // TODO(MXG): Consider parsing legacy crowdsim data and converting it to
     // a format that will have future support.
@@ -49,6 +51,28 @@ impl BuildingMap {
             CoordinateSystem::ReferenceImage => Ok(BuildingMap::from_pixel_coordinates(map)),
             CoordinateSystem::CartesianMeters => Ok(map),
         }
+    }
+
+    /// Collects all vertices that are used in cartesian features (i.e. floors, walls, doors).
+    /// Doesn't include pixel anchors (i.e. drawings)
+    fn collect_level_cartesian_vertices(level: &Level) -> HashSet<usize> {
+        let mut anchors: HashSet<usize> = HashSet::new();
+        for door in &level.doors {
+            anchors.extend([door.0, door.1]);
+        }
+
+        for floor in &level.floors {
+            anchors.extend(&floor.vertices);
+        }
+
+        for wall in &level.walls {
+            anchors.extend([wall.0, wall.1]);
+        }
+
+        for lane in &level.lanes {
+            anchors.extend([lane.0, lane.1]);
+        }
+        anchors
     }
 
     /// Converts a map from the oldest legacy format, which uses pixel coordinates.
@@ -70,8 +94,27 @@ impl BuildingMap {
             let tf = alignment.to_affine();
             level.alignment = Some(alignment.clone());
             // We need to keep the vertices associated with measurements in image coordinates
+            let level_vertices = Self::collect_level_cartesian_vertices(level);
             let mut drawing_vertices = HashSet::new();
-            for measurement in &level.measurements {
+            for measurement in &mut level.measurements {
+                match level_vertices.get(&measurement.0) {
+                    Some(vertex) => {
+                        // Vertex is shared, duplicate it
+                        let idx = level.vertices.len();
+                        level.vertices.push(level.vertices[*vertex].clone());
+                        measurement.0 = idx;
+                    }
+                    None => {}
+                }
+                match level_vertices.get(&measurement.1) {
+                    Some(vertex) => {
+                        // Vertex is shared, duplicate it
+                        let idx = level.vertices.len();
+                        level.vertices.push(level.vertices[*vertex].clone());
+                        measurement.1 = idx;
+                    }
+                    None => {}
+                }
                 drawing_vertices.insert(measurement.0);
                 drawing_vertices.insert(measurement.1);
             }
@@ -153,7 +196,7 @@ impl BuildingMap {
         let mut wall_texture_map: HashMap<WallProperties, u32> = HashMap::new();
         let mut lift_cabin_anchors: BTreeMap<String, Vec<(u32, Anchor)>> = BTreeMap::new();
 
-        let mut building_id_to_nav_graph_id = HashMap::new();
+        let mut building_id_to_nav_graph_id = BTreeMap::new();
 
         let mut fiducial_groups: BTreeMap<u32, FiducialGroup> = BTreeMap::new();
         let mut cartesian_fiducials: HashMap<u32, Vec<DVec2>> = HashMap::new();
@@ -314,19 +357,13 @@ impl BuildingMap {
                 for measurement in &level.measurements {
                     let mut site_measurement = measurement.to_site(&vertex_to_anchor_id)?;
                     let edge = &mut site_measurement.anchors;
-                    let (start_anchor, end_anchor) = (
-                        level_anchors.get(&edge.left()).unwrap(),
-                        level_anchors.get(&edge.right()).unwrap(),
-                    );
-                    // Now get the anchors and duplicate them in the drawing
-                    let anchor_id = site_id.next().unwrap();
-                    drawing_anchors.insert(anchor_id, start_anchor.clone());
-                    *edge.left_mut() = anchor_id;
-                    let anchor_id = site_id.next().unwrap();
-                    drawing_anchors.insert(anchor_id, end_anchor.clone());
-                    *edge.right_mut() = anchor_id;
+                    // Remove the measurement anchors from the level anchors, since they belong to
+                    // the drawing
+                    let left = level_anchors.remove_entry(&edge.left()).unwrap();
+                    let right = level_anchors.remove_entry(&edge.right()).unwrap();
+                    drawing_anchors.insert(left.0, left.1);
+                    drawing_anchors.insert(right.0, right.1);
                     measurements.insert(site_id.next().unwrap(), site_measurement);
-                    // TODO(luca) remove original anchors if they have no other dependents
                     // TODO(MXG): Have rankings for measurements
                 }
 
@@ -349,13 +386,11 @@ impl BuildingMap {
             }
 
             for (name, layer) in &level.layers {
-                // TODO(luca) coordinates in site and traffic editor might be different, use
-                // optimization engine instead of parsing
                 let drawing_id = site_id.next().unwrap();
                 let pose = Pose {
                     trans: [
                         layer.transform.translation_x as f32,
-                        layer.transform.translation_y as f32,
+                        -layer.transform.translation_y as f32,
                         0.0 as f32,
                     ],
                     rot: Rotation::Yaw(Angle::Rad(layer.transform.yaw as f32)),
@@ -492,7 +527,11 @@ impl BuildingMap {
                 walls.insert(site_id.next().unwrap(), site_wall);
             }
 
-            let elevation = level.elevation as f32;
+            let mut user_camera_poses = BTreeMap::new();
+            user_camera_poses.insert(
+                site_id.next().unwrap(),
+                UserCameraPose::from_anchors("default", level_anchors.values()),
+            );
 
             level_name_to_id.insert(level_name.clone(), level_id);
             levels.insert(
@@ -500,7 +539,7 @@ impl BuildingMap {
                 SiteLevel {
                     properties: SiteLevelProperties {
                         name: NameInSite(level_name.clone()),
-                        elevation: LevelElevation(elevation),
+                        elevation: LevelElevation(level.elevation as f32),
                         global_floor_visibility: Default::default(),
                         global_drawing_visibility: Default::default(),
                     },
@@ -513,6 +552,7 @@ impl BuildingMap {
                     physical_cameras,
                     walls,
                     rankings,
+                    user_camera_poses,
                 },
             );
 
@@ -599,7 +639,7 @@ impl BuildingMap {
             nav_graphs.insert(
                 *graph_id,
                 NavGraph {
-                    name: NameInSite("unnamed_graph_#".to_string() + &i.to_string()),
+                    name: NameInSite(i.to_string()),
                     color: DisplayColor(DEFAULT_NAV_GRAPH_COLORS[color_index]),
                     marker: Default::default(),
                 },
@@ -703,7 +743,10 @@ mod tests {
     fn site_conversion() {
         let data = std::fs::read("../assets/demo_maps/office.building.yaml").unwrap();
         let map = BuildingMap::from_bytes(&data).unwrap();
-        println!("{}", map.to_site().unwrap().to_string().unwrap());
+        println!(
+            "{}",
+            String::from_utf8_lossy(&map.to_site().unwrap().to_bytes_json().unwrap())
+        );
     }
 
     #[test]

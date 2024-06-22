@@ -15,9 +15,11 @@
  *
 */
 
-use crate::CurrentWorkspace;
+use crate::{interaction::CameraControls, CurrentWorkspace};
 use bevy::prelude::*;
-use rmf_site_format::{LevelElevation, LevelProperties, NameInSite, NameOfSite};
+use rmf_site_format::{
+    LevelElevation, LevelProperties, NameInSite, NameOfSite, Pose, UserCameraPoseMarker,
+};
 
 /// Used as an event to command that a new site should be made the current one
 #[derive(Clone, Copy, Debug, Event)]
@@ -132,6 +134,39 @@ pub fn change_site(
                     }
                 }
             }
+        }
+    }
+}
+
+pub fn set_camera_transform_for_changed_site(
+    current_workspace: Res<CurrentWorkspace>,
+    current_level: Res<CurrentLevel>,
+    mut camera_controls: ResMut<CameraControls>,
+    children: Query<&Children>,
+    user_camera_poses: Query<&Pose, With<UserCameraPoseMarker>>,
+    mut transforms: Query<&mut Transform>,
+) {
+    if current_workspace.is_changed() {
+        let Some(level) = current_level.0 else {
+            return;
+        };
+
+        // TODO(luca) Add an actual default pose rather than first in query
+        if let Some(pose) = children
+            .get(level)
+            .ok()
+            .and_then(|children| children.iter().find_map(|c| user_camera_poses.get(*c).ok()))
+        {
+            if let Ok(mut tf) = transforms.get_mut(camera_controls.perspective_camera_entities[0]) {
+                *tf = pose.transform();
+            }
+            let mut translation = pose.transform().translation;
+            // TODO(luca) these are the same value that are in rmf_site_format, should we change
+            // them?
+            translation.x = translation.x + 10.0;
+            translation.y = translation.y + 10.0;
+            translation.z = 0.0;
+            camera_controls.orbit_center = translation;
         }
     }
 }

@@ -1,4 +1,4 @@
-use bevy::{log::LogPlugin, pbr::DirectionalLightShadowMap, prelude::*};
+use bevy::{app::ScheduleRunnerPlugin, log::LogPlugin, pbr::DirectionalLightShadowMap, prelude::*};
 use bevy_egui::EguiPlugin;
 use main_menu::MainMenuPlugin;
 // use warehouse_generator::WarehouseGeneratorPlugin;
@@ -9,6 +9,8 @@ use wasm_bindgen::prelude::*;
 
 pub mod aabb;
 pub mod animate;
+pub mod autoload;
+pub use autoload::*;
 
 pub mod asset_loaders;
 use asset_loaders::*;
@@ -31,7 +33,6 @@ mod shapes;
 use log::LogHistoryPlugin;
 
 pub mod main_menu;
-use main_menu::Autoload;
 pub mod site;
 // mod warehouse_generator;
 pub mod workcell;
@@ -75,6 +76,9 @@ pub struct CommandLineArgs {
     /// Name of a Site (.site.ron) file to import on top of the base FILENAME.
     #[cfg_attr(not(target_arch = "wasm32"), arg(short, long))]
     pub import: Option<String>,
+    /// Run in headless mode and export the loaded site to the requested path.
+    #[cfg_attr(not(target_arch = "wasm32"), arg(long))]
+    pub headless_export: Option<String>,
 }
 
 #[derive(Clone, Default, Eq, PartialEq, Debug, Hash, States)]
@@ -117,6 +121,7 @@ pub fn run_js() {
 
 pub fn run(command_line_args: Vec<String>) {
     let mut app = App::new();
+    let mut headless_export = None;
 
     #[cfg(not(target_arch = "wasm32"))]
     {
@@ -127,34 +132,70 @@ pub fn run(command_line_args: Vec<String>) {
                 command_line_args.import.map(Into::into),
             ));
         }
+        headless_export = command_line_args.headless_export;
     }
 
-    app.add_plugins(SiteEditor);
+    app.add_plugins(SiteEditor::default().headless_export(headless_export));
     app.run();
 }
 
-pub struct SiteEditor;
+#[derive(Default)]
+pub struct SiteEditor {
+    /// Contains Some(path) if the site editor is running in headless mode exporting its site.
+    headless_export: Option<String>,
+}
+
+impl SiteEditor {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn headless_export(mut self, export_to_file: Option<String>) -> Self {
+        self.headless_export = export_to_file;
+        self
+    }
+}
 
 impl Plugin for SiteEditor {
     fn build(&self, app: &mut App) {
+        let mut plugins = DefaultPlugins.build();
+        let headless = {
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                self.headless_export.is_some()
+            }
+            #[cfg(target_arch = "wasm32")]
+            {
+                false
+            }
+        };
+        plugins = if headless {
+            plugins
+                .set(WindowPlugin {
+                    primary_window: None,
+                    exit_condition: bevy::window::ExitCondition::DontExit,
+                    close_when_requested: false,
+                })
+                .disable::<bevy::winit::WinitPlugin>()
+        } else {
+            plugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "RMF Site Editor".to_owned(),
+                    #[cfg(not(target_arch = "wasm32"))]
+                    resolution: (1600., 900.).into(),
+                    #[cfg(target_arch = "wasm32")]
+                    canvas: Some(String::from("#rmf_site_editor_canvas")),
+                    #[cfg(target_arch = "wasm32")]
+                    fit_canvas_to_parent: true,
+                    ..default()
+                }),
+                ..default()
+            })
+        };
         app.add_plugins((
             SiteAssetIoPlugin,
-            DefaultPlugins
-                .build()
+            plugins
                 .disable::<LogPlugin>()
-                .set(WindowPlugin {
-                    primary_window: Some(Window {
-                        title: "RMF Site Editor".to_owned(),
-                        #[cfg(not(target_arch = "wasm32"))]
-                        resolution: (1600., 900.).into(),
-                        #[cfg(target_arch = "wasm32")]
-                        canvas: Some(String::from("#rmf_site_editor_canvas")),
-                        #[cfg(target_arch = "wasm32")]
-                        fit_canvas_to_parent: true,
-                        ..default()
-                    }),
-                    ..default()
-                })
                 .set(ImagePlugin {
                     default_sampler: SamplerDescriptor {
                         address_mode_u: AddressMode::Repeat,
@@ -174,7 +215,9 @@ impl Plugin for SiteEditor {
                     ..default()
                 }),
         ));
-        app.insert_resource(DirectionalLightShadowMap { size: 2048 })
+
+        app
+            .insert_resource(DirectionalLightShadowMap { size: 2048 })
             .add_state::<AppState>()
             .add_plugins((
                 AssetLoadersPlugin,
@@ -182,25 +225,42 @@ impl Plugin for SiteEditor {
                 AabbUpdatePlugin,
                 EguiPlugin,
                 KeyboardInputPlugin,
-                MainMenuPlugin,
-                WorkcellEditorPlugin,
                 SitePlugin,
-                InteractionPlugin,
-                StandardUiPlugin::default(),
+                InteractionPlugin::new().headless(self.headless_export.is_some()),
                 AnimationPlugin,
                 OccupancyPlugin,
                 WorkspacePlugin,
+                IssuePlugin,
+            ));
+
+        if self.headless_export.is_none() {
+            app.add_plugins((
+                StandardUiPlugin::default(),
+                MainMenuPlugin,
+                WorkcellEditorPlugin,
             ))
             // Note order matters, plugins that edit the menus must be initialized after the UI
             .add_plugins((
                 ViewMenuPlugin,
-                IssuePlugin,
                 OSMViewPlugin,
                 SiteWireframePlugin,
             ));
+        }
+
         // Ref https://github.com/bevyengine/bevy/issues/10877. The default behavior causes issues
         // with events being accumulated when not read (i.e. scrolling mouse wheel on a UI widget).
         app.world
             .remove_resource::<bevy::ecs::event::EventUpdateSignal>();
+
+        if let Some(path) = &self.headless_export {
+            // We really don't need a high update rate here since we are IO bound, set a low rate
+            // to save CPU.
+            // TODO(luca) this still seems to take quite some time, check where the bottleneck is.
+            app.add_plugins(ScheduleRunnerPlugin::run_loop(
+                std::time::Duration::from_secs_f64(1.0 / 10.0),
+            ));
+            app.insert_resource(site::HeadlessSdfExportState::new(path));
+            app.add_systems(Last, site::headless_sdf_export);
+        }
     }
 }

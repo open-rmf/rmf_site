@@ -16,7 +16,7 @@
 */
 
 use crate::site::*;
-use crate::CurrentWorkspace;
+use crate::{interaction::CameraControls, CurrentWorkspace};
 use bevy::prelude::*;
 
 pub fn update_level_visibility(

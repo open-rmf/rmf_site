@@ -93,6 +93,9 @@ pub use panel::*;
 pub mod properties_panel;
 pub use properties_panel::*;
 
+pub mod sdf_export_menu;
+pub use sdf_export_menu::*;
+
 pub mod selector_widget;
 pub use selector_widget::*;
 
@@ -141,6 +144,7 @@ impl Plugin for StandardUiPlugin {
         app.add_plugins((
             IconsPlugin::default(),
             MenuBarPlugin::default(),
+            SdfExportMenuPlugin::default(),
             StandardPropertiesPanelPlugin::default(),
             FuelAssetBrowserPlugin::default(),
             DiagnosticsPlugin::default(),

@@ -21,6 +21,7 @@ bevy_mod_raycast = "0.16"
 bevy_mod_outline = "0.6"
 # PR merged after 0.10 but not released yet, bump to 0.10.1 once merged
 bevy_infinite_grid = { git = "https://github.com/ForesightMiningSoftwareCorporation/bevy_infinite_grid", rev = "86018dd" }
+bevy_gltf_export = { git = "https://github.com/luca-della-vedova/bevy_gltf_export", branch = "luca/transform_api"}
 bevy_polyline = "0.8.1"
 bevy_stl = "0.12"
 bevy_obj = { version = "0.12.1", features = ["scene"] }
@@ -43,8 +44,9 @@ tracing = "0.1.37"
 tracing-subscriber = "0.3.1"
 rfd = "0.12"
 urdf-rs = "0.7"
+yaserde = "0.7"
 utm = "0.1.6"
-sdformat_rs = { git = "https://github.com/open-rmf/sdf_rust_experimental", rev = "a5daef0"}
+sdformat_rs = { git = "https://github.com/open-rmf/sdf_rust_experimental", rev = "9fc35f2"}
 gz-fuel = { git = "https://github.com/open-rmf/gz-fuel-rs", branch = "main" }
 pathdiff = "*"
 tera = "1.19.1"

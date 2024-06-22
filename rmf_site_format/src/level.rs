@@ -68,6 +68,8 @@ pub struct Level {
     pub walls: BTreeMap<u32, Wall<u32>>,
     #[serde(default, skip_serializing_if = "RankingsInLevel::is_empty")]
     pub rankings: RankingsInLevel,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub user_camera_poses: BTreeMap<u32, UserCameraPose>,
 }
 
 impl Level {
@@ -83,6 +85,7 @@ impl Level {
             models: Default::default(),
             physical_cameras: Default::default(),
             walls: Default::default(),
+            user_camera_poses: Default::default(),
         }
     }
 }

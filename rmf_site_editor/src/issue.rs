@@ -58,12 +58,14 @@ pub struct IssuePlugin;
 
 impl Plugin for IssuePlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<ValidateWorkspace>()
+        app
+            .add_event::<ValidateWorkspace>()
             .add_plugins((
                 ChangePlugin::<FilteredIssues<Entity>>::default(),
                 ChangePlugin::<FilteredIssueKinds>::default(),
             ))
-            .init_resource::<IssueDictionary>();
+            .init_resource::<IssueDictionary>()
+            .add_systems(PostUpdate, clear_old_issues_on_new_validate_event);
     }
 }
 
