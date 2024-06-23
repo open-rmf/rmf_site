@@ -74,7 +74,7 @@ impl Plugin for StandardPropertiesPanelPlugin {
 /// fn main() {
 ///     let mut app = App::new();
 ///     app.add_plugins((
-///         SiteEditor,
+///         SiteEditor::default(),
 ///         PropertiesTilePlugin::<HelloSiteWidget>::new(),
 ///     ));
 ///

@@ -154,7 +154,7 @@ use smallvec::SmallVec;
 /// fn main() {
 ///     let mut app = App::new();
 ///     app.add_plugins((
-///         SiteEditor,
+///         SiteEditor::default(),
 ///         InspectionPlugin::<HelloSelection>::new(),
 ///     ));
 ///
