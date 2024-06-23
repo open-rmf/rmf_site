@@ -16,6 +16,8 @@
 */
 
 //! The site editor allows you to insert your own egui widgets into the UI.
+//! Simple examples of custom widgets can be found in the docs for
+//! [`PropertiesTilePlugin`] and [`InspectionPlugin`].
 //!
 //! There are three categories of widgets that the site editor provides
 //! out-of-the-box support for inserting, but the widget system itself is
