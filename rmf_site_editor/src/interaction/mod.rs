@@ -98,7 +98,18 @@ pub struct SiteRaycastSet;
 
 #[derive(Default)]
 pub struct InteractionPlugin {
-    pub headless: bool,
+    headless: bool,
+}
+
+impl InteractionPlugin {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn headless(mut self, is_headless: bool) -> Self {
+        self.headless = is_headless;
+        self
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default, Hash, PartialEq, Eq, States)]

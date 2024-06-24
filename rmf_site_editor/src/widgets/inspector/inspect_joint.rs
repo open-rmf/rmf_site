@@ -16,16 +16,15 @@
 */
 
 use crate::{
-    site::{Dependents, FrameMarker, JointProperties, SiteID},
-    widgets::{inspector::SelectionWidget, AppEvents},
-    Icons,
+    site::{Dependents, FrameMarker, JointProperties},
+    widgets::{prelude::*, Inspect, SelectorWidget},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::Ui;
 
 #[derive(SystemParam)]
-pub struct InspectJointParams<'w, 's> {
-    pub joints: Query<
+pub struct InspectJoint<'w, 's> {
+    joints: Query<
         'w,
         's,
         (
@@ -34,53 +33,34 @@ pub struct InspectJointParams<'w, 's> {
             &'static JointProperties,
         ),
     >,
-    pub icons: Res<'w, Icons>,
-    pub site_id: Query<'w, 's, &'static SiteID>,
-    pub frames: Query<'w, 's, (), With<FrameMarker>>,
+    frames: Query<'w, 's, (), With<FrameMarker>>,
+    selector: SelectorWidget<'w, 's>,
 }
 
-pub struct InspectJointWidget<'a, 'w1, 'w2, 's1, 's2> {
-    pub joint: Entity,
-    pub params: &'a InspectJointParams<'w1, 's1>,
-    pub events: &'a mut AppEvents<'w2, 's2>,
-}
-
-impl<'a, 'w1, 'w2, 's1, 's2> InspectJointWidget<'a, 'w1, 'w2, 's1, 's2> {
-    pub fn new(
-        joint: Entity,
-        params: &'a InspectJointParams<'w1, 's1>,
-        events: &'a mut AppEvents<'w2, 's2>,
-    ) -> Self {
-        Self {
-            joint,
-            params,
-            events,
-        }
+impl<'w, 's> WidgetSystem<Inspect> for InspectJoint<'w, 's> {
+    fn show(
+        Inspect { selection, .. }: Inspect,
+        ui: &mut Ui,
+        state: &mut SystemState<Self>,
+        world: &mut World,
+    ) {
+        let mut params = state.get_mut(world);
+        params.show_widget(selection, ui);
     }
+}
 
-    pub fn show(self, ui: &mut Ui) {
-        let Ok((parent, deps, joint_properties)) = self.params.joints.get(self.joint) else {
+impl<'w, 's> InspectJoint<'w, 's> {
+    pub fn show_widget(&mut self, id: Entity, ui: &mut Ui) {
+        let Ok((parent, deps, joint_properties)) = self.joints.get(id) else {
             return;
         };
 
         ui.label("Parent frame");
-        SelectionWidget::new(
-            **parent,
-            self.params.site_id.get(**parent).ok().cloned(),
-            self.params.icons.as_ref(),
-            self.events,
-        )
-        .show(ui);
+        self.selector.show_widget(**parent, ui);
 
-        if let Some(frame_dep) = deps.iter().find(|d| self.params.frames.get(**d).is_ok()) {
+        if let Some(frame_dep) = deps.iter().find(|d| self.frames.get(**d).is_ok()) {
             ui.label("Child frame");
-            SelectionWidget::new(
-                *frame_dep,
-                self.params.site_id.get(*frame_dep).ok().cloned(),
-                self.params.icons.as_ref(),
-                self.events,
-            )
-            .show(ui);
+            self.selector.show_widget(*frame_dep, ui);
         }
 
         ui.horizontal(|ui| {

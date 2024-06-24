@@ -214,6 +214,8 @@ impl Plugin for WorkspacePlugin {
             .add_event::<CreateNewWorkspace>()
             .add_event::<LoadWorkspace>()
             .add_event::<SaveWorkspace>()
+            .add_event::<SaveWorkcell>()
+            .add_event::<LoadWorkcell>()
             .init_resource::<CurrentWorkspace>()
             .init_resource::<RecallWorkspace>()
             .init_resource::<SaveWorkspaceChannels>()

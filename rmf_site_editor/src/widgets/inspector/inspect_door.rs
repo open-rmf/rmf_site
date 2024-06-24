@@ -15,9 +15,42 @@
  *
 */
 
-use crate::widgets::inspector::{InspectAngle, InspectSide};
+use crate::{
+    site::Change,
+    widgets::{
+        inspector::{InspectAngle, InspectSide},
+        prelude::*,
+        Inspect,
+    },
+};
+use bevy::prelude::*;
 use bevy_egui::egui::{ComboBox, DragValue, Ui};
 use rmf_site_format::{DoorType, RecallDoorType, Swing};
+
+#[derive(SystemParam)]
+pub struct InspectDoor<'w, 's> {
+    doors: Query<'w, 's, (&'static DoorType, &'static RecallDoorType)>,
+    change_door: EventWriter<'w, Change<DoorType>>,
+}
+
+impl<'w, 's> WidgetSystem<Inspect> for InspectDoor<'w, 's> {
+    fn show(
+        Inspect { selection, .. }: Inspect,
+        ui: &mut Ui,
+        state: &mut SystemState<Self>,
+        world: &mut World,
+    ) {
+        let mut params = state.get_mut(world);
+        let Ok((door, recall)) = params.doors.get(selection) else {
+            return;
+        };
+
+        if let Some(new_door) = InspectDoorType::new(door, recall).show(ui) {
+            params.change_door.send(Change::new(new_door, selection));
+        }
+        ui.add_space(10.0);
+    }
+}
 
 pub struct InspectDoorType<'a> {
     pub kind: &'a DoorType,

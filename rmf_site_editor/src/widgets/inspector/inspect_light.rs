@@ -15,11 +15,40 @@
  *
 */
 
-use crate::site::{LightKind, RecallLightKind};
+use crate::{
+    site::{Change, LightKind, RecallLightKind},
+    widgets::{prelude::*, Inspect},
+};
+use bevy::prelude::*;
 use bevy_egui::egui::{
     color_picker::{color_edit_button_rgba, Alpha},
     ComboBox, DragValue, Rgba, Ui,
 };
+
+#[derive(SystemParam)]
+pub struct InspectLight<'w, 's> {
+    lights: Query<'w, 's, (&'static LightKind, &'static RecallLightKind)>,
+    change_light: EventWriter<'w, Change<LightKind>>,
+}
+
+impl<'w, 's> WidgetSystem<Inspect> for InspectLight<'w, 's> {
+    fn show(
+        Inspect { selection, .. }: Inspect,
+        ui: &mut Ui,
+        state: &mut SystemState<Self>,
+        world: &mut World,
+    ) {
+        let mut params = state.get_mut(world);
+        let Ok((light, recall)) = params.lights.get(selection) else {
+            return;
+        };
+
+        if let Some(new_light) = InspectLightKind::new(light, recall).show(ui) {
+            params.change_light.send(Change::new(new_light, selection));
+        }
+        ui.add_space(10.0);
+    }
+}
 
 pub struct InspectLightKind<'a> {
     pub kind: &'a LightKind,

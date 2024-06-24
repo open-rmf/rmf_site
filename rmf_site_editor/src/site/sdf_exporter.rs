@@ -6,9 +6,12 @@ use std::path::Path;
 
 use crate::SaveWorkspace;
 
-use crate::site::{
-    ChildLiftCabinGroup, CollisionMeshMarker, DoorSegments, DrawingMarker, FloorSegments,
-    LiftDoormat, ModelSceneRoot, TentativeModelFormat, VisualMeshMarker,
+use crate::{
+    site::{
+        ChildLiftCabinGroup, CollisionMeshMarker, DoorSegments, DrawingMarker, FloorSegments,
+        LiftDoormat, ModelSceneRoot, TentativeModelFormat, VisualMeshMarker,
+    },
+    Autoload, LoadWorkspace,
 };
 use rmf_site_format::{
     IsStatic, LevelElevation, LiftCabin, ModelMarker, NameInSite, NameOfSite, SiteID, WallMarker,
@@ -47,14 +50,24 @@ pub fn headless_sdf_export(
     mut export_state: ResMut<HeadlessSdfExportState>,
     sites: Query<(Entity, &NameOfSite)>,
     drawings: Query<Entity, With<DrawingMarker>>,
+    autoload: Option<ResMut<Autoload>>,
+    mut load_workspace: EventWriter<LoadWorkspace>,
 ) {
+    if let Some(mut autoload) = autoload {
+        if let Some(filename) = autoload.filename.take() {
+            load_workspace.send(LoadWorkspace::Path(filename));
+        }
+    } else {
+        error!("Cannot perform a headless export since no site file was specified for loading");
+    }
+
     export_state.iterations += 1;
     if export_state.iterations < 5 {
         return;
     }
     if sites.is_empty() {
         warn!(
-            "Unable to load site from file [{}] so we cannot export an SDF from it",
+            "No site is loaded so we cannot export an SDF file into [{}]",
             export_state.target_path,
         );
         exit.send(bevy::app::AppExit);

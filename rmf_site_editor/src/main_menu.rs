@@ -16,27 +16,9 @@
 */
 
 use super::demo_world::*;
-use crate::{AppState, LoadWorkspace, WorkspaceData};
-use bevy::{app::AppExit, prelude::*, tasks::Task, window::PrimaryWindow};
+use crate::{AppState, Autoload, LoadWorkspace, WorkspaceData};
+use bevy::{app::AppExit, prelude::*, window::PrimaryWindow};
 use bevy_egui::{egui, EguiContexts};
-use std::path::PathBuf;
-
-#[derive(Resource)]
-pub struct Autoload {
-    pub filename: Option<PathBuf>,
-    pub import: Option<PathBuf>,
-    pub importing: Option<Task<Option<(Entity, rmf_site_format::Site)>>>,
-}
-
-impl Autoload {
-    pub fn file(filename: PathBuf, import: Option<PathBuf>) -> Self {
-        Autoload {
-            filename: Some(filename),
-            import,
-            importing: None,
-        }
-    }
-}
 
 fn egui_ui(
     mut egui_context: EguiContexts,
@@ -49,10 +31,9 @@ fn egui_ui(
     if let Some(mut autoload) = autoload {
         #[cfg(not(target_arch = "wasm32"))]
         {
-            if let Some(filename) = autoload.filename.clone() {
+            if let Some(filename) = autoload.filename.take() {
                 _load_workspace.send(LoadWorkspace::Path(filename));
             }
-            autoload.filename = None;
         }
         return;
     }

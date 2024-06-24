@@ -15,9 +15,72 @@
  *
 */
 
-use crate::{occupancy::CalculateGrid, widgets::AppEvents};
-use bevy::prelude::Resource;
-use bevy_egui::egui::{DragValue, Ui};
+use crate::{occupancy::CalculateGrid, widgets::prelude::*, AppState};
+use bevy::prelude::*;
+use bevy_egui::egui::{CollapsingHeader, DragValue, Ui};
+
+/// Add a widget that provides a button for producing an occupancy grid
+/// visualization.
+#[derive(Default)]
+pub struct ViewOccupancyPlugin {}
+
+impl Plugin for ViewOccupancyPlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        app.init_resource::<OccupancyDisplay>()
+            .add_plugins(PropertiesTilePlugin::<ViewOccupancy>::new());
+    }
+}
+
+#[derive(SystemParam)]
+pub struct ViewOccupancy<'w> {
+    calculate_grid: EventWriter<'w, CalculateGrid>,
+    display_occupancy: ResMut<'w, OccupancyDisplay>,
+    app_state: Res<'w, State<AppState>>,
+}
+
+impl<'w> WidgetSystem<Tile> for ViewOccupancy<'w> {
+    fn show(_: Tile, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) {
+        let mut params = state.get_mut(world);
+        if *params.app_state.get() != AppState::SiteEditor {
+            return;
+        }
+        CollapsingHeader::new("Occupancy")
+            .default_open(false)
+            .show(ui, |ui| {
+                params.show_widget(ui);
+            });
+    }
+}
+
+impl<'w> ViewOccupancy<'w> {
+    pub fn show_widget(&mut self, ui: &mut Ui) {
+        ui.horizontal(|ui| {
+            if ui.button("Calculate Occupancy").clicked() {
+                self.calculate_grid.send(CalculateGrid {
+                    cell_size: self.display_occupancy.cell_size,
+                    floor: 0.01,
+                    ceiling: 1.5,
+                });
+            }
+            if ui
+                .add(
+                    DragValue::new(&mut self.display_occupancy.cell_size)
+                        .clamp_range(0.01..=f32::INFINITY)
+                        .speed(0.01),
+                )
+                .changed()
+            {
+                if self.display_occupancy.cell_size > 0.1 {
+                    self.calculate_grid.send(CalculateGrid {
+                        cell_size: self.display_occupancy.cell_size,
+                        floor: 0.01,
+                        ceiling: 1.5,
+                    });
+                }
+            }
+        });
+    }
+}
 
 #[derive(Resource)]
 pub struct OccupancyDisplay {
@@ -27,43 +90,5 @@ pub struct OccupancyDisplay {
 impl Default for OccupancyDisplay {
     fn default() -> Self {
         Self { cell_size: 0.5 }
-    }
-}
-
-pub struct ViewOccupancy<'a, 'w2, 's2> {
-    events: &'a mut AppEvents<'w2, 's2>,
-}
-
-impl<'a, 'w2, 's2> ViewOccupancy<'a, 'w2, 's2> {
-    pub fn new(events: &'a mut AppEvents<'w2, 's2>) -> Self {
-        Self { events }
-    }
-
-    pub fn show(self, ui: &mut Ui) {
-        ui.horizontal(|ui| {
-            if ui.button("Calculate Occupancy").clicked() {
-                self.events.request.calculate_grid.send(CalculateGrid {
-                    cell_size: self.events.display.occupancy.cell_size,
-                    floor: 0.01,
-                    ceiling: 1.5,
-                });
-            }
-            if ui
-                .add(
-                    DragValue::new(&mut self.events.display.occupancy.cell_size)
-                        .clamp_range(0.01..=f32::INFINITY)
-                        .speed(0.01),
-                )
-                .changed()
-            {
-                if self.events.display.occupancy.cell_size > 0.1 {
-                    self.events.request.calculate_grid.send(CalculateGrid {
-                        cell_size: self.events.display.occupancy.cell_size,
-                        floor: 0.01,
-                        ceiling: 1.5,
-                    });
-                }
-            }
-        });
     }
 }

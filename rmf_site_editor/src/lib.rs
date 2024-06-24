@@ -9,6 +9,8 @@ use wasm_bindgen::prelude::*;
 
 pub mod aabb;
 pub mod animate;
+pub mod autoload;
+pub use autoload::*;
 
 pub mod asset_loaders;
 use asset_loaders::*;
@@ -31,7 +33,6 @@ mod shapes;
 use log::LogHistoryPlugin;
 
 pub mod main_menu;
-use main_menu::Autoload;
 pub mod site;
 // mod warehouse_generator;
 pub mod workcell;
@@ -56,7 +57,7 @@ use wireframe::*;
 use aabb::AabbUpdatePlugin;
 use animate::AnimationPlugin;
 use interaction::InteractionPlugin;
-use site::{OSMViewPlugin, SiteFileMenuPlugin, SitePlugin};
+use site::{OSMViewPlugin, SitePlugin};
 use site_asset_io::SiteAssetIoPlugin;
 
 pub mod osm_slippy_map;
@@ -134,14 +135,25 @@ pub fn run(command_line_args: Vec<String>) {
         headless_export = command_line_args.headless_export;
     }
 
-    app.add_plugins(SiteEditor { headless_export });
+    app.add_plugins(SiteEditor::default().headless_export(headless_export));
     app.run();
 }
 
 #[derive(Default)]
 pub struct SiteEditor {
     /// Contains Some(path) if the site editor is running in headless mode exporting its site.
-    pub headless_export: Option<String>,
+    headless_export: Option<String>,
+}
+
+impl SiteEditor {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn headless_export(mut self, export_to_file: Option<String>) -> Self {
+        self.headless_export = export_to_file;
+        self
+    }
 }
 
 impl Plugin for SiteEditor {
@@ -212,27 +224,23 @@ impl Plugin for SiteEditor {
                 AabbUpdatePlugin,
                 EguiPlugin,
                 KeyboardInputPlugin,
-                MainMenuPlugin,
-                WorkcellEditorPlugin,
                 SitePlugin,
-                InteractionPlugin {
-                    headless: self.headless_export.is_some(),
-                },
-                StandardUiLayout {
-                    headless: self.headless_export.is_some(),
-                },
+                InteractionPlugin::new().headless(self.headless_export.is_some()),
                 AnimationPlugin,
                 OccupancyPlugin,
                 WorkspacePlugin,
+                IssuePlugin,
+            ));
+
+        if self.headless_export.is_none() {
+            app.add_plugins((
+                StandardUiPlugin::default(),
+                MainMenuPlugin,
+                WorkcellEditorPlugin,
             ))
             // Note order matters, plugins that edit the menus must be initialized after the UI
-            .add_plugins((
-                ViewMenuPlugin,
-                IssuePlugin,
-                OSMViewPlugin,
-                SiteWireframePlugin,
-                SiteFileMenuPlugin,
-            ));
+            .add_plugins((ViewMenuPlugin, OSMViewPlugin, SiteWireframePlugin));
+        }
 
         // Ref https://github.com/bevyengine/bevy/issues/10877. The default behavior causes issues
         // with events being accumulated when not read (i.e. scrolling mouse wheel on a UI widget).

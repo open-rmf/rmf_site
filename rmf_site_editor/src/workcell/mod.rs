@@ -73,8 +73,6 @@ impl Plugin for WorkcellEditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(InfiniteGridPlugin)
             .add_event::<CreateJoint>()
-            .add_event::<SaveWorkcell>()
-            .add_event::<LoadWorkcell>()
             .add_event::<ChangeCurrentWorkcell>()
             .add_systems(OnEnter(AppState::WorkcellEditor), spawn_grid)
             .add_systems(OnExit(AppState::WorkcellEditor), delete_grid)

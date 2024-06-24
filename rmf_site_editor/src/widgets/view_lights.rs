@@ -16,28 +16,180 @@
 */
 
 use crate::{
-    icons::Icons,
-    interaction::Select,
+    interaction::{HeadlightToggle, Select},
     site::{
-        Angle, Category, ExportLights, Light, LightKind, Pose, Recall, RecallLightKind, Rotation,
-        SiteID,
+        Angle, Category, ExportLights, Light, LightKind, PhysicalLightToggle, Pose, Recall,
+        RecallLightKind, Rotation, SiteID,
     },
     widgets::{
-        inspector::{InspectLightKind, InspectPose, SelectionWidget},
-        AppEvents,
+        inspector::{InspectLightKind, InspectPoseComponent},
+        prelude::*,
+        SelectorWidget,
     },
+    AppState,
 };
 use bevy::{
     ecs::system::SystemParam,
     prelude::*,
     tasks::{AsyncComputeTaskPool, Task},
 };
-use bevy_egui::egui::Ui;
+use bevy_egui::egui::{CollapsingHeader, Ui};
 use futures_lite::future;
 #[cfg(not(target_arch = "wasm32"))]
 use rfd::AsyncFileDialog;
 use std::cmp::Reverse;
 use std::collections::BTreeMap;
+
+/// Add a plugin for viewing and editing a list of all lights
+#[derive(Default)]
+pub struct ViewLightsPlugin {}
+
+impl Plugin for ViewLightsPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<LightDisplay>()
+            .add_plugins(PropertiesTilePlugin::<ViewLights>::new());
+    }
+}
+
+#[derive(SystemParam)]
+pub struct ViewLights<'w, 's> {
+    lights: Query<'w, 's, (Entity, &'static LightKind, Option<&'static SiteID>)>,
+    toggle_headlights: ResMut<'w, HeadlightToggle>,
+    toggle_physical_lights: ResMut<'w, PhysicalLightToggle>,
+    export_lights: EventWriter<'w, ExportLights>,
+    display_light: ResMut<'w, LightDisplay>,
+    selector: SelectorWidget<'w, 's>,
+    commands: Commands<'w, 's>,
+    app_state: Res<'w, State<AppState>>,
+}
+
+impl<'w, 's> WidgetSystem<Tile> for ViewLights<'w, 's> {
+    fn show(_: Tile, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) {
+        let mut params = state.get_mut(world);
+        if *params.app_state.get() != AppState::SiteEditor {
+            return;
+        }
+        CollapsingHeader::new("Lights")
+            .default_open(false)
+            .show(ui, |ui| {
+                params.show_widget(ui);
+            });
+    }
+}
+
+impl<'w, 's> ViewLights<'w, 's> {
+    pub fn show_widget(&mut self, ui: &mut Ui) {
+        let mut use_headlight = self.toggle_headlights.0;
+        ui.checkbox(&mut use_headlight, "Use Headlight");
+        if use_headlight != self.toggle_headlights.0 {
+            self.toggle_headlights.0 = use_headlight;
+        }
+
+        let mut use_physical_lights = self.toggle_physical_lights.0;
+        ui.checkbox(&mut use_physical_lights, "Use Physical Lights");
+        if use_physical_lights != self.toggle_physical_lights.0 {
+            self.toggle_physical_lights.0 = use_physical_lights;
+        }
+
+        ui.separator();
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            ui.horizontal(|ui| {
+                if let Some(export_file) = &self.display_light.export_file {
+                    if ui.button("Export").clicked() {
+                        self.export_lights.send(ExportLights(export_file.clone()));
+                    }
+                }
+                if ui.button("Export Lights As...").clicked() {
+                    match &self.display_light.choosing_file_for_export {
+                        Some(_) => {
+                            warn!("A file is already being chosen!");
+                        }
+                        None => {
+                            let future = AsyncComputeTaskPool::get().spawn(async move {
+                                let file = match AsyncFileDialog::new().save_file().await {
+                                    Some(file) => file,
+                                    None => return None,
+                                };
+
+                                Some(file.path().to_path_buf())
+                            });
+                            self.display_light.choosing_file_for_export = Some(future);
+                        }
+                    }
+                }
+            });
+            match &self.display_light.export_file {
+                Some(path) => match path.to_str() {
+                    Some(s) => {
+                        ui.label(s);
+                    }
+                    None => {
+                        ui.label("unable to render path");
+                    }
+                },
+                None => {
+                    ui.label("<no file chosen>");
+                }
+            }
+            ui.separator();
+        }
+
+        ui.heading("Create new light");
+        if let Some(new_pose) = InspectPoseComponent::new(&self.display_light.pose).show(ui) {
+            self.display_light.pose = new_pose;
+        }
+
+        ui.push_id("Add Light", |ui| {
+            if let Some(new_kind) =
+                InspectLightKind::new(&self.display_light.kind, &self.display_light.recall).show(ui)
+            {
+                self.display_light.recall.remember(&new_kind);
+                self.display_light.kind = new_kind;
+            }
+        });
+
+        // TODO(MXG): Add a + icon to this button to make it more visible
+        if ui.button("Add").clicked() {
+            let new_light = self
+                .commands
+                .spawn(Light {
+                    pose: self.display_light.pose,
+                    kind: self.display_light.kind,
+                })
+                .insert(Category::Light)
+                .id();
+            self.selector.select.send(Select(Some(new_light)));
+        }
+
+        ui.separator();
+
+        let mut unsaved_lights = BTreeMap::new();
+        let mut saved_lights = BTreeMap::new();
+        for (e, kind, site_id) in &self.lights {
+            if let Some(site_id) = site_id {
+                saved_lights.insert(Reverse(site_id.0), (e, kind.label()));
+            } else {
+                unsaved_lights.insert(Reverse(e), kind.label());
+            }
+        }
+
+        for (e, label) in unsaved_lights {
+            ui.horizontal(|ui| {
+                self.selector.show_widget(e.0, ui);
+                ui.label(label);
+            });
+        }
+
+        for (_, (e, label)) in saved_lights {
+            ui.horizontal(|ui| {
+                self.selector.show_widget(e, ui);
+                ui.label(label);
+            });
+        }
+    }
+}
 
 #[derive(Resource)]
 pub struct LightDisplay {
@@ -63,148 +215,6 @@ impl Default for LightDisplay {
             recall: Default::default(),
             choosing_file_for_export: None,
             export_file: None,
-        }
-    }
-}
-
-#[derive(SystemParam)]
-pub struct LightParams<'w, 's> {
-    pub lights: Query<'w, 's, (Entity, &'static LightKind, Option<&'static SiteID>)>,
-    pub icons: Res<'w, Icons>,
-}
-
-pub struct ViewLights<'a, 'w1, 's1, 'w2, 's2> {
-    params: &'a LightParams<'w1, 's1>,
-    events: &'a mut AppEvents<'w2, 's2>,
-}
-
-impl<'a, 'w1, 's1, 'w2, 's2> ViewLights<'a, 'w1, 's1, 'w2, 's2> {
-    pub fn new(params: &'a LightParams<'w1, 's1>, events: &'a mut AppEvents<'w2, 's2>) -> Self {
-        Self { params, events }
-    }
-
-    pub fn show(self, ui: &mut Ui) {
-        let mut use_headlight = self.events.request.toggle_headlights.0;
-        ui.checkbox(&mut use_headlight, "Use Headlight");
-        if use_headlight != self.events.request.toggle_headlights.0 {
-            self.events.request.toggle_headlights.0 = use_headlight;
-        }
-
-        let mut use_physical_lights = self.events.request.toggle_physical_lights.0;
-        ui.checkbox(&mut use_physical_lights, "Use Physical Lights");
-        if use_physical_lights != self.events.request.toggle_physical_lights.0 {
-            self.events.request.toggle_physical_lights.0 = use_physical_lights;
-        }
-
-        ui.separator();
-
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            ui.horizontal(|ui| {
-                if let Some(export_file) = &self.events.display.light.export_file {
-                    if ui.button("Export").clicked() {
-                        self.events
-                            .request
-                            .export_lights
-                            .send(ExportLights(export_file.clone()));
-                    }
-                }
-                if ui.button("Export Lights As...").clicked() {
-                    match &self.events.display.light.choosing_file_for_export {
-                        Some(_) => {
-                            warn!("A file is already being chosen!");
-                        }
-                        None => {
-                            let future = AsyncComputeTaskPool::get().spawn(async move {
-                                let file = match AsyncFileDialog::new().save_file().await {
-                                    Some(file) => file,
-                                    None => return None,
-                                };
-
-                                Some(file.path().to_path_buf())
-                            });
-                            self.events.display.light.choosing_file_for_export = Some(future);
-                        }
-                    }
-                }
-            });
-            match &self.events.display.light.export_file {
-                Some(path) => match path.to_str() {
-                    Some(s) => {
-                        ui.label(s);
-                    }
-                    None => {
-                        ui.label("unable to render path");
-                    }
-                },
-                None => {
-                    ui.label("<no file chosen>");
-                }
-            }
-            ui.separator();
-        }
-
-        ui.heading("Create new light");
-        if let Some(new_pose) = InspectPose::new(&self.events.display.light.pose).show(ui) {
-            self.events.display.light.pose = new_pose;
-        }
-
-        ui.push_id("Add Light", |ui| {
-            if let Some(new_kind) = InspectLightKind::new(
-                &self.events.display.light.kind,
-                &self.events.display.light.recall,
-            )
-            .show(ui)
-            {
-                self.events.display.light.recall.remember(&new_kind);
-                self.events.display.light.kind = new_kind;
-            }
-        });
-
-        // TODO(MXG): Add a + icon to this button to make it more visible
-        if ui.button("Add").clicked() {
-            let new_light = self
-                .events
-                .commands
-                .spawn(Light {
-                    pose: self.events.display.light.pose,
-                    kind: self.events.display.light.kind,
-                })
-                .insert(Category::Light)
-                .id();
-            self.events.request.select.send(Select(Some(new_light)));
-        }
-
-        ui.separator();
-
-        let mut unsaved_lights = BTreeMap::new();
-        let mut saved_lights = BTreeMap::new();
-        for (e, kind, site_id) in &self.params.lights {
-            if let Some(site_id) = site_id {
-                saved_lights.insert(Reverse(site_id.0), (e, kind.label()));
-            } else {
-                unsaved_lights.insert(Reverse(e), kind.label());
-            }
-        }
-
-        for (e, label) in unsaved_lights {
-            ui.horizontal(|ui| {
-                SelectionWidget::new(e.0, None, self.params.icons.as_ref(), self.events).show(ui);
-                ui.label(label);
-            });
-        }
-
-        for (site_id, (e, label)) in saved_lights {
-            ui.horizontal(|ui| {
-                SelectionWidget::new(
-                    e,
-                    Some(SiteID(site_id.0)),
-                    self.params.icons.as_ref(),
-                    self.events,
-                )
-                .show(ui);
-                ui.label(label);
-            });
         }
     }
 }

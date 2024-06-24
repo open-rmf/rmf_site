@@ -42,9 +42,6 @@ pub use drawing::*;
 pub mod fiducial;
 pub use fiducial::*;
 
-pub mod file_menu;
-pub use file_menu::*;
-
 pub mod floor;
 pub use floor::*;
 
@@ -192,7 +189,8 @@ impl Plugin for SitePlugin {
         .init_resource::<SiteAssets>()
         .init_resource::<CurrentLevel>()
         .init_resource::<PhysicalLightToggle>()
-        .init_resource::<UpdateFuelCacheChannels>()
+        .init_resource::<FuelCacheUpdateChannel>()
+        .init_resource::<FuelCacheProgressChannel>()
         .init_resource::<ModelTrashcan>()
         .register_type::<NameInSite>()
         .register_type::<AssetSource>()
@@ -339,7 +337,6 @@ impl Plugin for SitePlugin {
                 update_walls,
                 update_transforms_for_changed_poses,
                 align_site_drawings,
-                clear_old_issues_on_new_validate_event,
                 export_lights,
                 set_camera_transform_for_changed_site,
             )

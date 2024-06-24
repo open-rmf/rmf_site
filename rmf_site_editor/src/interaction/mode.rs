@@ -101,8 +101,8 @@ pub struct BackoutParams<'w, 's> {
 ///    cannot expect users to know this or handle the cleanup correctly.
 ///
 /// User-defined systems should never
-/// use ResMut<InteractionMode>. Instead they should always use
-/// EventWriter<ChangeMode>.
+/// use `ResMut<InteractionMode>`. Instead they should always use
+/// `EventWriter<ChangeMode>`.
 //
 // TODO(MXG): We could enforce this by letting InteractionMode be public but
 // wrapping it in a newtype to store it in the resource. The inner type would

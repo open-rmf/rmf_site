@@ -22,17 +22,17 @@ use std::collections::HashSet;
 
 /// Keeps track of which entity is associated to the export sdf button.
 #[derive(Resource)]
-pub struct ExportSdfMenu {
+pub struct SdfExportMenu {
     export_sdf: Entity,
 }
 
-impl ExportSdfMenu {
+impl SdfExportMenu {
     pub fn get(&self) -> Entity {
         self.export_sdf
     }
 }
 
-impl FromWorld for ExportSdfMenu {
+impl FromWorld for SdfExportMenu {
     fn from_world(world: &mut World) -> Self {
         let site_states = HashSet::from([
             AppState::SiteEditor,
@@ -48,13 +48,13 @@ impl FromWorld for ExportSdfMenu {
             .set_parent(file_header)
             .id();
 
-        ExportSdfMenu { export_sdf }
+        SdfExportMenu { export_sdf }
     }
 }
 
-pub fn handle_export_sdf_menu_events(
+fn handle_export_sdf_menu_events(
     mut menu_events: EventReader<MenuEvent>,
-    sdf_menu: Res<ExportSdfMenu>,
+    sdf_menu: Res<SdfExportMenu>,
     mut save_events: EventWriter<SaveWorkspace>,
 ) {
     for event in menu_events.read() {
@@ -68,11 +68,11 @@ pub fn handle_export_sdf_menu_events(
 }
 
 #[derive(Default)]
-pub struct SiteFileMenuPlugin;
+pub struct SdfExportMenuPlugin {}
 
-impl Plugin for SiteFileMenuPlugin {
+impl Plugin for SdfExportMenuPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<ExportSdfMenu>().add_systems(
+        app.init_resource::<SdfExportMenu>().add_systems(
             Update,
             handle_export_sdf_menu_events.run_if(AppState::in_site_mode()),
         );
