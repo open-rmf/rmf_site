@@ -17,82 +17,86 @@
 
 use crate::{
     site::{Change, FiducialMarker, MergeGroups, NameInSite, SiteID, Texture},
-    widgets::{inspector::SelectionWidget, AppEvents},
-    Icons,
+    widgets::{prelude::*, SelectorWidget},
+    AppState, CurrentWorkspace, Icons,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Button, CollapsingHeader, Ui};
 
-#[derive(Default, Clone, Copy)]
-pub enum GroupViewMode {
-    #[default]
-    View,
-    SelectMergeFrom,
-    MergeFrom(Entity),
-    Delete,
-}
+/// Add a widget for viewing different kinds of groups.
+#[derive(Default)]
+pub struct ViewGroupsPlugin {}
 
-#[derive(Default, Resource)]
-pub struct GroupViewModes {
-    site: Option<Entity>,
-    textures: GroupViewMode,
-    fiducials: GroupViewMode,
-}
-
-impl GroupViewModes {
-    pub fn reset(&mut self, site: Entity) {
-        *self = GroupViewModes::default();
-        self.site = Some(site);
+impl Plugin for ViewGroupsPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<GroupViewModes>()
+            .add_plugins(PropertiesTilePlugin::<ViewGroups>::new());
     }
 }
 
 #[derive(SystemParam)]
-pub struct GroupParams<'w, 's> {
+pub struct ViewGroups<'w, 's> {
     children: Query<'w, 's, &'static Children>,
     textures: Query<'w, 's, (&'static NameInSite, Option<&'static SiteID>), With<Texture>>,
     fiducials: Query<'w, 's, (&'static NameInSite, Option<&'static SiteID>), With<FiducialMarker>>,
     icons: Res<'w, Icons>,
     group_view_modes: ResMut<'w, GroupViewModes>,
+    app_state: Res<'w, State<AppState>>,
+    events: ViewGroupsEvents<'w, 's>,
 }
 
-pub struct ViewGroups<'a, 'w1, 's1, 'w2, 's2> {
-    params: &'a mut GroupParams<'w1, 's1>,
-    events: &'a mut AppEvents<'w2, 's2>,
+#[derive(SystemParam)]
+pub struct ViewGroupsEvents<'w, 's> {
+    current_workspace: ResMut<'w, CurrentWorkspace>,
+    selector: SelectorWidget<'w, 's>,
+    merge_groups: EventWriter<'w, MergeGroups>,
+    name: EventWriter<'w, Change<NameInSite>>,
+    commands: Commands<'w, 's>,
 }
 
-impl<'a, 'w1, 's1, 'w2, 's2> ViewGroups<'a, 'w1, 's1, 'w2, 's2> {
-    pub fn new(params: &'a mut GroupParams<'w1, 's1>, events: &'a mut AppEvents<'w2, 's2>) -> Self {
-        Self { params, events }
+impl<'w, 's> WidgetSystem<Tile> for ViewGroups<'w, 's> {
+    fn show(_: Tile, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) {
+        let mut params = state.get_mut(world);
+        if *params.app_state.get() != AppState::SiteEditor {
+            return;
+        }
+        CollapsingHeader::new("Groups")
+            .default_open(false)
+            .show(ui, |ui| {
+                params.show_widget(ui);
+            });
     }
+}
 
-    pub fn show(self, ui: &mut Ui) {
-        let Some(site) = self.events.request.current_workspace.root else {
+impl<'w, 's> ViewGroups<'w, 's> {
+    pub fn show_widget(&mut self, ui: &mut Ui) {
+        let Some(site) = self.events.current_workspace.root else {
             return;
         };
-        let modes = &mut *self.params.group_view_modes;
+        let modes = &mut *self.group_view_modes;
         if !modes.site.is_some_and(|s| s == site) {
             modes.reset(site);
         }
-        let Ok(children) = self.params.children.get(site) else {
+        let Ok(children) = self.children.get(site) else {
             return;
         };
         CollapsingHeader::new("Textures").show(ui, |ui| {
             Self::show_groups(
                 children,
-                &self.params.textures,
+                &self.textures,
                 &mut modes.textures,
-                &self.params.icons,
-                self.events,
+                &self.icons,
+                &mut self.events,
                 ui,
             );
         });
         CollapsingHeader::new("Fiducials").show(ui, |ui| {
             Self::show_groups(
                 children,
-                &self.params.fiducials,
+                &self.fiducials,
                 &mut modes.fiducials,
-                &self.params.icons,
-                self.events,
+                &self.icons,
+                &mut self.events,
                 ui,
             );
         });
@@ -103,7 +107,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewGroups<'a, 'w1, 's1, 'w2, 's2> {
         q_groups: &Query<(&NameInSite, Option<&SiteID>), With<T>>,
         mode: &mut GroupViewMode,
         icons: &Res<Icons>,
-        events: &mut AppEvents,
+        events: &mut ViewGroupsEvents,
         ui: &mut Ui,
     ) {
         ui.horizontal(|ui| match mode {
@@ -155,7 +159,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewGroups<'a, 'w1, 's1, 'w2, 's2> {
             ui.horizontal(|ui| {
                 match mode.clone() {
                     GroupViewMode::View => {
-                        SelectionWidget::new(*child, site_id.cloned(), &icons, events).show(ui);
+                        events.selector.show_widget(*child, ui);
                     }
                     GroupViewMode::SelectMergeFrom => {
                         if ui
@@ -181,7 +185,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewGroups<'a, 'w1, 's1, 'w2, 's2> {
                                 .on_hover_text("Merge into this group")
                                 .clicked()
                             {
-                                events.change.merge_groups.send(MergeGroups {
+                                events.merge_groups.send(MergeGroups {
                                     from_group: merge_from,
                                     into_group: *child,
                                 });
@@ -203,12 +207,32 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewGroups<'a, 'w1, 's1, 'w2, 's2> {
 
                 let mut new_name = name.0.clone();
                 if ui.text_edit_singleline(&mut new_name).changed() {
-                    events
-                        .change
-                        .name
-                        .send(Change::new(NameInSite(new_name), *child));
+                    events.name.send(Change::new(NameInSite(new_name), *child));
                 }
             });
         }
+    }
+}
+
+#[derive(Default, Clone, Copy)]
+pub enum GroupViewMode {
+    #[default]
+    View,
+    SelectMergeFrom,
+    MergeFrom(Entity),
+    Delete,
+}
+
+#[derive(Default, Resource)]
+pub struct GroupViewModes {
+    site: Option<Entity>,
+    textures: GroupViewMode,
+    fiducials: GroupViewMode,
+}
+
+impl GroupViewModes {
+    pub fn reset(&mut self, site: Entity) {
+        *self = GroupViewModes::default();
+        self.site = Some(site);
     }
 }

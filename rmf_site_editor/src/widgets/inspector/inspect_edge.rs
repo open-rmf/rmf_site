@@ -17,69 +17,64 @@
 
 use crate::{
     interaction::{ChangeMode, SelectAnchor},
-    site::{Category, EdgeLabels, Original},
+    site::{Category, EdgeLabels, Original, SiteID},
     widgets::{
-        inspector::{InspectAnchorParams, InspectAnchorWidget},
-        AppEvents,
+        inspector::{Inspect, InspectAnchor, InspectAnchorInput},
+        prelude::*,
     },
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{Grid, Ui};
 use rmf_site_format::{Edge, Side};
 
-pub struct InspectEdgeWidget<'a, 'w1, 'w2, 's1, 's2> {
-    pub entity: Entity,
-    pub category: &'a Category,
-    pub edge: &'a Edge<Entity>,
-    pub original: Option<&'a Original<Edge<Entity>>>,
-    pub labels: Option<&'a EdgeLabels>,
-    pub anchor_params: &'a InspectAnchorParams<'w1, 's1>,
-    pub events: &'a mut AppEvents<'w2, 's2>,
+#[derive(SystemParam)]
+pub struct InspectEdge<'w, 's> {
+    edges: Query<
+        'w,
+        's,
+        (
+            &'static Category,
+            &'static Edge<Entity>,
+            Option<&'static Original<Edge<Entity>>>,
+            Option<&'static EdgeLabels>,
+        ),
+    >,
+    change_mode: EventWriter<'w, ChangeMode>,
 }
 
-impl<'a, 'w1, 'w2, 's1, 's2> InspectEdgeWidget<'a, 'w1, 'w2, 's1, 's2> {
-    pub fn new(
-        entity: Entity,
-        category: &'a Category,
-        edge: &'a Edge<Entity>,
-        original: Option<&'a Original<Edge<Entity>>>,
-        labels: Option<&'a EdgeLabels>,
-        anchor_params: &'a InspectAnchorParams<'w1, 's1>,
-        events: &'a mut AppEvents<'w2, 's2>,
-    ) -> Self {
-        Self {
-            entity,
-            category,
-            edge,
-            original,
-            labels,
-            anchor_params,
-            events,
-        }
-    }
+impl<'w, 's> ShareableWidget for InspectEdge<'w, 's> {}
 
-    pub fn start_text(&self) -> &'static str {
-        self.labels.unwrap_or(&EdgeLabels::default()).start()
-    }
+impl<'w, 's> WidgetSystem<Inspect> for InspectEdge<'w, 's> {
+    fn show(
+        Inspect {
+            selection: id,
+            panel,
+            ..
+        }: Inspect,
+        ui: &mut Ui,
+        state: &mut SystemState<Self>,
+        world: &mut World,
+    ) {
+        let params = state.get_mut(world);
+        let Ok((category, current_edge, original, labels)) = params.edges.get(id) else {
+            return;
+        };
 
-    pub fn end_text(&self) -> &'static str {
-        self.labels.unwrap_or(&EdgeLabels::default()).end()
-    }
-
-    pub fn show(self, ui: &mut Ui) {
-        let edge = if let Some(original) = self.original {
-            if original.is_reverse_of(self.edge) {
-                // The user is previewing a flipped edge. To avoid ugly
-                // high frequency UI flipping, we will display the edge
-                // in its original form until the user has committed to
-                // the flip.
-                &original.0
+        let edge = if let Some(original) = original {
+            if original.is_reverse_of(current_edge) {
+                // The user is previewing a flipped edge. To avoid ugly high
+                // frequency UI flipping, we will display the edge in its
+                // original form until the user has committed to the flip.
+                original.0
             } else {
-                self.edge
+                *current_edge
             }
         } else {
-            self.edge
+            *current_edge
         };
+
+        let labels = labels.copied().unwrap_or_default();
+        let category = *category;
 
         Grid::new("inspect_edge").show(ui, |ui| {
             ui.label("");
@@ -89,39 +84,85 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectEdgeWidget<'a, 'w1, 'w2, 's1, 's2> {
             ui.label("y");
             ui.end_row();
 
-            ui.label(self.start_text());
-            let start_response =
-                InspectAnchorWidget::new(edge.start(), self.anchor_params, self.events)
-                    .as_dependency()
-                    .show(ui);
-            ui.end_row();
-            if start_response.replace {
-                if let Some(request) =
-                    SelectAnchor::replace_side(self.entity, Side::Left).for_category(*self.category)
-                {
-                    self.events
-                        .request
-                        .change_mode
-                        .send(ChangeMode::To(request.into()));
-                }
-            }
-
-            ui.label(self.end_text());
-            let end_response =
-                InspectAnchorWidget::new(edge.end(), self.anchor_params, self.events)
-                    .as_dependency()
-                    .show(ui);
-            ui.end_row();
-            if end_response.replace {
-                if let Some(request) = SelectAnchor::replace_side(self.entity, Side::Right)
-                    .for_category(*self.category)
-                {
-                    self.events
-                        .request
-                        .change_mode
-                        .send(ChangeMode::To(request.into()));
-                }
-            }
+            Self::show_anchor(
+                Side::Left,
+                id,
+                edge,
+                labels,
+                category,
+                panel,
+                ui,
+                state,
+                world,
+            );
+            Self::show_anchor(
+                Side::Right,
+                id,
+                edge,
+                labels,
+                category,
+                panel,
+                ui,
+                state,
+                world,
+            );
         });
+        ui.add_space(10.0);
+    }
+}
+
+impl<'w, 's> InspectEdge<'w, 's> {
+    fn show_anchor(
+        side: Side,
+        id: Entity,
+        edge: Edge<Entity>,
+        labels: EdgeLabels,
+        category: Category,
+        panel: PanelSide,
+        ui: &mut Ui,
+        state: &mut SystemState<Self>,
+        world: &mut World,
+    ) {
+        ui.label(labels.side(side));
+        let anchor = edge.side(side);
+        let response = world.show::<InspectAnchor, _, _>(
+            InspectAnchorInput {
+                anchor,
+                is_dependency: true,
+                panel,
+            },
+            ui,
+        );
+        ui.end_row();
+
+        match response {
+            Some(response) => {
+                if response.replace {
+                    if let Some(request) =
+                        SelectAnchor::replace_side(id, side).for_category(category)
+                    {
+                        info!(
+                            "Triggered anchor replacement for side \
+                            {side:?} of edge {edge:?} with category {category:?}"
+                        );
+                        let mut params = state.get_mut(world);
+                        params.change_mode.send(ChangeMode::To(request.into()));
+                    } else {
+                        error!(
+                            "Failed to trigger an anchor replacement for side \
+                            {side:?} of edge {edge:?} with category {category:?}"
+                        );
+                    }
+                }
+            }
+            None => {
+                error!(
+                    "An endpoint in the edge {id:?} (Site ID {:?}) is not an \
+                    anchor: {anchor:?}! This should never happen! Please report \
+                    this to the site editor developers.",
+                    world.get::<SiteID>(anchor),
+                );
+            }
+        }
     }
 }

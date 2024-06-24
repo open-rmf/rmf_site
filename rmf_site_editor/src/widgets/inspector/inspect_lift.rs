@@ -16,48 +16,56 @@
 */
 
 use crate::{
-    site::{CabinDoorId, LevelElevation, NameInSite, SiteID, ToggleLiftDoorAvailability},
+    site::{
+        CabinDoorId, Change, CurrentLevel, LevelElevation, NameInSite, ToggleLiftDoorAvailability,
+    },
     widgets::{
-        inspector::{InspectOptionF32, SelectionWidget},
-        AppEvents, Icons,
+        inspector::InspectOptionF32, prelude::*, Inspect, InspectionPlugin, LevelDisplay,
+        SelectorWidget,
     },
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, DragValue, Ui};
 use rmf_site_format::lift::*;
 
-#[derive(SystemParam)]
-pub struct InspectLiftParams<'w, 's> {
-    pub cabins: Query<'w, 's, (&'static LiftCabin<Entity>, &'static RecallLiftCabin<Entity>)>,
-    pub doors: Query<'w, 's, &'static LevelVisits<Entity>>,
-    pub levels: Query<'w, 's, (&'static NameInSite, &'static LevelElevation)>,
-    pub icons: Res<'w, Icons>,
-    pub site_id: Query<'w, 's, &'static SiteID>,
-}
+#[derive(Default)]
+pub struct InspectLiftPlugin {}
 
-pub struct InspectLiftCabin<'a, 'w1, 's1, 'w2, 's2> {
-    pub lift: Entity,
-    pub params: &'a InspectLiftParams<'w1, 's1>,
-    pub events: &'a mut AppEvents<'w2, 's2>,
-}
-
-impl<'a, 'w1, 's1, 'w2, 's2> InspectLiftCabin<'a, 'w1, 's1, 'w2, 's2> {
-    pub fn new(
-        lift: Entity,
-        params: &'a InspectLiftParams<'w1, 's1>,
-        events: &'a mut AppEvents<'w2, 's2>,
-    ) -> Self {
-        Self {
-            lift,
-            params,
-            events,
-        }
+impl Plugin for InspectLiftPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<LevelDisplay>()
+            .add_plugins(InspectionPlugin::<InspectLiftCabin>::new());
     }
+}
 
-    pub fn show(mut self, ui: &mut Ui) -> Option<LiftCabin<Entity>> {
-        let (cabin, recall) = match self.params.cabins.get(self.lift) {
-            Ok(r) => r,
-            Err(_) => return None,
+#[derive(SystemParam)]
+pub struct InspectLiftCabin<'w, 's> {
+    cabins: Query<'w, 's, (&'static LiftCabin<Entity>, &'static RecallLiftCabin<Entity>)>,
+    doors: Query<'w, 's, &'static LevelVisits<Entity>>,
+    levels: Query<'w, 's, (&'static NameInSite, &'static LevelElevation)>,
+    display_level: Res<'w, LevelDisplay>,
+    change_lift_cabin: EventWriter<'w, Change<LiftCabin<Entity>>>,
+    selector: SelectorWidget<'w, 's>,
+    toggle_door_levels: EventWriter<'w, ToggleLiftDoorAvailability>,
+    current_level: Res<'w, CurrentLevel>,
+}
+
+impl<'w, 's> WidgetSystem<Inspect> for InspectLiftCabin<'w, 's> {
+    fn show(
+        Inspect { selection, .. }: Inspect,
+        ui: &mut Ui,
+        state: &mut SystemState<Self>,
+        world: &mut World,
+    ) {
+        let mut params = state.get_mut(world);
+        params.show_widget(selection, ui);
+    }
+}
+
+impl<'w, 's> InspectLiftCabin<'w, 's> {
+    pub fn show_widget(&mut self, id: Entity, ui: &mut Ui) {
+        let Ok((cabin, recall)) = self.cabins.get(id) else {
+            return;
         };
         let mut new_cabin = cabin.clone();
         match &mut new_cabin {
@@ -85,14 +93,14 @@ impl<'a, 'w1, 's1, 'w2, 's2> InspectLiftCabin<'a, 'w1, 's1, 'w2, 's2> {
                 });
 
                 if let Some(new_t) = InspectOptionF32::new(
-                    "Wall Thickness".to_string(),
+                    "Wall Thickness",
                     params.wall_thickness,
                     recall
                         .wall_thickness
                         .unwrap_or(DEFAULT_CABIN_WALL_THICKNESS),
                 )
                 .clamp_range(0.001..=std::f32::INFINITY)
-                .suffix("m".to_string())
+                .suffix("m")
                 .min_decimals(2)
                 .max_decimals(4)
                 .speed(0.001)
@@ -102,12 +110,12 @@ impl<'a, 'w1, 's1, 'w2, 's2> InspectLiftCabin<'a, 'w1, 's1, 'w2, 's2> {
                 }
 
                 if let Some(new_gap) = InspectOptionF32::new(
-                    "Gap".to_string(),
+                    "Gap",
                     params.gap,
                     recall.gap.unwrap_or(DEFAULT_CABIN_GAP),
                 )
                 .clamp_range(0.001..=std::f32::INFINITY)
-                .suffix("m".to_string())
+                .suffix("m")
                 .min_decimals(2)
                 .max_decimals(4)
                 .speed(0.001)
@@ -116,16 +124,13 @@ impl<'a, 'w1, 's1, 'w2, 's2> InspectLiftCabin<'a, 'w1, 's1, 'w2, 's2> {
                     params.gap = new_gap;
                 }
 
-                if let Some(new_shift) = InspectOptionF32::new(
-                    "Shift".to_string(),
-                    params.shift,
-                    recall.shift.unwrap_or(0.0),
-                )
-                .suffix("m".to_string())
-                .min_decimals(2)
-                .max_decimals(4)
-                .speed(0.001)
-                .show(ui)
+                if let Some(new_shift) =
+                    InspectOptionF32::new("Shift", params.shift, recall.shift.unwrap_or(0.0))
+                        .suffix("m")
+                        .min_decimals(2)
+                        .max_decimals(4)
+                        .speed(0.001)
+                        .show(ui)
                 {
                     params.shift = new_shift;
                 }
@@ -137,14 +142,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> InspectLiftCabin<'a, 'w1, 's1, 'w2, 's2> {
                         CollapsingHeader::new(format!("{} Door", face.label()))
                             .default_open(false)
                             .show(ui, |ui| {
-                                SelectionWidget::new(
-                                    placement.door,
-                                    self.params.site_id.get(placement.door).copied().ok(),
-                                    &self.params.icons,
-                                    &mut self.events,
-                                )
-                                .show(ui);
-
+                                self.selector.show_widget(placement.door, ui);
                                 ui.horizontal(|ui| {
                                     ui.label("width");
                                     ui.add(
@@ -157,26 +155,23 @@ impl<'a, 'w1, 's1, 'w2, 's2> InspectLiftCabin<'a, 'w1, 's1, 'w2, 's2> {
                                     );
                                 });
 
-                                if let Some(new_shift) = InspectOptionF32::new(
-                                    "Shifted".to_string(),
-                                    placement.shifted,
-                                    0.0,
-                                )
-                                .suffix("m".to_string())
-                                .min_decimals(2)
-                                .max_decimals(4)
-                                .speed(0.005)
-                                .show(ui)
+                                if let Some(new_shift) =
+                                    InspectOptionF32::new("Shifted", placement.shifted, 0.0)
+                                        .suffix("m")
+                                        .min_decimals(2)
+                                        .max_decimals(4)
+                                        .speed(0.005)
+                                        .show(ui)
                                 {
                                     placement.shifted = new_shift;
                                 }
 
                                 if let Some(new_gap) = InspectOptionF32::new(
-                                    "Custom Gap".to_string(),
+                                    "Custom Gap",
                                     placement.custom_gap,
                                     cabin_gap,
                                 )
-                                .suffix("m".to_string())
+                                .suffix("m")
                                 .clamp_range(0.0..=std::f32::INFINITY)
                                 .min_decimals(2)
                                 .max_decimals(4)
@@ -187,11 +182,11 @@ impl<'a, 'w1, 's1, 'w2, 's2> InspectLiftCabin<'a, 'w1, 's1, 'w2, 's2> {
                                 }
 
                                 if let Some(new_t) = InspectOptionF32::new(
-                                    "Thickness".to_string(),
+                                    "Thickness",
                                     placement.thickness,
                                     DEFAULT_CABIN_DOOR_THICKNESS,
                                 )
-                                .suffix("m".to_string())
+                                .suffix("m")
                                 .clamp_range(0.001..=std::f32::INFINITY)
                                 .min_decimals(2)
                                 .max_decimals(4)
@@ -201,26 +196,25 @@ impl<'a, 'w1, 's1, 'w2, 's2> InspectLiftCabin<'a, 'w1, 's1, 'w2, 's2> {
                                     placement.thickness = new_t;
                                 }
 
-                                if let Ok(visits) = self.params.doors.get(placement.door) {
+                                if let Ok(visits) = self.doors.get(placement.door) {
                                     CollapsingHeader::new(format!("Level Access"))
                                         .default_open(true)
                                         .show(ui, |ui| {
-                                            for level in &self.events.display.level.order {
+                                            for level in &self.display_level.order {
                                                 let mut visits_level = visits.contains(level);
                                                 if ui
                                                     .checkbox(
                                                         &mut visits_level,
-                                                        self.params
-                                                            .levels
+                                                        self.levels
                                                             .get(*level)
                                                             .map(|(n, _)| &n.0)
                                                             .unwrap_or(&"<Unknown>".to_owned()),
                                                     )
                                                     .changed()
                                                 {
-                                                    self.events.request.toggle_door_levels.send(
+                                                    self.toggle_door_levels.send(
                                                         ToggleLiftDoorAvailability {
-                                                            for_lift: self.lift,
+                                                            for_lift: id,
                                                             on_level: *level,
                                                             cabin_door: CabinDoorId::RectFace(face),
                                                             door_available: visits_level,
@@ -231,16 +225,14 @@ impl<'a, 'w1, 's1, 'w2, 's2> InspectLiftCabin<'a, 'w1, 's1, 'w2, 's2> {
                                         });
                                 }
                             });
-                    } else if let Some(current_level) = **self.events.request.current_level {
+                    } else if let Some(current_level) = **self.current_level {
                         if ui.button(format!("Add {} Door", face.label())).clicked() {
-                            self.events.request.toggle_door_levels.send(
-                                ToggleLiftDoorAvailability {
-                                    for_lift: self.lift,
-                                    on_level: current_level,
-                                    cabin_door: CabinDoorId::RectFace(face),
-                                    door_available: true,
-                                },
-                            );
+                            self.toggle_door_levels.send(ToggleLiftDoorAvailability {
+                                for_lift: id,
+                                on_level: current_level,
+                                cabin_door: CabinDoorId::RectFace(face),
+                                door_available: true,
+                            });
                         }
                     }
                 }
@@ -261,9 +253,8 @@ impl<'a, 'w1, 's1, 'w2, 's2> InspectLiftCabin<'a, 'w1, 's1, 'w2, 's2> {
                 }
             }
 
-            return Some(new_cabin);
+            self.change_lift_cabin.send(Change::new(new_cabin, id));
         }
-
-        return None;
+        ui.add_space(10.0);
     }
 }

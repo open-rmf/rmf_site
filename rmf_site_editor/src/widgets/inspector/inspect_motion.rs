@@ -15,18 +15,138 @@
  *
 */
 
-use crate::widgets::inspector::{InspectAngle, InspectOptionF32};
+use crate::{
+    site::Change,
+    widgets::{
+        inspector::{InspectAngle, InspectOptionF32},
+        prelude::*,
+        Inspect,
+    },
+};
+use bevy::prelude::*;
 use bevy_egui::egui::{ComboBox, RichText, Ui};
 use rmf_site_format::{
     Angle, Dock, Motion, OrientationConstraint, RecallMotion, RecallReverseLane, ReverseLane,
 };
 
-pub struct InspectMotionWidget<'a> {
+#[derive(SystemParam)]
+pub struct InspectMotion<'w, 's> {
+    forward: InspectForwardMotion<'w, 's>,
+}
+
+impl<'w, 's> WidgetSystem<Inspect> for InspectMotion<'w, 's> {
+    fn show(
+        Inspect { selection, .. }: Inspect,
+        ui: &mut Ui,
+        state: &mut SystemState<Self>,
+        world: &mut World,
+    ) {
+        let mut params = state.get_mut(world);
+        params.forward.show_widget(selection, ui);
+    }
+}
+
+#[derive(SystemParam)]
+pub struct InspectForwardMotion<'w, 's> {
+    motions: Query<'w, 's, (&'static Motion, &'static RecallMotion)>,
+    change_lane_motion: EventWriter<'w, Change<Motion>>,
+}
+
+impl<'w, 's> WidgetSystem<Inspect> for InspectForwardMotion<'w, 's> {
+    fn show(
+        Inspect { selection, .. }: Inspect,
+        ui: &mut Ui,
+        state: &mut SystemState<Self>,
+        world: &mut World,
+    ) {
+        let mut params = state.get_mut(world);
+        params.show_widget(selection, ui);
+    }
+}
+
+impl<'w, 's> InspectForwardMotion<'w, 's> {
+    pub fn show_widget(&mut self, id: Entity, ui: &mut Ui) {
+        let Ok((motion, recall)) = self.motions.get(id) else {
+            return;
+        };
+
+        if let Some(new_motion) = InspectMotionComponent::new(motion, recall).show(ui) {
+            self.change_lane_motion.send(Change::new(new_motion, id));
+        }
+        ui.add_space(10.0);
+    }
+}
+
+#[derive(SystemParam)]
+pub struct InspectReverseMotion<'w, 's> {
+    reverse_motions: Query<'w, 's, (&'static ReverseLane, &'static RecallReverseLane)>,
+    change_lane_reverse: EventWriter<'w, Change<ReverseLane>>,
+}
+
+impl<'w, 's> WidgetSystem<Inspect> for InspectReverseMotion<'w, 's> {
+    fn show(
+        Inspect { selection, .. }: Inspect,
+        ui: &mut Ui,
+        state: &mut SystemState<Self>,
+        world: &mut World,
+    ) {
+        let mut params = state.get_mut(world);
+        params.show_widget(selection, ui);
+    }
+}
+
+impl<'w, 's> InspectReverseMotion<'w, 's> {
+    fn show_widget(&mut self, id: Entity, ui: &mut Ui) {
+        let Ok((reverse, recall)) = self.reverse_motions.get(id) else {
+            return;
+        };
+
+        let assumed_motion = reverse
+            .different_motion()
+            .cloned()
+            .unwrap_or(recall.motion.clone().unwrap_or(Motion::default()));
+
+        let mut new_reverse = reverse.clone();
+        ui.label(RichText::new("Reverse Motion").size(18.0));
+        ComboBox::from_id_source("Reverse Lane")
+            .selected_text(new_reverse.label())
+            .show_ui(ui, |ui| {
+                for variant in &[
+                    ReverseLane::Same,
+                    ReverseLane::Disable,
+                    ReverseLane::Different(assumed_motion),
+                ] {
+                    ui.selectable_value(&mut new_reverse, variant.clone(), variant.label());
+                }
+            });
+
+        match &mut new_reverse {
+            ReverseLane::Different(motion) => {
+                ui.add_space(10.0);
+                if let Some(new_motion) =
+                    InspectMotionComponent::new(motion, &recall.previous).show(ui)
+                {
+                    new_reverse = ReverseLane::Different(new_motion);
+                }
+            }
+            _ => {
+                // Do nothing
+            }
+        }
+
+        if new_reverse != *reverse {
+            self.change_lane_reverse.send(Change::new(new_reverse, id));
+        }
+        ui.add_space(10.0);
+    }
+}
+
+pub struct InspectMotionComponent<'a> {
     pub motion: &'a Motion,
     pub recall: &'a RecallMotion,
 }
 
-impl<'a> InspectMotionWidget<'a> {
+impl<'a> InspectMotionComponent<'a> {
     pub fn new(motion: &'a Motion, recall: &'a RecallMotion) -> Self {
         Self { motion, recall }
     }
@@ -84,7 +204,7 @@ impl<'a> InspectMotionWidget<'a> {
 
         ui.add_space(10.0);
         let new_speed = InspectOptionF32::new(
-            "Speed Limit".to_string(),
+            "Speed Limit",
             self.motion.speed_limit,
             self.recall.speed_limit.unwrap_or(1.0),
         )
@@ -92,7 +212,7 @@ impl<'a> InspectMotionWidget<'a> {
         .min_decimals(2)
         .max_decimals(2)
         .speed(0.01)
-        .suffix(" m/s".to_string())
+        .suffix(" m/s")
         .show(ui);
 
         ui.add_space(10.0);
@@ -120,7 +240,7 @@ impl<'a> InspectMotionWidget<'a> {
             });
 
             let new_duration = InspectOptionF32::new(
-                "Duration".to_string(),
+                "Duration",
                 dock.duration,
                 self.recall.dock_duration.unwrap_or(30.0),
             )
@@ -128,8 +248,8 @@ impl<'a> InspectMotionWidget<'a> {
             .min_decimals(0)
             .max_decimals(1)
             .speed(1.0)
-            .suffix(" s".to_string())
-            .tooltip("How long does the docking take?".to_string())
+            .suffix(" s")
+            .tooltip("How long does the docking take?")
             .show(ui);
 
             if let Some(new_duration) = new_duration {
@@ -167,61 +287,5 @@ impl<'a> InspectMotionWidget<'a> {
         }
 
         return None;
-    }
-}
-
-pub struct InspectReverseWidget<'a> {
-    pub reverse: &'a ReverseLane,
-    pub recall: &'a RecallReverseLane,
-}
-
-impl<'a> InspectReverseWidget<'a> {
-    pub fn new(reverse: &'a ReverseLane, previous: &'a RecallReverseLane) -> Self {
-        Self {
-            reverse,
-            recall: previous,
-        }
-    }
-
-    pub fn show(self, ui: &mut Ui) -> Option<ReverseLane> {
-        let assumed_motion = self
-            .reverse
-            .different_motion()
-            .cloned()
-            .unwrap_or(self.recall.motion.clone().unwrap_or(Motion::default()));
-
-        let mut new_reverse = self.reverse.clone();
-        ui.label(RichText::new("Reverse Motion").size(18.0));
-        ComboBox::from_id_source("Reverse Lane")
-            .selected_text(new_reverse.label())
-            .show_ui(ui, |ui| {
-                for variant in &[
-                    ReverseLane::Same,
-                    ReverseLane::Disable,
-                    ReverseLane::Different(assumed_motion),
-                ] {
-                    ui.selectable_value(&mut new_reverse, variant.clone(), variant.label());
-                }
-            });
-
-        match &mut new_reverse {
-            ReverseLane::Different(motion) => {
-                ui.add_space(10.0);
-                if let Some(new_motion) =
-                    InspectMotionWidget::new(motion, &self.recall.previous).show(ui)
-                {
-                    new_reverse = ReverseLane::Different(new_motion);
-                }
-            }
-            _ => {
-                // Do nothing
-            }
-        }
-
-        if new_reverse != *self.reverse {
-            Some(new_reverse)
-        } else {
-            None
-        }
     }
 }

@@ -17,10 +17,12 @@ use bevy::{
 use smallvec::SmallVec;
 
 /// Tracks which [`Entities`](Entity) have which meshes for entities whose [`Aabb`]s are managed by
-/// the [`calculate_bounds`] and [`update_bounds`] systems. This is needed because `update_bounds`
+/// the [`calculate_bounds`][1] and [`update_bounds`] systems. This is needed because `update_bounds`
 /// recomputes `Aabb`s for entities whose mesh has been mutated. These mutations are visible via
 /// [`AssetEvent<Mesh>`](AssetEvent) which tells us which mesh was changed but not which entities
 /// have that mesh.
+///
+/// [1]: bevy::render::view::calculate_bounds
 #[derive(Debug, Default, Clone, Resource)]
 pub struct EntityMeshMap {
     entities_with_mesh: HashMap<AssetId<Mesh>, SmallVec<[Entity; 1]>>,
@@ -75,8 +77,6 @@ pub fn register_bounds(
 
 /// Updates [`Aabb`]s for [`Entities`](Entity) with [`Mesh`]es. This includes `Entities` that have
 /// been assigned new `Mesh`es as well as `Entities` whose `Mesh` has been directly mutated.
-///
-/// To opt out of bound calculation for an `Entity`, give it the [`NoAabbUpdate`] component.
 ///
 /// NOTE: This system needs to remove entities from their collection in
 /// [`EntityMeshMap`] whenever a mesh handle is reassigned or an entity's mesh handle is

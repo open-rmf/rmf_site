@@ -15,7 +15,11 @@
  *
 */
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
+
+#[cfg(feature = "bevy")]
+use std::collections::HashSet;
+
 use std::io;
 
 use crate::misc::Rotation;

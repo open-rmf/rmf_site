@@ -336,6 +336,9 @@ pub fn save_workcell(world: &mut World) {
                     }
                 };
             }
+            ExportFormat::Sdf => {
+                warn!("Exporting workcells to sdf is not supported.");
+            }
         }
     }
 }

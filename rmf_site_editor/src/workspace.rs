@@ -61,7 +61,8 @@ pub enum LoadWorkspace {
 #[derive(Clone)]
 pub enum WorkspaceData {
     LegacyBuilding(Vec<u8>),
-    Site(Vec<u8>),
+    RonSite(Vec<u8>),
+    JsonSite(Vec<u8>),
     Workcell(Vec<u8>),
     WorkcellUrdf(Vec<u8>),
     LoadSite(LoadSite),
@@ -73,7 +74,9 @@ impl WorkspaceData {
         if filename.ends_with(".building.yaml") {
             Some(WorkspaceData::LegacyBuilding(data))
         } else if filename.ends_with("site.ron") {
-            Some(WorkspaceData::Site(data))
+            Some(WorkspaceData::RonSite(data))
+        } else if filename.ends_with("site.json") {
+            Some(WorkspaceData::JsonSite(data))
         } else if filename.ends_with("workcell.json") {
             Some(WorkspaceData::Workcell(data))
         } else if filename.ends_with("urdf") {
@@ -146,6 +149,11 @@ impl SaveWorkspace {
         self.format = ExportFormat::Urdf;
         self
     }
+
+    pub fn to_sdf(mut self) -> Self {
+        self.format = ExportFormat::Sdf;
+        self
+    }
 }
 
 #[derive(Default, Debug, Clone)]
@@ -161,6 +169,7 @@ pub enum ExportFormat {
     #[default]
     Default,
     Urdf,
+    Sdf,
 }
 
 /// Event used in channels to communicate the file handle that was chosen by the user.
@@ -205,6 +214,8 @@ impl Plugin for WorkspacePlugin {
             .add_event::<CreateNewWorkspace>()
             .add_event::<LoadWorkspace>()
             .add_event::<SaveWorkspace>()
+            .add_event::<SaveWorkcell>()
+            .add_event::<LoadWorkcell>()
             .init_resource::<CurrentWorkspace>()
             .init_resource::<RecallWorkspace>()
             .init_resource::<SaveWorkspaceChannels>()
@@ -315,6 +326,8 @@ pub fn dispatch_load_workspace_events(
                             .send(LoadWorkspaceFile(Some(path.clone()), data))
                             .expect("Failed sending load event");
                     }
+                } else {
+                    warn!("Unable to read file [{path:?}] so it cannot be loaded");
                 }
             }
             LoadWorkspace::Data(data) => {
@@ -363,9 +376,27 @@ fn workspace_file_load_complete(
                     }
                 }
             }
-            WorkspaceData::Site(data) => {
+            WorkspaceData::RonSite(data) => {
                 info!("Opening site file");
-                match Site::from_bytes(&data) {
+                match Site::from_bytes_ron(&data) {
+                    Ok(site) => {
+                        // Switch state
+                        app_state.set(AppState::SiteEditor);
+                        load_site.send(LoadSite {
+                            site,
+                            focus: true,
+                            default_file,
+                        });
+                        interaction_state.set(InteractionState::Enable);
+                    }
+                    Err(err) => {
+                        error!("Failed loading site {:?}", err);
+                    }
+                }
+            }
+            WorkspaceData::JsonSite(data) => {
+                info!("Opening site file");
+                match Site::from_bytes_json(&data) {
                     Ok(site) => {
                         // Switch state
                         app_state.set(AppState::SiteEditor);
@@ -519,6 +550,7 @@ fn workspace_file_save_complete(
                 save_site.send(SaveSite {
                     site: result.root,
                     to_file: result.path,
+                    format: result.format,
                 });
             }
             AppState::MainMenu => { /* Noop */ }

@@ -22,6 +22,7 @@ use crate::{
 use bevy::prelude::*;
 use bevy_egui::egui::{ImageButton, Ui};
 
+/// A widget that helps move layers up or down in their ranking.
 pub struct MoveLayer<'a, 'w, T: Component> {
     entity: Entity,
     rank_events: &'a mut EventWriter<'w, ChangeRank<T>>,
@@ -43,11 +44,8 @@ impl<'a, 'w, 's, T: Component> MoveLayer<'a, 'w, T> {
 
     pub fn show(self, ui: &mut Ui) {
         MoveLayerButton::to_top(self.entity, self.rank_events, self.icons).show(ui);
-
         MoveLayerButton::up(self.entity, self.rank_events, self.icons).show(ui);
-
         MoveLayerButton::down(self.entity, self.rank_events, self.icons).show(ui);
-
         MoveLayerButton::to_bottom(self.entity, self.rank_events, self.icons).show(ui);
     }
 }
