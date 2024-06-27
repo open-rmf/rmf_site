@@ -15,84 +15,64 @@
  *
 */
 
-use bevy_egui::egui::Ui;
+use crate::widgets::{prelude::*, Inspect, SelectorWidget};
+use bevy::prelude::*;
 use rmf_site_format::*;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 
-use crate::{
-    site::{Category, SiteID},
-    widgets::{inspector::SelectionWidget, AppEvents, Icons},
-};
-use bevy::{ecs::system::SystemParam, prelude::*};
+use crate::site::Category;
 
 #[derive(SystemParam)]
-pub struct InspectModelDependentsParams<'w, 's> {
-    pub dependents: Query<'w, 's, &'static ConstraintDependents, With<ModelMarker>>,
-    pub info: Query<'w, 's, (&'static Category, Option<&'static SiteID>)>,
-    pub icons: Res<'w, Icons>,
+pub struct InspectModelDependents<'w, 's> {
+    dependents: Query<'w, 's, &'static ConstraintDependents, With<ModelMarker>>,
+    categories: Query<'w, 's, &'static Category>,
+    selector: SelectorWidget<'w, 's>,
 }
 
-pub struct InspectModelDependentsWidget<'a, 'w1, 'w2, 's1, 's2> {
-    pub model: Entity,
-    pub params: &'a InspectModelDependentsParams<'w1, 's1>,
-    pub events: &'a mut AppEvents<'w2, 's2>,
-}
-
-impl<'a, 'w1, 'w2, 's1, 's2> InspectModelDependentsWidget<'a, 'w1, 'w2, 's1, 's2> {
-    pub fn new(
-        model: Entity,
-        params: &'a InspectModelDependentsParams<'w1, 's1>,
-        events: &'a mut AppEvents<'w2, 's2>,
-    ) -> Self {
-        Self {
-            model,
-            params,
-            events,
-        }
-    }
-
-    fn show_dependents(
-        dependents: &HashSet<Entity>,
-        params: &InspectModelDependentsParams<'w1, 's1>,
-        events: &mut AppEvents<'w2, 's2>,
+impl<'w, 's> WidgetSystem<Inspect> for InspectModelDependents<'w, 's> {
+    fn show(
+        Inspect { selection, .. }: Inspect,
         ui: &mut Ui,
+        state: &mut SystemState<Self>,
+        world: &mut World,
     ) {
-        ui.heading("Constraint Dependents");
-        let mut category_map: BTreeMap<Category, BTreeMap<Entity, Option<u32>>> = BTreeMap::new();
-        for e in dependents {
-            if let Ok((category, site_id)) = params.info.get(*e) {
-                category_map
-                    .entry(*category)
-                    .or_default()
-                    .insert(*e, site_id.map(|s| s.0));
-            } else {
-                ui.label(format!("ERROR: Broken reference to entity {e:?}"));
-            }
-        }
-
-        for (category, entities) in &category_map {
-            ui.label(category.label());
-
-            for (e, site_id) in entities {
-                ui.horizontal(|ui| {
-                    SelectionWidget::new(*e, site_id.map(SiteID), params.icons.as_ref(), events)
-                        .show(ui);
-                });
-            }
-        }
+        let mut params = state.get_mut(world);
+        params.show_widget(selection, ui);
     }
+}
 
-    pub fn show(mut self, ui: &mut Ui) {
+impl<'w, 's> InspectModelDependents<'w, 's> {
+    pub fn show_widget(&mut self, id: Entity, ui: &mut Ui) {
+        let Ok(dependents) = self.dependents.get(id) else {
+            return;
+        };
+
         ui.vertical(|ui| {
-            if let Ok(dependents) = self.params.dependents.get(self.model) {
-                if dependents.0.is_empty() {
-                    ui.label("No dependents");
-                } else {
-                    Self::show_dependents(&dependents.0, &self.params, &mut self.events, ui);
-                }
+            if dependents.0.is_empty() {
+                ui.label("No dependents");
             } else {
-                ui.label("ERROR: Unable to find dependents info for this model");
+                ui.heading("Constraint Dependents");
+                let mut category_map: BTreeMap<Category, BTreeSet<Entity>> = BTreeMap::new();
+                for e in &dependents.0 {
+                    if let Ok(category) = self.categories.get(*e) {
+                        category_map.entry(*category).or_default().insert(*e);
+                    } else {
+                        ui.label(format!("ERROR: Broken reference to entity {e:?}"));
+                    }
+                }
+
+                for (category, entities) in &category_map {
+                    ui.label(category.label());
+
+                    for e in entities {
+                        ui.horizontal(|ui| {
+                            self.selector.show_widget(*e, ui);
+                        });
+                    }
+                }
             }
         });
+
+        ui.add_space(10.0);
     }
 }

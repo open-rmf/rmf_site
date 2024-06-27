@@ -72,6 +72,13 @@ impl EdgeLabels {
             Self::LeftRight => "right",
         }
     }
+
+    pub fn side(&self, side: Side) -> &'static str {
+        match side {
+            Side::Left => self.start(),
+            Side::Right => self.end(),
+        }
+    }
 }
 
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut)]

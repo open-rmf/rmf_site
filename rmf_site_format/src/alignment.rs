@@ -549,25 +549,28 @@ fn traverse_locations<F: FnMut(usize, DVec2, usize, DVec2)>(
 }
 
 fn calculate_center_adjustment(building: &BuildingMap, u: &mut [f64]) {
-    let mut center = DVec2::ZERO;
-    let mut weight = 0.0;
-    for (i, level) in building.levels.values().enumerate() {
-        let range = 4 * i..4 * (i + 1);
-        let vars = LevelVariables::new(&u[range], i);
-        for v in &level.vertices {
-            let v = vars.transform(v.to_vec());
-            center += v;
-            weight += 1.0;
-        }
+    if building.levels.is_empty() {
+        return;
     }
+    let reference_idx = building
+        .reference_level_name
+        .as_ref()
+        .and_then(|name| {
+            building
+                .levels
+                .iter()
+                .position(|(level_name, _)| name == level_name)
+        })
+        .unwrap_or(0);
+    let range = 4 * reference_idx..4 * (reference_idx + 1);
+    let center = LevelVariables::new(&u[range], reference_idx);
+    let dx = center.dx().clone();
+    let dy = center.dy().clone();
 
-    if weight >= 0.0 {
-        center /= weight;
-        for level in 0..u.len() / 4 {
-            let x = 4 * level;
-            let y = 4 * level + 1;
-            u[x] -= center.x;
-            u[y] -= center.y;
-        }
+    for level in 0..u.len() / 4 {
+        let x = 4 * level;
+        let y = 4 * level + 1;
+        u[x] -= dx;
+        u[y] -= dy;
     }
 }

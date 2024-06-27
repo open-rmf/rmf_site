@@ -17,15 +17,191 @@
 
 use crate::{
     site::{
-        Category, Change, Delete, DrawingMarker, FloorMarker, LevelElevation, LevelProperties,
-        NameInSite,
+        Category, Change, CurrentLevel, Delete, DrawingMarker, FloorMarker, LevelElevation,
+        LevelProperties, NameInSite,
     },
-    widgets::{AppEvents, Icons},
-    RecencyRanking,
+    widgets::{prelude::*, Icons},
+    AppState, CurrentWorkspace, RecencyRanking,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{DragValue, ImageButton, Ui};
+use bevy_egui::egui::{CollapsingHeader, DragValue, ImageButton, Ui};
 use std::cmp::{Ordering, Reverse};
+
+/// Add a plugin for viewing and editing a list of all levels
+#[derive(Default)]
+pub struct ViewLevelsPlugin {}
+
+impl Plugin for ViewLevelsPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<LevelDisplay>()
+            .add_plugins(PropertiesTilePlugin::<ViewLevels>::new());
+    }
+}
+
+#[derive(SystemParam)]
+pub struct ViewLevels<'w, 's> {
+    levels: Query<'w, 's, (Entity, &'static NameInSite, &'static LevelElevation)>,
+    parents: Query<'w, 's, &'static Parent>,
+    icons: Res<'w, Icons>,
+    display_levels: ResMut<'w, LevelDisplay>,
+    current_level: ResMut<'w, CurrentLevel>,
+    current_workspace: ResMut<'w, CurrentWorkspace>,
+    change_name: EventWriter<'w, Change<NameInSite>>,
+    change_level_elevation: EventWriter<'w, Change<LevelElevation>>,
+    delete: EventWriter<'w, Delete>,
+    commands: Commands<'w, 's>,
+    app_state: Res<'w, State<AppState>>,
+}
+
+impl<'w, 's> WidgetSystem<Tile> for ViewLevels<'w, 's> {
+    fn show(_: Tile, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) -> () {
+        let mut params = state.get_mut(world);
+        CollapsingHeader::new("Levels")
+            .default_open(true)
+            .show(ui, |ui| {
+                params.show_widget(ui);
+            });
+    }
+}
+
+impl<'w, 's> ViewLevels<'w, 's> {
+    pub fn show_widget(&mut self, ui: &mut Ui) {
+        let editing = match self.app_state.get() {
+            AppState::SiteEditor => true,
+            AppState::SiteVisualizer => false,
+            _ => return,
+        };
+
+        if !editing {
+            self.display_levels.removing = false;
+        }
+
+        if editing {
+            ui.horizontal(|ui| {
+                let make_new_level = ui.button("Add").clicked();
+                let mut show_elevation = self.display_levels.new_elevation;
+                ui.add(DragValue::new(&mut show_elevation).suffix("m"))
+                    .on_hover_text("Elevation for the new level");
+
+                let mut show_name = self.display_levels.new_name.clone();
+                ui.text_edit_singleline(&mut show_name)
+                    .on_hover_text("Name for the new level");
+
+                if make_new_level {
+                    let new_level = self
+                        .commands
+                        .spawn((
+                            SpatialBundle::default(),
+                            LevelProperties {
+                                elevation: LevelElevation(show_elevation),
+                                name: NameInSite(show_name.clone()),
+                                ..Default::default()
+                            },
+                            Category::Level,
+                            RecencyRanking::<DrawingMarker>::default(),
+                            RecencyRanking::<FloorMarker>::default(),
+                        ))
+                        .id();
+                    self.current_level.0 = Some(new_level);
+                }
+
+                self.display_levels.new_elevation = show_elevation;
+                self.display_levels.new_name = show_name;
+            });
+        }
+
+        if !self.display_levels.freeze {
+            let mut ordered_level_list: Vec<_> = self
+                .levels
+                .iter()
+                .filter(|(e, _, _)| {
+                    AncestorIter::new(&self.parents, *e)
+                        .any(|e| Some(e) == self.current_workspace.root)
+                })
+                .map(|(e, _, elevation)| (Reverse(elevation.0), e))
+                .collect();
+
+            ordered_level_list.sort_by(|(h_a, e_a), (h_b, e_b)| {
+                match h_a.partial_cmp(&h_b) {
+                    None | Some(Ordering::Equal) => {
+                        // Break elevation ties with an arbitrary but perfectly
+                        // stable and consistent comparison metric.
+                        e_b.cmp(&e_a)
+                    }
+                    Some(other) => other,
+                }
+            });
+
+            self.display_levels.order = ordered_level_list.into_iter().map(|(_, e)| e).collect();
+        }
+
+        if self.display_levels.removing {
+            ui.horizontal(|ui| {
+                if ui.button("Select").clicked() {
+                    self.display_levels.removing = false;
+                }
+                ui.label("Remove");
+            });
+        } else if editing {
+            ui.horizontal(|ui| {
+                ui.label("Select");
+                if ui.button("Remove").clicked() {
+                    self.display_levels.removing = true;
+                }
+            });
+        }
+
+        let mut any_dragging = false;
+        let mut any_deleted = false;
+        for e in self.display_levels.order.iter().copied() {
+            if let Ok((_, name, elevation)) = self.levels.get(e) {
+                let mut shown_elevation = elevation.clone().0;
+                let mut shown_name = name.clone().0;
+                ui.horizontal(|ui| {
+                    if self.display_levels.removing {
+                        if ui
+                            .add(ImageButton::new(self.icons.trash.egui()))
+                            .on_hover_text("Remove this level")
+                            .clicked()
+                        {
+                            self.delete.send(Delete::new(e).and_dependents());
+                            any_deleted = true;
+                        }
+                    } else if editing {
+                        if ui.radio(Some(e) == **self.current_level, "").clicked() {
+                            self.current_level.0 = Some(e);
+                        }
+                    }
+
+                    let r = ui
+                        .add(DragValue::new(&mut shown_elevation).suffix("m"))
+                        .on_hover_text("Elevation of the level");
+                    if r.dragged() || r.has_focus() {
+                        any_dragging = true;
+                    }
+
+                    ui.text_edit_singleline(&mut shown_name)
+                        .on_hover_text("Name of the level");
+                });
+
+                if shown_name != name.0 {
+                    self.change_name
+                        .send(Change::new(NameInSite(shown_name), e));
+                }
+
+                if shown_elevation != elevation.0 {
+                    self.change_level_elevation
+                        .send(Change::new(LevelElevation(shown_elevation), e));
+                }
+            }
+        }
+
+        self.display_levels.freeze = any_dragging;
+        if any_deleted {
+            self.display_levels.removing = false;
+        }
+    }
+}
 
 #[derive(Resource)]
 pub struct LevelDisplay {
@@ -44,172 +220,6 @@ impl Default for LevelDisplay {
             order: Vec::new(),
             freeze: false,
             removing: false,
-        }
-    }
-}
-
-#[derive(SystemParam)]
-pub struct LevelParams<'w, 's> {
-    pub levels: Query<'w, 's, (Entity, &'static NameInSite, &'static LevelElevation)>,
-    pub parents: Query<'w, 's, &'static Parent>,
-    pub icons: Res<'w, Icons>,
-}
-
-pub struct ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
-    params: &'a LevelParams<'w1, 's1>,
-    events: &'a mut AppEvents<'w2, 's2>,
-    edit_visibility: bool,
-}
-
-impl<'a, 'w1, 's1, 'w2, 's2> ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
-    pub fn new(params: &'a LevelParams<'w1, 's1>, events: &'a mut AppEvents<'w2, 's2>) -> Self {
-        Self {
-            params,
-            events,
-            edit_visibility: false,
-        }
-    }
-
-    pub fn for_editing_visibility(mut self) -> Self {
-        self.edit_visibility = true;
-        self
-    }
-
-    pub fn show(self, ui: &mut Ui) {
-        ui.horizontal(|ui| {
-            let make_new_level = ui.button("Add").clicked();
-            let mut show_elevation = self.events.display.level.new_elevation;
-            ui.add(DragValue::new(&mut show_elevation).suffix("m"))
-                .on_hover_text("Elevation for the new level");
-
-            let mut show_name = self.events.display.level.new_name.clone();
-            ui.text_edit_singleline(&mut show_name)
-                .on_hover_text("Name for the new level");
-
-            if make_new_level {
-                let new_level = self
-                    .events
-                    .commands
-                    .spawn((
-                        SpatialBundle::default(),
-                        LevelProperties {
-                            elevation: LevelElevation(show_elevation),
-                            name: NameInSite(show_name.clone()),
-                            ..Default::default()
-                        },
-                        Category::Level,
-                        RecencyRanking::<DrawingMarker>::default(),
-                        RecencyRanking::<FloorMarker>::default(),
-                    ))
-                    .id();
-                self.events.request.current_level.0 = Some(new_level);
-            }
-
-            self.events.display.level.new_elevation = show_elevation;
-            self.events.display.level.new_name = show_name;
-        });
-
-        if !self.events.display.level.freeze {
-            let mut ordered_level_list: Vec<_> = self
-                .params
-                .levels
-                .iter()
-                .filter(|(e, _, _)| {
-                    AncestorIter::new(&self.params.parents, *e)
-                        .any(|e| Some(e) == self.events.request.current_workspace.root)
-                })
-                .map(|(e, _, elevation)| (Reverse(elevation.0), e))
-                .collect();
-
-            ordered_level_list.sort_by(|(h_a, e_a), (h_b, e_b)| {
-                match h_a.partial_cmp(&h_b) {
-                    None | Some(Ordering::Equal) => {
-                        // Break elevation ties with an arbitrary but perfectly
-                        // stable and consistent comparison metric.
-                        e_b.cmp(&e_a)
-                    }
-                    Some(other) => other,
-                }
-            });
-
-            self.events.display.level.order =
-                ordered_level_list.into_iter().map(|(_, e)| e).collect();
-        }
-
-        if self.events.display.level.removing {
-            ui.horizontal(|ui| {
-                if ui.button("Select").clicked() {
-                    self.events.display.level.removing = false;
-                }
-                ui.label("Remove");
-            });
-        } else {
-            ui.horizontal(|ui| {
-                ui.label("Select");
-                if ui.button("Remove").clicked() {
-                    self.events.display.level.removing = true;
-                }
-            });
-        }
-
-        let mut any_dragging = false;
-        let mut any_deleted = false;
-        for e in self.events.display.level.order.iter().copied() {
-            if let Ok((_, name, elevation)) = self.params.levels.get(e) {
-                let mut shown_elevation = elevation.clone().0;
-                let mut shown_name = name.clone().0;
-                ui.horizontal(|ui| {
-                    if self.events.display.level.removing {
-                        if ui
-                            .add(ImageButton::new(self.params.icons.trash.egui()))
-                            .on_hover_text("Remove this level")
-                            .clicked()
-                        {
-                            self.events
-                                .request
-                                .delete
-                                .send(Delete::new(e).and_dependents());
-                            any_deleted = true;
-                        }
-                    } else if self.edit_visibility == true {
-                        if ui
-                            .radio(Some(e) == **self.events.request.current_level, "")
-                            .clicked()
-                        {
-                            self.events.request.current_level.0 = Some(e);
-                        }
-                    }
-
-                    let r = ui
-                        .add(DragValue::new(&mut shown_elevation).suffix("m"))
-                        .on_hover_text("Elevation of the level");
-                    if r.dragged() || r.has_focus() {
-                        any_dragging = true;
-                    }
-
-                    ui.text_edit_singleline(&mut shown_name)
-                        .on_hover_text("Name of the level");
-                });
-
-                if shown_name != name.0 {
-                    self.events
-                        .change
-                        .name
-                        .send(Change::new(NameInSite(shown_name), e));
-                }
-
-                if shown_elevation != elevation.0 {
-                    self.events
-                        .change
-                        .level_elevation
-                        .send(Change::new(LevelElevation(shown_elevation), e));
-                }
-            }
-        }
-
-        self.events.display.level.freeze = any_dragging;
-        if any_deleted {
-            self.events.display.level.removing = false;
         }
     }
 }

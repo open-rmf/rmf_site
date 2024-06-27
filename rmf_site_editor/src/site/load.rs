@@ -221,6 +221,13 @@ fn generate_site_entities(
                         .insert(SiteID(*physical_camera_id));
                     consider_id(*physical_camera_id);
                 }
+
+                for (camera_pose_id, camera_pose) in &level_data.user_camera_poses {
+                    level
+                        .spawn(camera_pose.clone())
+                        .insert(SiteID(*camera_pose_id));
+                    consider_id(*camera_pose_id);
+                }
             });
 
         // TODO(MXG): Log when a RecencyRanking fails to load correctly.

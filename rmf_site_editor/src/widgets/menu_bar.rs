@@ -15,16 +15,32 @@
  *
 */
 
-use crate::{AppState, CreateNewWorkspace, FileEvents, LoadWorkspace, MenuParams, SaveWorkspace};
+use crate::{widgets::prelude::*, AppState, CreateNewWorkspace, LoadWorkspace, SaveWorkspace};
 
 use bevy::ecs::query::Has;
 use bevy::prelude::*;
-use bevy_egui::egui::{self, Button, Context, Ui};
+use bevy_egui::egui::{self, Button, Ui};
 
 use std::collections::HashSet;
 
-/// Adding this to an entity to an entity with the MenuItem component
-/// will grey out and disable a MenuItem.
+/// Add the standard menu bar to the application.
+#[derive(Default)]
+pub struct MenuBarPlugin {}
+
+impl Plugin for MenuBarPlugin {
+    fn build(&self, app: &mut App) {
+        let widget = PanelWidget::new(top_menu_bar, &mut app.world);
+        app.world.spawn(widget);
+
+        app.add_event::<MenuEvent>()
+            .init_resource::<FileMenu>()
+            .init_resource::<ToolMenu>()
+            .init_resource::<ViewMenu>();
+    }
+}
+
+/// Adding this to an entity to an entity with the [`MenuItem`] component
+/// will grey out and disable a [`MenuItem`].
 #[derive(Component)]
 pub struct MenuDisabled;
 
@@ -165,17 +181,6 @@ impl MenuEvent {
     }
 }
 
-pub struct MenuPluginManager;
-
-impl Plugin for MenuPluginManager {
-    fn build(&self, app: &mut App) {
-        app.add_event::<MenuEvent>()
-            .init_resource::<FileMenu>()
-            .init_resource::<ToolMenu>()
-            .init_resource::<ViewMenu>();
-    }
-}
-
 /// Helper function to render a submenu starting at the entity.
 fn render_sub_menu(
     state: &State<AppState>,
@@ -258,19 +263,31 @@ fn render_sub_menu(
     }
 }
 
-pub fn top_menu_bar(
-    egui_context: &mut Context,
-    file_events: &mut FileEvents,
-    file_menu: &Res<FileMenu>,
-    top_level_components: &Query<(), Without<Parent>>,
-    children: &Query<&Children>,
-    menu_params: &mut MenuParams,
+#[derive(SystemParam)]
+struct MenuParams<'w, 's> {
+    state: Res<'w, State<AppState>>,
+    menus: Query<'w, 's, (&'static Menu, Entity)>,
+    menu_items: Query<'w, 's, (&'static mut MenuItem, Has<MenuDisabled>)>,
+    menu_states: Query<'w, 's, Option<&'static MenuVisualizationStates>>,
+    extension_events: EventWriter<'w, MenuEvent>,
+    view_menu: Res<'w, ViewMenu>,
+}
+
+fn top_menu_bar(
+    In(input): In<PanelWidgetInput>,
+    mut new_workspace: EventWriter<CreateNewWorkspace>,
+    mut save: EventWriter<SaveWorkspace>,
+    mut load_workspace: EventWriter<LoadWorkspace>,
+    file_menu: Res<FileMenu>,
+    top_level_components: Query<(), Without<Parent>>,
+    children: Query<&Children>,
+    mut menu_params: MenuParams,
 ) {
-    egui::TopBottomPanel::top("top_panel").show(egui_context, |ui| {
+    egui::TopBottomPanel::top("top_panel").show(&input.context, |ui| {
         egui::menu::bar(ui, |ui| {
             ui.menu_button("File", |ui| {
                 if ui.add(Button::new("New").shortcut_text("Ctrl+N")).clicked() {
-                    file_events.new_workspace.send(CreateNewWorkspace);
+                    new_workspace.send(CreateNewWorkspace);
                 }
                 #[cfg(not(target_arch = "wasm32"))]
                 {
@@ -278,29 +295,27 @@ pub fn top_menu_bar(
                         .add(Button::new("Save").shortcut_text("Ctrl+S"))
                         .clicked()
                     {
-                        file_events
-                            .save
-                            .send(SaveWorkspace::new().to_default_file());
+                        save.send(SaveWorkspace::new().to_default_file());
                     }
                     if ui
                         .add(Button::new("Save As").shortcut_text("Ctrl+Shift+S"))
                         .clicked()
                     {
-                        file_events.save.send(SaveWorkspace::new().to_dialog());
+                        save.send(SaveWorkspace::new().to_dialog());
                     }
                 }
                 if ui
                     .add(Button::new("Open").shortcut_text("Ctrl+O"))
                     .clicked()
                 {
-                    file_events.load_workspace.send(LoadWorkspace::Dialog);
+                    load_workspace.send(LoadWorkspace::Dialog);
                 }
 
                 render_sub_menu(
                     &menu_params.state,
                     ui,
                     &file_menu.get(),
-                    children,
+                    &children,
                     &menu_params.menus,
                     &menu_params.menu_items,
                     &menu_params.menu_states,
@@ -313,7 +328,7 @@ pub fn top_menu_bar(
                     &menu_params.state,
                     ui,
                     &menu_params.view_menu.get(),
-                    children,
+                    &children,
                     &menu_params.menus,
                     &menu_params.menu_items,
                     &menu_params.menu_states,
@@ -330,7 +345,7 @@ pub fn top_menu_bar(
                     &menu_params.state,
                     ui,
                     &entity,
-                    children,
+                    &children,
                     &menu_params.menus,
                     &menu_params.menu_items,
                     &menu_params.menu_states,

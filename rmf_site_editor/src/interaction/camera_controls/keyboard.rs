@@ -19,7 +19,7 @@ use super::{
     utils::*, CameraCommandType, CameraControls, ProjectionMode, MAX_FOV, MAX_SCALE,
     MIN_FOV, MIN_SCALE,
 };
-use crate::widgets::UncoveredWindow;
+use crate::widgets::UserCameraDisplay;
 use bevy::{prelude::*, window::PrimaryWindow};
 use bevy_mod_raycast::immediate::Raycast;
 
@@ -85,7 +85,7 @@ pub fn update_keyboard_command(
     immediate_raycast: Raycast,
     time: Res<Time>,
     primary_windows: Query<&Window, With<PrimaryWindow>>,
-    uncovered_window_area: Res<UncoveredWindow>,
+    uncovered_window_area: Res<UserCameraDisplay>,
 ) {
     if let Ok(_) = primary_windows.get_single() {
         // User inputs

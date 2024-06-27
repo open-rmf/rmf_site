@@ -19,19 +19,19 @@ use bevy_egui::egui::emath::Numeric;
 use bevy_egui::egui::{DragValue, Ui};
 use std::ops::RangeInclusive;
 
-pub struct InspectValue<T> {
-    title: String,
+pub struct InspectValue<'a, T> {
+    title: &'a str,
     current_value: T,
     range: RangeInclusive<T>,
     min_decimals: usize,
     max_decimals: Option<usize>,
     speed: f64,
-    suffix: String,
-    tooltip: Option<String>,
+    suffix: &'a str,
+    tooltip: Option<&'a str>,
 }
 
-impl<T: Numeric> InspectValue<T> {
-    pub fn new(title: String, current_value: T) -> Self {
+impl<'a, T: Numeric> InspectValue<'a, T> {
+    pub fn new(title: &'a str, current_value: T) -> Self {
         Self {
             title,
             current_value,
@@ -68,12 +68,12 @@ impl<T: Numeric> InspectValue<T> {
     }
 
     #[allow(dead_code)]
-    pub fn suffix(mut self, suffix: String) -> Self {
+    pub fn suffix(mut self, suffix: &'a str) -> Self {
         self.suffix = suffix;
         self
     }
 
-    pub fn tooltip(mut self, tooltip: String) -> Self {
+    pub fn tooltip(mut self, tooltip: &'a str) -> Self {
         self.tooltip = Some(tooltip);
         self
     }

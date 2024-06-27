@@ -218,7 +218,7 @@ impl Default for GizmoState {
 }
 
 /// Instruction to move an entity to a new transform. This should be caught with
-/// an EventReader<MoveTo>.
+/// an `EventReader<MoveTo>`.
 #[derive(Debug, Clone, Copy, Event)]
 pub struct MoveTo {
     pub entity: Entity,

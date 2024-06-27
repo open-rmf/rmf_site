@@ -22,7 +22,7 @@ use bevy_mod_raycast::{
 };
 
 use super::{MAX_PITCH, MAX_SELECTION_DIST, MIN_SELECTION_DIST};
-use crate::UncoveredWindow;
+use crate::UserCameraDisplay;
 
 /// Orbit the camera around the point while upright, maintaining the orbit center
 /// in the same position in the camera viewport
@@ -72,11 +72,11 @@ pub fn zoom_distance_factor(camera_translation: Vec3, target_translation: Vec3) 
 pub fn get_camera_selected_point(
     camera: &Camera,
     camera_global_transform: &GlobalTransform,
-    uncovered_window: Res<UncoveredWindow>,
+    user_camera_display: Res<UserCameraDisplay>,
     mut immediate_raycast: Raycast,
 ) -> Vec3 {
     // Assume that the camera spans the full window, covered by egui panels
-    let available_viewport_center = uncovered_window.area.center();
+    let available_viewport_center = user_camera_display.region.center();
     let camera_ray = camera
         .viewport_to_world(camera_global_transform, available_viewport_center)
         .expect("Active camera does not have a valid ray from center of its viewport");

@@ -16,69 +16,71 @@
 */
 
 use crate::{
-    site::{Affiliation, Change, DefaultFile, Group, Members, SiteID, Texture},
-    widgets::{
-        inspector::{InspectTexture, SelectionWidget},
-        AppEvents,
-    },
-    Icons,
+    site::{Affiliation, Change, DefaultFile, Group, Members, NameInSite, Texture},
+    widgets::{inspector::InspectTexture, prelude::*, Inspect, SelectorWidget},
+    CurrentWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, RichText, Ui};
 
 #[derive(SystemParam)]
-pub struct InspectGroupParams<'w, 's> {
-    pub is_group: Query<'w, 's, (), With<Group>>,
-    pub affiliation: Query<'w, 's, &'static Affiliation<Entity>>,
-    pub textures: Query<'w, 's, &'static Texture>,
-    pub members: Query<'w, 's, &'static Members>,
-    pub site_id: Query<'w, 's, &'static SiteID>,
-    pub icons: Res<'w, Icons>,
+pub struct InspectGroup<'w, 's> {
+    is_group: Query<'w, 's, (), With<Group>>,
+    affiliation: Query<'w, 's, &'static Affiliation<Entity>>,
+    names: Query<'w, 's, &'static NameInSite>,
+    textures: Query<'w, 's, &'static Texture>,
+    members: Query<'w, 's, &'static Members>,
+    default_file: Query<'w, 's, &'static DefaultFile>,
+    current_workspace: Res<'w, CurrentWorkspace>,
+    change_texture: EventWriter<'w, Change<Texture>>,
+    selector: SelectorWidget<'w, 's>,
 }
 
-pub struct InspectGroup<'a, 'w1, 'w2, 's1, 's2> {
-    group: Entity,
-    selection: Entity,
-    default_file: Option<&'a DefaultFile>,
-    params: &'a InspectGroupParams<'w1, 's1>,
-    events: &'a mut AppEvents<'w2, 's2>,
+impl<'w, 's> WidgetSystem<Inspect> for InspectGroup<'w, 's> {
+    fn show(
+        Inspect { selection, .. }: Inspect,
+        ui: &mut Ui,
+        state: &mut SystemState<Self>,
+        world: &mut World,
+    ) {
+        let mut params = state.get_mut(world);
+        params.show_widget(selection, ui);
+    }
 }
 
-impl<'a, 'w1, 'w2, 's1, 's2> InspectGroup<'a, 'w1, 'w2, 's1, 's2> {
-    pub fn new(
-        group: Entity,
-        selection: Entity,
-        default_file: Option<&'a DefaultFile>,
-        params: &'a InspectGroupParams<'w1, 's1>,
-        events: &'a mut AppEvents<'w2, 's2>,
-    ) -> Self {
-        Self {
-            group,
-            selection,
-            default_file,
-            params,
-            events,
+impl<'w, 's> InspectGroup<'w, 's> {
+    pub fn show_widget(&mut self, id: Entity, ui: &mut Ui) {
+        if self.is_group.contains(id) {
+            self.show_group_properties(id, ui);
+        }
+
+        if let Ok(Affiliation(Some(group))) = self.affiliation.get(id) {
+            ui.separator();
+            let name = self.names.get(*group).map(|n| n.0.as_str()).unwrap_or("");
+            ui.label(RichText::new(format!("Group Properties of [{}]", name)).size(18.0));
+            ui.add_space(5.0);
+            self.show_group_properties(*group, ui);
         }
     }
 
-    pub fn show(self, ui: &mut Ui) {
-        if let Ok(texture) = self.params.textures.get(self.group) {
+    pub fn show_group_properties(&mut self, id: Entity, ui: &mut Ui) {
+        let default_file = self
+            .current_workspace
+            .root
+            .map(|e| self.default_file.get(e).ok())
+            .flatten();
+
+        if let Ok(texture) = self.textures.get(id) {
             ui.label(RichText::new("Texture Properties").size(18.0));
-            if let Some(new_texture) = InspectTexture::new(texture, self.default_file).show(ui) {
-                self.events
-                    .change
-                    .texture
-                    .send(Change::new(new_texture, self.group));
+            if let Some(new_texture) = InspectTexture::new(texture, default_file).show(ui) {
+                self.change_texture.send(Change::new(new_texture, id));
             }
             ui.add_space(10.0);
         }
-        if let Ok(members) = self.params.members.get(self.group) {
+        if let Ok(members) = self.members.get(id) {
             CollapsingHeader::new("Members").show(ui, |ui| {
                 for member in members.iter() {
-                    let site_id = self.params.site_id.get(self.group).ok().cloned();
-                    SelectionWidget::new(*member, site_id, &self.params.icons, self.events)
-                        .as_selected(self.selection == *member)
-                        .show(ui);
+                    self.selector.show_widget(*member, ui);
                 }
             });
         }
