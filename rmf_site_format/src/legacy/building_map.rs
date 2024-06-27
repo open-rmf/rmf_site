@@ -5,10 +5,11 @@ use crate::{
     alignment::align_legacy_building, Affiliation, Anchor, Angle, AssetSource, AssociatedGraphs,
     Category, DisplayColor, Dock as SiteDock, Drawing as SiteDrawing, DrawingProperties,
     Fiducial as SiteFiducial, FiducialGroup, FiducialMarker, Guided, Lane as SiteLane, LaneMarker,
-    Level as SiteLevel, LevelElevation, LevelProperties as SiteLevelProperties, Motion, NameInSite,
-    NameOfSite, NavGraph, Navigation, OrientationConstraint, PixelsPerMeter, Pose,
-    PreferredSemiTransparency, RankingsInLevel, ReverseLane, Rotation, Site, SiteProperties,
-    Texture as SiteTexture, TextureGroup, UserCameraPose, DEFAULT_NAV_GRAPH_COLORS,
+    Level as SiteLevel, LevelElevation, LevelProperties as SiteLevelProperties, ModelDescriptions,
+    Motion, NameInSite, NameOfSite, NavGraph, Navigation, OrientationConstraint, PixelsPerMeter,
+    Pose, PreferredSemiTransparency, RankingsInLevel, ReverseLane, Rotation, Scenario,
+    ScenarioProperties, Site, SiteProperties, Texture as SiteTexture, TextureGroup, UserCameraPose,
+    DEFAULT_NAV_GRAPH_COLORS,
 };
 use glam::{DAffine2, DMat3, DQuat, DVec2, DVec3, EulerRot};
 use serde::{Deserialize, Serialize};
@@ -200,6 +201,13 @@ impl BuildingMap {
 
         let mut fiducial_groups: BTreeMap<u32, FiducialGroup> = BTreeMap::new();
         let mut cartesian_fiducials: HashMap<u32, Vec<DVec2>> = HashMap::new();
+
+        let mut model_descriptions = ModelDescriptions::default();
+        let mut model_description_name_map = HashMap::<String, u32>::new();
+        let mut scenarios = BTreeMap::new();
+        let mut default_scenario_id = site_id.next().unwrap();
+        scenarios.insert(default_scenario_id, Scenario::default());
+
         for (level_name, level) in &self.levels {
             let level_id = site_id.next().unwrap();
             let mut vertex_to_anchor_id: HashMap<usize, u32> = Default::default();
@@ -506,6 +514,21 @@ impl BuildingMap {
                 models.insert(site_id.next().unwrap(), model.to_site());
             }
 
+            for model in &level.models {
+                let model_instance = model.to_decor_instance(
+                    &level_id,
+                    &mut site_id,
+                    &mut model_description_name_map,
+                    &mut model_descriptions,
+                );
+
+                scenarios
+                    .get_mut(&default_scenario_id)
+                    .unwrap()
+                    .model_instances
+                    .insert(site_id.next().unwrap(), model_instance);
+            }
+
             let mut physical_cameras = BTreeMap::new();
             for cam in &level.physical_cameras {
                 physical_cameras.insert(site_id.next().unwrap(), cam.to_site());
@@ -712,6 +735,8 @@ impl BuildingMap {
                 },
             },
             agents: Default::default(),
+            scenarios,
+            model_descriptions,
         })
     }
 }

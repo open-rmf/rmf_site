@@ -1220,6 +1220,7 @@ pub fn generate_site(
         },
         // TODO(MXG): Parse agent information once the spec is figured out
         agents: Default::default(),
+        ..Default::default()
     });
 }
 

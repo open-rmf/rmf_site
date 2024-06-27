@@ -101,6 +101,9 @@ pub use point::*;
 pub mod recall;
 pub use recall::*;
 
+pub mod scenario;
+pub use scenario::*;
+
 pub mod sdf;
 pub use sdf::*;
 
