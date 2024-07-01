@@ -60,8 +60,8 @@ impl Default for Model {
 }
 
 ///
-/// 
-/// 
+///
+///
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
@@ -84,6 +84,10 @@ pub struct ModelInstance<T: RefTrait> {
     pub pose: Pose,
     pub parent: SiteParentID,
     pub description: Affiliation<T>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub is_static: IsStatic,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub scale: Scale,
     #[serde(skip)]
     pub marker: ModelMarker,
 }

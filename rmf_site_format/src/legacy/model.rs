@@ -1,6 +1,6 @@
 use crate::{
     Affiliation, Angle, AssetSource, Group, IsStatic, Model as SiteModel, ModelDescription,
-    ModelInstance, ModelMarker, NameInSite, SiteParentID, Pose, Rotation, Scale,
+    ModelInstance, ModelMarker, NameInSite, Pose, Rotation, Scale, SiteParentID,
 };
 use glam::DVec2;
 use serde::{Deserialize, Serialize};
@@ -74,6 +74,8 @@ impl Model {
                 trans: [self.x as f32, self.y as f32, self.z_offset as f32],
                 rot: Rotation::Yaw(Angle::Deg(self.yaw.to_degrees() as f32)),
             },
+            is_static: IsStatic(self.static_),
+            scale: Scale::default(),
             parent: SiteParentID(level_id),
             description: Affiliation(Some(model_description_id)),
             marker: ModelMarker,

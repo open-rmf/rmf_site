@@ -222,11 +222,6 @@ fn generate_site_entities(
                     consider_id(*light_id);
                 }
 
-                // for (model_id, model) in &level_data.models {
-                //     level.spawn(model.clone()).insert(SiteID(*model_id));
-                //     consider_id(*model_id);
-                // }
-
                 for (model_instance_id, model_instance) in &default_scenario.model_instances {
                     if model_instance.parent.0 == *level_id {
                         level

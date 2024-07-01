@@ -511,10 +511,6 @@ impl BuildingMap {
             }
 
             let mut models = BTreeMap::new();
-            // for model in &level.models {
-            //     models.insert(site_id.next().unwrap(), model.to_site());
-            // }
-
             for model in &level.models {
                 let model_instance = model.to_model_instance(
                     &mut model_description_name_map,
