@@ -38,5 +38,5 @@ impl Default for ScenarioProperties {
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Scenario {
     pub properties: ScenarioProperties,
-    pub model_instances: BTreeMap<u32, ModelInstance>,
+    pub model_instances: BTreeMap<u32, ModelInstance<u32>>,
 }

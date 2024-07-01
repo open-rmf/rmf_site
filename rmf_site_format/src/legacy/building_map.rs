@@ -1,3 +1,4 @@
+use super::model::Model;
 use super::{
     floor::FloorParameters, level::Level, lift::Lift, wall::WallProperties, PortingError, Result,
 };
@@ -5,7 +6,7 @@ use crate::{
     alignment::align_legacy_building, Affiliation, Anchor, Angle, AssetSource, AssociatedGraphs,
     Category, DisplayColor, Dock as SiteDock, Drawing as SiteDrawing, DrawingProperties,
     Fiducial as SiteFiducial, FiducialGroup, FiducialMarker, Guided, Lane as SiteLane, LaneMarker,
-    Level as SiteLevel, LevelElevation, LevelProperties as SiteLevelProperties, ModelDescriptions,
+    Level as SiteLevel, LevelElevation, LevelProperties as SiteLevelProperties, ModelDescription,
     Motion, NameInSite, NameOfSite, NavGraph, Navigation, OrientationConstraint, PixelsPerMeter,
     Pose, PreferredSemiTransparency, RankingsInLevel, ReverseLane, Rotation, Scenario,
     ScenarioProperties, Site, SiteProperties, Texture as SiteTexture, TextureGroup, UserCameraPose,
@@ -202,7 +203,7 @@ impl BuildingMap {
         let mut fiducial_groups: BTreeMap<u32, FiducialGroup> = BTreeMap::new();
         let mut cartesian_fiducials: HashMap<u32, Vec<DVec2>> = HashMap::new();
 
-        let mut model_descriptions = ModelDescriptions::default();
+        let mut model_descriptions: BTreeMap<u32, ModelDescription> = BTreeMap::new();
         let mut model_description_name_map = HashMap::<String, u32>::new();
         let mut scenarios = BTreeMap::new();
         let mut default_scenario_id = site_id.next().unwrap();
@@ -510,16 +511,16 @@ impl BuildingMap {
             }
 
             let mut models = BTreeMap::new();
-            for model in &level.models {
-                models.insert(site_id.next().unwrap(), model.to_site());
-            }
+            // for model in &level.models {
+            //     models.insert(site_id.next().unwrap(), model.to_site());
+            // }
 
             for model in &level.models {
-                let model_instance = model.to_decor_instance(
-                    &level_id,
-                    &mut site_id,
+                let model_instance = model.to_model_instance(
                     &mut model_description_name_map,
                     &mut model_descriptions,
+                    &mut site_id,
+                    level_id,
                 );
 
                 scenarios

@@ -1,10 +1,13 @@
 use crate::{
-    Angle, AssetSource, DecorDescription, DecorMarker, Group, IsStatic, MobileRobotDescription, Model as SiteModel, ModelDescriptions, ModelInstance, ModelMarker, NameInSite, Pose, Rotation, Scale
+    Affiliation, Angle, AssetSource, Group, IsStatic, Model as SiteModel, ModelDescription,
+    ModelInstance, ModelMarker, NameInSite, SiteParentID, Pose, Rotation, Scale,
 };
-use bevy::utils::default;
 use glam::DVec2;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, ops::RangeFrom};
+use std::{
+    collections::{BTreeMap, HashMap},
+    ops::RangeFrom,
+};
 
 #[derive(Deserialize, Serialize, Clone, Default, Debug)]
 pub struct Model {
@@ -39,44 +42,41 @@ impl Model {
         }
     }
 
-    pub fn to_decor_instance(
+    pub fn to_model_instance(
         &self,
-        level_id: &u32,
-        site_id: &mut RangeFrom<u32>,
         model_description_name_map: &mut HashMap<String, u32>,
-        model_descriptions: &mut ModelDescriptions,
-    ) -> ModelInstance {
-        let pose = Pose {
-            trans: [self.x as f32, self.y as f32, self.z_offset as f32],
-            rot: Rotation::Yaw(Angle::Deg(self.yaw.to_degrees() as f32)),
-        };
-
-        let model_description_id = model_description_name_map
-            .entry(self.model_name.clone())
-            .or_insert_with(|| {
+        model_descriptions: &mut BTreeMap<u32, ModelDescription>,
+        site_id: &mut RangeFrom<u32>,
+        level_id: u32,
+    ) -> ModelInstance<u32> {
+        let model_description_id = match model_description_name_map.get(&self.model_name) {
+            Some(id) => *id,
+            None => {
                 let id = site_id.next().unwrap();
-                model_descriptions.decors.insert(
+                model_description_name_map.insert(self.model_name.clone(), id);
+                model_descriptions.insert(
                     id,
-                    DecorDescription {
+                    ModelDescription {
                         name: NameInSite(self.model_name.clone()),
                         source: AssetSource::Search(self.model_name.clone()),
-                        marker: DecorMarker,
-                        group: Group,
+                        group: Group::default(),
+                        marker: ModelMarker,
                     },
                 );
                 id
-            });
+            }
+        };
 
         ModelInstance {
-            parent: level_id.clone(),
-            model_description: model_description_id.clone(),
-            bundle: crate::ModelInstanceBundle {
-                name: NameInSite(self.instance_name.clone()),
-                pose: Pose {
-                    trans: [self.x as f32, self.y as f32, self.z_offset as f32],
-                    rot: Rotation::Yaw(Angle::Deg(self.yaw.to_degrees() as f32)),
-                },
+            name: NameInSite(self.instance_name.clone()),
+            source: AssetSource::Search(self.model_name.clone()),
+            pose: Pose {
+                trans: [self.x as f32, self.y as f32, self.z_offset as f32],
+                rot: Rotation::Yaw(Angle::Deg(self.yaw.to_degrees() as f32)),
             },
+            parent: SiteParentID(level_id),
+            description: Affiliation(Some(model_description_id)),
+            marker: ModelMarker,
         }
     }
 }

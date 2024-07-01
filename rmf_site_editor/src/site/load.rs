@@ -119,6 +119,18 @@ fn generate_site_entities(
         consider_id(*group_id);
     }
 
+    for (model_description_id, model_description) in &site_data.model_descriptions {
+        let model_description = commands
+            .spawn(model_description.clone())
+            .insert(SiteID(*model_description_id))
+            .set_parent(site_id)
+            .id();
+        id_to_entity.insert(*model_description_id, model_description);
+        consider_id(*model_description_id);
+    }
+
+    let (_, default_scenario) = site_data.scenarios.first_key_value().unwrap();
+
     for (level_id, level_data) in &site_data.levels {
         let level_entity = commands.spawn(SiteID(*level_id)).set_parent(site_id).id();
 
@@ -210,9 +222,18 @@ fn generate_site_entities(
                     consider_id(*light_id);
                 }
 
-                for (model_id, model) in &level_data.models {
-                    level.spawn(model.clone()).insert(SiteID(*model_id));
-                    consider_id(*model_id);
+                // for (model_id, model) in &level_data.models {
+                //     level.spawn(model.clone()).insert(SiteID(*model_id));
+                //     consider_id(*model_id);
+                // }
+
+                for (model_instance_id, model_instance) in &default_scenario.model_instances {
+                    if model_instance.parent.0 == *level_id {
+                        level
+                            .spawn(model_instance.clone())
+                            .insert(SiteID(*model_instance_id));
+                        consider_id(*model_instance_id);
+                    }
                 }
 
                 for (physical_camera_id, physical_camera) in &level_data.physical_cameras {

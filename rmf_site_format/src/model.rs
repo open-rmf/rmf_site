@@ -16,12 +16,7 @@
 */
 
 use crate::*;
-pub mod mobile_robot;
-pub use mobile_robot::*;
-pub mod decor;
-pub use decor::*;
 
-use std::collections::BTreeMap;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Bundle, Component, Reflect, ReflectComponent};
 use serde::{Deserialize, Serialize};
@@ -64,27 +59,31 @@ impl Default for Model {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
-pub struct ModelDescriptions {
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub decors: BTreeMap<u32, DecorDescription>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub mobile_robots: BTreeMap<u32, MobileRobotDescription>,
-    // #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    // pub workcells: BTreeMap<u32, WorkcellDescription>,
-}
+///
+/// 
+/// 
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ModelInstance {
-    pub parent: u32,
-    pub model_description: u32,
-    #[serde(flatten)]
-    pub bundle: ModelInstanceBundle,
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
+pub struct ModelDescription {
+    pub name: NameInSite,
+    pub source: AssetSource,
+    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(skip)]
+    pub group: Group,
+    #[serde(skip)]
+    pub marker: ModelMarker,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
-pub struct ModelInstanceBundle {
+pub struct ModelInstance<T: RefTrait> {
     pub name: NameInSite,
+    #[serde(skip)]
+    pub source: AssetSource,
     pub pose: Pose,
+    pub parent: SiteParentID,
+    pub description: Affiliation<T>,
+    #[serde(skip)]
+    pub marker: ModelMarker,
 }

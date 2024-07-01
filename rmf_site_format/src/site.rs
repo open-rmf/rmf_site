@@ -143,7 +143,7 @@ pub struct Site {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub scenarios: BTreeMap<u32, Scenario>,
     #[serde(default, skip_serializing_if = "is_default")]
-    pub model_descriptions: ModelDescriptions,
+    pub model_descriptions: BTreeMap<u32, ModelDescription>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]

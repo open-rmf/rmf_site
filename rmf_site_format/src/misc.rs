@@ -402,9 +402,14 @@ pub struct PreviewableMarker;
 
 /// This component is applied to each site element that gets loaded in order to
 /// remember what its original ID within the Site file was.
-#[derive(Clone, Copy, Debug)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
 #[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
 pub struct SiteID(pub u32);
+
+/// This component is applied to an entity to indicate that it is defined in relation
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+pub struct SiteParentID(pub u32);
 
 /// The Pending component indicates that an element is not yet ready to be
 /// saved to file. We will filter out these elements while assigning SiteIDs,
