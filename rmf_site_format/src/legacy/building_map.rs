@@ -1,3 +1,4 @@
+use super::model::Model;
 use super::{
     floor::FloorParameters, level::Level, lift::Lift, wall::WallProperties, PortingError, Result,
 };
@@ -5,10 +6,11 @@ use crate::{
     alignment::align_legacy_building, Affiliation, Anchor, Angle, AssetSource, AssociatedGraphs,
     Category, DisplayColor, Dock as SiteDock, Drawing as SiteDrawing, DrawingProperties,
     Fiducial as SiteFiducial, FiducialGroup, FiducialMarker, Guided, Lane as SiteLane, LaneMarker,
-    Level as SiteLevel, LevelElevation, LevelProperties as SiteLevelProperties, Motion, NameInSite,
-    NameOfSite, NavGraph, Navigation, OrientationConstraint, PixelsPerMeter, Pose,
-    PreferredSemiTransparency, RankingsInLevel, ReverseLane, Rotation, Site, SiteProperties,
-    Texture as SiteTexture, TextureGroup, UserCameraPose, DEFAULT_NAV_GRAPH_COLORS,
+    Level as SiteLevel, LevelElevation, LevelProperties as SiteLevelProperties, ModelDescription,
+    Motion, NameInSite, NameOfSite, NavGraph, Navigation, OrientationConstraint, PixelsPerMeter,
+    Pose, PreferredSemiTransparency, RankingsInLevel, ReverseLane, Rotation, Scenario,
+    ScenarioProperties, Site, SiteProperties, Texture as SiteTexture, TextureGroup, UserCameraPose,
+    DEFAULT_NAV_GRAPH_COLORS,
 };
 use glam::{DAffine2, DMat3, DQuat, DVec2, DVec3, EulerRot};
 use serde::{Deserialize, Serialize};
@@ -200,6 +202,13 @@ impl BuildingMap {
 
         let mut fiducial_groups: BTreeMap<u32, FiducialGroup> = BTreeMap::new();
         let mut cartesian_fiducials: HashMap<u32, Vec<DVec2>> = HashMap::new();
+
+        let mut model_descriptions: BTreeMap<u32, ModelDescription> = BTreeMap::new();
+        let mut model_description_name_map = HashMap::<String, u32>::new();
+        let mut scenarios = BTreeMap::new();
+        let mut default_scenario_id = site_id.next().unwrap();
+        scenarios.insert(default_scenario_id, Scenario::default());
+
         for (level_name, level) in &self.levels {
             let level_id = site_id.next().unwrap();
             let mut vertex_to_anchor_id: HashMap<usize, u32> = Default::default();
@@ -501,9 +510,19 @@ impl BuildingMap {
                 rankings.floors.push(id);
             }
 
-            let mut models = BTreeMap::new();
             for model in &level.models {
-                models.insert(site_id.next().unwrap(), model.to_site());
+                let model_instance = model.to_model_instance(
+                    &mut model_description_name_map,
+                    &mut model_descriptions,
+                    &mut site_id,
+                    level_id,
+                );
+
+                scenarios
+                    .get_mut(&default_scenario_id)
+                    .unwrap()
+                    .model_instances
+                    .insert(site_id.next().unwrap(), model_instance);
             }
 
             let mut physical_cameras = BTreeMap::new();
@@ -548,7 +567,6 @@ impl BuildingMap {
                     drawings,
                     floors,
                     lights,
-                    models,
                     physical_cameras,
                     walls,
                     rankings,
@@ -712,6 +730,8 @@ impl BuildingMap {
                 },
             },
             agents: Default::default(),
+            scenarios,
+            model_descriptions,
         })
     }
 }
