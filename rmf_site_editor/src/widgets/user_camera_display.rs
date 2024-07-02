@@ -15,9 +15,9 @@
  *
 */
 
+use crate::{widgets::RenderUiSet, AppState};
 use bevy::prelude::*;
 use bevy_egui::EguiContexts;
-use crate::{AppState, widgets::RenderUiSet};
 
 /// This resource keeps track of the region that the user camera display is
 /// occupying in the window.
@@ -33,14 +33,13 @@ pub struct UserCameraDisplayPlugin {}
 
 impl Plugin for UserCameraDisplayPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<UserCameraDisplay>()
-            .add_systems(
-                Update,
-                update_user_camera_display
+        app.init_resource::<UserCameraDisplay>().add_systems(
+            Update,
+            update_user_camera_display
                 .in_set(UserCameraDisplaySet)
                 .after(RenderUiSet)
-                .run_if(AppState::in_site_mode())
-            );
+                .run_if(AppState::in_site_mode()),
+        );
     }
 }
 
@@ -58,6 +57,6 @@ fn update_user_camera_display(
         available_rect.min.x,
         available_rect.min.y,
         available_rect.max.x,
-        available_rect.max.y
+        available_rect.max.y,
     );
 }

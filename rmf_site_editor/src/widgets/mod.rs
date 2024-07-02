@@ -160,8 +160,8 @@ impl Plugin for StandardUiPlugin {
         .add_systems(
             Update,
             site_ui_layout
-            .in_set(RenderUiSet)
-            .run_if(AppState::in_displaying_mode()),
+                .in_set(RenderUiSet)
+                .run_if(AppState::in_displaying_mode()),
         )
         .add_systems(
             PostUpdate,

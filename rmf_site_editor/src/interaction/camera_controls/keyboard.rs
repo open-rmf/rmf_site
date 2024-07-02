@@ -16,8 +16,8 @@
 */
 
 use super::{
-    utils::*, CameraCommandType, CameraControls, ProjectionMode, MAX_FOV, MAX_SCALE,
-    MIN_FOV, MIN_SCALE,
+    utils::*, CameraCommandType, CameraControls, ProjectionMode, MAX_FOV, MAX_SCALE, MIN_FOV,
+    MIN_SCALE,
 };
 use crate::widgets::UserCameraDisplay;
 use bevy::{prelude::*, window::PrimaryWindow};
@@ -312,13 +312,8 @@ fn get_perspective_command(
             let yaw = keyboard_motion.x * MAX_ANGULAR_VEL * delta_seconds;
             let zoom = zoom_motion * MAX_TRANSLATION_VEL * delta_seconds;
 
-            let camera_transform_next = orbit_camera_around_point(
-                camera_transform,
-                camera_selection,
-                pitch,
-                yaw,
-                zoom,
-            );
+            let camera_transform_next =
+                orbit_camera_around_point(camera_transform, camera_selection, pitch, yaw, zoom);
             keyboard_command.translation_delta =
                 camera_transform_next.translation - camera_transform.translation;
             keyboard_command.rotation_delta =
