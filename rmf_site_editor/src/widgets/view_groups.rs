@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    site::{Change, FiducialMarker, MergeGroups, NameInSite, SiteID, Texture},
+    site::{Change, FiducialMarker, MergeGroups, ModelDescription, ModelMarker, NameInSite, SiteID, Texture},
     widgets::{prelude::*, SelectorWidget},
     AppState, CurrentWorkspace, Icons,
 };
@@ -39,6 +39,8 @@ pub struct ViewGroups<'w, 's> {
     children: Query<'w, 's, &'static Children>,
     textures: Query<'w, 's, (&'static NameInSite, Option<&'static SiteID>), With<Texture>>,
     fiducials: Query<'w, 's, (&'static NameInSite, Option<&'static SiteID>), With<FiducialMarker>>,
+    model_descriptions:
+        Query<'w, 's, (&'static NameInSite, Option<&'static SiteID>), With<ModelMarker>>,
     icons: Res<'w, Icons>,
     group_view_modes: ResMut<'w, GroupViewModes>,
     app_state: Res<'w, State<AppState>>,
@@ -80,6 +82,16 @@ impl<'w, 's> ViewGroups<'w, 's> {
         let Ok(children) = self.children.get(site) else {
             return;
         };
+        CollapsingHeader::new("Model Descriptions").show(ui, |ui| {
+            Self::show_groups(
+                children,
+                &self.model_descriptions,
+                &mut modes.model_descriptions,
+                &self.icons,
+                &mut self.events,
+                ui,
+            );
+        });
         CollapsingHeader::new("Textures").show(ui, |ui| {
             Self::show_groups(
                 children,
@@ -228,6 +240,7 @@ pub struct GroupViewModes {
     site: Option<Entity>,
     textures: GroupViewMode,
     fiducials: GroupViewMode,
+    model_descriptions: GroupViewMode,
 }
 
 impl GroupViewModes {

@@ -510,7 +510,6 @@ impl BuildingMap {
                 rankings.floors.push(id);
             }
 
-            let mut models = BTreeMap::new();
             for model in &level.models {
                 let model_instance = model.to_model_instance(
                     &mut model_description_name_map,
@@ -568,7 +567,6 @@ impl BuildingMap {
                     drawings,
                     floors,
                     lights,
-                    models,
                     physical_cameras,
                     walls,
                     rankings,

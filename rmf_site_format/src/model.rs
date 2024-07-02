@@ -91,3 +91,18 @@ pub struct ModelInstance<T: RefTrait> {
     #[serde(skip)]
     pub marker: ModelMarker,
 }
+
+impl<T: RefTrait> Default for ModelInstance<T> {
+    fn default() -> Self {
+        Self {
+            name: NameInSite("<Unnamed>".to_string()),
+            source: AssetSource::default(),
+            pose: Pose::default(),
+            parent: SiteParentID(0),
+            description: Affiliation::default(),
+            is_static: IsStatic(false),
+            scale: Scale::default(),
+            marker: ModelMarker,
+        }
+    }
+}

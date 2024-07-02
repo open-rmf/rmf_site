@@ -31,6 +31,10 @@ use rmf_site_format::{AssetSource, ModelMarker, Pending, Pose, Scale};
 use smallvec::SmallVec;
 use std::any::TypeId;
 
+#[derive(Component, Debug)]
+pub struct ModelDescriptionUsage;
+
+
 #[derive(Component, Debug, Clone)]
 pub struct ModelScene {
     source: AssetSource,

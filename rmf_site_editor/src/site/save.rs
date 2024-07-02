@@ -553,19 +553,6 @@ fn generate_levels(
                             },
                         );
                     }
-                    if let Ok((name, source, pose, is_static, scale, id)) = q_models.get(*c) {
-                        level.models.insert(
-                            id.0,
-                            Model {
-                                name: name.clone(),
-                                source: source.clone(),
-                                pose: pose.clone(),
-                                is_static: is_static.clone(),
-                                scale: scale.clone(),
-                                marker: ModelMarker,
-                            },
-                        );
-                    }
                     if let Ok((name, pose, properties, id)) = q_physical_cameras.get(*c) {
                         level.physical_cameras.insert(
                             id.0,
@@ -1429,7 +1416,6 @@ pub fn save_nav_graphs(world: &mut World) {
             level.drawings.clear();
             level.floors.clear();
             level.lights.clear();
-            level.models.clear();
             level.walls.clear();
         }
 

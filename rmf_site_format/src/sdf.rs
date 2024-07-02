@@ -434,6 +434,11 @@ impl Site {
             filename: "toggle_floors".into(),
             ..Default::default()
         };
+        // Only export default scenario into SDF for now
+        let (default_scenario_id, default_scenario) = self
+            .scenarios
+            .first_key_value()
+            .expect("No scenarios found");
         for (level_id, level) in &self.levels {
             let mut level_model_names = vec![];
             let mut model_element_map = ElementMap::default();
@@ -485,7 +490,10 @@ impl Site {
             });
             // TODO(luca) We need this because there is no concept of ingestor or dispenser in
             // rmf_site yet. Remove when there is
-            for (model_id, model) in &level.models {
+            for (model_id, model) in &default_scenario.model_instances {
+                if (model.parent.0 != *level_id) {
+                    continue;
+                }
                 let mut added = false;
                 if model.source == AssetSource::Search("OpenRobotics/TeleportIngestor".to_string())
                 {

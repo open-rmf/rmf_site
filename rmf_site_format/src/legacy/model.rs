@@ -57,7 +57,7 @@ impl Model {
                 model_descriptions.insert(
                     id,
                     ModelDescription {
-                        name: NameInSite(self.model_name.clone()),
+                        name: NameInSite(self.model_name.split("/").last().unwrap().to_string()),
                         source: AssetSource::Search(self.model_name.clone()),
                         group: Group::default(),
                         marker: ModelMarker,

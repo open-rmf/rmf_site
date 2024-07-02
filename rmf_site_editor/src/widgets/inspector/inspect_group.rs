@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    site::{Affiliation, Change, DefaultFile, Group, Members, NameInSite, Texture},
+    site::{Affiliation, AssetSource, Change, DefaultFile, Group, Members, NameInSite, Texture},
     widgets::{inspector::InspectTexture, prelude::*, Inspect, SelectorWidget},
     CurrentWorkspace,
 };
@@ -29,6 +29,7 @@ pub struct InspectGroup<'w, 's> {
     affiliation: Query<'w, 's, &'static Affiliation<Entity>>,
     names: Query<'w, 's, &'static NameInSite>,
     textures: Query<'w, 's, &'static Texture>,
+    assets: Query<'w, 's, &'static AssetSource>,
     members: Query<'w, 's, &'static Members>,
     default_file: Query<'w, 's, &'static DefaultFile>,
     current_workspace: Res<'w, CurrentWorkspace>,
@@ -69,7 +70,11 @@ impl<'w, 's> InspectGroup<'w, 's> {
             .root
             .map(|e| self.default_file.get(e).ok())
             .flatten();
-
+        if let Ok(asset) = self.assets.get(id) {
+            ui.label(RichText::new("Asset Source").size(18.0));
+            ui.label(format!("{:?}", asset));
+            ui.add_space(10.0);
+        }
         if let Ok(texture) = self.textures.get(id) {
             ui.label(RichText::new("Texture Properties").size(18.0));
             if let Some(new_texture) = InspectTexture::new(texture, default_file).show(ui) {
