@@ -20,6 +20,7 @@ use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Bundle, Component, Reflect, ReflectComponent};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
@@ -104,5 +105,20 @@ impl<T: RefTrait> Default for ModelInstance<T> {
             scale: Scale::default(),
             marker: ModelMarker,
         }
+    }
+}
+
+impl<T: RefTrait> ModelInstance<T> {
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<ModelInstance<U>, T> {
+        Ok(ModelInstance {
+            name: self.name.clone(),
+            source: self.source.clone(),
+            pose: self.pose.clone(),
+            parent: self.parent.clone(),
+            description: self.description.convert(id_map)?,
+            is_static: self.is_static.clone(),
+            scale: self.scale.clone(),
+            marker: Default::default(),
+        })
     }
 }

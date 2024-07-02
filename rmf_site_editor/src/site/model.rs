@@ -29,11 +29,7 @@ use bevy::{
 use bevy_mod_outline::OutlineMeshExt;
 use rmf_site_format::{AssetSource, ModelMarker, Pending, Pose, Scale};
 use smallvec::SmallVec;
-use std::any::TypeId;
-
-#[derive(Component, Debug)]
-pub struct ModelDescriptionUsage;
-
+use std::{any::TypeId, collections::HashMap};
 
 #[derive(Component, Debug, Clone)]
 pub struct ModelScene {
@@ -181,7 +177,7 @@ pub fn update_model_scenes(
         (
             Entity,
             &AssetSource,
-            &Pose,
+            Option<&Pose>,
             &TentativeModelFormat,
             Option<&Visibility>,
         ),
@@ -194,12 +190,16 @@ pub fn update_model_scenes(
     fn spawn_model(
         e: Entity,
         source: &AssetSource,
-        pose: &Pose,
+        pose: Option<&Pose>,
         asset_server: &AssetServer,
         tentative_format: &TentativeModelFormat,
         has_visibility: bool,
         commands: &mut Commands,
     ) {
+        let (category, pose) = match pose {
+            Some(pose) => (Category::Model, pose),
+            None => (Category::ModelDescription, &Pose::default()),
+        };
         let mut commands = commands.entity(e);
         commands
             .insert(ModelScene {
@@ -208,7 +208,7 @@ pub fn update_model_scenes(
                 entity: None,
             })
             .insert(TransformBundle::from_transform(pose.transform()))
-            .insert(Category::Model);
+            .insert(category);
 
         if !has_visibility {
             // NOTE: We separate this out because for CollisionMeshMarker
@@ -483,4 +483,11 @@ pub fn propagate_model_render_layers(
             }
         }
     }
+}
+
+#[derive(Component, Debug)]
+pub struct ModelDescriptionUsage {
+    site: Entity,
+    used: HashMap<Entity, String>,
+    unused: HashMap<Entity, String>,
 }

@@ -18,10 +18,11 @@
 use crate::{
     site::{Affiliation, AssetSource, Change, DefaultFile, Group, Members, NameInSite, Texture},
     widgets::{inspector::InspectTexture, prelude::*, Inspect, SelectorWidget},
-    CurrentWorkspace,
+    CurrentWorkspace, InspectAssetSource,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, RichText, Ui};
+use rmf_site_format::RecallAssetSource;
 
 #[derive(SystemParam)]
 pub struct InspectGroup<'w, 's> {
@@ -54,7 +55,6 @@ impl<'w, 's> InspectGroup<'w, 's> {
         if self.is_group.contains(id) {
             self.show_group_properties(id, ui);
         }
-
         if let Ok(Affiliation(Some(group))) = self.affiliation.get(id) {
             ui.separator();
             let name = self.names.get(*group).map(|n| n.0.as_str()).unwrap_or("");
@@ -63,7 +63,6 @@ impl<'w, 's> InspectGroup<'w, 's> {
             self.show_group_properties(*group, ui);
         }
     }
-
     pub fn show_group_properties(&mut self, id: Entity, ui: &mut Ui) {
         let default_file = self
             .current_workspace
@@ -72,7 +71,7 @@ impl<'w, 's> InspectGroup<'w, 's> {
             .flatten();
         if let Ok(asset) = self.assets.get(id) {
             ui.label(RichText::new("Asset Source").size(18.0));
-            ui.label(format!("{:?}", asset));
+            let a = 5;
             ui.add_space(10.0);
         }
         if let Ok(texture) = self.textures.get(id) {

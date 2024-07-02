@@ -16,7 +16,10 @@
 */
 
 use crate::{
-    site::{Change, FiducialMarker, MergeGroups, ModelDescription, ModelMarker, NameInSite, SiteID, Texture},
+    site::{
+        Change, FiducialMarker, MergeGroups, ModelDescription, ModelMarker, NameInSite, SiteID,
+        Texture,
+    },
     widgets::{prelude::*, SelectorWidget},
     AppState, CurrentWorkspace, Icons,
 };

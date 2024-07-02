@@ -225,7 +225,7 @@ fn generate_site_entities(
                 for (model_instance_id, model_instance) in &default_scenario.model_instances {
                     if model_instance.parent.0 == *level_id {
                         level
-                            .spawn(model_instance.clone())
+                            .spawn(model_instance.convert(&id_to_entity).for_site(site_id).expect("Model instance does not have a corresponding description spawned"))
                             .insert(SiteID(*model_instance_id));
                         consider_id(*model_instance_id);
                     }
