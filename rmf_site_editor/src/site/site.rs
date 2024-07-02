@@ -166,7 +166,7 @@ pub fn set_camera_transform_for_changed_site(
             translation.x = translation.x + 10.0;
             translation.y = translation.y + 10.0;
             translation.z = 0.0;
-            camera_controls.orbit_center = translation;
+            camera_controls.orbit_center = Some(translation);
         }
     }
 }

@@ -14,20 +14,26 @@
  * limitations under the License.
  *
 */
-
-use crate::interaction::PickingBlockers;
+use crate::interaction::{InteractionAssets, PickingBlockers};
 use bevy::{
-    core_pipeline::clear_color::ClearColorConfig,
-    core_pipeline::core_3d::Camera3dBundle,
-    core_pipeline::tonemapping::Tonemapping,
-    input::mouse::{MouseButton, MouseWheel},
+    core_pipeline::{
+        clear_color::ClearColorConfig, core_3d::Camera3dBundle, tonemapping::Tonemapping,
+    },
     prelude::*,
     render::{
         camera::{Camera, Projection, ScalingMode},
         view::RenderLayers,
     },
-    window::PrimaryWindow,
 };
+
+mod utils;
+use utils::*;
+
+mod cursor;
+use cursor::{update_cursor_command, CursorCommand};
+
+mod keyboard;
+use keyboard::{update_keyboard_command, KeyboardCommand};
 
 /// RenderLayers are used to inform cameras which entities they should render.
 /// The General render layer is for things that should be visible to all
@@ -55,18 +61,28 @@ pub const XRAY_RENDER_LAYER: u8 = 5;
 /// models in the engine without having them being visible to general cameras
 pub const MODEL_PREVIEW_LAYER: u8 = 6;
 
-#[derive(Resource)]
-struct MouseLocation {
-    previous: Vec2,
+/// Camera limits
+pub const MIN_FOV: f32 = 5.0;
+pub const MAX_FOV: f32 = 120.0;
+pub const MIN_SCALE: f32 = 0.5;
+pub const MAX_SCALE: f32 = 500.0;
+pub const MAX_PITCH: f32 = 85.0;
+pub const MIN_SELECTION_DIST: f32 = 10.0;
+pub const MAX_SELECTION_DIST: f32 = 30.0;
+
+#[derive(PartialEq, Debug, Copy, Clone)]
+pub enum CameraCommandType {
+    Inactive,
+    Pan,
+    Orbit,
+    TranslationZoom,
+    ScaleZoom,
+    FovZoom,
 }
 
-impl Default for MouseLocation {
-    fn default() -> Self {
-        MouseLocation {
-            previous: Vec2::ZERO,
-        }
-    }
-}
+#[derive(Default, Reflect)]
+struct OrbitCenterGizmo {}
+
 #[derive(PartialEq, Debug, Copy, Clone, Reflect, Resource)]
 pub enum ProjectionMode {
     Perspective,
@@ -103,10 +119,8 @@ pub struct CameraControls {
     pub perspective_headlight: Entity,
     pub orthographic_camera_entities: [Entity; 4],
     pub orthographic_headlight: Entity,
-    pub orbit_center: Vec3,
-    pub orbit_radius: f32,
-    pub orbit_upside_down: bool,
-    pub was_oribiting: bool,
+    pub selection_marker: Entity,
+    pub orbit_center: Option<Vec3>,
 }
 
 /// True/false for whether the headlight should be on or off
@@ -227,6 +241,18 @@ impl CameraControls {
 
 impl FromWorld for CameraControls {
     fn from_world(world: &mut World) -> Self {
+        let interaction_assets = world.get_resource::<InteractionAssets>().expect(
+            "make sure that the InteractionAssets resource is initialized before the camera plugin",
+        );
+        let selection_mesh = interaction_assets.camera_control_mesh.clone();
+        let selection_marker = world
+            .spawn(PbrBundle {
+                mesh: selection_mesh,
+                visibility: Visibility::Visible,
+                ..default()
+            })
+            .id();
+
         let perspective_headlight = world
             .spawn(DirectionalLightBundle {
                 directional_light: DirectionalLight {
@@ -372,21 +398,15 @@ impl FromWorld for CameraControls {
                 orthographic_child_cameras[2],
             ],
             orthographic_headlight,
-            orbit_center: Vec3::ZERO,
-            orbit_radius: (3.0 * 10.0 * 10.0 as f32).sqrt(),
-            orbit_upside_down: false,
-            was_oribiting: false,
+            selection_marker,
+            orbit_center: None,
         }
     }
 }
 
 fn camera_controls(
-    primary_windows: Query<&Window, With<PrimaryWindow>>,
-    mut ev_cursor_moved: EventReader<CursorMoved>,
-    mut ev_scroll: EventReader<MouseWheel>,
-    input_mouse: Res<Input<MouseButton>>,
-    input_keyboard: Res<Input<KeyCode>>,
-    mut previous_mouse_location: ResMut<MouseLocation>,
+    mut cursor_command: ResMut<CursorCommand>,
+    mut keyboard_command: ResMut<KeyboardCommand>,
     mut controls: ResMut<CameraControls>,
     mut cameras: Query<(&mut Projection, &mut Transform)>,
     mut bevy_cameras: Query<&mut Camera>,
@@ -413,41 +433,45 @@ fn camera_controls(
         return;
     }
 
-    let is_shifting =
-        input_keyboard.pressed(KeyCode::ShiftLeft) || input_keyboard.pressed(KeyCode::ShiftRight);
-    let is_panning = input_mouse.pressed(MouseButton::Right) && !is_shifting;
-
-    let is_orbiting = input_mouse.pressed(MouseButton::Middle)
-        || (input_mouse.pressed(MouseButton::Right) && is_shifting);
-    let started_orbiting = !controls.was_oribiting && is_orbiting;
-    let released_orbiting = controls.was_oribiting && !is_orbiting;
-    controls.was_oribiting = is_orbiting;
-
-    // spin through all mouse cursor-moved events to find the last one
-    let mut last_pos = previous_mouse_location.previous;
-    if let Some(ev) = ev_cursor_moved.read().last() {
-        last_pos.x = ev.position.x;
-        last_pos.y = ev.position.y;
+    let translation_delta: Vec3;
+    let rotation_delta: Quat;
+    let fov_delta: f32;
+    let scale_delta: f32;
+    if cursor_command.command_type != CameraCommandType::Inactive {
+        translation_delta = cursor_command.take_translation_delta();
+        rotation_delta = cursor_command.take_rotation_delta();
+        fov_delta = cursor_command.take_fov_delta();
+        scale_delta = cursor_command.take_scale_delta();
+    } else {
+        translation_delta = keyboard_command.take_translation_delta();
+        rotation_delta = keyboard_command.take_rotation_delta();
+        fov_delta = keyboard_command.take_fov_delta();
+        scale_delta = keyboard_command.take_scale_delta();
     }
 
-    let mut cursor_motion = Vec2::ZERO;
-    if is_panning || is_orbiting {
-        cursor_motion.x = last_pos.x - previous_mouse_location.previous.x;
-        cursor_motion.y = last_pos.y - previous_mouse_location.previous.y;
-    }
+    if controls.mode() == ProjectionMode::Perspective {
+        let (mut persp_proj, mut persp_transform) = cameras
+            .get_mut(controls.perspective_camera_entities[0])
+            .unwrap();
+        if let Projection::Perspective(persp_proj) = persp_proj.as_mut() {
+            persp_transform.translation += translation_delta;
+            persp_transform.rotation *= rotation_delta;
+            persp_proj.fov += fov_delta;
+            persp_proj.fov = persp_proj
+                .fov
+                .clamp(MIN_FOV.to_radians(), MAX_FOV.to_radians());
 
-    previous_mouse_location.previous = last_pos;
-
-    let mut scroll = 0.0;
-    for ev in ev_scroll.read() {
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            scroll += ev.y;
+            // Ensure upright
+            let forward = persp_transform.forward();
+            persp_transform.look_to(forward, Vec3::Z);
         }
-        #[cfg(target_arch = "wasm32")]
-        {
-            // scrolling in wasm is a different beast
-            scroll += 0.4 * ev.y / ev.y.abs();
+
+        let proj = persp_proj.clone();
+        let children = cameras
+            .get_many_mut(controls.perspective_camera_entities)
+            .unwrap();
+        for (mut child_proj, _) in children {
+            *child_proj = proj.clone();
         }
     }
 
@@ -456,22 +480,9 @@ fn camera_controls(
             .get_mut(controls.orthographic_camera_entities[0])
             .unwrap();
         if let Projection::Orthographic(ortho_proj) = ortho_proj.as_mut() {
-            if let Ok(window) = primary_windows.get_single() {
-                let window_size = Vec2::new(window.width() as f32, window.height() as f32);
-                let aspect_ratio = window_size[0] / window_size[1];
-
-                if cursor_motion.length_squared() > 0.0 {
-                    cursor_motion *= 2. / window_size
-                        * Vec2::new(ortho_proj.scale * aspect_ratio, ortho_proj.scale);
-                    let right = -cursor_motion.x * Vec3::X;
-                    let up = cursor_motion.y * Vec3::Y;
-                    ortho_transform.translation += right + up;
-                }
-                if scroll.abs() > 0.0 {
-                    ortho_proj.scale -= scroll * ortho_proj.scale * 0.1;
-                    ortho_proj.scale = f32::max(ortho_proj.scale, 0.02);
-                }
-            }
+            ortho_transform.translation += translation_delta;
+            ortho_transform.rotation *= rotation_delta;
+            ortho_proj.scale += scale_delta;
         }
 
         let proj = ortho_proj.clone();
@@ -481,73 +492,48 @@ fn camera_controls(
         for (mut child_proj, _) in children {
             *child_proj = proj.clone();
         }
-    } else {
-        // perspective mode
-        let (mut persp_proj, mut persp_transform) = cameras
-            .get_mut(controls.perspective_camera_entities[0])
-            .unwrap();
-        if let Projection::Perspective(persp_proj) = persp_proj.as_mut() {
-            let mut changed = false;
+    }
+}
 
-            if started_orbiting || released_orbiting {
-                // only check for upside down when orbiting started or ended this frame
-                // if the camera is "upside" down, panning horizontally would be inverted, so invert the input to make it correct
-                let up = persp_transform.rotation * Vec3::Z;
-                controls.orbit_upside_down = up.z <= 0.0;
+fn update_orbit_center_marker(
+    controls: Res<CameraControls>,
+    keyboard_command: Res<KeyboardCommand>,
+    cursor_command: Res<CursorCommand>,
+    interaction_assets: Res<InteractionAssets>,
+    mut gizmo: Gizmos,
+    mut marker_query: Query<
+        (
+            &mut Transform,
+            &mut Visibility,
+            &mut Handle<StandardMaterial>,
+        ),
+        Without<Projection>,
+    >,
+) {
+    if let Ok((mut marker_transform, mut marker_visibility, mut marker_material)) =
+        marker_query.get_mut(controls.selection_marker)
+    {
+        // Orbitting
+        if (cursor_command.command_type == CameraCommandType::Orbit
+            || keyboard_command.command_type == CameraCommandType::Orbit)
+            && controls.mode() == ProjectionMode::Perspective
+        {
+            if let Some(orbit_center) = controls.orbit_center {
+                *marker_visibility = Visibility::Visible;
+                *marker_material = interaction_assets.camera_control_orbit_material.clone();
+                marker_transform.translation = orbit_center;
+                gizmo.sphere(orbit_center, Quat::IDENTITY, 0.1, Color::GREEN);
             }
-
-            if is_orbiting && cursor_motion.length_squared() > 0. {
-                changed = true;
-                if let Ok(window) = primary_windows.get_single() {
-                    let window_size = Vec2::new(window.width() as f32, window.height() as f32);
-                    let delta_x = {
-                        let delta = cursor_motion.x / window_size.x * std::f32::consts::PI * 2.0;
-                        if controls.orbit_upside_down {
-                            -delta
-                        } else {
-                            delta
-                        }
-                    };
-                    let delta_y = cursor_motion.y / window_size.y * std::f32::consts::PI;
-                    let yaw = Quat::from_rotation_z(-delta_x);
-                    let pitch = Quat::from_rotation_x(-delta_y);
-                    persp_transform.rotation = yaw * persp_transform.rotation; // global y
-                    persp_transform.rotation = persp_transform.rotation * pitch;
-                    // local x
-                }
-            } else if is_panning && cursor_motion.length_squared() > 0. {
-                changed = true;
-                // make panning distance independent of resolution and FOV,
-                if let Ok(window) = primary_windows.get_single() {
-                    let window_size = Vec2::new(window.width() as f32, window.height() as f32);
-
-                    cursor_motion *=
-                        Vec2::new(persp_proj.fov * persp_proj.aspect_ratio, persp_proj.fov)
-                            / window_size;
-                    // translate by local axes
-                    let right = persp_transform.rotation * Vec3::X * -cursor_motion.x;
-                    let up = persp_transform.rotation * Vec3::Y * cursor_motion.y;
-                    // make panning proportional to distance away from center point
-                    let translation = (right + up) * controls.orbit_radius;
-                    controls.orbit_center += translation;
-                }
+        // Panning
+        } else if cursor_command.command_type == CameraCommandType::Pan {
+            if let Some(cursor_selection) = cursor_command.cursor_selection {
+                *marker_visibility = Visibility::Visible;
+                *marker_material = interaction_assets.camera_control_pan_material.clone();
+                marker_transform.translation = cursor_selection;
+                gizmo.sphere(cursor_selection, Quat::IDENTITY, 0.1, Color::WHITE);
             }
-
-            if scroll.abs() > 0.0 {
-                changed = true;
-                controls.orbit_radius -= scroll * controls.orbit_radius * 0.2;
-                // dont allow zoom to reach zero or you get stuck
-                controls.orbit_radius = f32::max(controls.orbit_radius, 0.05);
-            }
-
-            if changed {
-                // emulating parent/child to make the yaw/y-axis rotation behave like a turntable
-                // parent = x and y rotation
-                // child = z-offset
-                let rot_matrix = Mat3::from_quat(persp_transform.rotation);
-                persp_transform.translation = controls.orbit_center
-                    + rot_matrix.mul_vec3(Vec3::new(0.0, 0.0, controls.orbit_radius));
-            }
+        } else {
+            *marker_visibility = Visibility::Hidden;
         }
     }
 }
@@ -556,10 +542,20 @@ pub struct CameraControlsPlugin;
 
 impl Plugin for CameraControlsPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(MouseLocation::default())
-            .init_resource::<CameraControls>()
+        app.init_resource::<CameraControls>()
+            .init_resource::<CursorCommand>()
+            .init_resource::<KeyboardCommand>()
             .init_resource::<HeadlightToggle>()
             .add_event::<ChangeProjectionMode>()
-            .add_systems(Update, camera_controls);
+            .add_systems(
+                Update,
+                (
+                    update_cursor_command,
+                    update_keyboard_command,
+                    camera_controls,
+                )
+                    .chain(),
+            )
+            .add_systems(Update, update_orbit_center_marker);
     }
 }

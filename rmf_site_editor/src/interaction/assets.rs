@@ -21,6 +21,7 @@ use bevy_polyline::{
     material::PolylineMaterial,
     polyline::{Polyline, PolylineBundle},
 };
+use shape::UVSphere;
 
 #[derive(Clone, Debug, Resource)]
 pub struct InteractionAssets {
@@ -28,6 +29,9 @@ pub struct InteractionAssets {
     pub dagger_material: Handle<StandardMaterial>,
     pub halo_mesh: Handle<Mesh>,
     pub halo_material: Handle<StandardMaterial>,
+    pub camera_control_mesh: Handle<Mesh>,
+    pub camera_control_orbit_material: Handle<StandardMaterial>,
+    pub camera_control_pan_material: Handle<StandardMaterial>,
     pub arrow_mesh: Handle<Mesh>,
     pub point_light_socket_mesh: Handle<Mesh>,
     pub point_light_shine_mesh: Handle<Mesh>,
@@ -224,6 +228,10 @@ impl FromWorld for InteractionAssets {
         let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
         let dagger_mesh = meshes.add(make_dagger_mesh());
         let halo_mesh = meshes.add(make_halo_mesh());
+        let camera_control_mesh = meshes.add(Mesh::from(UVSphere {
+            radius: 0.02,
+            ..Default::default()
+        }));
         let arrow_mesh = meshes.add(make_cylinder_arrow_mesh());
         let point_light_socket_mesh = meshes.add(
             make_cylinder(0.06, 0.02)
@@ -298,8 +306,22 @@ impl FromWorld for InteractionAssets {
         });
         let dagger_material = materials.add(StandardMaterial {
             base_color: Color::WHITE,
+            emissive: Color::WHITE,
             perceptual_roughness: 0.089,
             metallic: 0.01,
+            ..default()
+        });
+        let camera_control_orbit_material = materials.add(StandardMaterial {
+            base_color: Color::GREEN,
+            emissive: Color::GREEN,
+            depth_bias: f32::MAX,
+            unlit: true,
+            ..default()
+        });
+        let camera_control_pan_material = materials.add(StandardMaterial {
+            base_color: Color::WHITE,
+            emissive: Color::WHITE,
+            unlit: true,
             ..default()
         });
         let light_cover_color = Color::rgb(0.6, 0.7, 0.8);
@@ -401,6 +423,9 @@ impl FromWorld for InteractionAssets {
             dagger_material,
             halo_mesh,
             halo_material,
+            camera_control_mesh,
+            camera_control_orbit_material,
+            camera_control_pan_material,
             arrow_mesh,
             point_light_socket_mesh,
             point_light_shine_mesh,
