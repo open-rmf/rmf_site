@@ -101,6 +101,9 @@ pub use sdf_export_menu::*;
 pub mod selector_widget;
 pub use selector_widget::*;
 
+pub mod user_camera_display;
+pub use user_camera_display::*;
+
 pub mod view_groups;
 use view_groups::*;
 
@@ -151,11 +154,14 @@ impl Plugin for StandardUiPlugin {
             FuelAssetBrowserPlugin::default(),
             DiagnosticsPlugin::default(),
             ConsoleWidgetPlugin::default(),
+            UserCameraDisplayPlugin::default(),
         ))
         .add_systems(Startup, init_ui_style)
         .add_systems(
             Update,
-            site_ui_layout.run_if(AppState::in_displaying_mode()),
+            site_ui_layout
+                .in_set(RenderUiSet)
+                .run_if(AppState::in_displaying_mode()),
         )
         .add_systems(
             PostUpdate,
@@ -385,6 +391,12 @@ impl ShowSharedWidget for World {
         })
     }
 }
+
+/// This set is for systems that impact rendering the UI using egui. The
+/// [`UserCameraDisplay`] resource waits until after this set is finished before
+/// computing the user camera area.
+#[derive(SystemSet, Hash, PartialEq, Eq, Debug, Clone)]
+pub struct RenderUiSet;
 
 /// This system renders all UI panels in the application and makes sure that the
 /// UI rendering works correctly with the picking system, and any other systems
