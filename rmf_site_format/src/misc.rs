@@ -407,7 +407,7 @@ pub struct PreviewableMarker;
 pub struct SiteID(pub u32);
 
 /// This component is applied to an entity to indicate that it is defined in relation
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
 pub struct SiteParentID(pub u32);
 

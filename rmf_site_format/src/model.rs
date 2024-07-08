@@ -69,14 +69,13 @@ impl Default for Model {
 pub struct ModelDescription {
     pub name: NameInSite,
     pub source: AssetSource,
-    #[serde(default, skip_serializing_if = "is_default")]
     #[serde(skip)]
     pub group: Group,
     #[serde(skip)]
     pub marker: ModelMarker,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct ModelInstance<T: RefTrait> {
     pub name: NameInSite,

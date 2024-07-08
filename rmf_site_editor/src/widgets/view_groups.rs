@@ -16,9 +16,10 @@
 */
 
 use crate::{
+    interaction::{ChangeMode, SelectAnchor3D},
     site::{
-        Change, FiducialMarker, MergeGroups, ModelDescription, ModelMarker, NameInSite, SiteID,
-        Texture,
+        Affiliation, AssetSource, Change, FiducialMarker, Group, MergeGroups, ModelInstance,
+        ModelMarker, NameInSite, SiteID, Texture,
     },
     widgets::{prelude::*, SelectorWidget},
     AppState, CurrentWorkspace, Icons,
@@ -40,10 +41,36 @@ impl Plugin for ViewGroupsPlugin {
 #[derive(SystemParam)]
 pub struct ViewGroups<'w, 's> {
     children: Query<'w, 's, &'static Children>,
-    textures: Query<'w, 's, (&'static NameInSite, Option<&'static SiteID>), With<Texture>>,
-    fiducials: Query<'w, 's, (&'static NameInSite, Option<&'static SiteID>), With<FiducialMarker>>,
-    model_descriptions:
-        Query<'w, 's, (&'static NameInSite, Option<&'static SiteID>), With<ModelMarker>>,
+    textures: Query<
+        'w,
+        's,
+        (
+            &'static NameInSite,
+            Option<&'static AssetSource>,
+            Option<&'static SiteID>,
+        ),
+        With<Texture>,
+    >,
+    fiducials: Query<
+        'w,
+        's,
+        (
+            &'static NameInSite,
+            Option<&'static AssetSource>,
+            Option<&'static SiteID>,
+        ),
+        With<FiducialMarker>,
+    >,
+    model_descriptions: Query<
+        'w,
+        's,
+        (
+            &'static NameInSite,
+            Option<&'static AssetSource>,
+            Option<&'static SiteID>,
+        ),
+        With<ModelMarker>,
+    >,
     icons: Res<'w, Icons>,
     group_view_modes: ResMut<'w, GroupViewModes>,
     app_state: Res<'w, State<AppState>>,
@@ -54,6 +81,7 @@ pub struct ViewGroups<'w, 's> {
 pub struct ViewGroupsEvents<'w, 's> {
     current_workspace: ResMut<'w, CurrentWorkspace>,
     selector: SelectorWidget<'w, 's>,
+    change_mode: EventWriter<'w, ChangeMode>,
     merge_groups: EventWriter<'w, MergeGroups>,
     name: EventWriter<'w, Change<NameInSite>>,
     commands: Commands<'w, 's>,
@@ -119,7 +147,7 @@ impl<'w, 's> ViewGroups<'w, 's> {
 
     fn show_groups<'b, T: Component>(
         children: impl IntoIterator<Item = &'b Entity>,
-        q_groups: &Query<(&NameInSite, Option<&SiteID>), With<T>>,
+        q_groups: &Query<(&NameInSite, Option<&AssetSource>, Option<&SiteID>), With<T>>,
         mode: &mut GroupViewMode,
         icons: &Res<Icons>,
         events: &mut ViewGroupsEvents,
@@ -165,7 +193,7 @@ impl<'w, 's> ViewGroups<'w, 's> {
         });
 
         for child in children {
-            let Ok((name, site_id)) = q_groups.get(*child) else {
+            let Ok((name, asset_source, site_id)) = q_groups.get(*child) else {
                 continue;
             };
             let text = site_id
@@ -174,6 +202,24 @@ impl<'w, 's> ViewGroups<'w, 's> {
             ui.horizontal(|ui| {
                 match mode.clone() {
                     GroupViewMode::View => {
+                        if let Some(asset_source) = asset_source {
+                            if ui
+                                .add(Button::image(icons.add.egui()))
+                                .on_hover_text("Add a new model instance of this group")
+                                .clicked()
+                            {
+                                let instance: ModelInstance<Entity> = ModelInstance {
+                                    source: asset_source.clone(),
+                                    description: Affiliation(Some(child.clone())),
+                                    ..Default::default()
+                                };
+                                events.change_mode.send(ChangeMode::To(
+                                    SelectAnchor3D::create_new_point()
+                                        .for_model_instance(instance)
+                                        .into(),
+                                ));
+                            };
+                        };
                         events.selector.show_widget(*child, ui);
                     }
                     GroupViewMode::SelectMergeFrom => {
