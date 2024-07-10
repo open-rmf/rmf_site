@@ -17,26 +17,104 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Component, Entity};
+use bevy::prelude::{Bundle, Component, Reflect, ReflectComponent};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
+pub struct ScenarioMarker;
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
-pub struct ScenarioProperties {
-    pub name: String,
+pub struct Scenario<T: RefTrait> {
+    pub parent_scenario: Affiliation<T>,
+    pub added_model_instances: Vec<T>,
+    pub removed_model_instances: Vec<T>,
+    pub moved_model_instances: Vec<(T, Pose)>,
 }
 
-impl Default for ScenarioProperties {
+// Create a root scenario without parent
+impl<T: RefTrait> Default for Scenario<T> {
     fn default() -> Self {
         Self {
-            name: "new_scenario".to_owned(),
+            parent_scenario: Affiliation::default(),
+            added_model_instances: Vec::new(),
+            removed_model_instances: Vec::new(),
+            moved_model_instances: Vec::new(),
         }
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
-pub struct Scenario {
-    pub properties: ScenarioProperties,
-    pub model_instances: BTreeMap<u32, ModelInstance<u32>>,
+impl<T: RefTrait> Scenario<T> {
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Scenario<U>, T> {
+        Ok(Scenario {
+            parent_scenario: self.parent_scenario.convert(id_map)?,
+            added_model_instances: self
+                .added_model_instances
+                .clone()
+                .into_iter()
+                .map(|id| {
+                    id_map
+                        .get(&id)
+                        .expect("Scenario contains non existent added instance")
+                        .clone()
+                })
+                .collect(),
+            removed_model_instances: self
+                .removed_model_instances
+                .clone()
+                .into_iter()
+                .map(|id| {
+                    id_map
+                        .get(&id)
+                        .expect("Scenario contains non existent removed instance")
+                        .clone()
+                })
+                .collect(),
+            moved_model_instances: self
+                .moved_model_instances
+                .clone()
+                .into_iter()
+                .map(|(id, pose)| {
+                    (
+                        id_map
+                            .get(&id)
+                            .expect("Scenario contains non existent moved instance")
+                            .clone(),
+                        pose,
+                    )
+                })
+                .collect(),
+        })
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
+pub struct ScenarioBundle<T: RefTrait> {
+    pub name: NameInSite,
+    pub scenario: Scenario<T>,
+    pub marker: ScenarioMarker,
+}
+
+impl<T: RefTrait> Default for ScenarioBundle<T> {
+    fn default() -> Self {
+        Self {
+            name: NameInSite("Default Scenario".to_string()),
+            scenario: Scenario::default(),
+            marker: ScenarioMarker,
+        }
+    }
+}
+
+impl<T: RefTrait> ScenarioBundle<T> {
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<ScenarioBundle<U>, T> {
+        Ok(ScenarioBundle {
+            name: self.name.clone(),
+            scenario: self.scenario.convert(id_map)?,
+            marker: ScenarioMarker,
+        })
+    }
 }

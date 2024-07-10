@@ -141,9 +141,11 @@ pub struct Site {
 
     /// Scenarios that exist in the site
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub scenarios: BTreeMap<u32, Scenario>,
+    pub scenarios: BTreeMap<u32, ScenarioBundle<u32>>,
     #[serde(default, skip_serializing_if = "is_default")]
-    pub model_descriptions: BTreeMap<u32, ModelDescription>,
+    pub model_descriptions: BTreeMap<u32, ModelDescriptionBundle>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub model_instances: BTreeMap<u32, ModelInstance<u32>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]

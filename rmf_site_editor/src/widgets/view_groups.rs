@@ -208,16 +208,16 @@ impl<'w, 's> ViewGroups<'w, 's> {
                                 .on_hover_text("Add a new model instance of this group")
                                 .clicked()
                             {
-                                let instance: ModelInstance<Entity> = ModelInstance {
-                                    source: asset_source.clone(),
-                                    description: Affiliation(Some(child.clone())),
-                                    ..Default::default()
-                                };
-                                events.change_mode.send(ChangeMode::To(
-                                    SelectAnchor3D::create_new_point()
-                                        .for_model_instance(instance)
-                                        .into(),
-                                ));
+                                // let instance: ModelInstance<Entity> = ModelInstance {
+                                //     // source: asset_source.clone(),
+                                //     description: Affiliation(Some(child.clone())),
+                                //     ..Default::default()
+                                // };
+                                // events.change_mode.send(ChangeMode::To(
+                                //     SelectAnchor3D::create_new_point()
+                                //         .for_model_instance(instance)
+                                //         .into(),
+                                // ));
                             };
                         };
                         events.selector.show_widget(*child, ui);

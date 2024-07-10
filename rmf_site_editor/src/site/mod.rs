@@ -99,6 +99,9 @@ pub use sdf::*;
 pub mod save;
 pub use save::*;
 
+pub mod scenario;
+pub use scenario::*;
+
 pub mod sdf_exporter;
 pub use sdf_exporter::*;
 
@@ -188,6 +191,7 @@ impl Plugin for SitePlugin {
         .init_resource::<FuelClient>()
         .init_resource::<SiteAssets>()
         .init_resource::<CurrentLevel>()
+        .init_resource::<CurrentScenario>()
         .init_resource::<PhysicalLightToggle>()
         .init_resource::<FuelCacheUpdateChannel>()
         .init_resource::<FuelCacheProgressChannel>()

@@ -1,6 +1,7 @@
 use crate::{
-    Affiliation, Angle, AssetSource, Group, IsStatic, Model as SiteModel, ModelDescription,
-    ModelInstance, ModelMarker, NameInSite, Pose, Rotation, Scale, SiteParentID,
+    model, Affiliation, Angle, AssetSource, Group, IsStatic, Model as SiteModel, ModelDescription,
+    ModelDescriptionBundle, ModelInstance, ModelMarker, NameInSite, Pose, Rotation, Scale,
+    SiteParentID,
 };
 use glam::DVec2;
 use serde::{Deserialize, Serialize};
@@ -42,13 +43,14 @@ impl Model {
         }
     }
 
-    pub fn to_model_instance(
+    pub fn update_instances_descriptions(
         &self,
         model_description_name_map: &mut HashMap<String, u32>,
-        model_descriptions: &mut BTreeMap<u32, ModelDescription>,
+        model_descriptions: &mut BTreeMap<u32, ModelDescriptionBundle>,
+        model_instances: &mut BTreeMap<u32, ModelInstance<u32>>,
         site_id: &mut RangeFrom<u32>,
         level_id: u32,
-    ) -> ModelInstance<u32> {
+    ) -> u32 {
         let model_description_id = match model_description_name_map.get(&self.model_name) {
             Some(id) => *id,
             None => {
@@ -56,9 +58,13 @@ impl Model {
                 model_description_name_map.insert(self.model_name.clone(), id);
                 model_descriptions.insert(
                     id,
-                    ModelDescription {
+                    ModelDescriptionBundle {
                         name: NameInSite(self.model_name.split("/").last().unwrap().to_string()),
-                        source: AssetSource::Search(self.model_name.clone()),
+                        description: ModelDescription {
+                            source: AssetSource::Search(self.model_name.clone()),
+                            is_static: IsStatic(self.static_),
+                            scale: Scale::default(),
+                        },
                         group: Group::default(),
                         marker: ModelMarker,
                     },
@@ -67,18 +73,18 @@ impl Model {
             }
         };
 
-        ModelInstance {
+        let model_instance_id = site_id.next().unwrap();
+        let model_instance = ModelInstance {
             name: NameInSite(self.instance_name.clone()),
-            source: AssetSource::Search(self.model_name.clone()),
             pose: Pose {
                 trans: [self.x as f32, self.y as f32, self.z_offset as f32],
                 rot: Rotation::Yaw(Angle::Deg(self.yaw.to_degrees() as f32)),
             },
-            is_static: IsStatic(self.static_),
-            scale: Scale::default(),
             parent: SiteParentID(level_id),
             description: Affiliation(Some(model_description_id)),
             marker: ModelMarker,
-        }
+        };
+        model_instances.insert(model_instance_id, model_instance);
+        model_instance_id
     }
 }

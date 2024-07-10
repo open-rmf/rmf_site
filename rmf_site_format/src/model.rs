@@ -64,30 +64,36 @@ impl Default for Model {
 ///
 ///
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy", derive(Bundle))]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
 pub struct ModelDescription {
-    pub name: NameInSite,
     pub source: AssetSource,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub is_static: IsStatic,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub scale: Scale,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct ModelDescriptionBundle {
+    pub name: NameInSite,
+    pub description: ModelDescription,
     #[serde(skip)]
     pub group: Group,
     #[serde(skip)]
     pub marker: ModelMarker,
 }
 
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct ModelInstance<T: RefTrait> {
     pub name: NameInSite,
     #[serde(skip)]
-    pub source: AssetSource,
     pub pose: Pose,
     pub parent: SiteParentID,
     pub description: Affiliation<T>,
-    #[serde(default, skip_serializing_if = "is_default")]
-    pub is_static: IsStatic,
-    #[serde(default, skip_serializing_if = "is_default")]
-    pub scale: Scale,
     #[serde(skip)]
     pub marker: ModelMarker,
 }
@@ -96,12 +102,9 @@ impl<T: RefTrait> Default for ModelInstance<T> {
     fn default() -> Self {
         Self {
             name: NameInSite("<Unnamed>".to_string()),
-            source: AssetSource::default(),
             pose: Pose::default(),
             parent: SiteParentID(0),
             description: Affiliation::default(),
-            is_static: IsStatic(false),
-            scale: Scale::default(),
             marker: ModelMarker,
         }
     }
@@ -111,12 +114,9 @@ impl<T: RefTrait> ModelInstance<T> {
     pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<ModelInstance<U>, T> {
         Ok(ModelInstance {
             name: self.name.clone(),
-            source: self.source.clone(),
             pose: self.pose.clone(),
             parent: self.parent.clone(),
             description: self.description.convert(id_map)?,
-            is_static: self.is_static.clone(),
-            scale: self.scale.clone(),
             marker: Default::default(),
         })
     }

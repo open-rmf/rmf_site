@@ -27,9 +27,12 @@ use bevy::{
     render::view::RenderLayers,
 };
 use bevy_mod_outline::OutlineMeshExt;
-use rmf_site_format::{AssetSource, ModelMarker, Pending, Pose, Scale};
+use rmf_site_format::{
+    Affiliation, AssetSource, Group, ModelDescription, ModelMarker, NameInSite, Pending, Pose,
+    Scale,
+};
 use smallvec::SmallVec;
-use std::{any::TypeId, collections::HashMap};
+use std::any::TypeId;
 
 #[derive(Component, Debug, Clone)]
 pub struct ModelScene {
@@ -483,11 +486,4 @@ pub fn propagate_model_render_layers(
             }
         }
     }
-}
-
-#[derive(Component, Debug)]
-pub struct ModelDescriptionUsage {
-    site: Entity,
-    used: HashMap<Entity, String>,
-    unused: HashMap<Entity, String>,
 }

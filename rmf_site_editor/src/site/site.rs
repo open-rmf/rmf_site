@@ -34,6 +34,10 @@ pub struct ChangeCurrentSite {
 #[derive(Clone, Copy, Debug, Default, Deref, DerefMut, Resource)]
 pub struct CurrentLevel(pub Option<Entity>);
 
+/// Used as a resource that keeps track of the current scenario entity
+#[derive(Clone, Copy, Debug, Default, Deref, DerefMut, Resource)]
+pub struct CurrentScenario(pub Option<Entity>);
+
 /// Used as a component that maps from the site entity to the level entity which
 /// was most recently selected for it.
 #[derive(Component, Clone, Deref, DerefMut, Debug)]

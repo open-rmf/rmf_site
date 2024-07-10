@@ -113,6 +113,9 @@ use view_layers::*;
 pub mod view_levels;
 use view_levels::*;
 
+pub mod view_scenarios;
+use view_scenarios::*;
+
 pub mod view_lights;
 use view_lights::*;
 
