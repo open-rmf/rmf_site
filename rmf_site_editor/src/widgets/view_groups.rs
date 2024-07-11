@@ -26,6 +26,8 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Button, CollapsingHeader, Ui};
+use rmf_site_format::ModelDescription;
+use std::any::TypeId;
 
 /// Add a widget for viewing different kinds of groups.
 #[derive(Default)]
@@ -46,10 +48,10 @@ pub struct ViewGroups<'w, 's> {
         's,
         (
             &'static NameInSite,
-            Option<&'static AssetSource>,
+            Option<&'static Texture>,
             Option<&'static SiteID>,
         ),
-        With<Texture>,
+        (With<Texture>, With<Group>),
     >,
     fiducials: Query<
         'w,
@@ -59,17 +61,17 @@ pub struct ViewGroups<'w, 's> {
             Option<&'static AssetSource>,
             Option<&'static SiteID>,
         ),
-        With<FiducialMarker>,
+        (With<FiducialMarker>, With<Group>),
     >,
     model_descriptions: Query<
         'w,
         's,
         (
             &'static NameInSite,
-            Option<&'static AssetSource>,
+            Option<&'static ModelDescription>,
             Option<&'static SiteID>,
         ),
-        With<ModelMarker>,
+        (With<ModelMarker>, With<Group>),
     >,
     icons: Res<'w, Icons>,
     group_view_modes: ResMut<'w, GroupViewModes>,
@@ -145,9 +147,9 @@ impl<'w, 's> ViewGroups<'w, 's> {
         });
     }
 
-    fn show_groups<'b, T: Component>(
+    fn show_groups<'b, T: Component, S: Component>(
         children: impl IntoIterator<Item = &'b Entity>,
-        q_groups: &Query<(&NameInSite, Option<&AssetSource>, Option<&SiteID>), With<T>>,
+        q_groups: &Query<(&NameInSite, Option<&S>, Option<&SiteID>), (With<T>, With<Group>)>,
         mode: &mut GroupViewMode,
         icons: &Res<Icons>,
         events: &mut ViewGroupsEvents,
@@ -202,14 +204,13 @@ impl<'w, 's> ViewGroups<'w, 's> {
             ui.horizontal(|ui| {
                 match mode.clone() {
                     GroupViewMode::View => {
-                        if let Some(asset_source) = asset_source {
+                        if TypeId::of::<S>() == TypeId::of::<ModelDescription>() {
                             if ui
-                                .add(Button::image(icons.add.egui()))
+                                .add(Button::new(""))
                                 .on_hover_text("Add a new model instance of this group")
                                 .clicked()
                             {
                                 // let instance: ModelInstance<Entity> = ModelInstance {
-                                //     // source: asset_source.clone(),
                                 //     description: Affiliation(Some(child.clone())),
                                 //     ..Default::default()
                                 // };

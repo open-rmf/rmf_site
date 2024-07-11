@@ -17,14 +17,14 @@
 
 use crate::{
     site::{
-        Category, Change, CurrentScenario, Delete, DrawingMarker, FloorMarker, LevelElevation,
+        Affiliation, CurrentScenario, Delete, DrawingMarker, FloorMarker, LevelElevation,
         LevelProperties, NameInSite, Scenario, ScenarioMarker,
     },
     widgets::{prelude::*, Icons},
     AppState, CurrentWorkspace, RecencyRanking,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{CollapsingHeader, DragValue, ImageButton, Ui};
+use bevy_egui::egui::{Button, CollapsingHeader, DragValue, ImageButton, Ui};
 use std::cmp::{Ordering, Reverse};
 
 /// Add a plugin for viewing and editing a list of all levels
@@ -40,13 +40,13 @@ impl Plugin for ViewScenariosPlugin {
 
 #[derive(SystemParam)]
 pub struct ViewScenarios<'w, 's> {
+    children: Query<'w, 's, &'static Children>,
     scenarios: Query<
         'w,
         's,
         (Entity, &'static NameInSite, &'static Scenario<Entity>),
         With<ScenarioMarker>,
     >,
-    icons: Res<'w, Icons>,
     display_scenarios: ResMut<'w, ScenarioDisplay>,
     current_scenario: ResMut<'w, CurrentScenario>,
     commands: Commands<'w, 's>,
@@ -66,8 +66,85 @@ impl<'w, 's> WidgetSystem<Tile> for ViewScenarios<'w, 's> {
 
 impl<'w, 's> ViewScenarios<'w, 's> {
     pub fn show_widget(&mut self, ui: &mut Ui) {
-        return;
+        // Show scenarios, starting from the root
+        let mut scenario_version: Vec<u32> = vec![1];
+        self.scenarios
+            .iter()
+            .filter(|(_, _, scenario)| scenario.parent_scenario.0.is_none())
+            .for_each(|(scenario_entity, _, _)| {
+                show_scenario_widget(
+                    ui,
+                    scenario_entity,
+                    scenario_version.clone(),
+                    &self.children,
+                    &self.scenarios,
+                );
+                scenario_version[0] += 1;
+            });
     }
+}
+
+fn show_scenario_widget(
+    ui: &mut Ui,
+    scenario_entity: Entity,
+    scenario_version: Vec<u32>,
+    q_children: &Query<&'static Children>,
+    q_scenario: &Query<
+        (Entity, &'static NameInSite, &'static Scenario<Entity>),
+        With<ScenarioMarker>,
+    >,
+) {
+    let (entity, name, scenario) = q_scenario.get(scenario_entity).unwrap();
+    ui.horizontal(|ui| {
+        // Select
+        if ui
+            .add(bevy_egui::egui::RadioButton::new(false, ""))
+            .clicked()
+        {
+            println!("Select scenario {}", name.0);
+        }
+
+        // Add sub scenario
+        if ui
+            .add(Button::new("+"))
+            .on_hover_text(&format!("Add child scenario for {}", name.0))
+            .clicked()
+        {
+            println!("Add child scenario for {}", name.0);
+        }
+
+        // Show version
+        ui.label(if scenario_version.len() > 1 {
+            scenario_version
+                .iter()
+                .map(|v| v.to_string())
+                .collect::<Vec<String>>()
+                .join(".")
+        } else {
+            format!("{}.0", scenario_version[0])
+        });
+
+        // Renameable label
+        let mut new_name = name.0.clone();
+        if ui.text_edit_singleline(&mut new_name).changed() {
+            println!("Rename scenario {}", name.0);
+        }
+    });
+
+    CollapsingHeader::new("Properties")
+        .default_open(false)
+        .show(ui, |ui| {
+            ui.label(format!("Added: {}", scenario.added_model_instances.len()));
+            ui.label(format!("Moved: {}", scenario.moved_model_instances.len()));
+            ui.label(format!(
+                "Removed: {}",
+                scenario.removed_model_instances.len()
+            ));
+        });
+
+    CollapsingHeader::new("Sub Scenarios: 0")
+        .default_open(false)
+        .show(ui, |ui| {});
 }
 
 #[derive(Resource)]

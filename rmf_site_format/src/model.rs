@@ -75,7 +75,7 @@ pub struct ModelDescription {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct ModelDescriptionBundle {
     pub name: NameInSite,
     pub description: ModelDescription,
@@ -84,7 +84,6 @@ pub struct ModelDescriptionBundle {
     #[serde(skip)]
     pub marker: ModelMarker,
 }
-
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]

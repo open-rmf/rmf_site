@@ -16,7 +16,8 @@
 */
 
 use crate::{
-    legacy::model, Anchor, Angle, AssetSource, Category, DoorType, Level, LiftCabin, Pose, Rotation, Site, Swing
+    legacy::model, Anchor, Angle, AssetSource, Category, DoorType, Level, LiftCabin, Pose,
+    Rotation, Site, Swing,
 };
 use glam::Vec3;
 use once_cell::sync::Lazy;
