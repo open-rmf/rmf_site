@@ -16,10 +16,10 @@
 */
 
 use crate::{
-    interaction::{ChangeMode, SelectAnchor3D},
+    interaction::ChangeMode,
     site::{
-        Affiliation, AssetSource, Change, FiducialMarker, Group, MergeGroups, ModelInstance,
-        ModelMarker, NameInSite, SiteID, Texture,
+        AssetSource, Change, FiducialMarker, Group, MergeGroups, ModelMarker, NameInSite, SiteID,
+        Texture,
     },
     widgets::{prelude::*, SelectorWidget},
     AppState, CurrentWorkspace, Icons,
@@ -206,7 +206,7 @@ impl<'w, 's> ViewGroups<'w, 's> {
                     GroupViewMode::View => {
                         if TypeId::of::<S>() == TypeId::of::<ModelDescription>() {
                             if ui
-                                .add(Button::new(""))
+                                .add(Button::image_and_text(icons.merge.egui(), &name.0))
                                 .on_hover_text("Add a new model instance of this group")
                                 .clicked()
                             {

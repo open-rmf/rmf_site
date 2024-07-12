@@ -24,10 +24,9 @@ use rmf_site_format::{
 /// Used as an event to command that a new site should be made the current one
 #[derive(Clone, Copy, Debug, Event)]
 pub struct ChangeCurrentSite {
-    /// What should the current site be
     pub site: Entity,
-    /// What should its current level be
     pub level: Option<Entity>,
+    pub scenario: Option<Entity>,
 }
 
 /// Used as a resource that keeps track of the current level entity
@@ -53,6 +52,7 @@ pub fn change_site(
     mut change_current_site: EventReader<ChangeCurrentSite>,
     mut current_workspace: ResMut<CurrentWorkspace>,
     mut current_level: ResMut<CurrentLevel>,
+    mut current_scenario: ResMut<CurrentScenario>,
     cached_levels: Query<&CachedLevel>,
     mut visibility: Query<&mut Visibility>,
     open_sites: Query<Entity, With<NameOfSite>>,

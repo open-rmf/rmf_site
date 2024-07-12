@@ -1,4 +1,3 @@
-use super::model::Model;
 use super::{
     floor::FloorParameters, level::Level, lift::Lift, wall::WallProperties, PortingError, Result,
 };
@@ -7,10 +6,10 @@ use crate::{
     alignment::align_legacy_building, Affiliation, Anchor, Angle, AssetSource, AssociatedGraphs,
     Category, DisplayColor, Dock as SiteDock, Drawing as SiteDrawing, DrawingProperties,
     Fiducial as SiteFiducial, FiducialGroup, FiducialMarker, Guided, Lane as SiteLane, LaneMarker,
-    Level as SiteLevel, LevelElevation, LevelProperties as SiteLevelProperties, ModelDescription,
+    Level as SiteLevel, LevelElevation, LevelProperties as SiteLevelProperties,
     ModelDescriptionBundle, Motion, NameInSite, NameOfSite, NavGraph, Navigation,
     OrientationConstraint, PixelsPerMeter, Pose, PreferredSemiTransparency, RankingsInLevel,
-    ReverseLane, Rotation, Scenario, ScenarioBundle, Site, SiteProperties, Texture as SiteTexture,
+    ReverseLane, Rotation, ScenarioBundle, Site, SiteProperties, Texture as SiteTexture,
     TextureGroup, UserCameraPose, DEFAULT_NAV_GRAPH_COLORS,
 };
 use glam::{DAffine2, DMat3, DQuat, DVec2, DVec3, EulerRot};
@@ -208,7 +207,7 @@ impl BuildingMap {
         let mut model_instances: BTreeMap<u32, ModelInstance<u32>> = BTreeMap::new();
         let mut model_description_name_map = HashMap::<String, u32>::new();
         let mut scenarios: BTreeMap<u32, ScenarioBundle<u32>> = BTreeMap::new();
-        let mut default_scenario_id = site_id.next().unwrap();
+        let default_scenario_id = site_id.next().unwrap();
         scenarios.insert(default_scenario_id, ScenarioBundle::default());
 
         for (level_name, level) in &self.levels {

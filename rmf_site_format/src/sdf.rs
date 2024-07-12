@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    legacy::model, Anchor, Angle, AssetSource, Category, DoorType, Level, LiftCabin, Pose,
+    Anchor, Angle, AssetSource, Category, DoorType, Level, LiftCabin, Pose,
     Rotation, Site, Swing,
 };
 use glam::Vec3;
@@ -890,7 +890,7 @@ impl Site {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    
     use crate::legacy::building_map::BuildingMap;
 
     #[test]

@@ -27,10 +27,7 @@ use bevy::{
     render::view::RenderLayers,
 };
 use bevy_mod_outline::OutlineMeshExt;
-use rmf_site_format::{
-    Affiliation, AssetSource, Group, ModelDescription, ModelMarker, NameInSite, Pending, Pose,
-    Scale,
-};
+use rmf_site_format::{AssetSource, ModelDescription, ModelMarker, Pending, Pose, Scale};
 use smallvec::SmallVec;
 use std::any::TypeId;
 

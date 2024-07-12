@@ -35,6 +35,17 @@ pub struct Scenario<T: RefTrait> {
     pub moved_model_instances: Vec<(T, Pose)>,
 }
 
+impl<T: RefTrait> Scenario<T> {
+    pub fn from_parent(parent: T) -> Scenario<T> {
+        Scenario {
+            parent_scenario: Affiliation(Some(parent)),
+            added_model_instances: Vec::new(),
+            removed_model_instances: Vec::new(),
+            moved_model_instances: Vec::new(),
+        }
+    }
+}
+
 // Create a root scenario without parent
 impl<T: RefTrait> Default for Scenario<T> {
     fn default() -> Self {

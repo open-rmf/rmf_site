@@ -16,16 +16,12 @@
 */
 
 use crate::{
-    site::{
-        Affiliation, CurrentScenario, Delete, DrawingMarker, FloorMarker, LevelElevation,
-        LevelProperties, NameInSite, Scenario, ScenarioMarker,
-    },
-    widgets::{prelude::*, Icons},
-    AppState, CurrentWorkspace, RecencyRanking,
+    site::{Change, CurrentScenario, NameInSite, Scenario, ScenarioBundle, ScenarioMarker},
+    widgets::prelude::*,
+    AppState,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{Button, CollapsingHeader, DragValue, ImageButton, Ui};
-use std::cmp::{Ordering, Reverse};
+use bevy_egui::egui::{Button, CollapsingHeader, Ui};
 
 /// Add a plugin for viewing and editing a list of all levels
 #[derive(Default)]
@@ -47,6 +43,7 @@ pub struct ViewScenarios<'w, 's> {
         (Entity, &'static NameInSite, &'static Scenario<Entity>),
         With<ScenarioMarker>,
     >,
+    change_name: EventWriter<'w, Change<NameInSite>>,
     display_scenarios: ResMut<'w, ScenarioDisplay>,
     current_scenario: ResMut<'w, CurrentScenario>,
     commands: Commands<'w, 's>,
@@ -66,26 +63,32 @@ impl<'w, 's> WidgetSystem<Tile> for ViewScenarios<'w, 's> {
 
 impl<'w, 's> ViewScenarios<'w, 's> {
     pub fn show_widget(&mut self, ui: &mut Ui) {
-        // Show scenarios, starting from the root
-        let mut scenario_version: Vec<u32> = vec![1];
+        // Show scenarios window, star
+        let mut version = 1;
         self.scenarios
             .iter()
             .filter(|(_, _, scenario)| scenario.parent_scenario.0.is_none())
             .for_each(|(scenario_entity, _, _)| {
                 show_scenario_widget(
                     ui,
+                    &mut self.commands,
+                    &mut self.change_name,
+                    &mut self.current_scenario,
                     scenario_entity,
-                    scenario_version.clone(),
+                    vec![version],
                     &self.children,
                     &self.scenarios,
                 );
-                scenario_version[0] += 1;
+                version += 1;
             });
     }
 }
 
 fn show_scenario_widget(
     ui: &mut Ui,
+    commands: &mut Commands,
+    change_name: &mut EventWriter<Change<NameInSite>>,
+    current_scenario: &mut CurrentScenario,
     scenario_entity: Entity,
     scenario_version: Vec<u32>,
     q_children: &Query<&'static Children>,
@@ -95,69 +98,76 @@ fn show_scenario_widget(
     >,
 ) {
     let (entity, name, scenario) = q_scenario.get(scenario_entity).unwrap();
+    let scenario_version_str = scenario_version
+        .iter()
+        .map(|v| v.to_string())
+        .collect::<Vec<String>>()
+        .join(".");
     ui.horizontal(|ui| {
-        // Select
+        // Selection
         if ui
-            .add(bevy_egui::egui::RadioButton::new(false, ""))
+            .add(bevy_egui::egui::RadioButton::new(
+                current_scenario.is_some_and(|e| e == entity),
+                "",
+            ))
             .clicked()
         {
-            println!("Select scenario {}", name.0);
+            //TODO: Replace this with the appropriiate change
+            *current_scenario = CurrentScenario(Some(entity));
         }
-
-        // Add sub scenario
-        if ui
-            .add(Button::new("+"))
-            .on_hover_text(&format!("Add child scenario for {}", name.0))
-            .clicked()
-        {
-            println!("Add child scenario for {}", name.0);
-        }
-
-        // Show version
-        ui.label(if scenario_version.len() > 1 {
-            scenario_version
-                .iter()
-                .map(|v| v.to_string())
-                .collect::<Vec<String>>()
-                .join(".")
-        } else {
-            format!("{}.0", scenario_version[0])
-        });
-
-        // Renameable label
+        // Version and name label
+        ui.label(scenario_version_str.clone());
         let mut new_name = name.0.clone();
         if ui.text_edit_singleline(&mut new_name).changed() {
-            println!("Rename scenario {}", name.0);
+            change_name.send(Change::new(NameInSite(new_name), entity));
         }
     });
-
-    CollapsingHeader::new("Properties")
-        .default_open(false)
-        .show(ui, |ui| {
-            ui.label(format!("Added: {}", scenario.added_model_instances.len()));
-            ui.label(format!("Moved: {}", scenario.moved_model_instances.len()));
-            ui.label(format!(
-                "Removed: {}",
-                scenario.removed_model_instances.len()
-            ));
-        });
-
-    CollapsingHeader::new("Sub Scenarios: 0")
-        .default_open(false)
-        .show(ui, |ui| {});
-}
-
-#[derive(Resource)]
-pub struct ScenarioDisplay {
-    pub new_name: String,
-    pub order: Vec<Vec<Entity>>,
-}
-
-impl Default for ScenarioDisplay {
-    fn default() -> Self {
-        Self {
-            new_name: "New Scenario".to_string(),
-            order: Vec::new(),
+    ui.horizontal(|ui| {
+        let children = q_children.get(scenario_entity);
+        let mut subversion = 1;
+        CollapsingHeader::new(format!("Sub-Scenarios {}", scenario_version_str))
+            .default_open(false)
+            .show(ui, |ui| {
+                if let Ok(children) = children {
+                    for child in children.iter() {
+                        if let Ok(_) = q_scenario.get(*child) {
+                            let mut version = scenario_version.clone();
+                            version.push(subversion);
+                            show_scenario_widget(
+                                ui,
+                                commands,
+                                change_name,
+                                current_scenario,
+                                *child,
+                                version,
+                                q_children,
+                                q_scenario,
+                            );
+                            subversion += 1;
+                        }
+                    }
+                } else {
+                    ui.label("No sub-scenarios");
+                }
+            });
+        // Add child scenario
+        if ui
+            .button(" + ")
+            .on_hover_text(format!("Add a child scenario to {}", name.0))
+            .clicked()
+        {
+            commands
+                .spawn(ScenarioBundle {
+                    name: name.clone(),
+                    scenario: Scenario::from_parent(entity),
+                    marker: ScenarioMarker,
+                })
+                .set_parent(entity);
         }
-    }
+    });
+}
+
+#[derive(Resource, Default)]
+pub struct ScenarioDisplay {
+    pub new_root_scenario_name: String,
 }

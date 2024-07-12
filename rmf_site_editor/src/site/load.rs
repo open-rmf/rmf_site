@@ -447,7 +447,7 @@ pub fn load_site(
         }
 
         if cmd.focus {
-            change_current_site.send(ChangeCurrentSite { site, level: None });
+            change_current_site.send(ChangeCurrentSite { site, level: None, scenario: None });
         }
     }
 }

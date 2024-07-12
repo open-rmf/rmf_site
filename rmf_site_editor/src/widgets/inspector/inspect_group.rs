@@ -18,11 +18,10 @@
 use crate::{
     site::{Affiliation, AssetSource, Change, DefaultFile, Group, Members, NameInSite, Texture},
     widgets::{inspector::InspectTexture, prelude::*, Inspect, SelectorWidget},
-    CurrentWorkspace, InspectAssetSource,
+    CurrentWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, RichText, Ui};
-use rmf_site_format::RecallAssetSource;
 
 #[derive(SystemParam)]
 pub struct InspectGroup<'w, 's> {

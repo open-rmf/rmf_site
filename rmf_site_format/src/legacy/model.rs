@@ -1,5 +1,5 @@
 use crate::{
-    model, Affiliation, Angle, AssetSource, Group, IsStatic, Model as SiteModel, ModelDescription,
+    Affiliation, Angle, AssetSource, Group, IsStatic, Model as SiteModel, ModelDescription,
     ModelDescriptionBundle, ModelInstance, ModelMarker, NameInSite, Pose, Rotation, Scale,
     SiteParentID,
 };

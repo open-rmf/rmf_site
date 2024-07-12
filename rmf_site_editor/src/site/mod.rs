@@ -100,7 +100,6 @@ pub mod save;
 pub use save::*;
 
 pub mod scenario;
-pub use scenario::*;
 
 pub mod sdf_exporter;
 pub use sdf_exporter::*;
@@ -121,7 +120,7 @@ pub mod wall;
 pub use wall::*;
 
 use crate::recency::{RecencyRank, RecencyRankingPlugin};
-use crate::{clear_old_issues_on_new_validate_event, AppState, RegisterIssueType};
+use crate::{AppState, RegisterIssueType};
 pub use rmf_site_format::*;
 
 use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
