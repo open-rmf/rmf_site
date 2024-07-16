@@ -16,12 +16,16 @@
 */
 
 use crate::{
-    site::{Change, CurrentScenario, NameInSite, Scenario, ScenarioBundle, ScenarioMarker},
+    site::{
+        Change, ChangeCurrentScenario, CurrentScenario, ModelMarker, NameInSite, Scenario,
+        ScenarioMarker,
+    },
     widgets::prelude::*,
-    AppState,
+    AppState, Icons,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{Button, CollapsingHeader, Ui};
+use bevy_egui::egui::{Button, CollapsingHeader, Color32, Ui};
+use rmf_site_format::{Angle, ScenarioBundle, SiteID};
 
 /// Add a plugin for viewing and editing a list of all levels
 #[derive(Default)]
@@ -36,6 +40,7 @@ impl Plugin for ViewScenariosPlugin {
 
 #[derive(SystemParam)]
 pub struct ViewScenarios<'w, 's> {
+    commands: Commands<'w, 's>,
     children: Query<'w, 's, &'static Children>,
     scenarios: Query<
         'w,
@@ -44,10 +49,12 @@ pub struct ViewScenarios<'w, 's> {
         With<ScenarioMarker>,
     >,
     change_name: EventWriter<'w, Change<NameInSite>>,
+    change_current_scenario: EventWriter<'w, ChangeCurrentScenario>,
     display_scenarios: ResMut<'w, ScenarioDisplay>,
     current_scenario: ResMut<'w, CurrentScenario>,
-    commands: Commands<'w, 's>,
-    app_state: Res<'w, State<AppState>>,
+    model_instances:
+        Query<'w, 's, (Entity, &'static NameInSite, &'static SiteID), With<ModelMarker>>,
+    icons: Res<'w, Icons>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for ViewScenarios<'w, 's> {
@@ -63,21 +70,160 @@ impl<'w, 's> WidgetSystem<Tile> for ViewScenarios<'w, 's> {
 
 impl<'w, 's> ViewScenarios<'w, 's> {
     pub fn show_widget(&mut self, ui: &mut Ui) {
-        // Show scenarios window, star
+        // Current Selection Info
+        if let Some(current_scenario_entity) = self.current_scenario.0 {
+            if let Ok((_, name, scenario)) = self.scenarios.get(current_scenario_entity) {
+                ui.horizontal(|ui| {
+                    ui.label("Selected: ");
+                    let mut new_name = name.0.clone();
+                    if ui.text_edit_singleline(&mut new_name).changed() {
+                        self.change_name
+                            .send(Change::new(NameInSite(new_name), current_scenario_entity));
+                    }
+                });
+
+                ui.label("From Previous:");
+                CollapsingHeader::new(format!(
+                    "Added Models: {}",
+                    scenario.added_model_instances.len()
+                ))
+                .default_open(false)
+                .show(ui, |ui| {
+                    for (entity, pose) in scenario.added_model_instances.iter() {
+                        if let Ok((_, name, site_id)) = self.model_instances.get(*entity) {
+                            ui.label(format!("#{} {}", site_id.0, name.0,));
+                            ui.colored_label(
+                                Color32::GRAY,
+                                format!(
+                                    "       [x: {:.3}, y: {:.3}, z: {:.3}, yaw: {:.3}]",
+                                    pose.trans[0],
+                                    pose.trans[1],
+                                    pose.trans[2],
+                                    match pose.rot.yaw() {
+                                        Angle::Rad(r) => r,
+                                        Angle::Deg(d) => d.to_radians(),
+                                    }
+                                ),
+                            );
+                        }
+                    }
+                });
+                CollapsingHeader::new(format!(
+                    "Moved Models: {}",
+                    scenario.moved_model_instances.len()
+                ))
+                .default_open(false)
+                .show(ui, |ui| {
+                    for (entity, pose) in scenario.moved_model_instances.iter() {
+                        if let Ok((_, name, site_id)) = self.model_instances.get(*entity) {
+                            ui.label(format!("#{} {}", site_id.0, name.0,));
+                            ui.colored_label(
+                                Color32::GRAY,
+                                format!(
+                                    "       [x: {:.3}, y: {:.3}, z: {:.3}, yaw: {:.3}]",
+                                    pose.trans[0],
+                                    pose.trans[1],
+                                    pose.trans[2],
+                                    match pose.rot.yaw() {
+                                        Angle::Rad(r) => r,
+                                        Angle::Deg(d) => d.to_radians(),
+                                    }
+                                ),
+                            );
+                        }
+                    }
+                });
+                CollapsingHeader::new(format!(
+                    "Removed Models: {}",
+                    scenario.removed_model_instances.len()
+                ))
+                .default_open(false)
+                .show(ui, |ui| {
+                    for entity in scenario.removed_model_instances.iter() {
+                        if let Ok((_, name, site_id)) = self.model_instances.get(*entity) {
+                            ui.label(format!("#{} {}", site_id.0, name.0));
+                        } else {
+                            ui.label("Unavailable");
+                        }
+                    }
+                });
+            }
+        } else {
+            ui.label("No scenario selected");
+        }
+
+        // Create Scenario
+        ui.separator();
+        if self.current_scenario.is_none() {
+            self.display_scenarios.is_new_scenario_root = true;
+        }
+        ui.horizontal(|ui| {
+            ui.label("Add Scenario: ");
+            if ui
+                .selectable_label(self.display_scenarios.is_new_scenario_root, "Root")
+                .on_hover_text("Add a new root scenario")
+                .clicked()
+            {
+                self.display_scenarios.is_new_scenario_root = true;
+            };
+            ui.add_enabled_ui(self.current_scenario.is_some(), |ui| {
+                if ui
+                    .selectable_label(!self.display_scenarios.is_new_scenario_root, "Child")
+                    .on_hover_text("Add a new child scenario to the selected scenario")
+                    .clicked()
+                {
+                    self.display_scenarios.is_new_scenario_root = false;
+                }
+            });
+        });
+        ui.horizontal(|ui| {
+            if ui.add(Button::image(self.icons.add.egui())).clicked() {
+                let parent_scenario_entity = if self.display_scenarios.is_new_scenario_root {
+                    None
+                } else {
+                    self.current_scenario.0
+                };
+                let mut cmd = self
+                    .commands
+                    .spawn(ScenarioBundle::<Entity>::from_name_parent(
+                        self.display_scenarios.new_scenario_name.clone(),
+                        parent_scenario_entity,
+                    ));
+                if !self.display_scenarios.is_new_scenario_root {
+                    if let Some(current_scenario_entity) = self.current_scenario.0 {
+                        cmd.set_parent(current_scenario_entity);
+                    }
+                }
+            }
+            let mut new_name = self.display_scenarios.new_scenario_name.clone();
+            if ui
+                .text_edit_singleline(&mut new_name)
+                .on_hover_text("Name for the new scenario")
+                .changed()
+            {
+                self.display_scenarios.new_scenario_name = new_name;
+            }
+        });
+
+        // Scenario Tree starting from root scenarios
+        ui.separator();
+        // A version string is used to differentiate scenarios, and to allow
+        // egui to distinguish between collapsing headers with the same name
         let mut version = 1;
         self.scenarios
             .iter()
-            .filter(|(_, _, scenario)| scenario.parent_scenario.0.is_none())
+            .filter(|(e, name, scenario)| scenario.parent_scenario.0.is_none())
             .for_each(|(scenario_entity, _, _)| {
                 show_scenario_widget(
                     ui,
-                    &mut self.commands,
                     &mut self.change_name,
+                    &mut self.change_current_scenario,
                     &mut self.current_scenario,
                     scenario_entity,
                     vec![version],
                     &self.children,
                     &self.scenarios,
+                    &self.icons,
                 );
                 version += 1;
             });
@@ -86,8 +232,8 @@ impl<'w, 's> ViewScenarios<'w, 's> {
 
 fn show_scenario_widget(
     ui: &mut Ui,
-    commands: &mut Commands,
     change_name: &mut EventWriter<Change<NameInSite>>,
+    change_current_scenario: &mut EventWriter<ChangeCurrentScenario>,
     current_scenario: &mut CurrentScenario,
     scenario_entity: Entity,
     scenario_version: Vec<u32>,
@@ -96,6 +242,7 @@ fn show_scenario_widget(
         (Entity, &'static NameInSite, &'static Scenario<Entity>),
         With<ScenarioMarker>,
     >,
+    icons: &Res<Icons>,
 ) {
     let (entity, name, scenario) = q_scenario.get(scenario_entity).unwrap();
     let scenario_version_str = scenario_version
@@ -103,71 +250,68 @@ fn show_scenario_widget(
         .map(|v| v.to_string())
         .collect::<Vec<String>>()
         .join(".");
+
+    // Scenario version and name, e.g. 1.2.3 My Scenario
     ui.horizontal(|ui| {
-        // Selection
-        if ui
-            .add(bevy_egui::egui::RadioButton::new(
-                current_scenario.is_some_and(|e| e == entity),
-                "",
-            ))
-            .clicked()
-        {
-            //TODO: Replace this with the appropriiate change
-            *current_scenario = CurrentScenario(Some(entity));
+        if ui.radio(Some(entity) == **current_scenario, "").clicked() {
+            change_current_scenario.send(ChangeCurrentScenario(entity));
         }
-        // Version and name label
-        ui.label(scenario_version_str.clone());
+        ui.colored_label(Color32::DARK_GRAY, scenario_version_str.clone());
+        ui.label(name.0.clone());
         let mut new_name = name.0.clone();
         if ui.text_edit_singleline(&mut new_name).changed() {
             change_name.send(Change::new(NameInSite(new_name), entity));
         }
     });
-    ui.horizontal(|ui| {
-        let children = q_children.get(scenario_entity);
-        let mut subversion = 1;
-        CollapsingHeader::new(format!("Sub-Scenarios {}", scenario_version_str))
-            .default_open(false)
-            .show(ui, |ui| {
-                if let Ok(children) = children {
-                    for child in children.iter() {
-                        if let Ok(_) = q_scenario.get(*child) {
-                            let mut version = scenario_version.clone();
-                            version.push(subversion);
-                            show_scenario_widget(
-                                ui,
-                                commands,
-                                change_name,
-                                current_scenario,
-                                *child,
-                                version,
-                                q_children,
-                                q_scenario,
-                            );
-                            subversion += 1;
-                        }
-                    }
-                } else {
-                    ui.label("No sub-scenarios");
+
+    // Display children recursively
+    // The subversion is used as an id_source so that egui does not
+    // generate errors when collapsing headers of the same name are created
+    let mut subversion = 1;
+    let children = q_children.get(scenario_entity);
+    CollapsingHeader::new(format!(
+        "Child Scenarios:  {}",
+        children.map(|c| c.len()).unwrap_or(0)
+    ))
+    .default_open(false)
+    .id_source(scenario_version_str.clone())
+    .show(ui, |ui| {
+        if let Ok(children) = children {
+            for child in children.iter() {
+                if let Ok(_) = q_scenario.get(*child) {
+                    let mut version = scenario_version.clone();
+                    version.push(subversion);
+                    show_scenario_widget(
+                        ui,
+                        change_name,
+                        change_current_scenario,
+                        current_scenario,
+                        *child,
+                        version,
+                        q_children,
+                        q_scenario,
+                        icons,
+                    );
+                    subversion += 1;
                 }
-            });
-        // Add child scenario
-        if ui
-            .button(" + ")
-            .on_hover_text(format!("Add a child scenario to {}", name.0))
-            .clicked()
-        {
-            commands
-                .spawn(ScenarioBundle {
-                    name: name.clone(),
-                    scenario: Scenario::from_parent(entity),
-                    marker: ScenarioMarker,
-                })
-                .set_parent(entity);
+            }
+        } else {
+            ui.label("No Child Scenarios");
         }
     });
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource)]
 pub struct ScenarioDisplay {
-    pub new_root_scenario_name: String,
+    pub new_scenario_name: String,
+    pub is_new_scenario_root: bool,
+}
+
+impl Default for ScenarioDisplay {
+    fn default() -> Self {
+        Self {
+            new_scenario_name: "<Unnamed>".to_string(),
+            is_new_scenario_root: true,
+        }
+    }
 }

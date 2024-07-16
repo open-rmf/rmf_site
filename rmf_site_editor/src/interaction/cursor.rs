@@ -133,6 +133,7 @@ impl Cursor {
     ) {
         self.remove_preview(commands);
         self.preview_model = if let Some(model) = model {
+            println!("Spawn model instance preview");
             let e = commands.spawn(model).insert(Pending).id();
             commands.entity(self.frame).push_children(&[e]);
             Some(e)

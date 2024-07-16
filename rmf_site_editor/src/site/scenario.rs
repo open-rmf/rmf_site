@@ -15,51 +15,35 @@
  *
 */
 
+use crate::site::CurrentScenario;
+use bevy::prelude::*;
+use rmf_site_format::{Group, ModelMarker, NameInSite, Pose};
 
-// pub fn update_level_visibility(
-//     mut levels: Query<(Entity, &mut Visibility), With<LevelElevation>>,
-//     current_level: Res<CurrentLevel>,
-// ) {
-//     if current_level.is_changed() {
-//         for (e, mut visibility) in &mut levels {
-//             *visibility = if Some(e) == **current_level {
-//                 Visibility::Inherited
-//             } else {
-//                 Visibility::Hidden
-//             };
-//         }
-//     }
-// }
+#[derive(Clone, Copy, Debug, Event)]
+pub struct ChangeCurrentScenario(pub Entity);
 
-// pub fn assign_orphan_levels_to_site(
-//     mut commands: Commands,
-//     new_levels: Query<Entity, (Without<Parent>, Added<LevelElevation>)>,
-//     open_sites: Query<Entity, With<NameOfSite>>,
-//     current_workspace: Res<CurrentWorkspace>,
-// ) {
-//     if let Some(site) = current_workspace.to_site(&open_sites) {
-//         for level in &new_levels {
-//             commands.entity(site).add_child(level);
-//         }
-//     } else {
-//         warn!(
-//             "Unable to assign level to any site because there is no \
-//             current site"
-//         );
-//     }
-// }
+pub fn update_current_scenario(
+    mut change_current_scenario: EventReader<ChangeCurrentScenario>,
+    mut current_scenario: ResMut<CurrentScenario>,
+    scenarios: Query<Entity, &NameInSite>,
+) {
+    for ChangeCurrentScenario(new_scenario_entity) in change_current_scenario.read() {
+        *current_scenario = CurrentScenario(Some(*new_scenario_entity));
+        println!("Changed scenario");
+    }
+}
 
-// pub fn assign_orphan_elements_to_level<T: Component>(
-//     mut commands: Commands,
-//     orphan_elements: Query<Entity, (With<T>, Without<Parent>)>,
-//     current_level: Res<CurrentLevel>,
-// ) {
-//     let current_level = match current_level.0 {
-//         Some(c) => c,
-//         None => return,
-//     };
+pub fn update_scenario_properties(
+    current_scenario: Res<CurrentScenario>,
+    changed_models: Query<(Entity, &NameInSite, Ref<Pose>), (With<ModelMarker>, Without<Group>)>,
+) {
+    for (e, name, pose) in changed_models.iter() {
+        if pose.is_added() {
+            println!("Added: {}", name.0);
+        }
 
-//     for orphan in &orphan_elements {
-//         commands.entity(current_level).add_child(orphan);
-//     }
-// }
+        if !pose.is_added() && pose.is_changed() {
+            println!("Moved: {}", name.0)
+        }
+    }
+}

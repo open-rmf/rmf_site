@@ -17,7 +17,10 @@
 
 use crate::{recency::RecencyRanking, site::*, WorkspaceMarker};
 use bevy::{ecs::system::SystemParam, prelude::*};
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::{BTreeMap, HashMap},
+    path::PathBuf,
+};
 use thiserror::Error as ThisError;
 
 /// This component is given to the site to keep track of what file it should be
@@ -119,45 +122,6 @@ fn generate_site_entities(
         consider_id(*group_id);
     }
 
-    for (model_description_id, model_description) in &site_data.model_descriptions {
-        let model_description = commands
-            .spawn(model_description.clone())
-            .insert(SiteID(*model_description_id))
-            .set_parent(site_id)
-            .id();
-        id_to_entity.insert(*model_description_id, model_description);
-        consider_id(*model_description_id);
-    }
-
-    for (model_instance_id, model_instance) in &site_data.model_instances {
-        let model_instance = commands
-            .spawn(model_instance.clone())
-            .insert(SiteID(*model_instance_id))
-            .set_parent(site_id)
-            .id();
-        id_to_entity.insert(*model_instance_id, model_instance);
-        consider_id(*model_instance_id);
-    }
-
-    let (_, default_scenario) = site_data
-        .scenarios
-        .first_key_value()
-        .expect("No scenarios found");
-    for (scenario_id, scenario_bundle) in &site_data.scenarios {
-        let parent = match scenario_bundle.scenario.parent_scenario.0 {
-            Some(parent_id) => *id_to_entity.get(&parent_id).unwrap_or(&site_id),
-            None => site_id,
-        };
-        let scenario_bundle = scenario_bundle.convert(&id_to_entity).unwrap();
-        let scenario_entity = commands
-            .spawn(scenario_bundle.clone())
-            .insert(SiteID(*scenario_id))
-            .set_parent(parent)
-            .id();
-        id_to_entity.insert(*scenario_id, scenario_entity);
-        consider_id(*scenario_id);
-    }
-
     for (level_id, level_data) in &site_data.levels {
         let level_entity = commands.spawn(SiteID(*level_id)).set_parent(site_id).id();
 
@@ -249,23 +213,6 @@ fn generate_site_entities(
                     consider_id(*light_id);
                 }
 
-                for model_instance_id in &default_scenario.scenario.added_model_instances {
-                    let model_instance = site_data.model_instances.get(model_instance_id).expect(
-                        format!(
-                            "Scenario {} contains model instance {} which does not exist",
-                            "Scenario Name",
-                            model_instance_id
-                        )
-                        .as_str(),
-                    );
-                    if model_instance.parent.0 == *level_id {
-                        level
-                            .spawn(model_instance.convert(&id_to_entity).for_site(site_id).expect("Model instance does not have a corresponding description spawned"))
-                            .insert(SiteID(*model_instance_id));
-                        consider_id(*model_instance_id);
-                    }
-                }
-
                 for (physical_camera_id, physical_camera) in &level_data.physical_cameras {
                     level
                         .spawn(physical_camera.clone())
@@ -297,6 +244,57 @@ fn generate_site_entities(
             );
         id_to_entity.insert(*level_id, level_entity);
         consider_id(*level_id);
+    }
+
+    for (model_description_id, model_description) in &site_data.model_descriptions {
+        let model_description = commands
+            .spawn(model_description.clone())
+            .insert(SiteID(*model_description_id))
+            .set_parent(site_id)
+            .id();
+        id_to_entity.insert(*model_description_id, model_description);
+        consider_id(*model_description_id);
+    }
+
+    let (default_scenario_id, default_scenario) = site_data
+        .scenarios
+        .first_key_value()
+        .expect("No scenarios found");
+    let active_model_instance_ids: std::collections::HashSet<u32> = default_scenario
+        .scenario
+        .added_model_instances
+        .iter()
+        .map(|(id, _)| *id)
+        .collect();
+    for (model_instance_id, model_instance) in &site_data.model_instances {
+        let model_instance = model_instance.convert(&id_to_entity).for_site(site_id)?;
+        let model_instance_parent = if active_model_instance_ids.contains(model_instance_id) {
+            model_instance.parent.0.unwrap_or(site_id)
+        } else {
+            site_id
+        };
+        let model_instance_entity = commands
+            .spawn(model_instance.clone())
+            .insert(SiteID(*model_instance_id))
+            .set_parent(model_instance_parent)
+            .id();
+        id_to_entity.insert(*model_instance_id, model_instance_entity);
+        consider_id(*model_instance_id);
+    }
+
+    for (scenario_id, scenario_bundle) in &site_data.scenarios {
+        let parent = match scenario_bundle.scenario.parent_scenario.0 {
+            Some(parent_id) => *id_to_entity.get(&parent_id).unwrap_or(&site_id),
+            None => site_id,
+        };
+        let scenario_bundle = scenario_bundle.convert(&id_to_entity).for_site(site_id)?;
+        let scenario_entity = commands
+            .spawn(scenario_bundle.clone())
+            .insert(SiteID(*scenario_id))
+            .set_parent(parent)
+            .id();
+        id_to_entity.insert(*scenario_id, scenario_entity);
+        consider_id(*scenario_id);
     }
 
     for (lift_id, lift_data) in &site_data.lifts {
@@ -447,7 +445,11 @@ pub fn load_site(
         }
 
         if cmd.focus {
-            change_current_site.send(ChangeCurrentSite { site, level: None, scenario: None });
+            change_current_site.send(ChangeCurrentSite {
+                site,
+                level: None,
+                scenario: None,
+            });
         }
     }
 }

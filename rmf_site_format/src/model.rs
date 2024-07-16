@@ -64,21 +64,19 @@ impl Default for Model {
 ///
 ///
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
-pub struct ModelDescription {
-    pub source: AssetSource,
-    #[serde(default, skip_serializing_if = "is_default")]
-    pub is_static: IsStatic,
-    #[serde(default, skip_serializing_if = "is_default")]
-    pub scale: Scale,
-}
+pub struct ModelProperty<T: Component + Default + Clone>(pub T);
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct ModelDescriptionBundle {
     pub name: NameInSite,
-    pub description: ModelDescription,
+    pub source: ModelProperty<AssetSource>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub is_static: ModelProperty<IsStatic>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub scale: ModelProperty<Scale>,
     #[serde(skip)]
     pub group: Group,
     #[serde(skip)]
@@ -91,7 +89,7 @@ pub struct ModelInstance<T: RefTrait> {
     pub name: NameInSite,
     #[serde(skip)]
     pub pose: Pose,
-    pub parent: SiteParentID,
+    pub parent: SiteParent<T>,
     pub description: Affiliation<T>,
     #[serde(skip)]
     pub marker: ModelMarker,
@@ -102,7 +100,7 @@ impl<T: RefTrait> Default for ModelInstance<T> {
         Self {
             name: NameInSite("<Unnamed>".to_string()),
             pose: Pose::default(),
-            parent: SiteParentID(0),
+            parent: SiteParent::default(),
             description: Affiliation::default(),
             marker: ModelMarker,
         }
@@ -114,7 +112,7 @@ impl<T: RefTrait> ModelInstance<T> {
         Ok(ModelInstance {
             name: self.name.clone(),
             pose: self.pose.clone(),
-            parent: self.parent.clone(),
+            parent: self.parent.convert(id_map)?,
             description: self.description.convert(id_map)?,
             marker: Default::default(),
         })

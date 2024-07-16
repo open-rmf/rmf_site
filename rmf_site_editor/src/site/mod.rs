@@ -100,6 +100,7 @@ pub mod save;
 pub use save::*;
 
 pub mod scenario;
+pub use scenario::*;
 
 pub mod sdf_exporter;
 pub use sdf_exporter::*;
@@ -208,6 +209,7 @@ impl Plugin for SitePlugin {
         .add_event::<LoadSite>()
         .add_event::<ImportNavGraphs>()
         .add_event::<ChangeCurrentSite>()
+        .add_event::<ChangeCurrentScenario>()
         .add_event::<SaveSite>()
         .add_event::<SaveNavGraphs>()
         .add_event::<ToggleLiftDoorAvailability>()
@@ -363,6 +365,8 @@ impl Plugin for SitePlugin {
                 add_location_visuals,
                 add_fiducial_visuals,
                 update_level_visibility,
+                update_scenario_properties,
+                update_current_scenario,
                 update_changed_lane,
                 update_lane_for_moved_anchor,
             )
@@ -400,6 +404,9 @@ impl Plugin for SitePlugin {
                 update_measurement_for_moved_anchors,
                 handle_model_loaded_events,
                 update_model_scenes,
+                update_model_instances::<AssetSource>,
+                update_model_instances::<Scale>,
+                update_model_instances::<IsStatic>,
                 update_affiliations,
                 update_members_of_groups.after(update_affiliations),
                 update_model_scales,

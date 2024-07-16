@@ -34,6 +34,10 @@ impl Members {
     pub fn iter(&self) -> impl Iterator<Item = &Entity> {
         self.0.iter()
     }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
 }
 
 #[derive(Component, Clone, Copy)]

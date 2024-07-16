@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::{DragPlaneBundle, Selectable, MODEL_PREVIEW_LAYER},
-    site::{Category, PreventDeletion, SiteAssets},
+    site::{Category, Group, Members, PreventDeletion, SiteAssets},
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
 };
 use bevy::{
@@ -27,9 +27,12 @@ use bevy::{
     render::view::RenderLayers,
 };
 use bevy_mod_outline::OutlineMeshExt;
-use rmf_site_format::{AssetSource, ModelDescription, ModelMarker, Pending, Pose, Scale};
+use rmf_site_format::{
+    Affiliation, AssetSource, ModelMarker, ModelProperty, NameInSite, Pending, Pose, Scale,
+};
 use smallvec::SmallVec;
-use std::any::TypeId;
+use std::{any::TypeId, collections::HashMap};
+use yaserde::xml::name;
 
 #[derive(Component, Debug, Clone)]
 pub struct ModelScene {
@@ -88,7 +91,10 @@ pub struct ModelSceneRoot;
 
 pub fn handle_model_loaded_events(
     mut commands: Commands,
-    loading_models: Query<(Entity, &ModelDescription, &PendingSpawning), With<ModelMarker>>,
+    loading_models: Query<
+        (Entity, &PendingSpawning, &Scale, Option<&RenderLayers>),
+        With<ModelMarker>,
+    >,
     mut current_scenes: Query<&mut ModelScene>,
     asset_server: Res<AssetServer>,
     site_assets: Res<SiteAssets>,
@@ -98,16 +104,12 @@ pub fn handle_model_loaded_events(
     // For each model that is loading, check if its scene has finished loading
     // yet. If the scene has finished loading, then insert it as a child of the
     // model entity and make it selectable.
-    for (e, model_description, h) in loading_models.iter() {
-        println!("Model loaded: {:?}", model_description.source);
-        let render_layer: Option<RenderLayers> = None;
-        let scale = model_description.scale.0;
+    for (e, h, scale, render_layer) in loading_models.iter() {
         if asset_server.is_loaded_with_dependencies(h.id()) {
             let Some(h) = untyped_assets.get(&**h) else {
                 warn!("Broken reference to untyped asset, this should not happen!");
                 continue;
             };
-
             let h = &h.handle;
             let type_id = h.type_id();
             let model_id = if type_id == TypeId::of::<Gltf>() {
@@ -125,7 +127,7 @@ pub fn handle_model_loaded_events(
                     commands
                         .spawn(SceneBundle {
                             scene,
-                            transform: Transform::from_scale(scale),
+                            transform: Transform::from_scale(**scale),
                             ..default()
                         })
                         .id(),
@@ -136,7 +138,7 @@ pub fn handle_model_loaded_events(
                     commands
                         .spawn(SceneBundle {
                             scene,
-                            transform: Transform::from_scale(scale),
+                            transform: Transform::from_scale(**scale),
                             ..default()
                         })
                         .id(),
@@ -148,7 +150,7 @@ pub fn handle_model_loaded_events(
                         .spawn(PbrBundle {
                             mesh,
                             material: site_assets.default_mesh_grey_material.clone(),
-                            transform: Transform::from_scale(scale),
+                            transform: Transform::from_scale(**scale),
                             ..default()
                         })
                         .id(),
@@ -177,7 +179,7 @@ pub fn update_model_scenes(
     changed_models: Query<
         (
             Entity,
-            &ModelDescription,
+            &AssetSource,
             Option<&Pose>,
             &TentativeModelFormat,
             Option<&Visibility>,
@@ -256,8 +258,7 @@ pub fn update_model_scenes(
     }
 
     // update changed models
-    for (e, model_description, pose, tentative_format, vis_option) in changed_models.iter() {
-        let source = &model_description.source;
+    for (e, source, pose, tentative_format, vis_option) in changed_models.iter() {
         if let Ok(current_scene) = current_scenes.get_mut(e) {
             // Avoid respawning if spurious change detection was triggered
             if current_scene.source != *source || current_scene.format != *tentative_format {
@@ -293,30 +294,29 @@ pub fn update_model_scenes(
 
 pub fn update_model_tentative_formats(
     mut commands: Commands,
-    changed_model_descriptions: Query<Entity, (With<ModelDescription>, With<ModelMarker>)>,
-    mut loading_model_descriptions: Query<
+    changed_models: Query<Entity, (Changed<AssetSource>, With<ModelMarker>)>,
+    mut loading_models: Query<
         (
             Entity,
             &mut TentativeModelFormat,
             &PendingSpawning,
-            &ModelDescription,
+            &AssetSource,
         ),
         With<ModelMarker>,
     >,
     asset_server: Res<AssetServer>,
 ) {
     static SUPPORTED_EXTENSIONS: &[&str] = &["obj", "stl", "sdf", "glb", "gltf"];
-    for e in changed_model_descriptions.iter() {
+    for e in changed_models.iter() {
         // Reset to the first format
         commands.entity(e).insert(TentativeModelFormat::default());
     }
     // Check from the asset server if any format failed, if it did try the next
-    for (e, mut tentative_format, h, model_description) in loading_model_descriptions.iter_mut() {
+    for (e, mut tentative_format, h, source) in loading_models.iter_mut() {
         if matches!(asset_server.get_load_state(h.id()), Some(LoadState::Failed)) {
             let mut cmd = commands.entity(e);
             cmd.remove::<PreventDeletion>();
             // We want to iterate only for search asset types, for others just print an error
-            let source = &model_description.source;
             if matches!(source, AssetSource::Search(_)) {
                 if let Some(fmt) = tentative_format.next() {
                     *tentative_format = fmt;
@@ -487,3 +487,27 @@ pub fn propagate_model_render_layers(
         }
     }
 }
+
+pub fn update_model_instances<T: Component + Default + Clone>(
+    mut commands: Commands,
+    mut model_properties: Query<
+        (Entity, &NameInSite, Ref<ModelProperty<T>>),
+        (With<ModelMarker>, With<Group>),
+    >,
+    model_instances: Query<(Entity, Ref<Affiliation<Entity>>), (With<ModelMarker>, Without<Group>)>,
+) {
+    for (instance_entity, affiliation) in model_instances.iter() {
+        if let Some(description_entity) = affiliation.0 {
+            if let Ok((_, name, property)) = model_properties.get(description_entity) {
+                if property.is_changed() || affiliation.is_changed() {
+                    let mut cmd = commands.entity(instance_entity);
+                    cmd.remove::<ModelProperty<T>>();
+                    cmd.insert(property.0.clone());
+                }
+            }
+        }
+    }
+}
+
+#[derive(Component)]
+pub struct Inactive;

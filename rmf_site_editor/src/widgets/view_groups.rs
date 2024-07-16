@@ -16,17 +16,16 @@
 */
 
 use crate::{
-    interaction::ChangeMode,
+    interaction::{ChangeMode, SelectAnchor3D},
     site::{
-        AssetSource, Change, FiducialMarker, Group, MergeGroups, ModelMarker, NameInSite, SiteID,
-        Texture,
+        Affiliation, AssetSource, Change, FiducialMarker, Group, MergeGroups, ModelInstance,
+        ModelMarker, NameInSite, SiteID, Texture,
     },
     widgets::{prelude::*, SelectorWidget},
     AppState, CurrentWorkspace, Icons,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Button, CollapsingHeader, Ui};
-use rmf_site_format::ModelDescription;
 use std::any::TypeId;
 
 /// Add a widget for viewing different kinds of groups.
@@ -68,7 +67,7 @@ pub struct ViewGroups<'w, 's> {
         's,
         (
             &'static NameInSite,
-            Option<&'static ModelDescription>,
+            Option<&'static AssetSource>,
             Option<&'static SiteID>,
         ),
         (With<ModelMarker>, With<Group>),
@@ -204,21 +203,22 @@ impl<'w, 's> ViewGroups<'w, 's> {
             ui.horizontal(|ui| {
                 match mode.clone() {
                     GroupViewMode::View => {
-                        if TypeId::of::<S>() == TypeId::of::<ModelDescription>() {
+                        if TypeId::of::<S>() == TypeId::of::<AssetSource>() {
                             if ui
-                                .add(Button::image_and_text(icons.merge.egui(), &name.0))
+                                .add(Button::image(icons.add.egui()))
                                 .on_hover_text("Add a new model instance of this group")
                                 .clicked()
                             {
-                                // let instance: ModelInstance<Entity> = ModelInstance {
-                                //     description: Affiliation(Some(child.clone())),
-                                //     ..Default::default()
-                                // };
-                                // events.change_mode.send(ChangeMode::To(
-                                //     SelectAnchor3D::create_new_point()
-                                //         .for_model_instance(instance)
-                                //         .into(),
-                                // ));
+                                let model_instance: ModelInstance<Entity> = ModelInstance {
+                                    description: Affiliation(Some(child.clone())),
+                                    ..Default::default()
+                                };
+                                events.change_mode.send(ChangeMode::To(
+                                    SelectAnchor3D::create_new_point()
+                                        .for_model_instance(model_instance)
+                                        .into(),
+                                ));
+                                println!("Add a new model instance of this group");
                             };
                         };
                         events.selector.show_widget(*child, ui);

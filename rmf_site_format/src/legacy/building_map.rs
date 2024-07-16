@@ -512,7 +512,7 @@ impl BuildingMap {
             }
 
             for model in &level.models {
-                let model_instance_id = model.update_instances_descriptions(
+                let (model_instance_id, model_pose) = model.to_site(
                     &mut model_description_name_map,
                     &mut model_descriptions,
                     &mut model_instances,
@@ -524,7 +524,7 @@ impl BuildingMap {
                     .unwrap()
                     .scenario
                     .added_model_instances
-                    .push(model_instance_id);
+                    .push((model_instance_id, model_pose));
             }
 
             let mut physical_cameras = BTreeMap::new();

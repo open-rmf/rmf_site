@@ -15,7 +15,7 @@
  *
 */
 
-use crate::RefTrait;
+use crate::{RefTrait, Site};
 #[cfg(feature = "bevy")]
 use bevy::prelude::*;
 use glam::{Quat, Vec2, Vec3};
@@ -407,9 +407,39 @@ pub struct PreviewableMarker;
 pub struct SiteID(pub u32);
 
 /// This component is applied to an entity to indicate that it is defined in relation
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
-pub struct SiteParentID(pub u32);
+/// Affiliates an entity with a group.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(transparent)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct SiteParent<T: RefTrait>(pub Option<T>);
+
+impl<T: RefTrait> From<T> for SiteParent<T> {
+    fn from(value: T) -> Self {
+        SiteParent(Some(value))
+    }
+}
+
+impl<T: RefTrait> From<Option<T>> for SiteParent<T> {
+    fn from(value: Option<T>) -> Self {
+        SiteParent(value)
+    }
+}
+
+impl<T: RefTrait> Default for SiteParent<T> {
+    fn default() -> Self {
+        SiteParent(None)
+    }
+}
+
+impl<T: RefTrait> SiteParent<T> {
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<SiteParent<U>, T> {
+        if let Some(x) = self.0 {
+            Ok(SiteParent(Some(id_map.get(&x).ok_or(x)?.clone())))
+        } else {
+            Ok(SiteParent(None))
+        }
+    }
+}
 
 /// The Pending component indicates that an element is not yet ready to be
 /// saved to file. We will filter out these elements while assigning SiteIDs,
