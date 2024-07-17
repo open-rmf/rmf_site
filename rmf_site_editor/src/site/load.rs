@@ -17,10 +17,7 @@
 
 use crate::{recency::RecencyRanking, site::*, WorkspaceMarker};
 use bevy::{ecs::system::SystemParam, prelude::*};
-use std::{
-    collections::{BTreeMap, HashMap},
-    path::PathBuf,
-};
+use std::{collections::HashMap, path::PathBuf};
 use thiserror::Error as ThisError;
 
 /// This component is given to the site to keep track of what file it should be
@@ -256,27 +253,12 @@ fn generate_site_entities(
         consider_id(*model_description_id);
     }
 
-    let (default_scenario_id, default_scenario) = site_data
-        .scenarios
-        .first_key_value()
-        .expect("No scenarios found");
-    let active_model_instance_ids: std::collections::HashSet<u32> = default_scenario
-        .scenario
-        .added_model_instances
-        .iter()
-        .map(|(id, _)| *id)
-        .collect();
     for (model_instance_id, model_instance) in &site_data.model_instances {
         let model_instance = model_instance.convert(&id_to_entity).for_site(site_id)?;
-        let model_instance_parent = if active_model_instance_ids.contains(model_instance_id) {
-            model_instance.parent.0.unwrap_or(site_id)
-        } else {
-            site_id
-        };
         let model_instance_entity = commands
             .spawn(model_instance.clone())
             .insert(SiteID(*model_instance_id))
-            .set_parent(model_instance_parent)
+            .set_parent(site_id)
             .id();
         id_to_entity.insert(*model_instance_id, model_instance_entity);
         consider_id(*model_instance_id);

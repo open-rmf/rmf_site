@@ -17,8 +17,8 @@
 
 use crate::{
     site::{
-        Affiliation, AssetSource, Change, DefaultFile, Group, IsStatic, Members, ModelProperty,
-        NameInSite, Scale, Texture,
+        Affiliation, AssetSource, Change, DefaultFile, Group, Members, ModelProperty, NameInSite,
+        Texture,
     },
     widgets::{inspector::InspectTexture, prelude::*, Inspect, SelectorWidget},
     CurrentWorkspace,
@@ -33,8 +33,6 @@ pub struct InspectGroup<'w, 's> {
     names: Query<'w, 's, &'static NameInSite>,
     textures: Query<'w, 's, &'static Texture>,
     model_assets: Query<'w, 's, &'static ModelProperty<AssetSource>>,
-    is_static: Query<'w, 's, &'static ModelProperty<AssetSource>>,
-    scale: Query<'w, 's, &'static ModelProperty<Scale>>,
     members: Query<'w, 's, &'static Members>,
     default_file: Query<'w, 's, &'static DefaultFile>,
     current_workspace: Res<'w, CurrentWorkspace>,
@@ -73,7 +71,7 @@ impl<'w, 's> InspectGroup<'w, 's> {
             .root
             .map(|e| self.default_file.get(e).ok())
             .flatten();
-        if let Ok(ModelProperty(asset)) = self.model_assets.get(id) {
+        if let Ok(ModelProperty(_)) = self.model_assets.get(id) {
             ui.label(RichText::new("Model Description Properties").size(18.0));
             ui.add_space(10.0);
         }

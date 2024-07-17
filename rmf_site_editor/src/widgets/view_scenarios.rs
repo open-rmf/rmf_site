@@ -21,7 +21,7 @@ use crate::{
         ScenarioMarker,
     },
     widgets::prelude::*,
-    AppState, Icons,
+    Icons,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Button, CollapsingHeader, Color32, Ui};
@@ -212,7 +212,7 @@ impl<'w, 's> ViewScenarios<'w, 's> {
         let mut version = 1;
         self.scenarios
             .iter()
-            .filter(|(e, name, scenario)| scenario.parent_scenario.0.is_none())
+            .filter(|(_, _, scenario)| scenario.parent_scenario.0.is_none())
             .for_each(|(scenario_entity, _, _)| {
                 show_scenario_widget(
                     ui,
@@ -244,7 +244,7 @@ fn show_scenario_widget(
     >,
     icons: &Res<Icons>,
 ) {
-    let (entity, name, scenario) = q_scenario.get(scenario_entity).unwrap();
+    let (entity, name, _) = q_scenario.get(scenario_entity).unwrap();
     let scenario_version_str = scenario_version
         .iter()
         .map(|v| v.to_string())
@@ -257,7 +257,6 @@ fn show_scenario_widget(
             change_current_scenario.send(ChangeCurrentScenario(entity));
         }
         ui.colored_label(Color32::DARK_GRAY, scenario_version_str.clone());
-        ui.label(name.0.clone());
         let mut new_name = name.0.clone();
         if ui.text_edit_singleline(&mut new_name).changed() {
             change_name.send(Change::new(NameInSite(new_name), entity));

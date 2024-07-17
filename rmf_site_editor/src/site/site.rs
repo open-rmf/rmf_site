@@ -17,9 +17,13 @@
 
 use crate::{interaction::CameraControls, CurrentWorkspace};
 use bevy::prelude::*;
+use itertools::Itertools;
 use rmf_site_format::{
-    LevelElevation, LevelProperties, NameInSite, NameOfSite, Pose, UserCameraPoseMarker,
+    LevelElevation, LevelProperties, NameInSite, NameOfSite, Pose, ScenarioBundle, ScenarioMarker,
+    UserCameraPoseMarker,
 };
+
+use super::ChangeCurrentScenario;
 
 /// Used as an event to command that a new site should be made the current one
 #[derive(Clone, Copy, Debug, Event)]
@@ -50,15 +54,17 @@ pub struct NextSiteID(pub u32);
 pub fn change_site(
     mut commands: Commands,
     mut change_current_site: EventReader<ChangeCurrentSite>,
+    mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
     mut current_workspace: ResMut<CurrentWorkspace>,
     mut current_level: ResMut<CurrentLevel>,
-    mut current_scenario: ResMut<CurrentScenario>,
+    current_scenario: ResMut<CurrentScenario>,
     cached_levels: Query<&CachedLevel>,
     mut visibility: Query<&mut Visibility>,
     open_sites: Query<Entity, With<NameOfSite>>,
     children: Query<&Children>,
     parents: Query<&Parent>,
     levels: Query<Entity, With<LevelElevation>>,
+    scenarios: Query<Entity, With<ScenarioMarker>>,
 ) {
     let mut set_visibility = |entity, value| {
         if let Ok(mut v) = visibility.get_mut(entity) {
@@ -136,6 +142,30 @@ pub fn change_site(
                         commands.entity(cmd.site).insert(CachedLevel(new_level));
                         current_level.0 = Some(new_level);
                     }
+                }
+            }
+        }
+
+        if let Some(new_scenario) = cmd.scenario {
+            if let Some(previous_scenario) = current_scenario.0 {
+                if previous_scenario != new_scenario {
+                    change_current_scenario.send(ChangeCurrentScenario(new_scenario));
+                }
+            }
+        } else {
+            if let Ok(children) = children.get(cmd.site) {
+                let any_scenario = children
+                    .iter()
+                    .filter(|child| scenarios.get(**child).is_ok())
+                    .find_or_first(|_| true);
+                if let Some(new_scenario) = any_scenario {
+                    change_current_scenario.send(ChangeCurrentScenario(*new_scenario));
+                } else {
+                    let new_scenario = commands
+                        .spawn(ScenarioBundle::<Entity>::default())
+                        .set_parent(cmd.site)
+                        .id();
+                    change_current_scenario.send(ChangeCurrentScenario(new_scenario));
                 }
             }
         }

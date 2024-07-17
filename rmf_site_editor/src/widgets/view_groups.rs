@@ -194,7 +194,7 @@ impl<'w, 's> ViewGroups<'w, 's> {
         });
 
         for child in children {
-            let Ok((name, asset_source, site_id)) = q_groups.get(*child) else {
+            let Ok((name, _, site_id)) = q_groups.get(*child) else {
                 continue;
             };
             let text = site_id

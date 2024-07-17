@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::{DragPlaneBundle, Selectable, MODEL_PREVIEW_LAYER},
-    site::{Category, Group, Members, PreventDeletion, SiteAssets},
+    site::{Category, Group, PreventDeletion, SiteAssets},
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
 };
 use bevy::{
@@ -31,8 +31,7 @@ use rmf_site_format::{
     Affiliation, AssetSource, ModelMarker, ModelProperty, NameInSite, Pending, Pose, Scale,
 };
 use smallvec::SmallVec;
-use std::{any::TypeId, collections::HashMap};
-use yaserde::xml::name;
+use std::any::TypeId;
 
 #[derive(Component, Debug, Clone)]
 pub struct ModelScene {
@@ -490,7 +489,7 @@ pub fn propagate_model_render_layers(
 
 pub fn update_model_instances<T: Component + Default + Clone>(
     mut commands: Commands,
-    mut model_properties: Query<
+    model_properties: Query<
         (Entity, &NameInSite, Ref<ModelProperty<T>>),
         (With<ModelMarker>, With<Group>),
     >,
@@ -498,7 +497,7 @@ pub fn update_model_instances<T: Component + Default + Clone>(
 ) {
     for (instance_entity, affiliation) in model_instances.iter() {
         if let Some(description_entity) = affiliation.0 {
-            if let Ok((_, name, property)) = model_properties.get(description_entity) {
+            if let Ok((_, _, property)) = model_properties.get(description_entity) {
                 if property.is_changed() || affiliation.is_changed() {
                     let mut cmd = commands.entity(instance_entity);
                     cmd.remove::<ModelProperty<T>>();
@@ -508,6 +507,3 @@ pub fn update_model_instances<T: Component + Default + Clone>(
         }
     }
 }
-
-#[derive(Component)]
-pub struct Inactive;
