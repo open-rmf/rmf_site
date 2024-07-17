@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{RefTrait, Site};
+use crate::RefTrait;
 #[cfg(feature = "bevy")]
 use bevy::prelude::*;
 use glam::{Quat, Vec2, Vec3};

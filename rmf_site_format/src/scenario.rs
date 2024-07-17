@@ -17,10 +17,7 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::{
-    ecs::entity::Entity,
-    prelude::{Bundle, Component, Reflect, ReflectComponent},
-};
+use bevy::prelude::{Bundle, Component, Reflect, ReflectComponent};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

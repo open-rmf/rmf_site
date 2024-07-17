@@ -1,6 +1,6 @@
 use crate::{
-    Affiliation, Angle, AssetSource, Group, IsStatic, Model as SiteModel, ModelDescriptionBundle,
-    ModelInstance, ModelMarker, ModelProperty, NameInSite, Pose, Rotation, Scale, SiteParent,
+    Affiliation, Angle, AssetSource, Group, IsStatic, ModelDescriptionBundle, ModelInstance,
+    ModelMarker, ModelProperty, NameInSite, Pose, Rotation, Scale, SiteParent,
 };
 use glam::DVec2;
 use serde::{Deserialize, Serialize};

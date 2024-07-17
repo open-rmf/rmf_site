@@ -435,7 +435,7 @@ impl Site {
             ..Default::default()
         };
         // Only export default scenario into SDF for now
-        let (default_scenario_id, default_scenario) = self
+        let (_, default_scenario) = self
             .scenarios
             .first_key_value()
             .expect("No scenarios found");

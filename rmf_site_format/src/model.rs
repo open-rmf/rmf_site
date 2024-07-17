@@ -64,9 +64,14 @@ impl Default for Model {
 ///
 ///
 
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
+pub struct InactiveModelInstanceContainer;
+
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub struct ModelProperty<T: Component + Default + Clone>(pub T);
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+pub struct ModelProperty<T: Default + Clone>(pub T);
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
