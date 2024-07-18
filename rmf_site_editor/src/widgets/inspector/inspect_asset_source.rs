@@ -23,15 +23,20 @@ use crate::{
 use bevy::prelude::*;
 use bevy_egui::egui::{ComboBox, Ui};
 use pathdiff::diff_paths;
-use rmf_site_format::{AssetSource, RecallAssetSource};
+use rmf_site_format::{Affiliation, AssetSource, RecallAssetSource};
 
 #[cfg(not(target_arch = "wasm32"))]
 use rfd::FileDialog;
 
 #[derive(SystemParam)]
 pub struct InspectAssetSource<'w, 's> {
-    asset_sources:
-        Query<'w, 's, (&'static AssetSource, &'static RecallAssetSource), Without<Pending>>,
+    asset_sources: Query<
+        'w,
+        's,
+        (&'static AssetSource, &'static RecallAssetSource),
+        (Without<Pending>, Without<Affiliation<Entity>>),
+        // (Without<Pending>),
+    >,
     change_asset_source: EventWriter<'w, Change<AssetSource>>,
     current_workspace: Res<'w, CurrentWorkspace>,
     default_file: Query<'w, 's, &'static DefaultFile>,

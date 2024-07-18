@@ -21,11 +21,11 @@ use crate::{
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{DragValue, Grid, Ui};
-use rmf_site_format::Scale;
+use rmf_site_format::{Affiliation, Scale};
 
 #[derive(SystemParam)]
 pub struct InspectScale<'w, 's> {
-    scales: Query<'w, 's, &'static Scale>,
+    scales: Query<'w, 's, (&'static Scale), (Without<Affiliation<Entity>>)>,
     change_scale: EventWriter<'w, Change<Scale>>,
 }
 

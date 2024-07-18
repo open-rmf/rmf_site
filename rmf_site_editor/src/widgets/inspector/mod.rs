@@ -75,6 +75,9 @@ pub use inspect_primitive_shape::*;
 pub mod inspect_measurement;
 pub use inspect_measurement::*;
 
+pub mod inspect_model_description;
+pub use inspect_model_description::*;
+
 pub mod inspect_motion;
 pub use inspect_motion::*;
 
@@ -199,6 +202,7 @@ impl Plugin for StandardInspectorPlugin {
                 InspectionPlugin::<InspectAssetSource>::new(),
                 InspectionPlugin::<InspectPrimitiveShape>::new(),
                 InspectionPlugin::<InspectModelDependents>::new(),
+                InspectionPlugin::<InspectModelDescription>::new(),
                 InspectionPlugin::<InspectWorkcellParent>::new(),
                 InspectionPlugin::<InspectJoint>::new(),
                 InspectionPlugin::<InspectMeasurement>::new(),
