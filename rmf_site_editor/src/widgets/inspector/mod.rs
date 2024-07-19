@@ -181,6 +181,7 @@ impl Plugin for StandardInspectorPlugin {
         app.add_plugins(MinimalInspectorPlugin::default())
             .add_plugins((
                 InspectionPlugin::<InspectName>::new(),
+                InspectionPlugin::<InspectModelDescription>::new(),
                 InspectionPlugin::<InspectAnchor>::new(),
                 InspectionPlugin::<InspectAnchorDependents>::new(),
                 InspectionPlugin::<InspectEdge>::new(),
@@ -194,15 +195,14 @@ impl Plugin for StandardInspectorPlugin {
                 InspectionPlugin::<InspectMotion>::new(),
                 InspectionPlugin::<InspectPose>::new(),
                 InspectionPlugin::<InspectScale>::new(),
-                InspectionPlugin::<InspectLight>::new(),
                 // Reached the tuple limit
             ))
             .add_plugins((
+                InspectionPlugin::<InspectLight>::new(),
                 InspectionPlugin::<InspectDoor>::new(),
                 InspectionPlugin::<InspectAssetSource>::new(),
                 InspectionPlugin::<InspectPrimitiveShape>::new(),
                 InspectionPlugin::<InspectModelDependents>::new(),
-                InspectionPlugin::<InspectModelDescription>::new(),
                 InspectionPlugin::<InspectWorkcellParent>::new(),
                 InspectionPlugin::<InspectJoint>::new(),
                 InspectionPlugin::<InspectMeasurement>::new(),

@@ -125,6 +125,9 @@ use view_nav_graphs::*;
 pub mod view_occupancy;
 use view_occupancy::*;
 
+pub mod view_tasks;
+pub use view_tasks::*;
+
 pub mod prelude {
     //! This module gives easy access to the traits, structs, and plugins that
     //! we expect downstream users are likely to want easy access to if they are
