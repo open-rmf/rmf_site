@@ -181,7 +181,7 @@ impl Plugin for StandardInspectorPlugin {
         app.add_plugins(MinimalInspectorPlugin::default())
             .add_plugins((
                 InspectionPlugin::<InspectName>::new(),
-                InspectionPlugin::<InspectModelDescription>::new(),
+                InspectionPlugin::<InspectSelectedModelDescription>::new(),
                 InspectionPlugin::<InspectAnchor>::new(),
                 InspectionPlugin::<InspectAnchorDependents>::new(),
                 InspectionPlugin::<InspectEdge>::new(),
@@ -210,6 +210,13 @@ impl Plugin for StandardInspectorPlugin {
                 InspectLiftPlugin::default(),
                 InspectionPlugin::<InspectPreview>::new(),
                 InspectionPlugin::<InspectGroup>::new(),
+                InspectModelDescriptionPlugin::default(),
+            ))
+            .add_plugins((
+                InspectModelPropertyPlugin::<InspectModelScale, Scale>::new("Scale".to_string()),
+                InspectModelPropertyPlugin::<InspectModelAssetSource, AssetSource>::new(
+                    "Source".to_string(),
+                ),
             ));
     }
 }

@@ -28,20 +28,6 @@ impl Model {
         DVec2::new(self.x, self.y)
     }
 
-    // pub fn to_site(&self) -> SiteModel {
-    //     SiteModel {
-    //         name: NameInSite(self.instance_name.clone()),
-    //         source: AssetSource::Search(self.model_name.clone()),
-    //         pose: Pose {
-    //             trans: [self.x as f32, self.y as f32, self.z_offset as f32],
-    //             rot: Rotation::Yaw(Angle::Deg(self.yaw.to_degrees() as f32)),
-    //         },
-    //         is_static: IsStatic(self.static_),
-    //         scale: Scale::default(),
-    //         marker: ModelMarker,
-    //     }
-    // }
-
     pub fn to_site(
         &self,
         model_description_name_map: &mut HashMap<String, u32>,

@@ -20,7 +20,7 @@ use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Bundle, Component, Reflect, ReflectComponent};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{any::TypeId, collections::HashMap};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
@@ -64,10 +64,12 @@ impl Default for Model {
 ///
 ///
 
+/// Defines a property in a model description, that will be added to all instances
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
 pub struct ModelProperty<T: Default + Clone>(pub T);
 
+/// Bundle with all required components for a valid model description
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct ModelDescriptionBundle {
@@ -83,6 +85,7 @@ pub struct ModelDescriptionBundle {
     pub marker: ModelMarker,
 }
 
+/// Bundle with all required components for a valid model instance
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct ModelInstance<T: RefTrait> {

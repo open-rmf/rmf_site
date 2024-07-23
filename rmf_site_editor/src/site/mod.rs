@@ -119,6 +119,7 @@ pub use util::*;
 
 pub mod wall;
 pub use wall::*;
+use yaserde::ser::Config;
 
 use crate::recency::{RecencyRank, RecencyRankingPlugin};
 use crate::{AppState, RegisterIssueType};

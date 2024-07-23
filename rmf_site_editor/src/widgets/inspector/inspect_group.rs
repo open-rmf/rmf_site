@@ -16,35 +16,21 @@
 */
 
 use crate::{
-    site::{
-        Affiliation, AssetSource, Change, DefaultFile, Group, Members, ModelProperty, NameInSite,
-        Scale, Texture,
-    },
+    site::{Affiliation, Change, DefaultFile, Group, Members, ModelMarker, NameInSite, Texture},
     widgets::{inspector::InspectTexture, prelude::*, Inspect, SelectorWidget},
-    CurrentWorkspace, InspectAssetSourceComponent, InspectScaleComponent,
+    CurrentWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, RichText, Ui};
-use rmf_site_format::RecallAssetSource;
 
 #[derive(SystemParam)]
 pub struct InspectGroup<'w, 's> {
     is_group: Query<'w, 's, (), With<Group>>,
-    affiliation: Query<'w, 's, &'static Affiliation<Entity>>,
+    affiliation: Query<'w, 's, &'static Affiliation<Entity>, Without<ModelMarker>>,
     names: Query<'w, 's, &'static NameInSite>,
     textures: Query<'w, 's, &'static Texture>,
-    model_descriptions: Query<
-        'w,
-        's,
-        (
-            &'static ModelProperty<AssetSource>,
-            &'static ModelProperty<Scale>,
-        ),
-    >,
     members: Query<'w, 's, &'static Members>,
     default_file: Query<'w, 's, &'static DefaultFile>,
-    change_asset_source: EventWriter<'w, Change<ModelProperty<AssetSource>>>,
-    change_scale: EventWriter<'w, Change<ModelProperty<Scale>>>,
     change_texture: EventWriter<'w, Change<Texture>>,
     current_workspace: Res<'w, CurrentWorkspace>,
     selector: SelectorWidget<'w, 's>,
@@ -81,35 +67,6 @@ impl<'w, 's> InspectGroup<'w, 's> {
             .root
             .map(|e| self.default_file.get(e).ok())
             .flatten();
-        if let Ok((ModelProperty(current_source), ModelProperty(current_scale))) =
-            self.model_descriptions.get(id)
-        {
-            ui.label(RichText::new("Model Description Properties").size(18.0));
-            ui.add_space(10.0);
-
-            // Asset Source
-            let default_file = self
-                .current_workspace
-                .root
-                .map(|e| self.default_file.get(e).ok())
-                .flatten();
-            if let Some(new_source) = InspectAssetSourceComponent::new(
-                &current_source,
-                &RecallAssetSource::default(),
-                default_file,
-            )
-            .show(ui)
-            {
-                self.change_asset_source
-                    .send(Change::new(ModelProperty(new_source), id));
-            }
-
-            // Scale
-            if let Some(new_scale) = InspectScaleComponent::new(&current_scale).show(ui) {
-                self.change_scale
-                    .send(Change::new(ModelProperty(new_scale), id));
-            }
-        }
         if let Ok(texture) = self.textures.get(id) {
             ui.label(RichText::new("Texture Properties").size(18.0));
             if let Some(new_texture) = InspectTexture::new(texture, default_file).show(ui) {

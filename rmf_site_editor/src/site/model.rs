@@ -28,10 +28,11 @@ use bevy::{
 };
 use bevy_mod_outline::OutlineMeshExt;
 use rmf_site_format::{
-    Affiliation, AssetSource, ModelMarker, ModelProperty, NameInSite, Pending, Pose, Scale,
+    Affiliation, AssetSource, DifferentialDrive, ModelMarker, ModelProperty, NameInSite, Pending,
+    Pose, Scale,
 };
 use smallvec::SmallVec;
-use std::any::TypeId;
+use std::{any::TypeId, collections::HashMap};
 
 #[derive(Component, Debug, Clone)]
 pub struct ModelScene {
@@ -487,6 +488,7 @@ pub fn propagate_model_render_layers(
     }
 }
 
+/// This system keeps model instances up to date with the properties of their affiliated descriptions
 pub fn update_model_instances<T: Component + Default + Clone>(
     mut commands: Commands,
     model_properties: Query<
