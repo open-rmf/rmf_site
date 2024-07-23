@@ -22,6 +22,7 @@ use crate::{
 };
 use bevy::{
     asset::{LoadState, LoadedUntypedAsset},
+    ecs::removal_detection::{RemovedComponentEntity, RemovedComponentEvents},
     gltf::Gltf,
     prelude::*,
     render::view::RenderLayers,
@@ -496,7 +497,20 @@ pub fn update_model_instances<T: Component + Default + Clone>(
         (With<ModelMarker>, With<Group>),
     >,
     model_instances: Query<(Entity, Ref<Affiliation<Entity>>), (With<ModelMarker>, Without<Group>)>,
+    mut removals: RemovedComponents<ModelProperty<T>>,
 ) {
+    // Removals
+    if !removals.is_empty() {
+        for description_entity in removals.read() {
+            for (instance_entity, affiliation) in model_instances.iter() {
+                if affiliation.0 == Some(description_entity) {
+                    commands.entity(instance_entity).remove::<T>();
+                }
+            }
+        }
+    }
+
+    // Changes
     for (instance_entity, affiliation) in model_instances.iter() {
         if let Some(description_entity) = affiliation.0 {
             if let Ok((_, _, property)) = model_properties.get(description_entity) {

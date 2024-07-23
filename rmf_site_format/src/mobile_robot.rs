@@ -74,10 +74,10 @@ pub struct MobileRobotMarker;
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
 pub struct DifferentialDrive {
-    pub translaitonal_speed: f32,
+    pub translational_speed: f32,
     pub rotational_speed: f32,
     pub bidirectional: bool,
-    pub rotation_center_offset: [f32; 3],
+    pub rotation_center_offset: [f32; 2],
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]

@@ -110,6 +110,7 @@ pub use inspect_value::*;
 
 pub mod inspect_workcell_parent;
 pub use inspect_workcell_parent::*;
+use itertools::Diff;
 
 use crate::{
     interaction::Selection,
@@ -216,6 +217,9 @@ impl Plugin for StandardInspectorPlugin {
                 InspectModelPropertyPlugin::<InspectModelScale, Scale>::new("Scale".to_string()),
                 InspectModelPropertyPlugin::<InspectModelAssetSource, AssetSource>::new(
                     "Source".to_string(),
+                ),
+                InspectModelPropertyPlugin::<InspectModelDifferentialDrive, DifferentialDrive>::new(
+                    "Differential Drve".to_string(),
                 ),
             ));
     }
