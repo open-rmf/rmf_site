@@ -15,10 +15,13 @@
  *
 */
 
-use crate::{site::CurrentScenario, CurrentWorkspace};
+use crate::{
+    site::{CurrentScenario, Delete},
+    CurrentWorkspace,
+};
 use bevy::prelude::*;
 use rmf_site_format::{Group, ModelMarker, NameInSite, Pose, Scenario, SiteParent};
-use std::collections::HashMap;
+use std::{collections::HashMap, thread::current};
 
 #[derive(Clone, Copy, Debug, Event)]
 pub struct ChangeCurrentScenario(pub Entity);
@@ -97,7 +100,22 @@ pub fn update_scenario_properties(
     {
         for (entity, _, pose) in changed_models.iter() {
             if pose.is_changed() {
-                let existing_added_model = current_scenario
+                let existing_removed_model = current_scenario
+                    .removed_model_instances
+                    .iter_mut()
+                    .find(|e| **e == entity)
+                    .map(|e| e.clone());
+                if let Some(existing_removed_model) = existing_removed_model {
+                    current_scenario
+                        .moved_model_instances
+                        .retain(|(e, _)| *e != existing_removed_model);
+                    current_scenario
+                        .added_model_instances
+                        .retain(|(e, _)| *e != existing_removed_model);
+                    return;
+                }
+
+                let existing_added_model: Option<&mut (Entity, Pose)> = current_scenario
                     .added_model_instances
                     .iter_mut()
                     .find(|(e, _)| *e == entity);
@@ -125,6 +143,54 @@ pub fn update_scenario_properties(
                     return;
                 }
             }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Event)]
+pub struct RemoveModelInstance(pub Entity);
+
+pub fn remove_instances(
+    mut commands: Commands,
+    mut scenarios: Query<&mut Scenario<Entity>>,
+    mut current_scenario: ResMut<CurrentScenario>,
+    mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
+    mut removals: EventReader<RemoveModelInstance>,
+    mut delete: EventWriter<Delete>,
+) {
+    for removal in removals.read() {
+        let Some(current_scenario_entity) = current_scenario.0 else {
+            delete.send(Delete::new(removal.0));
+            return;
+        };
+
+        if let Ok(mut current_scenario) = scenarios.get_mut(current_scenario_entity) {
+            // Delete if root scenario
+            if current_scenario.parent_scenario.0.is_none() {
+                current_scenario
+                    .added_model_instances
+                    .retain(|(e, _)| *e != removal.0);
+                commands.entity(removal.0).remove::<ModelMarker>();
+                delete.send(Delete::new(removal.0));
+                return;
+            }
+            // Delete if added in this scenario
+            if let Some(added_id) = current_scenario
+                .added_model_instances
+                .iter()
+                .position(|(e, _)| *e == removal.0)
+            {
+                current_scenario.added_model_instances.remove(added_id);
+                commands.entity(removal.0).remove::<ModelMarker>();
+                delete.send(Delete::new(removal.0));
+                return;
+            }
+            // Otherwise, remove
+            current_scenario
+                .moved_model_instances
+                .retain(|(e, _)| *e != removal.0);
+            current_scenario.removed_model_instances.push(removal.0);
+            change_current_scenario.send(ChangeCurrentScenario(current_scenario_entity));
         }
     }
 }

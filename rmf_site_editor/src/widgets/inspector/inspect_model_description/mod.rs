@@ -318,6 +318,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelDescription<'w, 's> {
                     inspection: child,
                     panel,
                 };
+                ui.add_space(10.0);
                 let _ = world.try_show_in(child, inspect, ui);
             }
         }

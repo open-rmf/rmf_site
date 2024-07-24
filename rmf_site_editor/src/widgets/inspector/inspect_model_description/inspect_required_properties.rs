@@ -63,7 +63,6 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelScale<'w, 's> {
                 .change_scale
                 .send(Change::new(ModelProperty(new_scale), description_entity));
         }
-        ui.add_space(10.0);
     }
 }
 

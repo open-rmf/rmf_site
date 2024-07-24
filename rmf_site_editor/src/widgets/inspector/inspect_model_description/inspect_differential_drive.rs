@@ -21,7 +21,8 @@ use crate::{
     widgets::{prelude::*, Inspect},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{DragValue, Grid};
+use bevy_egui::egui::{Align, Direction, DragValue, Grid, InnerResponse, Layout};
+use serde::de::value;
 
 #[derive(SystemParam)]
 pub struct InspectModelDifferentialDrive<'w, 's> {
@@ -61,63 +62,66 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelDifferentialDrive<'w, 's> {
 
         ui.label("Differential Drive");
 
-        ui.horizontal(|ui| {
-            ui.label("Translation Velocity [m/s]:");
-            ui.add(
-                DragValue::new(&mut new_differential_drive.translational_speed)
-                    .clamp_range(0_f32..=std::f32::INFINITY)
-                    .speed(0.01),
-            );
-        });
-        ui.label("Max Velocity");
-        ui.horizontal(|ui| {
-            ui.label("Lateral:");
-            ui.add(
-                DragValue::new(&mut new_differential_drive.translational_speed)
-                    .clamp_range(0_f32..=std::f32::INFINITY)
-                    .speed(0.01),
-            );
-            ui.label("m/s");
-            ui.label("Rotational:");
-            ui.add(
-                DragValue::new(&mut new_differential_drive.rotational_speed)
-                    .clamp_range(0_f32..=std::f32::INFINITY)
-                    .speed(0.01),
-            );
-            ui.label("rad/s");
-        });
+        ui.set_min_width(ui.available_width());
 
-        ui.horizontal(|ui| {
-            ui.label("Center Offset");
-            ui.label("x");
-            ui.add(
-                DragValue::new(&mut new_differential_drive.rotation_center_offset[0])
-                    .clamp_range(0_f32..=std::f32::INFINITY)
-                    .speed(0.01),
-            );
-            ui.label("y");
-            ui.add(
-                DragValue::new(&mut new_differential_drive.rotation_center_offset[1])
-                    .clamp_range(0_f32..=std::f32::INFINITY)
-                    .speed(0.01),
-            );
-        });
+        Grid::new("inspect_differential_drive")
+            .num_columns(2)
+            .show(ui, |ui| {
+                // Max Velocity
+                ui.label("max velocity");
+                ui.end_row();
 
-        ui.horizontal(|ui| {
-            ui.label("Bidirectional:");
-            if ui
-                .selectable_label(new_differential_drive.bidirectional, "Enabled")
-                .clicked()
-            {
-                new_differential_drive.bidirectional = true;
-            }
-            if ui
-                .selectable_label(!new_differential_drive.bidirectional, "Disabled")
-                .clicked()
-            {
-                new_differential_drive.bidirectional = false;
-            }
-        });
+                value_name(ui, |ui| {
+                    ui.label("translation");
+                });
+                ui.add(
+                    DragValue::new(&mut new_differential_drive.translational_speed)
+                        .clamp_range(0_f32..=std::f32::INFINITY)
+                        .speed(0.01),
+                );
+                ui.label("m/s");
+                ui.end_row();
+                value_name(ui, |ui| {
+                    ui.label("angular");
+                });
+                ui.add(
+                    DragValue::new(&mut new_differential_drive.rotational_speed)
+                        .clamp_range(0_f32..=std::f32::INFINITY)
+                        .speed(0.01),
+                );
+                ui.label("rad/s");
+                ui.end_row();
+
+                // Center Offset
+                ui.label("center offset");
+                ui.end_row();
+                value_name(ui, |ui| {
+                    ui.label("x");
+                });
+                ui.add(
+                    DragValue::new(&mut new_differential_drive.rotation_center_offset[0])
+                        .clamp_range(0_f32..=std::f32::INFINITY)
+                        .speed(0.01),
+                );
+                ui.label("m");
+                ui.end_row();
+                value_name(ui, |ui| {
+                    ui.label("y");
+                });
+                ui.add(
+                    DragValue::new(&mut new_differential_drive.rotation_center_offset[1])
+                        .clamp_range(0_f32..=std::f32::INFINITY)
+                        .speed(0.01),
+                );
+                ui.label("m");
+                ui.end_row();
+
+                // Bidirectional
+                ui.label("bidirectional");
+                ui.end_row();
+                value_name(ui, |ui| ui.label("enabled"));
+                ui.checkbox(&mut new_differential_drive.bidirectional, "");
+            });
 
         if new_differential_drive != *differential_drive {
             params.change_differential_drive.send(Change::new(
@@ -126,4 +130,12 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelDifferentialDrive<'w, 's> {
             ));
         }
     }
+}
+
+/// Displays a right indented value name
+fn value_name<R>(ui: &mut Ui, add_contents: impl FnOnce(&mut Ui) -> R) -> InnerResponse<R> {
+    ui.with_layout(
+        Layout::from_main_dir_and_cross_align(Direction::RightToLeft, Align::Max),
+        add_contents,
+    )
 }
