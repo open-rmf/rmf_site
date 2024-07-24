@@ -171,7 +171,7 @@ impl<'w, 's> Creation<'w, 's> {
                 AppState::MainMenu | AppState::SiteDrawingEditor | AppState::SiteVisualizer => {}
                 AppState::SiteEditor | AppState::WorkcellEditor => {
                     ui.add_space(10.0);
-                    CollapsingHeader::new("New model")
+                    CollapsingHeader::new("New model description")
                         .default_open(false)
                         .show(ui, |ui| {
                             let default_file = self
