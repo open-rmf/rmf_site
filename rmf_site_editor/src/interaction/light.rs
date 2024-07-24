@@ -68,7 +68,7 @@ pub fn add_physical_light_visual_cues(
 ) {
     for (e, kind) in &new_lights {
         let light_material = materials.add(StandardMaterial {
-            base_color: kind.color().into(),
+            base_color: Color::rgb_from_array(kind.color()),
             unlit: true,
             perceptual_roughness: 0.089,
             ..default()
@@ -185,7 +185,7 @@ pub fn update_physical_light_visual_cues(
     for (kind, bodies, material) in &changed {
         bodies.switch(kind, &mut visibilities);
         if let Some(m) = material_assets.get_mut(material) {
-            m.base_color = kind.color().into();
+            m.base_color = Color::rgb_from_array(kind.color());
         } else {
             error!("Unable to get material asset for light");
         }

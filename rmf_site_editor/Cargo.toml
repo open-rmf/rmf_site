@@ -16,22 +16,21 @@ name = "extending_site_editor"
 path = "examples/extending_menu.rs"
 
 [dependencies]
-bevy_egui = "0.23"
-bevy_mod_raycast = "0.16"
-bevy_mod_outline = "0.6"
-# PR merged after 0.10 but not released yet, bump to 0.10.1 once merged
-bevy_infinite_grid = { git = "https://github.com/ForesightMiningSoftwareCorporation/bevy_infinite_grid", rev = "86018dd" }
-bevy_gltf_export = { git = "https://github.com/luca-della-vedova/bevy_gltf_export", branch = "luca/transform_api"}
-bevy_polyline = "0.8.1"
-bevy_stl = "0.12"
-bevy_obj = { version = "0.12.1", features = ["scene"] }
+bevy_egui = "0.27"
+bevy_mod_raycast = "0.17"
+bevy_mod_outline = "0.7"
+bevy_infinite_grid = "0.12"
+bevy_gltf_export = { git = "https://github.com/luca-della-vedova/bevy_gltf_export", branch = "bevy_0.13"}
+bevy_polyline = { git = "https://github.com/luca-della-vedova/bevy_polyline", branch = "luca/bevy_0.13_panic" }
+bevy_stl = "0.13"
+bevy_obj = { version = "0.13", features = ["scene"] }
 smallvec = "*"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.8.23"
 serde_json = "1.0"
 wasm-bindgen = "0.2.87"
 futures-lite = "1.12.0"
-bevy = { version = "0.12", features = ["pnm", "jpeg", "tga"] }
+bevy = { version = "0.13", features = ["pnm", "jpeg", "tga"] }
 dirs = "5.0"
 thread_local = "*"
 geo = "0.27"

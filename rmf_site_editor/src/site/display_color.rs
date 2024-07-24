@@ -26,9 +26,7 @@ pub fn add_material_for_display_colors(
     for (e, c) in &new_display {
         commands
             .entity(e)
-            .insert(materials.add(old_default_material(Color::rgba(
-                c.0[0], c.0[1], c.0[2], c.0[3],
-            ))));
+            .insert(materials.add(old_default_material(Color::rgb(c.0[0], c.0[1], c.0[2]))));
     }
 }
 
@@ -38,7 +36,7 @@ pub fn update_material_for_display_color(
 ) {
     for (color, material) in &changed_color {
         if let Some(m) = materials.get_mut(material) {
-            m.base_color = color.0.into();
+            m.base_color = Color::rgb_from_array(color.0);
         }
     }
 }

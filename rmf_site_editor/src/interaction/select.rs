@@ -203,7 +203,7 @@ pub fn maintain_hovered_entities(
     mut hovered: Query<&mut Hovered>,
     mut hovering: ResMut<Hovering>,
     mut hover: EventReader<Hover>,
-    mouse_button_input: Res<Input<MouseButton>>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
     touch_input: Res<Touches>,
     mut select: EventWriter<Select>,
     mode: Res<InteractionMode>,

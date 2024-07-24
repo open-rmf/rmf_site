@@ -18,8 +18,8 @@
 use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{
-    Bundle, Component, DirectionalLight as BevyDirectionalLight, PointLight as BevyPointLight,
-    SpotLight as BevySpotLight,
+    Bundle, Color, Component, DirectionalLight as BevyDirectionalLight,
+    PointLight as BevyPointLight, SpotLight as BevySpotLight,
 };
 use serde::{Deserialize, Serialize};
 
@@ -68,7 +68,7 @@ impl LightKind {
         }
     }
 
-    pub fn color(&self) -> [f32; 4] {
+    pub fn color(&self) -> [f32; 3] {
         match self {
             Self::Point(l) => l.color,
             Self::Spot(l) => l.color,
@@ -155,8 +155,8 @@ impl From<DirectionalLight> for LightKind {
     }
 }
 
-fn white() -> [f32; 4] {
-    [1.0, 1.0, 1.0, 1.0]
+fn white() -> [f32; 3] {
+    [1.0, 1.0, 1.0]
 }
 fn default_range() -> f32 {
     20.0
@@ -168,7 +168,7 @@ fn default_illuminance() -> f32 {
     100000.0
 }
 fn default_intensity() -> f32 {
-    800.0
+    1_000_000.0
 }
 fn bool_true() -> bool {
     true
@@ -177,7 +177,7 @@ fn bool_true() -> bool {
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub struct PointLight {
     #[serde(default = "white")]
-    pub color: [f32; 4],
+    pub color: [f32; 3],
     #[serde(default = "default_intensity")]
     pub intensity: f32,
     #[serde(default = "default_range")]
@@ -192,7 +192,7 @@ pub struct PointLight {
 impl PointLight {
     pub fn to_bevy(&self) -> BevyPointLight {
         BevyPointLight {
-            color: self.color.into(),
+            color: Color::rgb_from_array(self.color),
             intensity: self.intensity,
             range: self.range,
             radius: self.radius,
@@ -205,8 +205,8 @@ impl PointLight {
 impl Default for PointLight {
     fn default() -> Self {
         Self {
-            color: [1.0, 1.0, 1.0, 1.0],
-            intensity: 800.0,
+            color: [1.0, 1.0, 1.0],
+            intensity: 1_000_000.0,
             range: 20.0,
             radius: 0.0,
             enable_shadows: true,
@@ -217,7 +217,7 @@ impl Default for PointLight {
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub struct SpotLight {
     #[serde(default = "white")]
-    pub color: [f32; 4],
+    pub color: [f32; 3],
     #[serde(default = "default_intensity")]
     pub intensity: f32,
     #[serde(default = "default_range")]
@@ -232,7 +232,7 @@ pub struct SpotLight {
 impl SpotLight {
     pub fn to_bevy(&self) -> BevySpotLight {
         BevySpotLight {
-            color: self.color.into(),
+            color: Color::rgb_from_array(self.color),
             intensity: self.intensity,
             range: self.range,
             radius: self.radius,
@@ -245,8 +245,8 @@ impl SpotLight {
 impl Default for SpotLight {
     fn default() -> Self {
         Self {
-            color: [1.0, 1.0, 1.0, 1.0],
-            intensity: 800.0,
+            color: [1.0, 1.0, 1.0],
+            intensity: 1_000_000.0,
             range: 20.0,
             radius: 0.0,
             enable_shadows: true,
@@ -257,7 +257,7 @@ impl Default for SpotLight {
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub struct DirectionalLight {
     #[serde(default = "white")]
-    pub color: [f32; 4],
+    pub color: [f32; 3],
     #[serde(default = "default_illuminance")]
     pub illuminance: f32,
     #[serde(default = "bool_true")]
@@ -268,7 +268,7 @@ pub struct DirectionalLight {
 impl DirectionalLight {
     pub fn to_bevy(&self) -> BevyDirectionalLight {
         BevyDirectionalLight {
-            color: self.color.into(),
+            color: Color::rgb_from_array(self.color),
             illuminance: self.illuminance,
             shadows_enabled: self.enable_shadows,
             ..Default::default()
@@ -279,7 +279,7 @@ impl DirectionalLight {
 impl Default for DirectionalLight {
     fn default() -> Self {
         Self {
-            color: [1.0, 1.0, 1.0, 1.0],
+            color: [1.0, 1.0, 1.0],
             illuminance: 100000.0,
             enable_shadows: true,
         }

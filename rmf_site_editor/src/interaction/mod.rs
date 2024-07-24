@@ -133,7 +133,7 @@ pub enum InteractionUpdateSet {
 
 impl Plugin for InteractionPlugin {
     fn build(&self, app: &mut App) {
-        app.add_state::<InteractionState>()
+        app.init_state::<InteractionState>()
             .configure_sets(
                 Update,
                 (

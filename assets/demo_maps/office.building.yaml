@@ -137,7 +137,7 @@ levels:
     lights:
       - {pose: {trans: [1672, 783, 2.6], rot: {euler_xyz: [{deg: 30}, {deg: 0}, {deg: 0}]}}, kind: {type: spot}}
       - {pose: {trans: [1273, 783, 2.6]}, kind: {type: point, enable_shadows: false}}
-      - {pose: {trans: [1973, 633, 2.6]}, kind: {type: point, color: [0.5, 0.5, 1.0, 1.0]}}
+      - {pose: {trans: [1973, 633, 2.6]}, kind: {type: point, color: [0.5, 0.5, 1.0]}}
     vertices:
       - [80.27, 1024.974, 0, ""]
       - [580.795, 43.396, 0, ""]

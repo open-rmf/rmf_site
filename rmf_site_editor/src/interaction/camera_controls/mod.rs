@@ -16,12 +16,10 @@
 */
 use crate::interaction::{InteractionAssets, PickingBlockers};
 use bevy::{
-    core_pipeline::{
-        clear_color::ClearColorConfig, core_3d::Camera3dBundle, tonemapping::Tonemapping,
-    },
+    core_pipeline::{core_3d::Camera3dBundle, tonemapping::Tonemapping},
     prelude::*,
     render::{
-        camera::{Camera, Projection, ScalingMode},
+        camera::{Camera, Exposure, Projection, ScalingMode},
         view::RenderLayers,
     },
 };
@@ -257,11 +255,12 @@ impl FromWorld for CameraControls {
             .spawn(DirectionalLightBundle {
                 directional_light: DirectionalLight {
                     shadows_enabled: false,
-                    illuminance: 20000.,
+                    illuminance: 5000.,
                     ..default()
                 },
                 ..default()
             })
+            .insert(RenderLayers::all())
             .id();
 
         let perspective_child_cameras = [
@@ -273,12 +272,15 @@ impl FromWorld for CameraControls {
             world
                 .spawn(Camera3dBundle {
                     projection: Projection::Perspective(Default::default()),
-                    camera: Camera { order, ..default() },
-                    camera_3d: Camera3d {
+                    camera: Camera {
+                        order,
                         clear_color: ClearColorConfig::None,
                         ..default()
                     },
                     tonemapping: Tonemapping::ReinhardLuminance,
+                    exposure: Exposure {
+                        ev100: Exposure::EV100_INDOOR,
+                    },
                     ..default()
                 })
                 .insert(VisibilityBundle {
@@ -316,11 +318,12 @@ impl FromWorld for CameraControls {
                 )),
                 directional_light: DirectionalLight {
                     shadows_enabled: false,
-                    illuminance: 20000.,
+                    illuminance: 5000.,
                     ..default()
                 },
                 ..default()
             })
+            .insert(RenderLayers::all())
             .id();
 
         let ortho_projection = OrthographicProjection {
@@ -341,13 +344,13 @@ impl FromWorld for CameraControls {
                     camera: Camera {
                         is_active: false,
                         order,
-                        ..default()
-                    },
-                    camera_3d: Camera3d {
                         clear_color: ClearColorConfig::None,
                         ..default()
                     },
                     projection: Projection::Orthographic(ortho_projection.clone()),
+                    exposure: Exposure {
+                        ev100: Exposure::EV100_INDOOR,
+                    },
                     tonemapping: Tonemapping::ReinhardLuminance,
                     ..default()
                 })
@@ -463,7 +466,7 @@ fn camera_controls(
 
             // Ensure upright
             let forward = persp_transform.forward();
-            persp_transform.look_to(forward, Vec3::Z);
+            persp_transform.look_to(*forward, Vec3::Z);
         }
 
         let proj = persp_proj.clone();

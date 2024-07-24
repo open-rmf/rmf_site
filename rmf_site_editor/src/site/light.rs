@@ -24,7 +24,7 @@ use bevy::{
     },
     render::{
         primitives::{CubemapFrusta, Frustum},
-        view::VisibleEntities,
+        view::{RenderLayers, VisibleEntities},
     },
 };
 use rmf_site_format::{Category, Light, LightKind, NameInSite, Pose};
@@ -64,6 +64,7 @@ pub fn add_physical_lights(
             .insert(VisibleEntities::default())
             .insert(CubemapFrusta::default())
             .insert(CubemapVisibleEntities::default())
+            .insert(RenderLayers::all())
             .insert(Category::Light);
 
         if parent.is_none() {

@@ -237,7 +237,7 @@ pub fn update_lift_cabin(
                                 let mesh = make_flat_mesh_for_aabb(aabb);
                                 parent
                                     .spawn(PbrBundle {
-                                        mesh: meshes.add(mesh.into()),
+                                        mesh: meshes.add(mesh),
                                         // Doormats are not visible by default.
                                         // Other plugins should make them visible
                                         // if using them as a visual cue.

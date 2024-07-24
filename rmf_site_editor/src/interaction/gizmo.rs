@@ -17,7 +17,9 @@
 
 use crate::interaction::*;
 use bevy::{math::Affine3A, prelude::*, window::PrimaryWindow};
-use bevy_mod_raycast::{deferred::RaycastMesh, deferred::RaycastSource, primitives::rays::Ray3d};
+use bevy_mod_raycast::{
+    deferred::RaycastMesh, deferred::RaycastSource, primitives::rays::ray_from_screenspace,
+};
 use rmf_site_format::Pose;
 
 #[derive(Debug, Clone, Copy)]
@@ -37,33 +39,33 @@ pub struct GizmoMaterialSet {
 impl GizmoMaterialSet {
     pub fn make_x_axis(materials: &mut Mut<Assets<StandardMaterial>>) -> Self {
         Self {
-            passive: materials.add(Color::rgb(1., 0., 0.).into()),
-            hover: materials.add(Color::rgb(1.0, 0.3, 0.3).into()),
-            drag: materials.add(Color::rgb(0.7, 0., 0.).into()),
+            passive: materials.add(Color::rgb(1., 0., 0.)),
+            hover: materials.add(Color::rgb(1.0, 0.3, 0.3)),
+            drag: materials.add(Color::rgb(0.7, 0., 0.)),
         }
     }
 
     pub fn make_y_axis(materials: &mut Mut<Assets<StandardMaterial>>) -> Self {
         Self {
-            passive: materials.add(Color::rgb(0., 0.9, 0.).into()),
-            hover: materials.add(Color::rgb(0.5, 1.0, 0.5).into()),
-            drag: materials.add(Color::rgb(0., 0.6, 0.).into()),
+            passive: materials.add(Color::rgb(0., 0.9, 0.)),
+            hover: materials.add(Color::rgb(0.5, 1.0, 0.5)),
+            drag: materials.add(Color::rgb(0., 0.6, 0.)),
         }
     }
 
     pub fn make_z_axis(materials: &mut Mut<Assets<StandardMaterial>>) -> Self {
         Self {
-            passive: materials.add(Color::rgb(0., 0., 0.9).into()),
-            hover: materials.add(Color::rgb(0.5, 0.5, 1.0).into()),
-            drag: materials.add(Color::rgb(0., 0., 0.6).into()),
+            passive: materials.add(Color::rgb(0., 0., 0.9)),
+            hover: materials.add(Color::rgb(0.5, 0.5, 1.0)),
+            drag: materials.add(Color::rgb(0., 0., 0.6)),
         }
     }
 
     pub fn make_z_plane(materials: &mut Mut<Assets<StandardMaterial>>) -> Self {
         Self {
-            passive: materials.add(Color::rgba(0., 0., 1., 0.6).into()),
-            hover: materials.add(Color::rgba(0.3, 0.3, 1., 0.6).into()),
-            drag: materials.add(Color::rgba(0., 0., 0.7, 0.9).into()),
+            passive: materials.add(Color::rgba(0., 0., 1., 0.6)),
+            hover: materials.add(Color::rgba(0.3, 0.3, 1., 0.6)),
+            drag: materials.add(Color::rgba(0., 0., 0.7, 0.9)),
         }
     }
 }
@@ -241,7 +243,7 @@ pub fn update_gizmo_click_start(
     )>,
     mut selection_blocker: ResMut<SelectionBlockers>,
     mut visibility: Query<&mut Visibility>,
-    mouse_button_input: Res<Input<MouseButton>>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
     transforms: Query<(&Transform, &GlobalTransform)>,
     raycast_sources: Query<&RaycastSource<SiteRaycastSet>>,
     mut cursor: ResMut<Cursor>,
@@ -326,7 +328,7 @@ pub fn update_gizmo_release(
     mut draggables: Query<(&Gizmo, &mut Draggable, &mut Handle<StandardMaterial>)>,
     mut selection_blockers: ResMut<SelectionBlockers>,
     mut gizmo_state: ResMut<GizmoState>,
-    mouse_button_input: Res<Input<MouseButton>>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
     picked: Res<Picked>,
     mut change_pick: EventWriter<ChangePick>,
 ) {
@@ -385,7 +387,7 @@ pub fn update_drag_motions(
             let Ok(primary_window) = primary_window.get_single() else {
                 return;
             };
-            match Ray3d::from_screenspace(cursor_position, camera, &camera_tf, primary_window) {
+            match ray_from_screenspace(cursor_position, camera, &camera_tf, primary_window) {
                 Some(ray) => ray,
                 None => {
                     return;
@@ -405,9 +407,9 @@ pub fn update_drag_motions(
                 } else {
                     axis.along.normalize_or_zero()
                 };
-                let dp = ray.origin() - initial.click_point;
-                let a = ray.direction().dot(n);
-                let b = ray.direction().dot(dp);
+                let dp = ray.origin - initial.click_point;
+                let a = ray.direction.dot(n);
+                let b = ray.direction.dot(dp);
                 let c = n.dot(dp);
 
                 let denom = a.powi(2) - 1.;
@@ -442,16 +444,16 @@ pub fn update_drag_motions(
                     plane.in_plane.normalize_or_zero()
                 };
 
-                let n_r = ray.direction();
-                let denom = n_p.dot(n_r);
+                let n_r = ray.direction;
+                let denom = n_p.dot(*n_r);
                 if denom.abs() < 1e-3 {
                     // The rays are nearly parallel so we should not attempt
                     // moving because the motion will be too extreme
                     return;
                 }
 
-                let t = (initial.click_point - ray.origin()).dot(n_p) / denom;
-                let delta = ray.position(t) - initial.click_point;
+                let t = (initial.click_point - ray.origin).dot(n_p) / denom;
+                let delta = ray.get_point(t) - initial.click_point;
                 let tf_goal = initial
                     .tf_for_entity_global
                     .with_translation(initial.tf_for_entity_global.translation + delta);

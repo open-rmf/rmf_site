@@ -11,7 +11,7 @@ use std::fs;
 use std::io;
 use std::marker::Sync;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use crate::OSMTile;
 use urdf_rs::utils::expand_package_path;
@@ -56,29 +56,29 @@ fn generate_remote_asset_url(name: &str) -> Result<String, AssetReaderError> {
     let org_name = match tokens.next() {
         Some(token) => token,
         None => {
-            return Err(AssetReaderError::Io(io::Error::new(
+            return Err(AssetReaderError::Io(Arc::new(io::Error::new(
                 io::ErrorKind::Other,
                 format!("Unable to parse into org/model names: {name}"),
-            )));
+            ))));
         }
     };
     let model_name = match tokens.next() {
         Some(token) => token,
         None => {
-            return Err(AssetReaderError::Io(io::Error::new(
+            return Err(AssetReaderError::Io(Arc::new(io::Error::new(
                 io::ErrorKind::Other,
                 format!("Unable to parse into org/model names: {name}"),
-            )));
+            ))));
         }
     };
     // TODO(luca) migrate to split.remainder once
     // https://github.com/rust-lang/rust/issues/77998 is stabilized
     let binding = tokens.fold(String::new(), |prefix, path| prefix + "/" + path);
     if binding.len() < 2 {
-        return Err(AssetReaderError::Io(io::Error::new(
+        return Err(AssetReaderError::Io(Arc::new(io::Error::new(
             io::ErrorKind::Other,
             format!("File name not found for: {name}"),
-        )));
+        ))));
     }
     let filename = binding.split_at(1).1;
     let uri = format!(
@@ -102,26 +102,31 @@ async fn fetch_asset<'a>(
         Err(poisoned_key) => {
             // Reset the key to None
             *poisoned_key.into_inner() = None;
-            return Err(AssetReaderError::Io(io::Error::new(
+            return Err(AssetReaderError::Io(Arc::new(io::Error::new(
                 io::ErrorKind::Other,
                 format!("Lock poisoning detected when reading fuel API key, please set it again."),
-            )));
+            ))));
         }
     }
     let bytes = ehttp::fetch_async(req)
         .await
-        .map_err(|e| AssetReaderError::Io(io::Error::new(io::ErrorKind::Other, e.to_string())))?
+        .map_err(|e| {
+            AssetReaderError::Io(Arc::new(io::Error::new(
+                io::ErrorKind::Other,
+                e.to_string(),
+            )))
+        })?
         .bytes;
 
     match serde_json::from_slice::<FuelErrorMsg>(&bytes) {
         Ok(error) => {
-            return Err(AssetReaderError::Io(io::Error::new(
+            return Err(AssetReaderError::Io(Arc::new(io::Error::new(
                 io::ErrorKind::NotFound,
                 format!(
                     "Failed to fetch asset from fuel {} [errcode {}]: {}",
                     remote_url, error.errcode, error.msg,
                 ),
-            )));
+            ))));
         }
         Err(_) => {
             // This is actually the happy path. When a GET from fuel was

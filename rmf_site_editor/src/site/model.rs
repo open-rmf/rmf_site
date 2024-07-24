@@ -111,9 +111,9 @@ pub fn handle_model_loaded_events(
             let type_id = h.type_id();
             let model_id = if type_id == TypeId::of::<Gltf>() {
                 // Guaranteed to be safe in this scope
-                // Note we can't do an `if let Some()` because get(Handle) panics if the type is
-                // not the stored type
-                let gltf = gltfs.get(&*h).unwrap();
+                // We could do an if let Ok(_) chain but that would require multiple
+                // clones of the handle
+                let gltf = gltfs.get(h.clone().typed::<Gltf>()).unwrap();
                 // Get default scene if present, otherwise index 0
                 let scene = gltf
                     .default_scene

@@ -16,7 +16,6 @@
 */
 
 use bevy::prelude::*;
-use bevy::render::mesh::shape::{Capsule, UVSphere};
 use bevy::render::view::RenderLayers;
 
 use crate::interaction::{DragPlaneBundle, Selectable, MODEL_PREVIEW_LAYER};
@@ -46,16 +45,16 @@ pub fn handle_new_primitive_shapes(
 ) {
     for (e, primitive) in primitives.iter() {
         let mesh = match primitive {
-            PrimitiveShape::Box { size } => Mesh::from(shape::Box::new(size[0], size[1], size[2])),
+            PrimitiveShape::Box { size } => Mesh::from(Cuboid::new(size[0], size[1], size[2])),
             PrimitiveShape::Cylinder { radius, length } => {
                 Mesh::from(make_cylinder(*length, *radius))
             }
-            PrimitiveShape::Capsule { radius, length } => Mesh::from(Capsule {
+            PrimitiveShape::Capsule { radius, length } => Mesh::from(Capsule3d {
                 radius: *radius,
-                depth: *length,
+                half_length: length / 2.0,
                 ..default()
             }),
-            PrimitiveShape::Sphere { radius } => Mesh::from(UVSphere {
+            PrimitiveShape::Sphere { radius } => Mesh::from(Sphere {
                 radius: *radius,
                 ..default()
             }),
