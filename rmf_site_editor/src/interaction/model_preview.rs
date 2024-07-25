@@ -23,7 +23,10 @@ use bevy::{
     core_pipeline::tonemapping::Tonemapping,
     ecs::system::SystemState,
     prelude::*,
-    render::{camera::{Exposure, RenderTarget}, view::RenderLayers},
+    render::{
+        camera::{Exposure, RenderTarget},
+        view::RenderLayers,
+    },
 };
 use bevy_egui::{egui::TextureId, EguiContexts};
 
@@ -75,7 +78,9 @@ impl FromWorld for ModelPreviewCamera {
                     ..default()
                 },
                 tonemapping: Tonemapping::ReinhardLuminance,
-                exposure: Exposure { ev100: DEFAULT_CAMERA_EV100 },
+                exposure: Exposure {
+                    ev100: DEFAULT_CAMERA_EV100,
+                },
                 ..default()
             })
             .insert(RenderLayers::from_layers(&[MODEL_PREVIEW_LAYER]))

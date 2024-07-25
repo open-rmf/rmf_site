@@ -71,7 +71,9 @@ fn create_camera_window(
             is_active: true,
             ..default()
         })
-        .insert(Exposure {ev100: DEFAULT_CAMERA_EV100 })
+        .insert(Exposure {
+            ev100: DEFAULT_CAMERA_EV100,
+        })
         .insert(RenderLayers::layer(0));
     window_id
 }

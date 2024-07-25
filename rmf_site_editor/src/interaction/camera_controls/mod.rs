@@ -61,14 +61,14 @@ pub const MODEL_PREVIEW_LAYER: u8 = 6;
 
 // Creates all the layers visible in the main camera view (excluding, for example
 // the model preview which is on a separate view). The main lights will affect these.
-fn main_view_render_layers() -> RenderLayers {
+pub fn main_view_render_layers() -> RenderLayers {
     RenderLayers::from_layers(&[
         GENERAL_RENDER_LAYER,
         PHYSICAL_RENDER_LAYER,
         VISUAL_CUE_RENDER_LAYER,
         SELECTED_OUTLINE_LAYER,
         HOVERED_OUTLINE_LAYER,
-        XRAY_RENDER_LAYER
+        XRAY_RENDER_LAYER,
     ])
 }
 
@@ -407,8 +407,9 @@ impl FromWorld for CameraControls {
             .push_children(&orthographic_child_cameras)
             .id();
 
-        let mut ambient_light = world.get_resource_mut::<AmbientLight>().expect(
-            "Make sure bevy's PbrPlugin is initialized before the cameras");
+        let mut ambient_light = world
+            .get_resource_mut::<AmbientLight>()
+            .expect("Make sure bevy's PbrPlugin is initialized before the cameras");
 
         ambient_light.brightness = 2.0;
 

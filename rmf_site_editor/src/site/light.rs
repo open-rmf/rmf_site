@@ -15,7 +15,7 @@
  *
 */
 
-use crate::site::CurrentLevel;
+use crate::{interaction::main_view_render_layers, site::CurrentLevel};
 use bevy::{
     pbr::CubemapVisibleEntities,
     prelude::{
@@ -24,7 +24,7 @@ use bevy::{
     },
     render::{
         primitives::{CubemapFrusta, Frustum},
-        view::{RenderLayers, VisibleEntities},
+        view::VisibleEntities,
     },
 };
 use rmf_site_format::{Category, Light, LightKind, NameInSite, Pose};
@@ -64,7 +64,7 @@ pub fn add_physical_lights(
             .insert(VisibleEntities::default())
             .insert(CubemapFrusta::default())
             .insert(CubemapVisibleEntities::default())
-            .insert(RenderLayers::all())
+            .insert(main_view_render_layers())
             .insert(Category::Light);
 
         if parent.is_none() {
