@@ -23,7 +23,7 @@ use bevy::{
         AssetPath,
     },
     prelude::{Mesh, Vec2},
-    render::{mesh::Indices, render_resource::PrimitiveTopology},
+    render::{mesh::Indices, render_asset::RenderAssetUsages, render_resource::PrimitiveTopology},
 };
 use itertools::Itertools;
 use utm::{lat_lon_to_zone_number, to_utm_wgs84};
@@ -146,8 +146,11 @@ impl OSMTile {
         let normals: Vec<_> = vertices.iter().map(|(_, n, _)| *n).collect();
         let uvs: Vec<_> = vertices.iter().map(|(_, _, uv)| *uv).collect();
 
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-        mesh.set_indices(Some(indices));
+        let mut mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        );
+        mesh.insert_indices(indices);
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
         mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);

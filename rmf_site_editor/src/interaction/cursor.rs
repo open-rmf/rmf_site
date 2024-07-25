@@ -21,7 +21,11 @@ use crate::{
     site::{AnchorBundle, Pending, SiteAssets, Trashcan},
 };
 use bevy::{ecs::system::SystemParam, prelude::*, window::PrimaryWindow};
-use bevy_mod_raycast::{deferred::RaycastMesh, deferred::RaycastSource, primitives::rays::Ray3d};
+use bevy_mod_raycast::{
+    deferred::RaycastMesh,
+    deferred::RaycastSource,
+    primitives::rays::{ray_from_screenspace, to_aligned_transform},
+};
 use rmf_site_format::{FloorMarker, Model, ModelMarker, PrimitiveShape, WallMarker, WorkcellModel};
 use std::collections::HashSet;
 
@@ -290,17 +294,16 @@ impl<'w, 's> IntersectGroundPlaneParams<'w, 's> {
         let active_camera = self.cameras.get(e_active_camera).ok()?;
         let camera_tf = self.global_transforms.get(e_active_camera).ok()?;
         let primary_window = self.primary_window.get_single().ok()?;
-        let ray =
-            Ray3d::from_screenspace(cursor_position, active_camera, camera_tf, primary_window)?;
+        let ray = ray_from_screenspace(cursor_position, active_camera, camera_tf, primary_window)?;
         let n_p = Vec3::Z;
-        let n_r = ray.direction();
-        let denom = n_p.dot(n_r);
+        let n_r = ray.direction;
+        let denom = n_p.dot(*n_r);
         if denom.abs() < 1e-3 {
             // Too close to parallel
             return None;
         }
 
-        Some(ray.origin() - n_r * ray.origin().dot(n_p) / denom)
+        Some(ray.origin - n_r * ray.origin.dot(n_p) / denom)
     }
 }
 
@@ -336,7 +339,7 @@ pub fn update_cursor_transform(
 
             let ray = Ray3d::new(intersection.position(), intersection.normal());
 
-            *transform = Transform::from_matrix(ray.to_aligned_transform([0., 0., 1.].into()));
+            *transform = Transform::from_matrix(to_aligned_transform(ray, [0., 0., 1.].into()));
         }
         InteractionMode::SelectAnchor(_) => {
             let intersection = match intersect_ground_params.ground_plane_intersection() {
@@ -383,10 +386,10 @@ pub fn update_cursor_transform(
                             // to area, then populate a MeshConstraint component to be used by downstream
                             // spawning methods
                             // TODO(luca) there must be a better way to find a minimum given predicate in Rust
-                            let triangle_vecs = vec![triangle.v1, triangle.v2];
+                            let triangle_vecs = vec![triangle[1], triangle[2]];
                             let position = intersection.position();
-                            let mut closest_vertex = triangle.v0;
-                            let mut closest_dist = position.distance(triangle.v0.into());
+                            let mut closest_vertex = triangle[0];
+                            let mut closest_dist = position.distance(triangle[0].into());
                             for v in triangle_vecs {
                                 let dist = position.distance(v.into());
                                 if dist < closest_dist {
@@ -396,9 +399,10 @@ pub fn update_cursor_transform(
                             }
                             //closest_vertex = *triangle_vecs.iter().min_by(|position, ver| position.distance(**ver).cmp(closest_dist)).unwrap();
                             let ray = Ray3d::new(closest_vertex.into(), intersection.normal());
-                            *transform = Transform::from_matrix(
-                                ray.to_aligned_transform([0., 0., 1.].into()),
-                            );
+                            *transform = Transform::from_matrix(to_aligned_transform(
+                                ray,
+                                [0., 0., 1.].into(),
+                            ));
                             set_visibility(cursor.frame, &mut visibility, true);
                         } else {
                             // Hide the cursor

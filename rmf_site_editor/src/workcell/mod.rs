@@ -60,7 +60,7 @@ use crate::{
 pub struct WorkcellEditorPlugin;
 
 fn spawn_grid(mut commands: Commands) {
-    commands.spawn(make_infinite_grid(1.0, 100.0, None));
+    commands.spawn(make_infinite_grid(1.0, 100.0));
 }
 
 fn delete_grid(mut commands: Commands, grids: Query<Entity, With<InfiniteGrid>>) {

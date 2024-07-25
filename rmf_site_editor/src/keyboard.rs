@@ -42,7 +42,7 @@ impl Plugin for KeyboardInputPlugin {
 }
 
 fn handle_keyboard_input(
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     selection: Res<Selection>,
     current_mode: Res<InteractionMode>,
     mut egui_context: EguiContexts,
@@ -84,7 +84,9 @@ fn handle_keyboard_input(
         change_mode.send(ChangeMode::Backout);
     }
 
-    if keyboard_input.just_pressed(KeyCode::Delete) || keyboard_input.just_pressed(KeyCode::Back) {
+    if keyboard_input.just_pressed(KeyCode::Delete)
+        || keyboard_input.just_pressed(KeyCode::Backspace)
+    {
         if current_mode.is_inspecting() {
             if let Some(selection) = selection.0 {
                 delete.send(Delete::new(selection));
@@ -94,14 +96,14 @@ fn handle_keyboard_input(
         }
     }
 
-    if keyboard_input.just_pressed(KeyCode::D) {
+    if keyboard_input.just_pressed(KeyCode::KeyD) {
         debug_mode.0 = !debug_mode.0;
         info!("Toggling debug mode: {debug_mode:?}");
     }
 
     // Ctrl keybindings
     if keyboard_input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) {
-        if keyboard_input.just_pressed(KeyCode::S) {
+        if keyboard_input.just_pressed(KeyCode::KeyS) {
             if keyboard_input.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]) {
                 save_workspace.send(SaveWorkspace::new().to_dialog());
             } else {
@@ -109,7 +111,7 @@ fn handle_keyboard_input(
             }
         }
 
-        if keyboard_input.just_pressed(KeyCode::T) {
+        if keyboard_input.just_pressed(KeyCode::KeyT) {
             if let Some(site) = current_workspace.root {
                 align_site.send(AlignSiteDrawings(site));
             }
@@ -117,11 +119,11 @@ fn handle_keyboard_input(
 
         // TODO(luca) pop up a confirmation prompt if the current file is not saved, or create a
         // gui to switch between open workspaces
-        if keyboard_input.just_pressed(KeyCode::N) {
+        if keyboard_input.just_pressed(KeyCode::KeyN) {
             new_workspace.send(CreateNewWorkspace);
         }
 
-        if keyboard_input.just_pressed(KeyCode::O) {
+        if keyboard_input.just_pressed(KeyCode::KeyO) {
             load_workspace.send(LoadWorkspace::Dialog);
         }
     }

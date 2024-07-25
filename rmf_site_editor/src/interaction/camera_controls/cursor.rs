@@ -77,8 +77,8 @@ pub fn update_cursor_command(
     mut camera_controls: ResMut<CameraControls>,
     mut cursor_command: ResMut<CursorCommand>,
     mut mouse_wheel: EventReader<MouseWheel>,
-    mouse_input: Res<Input<MouseButton>>,
-    keyboard_input: Res<Input<KeyCode>>,
+    mouse_input: Res<ButtonInput<MouseButton>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     raycast_sources: Query<&RaycastSource<SiteRaycastSet>>,
     cameras: Query<(&Projection, &Transform, &GlobalTransform)>,
     primary_windows: Query<&Window, With<PrimaryWindow>>,
@@ -137,7 +137,7 @@ pub fn update_cursor_command(
             Some(selection) => selection,
             None => cursor_selection_new,
         };
-        let cursor_direction = cursor_ray.direction().normalize();
+        let cursor_direction = cursor_ray.direction.normalize();
         let cursor_direction_camera_frame = camera_transform.rotation.inverse() * cursor_direction;
         let cursor_direction_camera_frame_prev = cursor_command
             .cursor_direction_camera_frame
@@ -380,16 +380,16 @@ fn get_cursor_selected_point(
     match cursor_raycast_source.get_nearest_intersection() {
         Some((_, intersection)) => intersection.position(),
         None => get_groundplane_else_default_selection(
-            cursor_ray.origin(),
-            cursor_ray.direction(),
-            camera_transform.forward(),
+            cursor_ray.origin,
+            *cursor_ray.direction,
+            *camera_transform.forward(),
         ),
     }
 }
 
 fn get_command_type(
-    keyboard_input: &Res<Input<KeyCode>>,
-    mouse_input: &Res<Input<MouseButton>>,
+    keyboard_input: &Res<ButtonInput<KeyCode>>,
+    mouse_input: &Res<ButtonInput<MouseButton>>,
     scroll_motion: &f32,
     projection_mode: ProjectionMode,
 ) -> CameraCommandType {

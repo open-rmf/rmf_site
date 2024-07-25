@@ -21,15 +21,15 @@ use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity, Query, With};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, HashMap};
 
-pub const DEFAULT_NAV_GRAPH_COLORS: [[f32; 4]; 8] = [
-    [1.0, 0.5, 0.3, 1.0],
-    [0.6, 1.0, 0.5, 1.0],
-    [0.6, 0.8, 1.0, 1.0],
-    [0.6, 0.2, 0.3, 1.0],
-    [0.1, 0.0, 1.0, 1.0],
-    [0.8, 0.4, 0.5, 1.0],
-    [0.9, 1.0, 0.0, 1.0],
-    [0.7, 0.5, 0.1, 1.0],
+pub const DEFAULT_NAV_GRAPH_COLORS: [[f32; 3]; 8] = [
+    [1.0, 0.5, 0.3],
+    [0.6, 1.0, 0.5],
+    [0.6, 0.8, 1.0],
+    [0.6, 0.2, 0.3],
+    [0.1, 0.0, 1.0],
+    [0.8, 0.4, 0.5],
+    [0.9, 1.0, 0.0],
+    [0.7, 0.5, 0.1],
 ];
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -49,7 +49,7 @@ impl Default for NavGraph {
     fn default() -> Self {
         Self {
             name: NameInSite("<Unnamed>".to_string()),
-            color: DisplayColor([1.0, 0.5, 0.3, 1.0]),
+            color: DisplayColor([1.0, 0.5, 0.3]),
             marker: NavGraphMarker,
         }
     }
@@ -58,7 +58,7 @@ impl Default for NavGraph {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(transparent)]
 #[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
-pub struct DisplayColor(pub [f32; 4]);
+pub struct DisplayColor(pub [f32; 3]);
 
 /// This component is used by graph elements such as [`Lane`] and [`Location`]
 /// to indicate what graphs they can be associated with.
