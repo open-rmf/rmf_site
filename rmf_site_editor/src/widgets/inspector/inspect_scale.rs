@@ -25,7 +25,7 @@ use rmf_site_format::{Affiliation, Scale};
 
 #[derive(SystemParam)]
 pub struct InspectScale<'w, 's> {
-    scales: Query<'w, 's, &'static Scale, (Without<Affiliation<Entity>>)>,
+    scales: Query<'w, 's, &'static Scale, Without<Affiliation<Entity>>>,
     change_scale: EventWriter<'w, Change<Scale>>,
 }
 
@@ -59,13 +59,14 @@ impl<'a> InspectScaleComponent<'a> {
 
     pub fn show(self, ui: &mut Ui) -> Option<Scale> {
         let mut new_scale = self.scale.clone();
-        ui.label("Scale");
         Grid::new("inspect_scale").show(ui, |ui| {
+            ui.label("Scale");
             ui.label("x");
             ui.label("y");
             ui.label("z");
             ui.end_row();
 
+            ui.label("");
             ui.add(
                 DragValue::new(&mut new_scale.0[0])
                     .clamp_range(0_f32..=std::f32::INFINITY)

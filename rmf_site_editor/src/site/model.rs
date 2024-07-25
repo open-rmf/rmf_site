@@ -22,18 +22,16 @@ use crate::{
 };
 use bevy::{
     asset::{LoadState, LoadedUntypedAsset},
-    ecs::removal_detection::{RemovedComponentEntity, RemovedComponentEvents},
     gltf::Gltf,
     prelude::*,
     render::view::RenderLayers,
 };
 use bevy_mod_outline::OutlineMeshExt;
 use rmf_site_format::{
-    Affiliation, AssetSource, DifferentialDrive, ModelMarker, ModelProperty, NameInSite, Pending,
-    Pose, Scale,
+    Affiliation, AssetSource, ModelMarker, ModelProperty, NameInSite, Pending, Pose, Scale,
 };
 use smallvec::SmallVec;
-use std::{any::TypeId, collections::HashMap};
+use std::any::TypeId;
 
 #[derive(Component, Debug, Clone)]
 pub struct ModelScene {

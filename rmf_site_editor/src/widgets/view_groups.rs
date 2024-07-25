@@ -218,7 +218,6 @@ impl<'w, 's> ViewGroups<'w, 's> {
                                         .for_model_instance(model_instance)
                                         .into(),
                                 ));
-                                println!("Add a new model instance of this group");
                             };
                         };
                         events.selector.show_widget(*child, ui);

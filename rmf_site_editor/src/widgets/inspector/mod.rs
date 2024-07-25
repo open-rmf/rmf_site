@@ -102,6 +102,9 @@ pub use inspect_scale::*;
 pub mod inspect_side;
 pub use inspect_side::*;
 
+pub mod inspect_task;
+pub use inspect_task::*;
+
 pub mod inspect_texture;
 pub use inspect_texture::*;
 
@@ -110,7 +113,6 @@ pub use inspect_value::*;
 
 pub mod inspect_workcell_parent;
 pub use inspect_workcell_parent::*;
-use itertools::Diff;
 
 use crate::{
     interaction::Selection,
@@ -209,7 +211,7 @@ impl Plugin for StandardInspectorPlugin {
                 InspectionPlugin::<InspectMeasurement>::new(),
                 InspectionPlugin::<InspectPhysicalCameraProperties>::new(),
                 InspectLiftPlugin::default(),
-                InspectionPlugin::<InspectPreview>::new(),
+                InspectTaskPlugin::default(),
                 InspectionPlugin::<InspectGroup>::new(),
                 InspectModelDescriptionPlugin::default(),
             ))

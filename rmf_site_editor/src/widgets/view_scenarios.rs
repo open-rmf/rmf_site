@@ -17,15 +17,15 @@
 
 use crate::{
     site::{
-        Change, ChangeCurrentScenario, CurrentScenario, ModelMarker, NameInSite, Scenario,
-        ScenarioMarker,
+        Category, Change, ChangeCurrentScenario, CurrentScenario, Delete, ModelMarker, NameInSite,
+        Scenario, ScenarioMarker,
     },
     widgets::prelude::*,
     Icons,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Button, CollapsingHeader, Color32, Ui};
-use rmf_site_format::{Angle, ScenarioBundle, SiteID};
+use rmf_site_format::{Angle, Pose, ScenarioBundle, SiteID};
 
 /// Add a plugin for viewing and editing a list of all levels
 #[derive(Default)]
@@ -52,8 +52,18 @@ pub struct ViewScenarios<'w, 's> {
     change_current_scenario: EventWriter<'w, ChangeCurrentScenario>,
     display_scenarios: ResMut<'w, ScenarioDisplay>,
     current_scenario: ResMut<'w, CurrentScenario>,
-    model_instances:
-        Query<'w, 's, (Entity, &'static NameInSite, &'static SiteID), With<ModelMarker>>,
+    model_instances: Query<
+        'w,
+        's,
+        (
+            Entity,
+            &'static NameInSite,
+            &'static Category,
+            &'static SiteID,
+        ),
+        With<ModelMarker>,
+    >,
+    delete: EventWriter<'w, Delete>,
     icons: Res<'w, Icons>,
 }
 
@@ -72,7 +82,7 @@ impl<'w, 's> ViewScenarios<'w, 's> {
     pub fn show_widget(&mut self, ui: &mut Ui) {
         // Current Selection Info
         if let Some(current_scenario_entity) = self.current_scenario.0 {
-            if let Ok((_, name, scenario)) = self.scenarios.get(current_scenario_entity) {
+            if let Ok((_, name, scenario)) = self.scenarios.get_mut(current_scenario_entity) {
                 ui.horizontal(|ui| {
                     ui.label("Selected: ");
                     let mut new_name = name.0.clone();
@@ -82,66 +92,78 @@ impl<'w, 's> ViewScenarios<'w, 's> {
                     }
                 });
 
+                fn format_name(
+                    ui: &mut Ui,
+                    name: &NameInSite,
+                    site_id: &SiteID,
+                    category: &Category,
+                ) {
+                    ui.label(format!("{} #{} [{}]", category.label(), site_id.0, name.0));
+                }
+                fn format_pose(ui: &mut Ui, pose: &Pose) {
+                    ui.colored_label(
+                        Color32::GRAY,
+                        format!(
+                            "       [x: {:.3}, y: {:.3}, z: {:.3}, yaw: {:.3}]",
+                            pose.trans[0],
+                            pose.trans[1],
+                            pose.trans[2],
+                            match pose.rot.yaw() {
+                                Angle::Rad(r) => r,
+                                Angle::Deg(d) => d.to_radians(),
+                            }
+                        ),
+                    );
+                }
+
                 ui.label("From Previous:");
-                CollapsingHeader::new(format!(
-                    "Added Models: {}",
-                    scenario.added_model_instances.len()
-                ))
-                .default_open(false)
-                .show(ui, |ui| {
-                    for (entity, pose) in scenario.added_model_instances.iter() {
-                        if let Ok((_, name, site_id)) = self.model_instances.get(*entity) {
-                            ui.label(format!("#{} {}", site_id.0, name.0,));
-                            ui.colored_label(
-                                Color32::GRAY,
-                                format!(
-                                    "       [x: {:.3}, y: {:.3}, z: {:.3}, yaw: {:.3}]",
-                                    pose.trans[0],
-                                    pose.trans[1],
-                                    pose.trans[2],
-                                    match pose.rot.yaw() {
-                                        Angle::Rad(r) => r,
-                                        Angle::Deg(d) => d.to_radians(),
+                CollapsingHeader::new(format!("Added: {}", scenario.added_model_instances.len()))
+                    .default_open(false)
+                    .show(ui, |ui| {
+                        for (entity, pose) in scenario.added_model_instances.iter() {
+                            if let Ok((_, name, category, site_id)) =
+                                self.model_instances.get(*entity)
+                            {
+                                ui.horizontal(|ui| {
+                                    format_name(ui, name, site_id, category);
+                                    if ui.button("❌").on_hover_text("Remove instance").clicked() {
+                                        self.delete.send(Delete::new(*entity));
                                     }
-                                ),
-                            );
+                                });
+                                format_pose(ui, pose);
+                            }
                         }
-                    }
-                });
-                CollapsingHeader::new(format!(
-                    "Moved Models: {}",
-                    scenario.moved_model_instances.len()
-                ))
-                .default_open(false)
-                .show(ui, |ui| {
-                    for (entity, pose) in scenario.moved_model_instances.iter() {
-                        if let Ok((_, name, site_id)) = self.model_instances.get(*entity) {
-                            ui.label(format!("#{} {}", site_id.0, name.0,));
-                            ui.colored_label(
-                                Color32::GRAY,
-                                format!(
-                                    "       [x: {:.3}, y: {:.3}, z: {:.3}, yaw: {:.3}]",
-                                    pose.trans[0],
-                                    pose.trans[1],
-                                    pose.trans[2],
-                                    match pose.rot.yaw() {
-                                        Angle::Rad(r) => r,
-                                        Angle::Deg(d) => d.to_radians(),
-                                    }
-                                ),
-                            );
+                    });
+                CollapsingHeader::new(format!("Moved: {}", scenario.moved_model_instances.len()))
+                    .default_open(false)
+                    .show(ui, |ui| {
+                        for (_id, (entity, pose)) in
+                            scenario.moved_model_instances.iter().enumerate()
+                        {
+                            if let Ok((_, name, category, site_id)) =
+                                self.model_instances.get(*entity)
+                            {
+                                ui.horizontal(|ui| {
+                                    format_name(ui, name, site_id, category);
+                                    if ui.button("↩").on_hover_text("Undo move").clicked() {}
+                                });
+                                format_pose(ui, pose);
+                            }
                         }
-                    }
-                });
+                    });
                 CollapsingHeader::new(format!(
-                    "Removed Models: {}",
+                    "Removed: {}",
                     scenario.removed_model_instances.len()
                 ))
                 .default_open(false)
                 .show(ui, |ui| {
                     for entity in scenario.removed_model_instances.iter() {
-                        if let Ok((_, name, site_id)) = self.model_instances.get(*entity) {
-                            ui.label(format!("#{} {}", site_id.0, name.0));
+                        if let Ok((_, name, category, site_id)) = self.model_instances.get(*entity)
+                        {
+                            ui.horizontal(|ui| {
+                                format_name(ui, name, site_id, category);
+                                if ui.button("↺").on_hover_text("Restore instance").clicked() {}
+                            });
                         } else {
                             ui.label("Unavailable");
                         }
@@ -194,6 +216,9 @@ impl<'w, 's> ViewScenarios<'w, 's> {
                         cmd.set_parent(current_scenario_entity);
                     }
                 }
+                let scenario_entity = cmd.id();
+                self.change_current_scenario
+                    .send(ChangeCurrentScenario(scenario_entity));
             }
             let mut new_name = self.display_scenarios.new_scenario_name.clone();
             if ui
@@ -272,7 +297,7 @@ fn show_scenario_widget(
         "Child Scenarios:  {}",
         children.map(|c| c.len()).unwrap_or(0)
     ))
-    .default_open(false)
+    .default_open(true)
     .id_source(scenario_version_str.clone())
     .show(ui, |ui| {
         if let Ok(children) = children {

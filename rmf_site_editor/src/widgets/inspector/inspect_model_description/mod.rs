@@ -371,6 +371,10 @@ impl<'w, 's> InspectSelectedModelDescription<'w, 's> {
             .get(current_description_entity)
             .unwrap();
 
+        if self.model_descriptions.get(id).is_ok() {
+            return;
+        }
+
         let mut new_description_entity = current_description_entity.clone();
         ui.horizontal(|ui| {
             ui.label("Description");

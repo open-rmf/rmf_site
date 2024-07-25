@@ -247,6 +247,7 @@ fn generate_site_entities(
         let model_description = commands
             .spawn(model_description.clone())
             .insert(SiteID(*model_description_id))
+            .insert(Category::ModelDescription)
             .set_parent(site_id)
             .id();
         id_to_entity.insert(*model_description_id, model_description);

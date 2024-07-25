@@ -21,7 +21,7 @@ use crate::{
 };
 use bevy::prelude::*;
 use rmf_site_format::{Group, ModelMarker, NameInSite, Pose, Scenario, SiteParent};
-use std::{collections::HashMap, thread::current};
+use std::collections::HashMap;
 
 #[derive(Clone, Copy, Debug, Event)]
 pub struct ChangeCurrentScenario(pub Entity);
@@ -153,7 +153,7 @@ pub struct RemoveModelInstance(pub Entity);
 pub fn remove_instances(
     mut commands: Commands,
     mut scenarios: Query<&mut Scenario<Entity>>,
-    mut current_scenario: ResMut<CurrentScenario>,
+    current_scenario: ResMut<CurrentScenario>,
     mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
     mut removals: EventReader<RemoveModelInstance>,
     mut delete: EventWriter<Delete>,

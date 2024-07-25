@@ -410,7 +410,7 @@ pub struct SiteID(pub u32);
 /// Affiliates an entity with a group.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(transparent)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
 pub struct SiteParent<T: RefTrait>(pub Option<T>);
 
 impl<T: RefTrait> From<T> for SiteParent<T> {
@@ -464,7 +464,7 @@ pub struct Group;
 /// Affiliates an entity with a group.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(transparent)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
 pub struct Affiliation<T: RefTrait>(pub Option<T>);
 
 impl<T: RefTrait> From<T> for Affiliation<T> {
