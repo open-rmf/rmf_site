@@ -18,8 +18,8 @@
 use crate::{
     interaction::{ChangeMode, SelectAnchor3D},
     site::{
-        Affiliation, AssetSource, Change, FiducialMarker, Group, MergeGroups, ModelInstance,
-        ModelMarker, NameInSite, SiteID, Texture,
+        Affiliation, AssetSource, Change, Delete, FiducialMarker, Group, MergeGroups,
+        ModelInstance, ModelMarker, NameInSite, SiteID, Texture,
     },
     widgets::{prelude::*, SelectorWidget},
     AppState, CurrentWorkspace, Icons,
@@ -42,34 +42,18 @@ impl Plugin for ViewGroupsPlugin {
 #[derive(SystemParam)]
 pub struct ViewGroups<'w, 's> {
     children: Query<'w, 's, &'static Children>,
-    textures: Query<
-        'w,
-        's,
-        (
-            &'static NameInSite,
-            Option<&'static Texture>,
-            Option<&'static SiteID>,
-        ),
-        (With<Texture>, With<Group>),
-    >,
+    textures:
+        Query<'w, 's, (&'static NameInSite, Option<&'static SiteID>), (With<Texture>, With<Group>)>,
     fiducials: Query<
         'w,
         's,
-        (
-            &'static NameInSite,
-            Option<&'static AssetSource>,
-            Option<&'static SiteID>,
-        ),
+        (&'static NameInSite, Option<&'static SiteID>),
         (With<FiducialMarker>, With<Group>),
     >,
     model_descriptions: Query<
         'w,
         's,
-        (
-            &'static NameInSite,
-            Option<&'static AssetSource>,
-            Option<&'static SiteID>,
-        ),
+        (&'static NameInSite, Option<&'static SiteID>),
         (With<ModelMarker>, With<Group>),
     >,
     icons: Res<'w, Icons>,
@@ -84,6 +68,7 @@ pub struct ViewGroupsEvents<'w, 's> {
     selector: SelectorWidget<'w, 's>,
     change_mode: EventWriter<'w, ChangeMode>,
     merge_groups: EventWriter<'w, MergeGroups>,
+    delete: EventWriter<'w, Delete>,
     name: EventWriter<'w, Change<NameInSite>>,
     commands: Commands<'w, 's>,
 }
@@ -146,9 +131,9 @@ impl<'w, 's> ViewGroups<'w, 's> {
         });
     }
 
-    fn show_groups<'b, T: Component, S: Component>(
+    fn show_groups<'b, T: Component>(
         children: impl IntoIterator<Item = &'b Entity>,
-        q_groups: &Query<(&NameInSite, Option<&S>, Option<&SiteID>), (With<T>, With<Group>)>,
+        q_groups: &Query<(&NameInSite, Option<&SiteID>), (With<T>, With<Group>)>,
         mode: &mut GroupViewMode,
         icons: &Res<Icons>,
         events: &mut ViewGroupsEvents,
@@ -194,7 +179,7 @@ impl<'w, 's> ViewGroups<'w, 's> {
         });
 
         for child in children {
-            let Ok((name, _, site_id)) = q_groups.get(*child) else {
+            let Ok((name, site_id)) = q_groups.get(*child) else {
                 continue;
             };
             let text = site_id
@@ -203,7 +188,7 @@ impl<'w, 's> ViewGroups<'w, 's> {
             ui.horizontal(|ui| {
                 match mode.clone() {
                     GroupViewMode::View => {
-                        if TypeId::of::<S>() == TypeId::of::<AssetSource>() {
+                        if TypeId::of::<T>() == TypeId::of::<ModelMarker>() {
                             if ui
                                 .add(Button::image(icons.add.egui()))
                                 .on_hover_text("Add a new model instance of this group")
@@ -260,8 +245,12 @@ impl<'w, 's> ViewGroups<'w, 's> {
                             .on_hover_text("Delete this group")
                             .clicked()
                         {
-                            events.commands.entity(*child).despawn_recursive();
-                            *mode = GroupViewMode::View;
+                            if TypeId::of::<T>() == TypeId::of::<ModelMarker>() {
+                                events.delete.send(Delete::new(*child).and_dependents());
+                            } else {
+                                events.commands.entity(*child).despawn_recursive();
+                                *mode = GroupViewMode::View;
+                            }
                         }
                     }
                 }

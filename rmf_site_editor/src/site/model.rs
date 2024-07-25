@@ -17,7 +17,10 @@
 
 use crate::{
     interaction::{DragPlaneBundle, Selectable, MODEL_PREVIEW_LAYER},
-    site::{Category, Group, PreventDeletion, SiteAssets},
+    site::{
+        Affiliation, AssetSource, Category, CurrentLevel, Group, ModelMarker, ModelProperty,
+        NameInSite, Pending, Pose, PreventDeletion, Scale, SiteAssets, SiteParent,
+    },
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
 };
 use bevy::{
@@ -27,9 +30,6 @@ use bevy::{
     render::view::RenderLayers,
 };
 use bevy_mod_outline::OutlineMeshExt;
-use rmf_site_format::{
-    Affiliation, AssetSource, ModelMarker, ModelProperty, NameInSite, Pending, Pose, Scale,
-};
 use smallvec::SmallVec;
 use std::any::TypeId;
 
@@ -518,6 +518,29 @@ pub fn update_model_instances<T: Component + Default + Clone>(
                     cmd.insert(property.0.clone());
                 }
             }
+        }
+    }
+}
+
+pub fn assign_orphan_model_instances_to_level(
+    mut commands: Commands,
+    mut orphan_instances: Query<
+        (Entity, Option<&Parent>, &mut SiteParent<Entity>),
+        (With<ModelMarker>, Without<Group>),
+    >,
+    current_level: Res<CurrentLevel>,
+) {
+    let current_level = match current_level.0 {
+        Some(c) => c,
+        None => return,
+    };
+
+    for (instance_entity, parent, mut site_parent) in orphan_instances.iter_mut() {
+        if parent.is_none() {
+            commands.entity(current_level).add_child(instance_entity);
+        }
+        if site_parent.0.is_none() {
+            site_parent.0 = Some(current_level);
         }
     }
 }

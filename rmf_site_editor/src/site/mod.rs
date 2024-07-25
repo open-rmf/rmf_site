@@ -321,6 +321,7 @@ impl Plugin for SitePlugin {
                 assign_orphan_levels_to_site,
                 assign_orphan_nav_elements_to_site,
                 assign_orphan_fiducials_to_parent,
+                assign_orphan_model_instances_to_level,
                 assign_orphan_elements_to_level::<DoorMarker>,
                 assign_orphan_elements_to_level::<DrawingMarker>,
                 assign_orphan_elements_to_level::<FloorMarker>,

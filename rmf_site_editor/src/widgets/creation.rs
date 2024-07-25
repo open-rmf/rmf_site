@@ -283,13 +283,7 @@ impl<'w, 's> Creation<'w, 's> {
                             ui.add_space(5.0);
 
                             ui.horizontal(|ui| {
-                                if ui
-                                    .add_enabled(
-                                        self.current_workspace.root.is_some(),
-                                        Button::image_and_text(self.icons.add.egui(), "Load"),
-                                    )
-                                    .clicked()
-                                {
+                                if ui.button("➕ Load").clicked() {
                                     if let Some(site_entity) = self.current_workspace.root {
                                         let model_description_bundle = ModelDescriptionBundle {
                                             name: NameInSite(pending_model.name.clone()),
@@ -331,7 +325,9 @@ impl<'w, 's> Creation<'w, 's> {
                                 {
                                     pending_model.spawn_instance = !pending_model.spawn_instance;
                                 }
-                                ui.text_edit_singleline(&mut pending_model.instance_name);
+                                ui.add_enabled_ui(pending_model.spawn_instance, |ui| {
+                                    ui.text_edit_singleline(&mut pending_model.instance_name);
+                                });
                             });
 
                             ui.add_space(3.0);

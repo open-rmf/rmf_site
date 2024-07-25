@@ -16,11 +16,13 @@
 */
 
 use crate::{
-    site::{CurrentScenario, Delete},
+    site::{
+        CurrentLevel, CurrentScenario, Delete, Group, ModelMarker, NameInSite, Pose, Scenario,
+        SiteParent,
+    },
     CurrentWorkspace,
 };
 use bevy::prelude::*;
-use rmf_site_format::{Group, ModelMarker, NameInSite, Pose, Scenario, SiteParent};
 use std::collections::HashMap;
 
 #[derive(Clone, Copy, Debug, Event)]
@@ -31,6 +33,7 @@ pub fn update_current_scenario(
     mut change_current_scenario: EventReader<ChangeCurrentScenario>,
     mut current_scenario: ResMut<CurrentScenario>,
     current_workspace: Res<CurrentWorkspace>,
+    current_level: Res<CurrentLevel>,
     scenarios: Query<&Scenario<Entity>>,
     mut model_instances: Query<
         (Entity, &mut Pose, &SiteParent<Entity>, &mut Visibility),
@@ -76,7 +79,12 @@ pub fn update_current_scenario(
         // If active, assign parent to level, otherwise assign parent to site
         for (entity, mut pose, parent, mut visibility) in model_instances.iter_mut() {
             if let Some(new_pose) = active_model_instances.get(&entity) {
-                commands.entity(entity).set_parent(parent.0.unwrap());
+                if let Some(parent_entity) = parent.0 {
+                    commands.entity(entity).set_parent(parent_entity);
+                } else {
+                    commands.entity(entity).set_parent(current_site_entity);
+                    warn!("Model instance {:?} has no valid site parent", entity);
+                }
                 *pose = new_pose.clone();
                 *visibility = Visibility::Inherited;
             } else {

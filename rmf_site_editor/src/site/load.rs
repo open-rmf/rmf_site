@@ -17,7 +17,10 @@
 
 use crate::{recency::RecencyRanking, site::*, WorkspaceMarker};
 use bevy::{ecs::system::SystemParam, prelude::*};
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+};
 use thiserror::Error as ThisError;
 
 /// This component is given to the site to keep track of what file it should be
@@ -243,6 +246,7 @@ fn generate_site_entities(
         consider_id(*level_id);
     }
 
+    let mut model_description_dependents = HashMap::<Entity, HashSet<Entity>>::new();
     for (model_description_id, model_description) in &site_data.model_descriptions {
         let model_description = commands
             .spawn(model_description.clone())
@@ -252,6 +256,7 @@ fn generate_site_entities(
             .id();
         id_to_entity.insert(*model_description_id, model_description);
         consider_id(*model_description_id);
+        model_description_dependents.insert(model_description, HashSet::new());
     }
 
     for (model_instance_id, model_instance) in &site_data.model_instances {
@@ -263,6 +268,20 @@ fn generate_site_entities(
             .id();
         id_to_entity.insert(*model_instance_id, model_instance_entity);
         consider_id(*model_instance_id);
+
+        if let Some(model_description) = model_instance.description.0 {
+            model_description_dependents
+                .entry(model_description)
+                .and_modify(|hset| {
+                    hset.insert(model_instance_entity);
+                });
+        }
+    }
+
+    for (model_description_entity, dependents) in model_description_dependents {
+        commands
+            .entity(model_description_entity)
+            .insert(Dependents(dependents));
     }
 
     for (scenario_id, scenario_bundle) in &site_data.scenarios {
@@ -297,7 +316,6 @@ fn generate_site_entities(
                     }
                 });
         });
-
         for (door_id, door) in &lift_data.cabin_doors {
             let door_entity = commands
                 .spawn(door.convert(&id_to_entity).for_site(site_id)?)
