@@ -168,7 +168,7 @@ fn default_illuminance() -> f32 {
     100000.0
 }
 fn default_intensity() -> f32 {
-    1_000_000.0
+    800.0
 }
 fn bool_true() -> bool {
     true
@@ -206,7 +206,7 @@ impl Default for PointLight {
     fn default() -> Self {
         Self {
             color: [1.0, 1.0, 1.0],
-            intensity: 1_000_000.0,
+            intensity: 800.0,
             range: 20.0,
             radius: 0.0,
             enable_shadows: true,
@@ -246,7 +246,7 @@ impl Default for SpotLight {
     fn default() -> Self {
         Self {
             color: [1.0, 1.0, 1.0],
-            intensity: 1_000_000.0,
+            intensity: 800.0,
             range: 20.0,
             radius: 0.0,
             enable_shadows: true,

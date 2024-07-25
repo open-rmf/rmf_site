@@ -18,11 +18,13 @@
 use bevy::{
     prelude::*,
     render::{
-        camera::{Projection, RenderTarget},
+        camera::{Exposure, Projection, RenderTarget},
         view::RenderLayers,
     },
     window::{PresentMode, WindowClosed, WindowRef},
 };
+
+use crate::interaction::DEFAULT_CAMERA_EV100;
 
 use rmf_site_format::{NameInSite, PhysicalCameraProperties, PreviewableMarker};
 
@@ -69,6 +71,7 @@ fn create_camera_window(
             is_active: true,
             ..default()
         })
+        .insert(Exposure {ev100: DEFAULT_CAMERA_EV100 })
         .insert(RenderLayers::layer(0));
     window_id
 }

@@ -59,6 +59,22 @@ pub const XRAY_RENDER_LAYER: u8 = 5;
 /// models in the engine without having them being visible to general cameras
 pub const MODEL_PREVIEW_LAYER: u8 = 6;
 
+// Creates all the layers visible in the main camera view (excluding, for example
+// the model preview which is on a separate view). The main lights will affect these.
+fn main_view_render_layers() -> RenderLayers {
+    RenderLayers::from_layers(&[
+        GENERAL_RENDER_LAYER,
+        PHYSICAL_RENDER_LAYER,
+        VISUAL_CUE_RENDER_LAYER,
+        SELECTED_OUTLINE_LAYER,
+        HOVERED_OUTLINE_LAYER,
+        XRAY_RENDER_LAYER
+    ])
+}
+
+/// Camera exposure, adjusted for indoor lighting, in ev100 units
+pub const DEFAULT_CAMERA_EV100: f32 = 3.5;
+
 /// Camera limits
 pub const MIN_FOV: f32 = 5.0;
 pub const MAX_FOV: f32 = 120.0;
@@ -255,12 +271,12 @@ impl FromWorld for CameraControls {
             .spawn(DirectionalLightBundle {
                 directional_light: DirectionalLight {
                     shadows_enabled: false,
-                    illuminance: 5000.,
+                    illuminance: 50.,
                     ..default()
                 },
                 ..default()
             })
-            .insert(RenderLayers::all())
+            .insert(main_view_render_layers())
             .id();
 
         let perspective_child_cameras = [
@@ -279,7 +295,7 @@ impl FromWorld for CameraControls {
                     },
                     tonemapping: Tonemapping::ReinhardLuminance,
                     exposure: Exposure {
-                        ev100: Exposure::EV100_INDOOR,
+                        ev100: DEFAULT_CAMERA_EV100,
                     },
                     ..default()
                 })
@@ -295,6 +311,9 @@ impl FromWorld for CameraControls {
             .spawn(Camera3dBundle {
                 transform: Transform::from_xyz(-10., -10., 10.).looking_at(Vec3::ZERO, Vec3::Z),
                 projection: Projection::Perspective(Default::default()),
+                exposure: Exposure {
+                    ev100: DEFAULT_CAMERA_EV100,
+                },
                 tonemapping: Tonemapping::ReinhardLuminance,
                 ..default()
             })
@@ -318,12 +337,12 @@ impl FromWorld for CameraControls {
                 )),
                 directional_light: DirectionalLight {
                     shadows_enabled: false,
-                    illuminance: 5000.,
+                    illuminance: 50.,
                     ..default()
                 },
                 ..default()
             })
-            .insert(RenderLayers::all())
+            .insert(main_view_render_layers())
             .id();
 
         let ortho_projection = OrthographicProjection {
@@ -349,7 +368,7 @@ impl FromWorld for CameraControls {
                     },
                     projection: Projection::Orthographic(ortho_projection.clone()),
                     exposure: Exposure {
-                        ev100: Exposure::EV100_INDOOR,
+                        ev100: DEFAULT_CAMERA_EV100,
                     },
                     tonemapping: Tonemapping::ReinhardLuminance,
                     ..default()
@@ -370,6 +389,9 @@ impl FromWorld for CameraControls {
                 },
                 transform: Transform::from_xyz(0., 0., 20.).looking_at(Vec3::ZERO, Vec3::Y),
                 projection: Projection::Orthographic(ortho_projection),
+                exposure: Exposure {
+                    ev100: DEFAULT_CAMERA_EV100,
+                },
                 tonemapping: Tonemapping::ReinhardLuminance,
                 ..default()
             })
@@ -384,6 +406,11 @@ impl FromWorld for CameraControls {
             .push_children(&[orthographic_headlight])
             .push_children(&orthographic_child_cameras)
             .id();
+
+        let mut ambient_light = world.get_resource_mut::<AmbientLight>().expect(
+            "Make sure bevy's PbrPlugin is initialized before the cameras");
+
+        ambient_light.brightness = 2.0;
 
         CameraControls {
             mode: ProjectionMode::Perspective,

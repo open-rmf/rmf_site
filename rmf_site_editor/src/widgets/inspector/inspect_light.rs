@@ -85,7 +85,7 @@ impl<'a> InspectLightKind<'a> {
                     ui.add(
                         DragValue::new(&mut point.intensity)
                             .clamp_range(0_f32..=std::f32::INFINITY)
-                            .speed(1000),
+                            .speed(10),
                     );
                 });
                 ui.horizontal(|ui| {
@@ -114,7 +114,7 @@ impl<'a> InspectLightKind<'a> {
                     ui.add(
                         DragValue::new(&mut spot.intensity)
                             .clamp_range(0_f32..=std::f32::INFINITY)
-                            .speed(1000),
+                            .speed(10),
                     );
                 });
                 ui.horizontal(|ui| {
