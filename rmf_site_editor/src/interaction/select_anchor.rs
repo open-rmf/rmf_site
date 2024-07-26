@@ -1187,7 +1187,8 @@ impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
             false,
         );
         set_visibility(self.cursor.frame_placement, &mut self.visibility, false);
-        self.cursor.set_model_preview(&mut self.commands, None);
+        self.cursor
+            .set_model_instance_preview(&mut self.commands, None);
         for e in self.hidden_entities.drawing_anchors.drain() {
             set_visibility(e, &mut self.visibility, true);
         }
@@ -1295,15 +1296,6 @@ impl SelectAnchorPointBuilder {
             placement: PointPlacement::new::<Fiducial<Entity>>(),
             continuity: self.continuity,
             scope: Scope::Drawing,
-        }
-    }
-
-    pub fn for_model(self, model: Model) -> SelectAnchor3D {
-        SelectAnchor3D {
-            bundle: PlaceableObject::Model(model),
-            parent: None,
-            target: self.for_element,
-            continuity: self.continuity,
         }
     }
 
@@ -1696,7 +1688,6 @@ impl SelectAnchor {
 
 #[derive(Clone)]
 enum PlaceableObject {
-    Model(Model),
     ModelInstance(ModelInstance<Entity>),
     Anchor,
     VisualMesh(WorkcellModel),
@@ -2162,12 +2153,6 @@ pub fn handle_select_anchor_3d_mode(
             PlaceableObject::Anchor => {
                 set_visibility(params.cursor.frame_placement, &mut params.visibility, true);
             }
-            PlaceableObject::Model(ref m) => {
-                // Spawn the model as a child of the cursor
-                params
-                    .cursor
-                    .set_model_preview(&mut params.commands, Some(m.clone()));
-            }
             PlaceableObject::ModelInstance(ref m) => {
                 // Spawn the model as a child of the cursor
                 params
@@ -2217,26 +2202,6 @@ pub fn handle_select_anchor_3d_mode(
                             NameInWorkcell("Unnamed".to_string()),
                         ))
                         .id(),
-                    PlaceableObject::Model(ref a) => {
-                        let mut model = a.clone();
-                        // If we are in workcell mode, add a "base link" frame to the model
-                        if matches!(**app_state, AppState::WorkcellEditor) {
-                            let child_id = params.commands.spawn(model).id();
-                            params
-                                .commands
-                                .spawn((
-                                    AnchorBundle::new(Anchor::Pose3D(pose))
-                                        .dependents(Dependents::single(child_id)),
-                                    FrameMarker,
-                                    NameInWorkcell("model_root".to_string()),
-                                ))
-                                .add_child(child_id)
-                                .id()
-                        } else {
-                            model.pose = pose;
-                            params.commands.spawn(model).id()
-                        }
-                    }
                     PlaceableObject::ModelInstance(ref a) => {
                         let mut model = a.clone();
                         // If we are in workcell mode, add a "base link" frame to the model

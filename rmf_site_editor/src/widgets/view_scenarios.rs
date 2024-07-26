@@ -16,16 +16,19 @@
 */
 
 use crate::{
+    interaction::{Select, Selection},
     site::{
-        Category, Change, ChangeCurrentScenario, CurrentScenario, Delete, ModelMarker, NameInSite,
-        Scenario, ScenarioMarker,
+        Category, Change, ChangeCurrentScenario, CurrentScenario, Delete, NameInSite, Scenario,
+        ScenarioMarker,
     },
     widgets::prelude::*,
     Icons,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{Button, CollapsingHeader, Color32, Ui};
-use rmf_site_format::{Angle, Pose, ScenarioBundle, SiteID};
+use bevy_egui::egui::{Button, CollapsingHeader, Color32, ScrollArea, Ui};
+use rmf_site_format::{Angle, InstanceMarker, Pose, ScenarioBundle, SiteID};
+
+const INSTANCES_VIEWER_HEIGHT: f32 = 200.0;
 
 /// Add a plugin for viewing and editing a list of all levels
 #[derive(Default)]
@@ -45,24 +48,26 @@ pub struct ViewScenarios<'w, 's> {
     scenarios: Query<
         'w,
         's,
-        (Entity, &'static NameInSite, &'static Scenario<Entity>),
+        (Entity, &'static NameInSite, &'static mut Scenario<Entity>),
         With<ScenarioMarker>,
     >,
     change_name: EventWriter<'w, Change<NameInSite>>,
     change_current_scenario: EventWriter<'w, ChangeCurrentScenario>,
     display_scenarios: ResMut<'w, ScenarioDisplay>,
     current_scenario: ResMut<'w, CurrentScenario>,
-    model_instances: Query<
+    instances: Query<
         'w,
         's,
         (
             Entity,
             &'static NameInSite,
             &'static Category,
-            &'static SiteID,
+            Option<&'static SiteID>,
         ),
-        With<ModelMarker>,
+        With<InstanceMarker>,
     >,
+    selection: Res<'w, Selection>,
+    select: EventWriter<'w, Select>,
     delete: EventWriter<'w, Delete>,
     icons: Res<'w, Icons>,
 }
@@ -82,7 +87,7 @@ impl<'w, 's> ViewScenarios<'w, 's> {
     pub fn show_widget(&mut self, ui: &mut Ui) {
         // Current Selection Info
         if let Some(current_scenario_entity) = self.current_scenario.0 {
-            if let Ok((_, name, scenario)) = self.scenarios.get_mut(current_scenario_entity) {
+            if let Ok((_, name, mut scenario)) = self.scenarios.get_mut(current_scenario_entity) {
                 ui.horizontal(|ui| {
                     ui.label("Selected: ");
                     let mut new_name = name.0.clone();
@@ -92,83 +97,102 @@ impl<'w, 's> ViewScenarios<'w, 's> {
                     }
                 });
 
-                fn format_name(
-                    ui: &mut Ui,
-                    name: &NameInSite,
-                    site_id: &SiteID,
-                    category: &Category,
-                ) {
-                    ui.label(format!("{} #{} [{}]", category.label(), site_id.0, name.0));
-                }
-                fn format_pose(ui: &mut Ui, pose: &Pose) {
-                    ui.colored_label(
-                        Color32::GRAY,
-                        format!(
-                            "       [x: {:.3}, y: {:.3}, z: {:.3}, yaw: {:.3}]",
-                            pose.trans[0],
-                            pose.trans[1],
-                            pose.trans[2],
-                            match pose.rot.yaw() {
-                                Angle::Rad(r) => r,
-                                Angle::Deg(d) => d.to_radians(),
-                            }
-                        ),
-                    );
-                }
-
                 ui.label("From Previous:");
-                CollapsingHeader::new(format!("Added: {}", scenario.added_model_instances.len()))
-                    .default_open(false)
-                    .show(ui, |ui| {
-                        for (entity, pose) in scenario.added_model_instances.iter() {
-                            if let Ok((_, name, category, site_id)) =
-                                self.model_instances.get(*entity)
-                            {
+                // Added
+                collapsing_instance_viewer(
+                    &format!("Added: {}", scenario.added_instances.len()),
+                    ui,
+                    |ui| {
+                        for (entity, pose) in scenario.added_instances.iter() {
+                            if let Ok((_, name, category, site_id)) = self.instances.get(*entity) {
                                 ui.horizontal(|ui| {
-                                    format_name(ui, name, site_id, category);
+                                    instance_selector(
+                                        ui,
+                                        name,
+                                        site_id,
+                                        category,
+                                        entity,
+                                        &self.selection,
+                                        &mut self.select,
+                                    );
                                     if ui.button("❌").on_hover_text("Remove instance").clicked() {
                                         self.delete.send(Delete::new(*entity));
                                     }
                                 });
-                                format_pose(ui, pose);
+                                formatted_pose(ui, pose);
                             }
                         }
-                    });
-                CollapsingHeader::new(format!("Moved: {}", scenario.moved_model_instances.len()))
-                    .default_open(false)
-                    .show(ui, |ui| {
-                        for (_id, (entity, pose)) in
-                            scenario.moved_model_instances.iter().enumerate()
-                        {
-                            if let Ok((_, name, category, site_id)) =
-                                self.model_instances.get(*entity)
-                            {
+                    },
+                );
+                // Moved
+                let mut undo_moved_ids = Vec::new();
+                collapsing_instance_viewer(
+                    &format!("Moved: {}", scenario.moved_instances.len()),
+                    ui,
+                    |ui| {
+                        for (id, (entity, pose)) in scenario.moved_instances.iter().enumerate() {
+                            if let Ok((_, name, category, site_id)) = self.instances.get(*entity) {
                                 ui.horizontal(|ui| {
-                                    format_name(ui, name, site_id, category);
-                                    if ui.button("↩").on_hover_text("Undo move").clicked() {}
+                                    instance_selector(
+                                        ui,
+                                        name,
+                                        site_id,
+                                        category,
+                                        entity,
+                                        &self.selection,
+                                        &mut self.select,
+                                    );
+                                    if ui.button("↩").on_hover_text("Undo move").clicked() {
+                                        undo_moved_ids.push(id);
+                                    }
                                 });
-                                format_pose(ui, pose);
+                                formatted_pose(ui, pose);
                             }
                         }
-                    });
-                CollapsingHeader::new(format!(
-                    "Removed: {}",
-                    scenario.removed_model_instances.len()
-                ))
-                .default_open(false)
-                .show(ui, |ui| {
-                    for entity in scenario.removed_model_instances.iter() {
-                        if let Ok((_, name, category, site_id)) = self.model_instances.get(*entity)
-                        {
-                            ui.horizontal(|ui| {
-                                format_name(ui, name, site_id, category);
-                                if ui.button("↺").on_hover_text("Restore instance").clicked() {}
-                            });
-                        } else {
-                            ui.label("Unavailable");
+                    },
+                );
+                // Removed
+                let mut undo_removed_ids = Vec::new();
+                collapsing_instance_viewer(
+                    &format!("Removed: {}", scenario.removed_instances.len()),
+                    ui,
+                    |ui| {
+                        for (id, entity) in scenario.removed_instances.iter().enumerate() {
+                            if let Ok((_, name, category, site_id)) = self.instances.get(*entity) {
+                                ui.horizontal(|ui| {
+                                    instance_selector(
+                                        ui,
+                                        name,
+                                        site_id,
+                                        category,
+                                        entity,
+                                        &self.selection,
+                                        &mut self.select,
+                                    );
+                                    if ui.button("↺").on_hover_text("Restore instance").clicked()
+                                    {
+                                        undo_removed_ids.push(id);
+                                    }
+                                });
+                            } else {
+                                ui.label("Unavailable");
+                            }
                         }
-                    }
-                });
+                    },
+                );
+
+                // Trigger an update if the scenario has been modified
+                let modified = !undo_removed_ids.is_empty() || !undo_moved_ids.is_empty();
+                for id in undo_removed_ids {
+                    scenario.removed_instances.remove(id);
+                }
+                for id in undo_moved_ids {
+                    scenario.moved_instances.remove(id);
+                }
+                if modified {
+                    self.change_current_scenario
+                        .send(ChangeCurrentScenario(current_scenario_entity));
+                }
             }
         } else {
             ui.label("No scenario selected");
@@ -264,7 +288,7 @@ fn show_scenario_widget(
     scenario_version: Vec<u32>,
     q_children: &Query<&'static Children>,
     q_scenario: &Query<
-        (Entity, &'static NameInSite, &'static Scenario<Entity>),
+        (Entity, &'static NameInSite, &'static mut Scenario<Entity>),
         With<ScenarioMarker>,
     >,
     icons: &Res<Icons>,
@@ -323,6 +347,66 @@ fn show_scenario_widget(
             ui.label("No Child Scenarios");
         }
     });
+}
+
+/// Creates a collasible header exposing a scroll area for viewing instances
+fn collapsing_instance_viewer<R>(
+    header_name: &str,
+    ui: &mut Ui,
+    add_contents: impl FnOnce(&mut Ui) -> R,
+) {
+    CollapsingHeader::new(header_name)
+        .default_open(false)
+        .show(ui, |ui| {
+            ScrollArea::vertical()
+                .max_height(INSTANCES_VIEWER_HEIGHT)
+                .show(ui, add_contents);
+        });
+}
+
+/// Creates a selectable label for an instance
+fn instance_selector(
+    ui: &mut Ui,
+    name: &NameInSite,
+    site_id: Option<&SiteID>,
+    category: &Category,
+    entity: &Entity,
+    selection: &Selection,
+    select: &mut EventWriter<Select>,
+) {
+    if ui
+        .selectable_label(
+            selection.0.is_some_and(|s| s == *entity),
+            format!(
+                "{} #{}",
+                category.label(),
+                site_id
+                    .map(|s| s.0.to_string())
+                    .unwrap_or("unsaved".to_string()),
+            ),
+        )
+        .clicked()
+    {
+        select.send(Select(Some(*entity)));
+    };
+    ui.label(format!("[{}]", name.0));
+}
+
+/// Creates a formatted label for a pose
+fn formatted_pose(ui: &mut Ui, pose: &Pose) {
+    ui.colored_label(
+        Color32::GRAY,
+        format!(
+            "[x: {:.3}, y: {:.3}, z: {:.3}, yaw: {:.3}]",
+            pose.trans[0],
+            pose.trans[1],
+            pose.trans[2],
+            match pose.rot.yaw() {
+                Angle::Rad(r) => r,
+                Angle::Deg(d) => d.to_radians(),
+            }
+        ),
+    );
 }
 
 #[derive(Resource)]

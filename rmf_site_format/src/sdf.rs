@@ -490,7 +490,7 @@ impl Site {
             });
             // TODO(luca) We need this because there is no concept of ingestor or dispenser in
             // rmf_site yet. Remove when there is
-            for (model_instance_id, _) in &default_scenario.scenario.added_model_instances {
+            for (model_instance_id, _) in &default_scenario.scenario.added_instances {
                 let model_instance = self
                     .model_instances
                     .get(model_instance_id)

@@ -17,8 +17,12 @@
 
 use crate::{
     interaction::{ChangeMode, ModelPreviewCamera, SelectAnchor3D},
-    site::{AssetSource, FuelClient, Model, SetFuelApiKey, UpdateFuelCache},
+    site::{
+        AssetSource, FuelClient, Group, IsStatic, Model, ModelDescriptionBundle, ModelMarker,
+        ModelProperty, NameInSite, Scale, SetFuelApiKey, UpdateFuelCache,
+    },
     widgets::prelude::*,
+    CurrentWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{self, Button, ComboBox, ImageSource, RichText, ScrollArea, Ui, Window};
@@ -72,6 +76,7 @@ pub struct AssetGalleryStatus {
 pub struct FuelAssetBrowser<'w, 's> {
     fuel_client: ResMut<'w, FuelClient>,
     // TODO(luca) refactor to see whether we need
+    current_workspace: Res<'w, CurrentWorkspace>,
     asset_gallery_status: ResMut<'w, AssetGalleryStatus>,
     model_preview_camera: Res<'w, ModelPreviewCamera>,
     update_cache: EventWriter<'w, UpdateFuelCache>,
@@ -268,16 +273,22 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                 }
 
                 if let Some(selected) = &gallery_status.selected {
-                    if ui.button("Spawn model").clicked() {
-                        let model = Model {
-                            source: AssetSource::Remote(
+                    if ui.button("Load as Description").clicked() {
+                        let model_description = ModelDescriptionBundle {
+                            name: NameInSite({ selected.owner.clone() + "/" + &selected.name }),
+                            source: ModelProperty(AssetSource::Remote(
                                 selected.owner.clone() + "/" + &selected.name + "/model.sdf",
-                            ),
-                            ..default()
+                            )),
+                            scale: ModelProperty(Scale::default()),
+                            ..Default::default()
                         };
-                        self.change_mode.send(ChangeMode::To(
-                            SelectAnchor3D::create_new_point().for_model(model).into(),
-                        ));
+                        if let Some(site_entity) = self.current_workspace.root {
+                            self.commands
+                                .spawn(model_description)
+                                .set_parent(site_entity);
+                        } else {
+                            warn!("No current site found to load model description");
+                        }
                     }
                 }
             }

@@ -1,6 +1,6 @@
 use crate::{
-    Affiliation, Angle, AssetSource, Group, IsStatic, ModelDescriptionBundle, ModelInstance,
-    ModelMarker, ModelProperty, NameInSite, Pose, Rotation, Scale, SiteParent,
+    Affiliation, Angle, AssetSource, Group, InstanceMarker, IsStatic, ModelDescriptionBundle,
+    ModelInstance, ModelMarker, ModelProperty, NameInSite, Pose, Rotation, Scale, SiteParent,
 };
 use glam::DVec2;
 use serde::{Deserialize, Serialize};
@@ -67,6 +67,7 @@ impl Model {
             parent: SiteParent(Some(level_id)),
             description: Affiliation(Some(model_description_id)),
             marker: ModelMarker,
+            instance_marker: InstanceMarker,
         };
         model_instances.insert(model_instance_id, model_instance);
         (model_instance_id, pose)

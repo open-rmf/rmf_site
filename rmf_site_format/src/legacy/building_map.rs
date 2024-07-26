@@ -523,7 +523,7 @@ impl BuildingMap {
                     .get_mut(&default_scenario_id)
                     .unwrap()
                     .scenario
-                    .added_model_instances
+                    .added_instances
                     .push((model_instance_id, model_pose));
             }
 

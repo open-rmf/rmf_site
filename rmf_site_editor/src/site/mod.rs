@@ -78,6 +78,9 @@ pub use measurement::*;
 pub mod model;
 pub use model::*;
 
+pub mod mobile_robot;
+pub use mobile_robot::*;
+
 pub mod nav_graph;
 pub use nav_graph::*;
 
@@ -372,9 +375,9 @@ impl Plugin for SitePlugin {
                 add_location_visuals,
                 add_fiducial_visuals,
                 update_level_visibility,
+                update_current_scenario.before(update_scenario_properties),
                 update_scenario_properties,
                 remove_instances,
-                update_current_scenario,
                 update_changed_lane,
                 update_lane_for_moved_anchor,
             )

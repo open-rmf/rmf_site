@@ -24,7 +24,7 @@ use std::collections::HashMap;
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
-pub struct InstaceMarker;
+pub struct InstanceMarker;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
@@ -35,18 +35,18 @@ pub struct ScenarioMarker;
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct Scenario<T: RefTrait> {
     pub parent_scenario: Affiliation<T>,
-    pub added_model_instances: Vec<(T, Pose)>,
-    pub removed_model_instances: Vec<T>,
-    pub moved_model_instances: Vec<(T, Pose)>,
+    pub added_instances: Vec<(T, Pose)>,
+    pub removed_instances: Vec<T>,
+    pub moved_instances: Vec<(T, Pose)>,
 }
 
 impl<T: RefTrait> Scenario<T> {
     pub fn from_parent(parent: T) -> Scenario<T> {
         Scenario {
             parent_scenario: Affiliation(Some(parent)),
-            added_model_instances: Vec::new(),
-            removed_model_instances: Vec::new(),
-            moved_model_instances: Vec::new(),
+            added_instances: Vec::new(),
+            removed_instances: Vec::new(),
+            moved_instances: Vec::new(),
         }
     }
 }
@@ -56,9 +56,9 @@ impl<T: RefTrait> Default for Scenario<T> {
     fn default() -> Self {
         Self {
             parent_scenario: Affiliation::default(),
-            added_model_instances: Vec::new(),
-            removed_model_instances: Vec::new(),
-            moved_model_instances: Vec::new(),
+            added_instances: Vec::new(),
+            removed_instances: Vec::new(),
+            moved_instances: Vec::new(),
         }
     }
 }
@@ -67,8 +67,8 @@ impl<T: RefTrait> Scenario<T> {
     pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Scenario<U>, T> {
         Ok(Scenario {
             parent_scenario: self.parent_scenario.convert(id_map)?,
-            added_model_instances: self
-                .added_model_instances
+            added_instances: self
+                .added_instances
                 .clone()
                 .into_iter()
                 .map(|(id, pose)| {
@@ -81,8 +81,8 @@ impl<T: RefTrait> Scenario<T> {
                     )
                 })
                 .collect(),
-            removed_model_instances: self
-                .removed_model_instances
+            removed_instances: self
+                .removed_instances
                 .clone()
                 .into_iter()
                 .map(|id| {
@@ -92,8 +92,8 @@ impl<T: RefTrait> Scenario<T> {
                         .clone()
                 })
                 .collect(),
-            moved_model_instances: self
-                .moved_model_instances
+            moved_instances: self
+                .moved_instances
                 .clone()
                 .into_iter()
                 .map(|(id, pose)| {
@@ -124,9 +124,9 @@ impl<T: RefTrait> ScenarioBundle<T> {
             name: NameInSite(name),
             scenario: Scenario {
                 parent_scenario: Affiliation(parent),
-                added_model_instances: Vec::new(),
-                removed_model_instances: Vec::new(),
-                moved_model_instances: Vec::new(),
+                added_instances: Vec::new(),
+                removed_instances: Vec::new(),
+                moved_instances: Vec::new(),
             },
             marker: ScenarioMarker,
         }

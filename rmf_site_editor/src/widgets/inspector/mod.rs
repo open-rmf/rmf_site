@@ -201,6 +201,7 @@ impl Plugin for StandardInspectorPlugin {
                 // Reached the tuple limit
             ))
             .add_plugins((
+                InspectTaskPlugin::default(),
                 InspectionPlugin::<InspectLight>::new(),
                 InspectionPlugin::<InspectDoor>::new(),
                 InspectionPlugin::<InspectAssetSource>::new(),
@@ -210,10 +211,9 @@ impl Plugin for StandardInspectorPlugin {
                 InspectionPlugin::<InspectJoint>::new(),
                 InspectionPlugin::<InspectMeasurement>::new(),
                 InspectionPlugin::<InspectPhysicalCameraProperties>::new(),
-                InspectLiftPlugin::default(),
-                InspectTaskPlugin::default(),
                 InspectionPlugin::<InspectGroup>::new(),
                 InspectModelDescriptionPlugin::default(),
+                InspectLiftPlugin::default(),
             ))
             .add_plugins((
                 InspectModelPropertyPlugin::<InspectModelScale, Scale>::new("Scale".to_string()),

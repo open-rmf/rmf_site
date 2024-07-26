@@ -18,6 +18,7 @@
 use crate::*;
 
 #[cfg(feature = "bevy")]
+use crate::InstanceMarker;
 use bevy::prelude::{Bundle, Component, Reflect, ReflectComponent};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -70,7 +71,7 @@ impl Default for Model {
 pub struct ModelProperty<T: Default + Clone>(pub T);
 
 /// Bundle with all required components for a valid model description
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct ModelDescriptionBundle {
     pub name: NameInSite,
@@ -90,12 +91,13 @@ pub struct ModelDescriptionBundle {
 #[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct ModelInstance<T: RefTrait> {
     pub name: NameInSite,
-    #[serde(skip)]
     pub pose: Pose,
     pub parent: SiteParent<T>,
     pub description: Affiliation<T>,
     #[serde(skip)]
     pub marker: ModelMarker,
+    #[serde(skip)]
+    pub instance_marker: InstanceMarker,
 }
 
 impl<T: RefTrait> Default for ModelInstance<T> {
@@ -106,6 +108,7 @@ impl<T: RefTrait> Default for ModelInstance<T> {
             parent: SiteParent::default(),
             description: Affiliation::default(),
             marker: ModelMarker,
+            instance_marker: InstanceMarker,
         }
     }
 }
@@ -117,7 +120,7 @@ impl<T: RefTrait> ModelInstance<T> {
             pose: self.pose.clone(),
             parent: self.parent.convert(id_map)?,
             description: self.description.convert(id_map)?,
-            marker: Default::default(),
+            ..Default::default()
         })
     }
 }

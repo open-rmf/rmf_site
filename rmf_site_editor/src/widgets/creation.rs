@@ -283,7 +283,7 @@ impl<'w, 's> Creation<'w, 's> {
                             ui.add_space(5.0);
 
                             ui.horizontal(|ui| {
-                                if ui.button("➕ Load").clicked() {
+                                if ui.button("➕").clicked() {
                                     if let Some(site_entity) = self.current_workspace.root {
                                         let model_description_bundle = ModelDescriptionBundle {
                                             name: NameInSite(pending_model.name.clone()),
@@ -319,15 +319,32 @@ impl<'w, 's> Creation<'w, 's> {
                                         }
                                     }
                                 }
-                                if ui
-                                    .selectable_label(pending_model.spawn_instance, "With Instance")
-                                    .clicked()
-                                {
-                                    pending_model.spawn_instance = !pending_model.spawn_instance;
-                                }
-                                ui.add_enabled_ui(pending_model.spawn_instance, |ui| {
+                                ComboBox::from_id_source("load_or_load_and_spawn")
+                                    .selected_text(if pending_model.spawn_instance {
+                                        "Load and Spawn"
+                                    } else {
+                                        "Load"
+                                    })
+                                    .show_ui(ui, |ui| {
+                                        if ui
+                                            .selectable_label(
+                                                pending_model.spawn_instance,
+                                                "Load and Spawn",
+                                            )
+                                            .clicked()
+                                        {
+                                            pending_model.spawn_instance = true;
+                                        }
+                                        if ui
+                                            .selectable_label(!pending_model.spawn_instance, "Load")
+                                            .clicked()
+                                        {
+                                            pending_model.spawn_instance = false;
+                                        }
+                                    });
+                                if pending_model.spawn_instance {
                                     ui.text_edit_singleline(&mut pending_model.instance_name);
-                                });
+                                }
                             });
 
                             ui.add_space(3.0);

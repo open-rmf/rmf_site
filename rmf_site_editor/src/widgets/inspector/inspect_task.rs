@@ -18,48 +18,73 @@
 use crate::{
     inspector::InspectPoseComponent,
     interaction::Selection,
-    site::{Change, ChangePlugin, Delete},
+    site::{
+        update_model_instances, Affiliation, AssetSource, Change, ChangePlugin, Delete,
+        DifferentialDrive, Group, MobileRobotMarker, ModelMarker, ModelProperty, Pose, Scale,
+        SiteParent, Task, Tasks,
+    },
     widgets::{prelude::*, Inspect, InspectionPlugin},
+    Icons, ModelPropertyData,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::Ui;
-use rmf_site_format::{
-    AssetSource, DifferentialDrive, Group, ModelMarker, Pose, Scale, SimpleTask,
-};
+use bevy_egui::egui::{Align, Button, Color32, ComboBox, DragValue, Frame, Layout, Stroke, Ui};
+use std::any::TypeId;
+
+use super::InspectPose;
 
 #[derive(Default)]
 pub struct InspectTaskPlugin {}
 
 impl Plugin for InspectTaskPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<TaskPreview>().add_plugins((
-            ChangePlugin::<SimpleTask>::default(),
-            InspectionPlugin::<InspectTask>::new(),
+        // Allows us to toggle MobileRobotMarker as a configurable property
+        // from the model description inspector
+        app.register_type::<ModelProperty<MobileRobotMarker>>()
+            .add_plugins(ChangePlugin::<ModelProperty<MobileRobotMarker>>::default())
+            .add_systems(
+                PreUpdate,
+                (
+                    add_remove_mobile_robot_tasks,
+                    update_model_instances::<MobileRobotMarker>,
+                ),
+            )
+            .init_resource::<ModelPropertyData>()
+            .world
+            .resource_mut::<ModelPropertyData>()
+            .optional
+            .insert(
+                TypeId::of::<ModelProperty<MobileRobotMarker>>(),
+                (
+                    "Mobile Robot".to_string(),
+                    |mut e_cmd| {
+                        e_cmd.insert(ModelProperty::<MobileRobotMarker>::default());
+                    },
+                    |mut e_cmd| {
+                        e_cmd.remove::<ModelProperty<MobileRobotMarker>>();
+                    },
+                ),
+            );
+
+        // Ui
+        app.init_resource::<PendingEditTask>().add_plugins((
+            ChangePlugin::<Tasks<Entity>>::default(),
+            InspectionPlugin::<InspectTasks>::new(),
         ));
     }
 }
 
 #[derive(SystemParam)]
-pub struct InspectTask<'w, 's> {
+pub struct InspectTasks<'w, 's> {
     commands: Commands<'w, 's>,
     selection: Res<'w, Selection>,
-    change_task: EventWriter<'w, Change<SimpleTask>>,
-    change_pose: EventWriter<'w, Change<Pose>>,
-    delete: EventWriter<'w, Delete>,
-    model_instances: Query<
-        'w,
-        's,
-        (
-            Option<&'static mut SimpleTask>,
-            &'static mut AssetSource,
-            Option<&'static mut Scale>,
-        ),
-        (With<ModelMarker>, With<DifferentialDrive>, Without<Group>),
-    >,
-    task_preview: ResMut<'w, TaskPreview>,
+    change_tasks: EventWriter<'w, Change<Tasks<Entity>>>,
+    mobile_robots:
+        Query<'w, 's, &'static mut Tasks<Entity>, (With<MobileRobotMarker>, Without<Group>)>,
+    pending_task: ResMut<'w, PendingEditTask>,
+    icons: Res<'w, Icons>,
 }
 
-impl<'w, 's> WidgetSystem<Inspect> for InspectTask<'w, 's> {
+impl<'w, 's> WidgetSystem<Inspect> for InspectTasks<'w, 's> {
     fn show(
         Inspect { selection, .. }: Inspect,
         ui: &mut Ui,
@@ -67,110 +92,186 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectTask<'w, 's> {
         world: &mut World,
     ) {
         let mut params = state.get_mut(world);
-        params.show_widget(selection, ui);
-    }
-}
+        let Ok(mut tasks) = params.mobile_robots.get_mut(selection) else {
+            return;
+        };
 
-impl<'w, 's> InspectTask<'w, 's> {
-    pub fn show_widget(&mut self, id: Entity, ui: &mut Ui) {
-        // Reset viewing previews when selection changes
-        if self.selection.is_changed() {
-            if let Some(preview_entity) = self.task_preview.0 {
-                self.delete.send(Delete::new(preview_entity));
-                self.task_preview.0 = None;
-            }
-        }
+        ui.label("Tasks");
 
-        if let Ok((task, source, scale)) = self.model_instances.get(id) {
-            // Create new task if it doesn't already exist
-            let mut new_task = match task {
-                Some(task) => task.clone(),
-                None => {
-                    self.commands.entity(id).insert(SimpleTask(None));
-                    SimpleTask(None)
-                }
-            };
+        Frame::default()
+            .inner_margin(4.0)
+            .rounding(2.0)
+            .stroke(Stroke::new(1.0, Color32::GRAY))
+            .show(ui, |ui| {
+                ui.set_min_width(ui.available_width());
 
-            ui.horizontal(|ui| {
-                ui.label("Task");
-                match new_task.0 {
-                    Some(_) => {
-                        if ui.button("Remove").clicked() {
-                            new_task.0 = None;
-                        }
-                    }
-                    None => {
-                        if ui.button("Add").clicked() {
-                            new_task.0 = Some(Pose::default());
-                        }
+                if tasks.0.is_empty() {
+                    ui.label("No Tasks");
+                } else {
+                    for task in tasks.0.iter_mut() {
+                        edit_task_component(ui, &mut PendingEditTask::from_task(task), true);
                     }
                 }
             });
 
-            ui.add_enabled_ui(new_task.0.is_some(), |ui| {
-                match &new_task.0 {
-                    Some(pose) => {
-                        if let Some(new_pose) = InspectPoseComponent::new(pose).show(ui) {
-                            new_task.0 = Some(new_pose);
-                        }
-                    }
-                    None => {
-                        InspectPoseComponent::new(&Pose::default()).show(ui);
-                    }
-                }
-
-                if new_task.0.is_none() {
-                    if let Some(preview_entity) = self.task_preview.0 {
-                        self.delete.send(Delete::new(preview_entity));
-                        self.task_preview.0 = None;
-                    }
-                }
+        ui.add_space(10.0);
+        ui.horizontal(|ui| {
+            // Only allow adding as task if valid
+            ui.add_enabled_ui(params.pending_task.to_task().is_some(), |ui| {
                 if ui
-                    .selectable_label(self.task_preview.0.is_some(), "Preview")
+                    .add(Button::image_and_text(params.icons.add.egui(), "New"))
                     .clicked()
                 {
-                    match self.task_preview.0 {
-                        Some(preview_entity) => {
-                            self.delete.send(Delete::new(preview_entity));
-                            self.task_preview.0 = None;
-                        }
-                        None => {
-                            let task_preview_bundle = TaskPreviewBundle {
-                                pose: new_task.0.unwrap_or_default(),
-                                scale: scale.cloned().unwrap_or_default(),
-                                source: source.clone(),
-                                marker: ModelMarker,
-                            };
-                            let task_preview_entity = self.commands.spawn(task_preview_bundle).id();
-                            self.task_preview.0 = Some(task_preview_entity);
-                        }
-                    }
+                    tasks.0.push(params.pending_task.to_task().unwrap());
                 }
             });
+            // Select new task type
+            ComboBox::from_id_source("pending_edit_task")
+                .selected_text(params.pending_task.label())
+                .show_ui(ui, |ui| {
+                    for label in PendingEditTask::labels() {
+                        if ui
+                            .selectable_label(
+                                label == params.pending_task.label(),
+                                label.to_string(),
+                            )
+                            .clicked()
+                        {
+                            *params.pending_task = PendingEditTask::from_label(label);
+                        }
+                    }
+                });
+        });
 
-            if task.is_some_and(|task| task != &new_task) {
-                println!("Task: {:?}", new_task);
-                self.change_task.send(Change::new(new_task.clone(), id));
-            }
-            if task.is_some_and(|task| task.0 != new_task.0) {
-                if let Some(task_preview_entity) = self.task_preview.0 {
-                    if let Some(new_pose) = new_task.0 {
-                        self.change_pose
-                            .send(Change::new(new_pose, task_preview_entity));
+        ui.add_space(10.0);
+        edit_task_component(ui, &mut params.pending_task, false);
+    }
+}
+
+/// Returns true if delete
+fn edit_task_component(ui: &mut Ui, task: &mut PendingEditTask, with_delete: bool) {
+    Frame::default()
+        .inner_margin(4.0)
+        .fill(Color32::DARK_GRAY)
+        .rounding(2.0)
+        .show(ui, |ui| {
+            ui.set_min_width(ui.available_width());
+
+            // Header with selection button / simple data
+            ui.horizontal(|ui| {
+                ui.label(task.label());
+
+                match task {
+                    PendingEditTask::GoToPlace(pose, site_parent) => {
+                        ui.selectable_label(true, "Select Goal");
+                    }
+                    PendingEditTask::WaitFor(duration) => {
+                        ui.add(
+                            DragValue::new(duration)
+                                .clamp_range(0_f32..=std::f32::INFINITY)
+                                .speed(0.01),
+                        );
+                        ui.label("s");
+                    }
+                    PendingEditTask::PickUp(_) => {
+                        ui.selectable_label(true, "Model #129");
+                    }
+                    PendingEditTask::DropOff((_, _)) => {
+                        ui.selectable_label(true, "Model #29");
                     }
                 }
+
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    if with_delete {
+                        if ui.button("❌").on_hover_text("Delete task").clicked() {
+                            *task = PendingEditTask::default();
+                        }
+                    }
+                });
+            });
+        });
+}
+
+#[derive(Resource)]
+pub enum PendingEditTask {
+    GoToPlace(Option<Pose>, SiteParent<Entity>),
+    WaitFor(f32),
+    PickUp(Option<Affiliation<Entity>>),
+    DropOff((Option<Affiliation<Entity>>, Option<Pose>)),
+}
+
+impl Default for PendingEditTask {
+    fn default() -> Self {
+        Self::WaitFor(0.0)
+    }
+}
+
+impl PendingEditTask {
+    fn from_task(task: &Task<Entity>) -> Self {
+        match task {
+            Task::GoToPlace(pose, parent) => PendingEditTask::GoToPlace(Some(*pose), *parent),
+            Task::WaitFor(time) => PendingEditTask::WaitFor(*time),
+            Task::PickUp(affiliation) => PendingEditTask::PickUp(Some(*affiliation)),
+            Task::DropOff((affiliation, pose)) => {
+                PendingEditTask::DropOff((Some(*affiliation), Some(*pose)))
             }
+        }
+    }
+
+    fn to_task(&self) -> Option<Task<Entity>> {
+        match self {
+            PendingEditTask::GoToPlace(Some(pose), parent) => {
+                Some(Task::GoToPlace(pose.clone(), parent.clone()))
+            }
+            PendingEditTask::WaitFor(time) => Some(Task::WaitFor(*time)),
+            PendingEditTask::PickUp(Some(affiliation)) => Some(Task::PickUp(affiliation.clone())),
+            PendingEditTask::DropOff((Some(affiliation), Some(pose))) => {
+                Some(Task::DropOff((affiliation.clone(), pose.clone())))
+            }
+            _ => None,
+        }
+    }
+
+    fn labels() -> Vec<&'static str> {
+        vec!["Go To Place", "Wait For", "Pick Up", "Drop Off"]
+    }
+
+    fn label(&self) -> &str {
+        match self {
+            PendingEditTask::GoToPlace(_, _) => Self::labels()[0],
+            PendingEditTask::WaitFor(_) => Self::labels()[1],
+            PendingEditTask::PickUp(_) => Self::labels()[2],
+            PendingEditTask::DropOff(_) => Self::labels()[3],
+        }
+    }
+
+    fn from_label(label: &str) -> Self {
+        let labels = Self::labels();
+        match labels.iter().position(|&l| l == label) {
+            Some(0) => PendingEditTask::GoToPlace(None, SiteParent::default()),
+            Some(1) => PendingEditTask::WaitFor(0.0),
+            Some(2) => PendingEditTask::PickUp(None),
+            Some(3) => PendingEditTask::DropOff((None, None)),
+            _ => PendingEditTask::WaitFor(0.0),
         }
     }
 }
 
-#[derive(Bundle, Default)]
-pub struct TaskPreviewBundle {
-    pub pose: Pose,
-    pub scale: Scale,
-    pub source: AssetSource,
-    pub marker: ModelMarker,
-}
+/// When the MobileRobotMarker is added or removed, add or remove the Tasks<Entity> component
+fn add_remove_mobile_robot_tasks(
+    mut commands: Commands,
+    instances: Query<(Entity, Ref<MobileRobotMarker>), Without<Group>>,
+    mut removals: RemovedComponents<ModelProperty<MobileRobotMarker>>,
+) {
+    for removal in removals.read() {
+        if instances.get(removal).is_ok() {
+            commands.entity(removal).remove::<Tasks<Entity>>();
+        }
+    }
 
-#[derive(Resource, Clone, Default)]
-pub struct TaskPreview(Option<Entity>);
+    for (e, marker) in instances.iter() {
+        if marker.is_added() {
+            commands.entity(e).insert(Tasks::<Entity>::default());
+        }
+    }
+}
