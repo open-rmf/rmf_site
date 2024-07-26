@@ -16,9 +16,7 @@
 */
 
 use crate::*;
-
 #[cfg(feature = "bevy")]
-use crate::InstanceMarker;
 use bevy::prelude::{Bundle, Component, Reflect, ReflectComponent};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
