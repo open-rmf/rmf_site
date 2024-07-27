@@ -406,8 +406,7 @@ pub struct PreviewableMarker;
 #[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
 pub struct SiteID(pub u32);
 
-/// This component is applied to an entity to indicate that it is defined in relation
-/// Affiliates an entity with a group.
+/// This component is applied to an entity as a reference to its parent entity.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(transparent)]
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]

@@ -101,6 +101,7 @@ impl<'w, 's> ViewScenarios<'w, 's> {
                 // Added
                 collapsing_instance_viewer(
                     &format!("Added: {}", scenario.added_instances.len()),
+                    "scenario_added_instances",
                     ui,
                     |ui| {
                         for (entity, pose) in scenario.added_instances.iter() {
@@ -128,6 +129,7 @@ impl<'w, 's> ViewScenarios<'w, 's> {
                 let mut undo_moved_ids = Vec::new();
                 collapsing_instance_viewer(
                     &format!("Moved: {}", scenario.moved_instances.len()),
+                    "scenario_moved_instances",
                     ui,
                     |ui| {
                         for (id, (entity, pose)) in scenario.moved_instances.iter().enumerate() {
@@ -155,6 +157,7 @@ impl<'w, 's> ViewScenarios<'w, 's> {
                 let mut undo_removed_ids = Vec::new();
                 collapsing_instance_viewer(
                     &format!("Removed: {}", scenario.removed_instances.len()),
+                    "scenario_removed_instances",
                     ui,
                     |ui| {
                         for (id, entity) in scenario.removed_instances.iter().enumerate() {
@@ -352,10 +355,12 @@ fn show_scenario_widget(
 /// Creates a collasible header exposing a scroll area for viewing instances
 fn collapsing_instance_viewer<R>(
     header_name: &str,
+    id: &str,
     ui: &mut Ui,
     add_contents: impl FnOnce(&mut Ui) -> R,
 ) {
     CollapsingHeader::new(header_name)
+        .id_source(id)
         .default_open(false)
         .show(ui, |ui| {
             ScrollArea::vertical()

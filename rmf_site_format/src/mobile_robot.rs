@@ -29,10 +29,8 @@ pub struct SimpleTask(pub Option<Pose>);
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub enum Task<T: RefTrait> {
-    GoToPlace(Pose, SiteParent<T>),
+    GoToPlace(SiteParent<T>),
     WaitFor(f32),
-    PickUp(Affiliation<T>),
-    DropOff((Affiliation<T>, Pose)),
 }
 
 impl<T: RefTrait> Default for Task<T> {
@@ -44,13 +42,38 @@ impl<T: RefTrait> Default for Task<T> {
 impl<T: RefTrait> Task<T> {
     pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Task<U>, T> {
         Ok(match self {
-            Task::GoToPlace(pose, parent) => Task::GoToPlace(*pose, parent.convert(id_map)?),
+            Task::GoToPlace(affiliation) => Task::GoToPlace(affiliation.convert(id_map)?),
             Task::WaitFor(time) => Task::WaitFor(*time),
-            Task::PickUp(affiliation) => Task::PickUp(affiliation.convert(id_map)?),
-            Task::DropOff((affiliation, pose)) => {
-                Task::DropOff((affiliation.convert(id_map)?, *pose))
-            }
         })
+    }
+}
+
+impl<T: RefTrait> Task<T> {
+    pub fn labels() -> Vec<&'static str> {
+        vec!["Go To Place", "Wait For"]
+    }
+
+    pub fn is_valid(&self) -> bool {
+        match self {
+            Task::GoToPlace(affiliation) => affiliation.0.is_some(),
+            Task::WaitFor(time) => *time >= 0.0,
+        }
+    }
+
+    pub fn label(&self) -> &'static str {
+        match self {
+            Task::GoToPlace(_) => Self::labels()[0],
+            Task::WaitFor(_) => Self::labels()[1],
+        }
+    }
+
+    pub fn from_label(label: &str) -> Self {
+        let labels = Self::labels();
+        match labels.iter().position(|&l| l == label) {
+            Some(0) => Task::GoToPlace(SiteParent::<T>(None)),
+            Some(1) => Task::WaitFor(0.0),
+            _ => Task::WaitFor(0.0),
+        }
     }
 }
 
@@ -78,7 +101,7 @@ impl<T: RefTrait> Tasks<T> {
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct MobileRobotMarker;
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
 pub struct DifferentialDrive {
     pub translational_speed: f32,
@@ -87,10 +110,13 @@ pub struct DifferentialDrive {
     pub rotation_center_offset: [f32; 2],
 }
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
-pub struct HolonomicDrive {
-    pub translational_speed: f32,
-    pub rotational_speed: f32,
-    pub rotation_center_offset: [f32; 3],
+impl Default for DifferentialDrive {
+    fn default() -> Self {
+        Self {
+            translational_speed: 0.5,
+            rotational_speed: 1.0,
+            bidirectional: false,
+            rotation_center_offset: [0.0, 0.0],
+        }
+    }
 }
