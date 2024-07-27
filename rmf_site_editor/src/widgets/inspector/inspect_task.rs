@@ -110,7 +110,8 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectTasks<'w, 's> {
                 } else {
                     let mut deleted_ids = Vec::new();
                     for (id, task) in tasks.0.iter_mut().enumerate() {
-                        let is_deleted = edit_task_component(ui, &id, task, &params.locations, true);
+                        let is_deleted =
+                            edit_task_component(ui, &id, task, &params.locations, true);
                         if is_deleted {
                             deleted_ids.push(id);
                         }
@@ -151,7 +152,13 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectTasks<'w, 's> {
         });
 
         ui.add_space(10.0);
-        edit_task_component(ui, &tasks.0.len(), &mut params.pending_task.0, &params.locations, false);
+        edit_task_component(
+            ui,
+            &tasks.0.len(),
+            &mut params.pending_task.0,
+            &params.locations,
+            false,
+        );
     }
 }
 
