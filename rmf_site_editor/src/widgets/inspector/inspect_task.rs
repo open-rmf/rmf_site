@@ -16,12 +16,9 @@
 */
 
 use crate::{
-    inspector::InspectPoseComponent,
-    interaction::Selection,
     site::{
-        location, update_model_instances, Affiliation, AssetSource, Change, ChangePlugin, Delete,
-        DifferentialDrive, Group, LocationTags, MobileRobotMarker, ModelMarker, ModelProperty,
-        NameInSite, Pose, Scale, SiteParent, Task, Tasks,
+        update_model_instances, ChangePlugin, Group, LocationTags, MobileRobotMarker,
+        ModelProperty, NameInSite, Point, Task, Tasks,
     },
     widgets::{prelude::*, Inspect, InspectionPlugin},
     Icons, ModelPropertyData,
@@ -29,8 +26,6 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Align, Button, Color32, ComboBox, DragValue, Frame, Layout, Stroke, Ui};
 use std::any::TypeId;
-
-use super::InspectPose;
 
 #[derive(Default)]
 pub struct InspectTaskPlugin {}
@@ -75,9 +70,6 @@ impl Plugin for InspectTaskPlugin {
 
 #[derive(SystemParam)]
 pub struct InspectTasks<'w, 's> {
-    commands: Commands<'w, 's>,
-    selection: Res<'w, Selection>,
-    change_tasks: EventWriter<'w, Change<Tasks<Entity>>>,
     mobile_robots:
         Query<'w, 's, &'static mut Tasks<Entity>, (With<MobileRobotMarker>, Without<Group>)>,
     locations: Query<'w, 's, (Entity, &'static NameInSite, &'static LocationTags)>,
@@ -125,14 +117,17 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectTasks<'w, 's> {
         ui.add_space(10.0);
         ui.horizontal(|ui| {
             // Only allow adding as task if valid
-            ui.add_enabled_ui(params.pending_task.0.is_valid(), |ui| {
-                if ui
-                    .add(Button::image_and_text(params.icons.add.egui(), "New"))
-                    .clicked()
-                {
-                    tasks.0.push(params.pending_task.0.clone());
-                }
-            });
+            ui.add_enabled_ui(
+                is_task_valid(&params.pending_task.0, &params.locations),
+                |ui| {
+                    if ui
+                        .add(Button::image_and_text(params.icons.add.egui(), "New"))
+                        .clicked()
+                    {
+                        tasks.0.push(params.pending_task.0.clone());
+                    }
+                },
+            );
             // Select new task type
             ComboBox::from_id_source("pending_edit_task")
                 .selected_text(params.pending_task.0.label())
@@ -145,7 +140,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectTasks<'w, 's> {
                             )
                             .clicked()
                         {
-                            *params.pending_task = PendingTask(Task::from_label(label));
+                            *params.pending_task = PendingTask(task_from_label(label));
                         }
                     }
                 });
@@ -181,34 +176,26 @@ fn edit_task_component(
                 ui.label(task.label());
 
                 match task {
-                    Task::GoToPlace(location) => {
-                        let selected_text = location
-                            .0
-                            .and_then(|location_entity| {
-                                locations
-                                    .get(location_entity)
-                                    .ok()
-                                    .map(|(_, name, _)| name.0.clone())
-                            })
+                    Task::GoToPlace { location } => {
+                        let selected_location_name = locations
+                            .get(location.0)
+                            .map(|(_, name, _)| name.0.clone())
                             .unwrap_or("Select Location".to_string());
 
                         ComboBox::from_id_source(id.to_string() + "select_go_to_location")
-                            .selected_text(selected_text)
+                            .selected_text(selected_location_name)
                             .show_ui(ui, |ui| {
                                 for (entity, name, _) in locations.iter() {
                                     if ui
-                                        .selectable_label(
-                                            location.0 == Some(entity),
-                                            name.0.clone(),
-                                        )
+                                        .selectable_label(location.0 == entity, name.0.clone())
                                         .clicked()
                                     {
-                                        *location = SiteParent(Some(entity));
+                                        *location = Point(entity);
                                     }
                                 }
                             });
                     }
-                    Task::WaitFor(duration) => {
+                    Task::WaitFor { duration } => {
                         ui.add(
                             DragValue::new(duration)
                                 .clamp_range(0_f32..=std::f32::INFINITY)
@@ -235,7 +222,9 @@ pub struct PendingTask(Task<Entity>);
 
 impl FromWorld for PendingTask {
     fn from_world(world: &mut World) -> Self {
-        PendingTask(Task::GoToPlace(SiteParent::<Entity>(None)))
+        PendingTask(Task::GoToPlace {
+            location: Point(Entity::PLACEHOLDER),
+        })
     }
 }
 
@@ -255,5 +244,26 @@ fn add_remove_mobile_robot_tasks(
         if marker.is_added() {
             commands.entity(e).insert(Tasks::<Entity>::default());
         }
+    }
+}
+
+fn is_task_valid(
+    task: &Task<Entity>,
+    locations: &Query<(Entity, &NameInSite, &LocationTags)>,
+) -> bool {
+    match task {
+        Task::GoToPlace { location } => locations.get(location.0).is_ok(),
+        _ => true,
+    }
+}
+
+pub fn task_from_label(label: &str) -> Task<Entity> {
+    let labels = Task::<Entity>::labels();
+    match labels.iter().position(|&l| l == label) {
+        Some(0) => Task::GoToPlace {
+            location: Point(Entity::PLACEHOLDER),
+        },
+        Some(1) => Task::WaitFor { duration: 0.0 },
+        _ => Task::WaitFor { duration: 0.0 },
     }
 }

@@ -94,12 +94,12 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelDifferentialDrive<'w, 's> {
                     ui.label("");
                     ui.add(
                         DragValue::new(&mut new_differential_drive.rotation_center_offset[0])
-                            .clamp_range(0_f32..=std::f32::INFINITY)
+                            .clamp_range(std::f32::NEG_INFINITY..=std::f32::INFINITY)
                             .speed(0.01),
                     );
                     ui.add(
                         DragValue::new(&mut new_differential_drive.rotation_center_offset[1])
-                            .clamp_range(0_f32..=std::f32::INFINITY)
+                            .clamp_range(std::f32::NEG_INFINITY..=std::f32::INFINITY)
                             .speed(0.01),
                     );
                 });

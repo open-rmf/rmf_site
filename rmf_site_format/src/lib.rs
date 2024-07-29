@@ -116,6 +116,9 @@ pub use semver::*;
 pub mod site;
 pub use site::*;
 
+pub mod task;
+pub use task::*;
+
 pub mod texture;
 pub use texture::*;
 
