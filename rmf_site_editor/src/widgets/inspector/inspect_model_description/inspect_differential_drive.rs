@@ -17,7 +17,7 @@
 
 use super::get_selected_description_entity;
 use crate::{
-    site::{Affiliation, Change, DifferentialDrive, Group, ModelMarker, ModelProperty},
+    site::{Affiliation, Change, DifferentialDrive, Group, ModelMarker, ModelProperty, Pose},
     widgets::{prelude::*, Inspect},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -34,6 +34,8 @@ pub struct InspectModelDifferentialDrive<'w, 's> {
     model_descriptions:
         Query<'w, 's, &'static ModelProperty<DifferentialDrive>, (With<ModelMarker>, With<Group>)>,
     change_differential_drive: EventWriter<'w, Change<ModelProperty<DifferentialDrive>>>,
+    poses: Query<'w, 's, &'static Pose>,
+    gizmos: Gizmos<'s>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectModelDifferentialDrive<'w, 's> {
@@ -61,7 +63,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelDifferentialDrive<'w, 's> {
 
         ui.label("Differential Drive");
         ui.indent("inspect_differential_drive_properties", |ui| {
-            Grid::new("inspect_differential_drive_speed")
+            Grid::new("inspect_diferential_drive_1")
                 .num_columns(2)
                 .show(ui, |ui| {
                     ui.label("max velocity");
@@ -81,9 +83,29 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelDifferentialDrive<'w, 's> {
                     );
                     ui.label("rad/s");
                     ui.end_row();
+
+                    ui.label("collision radius");
+                    if ui
+                        .add(
+                            DragValue::new(&mut new_differential_drive.collision_radius)
+                                .clamp_range(0_f32..=std::f32::INFINITY)
+                                .speed(0.01),
+                        )
+                        .is_pointer_button_down_on()
+                    {
+                        if let Ok(pose) = params.poses.get(selection) {
+                            params.gizmos.circle(
+                                Vec3::new(pose.trans[0], pose.trans[1], pose.trans[2] + 0.01),
+                                Vec3::Z,
+                                new_differential_drive.collision_radius,
+                                Color::RED,
+                            );
+                        }
+                    };
+                    ui.label("m")
                 });
 
-            Grid::new("inspect_differential_drive_offset")
+            Grid::new("inspect_differential_drive_2")
                 .num_columns(3)
                 .show(ui, |ui| {
                     ui.label("center offset");

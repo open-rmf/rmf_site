@@ -30,6 +30,7 @@ pub struct DifferentialDrive {
     pub translational_speed: f32,
     pub rotational_speed: f32,
     pub bidirectional: bool,
+    pub collision_radius: f32,
     pub rotation_center_offset: [f32; 2],
 }
 
@@ -39,6 +40,7 @@ impl Default for DifferentialDrive {
             translational_speed: 0.5,
             rotational_speed: 1.0,
             bidirectional: false,
+            collision_radius: 0.5,
             rotation_center_offset: [0.0, 0.0],
         }
     }
