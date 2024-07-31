@@ -1069,7 +1069,7 @@ pub(crate) fn make_location_icon(radius: f32, height: f32, segments: usize) -> M
     let width = (p1 - p0).length();
     make_flat_square_mesh(width).transform_by(Affine3A::from_translation(Vec3::new(
         radius + width / 2.0,
-        0.0,
+        0.01,
         height / 2.0,
     )))
 }

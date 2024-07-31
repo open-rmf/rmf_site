@@ -27,7 +27,7 @@ use bevy_egui::egui::{CollapsingHeader, ComboBox, Grid, Ui};
 
 use rmf_site_format::{
     Affiliation, DrawingProperties, Geometry, Group, IsStatic, ModelDescriptionBundle,
-    ModelInstance, ModelMarker, ModelProperty, NameInSite, WorkcellModel,
+    ModelInstance, ModelMarker, ModelProperty, NameInSite, SiteID, WorkcellModel,
 };
 
 /// This widget provides a widget with buttons for creating new site elements.
@@ -47,6 +47,12 @@ struct Creation<'w, 's> {
     app_state: Res<'w, State<AppState>>,
     change_mode: EventWriter<'w, ChangeMode>,
     current_workspace: Res<'w, CurrentWorkspace>,
+    model_descriptions: Query<
+        'w,
+        's,
+        (Entity, &'static NameInSite, Option<&'static SiteID>),
+        (With<ModelMarker>, With<Group>),
+    >,
     creation_data: ResMut<'w, CreationData>,
     asset_gallery: Option<ResMut<'w, AssetGalleryStatus>>,
     commands: Commands<'w, 's>,
@@ -68,18 +74,6 @@ impl<'w, 's> WidgetSystem<Tile> for Creation<'w, 's> {
 }
 
 impl<'w, 's> Creation<'w, 's> {
-    pub fn show_create_model_instance(&mut self, _ui: &mut Ui) {
-        match self.app_state.get() {
-            AppState::MainMenu | AppState::SiteDrawingEditor | AppState::SiteVisualizer => {}
-            AppState::SiteEditor | AppState::WorkcellEditor => {
-                let _pending_model = match *self.creation_data {
-                    CreationData::ModelDescription(ref mut pending_model) => pending_model,
-                    _ => return,
-                };
-            }
-        }
-    }
-
     pub fn show_widget(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
             ui.label("New");
@@ -282,7 +276,11 @@ impl<'w, 's> Creation<'w, 's> {
                             ui.add_space(5.0);
 
                             ui.horizontal(|ui| {
-                                if ui.button("➕").clicked() {
+                                let add_icon = match pending_model.spawn_instance {
+                                    true => "✚",
+                                    false => "⬆",
+                                };
+                                if ui.button(add_icon).clicked() {
                                     if let Some(site_entity) = self.current_workspace.root {
                                         let model_description_bundle = ModelDescriptionBundle {
                                             name: NameInSite(pending_model.name.clone()),
@@ -322,7 +320,7 @@ impl<'w, 's> Creation<'w, 's> {
                                     .selected_text(if pending_model.spawn_instance {
                                         "Load and Spawn"
                                     } else {
-                                        "Load"
+                                        "Load Description"
                                     })
                                     .show_ui(ui, |ui| {
                                         if ui
@@ -335,7 +333,10 @@ impl<'w, 's> Creation<'w, 's> {
                                             pending_model.spawn_instance = true;
                                         }
                                         if ui
-                                            .selectable_label(!pending_model.spawn_instance, "Load")
+                                            .selectable_label(
+                                                !pending_model.spawn_instance,
+                                                "Load Description",
+                                            )
                                             .clicked()
                                         {
                                             pending_model.spawn_instance = false;
@@ -390,6 +391,75 @@ impl<'w, 's> Creation<'w, 's> {
             }
         }
     }
+
+    pub fn show_create_model_instance(&mut self, ui: &mut Ui) {
+        match self.app_state.get() {
+            AppState::MainMenu | AppState::SiteDrawingEditor | AppState::SiteVisualizer => {}
+            AppState::SiteEditor | AppState::WorkcellEditor => {
+                let pending_model_instance = match *self.creation_data {
+                    CreationData::ModelInstance(ref mut pending_model) => pending_model,
+                    _ => return,
+                };
+
+                let mut style = (*ui.ctx().style()).clone();
+                style.wrap = Some(false);
+                ui.horizontal(|ui| {
+                    ui.ctx().set_style(style);
+                    ui.label("Description");
+                    let selected_text = pending_model_instance
+                        .description_entity
+                        .and_then(|description_entity| {
+                            self.model_descriptions
+                                .get(description_entity)
+                                .ok()
+                                .map(|(_, name, _)| name.0.clone())
+                        })
+                        .unwrap_or_else(|| "Select Description".to_string());
+                    ComboBox::from_id_source("select_instance_to_spawn")
+                        .selected_text(selected_text)
+                        .show_ui(ui, |ui| {
+                            for (entity, name, site_id) in self.model_descriptions.iter() {
+                                if ui
+                                    .selectable_label(
+                                        pending_model_instance.description_entity == Some(entity),
+                                        format!(
+                                            "#{} {}",
+                                            site_id
+                                                .map(|s| s.to_string())
+                                                .unwrap_or("*".to_string()),
+                                            name.0
+                                        ),
+                                    )
+                                    .clicked()
+                                {
+                                    pending_model_instance.description_entity = Some(entity);
+                                }
+                            }
+                        });
+                });
+
+                ui.horizontal(|ui| {
+                    ui.add_enabled_ui(pending_model_instance.description_entity.is_some(), |ui| {
+                        if ui.button("➕ Spawn").clicked() {
+                            let model_instance: ModelInstance<Entity> = ModelInstance {
+                                name: NameInSite(pending_model_instance.instance_name.clone()),
+                                description: Affiliation(Some(
+                                    pending_model_instance.description_entity.unwrap(),
+                                )),
+                                ..Default::default()
+                            };
+                            self.change_mode.send(ChangeMode::To(
+                                SelectAnchor3D::create_new_point()
+                                    .for_model_instance(model_instance)
+                                    .into(),
+                            ));
+                        }
+                    });
+                    ui.text_edit_singleline(&mut pending_model_instance.instance_name);
+                });
+            }
+        }
+    }
 }
 
 #[derive(Resource, Clone, Default)]
@@ -397,8 +467,8 @@ enum CreationData {
     #[default]
     SiteObject,
     Drawing(PendingDrawing),
-    ModelDescription(PendingModel),
-    ModelInstance(PendingModel),
+    ModelDescription(PendingModelDescription),
+    ModelInstance(PendingModelInstance),
 }
 
 impl CreationData {
@@ -415,8 +485,8 @@ impl CreationData {
         match s {
             "Site Object" => Self::SiteObject,
             "Drawing" => Self::Drawing(PendingDrawing::default()),
-            "Model Description" => Self::ModelDescription(PendingModel::default()),
-            "Model Instance" => Self::ModelInstance(PendingModel::default()),
+            "Model Description" => Self::ModelDescription(PendingModelDescription::default()),
+            "Model Instance" => Self::ModelInstance(PendingModelInstance::default()),
             _ => Self::SiteObject,
         }
     }
@@ -438,7 +508,13 @@ struct PendingDrawing {
 }
 
 #[derive(Clone, Default)]
-struct PendingModel {
+struct PendingModelInstance {
+    pub description_entity: Option<Entity>,
+    pub instance_name: String,
+}
+
+#[derive(Clone, Default)]
+struct PendingModelDescription {
     pub name: String,
     pub source: AssetSource,
     pub recall_source: RecallAssetSource,
