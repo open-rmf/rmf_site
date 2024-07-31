@@ -65,6 +65,13 @@ impl<T: RefTrait> Task<T> {
             Task::WaitFor { duration: _ } => Self::labels()[1],
         }
     }
+
+    pub fn location(&self) -> Option<&Point<T>> {
+        match self {
+            Task::GoToPlace { location } => Some(location),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
