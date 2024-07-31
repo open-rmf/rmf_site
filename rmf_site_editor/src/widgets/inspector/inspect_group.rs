@@ -31,8 +31,8 @@ pub struct InspectGroup<'w, 's> {
     textures: Query<'w, 's, &'static Texture>,
     members: Query<'w, 's, &'static Members>,
     default_file: Query<'w, 's, &'static DefaultFile>,
-    change_texture: EventWriter<'w, Change<Texture>>,
     current_workspace: Res<'w, CurrentWorkspace>,
+    change_texture: EventWriter<'w, Change<Texture>>,
     selector: SelectorWidget<'w, 's>,
 }
 
@@ -53,6 +53,7 @@ impl<'w, 's> InspectGroup<'w, 's> {
         if self.is_group.contains(id) {
             self.show_group_properties(id, ui);
         }
+
         if let Ok(Affiliation(Some(group))) = self.affiliation.get(id) {
             ui.separator();
             let name = self.names.get(*group).map(|n| n.0.as_str()).unwrap_or("");
@@ -61,12 +62,14 @@ impl<'w, 's> InspectGroup<'w, 's> {
             self.show_group_properties(*group, ui);
         }
     }
+
     pub fn show_group_properties(&mut self, id: Entity, ui: &mut Ui) {
         let default_file = self
             .current_workspace
             .root
             .map(|e| self.default_file.get(e).ok())
             .flatten();
+
         if let Ok(texture) = self.textures.get(id) {
             ui.label(RichText::new("Texture Properties").size(18.0));
             if let Some(new_texture) = InspectTexture::new(texture, default_file).show(ui) {

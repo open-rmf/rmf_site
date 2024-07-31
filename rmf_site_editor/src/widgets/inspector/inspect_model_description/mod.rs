@@ -385,6 +385,7 @@ impl<'w, 's> InspectSelectedModelDescription<'w, 's> {
                         ui.selectable_value(&mut new_description_entity, entity, name.0.as_str());
                     }
                 });
+            if ui.button("Configure").clicked() {}
         });
         if new_description_entity != current_description_entity {
             self.change_affiliation

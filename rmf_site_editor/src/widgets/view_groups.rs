@@ -18,8 +18,8 @@
 use crate::{
     interaction::{ChangeMode, SelectAnchor3D},
     site::{
-        Affiliation, AssetSource, Change, Delete, FiducialMarker, Group, MergeGroups,
-        ModelInstance, ModelMarker, NameInSite, SiteID, Texture,
+        Affiliation, Change, Delete, FiducialMarker, Group, MergeGroups, ModelInstance,
+        ModelMarker, NameInSite, SiteID, Texture,
     },
     widgets::{prelude::*, SelectorWidget},
     AppState, CurrentWorkspace, Icons,

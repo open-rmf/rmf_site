@@ -96,7 +96,6 @@ impl<'w, 's> ViewScenarios<'w, 's> {
                             .send(Change::new(NameInSite(new_name), current_scenario_entity));
                     }
                 });
-
                 ui.label("From Previous:");
                 // Added
                 collapsing_instance_viewer(
@@ -121,6 +120,8 @@ impl<'w, 's> ViewScenarios<'w, 's> {
                                     }
                                 });
                                 formatted_pose(ui, pose);
+                            } else {
+                                warn!("Instance entity {:?} does not exist, or has invalid components", entity);
                             }
                         }
                     },
@@ -149,6 +150,8 @@ impl<'w, 's> ViewScenarios<'w, 's> {
                                     }
                                 });
                                 formatted_pose(ui, pose);
+                            } else {
+                                warn!("Instance entity {:?} does not exist, or has invalid components", entity);
                             }
                         }
                     },
@@ -178,7 +181,7 @@ impl<'w, 's> ViewScenarios<'w, 's> {
                                     }
                                 });
                             } else {
-                                ui.label("Unavailable");
+                                warn!("Instance entity {:?} does not exist, or has invalid components", entity);
                             }
                         }
                     },

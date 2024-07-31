@@ -26,7 +26,7 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{
-    Door, Edge, Fiducial, Floor, FrameMarker, Lane, LiftProperties, Location, Measurement, Model,
+    Door, Edge, Fiducial, Floor, FrameMarker, Lane, LiftProperties, Location, Measurement,
     ModelInstance, NameInWorkcell, NameOfSite, Path, PixelsPerMeter, Point, Pose, Side, Wall,
     WorkcellModel,
 };

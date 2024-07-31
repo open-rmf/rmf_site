@@ -35,7 +35,6 @@ pub struct InspectAssetSource<'w, 's> {
         's,
         (&'static AssetSource, &'static RecallAssetSource),
         (Without<Pending>, Without<Affiliation<Entity>>),
-        // (Without<Pending>),
     >,
     change_asset_source: EventWriter<'w, Change<AssetSource>>,
     current_workspace: Res<'w, CurrentWorkspace>,

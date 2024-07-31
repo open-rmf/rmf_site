@@ -179,7 +179,7 @@ pub fn update_model_scenes(
         (
             Entity,
             &AssetSource,
-            Option<&Pose>,
+            &Pose,
             &TentativeModelFormat,
             Option<&Visibility>,
         ),
@@ -192,16 +192,12 @@ pub fn update_model_scenes(
     fn spawn_model(
         e: Entity,
         source: &AssetSource,
-        pose: Option<&Pose>,
+        pose: &Pose,
         asset_server: &AssetServer,
         tentative_format: &TentativeModelFormat,
         has_visibility: bool,
         commands: &mut Commands,
     ) {
-        let (category, pose) = match pose {
-            Some(pose) => (Category::Model, pose),
-            None => (Category::ModelDescription, &Pose::default()),
-        };
         let mut commands = commands.entity(e);
         commands
             .insert(ModelScene {
@@ -210,7 +206,7 @@ pub fn update_model_scenes(
                 entity: None,
             })
             .insert(TransformBundle::from_transform(pose.transform()))
-            .insert(category);
+            .insert(Category::Model);
 
         if !has_visibility {
             // NOTE: We separate this out because for CollisionMeshMarker

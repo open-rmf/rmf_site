@@ -16,10 +16,10 @@
 */
 
 use crate::{
-    interaction::{ChangeMode, ModelPreviewCamera, SelectAnchor3D},
+    interaction::ModelPreviewCamera,
     site::{
-        AssetSource, FuelClient, Group, IsStatic, Model, ModelDescriptionBundle, ModelMarker,
-        ModelProperty, NameInSite, Scale, SetFuelApiKey, UpdateFuelCache,
+        AssetSource, FuelClient, Model, ModelDescriptionBundle, ModelProperty, NameInSite, Scale,
+        SetFuelApiKey, UpdateFuelCache,
     },
     widgets::prelude::*,
     CurrentWorkspace,
@@ -82,7 +82,6 @@ pub struct FuelAssetBrowser<'w, 's> {
     update_cache: EventWriter<'w, UpdateFuelCache>,
     set_api_key: EventWriter<'w, SetFuelApiKey>,
     commands: Commands<'w, 's>,
-    change_mode: EventWriter<'w, ChangeMode>,
 }
 
 fn fuel_asset_browser_panel(In(input): In<PanelWidgetInput>, world: &mut World) {
@@ -275,7 +274,7 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                 if let Some(selected) = &gallery_status.selected {
                     if ui.button("Load as Description").clicked() {
                         let model_description = ModelDescriptionBundle {
-                            name: NameInSite({ selected.owner.clone() + "/" + &selected.name }),
+                            name: NameInSite(selected.owner.clone() + "/" + &selected.name),
                             source: ModelProperty(AssetSource::Remote(
                                 selected.owner.clone() + "/" + &selected.name + "/model.sdf",
                             )),

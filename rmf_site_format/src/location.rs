@@ -134,7 +134,6 @@ impl RecallLocationTags {
                 _ => return tag.clone(),
             }
         }
-
         if current.0.iter().find(|t| t.is_charger()).is_none() {
             return LocationTag::Charger;
         }

@@ -108,9 +108,8 @@ fn show_task(
     site_entities: &Query<(Entity, &NameInSite, &Category, Option<&SiteID>), Without<ModelMarker>>,
     selected: &Selection,
     select: &mut EventWriter<Select>,
-    mut task_count: &mut u32,
+    task_count: &mut u32,
 ) {
-    let mut is_deleted = false;
     Frame::default()
         .inner_margin(4.0)
         .fill(Color32::DARK_GRAY)

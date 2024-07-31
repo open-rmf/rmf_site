@@ -221,7 +221,7 @@ fn edit_task_component(
 pub struct PendingTask(Task<Entity>);
 
 impl FromWorld for PendingTask {
-    fn from_world(world: &mut World) -> Self {
+    fn from_world(_world: &mut World) -> Self {
         PendingTask(Task::GoToPlace {
             location: Point(Entity::PLACEHOLDER),
         })

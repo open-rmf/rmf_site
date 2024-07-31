@@ -28,8 +28,11 @@ use super::ChangeCurrentScenario;
 /// Used as an event to command that a new site should be made the current one
 #[derive(Clone, Copy, Debug, Event)]
 pub struct ChangeCurrentSite {
+    /// What should the current site be
     pub site: Entity,
+    /// What should its current level be
     pub level: Option<Entity>,
+    /// What should its current scenario be
     pub scenario: Option<Entity>,
 }
 

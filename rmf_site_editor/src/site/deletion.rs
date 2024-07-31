@@ -20,13 +20,13 @@ use crate::{
     log::Log,
     site::{
         Category, CurrentLevel, Dependents, LevelElevation, LevelProperties, NameInSite,
-        RemoveModelInstance, SiteUpdateSet,
+        RemoveInstance, SiteUpdateSet,
     },
     AppState, Issue,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{
-    Affiliation, ConstraintDependents, Edge, Group, MeshConstraint, ModelMarker, Path, Point,
+    Affiliation, ConstraintDependents, Edge, Group, InstanceMarker, MeshConstraint, Path, Point,
 };
 use std::collections::HashSet;
 
@@ -84,8 +84,7 @@ struct DeletionParams<'w, 's> {
     edges: Query<'w, 's, &'static Edge<Entity>>,
     points: Query<'w, 's, &'static Point<Entity>>,
     paths: Query<'w, 's, &'static Path<Entity>>,
-    model_instances:
-        Query<'w, 's, &'static Affiliation<Entity>, (With<ModelMarker>, Without<Group>)>,
+    instances: Query<'w, 's, &'static Affiliation<Entity>, (With<InstanceMarker>, Without<Group>)>,
     parents: Query<'w, 's, &'static mut Parent>,
     dependents: Query<'w, 's, &'static mut Dependents>,
     constraint_dependents: Query<'w, 's, &'static mut ConstraintDependents>,
@@ -94,7 +93,7 @@ struct DeletionParams<'w, 's> {
     selection: Res<'w, Selection>,
     current_level: ResMut<'w, CurrentLevel>,
     levels: Query<'w, 's, Entity, With<LevelElevation>>,
-    remove_model_instance: EventWriter<'w, RemoveModelInstance>,
+    remove_instance: EventWriter<'w, RemoveInstance>,
     select: EventWriter<'w, Select>,
     log: EventWriter<'w, Log>,
     issues: Query<'w, 's, (Entity, &'static mut Issue)>,
@@ -142,10 +141,8 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
         }
     }
 
-    if let Ok(_) = params.model_instances.get(element) {
-        params
-            .remove_model_instance
-            .send(RemoveModelInstance(element));
+    if let Ok(_) = params.instances.get(element) {
+        params.remove_instance.send(RemoveInstance(element));
         if **params.selection == Some(element) {
             params.select.send(Select(None));
         }

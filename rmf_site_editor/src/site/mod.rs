@@ -78,9 +78,6 @@ pub use measurement::*;
 pub mod model;
 pub use model::*;
 
-pub mod mobile_robot;
-pub use mobile_robot::*;
-
 pub mod nav_graph;
 pub use nav_graph::*;
 
@@ -213,7 +210,7 @@ impl Plugin for SitePlugin {
         .add_event::<ImportNavGraphs>()
         .add_event::<ChangeCurrentSite>()
         .add_event::<ChangeCurrentScenario>()
-        .add_event::<RemoveModelInstance>()
+        .add_event::<RemoveInstance>()
         .add_event::<SaveSite>()
         .add_event::<SaveNavGraphs>()
         .add_event::<ToggleLiftDoorAvailability>()

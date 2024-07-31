@@ -20,10 +20,10 @@ use crate::{
     interaction::{ChangeMode, SelectAnchor, SelectAnchor3D},
     site::{AssetSource, Category, DefaultFile, DrawingBundle, Recall, RecallAssetSource, Scale},
     widgets::{prelude::*, AssetGalleryStatus},
-    AppState, CurrentWorkspace, Icons,
+    AppState, CurrentWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{Button, CollapsingHeader, ComboBox, Grid, Ui};
+use bevy_egui::egui::{CollapsingHeader, ComboBox, Grid, Ui};
 
 use rmf_site_format::{
     Affiliation, DrawingProperties, Geometry, Group, IsStatic, ModelDescriptionBundle,
@@ -49,7 +49,6 @@ struct Creation<'w, 's> {
     current_workspace: Res<'w, CurrentWorkspace>,
     creation_data: ResMut<'w, CreationData>,
     asset_gallery: Option<ResMut<'w, AssetGalleryStatus>>,
-    icons: Res<'w, Icons>,
     commands: Commands<'w, 's>,
 }
 
@@ -123,19 +122,19 @@ impl<'w, 's> Creation<'w, 's> {
                 Grid::new("create_site_objects")
                     .num_columns(3)
                     .show(ui, |ui| {
-                        if ui.button("Lane").clicked() {
+                        if ui.button("↔ Lane").clicked() {
                             self.change_mode.send(ChangeMode::To(
                                 SelectAnchor::create_new_edge_sequence().for_lane().into(),
                             ));
                         }
 
-                        if ui.button("Location").clicked() {
+                        if ui.button("📌 Location").clicked() {
                             self.change_mode.send(ChangeMode::To(
                                 SelectAnchor::create_new_point().for_location().into(),
                             ));
                         }
 
-                        if ui.button("Wall").clicked() {
+                        if ui.button("■ Wall").clicked() {
                             self.change_mode.send(ChangeMode::To(
                                 SelectAnchor::create_new_edge_sequence().for_wall().into(),
                             ));
@@ -143,19 +142,19 @@ impl<'w, 's> Creation<'w, 's> {
 
                         ui.end_row();
 
-                        if ui.button("Door").clicked() {
+                        if ui.button("🚪 Door").clicked() {
                             self.change_mode.send(ChangeMode::To(
                                 SelectAnchor::create_one_new_edge().for_door().into(),
                             ));
                         }
 
-                        if ui.button("Lift").clicked() {
+                        if ui.button("⬍ Lift").clicked() {
                             self.change_mode.send(ChangeMode::To(
                                 SelectAnchor::create_one_new_edge().for_lift().into(),
                             ));
                         }
 
-                        if ui.button("Floor").clicked() {
+                        if ui.button("✏ Floor").clicked() {
                             self.change_mode.send(ChangeMode::To(
                                 SelectAnchor::create_new_path().for_floor().into(),
                             ));
@@ -163,7 +162,7 @@ impl<'w, 's> Creation<'w, 's> {
 
                         ui.end_row();
 
-                        if ui.button("Fiducial").clicked() {
+                        if ui.button("☉ Fiducial").clicked() {
                             self.change_mode.send(ChangeMode::To(
                                 SelectAnchor::create_new_point().for_site_fiducial().into(),
                             ));

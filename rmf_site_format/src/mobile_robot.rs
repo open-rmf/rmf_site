@@ -15,11 +15,9 @@
  *
 */
 
-use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Component, Reflect, ReflectComponent};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]

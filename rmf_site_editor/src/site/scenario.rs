@@ -17,10 +17,7 @@
 
 use crate::{
     interaction::Selection,
-    site::{
-        CurrentScenario, Delete, Group, InstanceMarker, ModelMarker, NameInSite, Pose, Scenario,
-        SiteParent,
-    },
+    site::{CurrentScenario, Delete, InstanceMarker, Pending, Pose, Scenario, SiteParent},
     CurrentWorkspace,
 };
 use bevy::prelude::*;
@@ -107,11 +104,12 @@ pub fn update_current_scenario(
     }
 }
 
+/// Tracks pose changes for instances in the current scenario to update its properties
 pub fn update_scenario_properties(
     current_scenario: Res<CurrentScenario>,
     mut scenarios: Query<&mut Scenario<Entity>>,
     mut change_current_scenario: EventReader<ChangeCurrentScenario>,
-    changed_instances: Query<(Entity, Ref<Pose>), With<InstanceMarker>>,
+    changed_instances: Query<(Entity, Ref<Pose>), (With<InstanceMarker>, Without<Pending>)>,
 ) {
     // Do nothing if scenario has changed, as we rely on pose changes by the user and not the system updating instances
     for ChangeCurrentScenario(_) in change_current_scenario.read() {
@@ -172,14 +170,17 @@ pub fn update_scenario_properties(
 }
 
 #[derive(Debug, Clone, Copy, Event)]
-pub struct RemoveModelInstance(pub Entity);
+pub struct RemoveInstance(pub Entity);
 
+/// Handle requests to remove model instances. If an instance was added in this scenario, or if
+/// the scenario is root, the InstanceMarker is removed, allowing it to be permanently deleted.
+/// Otherwise, it is only temporarily removed.
 pub fn remove_instances(
     mut commands: Commands,
     mut scenarios: Query<&mut Scenario<Entity>>,
     current_scenario: ResMut<CurrentScenario>,
     mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
-    mut removals: EventReader<RemoveModelInstance>,
+    mut removals: EventReader<RemoveInstance>,
     mut delete: EventWriter<Delete>,
 ) {
     for removal in removals.read() {
@@ -194,7 +195,7 @@ pub fn remove_instances(
                 current_scenario
                     .added_instances
                     .retain(|(e, _)| *e != removal.0);
-                commands.entity(removal.0).remove::<ModelMarker>();
+                commands.entity(removal.0).remove::<InstanceMarker>();
                 delete.send(Delete::new(removal.0));
                 return;
             }
@@ -205,7 +206,7 @@ pub fn remove_instances(
                 .position(|(e, _)| *e == removal.0)
             {
                 current_scenario.added_instances.remove(added_id);
-                commands.entity(removal.0).remove::<ModelMarker>();
+                commands.entity(removal.0).remove::<InstanceMarker>();
                 delete.send(Delete::new(removal.0));
                 return;
             }

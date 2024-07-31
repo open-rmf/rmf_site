@@ -23,7 +23,7 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*, window::PrimaryWindow};
 use bevy_mod_raycast::{deferred::RaycastMesh, deferred::RaycastSource, primitives::rays::Ray3d};
 use rmf_site_format::{
-    FloorMarker, Model, ModelInstance, ModelMarker, PrimitiveShape, WallMarker, WorkcellModel,
+    FloorMarker, ModelInstance, ModelMarker, PrimitiveShape, WallMarker, WorkcellModel,
 };
 use std::collections::HashSet;
 
