@@ -284,6 +284,7 @@ fn generate_site_entities(
             .insert(Dependents(dependents));
     }
 
+    // let mut model_description_dependents = HashMap::<Entity, HashSet<Entity>>::new();
     for (scenario_id, scenario_bundle) in &site_data.scenarios {
         let parent = match scenario_bundle.scenario.parent_scenario.0 {
             Some(parent_id) => *id_to_entity.get(&parent_id).unwrap_or(&site_id),

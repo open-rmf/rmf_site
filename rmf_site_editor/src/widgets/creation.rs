@@ -22,7 +22,7 @@ use crate::{
     widgets::{prelude::*, AssetGalleryStatus},
     AppState, CurrentWorkspace,
 };
-use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy::{audio::Source, ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, ComboBox, Grid, Ui};
 
 use rmf_site_format::{
@@ -236,7 +236,6 @@ impl<'w, 's> Creation<'w, 's> {
                     _ => return,
                 };
 
-                ui.label("Properties");
                 ui.horizontal(|ui| {
                     ui.label("Description Name");
                     let mut new_name = pending_model.name.clone();
@@ -266,7 +265,7 @@ impl<'w, 's> Creation<'w, 's> {
                     pending_model.scale = new_scale;
                 }
 
-                ui.add_space(5.0);
+                ui.separator();
                 if let Some(asset_gallery) = &mut self.asset_gallery {
                     match self.app_state.get() {
                         AppState::MainMenu
@@ -346,15 +345,20 @@ impl<'w, 's> Creation<'w, 's> {
                                     ui.text_edit_singleline(&mut pending_model.instance_name);
                                 }
                             });
-
                             ui.add_space(3.0);
-                            if ui.button("Browse fuel").clicked() {
-                                asset_gallery.show = true;
+                            if ui
+                                .selectable_label(asset_gallery.show, "Browse Fuel")
+                                .clicked()
+                            {
+                                asset_gallery.show = !asset_gallery.show;
                             }
                         }
                         AppState::WorkcellEditor => {
-                            if ui.button("Browse fuel").clicked() {
-                                asset_gallery.show = true;
+                            if ui
+                                .selectable_label(asset_gallery.show, "Browse Fuel")
+                                .clicked()
+                            {
+                                asset_gallery.show = !asset_gallery.show;
                             }
                             if ui.button("Spawn visual").clicked() {
                                 let workcell_model = WorkcellModel {
@@ -507,13 +511,22 @@ struct PendingDrawing {
     pub recall_source: RecallAssetSource,
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 struct PendingModelInstance {
     pub description_entity: Option<Entity>,
     pub instance_name: String,
 }
 
-#[derive(Clone, Default)]
+impl Default for PendingModelInstance {
+    fn default() -> Self {
+        Self {
+            description_entity: None,
+            instance_name: "<Unnamed Instance>".to_string(),
+        }
+    }
+}
+
+#[derive(Clone)]
 struct PendingModelDescription {
     pub name: String,
     pub source: AssetSource,
@@ -521,4 +534,17 @@ struct PendingModelDescription {
     pub scale: Scale,
     pub spawn_instance: bool,
     pub instance_name: String,
+}
+
+impl Default for PendingModelDescription {
+    fn default() -> Self {
+        Self {
+            name: "<Unnamed Description>".to_string(),
+            source: AssetSource::default(),
+            recall_source: RecallAssetSource::default(),
+            scale: Scale::default(),
+            spawn_instance: true,
+            instance_name: " <Unnamed Instance>".to_string(),
+        }
+    }
 }

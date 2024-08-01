@@ -17,7 +17,10 @@
 
 use crate::{
     interaction::Selection,
-    site::{CurrentScenario, Delete, InstanceMarker, Pending, Pose, Scenario, SiteParent},
+    site::{
+        CurrentScenario, Delete, Dependents, InstanceMarker, Pending, Pose, Scenario,
+        ScenarioBundle, ScenarioMarker, SiteParent,
+    },
     CurrentWorkspace,
 };
 use bevy::prelude::*;
@@ -26,6 +29,7 @@ use std::collections::HashMap;
 #[derive(Clone, Copy, Debug, Event)]
 pub struct ChangeCurrentScenario(pub Entity);
 
+/// Handles changes to the current scenario
 pub fn update_current_scenario(
     mut commands: Commands,
     mut selection: ResMut<Selection>,
@@ -170,20 +174,90 @@ pub fn update_scenario_properties(
 }
 
 #[derive(Debug, Clone, Copy, Event)]
+pub struct RemoveScenario(pub Entity);
+
+/// When a scenario is removed, all child scenarios are removed as well
+pub fn handle_remove_scenarios(
+    mut commands: Commands,
+    mut remove_scenario_requests: EventReader<RemoveScenario>,
+    mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
+    mut delete: EventWriter<Delete>,
+    mut current_scenario: ResMut<CurrentScenario>,
+    current_workspace: Res<CurrentWorkspace>,
+    mut scenarios: Query<
+        (Entity, &Scenario<Entity>, Option<&mut Dependents>),
+        With<ScenarioMarker>,
+    >,
+    children: Query<&Children>,
+) {
+    for request in remove_scenario_requests.read() {
+        // Any child scenarios or instances added within the subtree are considered dependents
+        // to be deleted
+        let mut subtree_dependents = std::collections::HashSet::<Entity>::new();
+        let mut queue = vec![request.0];
+        while let Some(scenario_entity) = queue.pop() {
+            if let Ok((_, scenario, _)) = scenarios.get(scenario_entity) {
+                scenario.added_instances.iter().for_each(|(e, _)| {
+                    subtree_dependents.insert(*e);
+                });
+            }
+            if let Ok(children) = children.get(scenario_entity) {
+                children.iter().for_each(|e| {
+                    subtree_dependents.insert(*e);
+                    queue.push(*e);
+                });
+            }
+        }
+
+        // Change to parent scenario, else root, else create an empty scenario and switch to it
+        if let Some(parent_scenario_entity) = scenarios
+            .get(request.0)
+            .map(|(_, s, _)| s.parent_scenario.0)
+            .ok()
+            .flatten()
+        {
+            change_current_scenario.send(ChangeCurrentScenario(parent_scenario_entity));
+        } else if let Some((root_scenario_entity, _, _)) = scenarios
+            .iter()
+            .filter(|(e, s, _)| request.0 != *e && s.parent_scenario.0.is_none())
+            .next()
+        {
+            change_current_scenario.send(ChangeCurrentScenario(root_scenario_entity));
+        } else {
+            let new_scenario_entity = commands
+                .spawn(ScenarioBundle::<Entity>::default())
+                .set_parent(current_workspace.root.expect("No current site"))
+                .id();
+            *current_scenario = CurrentScenario(Some(new_scenario_entity));
+        }
+
+        // Delete with dependents
+        if let Ok((_, _, Some(mut depenedents))) = scenarios.get_mut(request.0) {
+            depenedents.extend(subtree_dependents.iter());
+        } else {
+            commands
+                .entity(request.0)
+                .insert(Dependents(subtree_dependents));
+        }
+        delete.send(Delete::new(request.0).and_dependents());
+    }
+}
+
+#[derive(Debug, Clone, Copy, Event)]
 pub struct RemoveInstance(pub Entity);
 
 /// Handle requests to remove model instances. If an instance was added in this scenario, or if
 /// the scenario is root, the InstanceMarker is removed, allowing it to be permanently deleted.
 /// Otherwise, it is only temporarily removed.
-pub fn remove_instances(
+pub fn handle_remove_instances(
     mut commands: Commands,
     mut scenarios: Query<&mut Scenario<Entity>>,
     current_scenario: ResMut<CurrentScenario>,
     mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
-    mut removals: EventReader<RemoveInstance>,
+    mut remove_requests: EventReader<RemoveInstance>,
     mut delete: EventWriter<Delete>,
 ) {
-    for removal in removals.read() {
+    for removal in remove_requests.read() {
         let Some(current_scenario_entity) = current_scenario.0 else {
             delete.send(Delete::new(removal.0));
             return;

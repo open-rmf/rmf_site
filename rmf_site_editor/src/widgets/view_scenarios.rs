@@ -18,8 +18,8 @@
 use crate::{
     interaction::{Select, Selection},
     site::{
-        Category, Change, ChangeCurrentScenario, CurrentScenario, Delete, NameInSite, Scenario,
-        ScenarioMarker,
+        Category, Change, ChangeCurrentScenario, CurrentScenario, Delete, NameInSite,
+        RemoveScenario, Scenario, ScenarioMarker,
     },
     widgets::prelude::*,
     Icons,
@@ -53,6 +53,7 @@ pub struct ViewScenarios<'w, 's> {
     >,
     change_name: EventWriter<'w, Change<NameInSite>>,
     change_current_scenario: EventWriter<'w, ChangeCurrentScenario>,
+    remove_scenario: EventWriter<'w, RemoveScenario>,
     display_scenarios: ResMut<'w, ScenarioDisplay>,
     current_scenario: ResMut<'w, CurrentScenario>,
     instances: Query<
@@ -94,6 +95,14 @@ impl<'w, 's> ViewScenarios<'w, 's> {
                     if ui.text_edit_singleline(&mut new_name).changed() {
                         self.change_name
                             .send(Change::new(NameInSite(new_name), current_scenario_entity));
+                    }
+                    if ui
+                        .button("❌")
+                        .on_hover_text("Delete this scenario and all its child scenarios")
+                        .clicked()
+                    {
+                        self.remove_scenario
+                            .send(RemoveScenario(current_scenario_entity));
                     }
                 });
                 ui.label("From Previous:");
