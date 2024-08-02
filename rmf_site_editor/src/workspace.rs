@@ -16,6 +16,7 @@
 */
 
 use bevy::{prelude::*, tasks::AsyncComputeTaskPool};
+use bevy_impulse::*;
 use rfd::AsyncFileDialog;
 use std::path::PathBuf;
 
@@ -98,21 +99,6 @@ pub struct CurrentWorkspace {
 }
 
 pub struct LoadWorkspaceFile(pub Option<PathBuf>, pub WorkspaceData);
-
-/// Using channels instead of events to allow usage in wasm since, unlike event writers, they can
-/// be cloned and moved into async functions therefore don't have lifetime issues
-#[derive(Debug, Resource)]
-pub struct LoadWorkspaceChannels {
-    pub sender: Sender<LoadWorkspaceFile>,
-    pub receiver: Receiver<LoadWorkspaceFile>,
-}
-
-impl Default for LoadWorkspaceChannels {
-    fn default() -> Self {
-        let (sender, receiver) = crossbeam_channel::unbounded();
-        Self { sender, receiver }
-    }
-}
 
 #[derive(Event)]
 pub struct SaveWorkspace {
@@ -219,14 +205,13 @@ impl Plugin for WorkspacePlugin {
             .init_resource::<CurrentWorkspace>()
             .init_resource::<RecallWorkspace>()
             .init_resource::<SaveWorkspaceChannels>()
-            .init_resource::<LoadWorkspaceChannels>()
+            .init_resource::<WorkspaceLoadingServices>()
             .add_systems(
                 Update,
                 (
                     dispatch_new_workspace_events,
-                    workspace_file_load_complete,
                     sync_workspace_visibility,
-                    dispatch_load_workspace_events,
+                    dispatch_load_workspace_workflows,
                     workspace_file_save_complete,
                 ),
             );
@@ -264,208 +249,267 @@ pub fn dispatch_new_workspace_events(
     }
 }
 
-pub fn dispatch_load_workspace_events(
-    load_channels: Res<LoadWorkspaceChannels>,
-    mut load_workspace: EventReader<LoadWorkspace>,
-) {
-    if let Some(cmd) = load_workspace.read().last() {
-        match cmd {
-            LoadWorkspace::Dialog => {
-                let sender = load_channels.sender.clone();
-                AsyncComputeTaskPool::get()
-                    .spawn(async move {
-                        if let Some(file) = AsyncFileDialog::new().pick_file().await {
-                            let data = file.read().await;
-                            #[cfg(not(target_arch = "wasm32"))]
-                            let file = file.path().to_path_buf();
-                            #[cfg(target_arch = "wasm32")]
-                            let file = PathBuf::from(file.file_name());
-                            if let Some(data) = WorkspaceData::new(&file, data) {
-                                sender
-                                    .send(LoadWorkspaceFile(Some(file), data))
-                                    .expect("Failed sending file event");
-                            }
-                        }
-                    })
-                    .detach();
-            }
-            LoadWorkspace::BlankFromDialog => {
-                let sender = load_channels.sender.clone();
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    AsyncComputeTaskPool::get()
-                        .spawn(async move {
-                            if let Some(file) = AsyncFileDialog::new().save_file().await {
-                                let file = file.path().to_path_buf();
-                                let name = file
-                                    .file_stem()
-                                    .map(|s| s.to_str().map(|s| s.to_owned()))
-                                    .flatten()
-                                    .unwrap_or_else(|| "blank".to_owned());
-                                let data = WorkspaceData::LoadSite(LoadSite::blank_L1(
-                                    name,
-                                    Some(file.clone()),
-                                ));
-                                let _ = sender.send(LoadWorkspaceFile(Some(file), data));
-                            }
-                        })
-                        .detach();
-                }
-                #[cfg(target_arch = "wasm32")]
-                {
-                    let data =
-                        WorkspaceData::LoadSite(LoadSite::blank_L1("blank".to_owned(), None));
-                    sender.send(LoadWorkspaceFile(None, data));
-                }
-            }
-            LoadWorkspace::Path(path) => {
-                if let Ok(data) = std::fs::read(&path) {
-                    if let Some(data) = WorkspaceData::new(path, data) {
-                        load_channels
-                            .sender
-                            .send(LoadWorkspaceFile(Some(path.clone()), data))
-                            .expect("Failed sending load event");
-                    }
-                } else {
-                    warn!("Unable to read file [{path:?}] so it cannot be loaded");
-                }
-            }
-            LoadWorkspace::Data(data) => {
-                load_channels
-                    .sender
-                    .send(LoadWorkspaceFile(None, data.clone()))
-                    .expect("Failed sending load event");
-            }
-        }
-    }
-}
-
-/// Handles the file opening events
-fn workspace_file_load_complete(
+/// Service that takes workspace data and loads a site / workcell, as well as transition state.
+pub fn process_load_workspace_files(
+    In(BlockingService { request, .. }): BlockingServiceInput<Option<LoadWorkspaceFile>>,
     mut app_state: ResMut<NextState<AppState>>,
     mut interaction_state: ResMut<NextState<InteractionState>>,
     mut load_site: EventWriter<LoadSite>,
     mut load_workcell: EventWriter<LoadWorkcell>,
-    load_channels: Res<LoadWorkspaceChannels>,
 ) {
-    if let Ok(result) = load_channels.receiver.try_recv() {
-        let LoadWorkspaceFile(default_file, data) = result;
-        match data {
-            WorkspaceData::LegacyBuilding(data) => {
-                info!("Opening legacy building map file");
-                match BuildingMap::from_bytes(&data) {
-                    Ok(building) => {
-                        match building.to_site() {
-                            Ok(site) => {
-                                // Switch state
-                                app_state.set(AppState::SiteEditor);
-                                load_site.send(LoadSite {
-                                    site,
-                                    focus: true,
-                                    default_file,
-                                });
-                                interaction_state.set(InteractionState::Enable);
-                            }
-                            Err(err) => {
-                                error!("Failed converting to site {:?}", err);
-                            }
+    let Some(LoadWorkspaceFile(default_file, data)) = request else {
+        return;
+    };
+    match data {
+        WorkspaceData::LegacyBuilding(data) => {
+            info!("Opening legacy building map file");
+            match BuildingMap::from_bytes(&data) {
+                Ok(building) => {
+                    match building.to_site() {
+                        Ok(site) => {
+                            // Switch state
+                            app_state.set(AppState::SiteEditor);
+                            load_site.send(LoadSite {
+                                site,
+                                focus: true,
+                                default_file,
+                            });
+                            interaction_state.set(InteractionState::Enable);
+                        }
+                        Err(err) => {
+                            error!("Failed converting to site {:?}", err);
                         }
                     }
-                    Err(err) => {
-                        error!("Failed loading legacy building {:?}", err);
-                    }
                 }
-            }
-            WorkspaceData::RonSite(data) => {
-                info!("Opening site file");
-                match Site::from_bytes_ron(&data) {
-                    Ok(site) => {
-                        // Switch state
-                        app_state.set(AppState::SiteEditor);
-                        load_site.send(LoadSite {
-                            site,
-                            focus: true,
-                            default_file,
-                        });
-                        interaction_state.set(InteractionState::Enable);
-                    }
-                    Err(err) => {
-                        error!("Failed loading site {:?}", err);
-                    }
+                Err(err) => {
+                    error!("Failed loading legacy building {:?}", err);
                 }
-            }
-            WorkspaceData::JsonSite(data) => {
-                info!("Opening site file");
-                match Site::from_bytes_json(&data) {
-                    Ok(site) => {
-                        // Switch state
-                        app_state.set(AppState::SiteEditor);
-                        load_site.send(LoadSite {
-                            site,
-                            focus: true,
-                            default_file,
-                        });
-                        interaction_state.set(InteractionState::Enable);
-                    }
-                    Err(err) => {
-                        error!("Failed loading site {:?}", err);
-                    }
-                }
-            }
-            WorkspaceData::Workcell(data) => {
-                info!("Opening workcell file");
-                match Workcell::from_bytes(&data) {
-                    Ok(workcell) => {
-                        // Switch state
-                        app_state.set(AppState::WorkcellEditor);
-                        load_workcell.send(LoadWorkcell {
-                            workcell,
-                            focus: true,
-                            default_file,
-                        });
-                        interaction_state.set(InteractionState::Enable);
-                    }
-                    Err(err) => {
-                        error!("Failed loading workcell {:?}", err);
-                    }
-                }
-            }
-            WorkspaceData::WorkcellUrdf(data) => {
-                info!("Importing urdf workcell");
-                let Ok(utf) = std::str::from_utf8(&data) else {
-                    error!("Failed converting urdf bytes to string");
-                    return;
-                };
-                match urdf_rs::read_from_string(utf) {
-                    Ok(urdf) => {
-                        // TODO(luca) make this function return a result and this a match statement
-                        match Workcell::from_urdf(&urdf) {
-                            Ok(workcell) => {
-                                // Switch state
-                                app_state.set(AppState::WorkcellEditor);
-                                load_workcell.send(LoadWorkcell {
-                                    workcell,
-                                    focus: true,
-                                    default_file,
-                                });
-                                interaction_state.set(InteractionState::Enable);
-                            }
-                            Err(err) => {
-                                error!("Failed converting urdf to workcell {:?}", err);
-                            }
-                        }
-                    }
-                    Err(err) => {
-                        error!("Failed loading urdf workcell {:?}", err);
-                    }
-                }
-            }
-            WorkspaceData::LoadSite(site) => {
-                app_state.set(AppState::SiteEditor);
-                load_site.send(site);
-                interaction_state.set(InteractionState::Enable);
             }
         }
+        WorkspaceData::RonSite(data) => {
+            info!("Opening site file");
+            match Site::from_bytes_ron(&data) {
+                Ok(site) => {
+                    // Switch state
+                    app_state.set(AppState::SiteEditor);
+                    load_site.send(LoadSite {
+                        site,
+                        focus: true,
+                        default_file,
+                    });
+                    interaction_state.set(InteractionState::Enable);
+                }
+                Err(err) => {
+                    error!("Failed loading site {:?}", err);
+                }
+            }
+        }
+        WorkspaceData::JsonSite(data) => {
+            info!("Opening site file");
+            match Site::from_bytes_json(&data) {
+                Ok(site) => {
+                    // Switch state
+                    app_state.set(AppState::SiteEditor);
+                    load_site.send(LoadSite {
+                        site,
+                        focus: true,
+                        default_file,
+                    });
+                    interaction_state.set(InteractionState::Enable);
+                }
+                Err(err) => {
+                    error!("Failed loading site {:?}", err);
+                }
+            }
+        }
+        WorkspaceData::Workcell(data) => {
+            info!("Opening workcell file");
+            match Workcell::from_bytes(&data) {
+                Ok(workcell) => {
+                    // Switch state
+                    app_state.set(AppState::WorkcellEditor);
+                    load_workcell.send(LoadWorkcell {
+                        workcell,
+                        focus: true,
+                        default_file,
+                    });
+                    interaction_state.set(InteractionState::Enable);
+                }
+                Err(err) => {
+                    error!("Failed loading workcell {:?}", err);
+                }
+            }
+        }
+        WorkspaceData::WorkcellUrdf(data) => {
+            info!("Importing urdf workcell");
+            let Ok(utf) = std::str::from_utf8(&data) else {
+                error!("Failed converting urdf bytes to string");
+                return;
+            };
+            match urdf_rs::read_from_string(utf) {
+                Ok(urdf) => {
+                    // TODO(luca) make this function return a result and this a match statement
+                    match Workcell::from_urdf(&urdf) {
+                        Ok(workcell) => {
+                            // Switch state
+                            app_state.set(AppState::WorkcellEditor);
+                            load_workcell.send(LoadWorkcell {
+                                workcell,
+                                focus: true,
+                                default_file,
+                            });
+                            interaction_state.set(InteractionState::Enable);
+                        }
+                        Err(err) => {
+                            error!("Failed converting urdf to workcell {:?}", err);
+                        }
+                    }
+                }
+                Err(err) => {
+                    error!("Failed loading urdf workcell {:?}", err);
+                }
+            }
+        }
+        WorkspaceData::LoadSite(site) => {
+            app_state.set(AppState::SiteEditor);
+            load_site.send(site);
+            interaction_state.set(InteractionState::Enable);
+        }
+    }
+}
+
+#[derive(Resource)]
+/// Services that deal with workspace loading
+pub struct WorkspaceLoadingServices {
+    /// Service that spawns an open file dialog and loads a site accordingly.
+    pub load_workspace_from_dialog: Service<(), (), ()>,
+    /// Service that spawns a save file dialog then creates a site with an empty level.
+    pub create_empty_workspace_from_dialog: Service<(), (), ()>,
+    /// Loads the workspace at the requested path
+    pub load_workspace_from_path: Service<PathBuf, (), ()>,
+    /// Loads the workspace from the requested data
+    pub load_workspace_from_data: Service<WorkspaceData, (), ()>,
+}
+
+impl FromWorld for WorkspaceLoadingServices {
+    fn from_world(world: &mut World) -> Self {
+        let process_load_files = world.spawn_service(process_load_workspace_files);
+        // Spawn all the services
+        let load_workspace_from_dialog = world.spawn_workflow(|scope, builder| {
+            scope
+                .input
+                .chain(builder)
+                .map_async(|_| async move {
+                    if let Some(file) = AsyncFileDialog::new().pick_file().await {
+                        let data = file.read().await;
+                        #[cfg(not(target_arch = "wasm32"))]
+                        let file = file.path().to_path_buf();
+                        #[cfg(target_arch = "wasm32")]
+                        let file = PathBuf::from(file.file_name());
+                        let data = WorkspaceData::new(&file, data)?;
+                        return Some(LoadWorkspaceFile(Some(file), data));
+                    }
+                    None
+                })
+                .then(process_load_files)
+                .connect(scope.terminate)
+        });
+
+        let create_empty_workspace_from_dialog = world.spawn_workflow(|scope, builder| {
+            scope
+                .input
+                .chain(builder)
+                .map_async(|_| async move {
+                    #[cfg(not(target_arch = "wasm32"))]
+                    {
+                        if let Some(file) = AsyncFileDialog::new().save_file().await {
+                            let file = file.path().to_path_buf();
+                            let name = file
+                                .file_stem()
+                                .map(|s| s.to_str().map(|s| s.to_owned()))
+                                .flatten()
+                                .unwrap_or_else(|| "blank".to_owned());
+                            let data = WorkspaceData::LoadSite(LoadSite::blank_L1(
+                                name,
+                                Some(file.clone()),
+                            ));
+                            return Some(LoadWorkspaceFile(Some(file), data));
+                        }
+                        None
+                    }
+                    #[cfg(target_arch = "wasm32")]
+                    {
+                        let data =
+                            WorkspaceData::LoadSite(LoadSite::blank_L1("blank".to_owned(), None));
+                        Some(LoadWorkspaceFile(None, data))
+                    }
+                })
+                .then(process_load_files)
+                .connect(scope.terminate)
+        });
+
+        let load_workspace_from_path = world.spawn_workflow(|scope, builder| {
+            scope
+                .input
+                .chain(builder)
+                .map_async(|path| async move {
+                    let Some(data) = std::fs::read(&path)
+                        .ok()
+                        .and_then(|data| WorkspaceData::new(&path, data))
+                    else {
+                        warn!("Unable to read file [{path:?}] so it cannot be loaded");
+                        return None;
+                    };
+                    Some(LoadWorkspaceFile(Some(path.clone()), data))
+                })
+                .then(process_load_files)
+                .connect(scope.terminate)
+        });
+
+        let load_workspace_from_data = world.spawn_workflow(|scope, builder| {
+            scope
+                .input
+                .chain(builder)
+                .map_block(|data| Some(LoadWorkspaceFile(None, data)))
+                .then(process_load_files)
+                .connect(scope.terminate)
+        });
+
+        Self {
+            load_workspace_from_dialog,
+            create_empty_workspace_from_dialog,
+            load_workspace_from_path,
+            load_workspace_from_data,
+        }
+    }
+}
+
+impl WorkspaceLoadingServices {
+    /// Given a `LoadWorkspace` event, dispatches the corresponding workflow to process it
+    pub fn dispatch_workflow_for_request(&self, commands: &mut Commands, request: &LoadWorkspace) {
+        match request {
+            LoadWorkspace::Dialog => commands.request((), self.load_workspace_from_dialog),
+            LoadWorkspace::BlankFromDialog => {
+                commands.request((), self.create_empty_workspace_from_dialog)
+            }
+            LoadWorkspace::Path(path) => {
+                commands.request(path.clone(), self.load_workspace_from_path)
+            }
+            LoadWorkspace::Data(data) => {
+                commands.request(data.clone(), self.load_workspace_from_data)
+            }
+        }
+        .detach();
+    }
+}
+
+pub fn dispatch_load_workspace_workflows(
+    mut commands: Commands,
+    mut load_workspace: EventReader<LoadWorkspace>,
+    workspace_service: Res<WorkspaceLoadingServices>,
+) {
+    if let Some(cmd) = load_workspace.read().last() {
+        workspace_service.dispatch_workflow_for_request(&mut commands, cmd);
     }
 }
 
