@@ -365,9 +365,9 @@ dependencies = [
 
 [[package]]
 name = "async-task"
-version = "4.7.0"
+version = "4.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fbb36e985947064623dbd357f727af08ffd077f93d696782f3c56365fa2e2799"
+checksum = "8b75356056920673b02621b35afd0f7dda9306d03c79a30f5c56c44cf256e3de"
 
 [[package]]
 name = "atk-sys"
@@ -767,15 +767,23 @@ dependencies = [
 [[package]]
 name = "bevy_impulse"
 version = "0.0.1"
-source = "git+https://github.com/open-rmf/bevy_impulse?branch=main#ee7858aa7ff0a875980f48272fbb7fc889792cc2"
+source = "git+https://github.com/open-rmf/bevy_impulse?branch=main#72e76388478a5bffca92e8baf7a5ea6396c84ebb"
 dependencies = [
  "anyhow",
  "arrayvec",
+ "async-task",
  "backtrace",
- "bevy",
+ "bevy_app",
+ "bevy_core",
+ "bevy_derive",
+ "bevy_ecs",
+ "bevy_hierarchy",
+ "bevy_tasks",
+ "bevy_time",
+ "bevy_utils",
  "crossbeam",
  "futures",
- "itertools 0.11.0",
+ "itertools 0.12.1",
  "smallvec",
  "thiserror",
 ]
@@ -2821,8 +2829,8 @@ dependencies = [
  "crossbeam-channel",
  "dirs",
  "ehttp",
- "futures-lite 1.13.0",
- "itertools 0.11.0",
+ "futures-lite 2.2.0",
+ "itertools 0.12.1",
  "serde",
  "serde_json",
 ]
