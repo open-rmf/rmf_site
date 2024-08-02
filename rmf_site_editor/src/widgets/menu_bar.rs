@@ -15,7 +15,9 @@
  *
 */
 
-use crate::{widgets::prelude::*, AppState, CreateNewWorkspace, LoadWorkspace, SaveWorkspace};
+use crate::{
+    widgets::prelude::*, AppState, CreateNewWorkspace, SaveWorkspace, WorkspaceLoadingServices,
+};
 
 use bevy::ecs::query::Has;
 use bevy::prelude::*;
@@ -275,9 +277,10 @@ struct MenuParams<'w, 's> {
 
 fn top_menu_bar(
     In(input): In<PanelWidgetInput>,
+    mut commands: Commands,
     mut new_workspace: EventWriter<CreateNewWorkspace>,
     mut save: EventWriter<SaveWorkspace>,
-    mut load_workspace: EventWriter<LoadWorkspace>,
+    load_workspace: Res<WorkspaceLoadingServices>,
     file_menu: Res<FileMenu>,
     top_level_components: Query<(), Without<Parent>>,
     children: Query<&Children>,
@@ -308,7 +311,7 @@ fn top_menu_bar(
                     .add(Button::new("Open").shortcut_text("Ctrl+O"))
                     .clicked()
                 {
-                    load_workspace.send(LoadWorkspace::Dialog);
+                    load_workspace.load_from_dialog(&mut commands);
                 }
 
                 render_sub_menu(

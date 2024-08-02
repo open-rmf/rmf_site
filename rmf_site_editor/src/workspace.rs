@@ -45,20 +45,6 @@ pub struct CreateNewWorkspace;
 #[derive(Component)]
 pub struct WorkspaceMarker;
 
-/// Used as an event to command that a workspace should be loaded. This will spawn a file open
-/// dialog (in non-wasm) with allowed extensions depending on the app state
-// TODO(luca) Encapsulate a list of optional filters, for example to allow users to only load
-// workcells or sites
-// Dialog will spawn a RFD dialog, Path will open a specific path, the others will parse embedded
-// data
-#[derive(Event)]
-pub enum LoadWorkspace {
-    Dialog,
-    BlankFromDialog,
-    Path(PathBuf),
-    Data(WorkspaceData),
-}
-
 #[derive(Clone)]
 pub enum WorkspaceData {
     LegacyBuilding(Vec<u8>),
@@ -198,7 +184,6 @@ impl Plugin for WorkspacePlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<ChangeCurrentWorkspace>()
             .add_event::<CreateNewWorkspace>()
-            .add_event::<LoadWorkspace>()
             .add_event::<SaveWorkspace>()
             .add_event::<SaveWorkcell>()
             .add_event::<LoadWorkcell>()
@@ -211,7 +196,6 @@ impl Plugin for WorkspacePlugin {
                 (
                     dispatch_new_workspace_events,
                     sync_workspace_visibility,
-                    dispatch_load_workspace_workflows,
                     workspace_file_save_complete,
                 ),
             );
@@ -485,31 +469,32 @@ impl FromWorld for WorkspaceLoadingServices {
 }
 
 impl WorkspaceLoadingServices {
-    /// Given a `LoadWorkspace` event, dispatches the corresponding workflow to process it
-    pub fn dispatch_workflow_for_request(&self, commands: &mut Commands, request: &LoadWorkspace) {
-        match request {
-            LoadWorkspace::Dialog => commands.request((), self.load_workspace_from_dialog),
-            LoadWorkspace::BlankFromDialog => {
-                commands.request((), self.create_empty_workspace_from_dialog)
-            }
-            LoadWorkspace::Path(path) => {
-                commands.request(path.clone(), self.load_workspace_from_path)
-            }
-            LoadWorkspace::Data(data) => {
-                commands.request(data.clone(), self.load_workspace_from_data)
-            }
-        }
-        .detach();
+    /// Request to spawn a dialog and load a workspace
+    pub fn load_from_dialog(&self, commands: &mut Commands) {
+        commands
+            .request((), self.load_workspace_from_dialog)
+            .detach();
     }
-}
 
-pub fn dispatch_load_workspace_workflows(
-    mut commands: Commands,
-    mut load_workspace: EventReader<LoadWorkspace>,
-    workspace_service: Res<WorkspaceLoadingServices>,
-) {
-    if let Some(cmd) = load_workspace.read().last() {
-        workspace_service.dispatch_workflow_for_request(&mut commands, cmd);
+    /// Request to spawn a dialog to select a file and create a new site with a blank level
+    pub fn create_empty_from_dialog(&self, commands: &mut Commands) {
+        commands
+            .request((), self.create_empty_workspace_from_dialog)
+            .detach();
+    }
+
+    /// Request to load a workspace from a path
+    pub fn load_from_path(&self, commands: &mut Commands, path: PathBuf) {
+        commands
+            .request(path, self.load_workspace_from_path)
+            .detach();
+    }
+
+    /// Request to load a workspace from data
+    pub fn load_from_data(&self, commands: &mut Commands, data: WorkspaceData) {
+        commands
+            .request(data, self.load_workspace_from_data)
+            .detach();
     }
 }
 
