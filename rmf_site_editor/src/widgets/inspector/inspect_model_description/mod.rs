@@ -259,7 +259,8 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelDescription<'w, 's> {
                 .map(|n| n.0.clone())
                 .unwrap_or("Unnamed".to_string());
             ui.label(
-                RichText::new(format!("Model Properties of [{}]", description_name)).size(18.0),
+                RichText::new(format!("Description Properties of [{}]", description_name))
+                    .size(18.0),
             );
 
             CollapsingHeader::new("Configure Properties")

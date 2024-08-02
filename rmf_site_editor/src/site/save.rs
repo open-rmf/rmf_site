@@ -107,14 +107,18 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
                     With<DoorType>,
                     With<DrawingMarker>,
                     With<FloorMarker>,
-                    With<LightKind>,
                     With<ModelMarker>,
+                    With<LightKind>,
                     With<PhysicalCameraProperties>,
                     With<WallMarker>,
+                    With<ScenarioMarker>,
                 )>,
                 Without<Pending>,
             ),
         >,
+        Query<Entity, (With<ModelMarker>, With<Group>)>,
+        Query<Entity, (With<ModelMarker>, Without<Group>)>,
+        Query<Entity, With<ScenarioMarker>>,
         Query<
             Entity,
             (
@@ -146,6 +150,9 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
 
     let (
         level_children,
+        model_descriptions,
+        model_instances,
+        scenarios,
         nav_graph_elements,
         levels,
         lifts,
@@ -192,6 +199,36 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
                                 }
                             }
                         }
+                    }
+                }
+            }
+        }
+
+        if let Ok(model_description) = model_descriptions.get(*site_child) {
+            if !site_ids.contains(model_description) {
+                new_entities.push(model_description);
+                println!("NEW DESCRIPTION");
+            }
+        }
+
+        if let Ok(model_instance) = model_instances.get(*site_child) {
+            if !site_ids.contains(model_instance) {
+                new_entities.push(model_instance);
+                println!("NEW INSTANCE");
+            }
+        }
+
+        // Ensure root scenarios have the smallest Site_ID, since when deserializing, child scenarios would
+        // require parent scenarios to already be spawned and have its parent entity
+        if let Ok(scenario) = scenarios.get(*site_child) {
+            let mut queue = vec![scenario];
+            while let Some(scenario) = queue.pop() {
+                if !site_ids.contains(scenario) {
+                    new_entities.push(scenario);
+                }
+                if let Ok(scenario_children) = children.get(scenario) {
+                    for child in scenario_children {
+                        queue.push(*child);
                     }
                 }
             }
@@ -336,10 +373,6 @@ fn generate_levels(
             ),
             (With<MeasurementMarker>, Without<Pending>),
         >,
-        Query<
-            (&NameInSite, &AssetSource, &Pose, &IsStatic, &Scale, &SiteID),
-            (With<ModelMarker>, Without<Pending>),
-        >,
         Query<(&NameInSite, &Pose, &PhysicalCameraProperties, &SiteID), Without<Pending>>,
         Query<
             (
@@ -377,7 +410,6 @@ fn generate_levels(
         q_floors,
         q_lights,
         q_measurements,
-        q_models,
         q_physical_cameras,
         q_walls,
         q_levels,
@@ -1168,6 +1200,181 @@ fn migrate_relative_paths(
     }
 }
 
+fn generate_model_descriptions(
+    site: Entity,
+    world: &mut World,
+) -> Result<BTreeMap<u32, ModelDescriptionBundle>, SiteGenerationError> {
+    let mut state: SystemState<(
+        Query<
+            (
+                &SiteID,
+                &NameInSite,
+                &ModelProperty<AssetSource>,
+                &ModelProperty<IsStatic>,
+                &ModelProperty<Scale>,
+            ),
+            (With<ModelMarker>, With<Group>, Without<Pending>),
+        >,
+        Query<&Children>,
+    )> = SystemState::new(world);
+    let (model_descriptions, children) = state.get(world);
+
+    let mut res = BTreeMap::<u32, ModelDescriptionBundle>::new();
+    if let Ok(children) = children.get(site) {
+        for child in children.iter() {
+            if let Ok((site_id, name, source, is_static, scale)) = model_descriptions.get(*child) {
+                res.insert(
+                    site_id.0,
+                    ModelDescriptionBundle {
+                        name: name.clone(),
+                        source: source.clone(),
+                        is_static: is_static.clone(),
+                        scale: scale.clone(),
+                        ..Default::default()
+                    },
+                );
+            }
+        }
+    }
+    Ok(res)
+}
+
+fn generate_model_instances(
+    site: Entity,
+    world: &mut World,
+) -> Result<BTreeMap<u32, ModelInstance<u32>>, SiteGenerationError> {
+    let mut state: SystemState<(
+        Query<&SiteID, (With<ModelMarker>, With<Group>, Without<Pending>)>,
+        Query<
+            (
+                Entity,
+                &SiteID,
+                &NameInSite,
+                &Pose,
+                &SiteParent<Entity>,
+                &Affiliation<Entity>,
+            ),
+            (With<ModelMarker>, Without<Group>, Without<Pending>),
+        >,
+        Query<(Entity, &SiteID), With<LevelElevation>>,
+        Query<&Children>,
+        Query<&Parent>,
+    )> = SystemState::new(world);
+    let (model_descriptions, model_instances, levels, _, parents) = state.get(world);
+
+    let mut site_levels_ids = std::collections::HashMap::<Entity, u32>::new();
+    for (level_entity, site_id) in levels.iter() {
+        if parents.get(level_entity).is_ok_and(|p| p.get() == site) {
+            site_levels_ids.insert(level_entity, site_id.0);
+        }
+    }
+    let mut res = BTreeMap::<u32, ModelInstance<u32>>::new();
+    for (
+        _instance_entity,
+        instance_id,
+        instance_name,
+        instance_pose,
+        instance_parent,
+        instance_affiliation,
+    ) in model_instances.iter()
+    {
+        if instance_parent
+            .0
+            .is_some_and(|p| !site_levels_ids.contains_key(&p))
+        {
+            continue;
+        }
+        res.insert(
+            instance_id.0,
+            ModelInstance::<u32> {
+                name: instance_name.clone(),
+                pose: instance_pose.clone(),
+                parent: SiteParent(instance_parent.0.map(|p| site_levels_ids[&p])),
+                description: Affiliation(
+                    instance_affiliation
+                        .0
+                        .map(|e| model_descriptions.get(e).ok().map(|d| d.0))
+                        .flatten(),
+                ),
+                ..Default::default()
+            },
+        );
+    }
+    Ok(res)
+}
+
+fn generate_scenarios(
+    site: Entity,
+    world: &mut World,
+) -> Result<BTreeMap<u32, ScenarioBundle<u32>>, SiteGenerationError> {
+    let mut state: SystemState<(
+        Query<(Entity, &NameInSite, &SiteID, &Scenario<Entity>), With<ScenarioMarker>>,
+        Query<&SiteID, With<InstanceMarker>>,
+        Query<&Children>,
+        Query<&Parent>,
+    )> = SystemState::new(world);
+    let (scenarios, instances, children, parent) = state.get(world);
+    let mut res = BTreeMap::<u32, ScenarioBundle<u32>>::new();
+
+    if let Ok(site_children) = children.get(site) {
+        for site_child in site_children.iter() {
+            if let Ok((entity, ..)) = scenarios.get(*site_child) {
+                let mut queue = vec![entity];
+
+                while let Some(scenario) = queue.pop() {
+                    if let Ok(scenario_children) = children.get(scenario) {
+                        for scenario_child in scenario_children.iter() {
+                            queue.push(*scenario_child);
+                        }
+                    }
+
+                    if let Ok((_, name, site_id, scenario)) = scenarios.get(scenario) {
+                        res.insert(
+                            site_id.0,
+                            ScenarioBundle {
+                                name: name.clone(),
+                                scenario: Scenario {
+                                    parent_scenario: match scenario.parent_scenario.0 {
+                                        Some(parent) => Affiliation(
+                                            scenarios
+                                                .get(parent)
+                                                .map(|(_, _, site_id, _)| site_id.0)
+                                                .ok(),
+                                        ),
+                                        None => Affiliation(None),
+                                    },
+                                    added_instances: scenario
+                                        .added_instances
+                                        .iter()
+                                        .map(|(entity, pose)| {
+                                            (instances.get(*entity).unwrap().0, pose.clone())
+                                        })
+                                        .collect(),
+                                    moved_instances: scenario
+                                        .moved_instances
+                                        .iter()
+                                        .map(|(entity, pose)| {
+                                            (instances.get(*entity).unwrap().0, pose.clone())
+                                        })
+                                        .collect(),
+                                    removed_instances: scenario
+                                        .removed_instances
+                                        .iter()
+                                        .map(|entity| instances.get(*entity).unwrap().0)
+                                        .collect(),
+                                },
+                                marker: ScenarioMarker,
+                            },
+                        );
+                    }
+                }
+            }
+        }
+    }
+    println!("ADDED SCENARIOS: {:?}", res.len());
+    Ok(res)
+}
+
 pub fn generate_site(
     world: &mut World,
     site: Entity,
@@ -1186,6 +1393,9 @@ pub fn generate_site(
     let locations = generate_locations(world, site)?;
     let graph_ranking = generate_graph_rankings(world, site)?;
     let properties = generate_site_properties(world, site)?;
+    let model_descriptions = generate_model_descriptions(site, world)?;
+    let model_instances = generate_model_instances(site, world)?;
+    let scenarios = generate_scenarios(site, world)?;
 
     disassemble_edited_drawing(world);
     return Ok(Site {
@@ -1207,7 +1417,9 @@ pub fn generate_site(
         },
         // TODO(MXG): Parse agent information once the spec is figured out
         agents: Default::default(),
-        ..Default::default()
+        model_descriptions,
+        model_instances,
+        scenarios,
     });
 }
 

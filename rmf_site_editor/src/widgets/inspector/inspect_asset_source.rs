@@ -144,7 +144,6 @@ impl<'a> InspectAssetSourceComponent<'a> {
                     false
                 };
 
-                ui.add_space(3.0);
                 ui.horizontal(|ui| {
                     // Button to load from file, disabled for wasm since there are no local files
                     #[cfg(not(target_arch = "wasm32"))]

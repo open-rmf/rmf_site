@@ -22,7 +22,7 @@ use crate::{
         RemoveScenario, Scenario, ScenarioMarker,
     },
     widgets::prelude::*,
-    Icons,
+    CurrentWorkspace, Icons,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Button, CollapsingHeader, Color32, ScrollArea, Ui};
@@ -56,6 +56,7 @@ pub struct ViewScenarios<'w, 's> {
     remove_scenario: EventWriter<'w, RemoveScenario>,
     display_scenarios: ResMut<'w, ScenarioDisplay>,
     current_scenario: ResMut<'w, CurrentScenario>,
+    current_workspace: Res<'w, CurrentWorkspace>,
     instances: Query<
         'w,
         's,
@@ -239,20 +240,25 @@ impl<'w, 's> ViewScenarios<'w, 's> {
         });
         ui.horizontal(|ui| {
             if ui.add(Button::image(self.icons.add.egui())).clicked() {
-                let parent_scenario_entity = if self.display_scenarios.is_new_scenario_root {
-                    None
-                } else {
-                    self.current_scenario.0
-                };
                 let mut cmd = self
                     .commands
                     .spawn(ScenarioBundle::<Entity>::from_name_parent(
                         self.display_scenarios.new_scenario_name.clone(),
-                        parent_scenario_entity,
+                        match self.display_scenarios.is_new_scenario_root {
+                            true => None,
+                            false => self.current_scenario.0,
+                        },
                     ));
-                if !self.display_scenarios.is_new_scenario_root {
-                    if let Some(current_scenario_entity) = self.current_scenario.0 {
-                        cmd.set_parent(current_scenario_entity);
+                match self.display_scenarios.is_new_scenario_root {
+                    true => {
+                        if let Some(site_entity) = self.current_workspace.root {
+                            cmd.set_parent(site_entity);
+                        }
+                    }
+                    false => {
+                        if let Some(current_scenario_entity) = self.current_scenario.0 {
+                            cmd.set_parent(current_scenario_entity);
+                        }
                     }
                 }
                 let scenario_entity = cmd.id();

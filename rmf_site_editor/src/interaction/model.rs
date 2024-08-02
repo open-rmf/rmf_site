@@ -19,11 +19,19 @@ use crate::{interaction::*, site::*};
 use bevy::prelude::*;
 
 pub fn update_model_instance_visual_cues(
-    model_descriptions: Query<(Entity, &Selected), (With<ModelMarker>, With<Group>)>,
+    model_descriptions: Query<
+        (Entity, &Selected, &Hovered),
+        (
+            With<ModelMarker>,
+            With<Group>,
+            Or<(Changed<Hovered>, Changed<Selected>)>,
+        ),
+    >,
     mut model_instances: Query<
         (
             Entity,
             &mut Selected,
+            &mut Hovered,
             &mut Affiliation<Entity>,
             Option<Ref<Tasks<Entity>>>,
         ),
@@ -32,11 +40,16 @@ pub fn update_model_instance_visual_cues(
     mut locations: Query<&mut Selected, (With<LocationTags>, Without<ModelMarker>)>,
     mut removed_components: RemovedComponents<Tasks<Entity>>,
 ) {
-    for (instance_entity, mut instance_selected, affiliation, tasks) in &mut model_instances {
-        // When a description is selected, select all instances of it
+    for (instance_entity, mut instance_selected, mut instance_hovered, affiliation, tasks) in
+        &mut model_instances
+    {
+        // By clearing instance supports for selected / hovered, we assume instances will never
+        // be supporting select / hovering for anything else
         let mut is_description_selected = false;
         if let Some(description_entity) = affiliation.0 {
-            if let Ok((_, description_selected)) = model_descriptions.get(description_entity) {
+            if let Ok((_, description_selected, description_hovered)) =
+                model_descriptions.get(description_entity)
+            {
                 if description_selected.cue() {
                     instance_selected
                         .support_selected
@@ -44,6 +57,11 @@ pub fn update_model_instance_visual_cues(
                     is_description_selected = true;
                 } else {
                     instance_selected.support_selected.clear();
+                }
+                if description_hovered.cue() {
+                    instance_hovered.support_hovering.insert(description_entity);
+                } else {
+                    instance_hovered.support_hovering.clear();
                 }
             }
         }
