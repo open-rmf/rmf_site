@@ -767,7 +767,7 @@ dependencies = [
 [[package]]
 name = "bevy_impulse"
 version = "0.0.1"
-source = "git+https://github.com/open-rmf/bevy_impulse?branch=main#72e76388478a5bffca92e8baf7a5ea6396c84ebb"
+source = "git+https://github.com/open-rmf/bevy_impulse?branch=main#3e681a91033427c5ae24995f4e53d19f656f278f"
 dependencies = [
  "anyhow",
  "arrayvec",
@@ -783,7 +783,7 @@ dependencies = [
  "bevy_utils",
  "crossbeam",
  "futures",
- "itertools 0.12.1",
+ "itertools",
  "smallvec",
  "thiserror",
 ]
@@ -1315,7 +1315,7 @@ dependencies = [
  "bitflags 2.4.2",
  "cexpr",
  "clang-sys",
- "itertools 0.12.1",
+ "itertools",
  "lazy_static",
  "lazycell",
  "proc-macro2",
@@ -2002,7 +2002,7 @@ version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "79127ed59a85d7687c409e9978547cffb7dc79675355ed22da6b66fd5f6ead01"
 dependencies = [
- "itertools 0.11.0",
+ "itertools",
  "num-traits",
 ]
 
@@ -2830,7 +2830,7 @@ dependencies = [
  "dirs",
  "ehttp",
  "futures-lite 2.2.0",
- "itertools 0.12.1",
+ "itertools",
  "serde",
  "serde_json",
 ]
@@ -3094,15 +3094,6 @@ name = "itertools"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b1c173a5686ce8bfa551b3563d0c2170bf24ca44da99c7ca4bfdab5418c3fe57"
-dependencies = [
- "either",
-]
-
-[[package]]
-name = "itertools"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba291022dbbd398a455acf126c1e341954079855bc60dfdda641363bd6922569"
 dependencies = [
  "either",
 ]
@@ -4349,7 +4340,7 @@ dependencies = [
  "futures-lite 1.13.0",
  "geo",
  "gz-fuel",
- "itertools 0.12.1",
+ "itertools",
  "nalgebra",
  "pathdiff",
  "rfd",
