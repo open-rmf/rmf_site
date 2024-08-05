@@ -15,7 +15,7 @@
  *
 */
 
-use bevy::{prelude::*, tasks::AsyncComputeTaskPool};
+use bevy::{ecs::system::SystemParam, prelude::*, tasks::AsyncComputeTaskPool};
 use bevy_impulse::*;
 use rfd::AsyncFileDialog;
 use std::path::PathBuf;
@@ -468,34 +468,44 @@ impl FromWorld for WorkspaceLoadingServices {
     }
 }
 
-impl WorkspaceLoadingServices {
+impl<'w, 's> WorkspaceLoadingParams<'w, 's> {
     /// Request to spawn a dialog and load a workspace
-    pub fn load_from_dialog(&self, commands: &mut Commands) {
-        commands
-            .request((), self.load_workspace_from_dialog)
+    pub fn load_from_dialog(&mut self) {
+        self.commands
+            .request((), self.workspace_loading.load_workspace_from_dialog)
             .detach();
     }
 
     /// Request to spawn a dialog to select a file and create a new site with a blank level
-    pub fn create_empty_from_dialog(&self, commands: &mut Commands) {
-        commands
-            .request((), self.create_empty_workspace_from_dialog)
+    pub fn create_empty_from_dialog(&mut self) {
+        self.commands
+            .request(
+                (),
+                self.workspace_loading.create_empty_workspace_from_dialog,
+            )
             .detach();
     }
 
     /// Request to load a workspace from a path
-    pub fn load_from_path(&self, commands: &mut Commands, path: PathBuf) {
-        commands
-            .request(path, self.load_workspace_from_path)
+    pub fn load_from_path(&mut self, path: PathBuf) {
+        self.commands
+            .request(path, self.workspace_loading.load_workspace_from_path)
             .detach();
     }
 
     /// Request to load a workspace from data
-    pub fn load_from_data(&self, commands: &mut Commands, data: WorkspaceData) {
-        commands
-            .request(data, self.load_workspace_from_data)
+    pub fn load_from_data(&mut self, data: WorkspaceData) {
+        self.commands
+            .request(data, self.workspace_loading.load_workspace_from_data)
             .detach();
     }
+}
+
+/// `SystemParam` used to request for workspace loading operations
+#[derive(SystemParam)]
+pub struct WorkspaceLoadingParams<'w, 's> {
+    workspace_loading: Res<'w, WorkspaceLoadingServices>,
+    commands: Commands<'w, 's>,
 }
 
 // TODO(luca) implement this in wasm, it's supported since rfd version 0.12, however it requires

@@ -16,15 +16,14 @@
 */
 
 use super::demo_world::*;
-use crate::{AppState, Autoload, WorkspaceData, WorkspaceLoadingServices};
+use crate::{AppState, Autoload, WorkspaceData, WorkspaceLoadingParams};
 use bevy::{app::AppExit, prelude::*, window::PrimaryWindow};
 use bevy_egui::{egui, EguiContexts};
 
 fn egui_ui(
-    mut commands: Commands,
     mut egui_context: EguiContexts,
     mut _exit: EventWriter<AppExit>,
-    load_workspace: Res<WorkspaceLoadingServices>,
+    mut load_workspace: WorkspaceLoadingParams,
     mut _app_state: ResMut<State<AppState>>,
     autoload: Option<ResMut<Autoload>>,
     primary_windows: Query<Entity, With<PrimaryWindow>>,
@@ -33,7 +32,7 @@ fn egui_ui(
         #[cfg(not(target_arch = "wasm32"))]
         {
             if let Some(filename) = autoload.filename.take() {
-                load_workspace.load_from_path(&mut commands, filename);
+                load_workspace.load_from_path(filename);
             }
         }
         return;
@@ -58,18 +57,15 @@ fn egui_ui(
 
             ui.horizontal(|ui| {
                 if ui.button("View demo map").clicked() {
-                    load_workspace.load_from_data(
-                        &mut commands,
-                        WorkspaceData::LegacyBuilding(demo_office()),
-                    );
+                    load_workspace.load_from_data(WorkspaceData::LegacyBuilding(demo_office()));
                 }
 
                 if ui.button("Open a file").clicked() {
-                    load_workspace.load_from_dialog(&mut commands);
+                    load_workspace.load_from_dialog();
                 }
 
                 if ui.button("Create new file").clicked() {
-                    load_workspace.create_empty_from_dialog(&mut commands);
+                    load_workspace.create_empty_from_dialog();
                 }
 
                 // TODO(@mxgrey): Bring this back when we have finished developing

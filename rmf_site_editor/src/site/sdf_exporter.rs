@@ -11,7 +11,7 @@ use crate::{
         ChildLiftCabinGroup, CollisionMeshMarker, DoorSegments, DrawingMarker, FloorSegments,
         LiftDoormat, ModelSceneRoot, TentativeModelFormat, VisualMeshMarker,
     },
-    Autoload, WorkspaceLoadingServices,
+    Autoload, WorkspaceLoadingParams,
 };
 use rmf_site_format::{
     IsStatic, LevelElevation, LiftCabin, ModelMarker, NameInSite, NameOfSite, SiteID, WallMarker,
@@ -51,11 +51,11 @@ pub fn headless_sdf_export(
     sites: Query<(Entity, &NameOfSite)>,
     drawings: Query<Entity, With<DrawingMarker>>,
     autoload: Option<ResMut<Autoload>>,
-    load_workspace: Res<WorkspaceLoadingServices>,
+    mut load_workspace: WorkspaceLoadingParams,
 ) {
     if let Some(mut autoload) = autoload {
         if let Some(filename) = autoload.filename.take() {
-            load_workspace.load_from_path(&mut commands, filename);
+            load_workspace.load_from_path(filename);
         }
     } else {
         error!("Cannot perform a headless export since no site file was specified for loading");
