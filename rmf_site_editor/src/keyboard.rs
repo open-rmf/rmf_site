@@ -18,7 +18,7 @@
 use crate::{
     interaction::{ChangeMode, ChangeProjectionMode, InteractionMode, Selection},
     site::{AlignSiteDrawings, Delete},
-    CreateNewWorkspace, CurrentWorkspace, SaveWorkspace, WorkspaceLoadingParams,
+    CreateNewWorkspace, CurrentWorkspace, SaveWorkspace, WorkspaceLoader,
 };
 use bevy::{prelude::*, window::PrimaryWindow};
 use bevy_egui::EguiContexts;
@@ -55,7 +55,7 @@ fn handle_keyboard_input(
     mut align_site: EventWriter<AlignSiteDrawings>,
     current_workspace: Res<CurrentWorkspace>,
     primary_windows: Query<Entity, With<PrimaryWindow>>,
-    mut load_workspace: WorkspaceLoadingParams,
+    mut workspace_loader: WorkspaceLoader,
 ) {
     let Some(egui_context) = primary_windows
         .get_single()
@@ -122,7 +122,7 @@ fn handle_keyboard_input(
         }
 
         if keyboard_input.just_pressed(KeyCode::O) {
-            load_workspace.load_from_dialog();
+            workspace_loader.load_from_dialog();
         }
     }
 }

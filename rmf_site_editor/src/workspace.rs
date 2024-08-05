@@ -468,7 +468,7 @@ impl FromWorld for WorkspaceLoadingServices {
     }
 }
 
-impl<'w, 's> WorkspaceLoadingParams<'w, 's> {
+impl<'w, 's> WorkspaceLoader<'w, 's> {
     /// Request to spawn a dialog and load a workspace
     pub fn load_from_dialog(&mut self) {
         self.commands
@@ -503,7 +503,7 @@ impl<'w, 's> WorkspaceLoadingParams<'w, 's> {
 
 /// `SystemParam` used to request for workspace loading operations
 #[derive(SystemParam)]
-pub struct WorkspaceLoadingParams<'w, 's> {
+pub struct WorkspaceLoader<'w, 's> {
     workspace_loading: Res<'w, WorkspaceLoadingServices>,
     commands: Commands<'w, 's>,
 }
