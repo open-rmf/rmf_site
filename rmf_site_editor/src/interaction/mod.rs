@@ -58,6 +58,9 @@ pub use light::*;
 pub mod mode;
 pub use mode::*;
 
+pub mod model;
+pub use model::*;
+
 pub mod model_preview;
 pub use model_preview::*;
 
@@ -215,6 +218,7 @@ impl Plugin for InteractionPlugin {
                 Update,
                 (
                     make_model_previews_not_selectable,
+                    update_model_instance_visual_cues.after(maintain_hovered_entities),
                     update_lane_visual_cues.after(maintain_selected_entities),
                     update_edge_visual_cues.after(maintain_selected_entities),
                     update_point_visual_cues.after(maintain_selected_entities),

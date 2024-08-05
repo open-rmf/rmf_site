@@ -60,6 +60,7 @@ impl<'w> ViewOccupancy<'w> {
                     cell_size: self.display_occupancy.cell_size,
                     floor: 0.01,
                     ceiling: 1.5,
+                    ignore: None,
                 });
             }
             if ui
@@ -75,6 +76,7 @@ impl<'w> ViewOccupancy<'w> {
                         cell_size: self.display_occupancy.cell_size,
                         floor: 0.01,
                         ceiling: 1.5,
+                        ignore: None,
                     });
                 }
             }

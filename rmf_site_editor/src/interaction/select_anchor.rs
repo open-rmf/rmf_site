@@ -26,8 +26,9 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{
-    Door, Edge, Fiducial, Floor, FrameMarker, Lane, LiftProperties, Location, Measurement, Model,
-    NameInWorkcell, NameOfSite, Path, PixelsPerMeter, Point, Pose, Side, Wall, WorkcellModel,
+    Door, Edge, Fiducial, Floor, FrameMarker, Lane, LiftProperties, Location, Measurement,
+    ModelInstance, NameInWorkcell, NameOfSite, Path, PixelsPerMeter, Point, Pose, Side, Wall,
+    WorkcellModel,
 };
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -1186,7 +1187,8 @@ impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
             false,
         );
         set_visibility(self.cursor.frame_placement, &mut self.visibility, false);
-        self.cursor.set_model_preview(&mut self.commands, None);
+        self.cursor
+            .set_model_instance_preview(&mut self.commands, None);
         for e in self.hidden_entities.drawing_anchors.drain() {
             set_visibility(e, &mut self.visibility, true);
         }
@@ -1297,9 +1299,9 @@ impl SelectAnchorPointBuilder {
         }
     }
 
-    pub fn for_model(self, model: Model) -> SelectAnchor3D {
+    pub fn for_model_instance(self, model: ModelInstance<Entity>) -> SelectAnchor3D {
         SelectAnchor3D {
-            bundle: PlaceableObject::Model(model),
+            bundle: PlaceableObject::ModelInstance(model),
             parent: None,
             target: self.for_element,
             continuity: self.continuity,
@@ -1686,7 +1688,7 @@ impl SelectAnchor {
 
 #[derive(Clone)]
 enum PlaceableObject {
-    Model(Model),
+    ModelInstance(ModelInstance<Entity>),
     Anchor,
     VisualMesh(WorkcellModel),
     CollisionMesh(WorkcellModel),
@@ -2151,11 +2153,11 @@ pub fn handle_select_anchor_3d_mode(
             PlaceableObject::Anchor => {
                 set_visibility(params.cursor.frame_placement, &mut params.visibility, true);
             }
-            PlaceableObject::Model(ref m) => {
+            PlaceableObject::ModelInstance(ref m) => {
                 // Spawn the model as a child of the cursor
                 params
                     .cursor
-                    .set_model_preview(&mut params.commands, Some(m.clone()));
+                    .set_model_instance_preview(&mut params.commands, Some(m.clone()));
             }
             PlaceableObject::VisualMesh(ref m) | PlaceableObject::CollisionMesh(ref m) => {
                 // Spawn the model as a child of the cursor
@@ -2200,7 +2202,7 @@ pub fn handle_select_anchor_3d_mode(
                             NameInWorkcell("Unnamed".to_string()),
                         ))
                         .id(),
-                    PlaceableObject::Model(ref a) => {
+                    PlaceableObject::ModelInstance(ref a) => {
                         let mut model = a.clone();
                         // If we are in workcell mode, add a "base link" frame to the model
                         if matches!(**app_state, AppState::WorkcellEditor) {

@@ -22,7 +22,9 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*, window::PrimaryWindow};
 use bevy_mod_raycast::{deferred::RaycastMesh, deferred::RaycastSource, primitives::rays::Ray3d};
-use rmf_site_format::{FloorMarker, Model, ModelMarker, PrimitiveShape, WallMarker, WorkcellModel};
+use rmf_site_format::{
+    FloorMarker, ModelInstance, ModelMarker, PrimitiveShape, WallMarker, WorkcellModel,
+};
 use std::collections::HashSet;
 
 /// A resource that keeps track of the unique entities that play a role in
@@ -113,7 +115,11 @@ impl Cursor {
     }
 
     // TODO(luca) reduce duplication here
-    pub fn set_model_preview(&mut self, commands: &mut Commands, model: Option<Model>) {
+    pub fn set_model_instance_preview(
+        &mut self,
+        commands: &mut Commands,
+        model: Option<ModelInstance<Entity>>,
+    ) {
         self.remove_preview(commands);
         self.preview_model = if let Some(model) = model {
             let e = commands.spawn(model).insert(Pending).id();
