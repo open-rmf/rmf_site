@@ -235,15 +235,13 @@ pub fn dispatch_new_workspace_events(
 
 /// Service that takes workspace data and loads a site / workcell, as well as transition state.
 pub fn process_load_workspace_files(
-    In(BlockingService { request, .. }): BlockingServiceInput<Option<LoadWorkspaceFile>>,
+    In(BlockingService { request, .. }): BlockingServiceInput<LoadWorkspaceFile>,
     mut app_state: ResMut<NextState<AppState>>,
     mut interaction_state: ResMut<NextState<InteractionState>>,
     mut load_site: EventWriter<LoadSite>,
     mut load_workcell: EventWriter<LoadWorkcell>,
 ) {
-    let Some(LoadWorkspaceFile(default_file, data)) = request else {
-        return;
-    };
+    let LoadWorkspaceFile(default_file, data) = request;
     match data {
         WorkspaceData::LegacyBuilding(data) => {
             info!("Opening legacy building map file");
@@ -395,6 +393,7 @@ impl FromWorld for WorkspaceLoadingServices {
                     }
                     None
                 })
+                .cancel_on_none()
                 .then(process_load_files)
                 .connect(scope.terminate)
         });
@@ -428,6 +427,7 @@ impl FromWorld for WorkspaceLoadingServices {
                         Some(LoadWorkspaceFile(None, data))
                     }
                 })
+                .cancel_on_none()
                 .then(process_load_files)
                 .connect(scope.terminate)
         });
@@ -446,6 +446,7 @@ impl FromWorld for WorkspaceLoadingServices {
                     };
                     Some(LoadWorkspaceFile(Some(path.clone()), data))
                 })
+                .cancel_on_none()
                 .then(process_load_files)
                 .connect(scope.terminate)
         });
@@ -454,7 +455,7 @@ impl FromWorld for WorkspaceLoadingServices {
             scope
                 .input
                 .chain(builder)
-                .map_block(|data| Some(LoadWorkspaceFile(None, data)))
+                .map_block(|data| LoadWorkspaceFile(None, data))
                 .then(process_load_files)
                 .connect(scope.terminate)
         });
