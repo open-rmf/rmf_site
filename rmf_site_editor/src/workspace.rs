@@ -366,13 +366,13 @@ pub fn process_load_workspace_files(
 /// Services that deal with workspace loading
 pub struct WorkspaceLoadingServices {
     /// Service that spawns an open file dialog and loads a site accordingly.
-    pub load_workspace_from_dialog: Service<(), (), ()>,
+    pub load_workspace_from_dialog: Service<(), ()>,
     /// Service that spawns a save file dialog then creates a site with an empty level.
-    pub create_empty_workspace_from_dialog: Service<(), (), ()>,
+    pub create_empty_workspace_from_dialog: Service<(), ()>,
     /// Loads the workspace at the requested path
-    pub load_workspace_from_path: Service<PathBuf, (), ()>,
+    pub load_workspace_from_path: Service<PathBuf, ()>,
     /// Loads the workspace from the requested data
-    pub load_workspace_from_data: Service<WorkspaceData, (), ()>,
+    pub load_workspace_from_data: Service<WorkspaceData, ()>,
 }
 
 impl FromWorld for WorkspaceLoadingServices {
