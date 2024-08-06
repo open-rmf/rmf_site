@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::{DragPlaneBundle, Selectable, MODEL_PREVIEW_LAYER},
-    site::{Category, PreventDeletion, SiteAssets},
+    site::{Category, Model, PreventDeletion, SiteAssets},
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
 };
 use bevy::{
@@ -26,6 +26,7 @@ use bevy::{
     prelude::*,
     render::view::RenderLayers,
 };
+use bevy_impulse::*;
 use bevy_mod_outline::OutlineMeshExt;
 use rmf_site_format::{AssetSource, ModelMarker, Pending, Pose, Scale};
 use smallvec::SmallVec;
@@ -283,6 +284,51 @@ pub fn update_model_scenes(
             );
         }
     }
+}
+
+#[derive(Resource)]
+/// Services that deal with workspace loading
+pub struct ModelLoadingServices {
+    /// Service that loads the requested model, returns the Entity where the model was spawned
+    pub load_model: Service<ModelLoadingRequest, Result<Entity, ModelLoadingError>>,
+    // TODO(luca) reparent service? or have the previous have entity as an input?
+}
+
+async fn handle_model_loading(
+    In(AsyncService { request, channel, ..}): AsyncServiceInput<ModelLoadingRequest>,
+) -> Result<Entity, ModelLoadingError> {
+    let entity = channel.command(|commands| {
+        commands.spawn_empty().id()
+    }).await.available().ok_or(ModelLoadingError::WorkflowExecutionError)?;
+    match request.model.source {
+
+    }
+    Ok(entity)
+}
+
+impl FromWorld for ModelLoadingServices {
+    fn from_world(world: &mut World) -> Self {
+        let model_loading_service = world.spawn_service(handle_model_loading);
+        let load_model = world.spawn_workflow(|scope, builder| {
+            scope.input.chain(builder)
+                .then(model_loading_service)
+
+                .connect(scope.terminate)
+        });
+
+        Self {
+            load_model,
+        }
+    }
+}
+
+pub struct ModelLoadingRequest {
+    parent: Entity,
+    model: Model,
+}
+
+pub enum ModelLoadingError {
+    WorkflowExecutionError,
 }
 
 pub fn update_model_tentative_formats(
