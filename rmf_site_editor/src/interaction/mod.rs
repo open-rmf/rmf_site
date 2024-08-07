@@ -155,15 +155,10 @@ impl Plugin for InteractionPlugin {
             .init_resource::<CameraControls>()
             .init_resource::<Picked>()
             .init_resource::<PickingBlockers>()
-            .init_resource::<SelectionBlockers>()
-            .init_resource::<Selection>()
-            .init_resource::<Hovering>()
             .init_resource::<GizmoState>()
             .init_resource::<InteractionMode>()
             .init_resource::<HiddenSelectAnchorEntities>()
             .add_event::<ChangePick>()
-            .add_event::<Select>()
-            .add_event::<Hover>()
             .add_event::<MoveTo>()
             .add_event::<ChangeMode>()
             .add_event::<GizmoClicked>()
@@ -187,7 +182,9 @@ impl Plugin for InteractionPlugin {
             .add_plugins((CameraControlsPlugin, ModelPreviewPlugin));
 
         if !self.headless {
-            app.add_systems(
+            app
+            .add_plugins(SelectPlugin::default())
+            .add_systems(
                 Update,
                 (
                     make_lift_doormat_gizmo,

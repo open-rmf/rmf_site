@@ -1205,7 +1205,7 @@ impl SelectAnchorEdgeBuilder {
             target: self.for_element,
             placement: EdgePlacement::new::<Lane<Entity>>(self.placement),
             continuity: self.continuity,
-            scope: Scope::General,
+            scope: AnchorScope::General,
         }
     }
 
@@ -1214,7 +1214,7 @@ impl SelectAnchorEdgeBuilder {
             target: self.for_element,
             placement: EdgePlacement::new::<Measurement<Entity>>(self.placement),
             continuity: self.continuity,
-            scope: Scope::Drawing,
+            scope: AnchorScope::Drawing,
         }
     }
 
@@ -1230,7 +1230,7 @@ impl SelectAnchorEdgeBuilder {
                 },
             ),
             continuity: self.continuity,
-            scope: Scope::General,
+            scope: AnchorScope::General,
         }
     }
 
@@ -1239,7 +1239,7 @@ impl SelectAnchorEdgeBuilder {
             target: self.for_element,
             placement: EdgePlacement::new::<Door<Entity>>(self.placement),
             continuity: self.continuity,
-            scope: Scope::General,
+            scope: AnchorScope::General,
         }
     }
 
@@ -1248,7 +1248,7 @@ impl SelectAnchorEdgeBuilder {
             target: self.for_element,
             placement: EdgePlacement::new::<LiftProperties<Entity>>(self.placement),
             continuity: self.continuity,
-            scope: Scope::Site,
+            scope: AnchorScope::Site,
         }
     }
 
@@ -1275,7 +1275,7 @@ impl SelectAnchorPointBuilder {
             target: self.for_element,
             placement: PointPlacement::new::<Location<Entity>>(),
             continuity: self.continuity,
-            scope: Scope::General,
+            scope: AnchorScope::General,
         }
     }
 
@@ -1284,7 +1284,7 @@ impl SelectAnchorPointBuilder {
             target: self.for_element,
             placement: PointPlacement::new::<Fiducial<Entity>>(),
             continuity: self.continuity,
-            scope: Scope::Site,
+            scope: AnchorScope::Site,
         }
     }
 
@@ -1293,7 +1293,7 @@ impl SelectAnchorPointBuilder {
             target: self.for_element,
             placement: PointPlacement::new::<Fiducial<Entity>>(),
             continuity: self.continuity,
-            scope: Scope::Drawing,
+            scope: AnchorScope::Drawing,
         }
     }
 
@@ -1353,7 +1353,7 @@ impl SelectAnchorPathBuilder {
                 },
             ),
             continuity: self.continuity,
-            scope: Scope::General,
+            scope: AnchorScope::General,
         }
     }
 }
@@ -1361,16 +1361,16 @@ impl SelectAnchorPathBuilder {
 type PlacementArc = Arc<dyn Placement + Send + Sync>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Scope {
+pub enum AnchorScope {
     Drawing,
     General,
     Site,
 }
 
-impl Scope {
+impl AnchorScope {
     pub fn is_site(&self) -> bool {
         match self {
-            Scope::Site => true,
+            AnchorScope::Site => true,
             _ => false,
         }
     }
@@ -1385,7 +1385,7 @@ pub struct SelectAnchor {
     target: Option<Entity>,
     placement: PlacementArc,
     continuity: SelectAnchorContinuity,
-    scope: Scope,
+    scope: AnchorScope,
 }
 
 impl SelectAnchor {
@@ -1894,7 +1894,7 @@ pub fn handle_select_anchor_mode(
         }
 
         match request.scope {
-            Scope::General | Scope::Site => {
+            AnchorScope::General | AnchorScope::Site => {
                 // If we are working with normal level or site requests, hide all drawing anchors
                 for anchor in params.anchors.iter().filter(|(e, _)| {
                     params
@@ -1907,7 +1907,7 @@ pub fn handle_select_anchor_mode(
                 }
             }
             // Nothing to hide, it's done by the drawing editor plugin
-            Scope::Drawing => {}
+            AnchorScope::Drawing => {}
         }
 
         // If we are creating a new object, then we should deselect anything
@@ -1996,13 +1996,13 @@ pub fn handle_select_anchor_mode(
             };
 
             let new_anchor = match request.scope {
-                Scope::Site => {
+                AnchorScope::Site => {
                     let site = workspace.to_site(&open_sites).expect("No current site??");
                     let new_anchor = params.commands.spawn(AnchorBundle::at_transform(tf)).id();
                     params.commands.entity(site).add_child(new_anchor);
                     new_anchor
                 }
-                Scope::Drawing => {
+                AnchorScope::Drawing => {
                     let drawing_entity = current_drawing
                         .target()
                         .expect("No drawing while spawning drawing anchor")
@@ -2023,7 +2023,7 @@ pub fn handle_select_anchor_mode(
                         .id();
                     new_anchor
                 }
-                Scope::General => params.commands.spawn(AnchorBundle::at_transform(tf)).id(),
+                AnchorScope::General => params.commands.spawn(AnchorBundle::at_transform(tf)).id(),
             };
 
             request = match request.next(AnchorSelection::new(new_anchor), &mut params) {
