@@ -396,8 +396,6 @@ impl Plugin for SitePlugin {
                 add_measurement_visuals,
                 update_changed_measurement,
                 update_measurement_for_moved_anchors,
-                handle_model_loaded_events,
-                update_model_scenes,
                 update_affiliations,
                 update_members_of_groups.after(update_affiliations),
                 update_model_scales,

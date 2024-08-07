@@ -33,10 +33,11 @@ use rmf_site_format::{AssetSource, ModelMarker, Pending, Pose, Scale};
 use smallvec::SmallVec;
 use std::{any::TypeId, future::Future};
 
+/// Denotes the properties of the current spawned scene for the model, to despawn when updating AssetSource
+/// and avoid spurious reloading if the new `AssetSource` is equal to the old one
 #[derive(Component, Debug, Clone)]
 pub struct ModelScene {
     source: AssetSource,
-    format: TentativeModelFormat,
     entity: Option<Entity>,
 }
 
@@ -80,10 +81,10 @@ impl TentativeModelFormat {
         }
     }
 
-    pub fn get_all_for_source(name: &str) -> Vec<AssetSource> {
+    pub fn get_all_for_source(name: &str) -> SmallVec<[AssetSource; 6]> {
         let model_name = name.split('/').last().unwrap();
         let format = TentativeModelFormat::default();
-        Vec::from([
+        SmallVec::from([
             AssetSource::Search(name.to_owned()),
             AssetSource::Search(name.to_owned() + "/" + model_name + ".obj"),
             AssetSource::Search(name.to_owned() + ".glb"),
@@ -97,208 +98,6 @@ impl TentativeModelFormat {
 #[derive(Debug, Component, Deref, DerefMut)]
 pub struct PendingSpawning(Handle<LoadedUntypedAsset>);
 
-/// A unit component to mark where a scene begins
-#[derive(Component, Debug, Clone, Copy)]
-pub struct ModelSceneRoot;
-
-pub fn handle_model_loaded_events(
-    mut commands: Commands,
-    loading_models: Query<
-        (Entity, &PendingSpawning, &Scale, Option<&RenderLayers>),
-        With<ModelMarker>,
-    >,
-    mut current_scenes: Query<&mut ModelScene>,
-    asset_server: Res<AssetServer>,
-    site_assets: Res<SiteAssets>,
-    gltfs: Res<Assets<Gltf>>,
-    untyped_assets: Res<Assets<LoadedUntypedAsset>>,
-) {
-    return;
-    // For each model that is loading, check if its scene has finished loading
-    // yet. If the scene has finished loading, then insert it as a child of the
-    // model entity and make it selectable.
-    for (e, h, scale, render_layers) in loading_models.iter() {
-        if asset_server.is_loaded_with_dependencies(h.id()) {
-            let Some(h) = untyped_assets.get(&**h) else {
-                warn!("Broken reference to untyped asset, this should not happen!");
-                continue;
-            };
-            let h = &h.handle;
-            let type_id = h.type_id();
-            let model_id = if type_id == TypeId::of::<Gltf>() {
-                // Guaranteed to be safe in this scope
-                // Note we can't do an `if let Some()` because get(Handle) panics if the type is
-                // not the stored type
-                let gltf = gltfs.get(&*h).unwrap();
-                // Get default scene if present, otherwise index 0
-                let scene = gltf
-                    .default_scene
-                    .as_ref()
-                    .map(|s| s.clone())
-                    .unwrap_or(gltf.scenes.get(0).unwrap().clone());
-                Some(
-                    commands
-                        .spawn(SceneBundle {
-                            scene,
-                            transform: Transform::from_scale(**scale),
-                            ..default()
-                        })
-                        .id(),
-                )
-            } else if type_id == TypeId::of::<Scene>() {
-                let scene = h.clone().typed::<Scene>();
-                Some(
-                    commands
-                        .spawn(SceneBundle {
-                            scene,
-                            transform: Transform::from_scale(**scale),
-                            ..default()
-                        })
-                        .id(),
-                )
-            } else if type_id == TypeId::of::<Mesh>() {
-                let mesh = h.clone().typed::<Mesh>();
-                Some(
-                    commands
-                        .spawn(PbrBundle {
-                            mesh,
-                            material: site_assets.default_mesh_grey_material.clone(),
-                            transform: Transform::from_scale(**scale),
-                            ..default()
-                        })
-                        .id(),
-                )
-            } else {
-                None
-            };
-
-            if let Some(id) = model_id {
-                let mut cmd = commands.entity(e);
-                cmd.insert(ModelSceneRoot).add_child(id);
-                current_scenes.get_mut(e).unwrap().entity = Some(id);
-            }
-            commands
-                .entity(e)
-                .remove::<(PreventDeletion, PendingSpawning)>();
-        }
-    }
-}
-
-pub fn update_model_scenes(
-    mut commands: Commands,
-    changed_models: Query<
-        (
-            Entity,
-            &AssetSource,
-            &Pose,
-            &TentativeModelFormat,
-            Option<&Visibility>,
-        ),
-        (Changed<TentativeModelFormat>, With<ModelMarker>),
-    >,
-    asset_server: Res<AssetServer>,
-    mut current_scenes: Query<&mut ModelScene>,
-    trashcan: Res<ModelTrashcan>,
-) {
-    return;
-    fn spawn_model(
-        e: Entity,
-        source: &AssetSource,
-        pose: &Pose,
-        asset_server: &AssetServer,
-        tentative_format: &TentativeModelFormat,
-        has_visibility: bool,
-        commands: &mut Commands,
-    ) {
-        let mut commands = commands.entity(e);
-        commands
-            .insert(ModelScene {
-                source: source.clone(),
-                format: tentative_format.clone(),
-                entity: None,
-            })
-            .insert(TransformBundle::from_transform(pose.transform()))
-            .insert(Category::Model);
-
-        if !has_visibility {
-            // NOTE: We separate this out because for CollisionMeshMarker
-            // entities their visibility will be set by the CategoryVisibility
-            // plugin, which will (usually) set visibility to false. If we
-            // always inserted a true Visibiltiy then we would override the
-            // CategoryVisibility setting. This kind of multiple-source-of-truth
-            // conflict should be resolved by having a more sound way of building
-            // new entities and/or using a dependency tracker as proposed here:
-            // https://github.com/open-rmf/rmf_site/issues/173
-            commands.insert(VisibilityBundle {
-                visibility: Visibility::Inherited,
-                ..default()
-            });
-        }
-
-        // For search assets, look at subfolders and iterate through file formats
-        // TODO(luca) This will also iterate for non search assets, fix
-        let asset_source = match source {
-            AssetSource::Search(name) => {
-                let model_name = name.split('/').last().unwrap();
-                AssetSource::Search(name.to_owned() + &tentative_format.to_string(model_name))
-            }
-            _ => source.clone(),
-        };
-        let asset_path = match String::try_from(&asset_source) {
-            Ok(asset_path) => asset_path,
-            Err(err) => {
-                error!(
-                    "Invalid syntax while creating asset path for a model: {err}. \
-                    Check that your asset information was input correctly. \
-                    Current value:\n{:?}",
-                    asset_source,
-                );
-                return;
-            }
-        };
-        let handle = asset_server.load_untyped(asset_path);
-        commands
-            .insert(PreventDeletion::because(
-                "Waiting for model to spawn".to_string(),
-            ))
-            .insert(PendingSpawning(handle));
-    }
-
-    // update changed models
-    for (e, source, pose, tentative_format, vis_option) in changed_models.iter() {
-        if let Ok(current_scene) = current_scenes.get_mut(e) {
-            // Avoid respawning if spurious change detection was triggered
-            if current_scene.source != *source || current_scene.format != *tentative_format {
-                if let Some(scene_entity) = current_scene.entity {
-                    commands.entity(scene_entity).set_parent(trashcan.0);
-                    commands.entity(e).remove::<ModelSceneRoot>();
-                }
-                // Updated model
-                spawn_model(
-                    e,
-                    source,
-                    pose,
-                    &asset_server,
-                    tentative_format,
-                    vis_option.is_some(),
-                    &mut commands,
-                );
-            }
-        } else {
-            // New model
-            spawn_model(
-                e,
-                source,
-                pose,
-                &asset_server,
-                tentative_format,
-                vis_option.is_some(),
-                &mut commands,
-            );
-        }
-    }
-}
-
 #[derive(Resource)]
 /// Services that deal with workspace loading
 pub struct ModelLoadingServices {
@@ -306,6 +105,7 @@ pub struct ModelLoadingServices {
     pub load_model: Service<ModelLoadingRequest, Result<(), ModelLoadingError>>,
     // TODO(luca) reparent service? or have the previous have entity as an input?
     pub load_asset_source: Service<AssetSource, Result<UntypedHandle, ModelLoadingError>>,
+    pub try_all_tentative_formats: Service<SmallVec<[AssetSource; 6]>, Option<UntypedHandle>>,
 }
 
 #[derive(SystemParam)]
@@ -316,19 +116,26 @@ pub struct ModelLoader<'w, 's> {
 
 impl<'w, 's> ModelLoader<'w, 's> {
     pub fn load_model(&mut self, model: Model, parent: Entity) {
+        // TODO(luca) cleanup all the structs that we don't need in Model, maybe just use a builder
+        // pattern to also include components that we want to propagate
         let request = ModelLoadingRequest {
             model,
             parent,
             load_asset_source: self.load_model.load_asset_source,
+            try_all_tentative_formats: self.load_model.try_all_tentative_formats,
         };
-        self.commands.request(request, self.load_model.load_model).detach();
+        self.commands
+            .request(request, self.load_model.load_model)
+            .detach();
     }
 }
 
 fn load_asset_source(
-    In(AsyncService { request, channel, ..}): AsyncServiceInput<AssetSource>,
+    In(AsyncService {
+        request, channel, ..
+    }): AsyncServiceInput<AssetSource>,
     asset_server: Res<AssetServer>,
-) -> impl Future<Output=Result<UntypedHandle, ModelLoadingError>> {
+) -> impl Future<Output = Result<UntypedHandle, ModelLoadingError>> {
     let callback = move |In(id): In<UntypedAssetId>, asset_server: Res<AssetServer>| {
         asset_server.get_load_state(id)
     };
@@ -338,13 +145,12 @@ fn load_asset_source(
         async move {
             let handle = match asset_server.load_untyped_async(&asset_path).await {
                 Ok(handle) => {
-                    /*
                     if asset_server.is_loaded_with_dependencies(handle.id()) {
-                        std::future::Either::Left(std::future::ready())
+                        futures::future::Either::Left(std::future::ready(true))
                     } else {
-                        std::future::Either::Right(std::future::pending())
+                        futures::future::Either::Right(std::future::pending())
                     }
-                    */
+                    .await;
                     // TODO(luca) should we make sure it is loaded with dependencies? Return None
                     // if any of the depedencies failed
                     Ok(handle)
@@ -393,16 +199,12 @@ fn load_asset_source(
 pub fn spawn_scene_for_loaded_model(
     In((e, h)): In<(Entity, UntypedHandle)>,
     mut commands: Commands,
-    loading_models: Query<
-        (Entity, &Scale),
-        With<ModelMarker>,
-    >,
+    loading_models: Query<(Entity, &Scale), With<ModelMarker>>,
     mut current_scenes: Query<&mut ModelScene>,
     asset_server: Res<AssetServer>,
     site_assets: Res<SiteAssets>,
     gltfs: Res<Assets<Gltf>>,
-) {
-    return;
+) -> Option<Entity> {
     // For each model that is loading, check if its scene has finished loading
     // yet. If the scene has finished loading, then insert it as a child of the
     // model entity and make it selectable.
@@ -418,24 +220,10 @@ pub fn spawn_scene_for_loaded_model(
             .as_ref()
             .map(|s| s.clone())
             .unwrap_or(gltf.scenes.get(0).unwrap().clone());
-        Some(
-            commands
-                .spawn(SceneBundle {
-                    scene,
-                    ..default()
-                })
-                .id(),
-        )
+        Some(commands.spawn(SceneBundle { scene, ..default() }).id())
     } else if type_id == TypeId::of::<Scene>() {
         let scene = h.clone().typed::<Scene>();
-        Some(
-            commands
-                .spawn(SceneBundle {
-                    scene,
-                    ..default()
-                })
-                .id(),
-        )
+        Some(commands.spawn(SceneBundle { scene, ..default() }).id())
     } else if type_id == TypeId::of::<Mesh>() {
         let mesh = h.clone().typed::<Mesh>();
         Some(
@@ -450,38 +238,46 @@ pub fn spawn_scene_for_loaded_model(
     } else {
         None
     };
-
-    if let Some(id) = model_id {
-        let mut cmd = commands.entity(e);
-        cmd.insert(ModelSceneRoot).add_child(id);
-        // current_scenes.get_mut(e).unwrap().entity = Some(id);
-    }
-    commands
-        .entity(e)
-        .remove::<(PreventDeletion, PendingSpawning)>();
+    model_id
 }
 
 async fn handle_model_loading(
-    In(AsyncService { request, channel, ..}): AsyncServiceInput<ModelLoadingRequest>,
+    In(AsyncService {
+        request, channel, ..
+    }): AsyncServiceInput<ModelLoadingRequest>,
 ) -> Result<Entity, ModelLoadingError> {
-    let entity = channel.command(|commands| {
-        commands.spawn_empty().id()
-    }).await.available().ok_or(ModelLoadingError::WorkflowExecutionError)?;
+    let entity = channel
+        .command(|commands| commands.spawn_empty().id())
+        .await
+        .available()
+        .ok_or(ModelLoadingError::WorkflowExecutionError)?;
     let spawn_scene = spawn_scene_for_loaded_model.into_blocking_callback();
-    // TODO(luca) smallvec?
     let sources = match request.model.source {
         AssetSource::Search(ref name) => TentativeModelFormat::get_all_for_source(name),
-        AssetSource::Local(_) | AssetSource::Remote(_) | AssetSource::Package(_) => Vec::from([request.model.source.clone()]),
+        AssetSource::Local(_) | AssetSource::Remote(_) | AssetSource::Package(_) => {
+            let mut v = SmallVec::new();
+            v.push(request.model.source.clone());
+            v
+        }
     };
     // TODO(luca) spread this with a fork_clone to parallelize asset loading over all search
     // variants
-    // let mut handle = None;
+    let mut handle = None;
+    // Note that the spreading + collecting workflow is not necessarily faster because we could be
+    // returning early in cases in which the first variant is found (which is usually the case for
+    // submeshes in remote SDF files)
+    /*
+    let handle = channel.query(
+        sources, request.try_all_tentative_formats
+    ).await.available().ok_or(ModelLoadingError::WorkflowExecutionError)?;
+    */
     for source in sources {
         // TODO(luca) remove clone here
-        let res = channel.query(
-            source.clone(), request.load_asset_source
-        ).await.available().ok_or(ModelLoadingError::WorkflowExecutionError)?;
-        /*
+        let res = channel
+            .query(source.clone(), request.load_asset_source)
+            .await
+            .available()
+            .ok_or(ModelLoadingError::WorkflowExecutionError)?;
         match res {
             Ok(h) => {
                 // TODO(luca) now we have a valid asset, spawn a scene here
@@ -491,16 +287,38 @@ async fn handle_model_loading(
             }
             Err(e) => {}
         }
-        */
     }
-    /*
     let Some(handle) = handle else {
         return Err(ModelLoadingError::FailedLoadingAsset(request.model.source));
     };
     // Now we have a handle and a parent entity, call the spawn scene service
-    channel.query((request.parent, handle), spawn_scene).await.available().ok_or(ModelLoadingError::WorkflowExecutionError)?;
-    */
-    Ok(entity)
+    let res = channel
+        .query((request.parent, handle), spawn_scene)
+        .await
+        .available()
+        .ok_or(ModelLoadingError::WorkflowExecutionError)?;
+    // TODO(luca) remove unwrap here, handle fail scenarios of spawn_scene_for_loaded_model
+    let scene_entity = res.unwrap();
+    // Spawn a ModelScene to keep track of what was spawned, as well as setting scale in the
+    // request
+    let entity = channel
+        .command(move |commands| {
+            commands
+                .entity(request.parent)
+                .insert(ModelScene {
+                    source: request.model.source,
+                    entity: Some(scene_entity),
+                })
+                .remove::<PendingSpawning>()
+                .add_child(scene_entity);
+            commands
+                .entity(scene_entity)
+                .insert(Transform::from_scale(*request.model.scale));
+        })
+        .await
+        .available()
+        .ok_or(ModelLoadingError::WorkflowExecutionError)?;
+    Ok(scene_entity)
 }
 
 impl FromWorld for ModelLoadingServices {
@@ -508,7 +326,9 @@ impl FromWorld for ModelLoadingServices {
         let model_loading_service = world.spawn_service(handle_model_loading);
         let load_asset_source = world.spawn_service(load_asset_source);
         let load_model = world.spawn_workflow(|scope, builder| {
-            scope.input.chain(builder)
+            scope
+                .input
+                .chain(builder)
                 .then(model_loading_service)
                 .map_block(|res| {
                     // Discard handle for now
@@ -523,10 +343,23 @@ impl FromWorld for ModelLoadingServices {
                 // .cancel_on_none()
                 .connect(scope.terminate)
         });
+        // Input is a SmallVec[AssetSource; 6], spread to parallelize and collect results, get the
+        // first that succeeded
+        let try_all_tentative_formats = world.spawn_workflow(|scope, builder| {
+            scope
+                .input
+                .chain(builder)
+                .spread()
+                .then(load_asset_source)
+                .collect_all::<6>()
+                .map_block(|res| res.into_iter().find_map(|el| el.ok()))
+                .connect(scope.terminate)
+        });
 
         Self {
             load_model,
             load_asset_source,
+            try_all_tentative_formats,
         }
     }
 }
@@ -535,6 +368,7 @@ pub struct ModelLoadingRequest {
     parent: Entity,
     model: Model,
     load_asset_source: Service<AssetSource, Result<UntypedHandle, ModelLoadingError>>,
+    try_all_tentative_formats: Service<SmallVec<[AssetSource; 6]>, Option<UntypedHandle>>,
 }
 
 #[derive(Debug)]
@@ -545,9 +379,10 @@ pub enum ModelLoadingError {
     FailedLoadingAsset(AssetSource),
 }
 
-use crate::site::{NameInSite, IsStatic};
+use crate::site::{IsStatic, NameInSite};
 pub fn load_new_models(
-    new_models: Query<
+    mut commands: Commands,
+    mut new_models: Query<
         (
             Entity,
             &NameInSite,
@@ -555,20 +390,50 @@ pub fn load_new_models(
             &Pose,
             &IsStatic,
             &Scale,
+            Option<&mut ModelScene>,
         ),
         (With<ModelMarker>, Changed<AssetSource>),
     >,
     mut model_loader: ModelLoader,
+    trashcan: Res<ModelTrashcan>,
 ) {
-    for (e, name, source, pose, is_static, scale) in new_models.iter() {
-        model_loader.load_model(Model {
-            name: name.clone(),
-            source: source.clone(),
-            pose: pose.clone(),
-            is_static: is_static.clone(),
-            scale: scale.clone(),
-            marker: Default::default(),
-        }, e);
+    for (e, name, source, pose, is_static, scale, mut model_scene) in new_models.iter_mut() {
+        // Only trigger a load if there is no model scene or it is different from the current one
+        if let Some(mut scene) = model_scene {
+            if scene.source != *source {
+                info!("Despawning");
+                if let Some(scene_entity) = scene.entity {
+                    info!("Found scene");
+                    commands.entity(scene_entity).set_parent(trashcan.0);
+                }
+                commands.entity(e).remove::<ModelScene>();
+                // Spawn
+                model_loader.load_model(
+                    Model {
+                        name: name.clone(),
+                        source: source.clone(),
+                        pose: pose.clone(),
+                        is_static: is_static.clone(),
+                        scale: scale.clone(),
+                        marker: Default::default(),
+                    },
+                    e,
+                );
+            }
+        } else {
+            // Spawn
+            model_loader.load_model(
+                Model {
+                    name: name.clone(),
+                    source: source.clone(),
+                    pose: pose.clone(),
+                    is_static: is_static.clone(),
+                    scale: scale.clone(),
+                    marker: Default::default(),
+                },
+                e,
+            );
+        }
     }
 }
 
@@ -690,7 +555,7 @@ pub fn clear_model_trashcan(
 
 pub fn make_models_selectable(
     mut commands: Commands,
-    new_scene_roots: Query<Entity, (Added<ModelSceneRoot>, Without<Pending>)>,
+    new_scene_roots: Query<Entity, (Added<ModelScene>, Without<Pending>)>,
     parents: Query<&Parent>,
     scene_roots: Query<(&Selectable, Option<&RenderLayers>), With<ModelMarker>>,
     all_children: Query<&Children>,
@@ -749,7 +614,7 @@ pub fn make_models_selectable(
 /// Assigns the render layer of the root, if present, to all the children
 pub fn propagate_model_render_layers(
     mut commands: Commands,
-    new_scene_roots: Query<Entity, Added<ModelSceneRoot>>,
+    new_scene_roots: Query<Entity, Added<ModelScene>>,
     render_layers: Query<&RenderLayers>,
     parents: Query<&Parent>,
     mesh_entities: Query<Entity, With<Handle<Mesh>>>,

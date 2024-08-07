@@ -76,6 +76,8 @@ pub enum SdfError {
     MissingModelTag,
     #[error("Failed parsing asset source: {0}")]
     UnsupportedAssetSource(String),
+    #[error("Failed reading mesh at source: {0}")]
+    MissingMesh(String),
 }
 
 /// Combines the path from the SDF that is currently being processed with the path of a mesh
@@ -136,6 +138,15 @@ fn compute_model_source<'a, 'b>(
             .resolve(subasset_uri)
             .or_else(|e| Err(SdfError::UnsupportedAssetSource(e.to_string())))?;
         AssetSource::try_from(path.to_string().as_str()).map_err(SdfError::UnsupportedAssetSource)
+    }?;
+    // Fire a loading here so we can make sure all the sub assets are retrievable and prefetched
+    // Unwrap is safe since this was constructed above and the try_from calls would have failed
+    async move {
+        let asset_source_string = String::try_from(&asset_source).unwrap();
+        load_context
+            .load_direct(asset_source_string)
+            .await
+            .map_err(|_| SdfError::MissingMesh(asset_source_string))
     }?;
     Ok(asset_source)
 }

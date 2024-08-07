@@ -33,6 +33,7 @@ wasm-bindgen = "0.2.87"
 futures-lite = "1.12.0"
 bevy = { version = "0.12", features = ["pnm", "jpeg", "tga"] }
 dirs = "5.0"
+futures = "*"
 thread_local = "*"
 geo = "0.27"
 thiserror = "*"

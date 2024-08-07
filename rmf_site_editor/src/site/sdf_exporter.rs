@@ -9,7 +9,7 @@ use crate::SaveWorkspace;
 use crate::{
     site::{
         ChildLiftCabinGroup, CollisionMeshMarker, DoorSegments, DrawingMarker, FloorSegments,
-        LiftDoormat, ModelSceneRoot, TentativeModelFormat, VisualMeshMarker,
+        LiftDoormat, ModelScene, TentativeModelFormat, VisualMeshMarker,
     },
     Autoload, WorkspaceLoader,
 };
@@ -46,7 +46,7 @@ pub fn headless_sdf_export(
     mut commands: Commands,
     mut export: EventWriter<SaveWorkspace>,
     mut exit: EventWriter<bevy::app::AppExit>,
-    missing_models: Query<(), (With<TentativeModelFormat>, Without<ModelSceneRoot>)>,
+    missing_models: Query<(), (With<TentativeModelFormat>, Without<ModelScene>)>,
     mut export_state: ResMut<HeadlessSdfExportState>,
     sites: Query<(Entity, &NameOfSite)>,
     drawings: Query<Entity, With<DrawingMarker>>,
