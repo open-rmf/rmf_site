@@ -21,7 +21,8 @@ use crate::{
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
 };
 use bevy::{
-    asset::{LoadState, LoadedUntypedAsset},
+    asset::{AssetLoadError, LoadState, LoadedUntypedAsset, UntypedAssetId},
+    ecs::system::SystemParam,
     gltf::Gltf,
     prelude::*,
     render::view::RenderLayers,
@@ -30,7 +31,7 @@ use bevy_impulse::*;
 use bevy_mod_outline::OutlineMeshExt;
 use rmf_site_format::{AssetSource, ModelMarker, Pending, Pose, Scale};
 use smallvec::SmallVec;
-use std::any::TypeId;
+use std::{any::TypeId, future::Future};
 
 #[derive(Component, Debug, Clone)]
 pub struct ModelScene {
@@ -78,6 +79,19 @@ impl TentativeModelFormat {
             Sdf => "/model.sdf".to_owned(),
         }
     }
+
+    pub fn get_all_for_source(name: &str) -> Vec<AssetSource> {
+        let model_name = name.split('/').last().unwrap();
+        let format = TentativeModelFormat::default();
+        Vec::from([
+            AssetSource::Search(name.to_owned()),
+            AssetSource::Search(name.to_owned() + "/" + model_name + ".obj"),
+            AssetSource::Search(name.to_owned() + ".glb"),
+            AssetSource::Search(name.to_owned() + ".stl"),
+            AssetSource::Search(name.to_owned() + "/" + model_name + ".glb"),
+            AssetSource::Search(name.to_owned() + "/model.sdf"),
+        ])
+    }
 }
 
 #[derive(Debug, Component, Deref, DerefMut)]
@@ -99,10 +113,11 @@ pub fn handle_model_loaded_events(
     gltfs: Res<Assets<Gltf>>,
     untyped_assets: Res<Assets<LoadedUntypedAsset>>,
 ) {
+    return;
     // For each model that is loading, check if its scene has finished loading
     // yet. If the scene has finished loading, then insert it as a child of the
     // model entity and make it selectable.
-    for (e, h, scale, render_layer) in loading_models.iter() {
+    for (e, h, scale, render_layers) in loading_models.iter() {
         if asset_server.is_loaded_with_dependencies(h.id()) {
             let Some(h) = untyped_assets.get(&**h) else {
                 warn!("Broken reference to untyped asset, this should not happen!");
@@ -160,9 +175,6 @@ pub fn handle_model_loaded_events(
             if let Some(id) = model_id {
                 let mut cmd = commands.entity(e);
                 cmd.insert(ModelSceneRoot).add_child(id);
-                if !render_layer.is_some_and(|l| l.iter().all(|l| l == MODEL_PREVIEW_LAYER)) {
-                    cmd.insert(Selectable::new(e));
-                }
                 current_scenes.get_mut(e).unwrap().entity = Some(id);
             }
             commands
@@ -188,6 +200,7 @@ pub fn update_model_scenes(
     mut current_scenes: Query<&mut ModelScene>,
     trashcan: Res<ModelTrashcan>,
 ) {
+    return;
     fn spawn_model(
         e: Entity,
         source: &AssetSource,
@@ -290,8 +303,162 @@ pub fn update_model_scenes(
 /// Services that deal with workspace loading
 pub struct ModelLoadingServices {
     /// Service that loads the requested model, returns the Entity where the model was spawned
-    pub load_model: Service<ModelLoadingRequest, Result<Entity, ModelLoadingError>>,
+    pub load_model: Service<ModelLoadingRequest, Result<(), ModelLoadingError>>,
     // TODO(luca) reparent service? or have the previous have entity as an input?
+    pub load_asset_source: Service<AssetSource, Result<UntypedHandle, ModelLoadingError>>,
+}
+
+#[derive(SystemParam)]
+pub struct ModelLoader<'w, 's> {
+    commands: Commands<'w, 's>,
+    load_model: Res<'w, ModelLoadingServices>,
+}
+
+impl<'w, 's> ModelLoader<'w, 's> {
+    pub fn load_model(&mut self, model: Model, parent: Entity) {
+        let request = ModelLoadingRequest {
+            model,
+            parent,
+            load_asset_source: self.load_model.load_asset_source,
+        };
+        self.commands.request(request, self.load_model.load_model).detach();
+    }
+}
+
+fn load_asset_source(
+    In(AsyncService { request, channel, ..}): AsyncServiceInput<AssetSource>,
+    asset_server: Res<AssetServer>,
+) -> impl Future<Output=Result<UntypedHandle, ModelLoadingError>> {
+    let callback = move |In(id): In<UntypedAssetId>, asset_server: Res<AssetServer>| {
+        asset_server.get_load_state(id)
+    };
+    let get_load_state_callback = callback.into_blocking_callback();
+    let load_asset_callback = move |In(asset_path): In<String>, asset_server: Res<AssetServer>| {
+        let asset_server = asset_server.clone();
+        async move {
+            let handle = match asset_server.load_untyped_async(&asset_path).await {
+                Ok(handle) => {
+                    /*
+                    if asset_server.is_loaded_with_dependencies(handle.id()) {
+                        std::future::Either::Left(std::future::ready())
+                    } else {
+                        std::future::Either::Right(std::future::pending())
+                    }
+                    */
+                    // TODO(luca) should we make sure it is loaded with dependencies? Return None
+                    // if any of the depedencies failed
+                    Ok(handle)
+                }
+                Err(e) => {
+                    warn!("Failed loading asset {:?}, reason: {:?}", asset_path, e);
+                    Err(ModelLoadingError::AssetServerError(e.to_string()))
+                }
+            };
+            handle
+        }
+    };
+    let load_callback = load_asset_callback.into_async_callback();
+    async move {
+        let asset_path = match String::try_from(&request) {
+            Ok(asset_path) => asset_path,
+            Err(err) => {
+                error!(
+                    "Invalid syntax while creating asset path for a model: {err}. \
+                    Check that your asset information was input correctly. \
+                    Current value:\n{:?}",
+                    request,
+                );
+                // TODO(luca) don't both log and return, just a single map err is probably ok?
+                return Err(ModelLoadingError::InvalidAssetSource(request.clone()));
+            }
+        };
+        let handle = match channel.query(asset_path, load_callback).await.take() {
+            PromiseState::Available(h) => h,
+            _ => {
+                error!("Failed getting promise from asset server loading");
+                return Err(ModelLoadingError::WorkflowExecutionError);
+            }
+        }?;
+        println!("Loaded asset {:?}", request);
+        Ok(handle)
+    }
+}
+
+// TODO*luca) APPLY SCALE TO TRANSFORM
+// PROPAGATE RENDER LAYER
+// PROPAGATE SELECTABLE
+// LOAD WITH DEPENDENCIES
+// CURRENT SCENE HANDLING FOR SPURIOUS CHANGE DETECTION
+// Input is parent entity and handle for asset
+pub fn spawn_scene_for_loaded_model(
+    In((e, h)): In<(Entity, UntypedHandle)>,
+    mut commands: Commands,
+    loading_models: Query<
+        (Entity, &Scale),
+        With<ModelMarker>,
+    >,
+    mut current_scenes: Query<&mut ModelScene>,
+    asset_server: Res<AssetServer>,
+    site_assets: Res<SiteAssets>,
+    gltfs: Res<Assets<Gltf>>,
+) {
+    return;
+    // For each model that is loading, check if its scene has finished loading
+    // yet. If the scene has finished loading, then insert it as a child of the
+    // model entity and make it selectable.
+    let type_id = h.type_id();
+    let model_id = if type_id == TypeId::of::<Gltf>() {
+        // Guaranteed to be safe in this scope
+        // Note we can't do an `if let Some()` because get(Handle) panics if the type is
+        // not the stored type
+        let gltf = gltfs.get(&h).unwrap();
+        // Get default scene if present, otherwise index 0
+        let scene = gltf
+            .default_scene
+            .as_ref()
+            .map(|s| s.clone())
+            .unwrap_or(gltf.scenes.get(0).unwrap().clone());
+        Some(
+            commands
+                .spawn(SceneBundle {
+                    scene,
+                    ..default()
+                })
+                .id(),
+        )
+    } else if type_id == TypeId::of::<Scene>() {
+        let scene = h.clone().typed::<Scene>();
+        Some(
+            commands
+                .spawn(SceneBundle {
+                    scene,
+                    ..default()
+                })
+                .id(),
+        )
+    } else if type_id == TypeId::of::<Mesh>() {
+        let mesh = h.clone().typed::<Mesh>();
+        Some(
+            commands
+                .spawn(PbrBundle {
+                    mesh,
+                    material: site_assets.default_mesh_grey_material.clone(),
+                    ..default()
+                })
+                .id(),
+        )
+    } else {
+        None
+    };
+
+    if let Some(id) = model_id {
+        let mut cmd = commands.entity(e);
+        cmd.insert(ModelSceneRoot).add_child(id);
+        // current_scenes.get_mut(e).unwrap().entity = Some(id);
+    }
+    commands
+        .entity(e)
+        .remove::<(PreventDeletion, PendingSpawning)>();
 }
 
 async fn handle_model_loading(
@@ -300,24 +467,66 @@ async fn handle_model_loading(
     let entity = channel.command(|commands| {
         commands.spawn_empty().id()
     }).await.available().ok_or(ModelLoadingError::WorkflowExecutionError)?;
-    match request.model.source {
-
+    let spawn_scene = spawn_scene_for_loaded_model.into_blocking_callback();
+    // TODO(luca) smallvec?
+    let sources = match request.model.source {
+        AssetSource::Search(ref name) => TentativeModelFormat::get_all_for_source(name),
+        AssetSource::Local(_) | AssetSource::Remote(_) | AssetSource::Package(_) => Vec::from([request.model.source.clone()]),
+    };
+    // TODO(luca) spread this with a fork_clone to parallelize asset loading over all search
+    // variants
+    // let mut handle = None;
+    for source in sources {
+        // TODO(luca) remove clone here
+        let res = channel.query(
+            source.clone(), request.load_asset_source
+        ).await.available().ok_or(ModelLoadingError::WorkflowExecutionError)?;
+        /*
+        match res {
+            Ok(h) => {
+                // TODO(luca) now we have a valid asset, spawn a scene here
+                info!("Model is OK! {:?}", source);
+                handle = Some(h);
+                break;
+            }
+            Err(e) => {}
+        }
+        */
     }
+    /*
+    let Some(handle) = handle else {
+        return Err(ModelLoadingError::FailedLoadingAsset(request.model.source));
+    };
+    // Now we have a handle and a parent entity, call the spawn scene service
+    channel.query((request.parent, handle), spawn_scene).await.available().ok_or(ModelLoadingError::WorkflowExecutionError)?;
+    */
     Ok(entity)
 }
 
 impl FromWorld for ModelLoadingServices {
     fn from_world(world: &mut World) -> Self {
         let model_loading_service = world.spawn_service(handle_model_loading);
+        let load_asset_source = world.spawn_service(load_asset_source);
         let load_model = world.spawn_workflow(|scope, builder| {
             scope.input.chain(builder)
                 .then(model_loading_service)
-
+                .map_block(|res| {
+                    // Discard handle for now
+                    match res {
+                        Ok(_) => Ok(()),
+                        Err(e) => {
+                            error!("{:?}", e);
+                            Err(e)
+                        }
+                    }
+                })
+                // .cancel_on_none()
                 .connect(scope.terminate)
         });
 
         Self {
             load_model,
+            load_asset_source,
         }
     }
 }
@@ -325,10 +534,42 @@ impl FromWorld for ModelLoadingServices {
 pub struct ModelLoadingRequest {
     parent: Entity,
     model: Model,
+    load_asset_source: Service<AssetSource, Result<UntypedHandle, ModelLoadingError>>,
 }
 
+#[derive(Debug)]
 pub enum ModelLoadingError {
     WorkflowExecutionError,
+    AssetServerError(String),
+    InvalidAssetSource(AssetSource),
+    FailedLoadingAsset(AssetSource),
+}
+
+use crate::site::{NameInSite, IsStatic};
+pub fn load_new_models(
+    new_models: Query<
+        (
+            Entity,
+            &NameInSite,
+            &AssetSource,
+            &Pose,
+            &IsStatic,
+            &Scale,
+        ),
+        (With<ModelMarker>, Changed<AssetSource>),
+    >,
+    mut model_loader: ModelLoader,
+) {
+    for (e, name, source, pose, is_static, scale) in new_models.iter() {
+        model_loader.load_model(Model {
+            name: name.clone(),
+            source: source.clone(),
+            pose: pose.clone(),
+            is_static: is_static.clone(),
+            scale: scale.clone(),
+            marker: Default::default(),
+        }, e);
+    }
 }
 
 pub fn update_model_tentative_formats(
@@ -344,7 +585,9 @@ pub fn update_model_tentative_formats(
         With<ModelMarker>,
     >,
     asset_server: Res<AssetServer>,
+    model_loader: ModelLoader,
 ) {
+    return;
     static SUPPORTED_EXTENSIONS: &[&str] = &["obj", "stl", "sdf", "glb", "gltf"];
     for e in changed_models.iter() {
         // Reset to the first format
