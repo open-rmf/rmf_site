@@ -22,6 +22,8 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*, window::PrimaryWindow};
 use bevy_mod_raycast::{deferred::RaycastMesh, deferred::RaycastSource, primitives::rays::Ray3d};
+use bevy_impulse::ContinuousServiceInput;
+
 use rmf_site_format::{FloorMarker, Model, ModelMarker, PrimitiveShape, WallMarker, WorkcellModel};
 use std::collections::HashSet;
 
@@ -302,6 +304,12 @@ impl<'w, 's> IntersectGroundPlaneParams<'w, 's> {
 
         Some(ray.origin() - n_r * ray.origin().dot(n_p) / denom)
     }
+}
+
+pub fn inspector_cursor_transform(
+    In(key): ContinuousServiceInput<(), (), ()>,
+) {
+
 }
 
 pub fn update_cursor_transform(

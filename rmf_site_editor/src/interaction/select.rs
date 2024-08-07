@@ -18,6 +18,7 @@
 use crate::{interaction::*, site::Anchor};
 use bevy::prelude::*;
 use bevy_mod_raycast::deferred::RaycastMesh;
+use bevy_impulse::{ContinuousServiceInput, ContinuousQuery, Stream};
 use std::collections::HashSet;
 
 /// This component is put on entities with meshes to mark them as items that can
@@ -101,7 +102,7 @@ pub struct Hovering(pub Option<Entity>);
 pub struct Select(pub Option<Entity>);
 
 /// Used as an event to command a change in the hovered entity.
-#[derive(Default, Debug, Clone, Copy, Deref, DerefMut, Event)]
+#[derive(Default, Debug, Clone, Copy, Deref, DerefMut, Event, Stream)]
 pub struct Hover(pub Option<Entity>);
 
 /// A resource to track what kind of blockers are preventing the selection
@@ -153,6 +154,13 @@ pub fn make_selectable_entities_pickable(
             }
         }
     }
+}
+
+pub fn inspector_selection_picking(
+    In(key): ContinuousServiceInput<(), (), Hover>,
+    requests: ContinuousQuery<(), (), Hover>,
+) {
+
 }
 
 pub fn handle_selection_picking(
