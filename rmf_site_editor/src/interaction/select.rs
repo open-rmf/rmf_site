@@ -39,7 +39,83 @@ impl Plugin for SelectPlugin {
             InspectorServicePlugin::default(),
             AnchorSelectPlugin::default(),
         ));
+
+        let inspector_service = app.world.resource::<InspectorService>().inspector_service;
+        let new_selector_service = app.spawn_event_streaming_service::<RunSelector>(Update);
+        let select_workflow = app.world.spawn_io_workflow(build_select_workflow(
+            inspector_service,
+            new_selector_service,
+        ));
+
+        // Get the selection workflow running
+        app.world.command(|commands| {
+            commands.request((), select_workflow).detach();
+        });
     }
+}
+
+pub fn build_select_workflow(
+    inspector_service: Service<(), ()>,
+    new_selector_service: Service<(), (), StreamOf<RunSelector>>,
+) -> impl FnOnce(Scope<(), ()>, &mut Builder) -> DeliverySettings {
+    move |scope, builder| {
+        let process_new_selector_service = builder
+            .commands()
+            .spawn_service(process_new_selector.into_blocking_service());
+
+        let run_service_buffer = builder.create_buffer::<RunSelector>(BufferSettings::keep_last(1));
+        let input = scope.input.fork_clone(builder);
+        let inspector = input.clone_chain(builder).then_node(inspector_service);
+        let new_selector_node = input.clone_chain(builder).then_node(new_selector_service);
+        builder.connect(new_selector_node.output, scope.terminate);
+        new_selector_node.streams.chain(builder)
+            .inner()
+            .connect(run_service_buffer.input_slot());
+
+        let open_gate = builder.create_gate_open(run_service_buffer);
+        let trim = builder.create_trim([
+            TrimBranch::between(open_gate.input, inspector.input),
+        ]);
+        builder.connect(trim.output, open_gate.input);
+
+        builder.listen(run_service_buffer)
+            .then(process_new_selector_service)
+            .dispose_on_none()
+            .connect(trim.input);
+
+        open_gate.output.chain(builder)
+            .map_block(|r: RunSelector| ((), r.selector))
+            .then_injection()
+            .trigger()
+            .connect(inspector.input);
+
+        DeliverySettings::Serial
+    }
+}
+
+fn process_new_selector(
+    In(key): In<BufferKey<RunSelector>>,
+    mut access: BufferAccessMut<RunSelector>,
+) -> Option<RunSelector> {
+    let Ok(mut buffer) = access.get_mut(&key) else {
+        return None;
+    };
+
+    let output = buffer.pull();
+    if output.is_some() {
+        // We should lock the gate while the trim is going on so we can't have
+        // multiple new selectors trying to start at the same time
+        buffer.close_gate();
+    }
+
+    output
+}
+
+#[derive(Debug, Clone, Copy, Event)]
+pub struct RunSelector {
+    /// The select workflow will run this service until it terminates and then
+    /// revert back to the inspector selector.
+    selector: Service<(), ()>,
 }
 
 /// This component is put on entities with meshes to mark them as items that can
@@ -262,10 +338,11 @@ pub enum SelectionServiceStages {
 pub struct InspectorService {
     /// Workflow that updates the [`Selection`] as well as [`Hovered`] and
     /// [`Selected`] states in the application.
-    pub inspector_service: Service<(), (), ()>,
+    pub inspector_service: Service<(), ()>,
     /// Workflow that outputs hover and select streams that are compatible with
     /// a general inspector. This service never terminates.
     pub inspector_select_service: Service<(), (), (Hover, Select)>,
+    pub inspector_cursor_transform: Service<(), ()>,
 }
 
 #[derive(Default)]
@@ -274,10 +351,15 @@ pub struct InspectorServicePlugin {}
 impl Plugin for InspectorServicePlugin {
     fn build(&self, app: &mut App) {
         let inspector_select_service = app.spawn_selection_service::<InspectorFilter>();
+        let inspector_cursor_transform = app.spawn_continuous_service(
+            Update, inspector_cursor_transform,
+        );
         let selection_update = app.spawn_service(selection_update);
 
         let inspector_service = app.world.spawn_workflow(|scope, builder| {
-            let selection = scope.input.chain(builder).then_node(inspector_select_service);
+            let fork_input = scope.input.fork_clone(builder);
+            fork_input.clone_chain(builder).then(inspector_cursor_transform).unused();
+            let selection = fork_input.clone_chain(builder).then_node(inspector_select_service);
             selection.streams.1.chain(builder).then(selection_update).unused();
             builder.connect(selection.output, scope.terminate);
         });
@@ -285,6 +367,7 @@ impl Plugin for InspectorServicePlugin {
         app.world.insert_resource(InspectorService {
             inspector_service,
             inspector_select_service,
+            inspector_cursor_transform,
         });
     }
 }
