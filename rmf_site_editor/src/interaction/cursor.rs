@@ -309,16 +309,16 @@ impl<'w, 's> IntersectGroundPlaneParams<'w, 's> {
 /// Update the virtual cursor (dagger and circle) transform while in inspector mode
 pub fn inspector_cursor_transform(
     In(ContinuousService { key }): ContinuousServiceInput<(), ()>,
-    requests: ContinuousQuery<(), ()>,
+    orders: ContinuousQuery<(), ()>,
     cursor: Res<Cursor>,
     raycast_sources: Query<&RaycastSource<SiteRaycastSet>>,
     mut transforms: Query<&mut Transform>,
 ) {
-    let Some(requests) = requests.view(&key) else {
+    let Some(orders) = orders.view(&key) else {
         return;
     };
 
-    if requests.is_empty() {
+    if orders.is_empty() {
         return;
     }
 
@@ -347,16 +347,16 @@ pub fn inspector_cursor_transform(
 /// Update the virtual cursor (dagger and circle) transform while in select anchor mode
 pub fn select_anchor_cursor_transform(
     In(ContinuousService { key }): ContinuousServiceInput<(), ()>,
-    requests: ContinuousQuery<(), ()>,
+    orders: ContinuousQuery<(), ()>,
     cursor: Res<Cursor>,
     mut transforms: Query<&mut Transform>,
     intersect_ground_params: IntersectGroundPlaneParams,
 ) {
-    let Some(requests) = requests.view(&key) else {
+    let Some(orders) = orders.view(&key) else {
         return;
     };
 
-    if requests.is_empty() {
+    if orders.is_empty() {
         return;
     }
 
@@ -379,7 +379,7 @@ pub fn select_anchor_cursor_transform(
 
 pub fn select_3d_cursor_transform(
     In(ContinuousService { key }): ContinuousServiceInput<(), ()>,
-    requests: ContinuousQuery<(), ()>,
+    orders: ContinuousQuery<(), ()>,
     cursor: Res<Cursor>,
     raycast_sources: Query<&RaycastSource<SiteRaycastSet>>,
     models: Query<(), Or<(With<ModelMarker>, With<PrimitiveShape>)>>,
@@ -388,11 +388,11 @@ pub fn select_3d_cursor_transform(
     intersect_ground_params: IntersectGroundPlaneParams,
     mut visibility: Query<&mut Visibility>,
 ) {
-    let Some(requests) = requests.view(&key) else {
+    let Some(orders) = orders.view(&key) else {
         return;
     };
 
-    if requests.is_empty() {
+    if orders.is_empty() {
         return;
     }
 

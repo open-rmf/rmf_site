@@ -767,7 +767,7 @@ dependencies = [
 [[package]]
 name = "bevy_impulse"
 version = "0.0.1"
-source = "git+https://github.com/open-rmf/bevy_impulse?branch=main#5459a16b2c5c4d616b6fd16d0ba5a8e74f093411"
+source = "git+https://github.com/open-rmf/bevy_impulse?branch=main#4e35bf7787bf4f5f97e1f94621f4c8e1d305575e"
 dependencies = [
  "anyhow",
  "arrayvec",
@@ -792,7 +792,7 @@ dependencies = [
 [[package]]
 name = "bevy_impulse_derive"
 version = "0.0.1"
-source = "git+https://github.com/open-rmf/bevy_impulse?branch=main#5459a16b2c5c4d616b6fd16d0ba5a8e74f093411"
+source = "git+https://github.com/open-rmf/bevy_impulse?branch=main#4e35bf7787bf4f5f97e1f94621f4c8e1d305575e"
 dependencies = [
  "quote",
  "syn 1.0.109",

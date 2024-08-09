@@ -84,7 +84,7 @@ pub fn build_select_workflow(
             .connect(trim.input);
 
         open_gate.output.chain(builder)
-            .map_block(|r: RunSelector| ((), r.selector))
+            .map_block(|r: RunSelector| (r.input, r.selector))
             .then_injection()
             .trigger()
             .connect(inspector.input);
@@ -115,8 +115,15 @@ fn process_new_selector(
 pub struct RunSelector {
     /// The select workflow will run this service until it terminates and then
     /// revert back to the inspector selector.
-    selector: Service<(), ()>,
+    selector: Service<Option<Entity>, ()>,
+    /// If there is input for the selector, it will be stored in a [`SelectorInput`]
+    /// component in this entity. The entity will be despawned as soon as the
+    /// input is extracted.
+    input: Option<Entity>,
 }
+
+#[derive(Component)]
+pub struct SelectorInput<T>(T);
 
 /// This component is put on entities with meshes to mark them as items that can
 /// be interacted with to
@@ -373,8 +380,8 @@ impl Plugin for InspectorServicePlugin {
 }
 
 #[derive(Resource)]
-pub struct AnchorSelectService {
-    pub anchor_select_service: Service<(), (), (Hover, Select)>,
+pub struct AnchorSelectionServices {
+    pub anchor_select_stream: Service<(), (), (Hover, Select)>,
 }
 
 #[derive(Default)]
@@ -382,9 +389,89 @@ pub struct AnchorSelectPlugin {}
 
 impl Plugin for AnchorSelectPlugin {
     fn build(&self, app: &mut App) {
-        let anchor_select_service = app.spawn_selection_service::<AnchorFilter>();
-        app.insert_resource(AnchorSelectService { anchor_select_service });
+        let anchor_select_stream = app.spawn_selection_service::<AnchorFilter>();
+        app.insert_resource(AnchorSelectionServices { anchor_select_stream });
     }
+}
+
+pub fn build_anchor_selection_workflow<B: 'static + Send + Sync>(
+    update_preview: Service<(Hover, BufferKey<B>), ()>,
+    update_current: Service<(Entity, BufferKey<B>), Option<()>>,
+    handle_key_code: Service<(KeyCode, BufferKey<B>), Option<()>>,
+    cleanup: Service<BufferKey<B>, ()>,
+    anchor_select_stream: Service<(), (), (Hover, Select)>,
+    keyboard_just_pressed: Service<(), (), StreamOf<KeyCode>>,
+
+) -> impl FnOnce(Scope<Option<Entity>, ()>, &mut Builder) {
+    move |scope, builder| {
+        let buffer = builder.create_buffer::<B>(BufferSettings::keep_last(1));
+
+        let (startup_finished, begin_services) = builder.create_fork_clone();
+        scope.input.chain(builder)
+            .then(extract_selector_input.into_blocking_callback())
+            .branch_for_err(|chain: Chain<_>| chain.connect(scope.terminate))
+            .fork_option(
+                |chain: Chain<_>| chain.then_push(buffer).connect(startup_finished),
+                |chain: Chain<_>| chain.connect(startup_finished),
+            );
+
+        let select = begin_services.clone_chain(builder).then_node(anchor_select_stream);
+        select.streams.0.chain(builder)
+            .with_access(buffer)
+            .then(update_preview)
+            .unused();
+
+        select.streams.1.chain(builder)
+            .map_block(|s| s.0)
+            .dispose_on_none()
+            .with_access(buffer)
+            .then(update_current)
+            .dispose_on_none()
+            .connect(scope.terminate);
+
+        let keyboard = begin_services.clone_chain(builder).then_node(keyboard_just_pressed);
+        keyboard.streams.chain(builder)
+            .inner()
+            .with_access(buffer)
+            .then(handle_key_code)
+            .dispose_on_none()
+            .connect(scope.terminate);
+
+        builder.on_cleanup(buffer, move |scope, builder| {
+            scope.input.chain(builder).then(cleanup).connect(scope.terminate);
+        });
+    }
+}
+
+pub fn extract_selector_input<T: 'static + Send + Sync>(
+    In(e): In<Option<Entity>>,
+    world: &mut World,
+) -> Result<Option<T>, ()> {
+    let Some(e) = e else {
+        // There is no input to provide, so move ahead with the workflow
+        return Ok(None);
+    };
+
+    let Some(mut e_mut) = world.get_entity_mut(e) else {
+        error!(
+            "Could not begin selector service because the input entity {e:?} \
+            does not exist.",
+        );
+        return Err(());
+    };
+
+    let Some(input) = e_mut.take::<SelectorInput<T>>() else {
+        error!(
+            "Could not begin selector service because the input entity {e:?} \
+            did not contain a value {:?}. This is a bug, please report it.",
+            std::any::type_name::<SelectorInput<T>>(),
+        );
+        return Err(());
+    };
+
+    e_mut.despawn_recursive();
+
+    Ok(Some(input.0))
 }
 
 #[derive(SystemParam)]
@@ -439,7 +526,7 @@ impl<'w, 's> SelectionFilter for InspectorFilter<'w, 's> {
 /// [`Category`]: rmf_site_format::Category
 pub fn hover_picking_service<Filter: SystemParam + 'static>(
     In(ContinuousService { key }): ContinuousServiceInput<(), ()>,
-    requests: ContinuousQuery<(), ()>,
+    orders: ContinuousQuery<(), ()>,
     mut picks: EventReader<ChangePick>,
     mut hover: EventWriter<Hover>,
     filter: StaticSystemParam<Filter>,
@@ -447,11 +534,11 @@ pub fn hover_picking_service<Filter: SystemParam + 'static>(
 where
     for<'w, 's> Filter::Item<'w, 's>: SelectionFilter,
 {
-    let Some(requests) = requests.view(&key) else {
+    let Some(orders) = orders.view(&key) else {
         return;
     };
 
-    if requests.is_empty() {
+    if orders.is_empty() {
         // Nothing is asking for this service to run, so skip it
         return;
     }
@@ -482,7 +569,7 @@ where
 /// - [`inspector_select_service`]
 pub fn hover_service<Filter: SystemParam + 'static>(
     In(ContinuousService { key }): ContinuousServiceInput<(), (), Hover>,
-    mut requests: ContinuousQuery<(), (), Hover>,
+    mut orders: ContinuousQuery<(), (), Hover>,
     mut hovered: Query<&mut Hovered>,
     mut hovering: ResMut<Hovering>,
     mut hover: EventReader<Hover>,
@@ -495,11 +582,11 @@ pub fn hover_service<Filter: SystemParam + 'static>(
 where
     for<'w, 's> Filter::Item<'w, 's>: SelectionFilter,
 {
-    let Some(mut requests) = requests.get_mut(&key) else {
+    let Some(mut orders) = orders.get_mut(&key) else {
         return;
     };
 
-    if requests.is_empty() {
+    if orders.is_empty() {
         // Nothing is asking for this service to run
         return;
     }
@@ -522,7 +609,7 @@ where
             }
 
             hovering.0 = new_hovered;
-            requests.for_each(|order| order.streams().send(Hover(new_hovered)));
+            orders.for_each(|order| order.streams().send(Hover(new_hovered)));
         }
     }
 
@@ -544,18 +631,18 @@ where
 /// and is the final piece of the [`SelectionService`] workflow.
 pub fn select_service<Filter: SystemParam + 'static>(
     In(ContinuousService{ key }): ContinuousServiceInput<(), (), Select>,
-    mut requests: ContinuousQuery<(), (), Select>,
+    mut orders: ContinuousQuery<(), (), Select>,
     mut select: EventReader<Select>,
     filter: StaticSystemParam<Filter>,
 )
 where
     for<'w, 's> Filter::Item<'w, 's>: SelectionFilter,
 {
-    let Some(mut requests) = requests.get_mut(&key) else {
+    let Some(mut orders) = orders.get_mut(&key) else {
         return;
     };
 
-    if requests.is_empty() {
+    if orders.is_empty() {
         // Nothing is asking for this service to run
         return;
     }
@@ -563,7 +650,7 @@ where
     let mut filter = filter.into_inner();
 
     for selected in select.read().map(|s| s.0.and_then(|e| filter.apply_filter(e))) {
-        requests.for_each(|order| order.streams().send(Select(selected)));
+        orders.for_each(|order| order.streams().send(Select(selected)));
     }
 }
 
@@ -743,3 +830,4 @@ pub fn maintain_selected_entities(
         }
     }
 }
+

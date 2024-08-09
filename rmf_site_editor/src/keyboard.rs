@@ -20,8 +20,9 @@ use crate::{
     site::{AlignSiteDrawings, Delete},
     CreateNewWorkspace, CurrentWorkspace, SaveWorkspace, WorkspaceLoader,
 };
-use bevy::{prelude::*, window::PrimaryWindow};
+use bevy::{prelude::{*, Input as UserInput}, window::PrimaryWindow};
 use bevy_egui::EguiContexts;
+use bevy_impulse::*;
 
 #[derive(Debug, Clone, Copy, Resource)]
 pub struct DebugMode(pub bool);
@@ -38,11 +39,17 @@ impl Plugin for KeyboardInputPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<DebugMode>()
             .add_systems(Last, handle_keyboard_input);
+
+        let keyboard_just_pressed = app.spawn_continuous_service(
+            Last, keyboard_just_pressed_stream,
+        );
+
+        app.insert_resource(KeyboardServices { keyboard_just_pressed });
     }
 }
 
 fn handle_keyboard_input(
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<UserInput<KeyCode>>,
     selection: Res<Selection>,
     current_mode: Res<InteractionMode>,
     mut egui_context: EguiContexts,
@@ -125,4 +132,27 @@ fn handle_keyboard_input(
             workspace_loader.load_from_dialog();
         }
     }
+}
+
+pub fn keyboard_just_pressed_stream(
+    In(ContinuousService { key }): ContinuousServiceInput<(), (), StreamOf<KeyCode>>,
+    mut orders: ContinuousQuery<(), (), StreamOf<KeyCode>>,
+    keyboard_input: Res<UserInput<KeyCode>>,
+) {
+    let Some(mut orders) = orders.get_mut(&key) else {
+        return;
+    };
+
+    if orders.is_empty() {
+        return;
+    }
+
+    for key_code in keyboard_input.get_just_pressed() {
+        orders.for_each(|order| order.streams().send(StreamOf(*key_code)));
+    }
+}
+
+#[derive(Resource)]
+pub struct KeyboardServices {
+    pub keyboard_just_pressed: Service<(), (), StreamOf<KeyCode>>,
 }
