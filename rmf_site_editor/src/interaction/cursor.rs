@@ -344,7 +344,7 @@ pub fn inspector_cursor_transform(
     *transform = Transform::from_matrix(ray.to_aligned_transform([0., 0., 1.].into()));
 }
 
-/// Update the virtual cursor (dagger and circle) transform while in select anchor mode
+/// Update the virtual cursor transform while in select anchor mode
 pub fn select_anchor_cursor_transform(
     In(ContinuousService { key }): ContinuousServiceInput<(), ()>,
     orders: ContinuousQuery<(), ()>,

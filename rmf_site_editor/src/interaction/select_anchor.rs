@@ -1360,7 +1360,7 @@ impl SelectAnchorPathBuilder {
 
 type PlacementArc = Arc<dyn Placement + Send + Sync>;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Resource)]
 pub enum AnchorScope {
     Drawing,
     General,
@@ -2071,9 +2071,9 @@ pub fn handle_select_anchor_mode(
         for new_selection in select
             .read()
             .filter_map(|s| s.0)
-            .filter(|s| anchors.contains(*s))
+            .filter(|s| anchors.contains(s.candidate))
         {
-            request = match request.next(AnchorSelection::existing(new_selection), &mut params) {
+            request = match request.next(AnchorSelection::existing(new_selection.candidate), &mut params) {
                 Some(next_mode) => next_mode,
                 None => {
                     params.cleanup();
@@ -2303,9 +2303,9 @@ pub fn handle_select_anchor_3d_mode(
         for new_selection in select
             .read()
             .filter_map(|s| s.0)
-            .filter(|s| anchors.contains(*s))
+            .filter(|s| anchors.contains(s.candidate))
         {
-            request = match request.next(AnchorSelection::existing(new_selection), &mut params) {
+            request = match request.next(AnchorSelection::existing(new_selection.candidate), &mut params) {
                 Some(next_mode) => next_mode,
                 None => {
                     params.cleanup();

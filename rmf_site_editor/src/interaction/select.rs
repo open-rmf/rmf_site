@@ -15,14 +15,33 @@
  *
 */
 
-use crate::{interaction::*, site::Anchor};
+use crate::{
+    CurrentWorkspace,
+    interaction::*,
+    site::{
+        drawing_editor::CurrentEditDrawing, Anchor, AnchorBundle, Category, CollisionMeshMarker,
+        Dependents, DrawingMarker, Original, PathBehavior, Pending, TextureNeedsAssignment,
+        VisualMeshMarker,
+    },
+};
+use rmf_site_format::{
+    Door, Edge, Fiducial, Floor, FrameMarker, Lane, LiftProperties, Location, Measurement, Model,
+    NameInWorkcell, NameOfSite, Path, PixelsPerMeter, Point, Pose, Side, Wall, WorkcellModel,
+};
 use bevy::{
     prelude::{*, Input},
     ecs::system::{SystemParam, StaticSystemParam}
 };
 use bevy_impulse::*;
 use bevy_mod_raycast::deferred::RaycastMesh;
-use std::collections::HashSet;
+use std::{
+    collections::HashSet,
+    borrow::Borrow,
+    error::Error,
+};
+use anyhow::{anyhow, Error as Anyhow};
+
+const SELECT_ANCHOR_MODE_LABEL: &'static str = "select_anchor";
 
 #[derive(Default)]
 pub struct SelectPlugin {}
@@ -203,7 +222,36 @@ pub struct Hovering(pub Option<Entity>);
 
 /// Used as an event to command a change in the selected entity.
 #[derive(Default, Debug, Clone, Copy, Deref, DerefMut, Event, Stream)]
-pub struct Select(pub Option<Entity>);
+pub struct Select(pub Option<SelectionCandidate>);
+
+impl Select {
+    pub fn new(candidate: Option<Entity>) -> Select {
+        Select(candidate.map(|c| SelectionCandidate::new(c)))
+    }
+
+    pub fn provisional(candidate: Entity) -> Select {
+        Select(Some(SelectionCandidate::provisional(candidate)))
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct SelectionCandidate {
+    /// The entity that's being requested as a selection
+    pub candidate: Entity,
+    /// The entity was created specifically to be selected, so if it ends up
+    /// going unused by the workflow then it should be despawned.
+    pub provisional: bool,
+}
+
+impl SelectionCandidate {
+    pub fn new(candidate: Entity) -> SelectionCandidate {
+        SelectionCandidate { candidate, provisional: false }
+    }
+
+    pub fn provisional(candidate: Entity) -> SelectionCandidate {
+        SelectionCandidate { candidate, provisional: true }
+    }
+}
 
 /// Used as an event to command a change in the hovered entity.
 #[derive(Default, Debug, Clone, Copy, Deref, DerefMut, Event, Stream)]
@@ -382,6 +430,7 @@ impl Plugin for InspectorServicePlugin {
 #[derive(Resource)]
 pub struct AnchorSelectionServices {
     pub anchor_select_stream: Service<(), (), (Hover, Select)>,
+    pub anchor_cursor_transform: Service<(), ()>,
 }
 
 #[derive(Default)]
@@ -390,57 +439,403 @@ pub struct AnchorSelectPlugin {}
 impl Plugin for AnchorSelectPlugin {
     fn build(&self, app: &mut App) {
         let anchor_select_stream = app.spawn_selection_service::<AnchorFilter>();
-        app.insert_resource(AnchorSelectionServices { anchor_select_stream });
+        let anchor_cursor_transform = app.spawn_continuous_service(
+            Update, select_anchor_cursor_transform,
+        );
+        app
+            .insert_resource(AnchorScope::General)
+            .insert_resource(AnchorSelectionServices {
+                anchor_select_stream,
+                anchor_cursor_transform,
+            });
     }
 }
 
-pub fn build_anchor_selection_workflow<B: 'static + Send + Sync>(
-    update_preview: Service<(Hover, BufferKey<B>), ()>,
-    update_current: Service<(Entity, BufferKey<B>), Option<()>>,
-    handle_key_code: Service<(KeyCode, BufferKey<B>), Option<()>>,
-    cleanup: Service<BufferKey<B>, ()>,
+pub type SelectionNodeResult = Result<(), Option<Anyhow>>;
+
+pub trait CommonNodeErrors {
+    type Value;
+    fn or_broken_buffer(self) -> Result<Self::Value, Option<Anyhow>>;
+    fn or_missing_state(self) -> Result<Self::Value, Option<Anyhow>>;
+    fn or_broken_query(self) -> Result<Self::Value, Option<Anyhow>>;
+}
+
+impl<T, E: Error> CommonNodeErrors for Result<T, E> {
+    type Value = T;
+    fn or_broken_buffer(self) -> Result<Self::Value, Option<Anyhow>> {
+        self.map_err(|err|
+            Some(anyhow!(
+                "The buffer in the workflow has been despawned: {err}"
+            ))
+        )
+    }
+
+    fn or_missing_state(self) -> Result<Self::Value, Option<Anyhow>> {
+        self.map_err(|err|
+            Some(anyhow!(
+                "The state is missing from the workflow buffer: {err}"
+            ))
+        )
+    }
+
+    fn or_broken_query(self) -> Result<Self::Value, Option<Anyhow>> {
+        self.map_err(|err|
+            Some(anyhow!(
+                "A query that should have worked failed: {err}"
+            ))
+        )
+    }
+}
+
+impl<T> CommonNodeErrors for Option<T> {
+    type Value = T;
+    fn or_broken_buffer(self) -> Result<Self::Value, Option<Anyhow>> {
+        self.ok_or_else(||
+            Some(anyhow!("The buffer in the workflow has been despawned"))
+        )
+    }
+
+    fn or_missing_state(self) -> Result<Self::Value, Option<Anyhow>> {
+        self.ok_or_else(||
+            Some(anyhow!("The state is missing from the workflow buffer"))
+        )
+    }
+
+    fn or_broken_query(self) -> Result<Self::Value, Option<Anyhow>> {
+        self.ok_or_else(||
+            Some(anyhow!("A query that should have worked failed"))
+        )
+    }
+}
+
+/// The first five services should be customized for the State data. The services
+/// that return NodeResult should return `Ok(())` if it is okay for the
+/// workflow to continue as normal, and they should return `Err(None)` if it's
+/// time for the workflow to terminate as normal. If the workflow needs to
+/// terminate because of an error, return `Err(Some(_))`.
+pub fn build_anchor_selection_workflow<State: 'static + Send + Sync>(
+    setup: Service<BufferKey<State>, SelectionNodeResult>,
+    update_preview: Service<(Hover, BufferKey<State>), SelectionNodeResult>,
+    update_current: Service<(SelectionCandidate, BufferKey<State>), SelectionNodeResult>,
+    handle_key_code: Service<(KeyCode, BufferKey<State>), SelectionNodeResult>,
+    cleanup_state: Service<BufferKey<State>, ()>,
+    anchor_cursor_transform: Service<(), ()>,
     anchor_select_stream: Service<(), (), (Hover, Select)>,
     keyboard_just_pressed: Service<(), (), StreamOf<KeyCode>>,
-
+    cleanup_anchor_selection: Service<(), ()>,
 ) -> impl FnOnce(Scope<Option<Entity>, ()>, &mut Builder) {
     move |scope, builder| {
-        let buffer = builder.create_buffer::<B>(BufferSettings::keep_last(1));
+        let buffer = builder.create_buffer::<State>(BufferSettings::keep_last(1));
 
-        let (startup_finished, begin_services) = builder.create_fork_clone();
+        let setup_node = builder.create_buffer_access(buffer);
+        let begin_input_services = setup_node.output.chain(builder)
+            .map_block(|(_, key)| key)
+            .then(setup)
+            .branch_for_err(|err| err
+                .map_block(print_if_err).connect(scope.terminate)
+            )
+            .output()
+            .fork_clone(builder);
+
         scope.input.chain(builder)
             .then(extract_selector_input.into_blocking_callback())
+            // If the setup failed (returned None), then terminate right away.
             .branch_for_err(|chain: Chain<_>| chain.connect(scope.terminate))
             .fork_option(
-                |chain: Chain<_>| chain.then_push(buffer).connect(startup_finished),
-                |chain: Chain<_>| chain.connect(startup_finished),
+                |chain: Chain<_>| chain.then_push(buffer).connect(setup_node.input),
+                |chain: Chain<_>| chain.connect(setup_node.input),
             );
 
-        let select = begin_services.clone_chain(builder).then_node(anchor_select_stream);
+        begin_input_services.clone_chain(builder)
+            .then(anchor_cursor_transform)
+            .unused();
+
+        let select = begin_input_services.clone_chain(builder).then_node(anchor_select_stream);
         select.streams.0.chain(builder)
             .with_access(buffer)
             .then(update_preview)
-            .unused();
+            .dispose_on_ok()
+            .map_block(print_if_err)
+            .connect(scope.terminate);
 
         select.streams.1.chain(builder)
             .map_block(|s| s.0)
             .dispose_on_none()
             .with_access(buffer)
             .then(update_current)
-            .dispose_on_none()
+            .dispose_on_ok()
+            .map_block(print_if_err)
             .connect(scope.terminate);
 
-        let keyboard = begin_services.clone_chain(builder).then_node(keyboard_just_pressed);
+        let keyboard = begin_input_services.clone_chain(builder).then_node(keyboard_just_pressed);
         keyboard.streams.chain(builder)
             .inner()
             .with_access(buffer)
             .then(handle_key_code)
-            .dispose_on_none()
+            .dispose_on_ok()
+            .map_block(print_if_err)
             .connect(scope.terminate);
 
         builder.on_cleanup(buffer, move |scope, builder| {
-            scope.input.chain(builder).then(cleanup).connect(scope.terminate);
+            scope.input.chain(builder)
+                .then(cleanup_state)
+                .then(cleanup_anchor_selection)
+                .connect(scope.terminate);
         });
     }
+}
+
+fn print_if_err(err: Option<Anyhow>) {
+    if let Some(err) = err {
+        error!("{err}");
+    }
+}
+
+pub struct CreateEdges {
+    pub spawn_edge: fn(Edge<Entity>, &mut Commands) -> Entity,
+    pub preview_edge: Option<PreviewEdge>,
+    pub continuity: EdgeContinuity,
+    pub scope: AnchorScope,
+}
+
+#[derive(Clone, Copy)]
+pub struct PreviewEdge {
+    pub edge: Entity,
+    pub side: Side,
+    /// True if the start anchor of the edge was created specifically to build
+    /// this edge. If this true, we will despawn the anchor during cleanup if
+    /// the edge does not get completed.
+    pub provisional_start: bool,
+}
+
+pub enum EdgeContinuity {
+    /// Create just a single edge
+    Single,
+    /// Create a sequence of separate edges
+    Separate,
+    /// Create edges continuously, i.e. the beginning of the next edge will
+    /// automatically be the end of the previous edge.
+    Continuous,
+}
+
+impl Borrow<AnchorScope> for CreateEdges {
+    fn borrow(&self) -> &AnchorScope {
+        &self.scope
+    }
+}
+
+pub fn anchor_selection_setup<State: Borrow<AnchorScope>>(
+    In(key): In<BufferKey<State>>,
+    access: BufferAccess<State>,
+    anchors: Query<Entity, With<Anchor>>,
+    drawings: Query<(), With<DrawingMarker>>,
+    parents: Query<&'static Parent>,
+    mut visibility: Query<&'static mut Visibility>,
+    mut hidden_anchors: ResMut<HiddenSelectAnchorEntities>,
+    mut current_anchor_scope: ResMut<AnchorScope>,
+) -> SelectionNodeResult
+where
+    State: 'static + Send + Sync,
+{
+    let access = access.get(&key).or_broken_buffer()?;
+    let state = access.newest().or_missing_state()?;
+    let scope: &AnchorScope = state.borrow();
+    match scope {
+        AnchorScope::General | AnchorScope::Site => {
+            // If we are working with normal level or site requests, hide all drawing anchors
+            for e in anchors.iter().filter(|e| {
+                parents
+                .get(*e)
+                .is_ok_and(|p| drawings.get(p.get()).is_ok())
+            }) {
+                set_visibility(e, &mut visibility, false);
+                hidden_anchors.drawing_anchors.insert(e);
+            }
+        }
+        // Nothing to hide, it's done by the drawing editor plugin
+        AnchorScope::Drawing => {}
+    }
+
+    *current_anchor_scope = *scope;
+
+    Ok(())
+}
+
+pub fn on_hover_anchor_for_edge(
+    In((hover, key)): In<(Hover, BufferKey<CreateEdges>)>,
+    mut access: BufferAccessMut<CreateEdges>,
+    mut cursor: ResMut<Cursor>,
+    mut visibility: Query<&mut Visibility>,
+    mut edges: Query<&mut Edge<Entity>>,
+    mut commands: Commands,
+) -> SelectionNodeResult {
+    let mut access = access.get_mut(&key).or_broken_buffer()?;
+    let state = access.newest_mut().or_missing_state()?;
+
+    let anchor = match hover.0 {
+        Some(anchor) => {
+            cursor.remove_mode(SELECT_ANCHOR_MODE_LABEL, &mut visibility);
+            anchor
+        }
+        None => {
+            cursor.add_mode(SELECT_ANCHOR_MODE_LABEL, &mut visibility);
+            cursor.level_anchor_placement
+        }
+    };
+
+    if let Some(preview) = &mut state.preview_edge {
+        // If we already have an active preview, then use the new anchor for the
+        // side that we currently need to select for.
+        let index = preview.side.index();
+        let mut edge = edges.get_mut(preview.edge).or_broken_query()?;
+        edge.array_mut()[index] = anchor;
+    } else {
+        // There is currently no active preview, so we need to create one.
+        let edge = Edge::new(anchor, anchor);
+        let edge = (state.spawn_edge)(edge, &mut commands);
+        state.preview_edge = Some(PreviewEdge {
+            edge,
+            side: Side::start(),
+            provisional_start: false,
+        });
+    }
+
+    Ok(())
+}
+
+pub fn on_select_anchor_for_edge(
+    In((selection, key)): In<(SelectionCandidate, BufferKey<CreateEdges>)>,
+    mut access: BufferAccessMut<CreateEdges>,
+    mut edges: Query<&mut Edge<Entity>>,
+    mut commands: Commands,
+) -> SelectionNodeResult {
+    let mut access = access.get_mut(&key).or_broken_buffer()?;
+    let state = access.newest_mut().or_missing_state()?;
+
+    let anchor = selection.candidate;
+    if let Some(preview) = &mut state.preview_edge {
+        match preview.side {
+            Side::Left => {
+                // We are pinning down the first anchor of the edge
+                let mut edge = edges.get_mut(preview.edge).or_broken_query()?;
+                *edge.left_mut() = anchor;
+                preview.provisional_start = selection.provisional;
+            }
+            Side::Right => {
+                // We are finishing the edge
+                let mut edge = edges.get_mut(preview.edge).or_broken_query()?;
+                *edge.right_mut() = anchor;
+                match state.continuity {
+                    EdgeContinuity::Single => {
+                        state.preview_edge = None;
+                        // This simply means we are terminating the workflow now
+                        // because we have finished drawing the single edge
+                        return Err(None);
+                    }
+                    EdgeContinuity::Separate => {
+                        // Start drawing a new edge from a blank slate
+                        state.preview_edge = None;
+                    }
+                    EdgeContinuity::Continuous => {
+                        // Start drawing a new edge, picking up from the end
+                        // point of the previous edge
+                        let edge = Edge::new(anchor, anchor);
+                        let edge = (state.spawn_edge)(edge, &mut commands);
+                        state.preview_edge = Some(PreviewEdge {
+                            edge,
+                            side: Side::start(),
+                            provisional_start: false,
+                        });
+                    }
+                }
+            }
+        }
+    } else {
+        // We have no preview at all yet somehow, so we'll need to create a
+        // fresh new edge to insert the selected anchor into
+        let edge = Edge::new(anchor, anchor);
+        let edge = (state.spawn_edge)(edge, &mut commands);
+        state.preview_edge = Some(PreviewEdge {
+            edge,
+            side: Side::start(),
+            provisional_start: selection.provisional,
+        });
+    }
+
+    Ok(())
+}
+
+pub fn cleanup_create_edges(
+    In(key): In<BufferKey<CreateEdges>>,
+    mut access: BufferAccessMut<CreateEdges>,
+    edges: Query<&'static Edge<Entity>>,
+    mut commands: Commands,
+) {
+    let mut access = match access.get_mut(&key).or_broken_buffer() {
+        Ok(access) => access,
+        Err(err) => {
+            if let Some(err) = err {
+                error!("{err}");
+            }
+            return;
+        }
+    };
+
+    let state = match access.pull().or_missing_state() {
+        Ok(state) => state,
+        Err(err) => {
+            if let Some(err) = err {
+                error!("{err}");
+            }
+            return;
+        }
+    };
+
+    if let Some(preview) = state.preview_edge {
+        // We created a preview, so we should despawn it while cleaning up
+        let edge = match edges.get(preview.edge) {
+            Ok(edge) => edge,
+            Err(err) => {
+                error!("Error while cleaning up edge creation: {err}");
+                return;
+            }
+        };
+
+        if preview.provisional_start {
+            // The start anchor was created specifically for this preview edge
+            // which we are about to despawn. Let's despawn both so we aren't
+            // littering the scene with unintended anchors.
+            if let Some(entity_mut) = commands.get_entity(edge.start()) {
+                entity_mut.despawn_recursive();
+            } else {
+                error!("Invalid start anchor while cleaning up edge creation");
+            }
+        }
+
+        if let Some(entity_mut) = commands.get_entity(preview.edge) {
+            entity_mut.despawn_recursive();
+        } else {
+            error!("Invalid edge while cleaning up edge creation");
+            return;
+        }
+    }
+}
+
+pub fn cleanup_anchor_selection(
+    In(_): In<()>,
+    mut cursor: ResMut<Cursor>,
+    mut visibility: Query<&mut Visibility>,
+    mut hidden_anchors: ResMut<HiddenSelectAnchorEntities>,
+    mut anchor_scope: ResMut<AnchorScope>,
+) {
+    cursor.remove_mode(SELECT_ANCHOR_MODE_LABEL, &mut visibility);
+    set_visibility(cursor.site_anchor_placement, &mut visibility, false);
+    set_visibility(cursor.level_anchor_placement, &mut visibility, false);
+    for e in hidden_anchors.drawing_anchors.drain() {
+        set_visibility(e, &mut visibility, true);
+    }
+
+    *anchor_scope = AnchorScope::General;
 }
 
 pub fn extract_selector_input<T: 'static + Send + Sync>(
@@ -478,11 +873,19 @@ pub fn extract_selector_input<T: 'static + Send + Sync>(
 pub struct AnchorFilter<'w, 's> {
     inspect: InspectorFilter<'w ,'s>,
     anchors: Query<'w, 's, (), With<Anchor>>,
+    cursor: Res<'w, Cursor>,
+    anchor_scope: Res<'w, AnchorScope>,
+    workspace: Res<'w, CurrentWorkspace>,
+    open_sites: Query<'w, 's, Entity, With<NameOfSite>>,
+    transforms: Query<'w, 's, &'static GlobalTransform>,
+    commands: Commands<'w, 's>,
+    current_drawing: Res<'w, CurrentEditDrawing>,
+    drawings: Query<'w, 's, &'static PixelsPerMeter, With<DrawingMarker>>,
 }
 
 impl<'w, 's> SelectionFilter for AnchorFilter<'w ,'s> {
-    fn apply_filter(&mut self, select: Entity) -> Option<Entity> {
-        self.inspect.apply_filter(select)
+    fn filter_hover(&mut self, select: Entity) -> Option<Entity> {
+        self.inspect.filter_hover(select)
             .and_then(|e| {
                 if self.anchors.contains(e) {
                     Some(e)
@@ -491,10 +894,95 @@ impl<'w, 's> SelectionFilter for AnchorFilter<'w ,'s> {
                 }
             })
     }
+
+    fn filter_select(&mut self, target: Entity) -> Option<Entity> {
+        self.filter_hover(target)
+    }
+
+    fn on_click(&mut self, hovered: Hover) -> Option<Select> {
+        if let Some(candidate) = hovered.0 {
+            return Some(Select::new(Some(candidate)));
+        }
+
+        // There was no anchor currently hovered which means we need to create
+        // a new provisional anchor.
+        let Ok(tf) = self.transforms.get(self.cursor.frame) else {
+            error!("Cannot find cursor transform");
+            return None;
+        };
+
+        let new_anchor = match self.anchor_scope.as_ref() {
+            AnchorScope::Site => {
+                let Some(site) = self.workspace.to_site(&self.open_sites) else {
+                    error!("Cannot find current site");
+                    return None;
+                };
+                let new_anchor = self.commands.spawn(AnchorBundle::at_transform(tf)).id();
+                self.commands.entity(site).add_child(new_anchor);
+                new_anchor
+            }
+            AnchorScope::Drawing => {
+                let Some(current_drawing) = self.current_drawing.target() else {
+                    error!(
+                        "We are supposed to be in a drawing scope but there is \
+                        no current drawing"
+                    );
+                    return None;
+                };
+                let drawing = current_drawing.drawing;
+                let Ok(ppm) = self.drawings.get(drawing) else {
+                    error!("Cannot find pixels per meter of current drawing");
+                    return None;
+                };
+                let pose = compute_parent_inverse_pose(&tf, &self.transforms, drawing);
+                let ppm = ppm.0;
+                self.commands
+                    .spawn(AnchorBundle::new([pose.trans[0], pose.trans[1]].into()))
+                    .insert(Transform::from_scale(Vec3::new(ppm, ppm, 1.0)))
+                    .set_parent(drawing)
+                    .id()
+            }
+            AnchorScope::General => {
+                // TODO(@mxgrey): Consider putting the anchor directly into the
+                // current level instead of relying on orphan behavior
+                self.commands.spawn(AnchorBundle::at_transform(tf)).id()
+            }
+        };
+
+        Some(Select::provisional(new_anchor))
+    }
+}
+
+fn compute_parent_inverse_pose(
+    tf: &GlobalTransform,
+    transforms: &Query<&GlobalTransform>,
+    parent: Entity,
+) -> Pose {
+    let parent_tf = transforms
+        .get(parent)
+        .expect("Failed in fetching parent transform");
+
+    let inv_tf = parent_tf.affine().inverse();
+    let goal_tf = tf.affine();
+    let mut pose = Pose::default();
+    pose.rot = pose.rot.as_euler_extrinsic_xyz();
+    pose.align_with(&Transform::from_matrix((inv_tf * goal_tf).into()))
 }
 
 pub trait SelectionFilter: SystemParam {
-    fn apply_filter(&mut self, select: Entity) -> Option<Entity>;
+    /// If the target entity is being hovered, give back the entity that should
+    /// be recognized as the hovered entity. Return [`None`] to behave as if
+    /// nothing is being hovered.
+    fn filter_hover(&mut self, target: Entity) -> Option<Entity>;
+
+    /// If the target entity is being selected, give back the entity that should
+    /// be recognized as the selected entity. Return [`None`] to deselect
+    /// anything that might currently be selected.
+    fn filter_select(&mut self, target: Entity) -> Option<Entity>;
+
+    /// For the given hover state, indicate what kind of [`Select`] signal should
+    /// be sent when the user clicks.
+    fn on_click(&mut self, hovered: Hover) -> Option<Select>;
 }
 
 #[derive(SystemParam)]
@@ -503,8 +991,14 @@ pub struct InspectorFilter<'w, 's> {
 }
 
 impl<'w, 's> SelectionFilter for InspectorFilter<'w, 's> {
-    fn apply_filter(&mut self, select: Entity) -> Option<Entity> {
+    fn filter_hover(&mut self, select: Entity) -> Option<Entity> {
         self.selectables.get(select).ok().map(|selectable| selectable.element)
+    }
+    fn on_click(&mut self, hovered: Hover) -> Option<Select> {
+        Some(Select::new(hovered.0))
+    }
+    fn filter_select(&mut self, target: Entity) -> Option<Entity> {
+        self.filter_hover(target)
     }
 }
 
@@ -547,7 +1041,7 @@ where
 
     if let Some(pick) = picks.read().last() {
         hover.send(Hover(
-            pick.to.and_then(|change_pick_to| filter.apply_filter(change_pick_to))
+            pick.to.and_then(|change_pick_to| filter.filter_hover(change_pick_to))
         ));
     }
 }
@@ -594,7 +1088,7 @@ where
     let mut filter = filter.into_inner();
 
     if let Some(new_hovered) = hover.read().last() {
-        let new_hovered = new_hovered.0.and_then(|e| filter.apply_filter(e));
+        let new_hovered = new_hovered.0.and_then(|e| filter.filter_hover(e));
         if hovering.0 != new_hovered {
             if let Some(previous_hovered) = hovering.0 {
                 if let Ok(mut hovering) = hovered.get_mut(previous_hovered) {
@@ -618,8 +1112,8 @@ where
     let blocked = blockers.filter(|x| x.blocking()).is_some();
 
     if clicked && !blocked {
-        if let Some(current_hovered) = hovering.0 {
-            select.send(Select(Some(current_hovered)));
+        if let Some(new_select) = filter.on_click(Hover(hovering.0)) {
+            select.send(new_select);
         }
     }
 }
@@ -634,6 +1128,7 @@ pub fn select_service<Filter: SystemParam + 'static>(
     mut orders: ContinuousQuery<(), (), Select>,
     mut select: EventReader<Select>,
     filter: StaticSystemParam<Filter>,
+    mut commands: Commands,
 )
 where
     for<'w, 's> Filter::Item<'w, 's>: SelectionFilter,
@@ -649,8 +1144,25 @@ where
 
     let mut filter = filter.into_inner();
 
-    for selected in select.read().map(|s| s.0.and_then(|e| filter.apply_filter(e))) {
-        orders.for_each(|order| order.streams().send(Select(selected)));
+    for selected in select.read() {
+        let mut selected = *selected;
+        if let Some(selected) = &mut selected.0 {
+            match filter.filter_select(selected.candidate) {
+                Some(candidate) => selected.candidate = candidate,
+                None => {
+                    // This request is being filtered out, we will not send it
+                    // along at all.
+                    if selected.provisional {
+                        // The selection was provisional. Since we are not
+                        // using it, we are responsible for despawning it.
+                        if let Some(entity_mut) = commands.get_entity(selected.candidate) {
+                            entity_mut.despawn_recursive();
+                        }
+                    }
+                }
+            }
+        }
+        orders.for_each(|order| order.streams().send(selected));
     }
 }
 
@@ -659,7 +1171,7 @@ pub fn selection_update(
     mut selected: Query<&mut Selected>,
     mut selection: ResMut<Selection>,
 ) {
-    if selection.0 != new_selection {
+    if selection.0 != new_selection.map(|s| s.candidate) {
         if let Some(previous_selection) = selection.0 {
             if let Ok(mut selected) = selected.get_mut(previous_selection) {
                 selected.is_selected = false;
@@ -667,12 +1179,12 @@ pub fn selection_update(
         }
 
         if let Some(new_selection) = new_selection {
-            if let Ok(mut selected) = selected.get_mut(new_selection) {
+            if let Ok(mut selected) = selected.get_mut(new_selection.candidate) {
                 selected.is_selected = true;
             }
         }
 
-        selection.0 = new_selection;
+        selection.0 = new_selection.map(|s| s.candidate);
     }
 }
 
@@ -710,124 +1222,124 @@ pub fn clear_hover_select(
     }
 }
 
-pub fn handle_selection_picking(
-    blockers: Option<Res<SelectionBlockers>>,
-    mode: Res<InteractionMode>,
-    selectables: Query<&Selectable>,
-    anchors: Query<(), With<Anchor>>,
-    mut picks: EventReader<ChangePick>,
-    mut hover: EventWriter<Hover>,
-) {
-    if let Some(blockers) = blockers {
-        if blockers.blocking() {
-            hover.send(Hover(None));
-            return;
-        }
-    }
+// pub fn handle_selection_picking(
+//     blockers: Option<Res<SelectionBlockers>>,
+//     mode: Res<InteractionMode>,
+//     selectables: Query<&Selectable>,
+//     anchors: Query<(), With<Anchor>>,
+//     mut picks: EventReader<ChangePick>,
+//     mut hover: EventWriter<Hover>,
+// ) {
+//     if let Some(blockers) = blockers {
+//         if blockers.blocking() {
+//             hover.send(Hover(None));
+//             return;
+//         }
+//     }
 
-    if !mode.is_selecting() {
-        hover.send(Hover(None));
-        return;
-    }
+//     if !mode.is_selecting() {
+//         hover.send(Hover(None));
+//         return;
+//     }
 
-    for pick in picks.read() {
-        hover.send(Hover(
-            pick.to
-                .and_then(|change_pick_to| {
-                    selectables
-                        .get(change_pick_to)
-                        .ok()
-                        .map(|selectable| selectable.element)
-                })
-                .and_then(|change_pick_to| {
-                    if let InteractionMode::SelectAnchor(_) = *mode {
-                        if anchors.contains(change_pick_to) {
-                            Some(change_pick_to)
-                        } else {
-                            None
-                        }
-                    } else {
-                        Some(change_pick_to)
-                    }
-                }),
-        ));
-    }
-}
+//     for pick in picks.read() {
+//         hover.send(Hover(
+//             pick.to
+//                 .and_then(|change_pick_to| {
+//                     selectables
+//                         .get(change_pick_to)
+//                         .ok()
+//                         .map(|selectable| selectable.element)
+//                 })
+//                 .and_then(|change_pick_to| {
+//                     if let InteractionMode::SelectAnchor(_) = *mode {
+//                         if anchors.contains(change_pick_to) {
+//                             Some(change_pick_to)
+//                         } else {
+//                             None
+//                         }
+//                     } else {
+//                         Some(change_pick_to)
+//                     }
+//                 }),
+//         ));
+//     }
+// }
 
-pub fn maintain_hovered_entities(
-    mut hovered: Query<&mut Hovered>,
-    mut hovering: ResMut<Hovering>,
-    mut hover: EventReader<Hover>,
-    mouse_button_input: Res<Input<MouseButton>>,
-    touch_input: Res<Touches>,
-    mut select: EventWriter<Select>,
-    mode: Res<InteractionMode>,
-    blockers: Option<Res<PickingBlockers>>,
-) {
-    if let Some(new_hovered) = hover.read().last() {
-        if hovering.0 != new_hovered.0 {
-            if let Some(previous_hovered) = hovering.0 {
-                if let Ok(mut hovering) = hovered.get_mut(previous_hovered) {
-                    hovering.is_hovered = false;
-                }
-            }
+// pub fn maintain_hovered_entities(
+//     mut hovered: Query<&mut Hovered>,
+//     mut hovering: ResMut<Hovering>,
+//     mut hover: EventReader<Hover>,
+//     mouse_button_input: Res<Input<MouseButton>>,
+//     touch_input: Res<Touches>,
+//     mut select: EventWriter<Select>,
+//     mode: Res<InteractionMode>,
+//     blockers: Option<Res<PickingBlockers>>,
+// ) {
+//     if let Some(new_hovered) = hover.read().last() {
+//         if hovering.0 != new_hovered.0 {
+//             if let Some(previous_hovered) = hovering.0 {
+//                 if let Ok(mut hovering) = hovered.get_mut(previous_hovered) {
+//                     hovering.is_hovered = false;
+//                 }
+//             }
 
-            if let Some(new_hovered) = new_hovered.0 {
-                if let Ok(mut hovering) = hovered.get_mut(new_hovered) {
-                    hovering.is_hovered = true;
-                }
-            }
+//             if let Some(new_hovered) = new_hovered.0 {
+//                 if let Ok(mut hovering) = hovered.get_mut(new_hovered) {
+//                     hovering.is_hovered = true;
+//                 }
+//             }
 
-            hovering.0 = new_hovered.0;
-        }
-    }
+//             hovering.0 = new_hovered.0;
+//         }
+//     }
 
-    let clicked = mouse_button_input.just_pressed(MouseButton::Left)
-        || touch_input.iter_just_pressed().next().is_some();
-    let blocked = blockers.filter(|x| x.blocking()).is_some();
+//     let clicked = mouse_button_input.just_pressed(MouseButton::Left)
+//         || touch_input.iter_just_pressed().next().is_some();
+//     let blocked = blockers.filter(|x| x.blocking()).is_some();
 
-    if clicked && !blocked {
-        if let Some(current_hovered) = hovering.0 {
-            // TODO(luca) refactor to remove this hack
-            // Skip if we are in SelectAnchor3D mode
-            if let InteractionMode::SelectAnchor3D(_) = &*mode {
-                return;
-            }
-            select.send(Select(Some(current_hovered)));
-        }
-    }
-}
+//     if clicked && !blocked {
+//         if let Some(current_hovered) = hovering.0 {
+//             // TODO(luca) refactor to remove this hack
+//             // Skip if we are in SelectAnchor3D mode
+//             if let InteractionMode::SelectAnchor3D(_) = &*mode {
+//                 return;
+//             }
+//             select.send(Select(Some(current_hovered)));
+//         }
+//     }
+// }
 
-pub fn maintain_selected_entities(
-    mode: Res<InteractionMode>,
-    mut selected: Query<&mut Selected>,
-    mut selection: ResMut<Selection>,
-    mut select: EventReader<Select>,
-) {
-    if !mode.is_inspecting() {
-        // We only maintain the "selected" entity when we are in Inspect mode.
-        // Other "selecting" modes, like SelectAnchor, take in the selection as
-        // an event and do not change the current selection that is being
-        // inspected.
-        return;
-    }
+// pub fn maintain_selected_entities(
+//     mode: Res<InteractionMode>,
+//     mut selected: Query<&mut Selected>,
+//     mut selection: ResMut<Selection>,
+//     mut select: EventReader<Select>,
+// ) {
+//     if !mode.is_inspecting() {
+//         // We only maintain the "selected" entity when we are in Inspect mode.
+//         // Other "selecting" modes, like SelectAnchor, take in the selection as
+//         // an event and do not change the current selection that is being
+//         // inspected.
+//         return;
+//     }
 
-    if let Some(new_selection) = select.read().last() {
-        if selection.0 != new_selection.0 {
-            if let Some(previous_selection) = selection.0 {
-                if let Ok(mut selected) = selected.get_mut(previous_selection) {
-                    selected.is_selected = false;
-                }
-            }
+//     if let Some(new_selection) = select.read().last() {
+//         if selection.0 != new_selection.0 {
+//             if let Some(previous_selection) = selection.0 {
+//                 if let Ok(mut selected) = selected.get_mut(previous_selection) {
+//                     selected.is_selected = false;
+//                 }
+//             }
 
-            if let Some(new_selection) = new_selection.0 {
-                if let Ok(mut selected) = selected.get_mut(new_selection) {
-                    selected.is_selected = true;
-                }
-            }
+//             if let Some(new_selection) = new_selection.0 {
+//                 if let Ok(mut selected) = selected.get_mut(new_selection) {
+//                     selected.is_selected = true;
+//                 }
+//             }
 
-            selection.0 = new_selection.0;
-        }
-    }
-}
+//             selection.0 = new_selection.0;
+//         }
+//     }
+// }
 
