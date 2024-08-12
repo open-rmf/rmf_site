@@ -134,6 +134,7 @@ pub struct DragAxisBundle {
     pub gizmo: Gizmo,
     pub draggable: Draggable,
     pub axis: DragAxis,
+    pub selectable: Selectable,
 }
 
 impl DragAxisBundle {
@@ -145,6 +146,10 @@ impl DragAxisBundle {
                 along,
                 frame: FrameOfReference::Local,
             },
+            selectable: Selectable {
+                is_selectable: true,
+                element: for_entity,
+            }
         }
     }
 
@@ -172,6 +177,7 @@ pub struct DragPlaneBundle {
     pub gizmo: Gizmo,
     pub draggable: Draggable,
     pub plane: DragPlane,
+    pub selectable: Selectable,
 }
 
 impl DragPlaneBundle {
@@ -183,6 +189,10 @@ impl DragPlaneBundle {
                 in_plane,
                 frame: FrameOfReference::Local,
             },
+            selectable: Selectable {
+                is_selectable: true,
+                element: for_entity,
+            }
         }
     }
 

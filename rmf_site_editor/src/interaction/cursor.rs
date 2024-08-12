@@ -342,6 +342,10 @@ pub fn inspector_cursor_transform(
     let ray = Ray3d::new(intersection.position(), intersection.normal());
 
     *transform = Transform::from_matrix(ray.to_aligned_transform([0., 0., 1.].into()));
+    // println!(">>>>> {:?}", transform.translation);
+    // for order in orders.iter() {
+    //     println!("session {:?} | source {:?} | provider {:?}", order.session(), order.source(), key.provider());
+    // }
 }
 
 /// Update the virtual cursor transform while in select anchor mode
@@ -351,6 +355,7 @@ pub fn select_anchor_cursor_transform(
     cursor: Res<Cursor>,
     mut transforms: Query<&mut Transform>,
     intersect_ground_params: IntersectGroundPlaneParams,
+    mut count: Local<u64>,
 ) {
     let Some(orders) = orders.view(&key) else {
         return;
@@ -374,7 +379,12 @@ pub fn select_anchor_cursor_transform(
         }
     };
 
+    *count += 1;
     *transform = Transform::from_translation(intersection);
+    // println!("{} vvvvvv {:?}", *count, transform.translation);
+    // for order in orders.iter() {
+    //     println!("session {:?} | source {:?} | provider {:?}", order.session(), order.source(), key.provider());
+    // }
 }
 
 pub fn select_3d_cursor_transform(

@@ -17,7 +17,7 @@
 
 use crate::{
     inspector::{InspectAssetSourceComponent, InspectScaleComponent},
-    interaction::{ChangeMode, SelectAnchor, SelectAnchor3D},
+    interaction::{ChangeMode, SelectAnchor, SelectAnchor3D, AnchorSelection},
     site::{AssetSource, DefaultFile, DrawingBundle, Recall, RecallAssetSource, Scale},
     widgets::{prelude::*, AssetGalleryStatus},
     AppState, CurrentWorkspace,
@@ -49,6 +49,7 @@ struct Creation<'w, 's> {
     pending_model: ResMut<'w, PendingModel>,
     asset_gallery: Option<ResMut<'w, AssetGalleryStatus>>,
     commands: Commands<'w, 's>,
+    anchor_selection: AnchorSelection<'w, 's>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for Creation<'w, 's> {
@@ -75,9 +76,7 @@ impl<'w, 's> Creation<'w, 's> {
                 }
                 AppState::SiteEditor => {
                     if ui.button("Lane").clicked() {
-                        self.change_mode.send(ChangeMode::To(
-                            SelectAnchor::create_new_edge_sequence().for_lane().into(),
-                        ));
+                        self.anchor_selection.create_lanes();
                     }
 
                     if ui.button("Location").clicked() {
@@ -87,21 +86,15 @@ impl<'w, 's> Creation<'w, 's> {
                     }
 
                     if ui.button("Wall").clicked() {
-                        self.change_mode.send(ChangeMode::To(
-                            SelectAnchor::create_new_edge_sequence().for_wall().into(),
-                        ));
+                        self.anchor_selection.create_walls();
                     }
 
                     if ui.button("Door").clicked() {
-                        self.change_mode.send(ChangeMode::To(
-                            SelectAnchor::create_one_new_edge().for_door().into(),
-                        ));
+                        self.anchor_selection.create_door();
                     }
 
                     if ui.button("Lift").clicked() {
-                        self.change_mode.send(ChangeMode::To(
-                            SelectAnchor::create_one_new_edge().for_lift().into(),
-                        ));
+                        self.anchor_selection.create_lift();
                     }
 
                     if ui.button("Floor").clicked() {
@@ -154,9 +147,7 @@ impl<'w, 's> Creation<'w, 's> {
                         ));
                     }
                     if ui.button("Measurement").clicked() {
-                        self.change_mode.send(ChangeMode::To(
-                            SelectAnchor::create_one_new_edge().for_measurement().into(),
-                        ));
+                        self.anchor_selection.create_measurements();
                     }
                 }
                 AppState::WorkcellEditor => {

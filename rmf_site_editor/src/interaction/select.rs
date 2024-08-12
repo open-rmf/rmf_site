@@ -17,11 +17,12 @@
 
 use crate::{
     CurrentWorkspace,
+    keyboard::KeyboardServices,
     interaction::*,
     site::{
         drawing_editor::CurrentEditDrawing, Anchor, AnchorBundle, Category, CollisionMeshMarker,
         Dependents, DrawingMarker, Original, PathBehavior, Pending, TextureNeedsAssignment,
-        VisualMeshMarker,
+        VisualMeshMarker, ChangeDependent,
     },
 };
 use rmf_site_format::{
@@ -32,7 +33,7 @@ use bevy::{
     prelude::{*, Input},
     ecs::system::{SystemParam, StaticSystemParam}
 };
-use bevy_impulse::*;
+use bevy_impulse::{*, testing::print_debug};
 use bevy_mod_raycast::deferred::RaycastMesh;
 use std::{
     collections::HashSet,
@@ -54,9 +55,21 @@ impl Plugin for SelectPlugin {
         .init_resource::<Hovering>()
         .add_event::<Select>()
         .add_event::<Hover>()
+        .add_event::<RunSelector>()
+        .add_systems(
+            Update,
+            (
+                apply_deferred
+                    .in_set(SelectionServiceStages::PickFlush)
+                    .after(SelectionServiceStages::Pick),
+                apply_deferred
+                    .in_set(SelectionServiceStages::HoverFlush)
+                    .after(SelectionServiceStages::Hover),
+            )
+        )
         .add_plugins((
             InspectorServicePlugin::default(),
-            AnchorSelectPlugin::default(),
+            AnchorSelectionPlugin::default(),
         ));
 
         let inspector_service = app.world.resource::<InspectorService>().inspector_service;
@@ -85,6 +98,7 @@ pub fn build_select_workflow(
         let run_service_buffer = builder.create_buffer::<RunSelector>(BufferSettings::keep_last(1));
         let input = scope.input.fork_clone(builder);
         let inspector = input.clone_chain(builder).then_node(inspector_service);
+        dbg!(&inspector);
         let new_selector_node = input.clone_chain(builder).then_node(new_selector_service);
         builder.connect(new_selector_node.output, scope.terminate);
         new_selector_node.streams.chain(builder)
@@ -329,7 +343,7 @@ impl SpawnSelectionServiceExt for App {
     {
         let hover_picking = self.spawn_continuous_service(
             Update,
-            hover_picking_service::<F>
+            picking_service::<F>
             .configure(|config: SystemConfigs|
                 config.in_set(SelectionServiceStages::Pick)
             ),
@@ -341,7 +355,7 @@ impl SpawnSelectionServiceExt for App {
             .configure(|config: SystemConfigs|
                 config
                 .in_set(SelectionServiceStages::Hover)
-                .after(SelectionServiceStages::Pick)
+                .after(SelectionServiceStages::PickFlush)
             ),
         );
 
@@ -351,24 +365,29 @@ impl SpawnSelectionServiceExt for App {
             .configure(|config: SystemConfigs|
                 config
                 .in_set(SelectionServiceStages::Select)
-                .after(SelectionServiceStages::Hover)
+                .after(SelectionServiceStages::HoverFlush)
             ),
         );
 
         self.world.spawn_workflow::<_, _, (Hover, Select), _>(|scope, builder| {
-            let input_clone = scope.input.fork_clone(builder);
-            input_clone.clone_chain(builder)
-                .then(clear_picked.into_blocking_callback())
-                .then(hover_picking)
-                .connect(scope.terminate);
-
             let hover = builder.create_node(hover_service);
-            builder.connect(hover.streams, scope.streams.0);
+            builder.connect(dbg!(hover.streams), dbg!(scope.streams.0));
             builder.connect(hover.output, scope.terminate);
 
             let select = builder.create_node(select_service);
-            builder.connect(select.streams, scope.streams.1);
+            builder.connect(dbg!(select.streams), dbg!(scope.streams.1));
+            // select.streams.chain(builder).map(print_debug("in scope")).connect(scope.streams.1);
             builder.connect(select.output, scope.terminate);
+
+            // Activate all the services at the start
+            scope.input.chain(builder).fork_clone((
+                |chain: Chain<_>| chain
+                    .then(clear_picked.into_blocking_callback())
+                    .then(hover_picking)
+                    .connect(scope.terminate),
+                |chain: Chain<_>| chain.connect(hover.input),
+                |chain: Chain<_>| chain.connect(select.input),
+            ));
 
             // This is just a dummy buffer to let us have a cleanup workflow
             let buffer = builder.create_buffer::<()>(BufferSettings::keep_all());
@@ -382,10 +401,14 @@ impl SpawnSelectionServiceExt for App {
     }
 }
 
+// TODO(@mxgrey): Remove flush stages when we move to bevy 0.13 which can infer
+// when to flush
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SelectionServiceStages {
     Pick,
+    PickFlush,
     Hover,
+    HoverFlush,
     Select,
 }
 
@@ -406,8 +429,13 @@ pub struct InspectorServicePlugin {}
 impl Plugin for InspectorServicePlugin {
     fn build(&self, app: &mut App) {
         let inspector_select_service = app.spawn_selection_service::<InspectorFilter>();
+        dbg!(inspector_select_service);
         let inspector_cursor_transform = app.spawn_continuous_service(
-            Update, inspector_cursor_transform,
+            Update,
+            inspector_cursor_transform
+            .configure(|config: SystemConfigs|
+                config.in_set(SelectionServiceStages::Pick)
+            ),
         );
         let selection_update = app.spawn_service(selection_update);
 
@@ -415,9 +443,11 @@ impl Plugin for InspectorServicePlugin {
             let fork_input = scope.input.fork_clone(builder);
             fork_input.clone_chain(builder).then(inspector_cursor_transform).unused();
             let selection = fork_input.clone_chain(builder).then_node(inspector_select_service);
-            selection.streams.1.chain(builder).then(selection_update).unused();
+            selection.streams.1.chain(builder).map(print_debug("out of scope")).then(selection_update).unused();
             builder.connect(selection.output, scope.terminate);
         });
+        dbg!(inspector_service);
+        dbg!(inspector_cursor_transform);
 
         app.world.insert_resource(InspectorService {
             inspector_service,
@@ -427,27 +457,165 @@ impl Plugin for InspectorServicePlugin {
     }
 }
 
-#[derive(Resource)]
-pub struct AnchorSelectionServices {
-    pub anchor_select_stream: Service<(), (), (Hover, Select)>,
-    pub anchor_cursor_transform: Service<(), ()>,
-}
-
 #[derive(Default)]
-pub struct AnchorSelectPlugin {}
+pub struct AnchorSelectionPlugin {}
 
-impl Plugin for AnchorSelectPlugin {
+impl Plugin for AnchorSelectionPlugin {
     fn build(&self, app: &mut App) {
-        let anchor_select_stream = app.spawn_selection_service::<AnchorFilter>();
-        let anchor_cursor_transform = app.spawn_continuous_service(
-            Update, select_anchor_cursor_transform,
-        );
+        let helpers = AnchorSelectionHelpers::from_app(app);
+        let services = AnchorSelectionServices::from_app(&helpers, app);
         app
             .insert_resource(AnchorScope::General)
-            .insert_resource(AnchorSelectionServices {
-                anchor_select_stream,
-                anchor_cursor_transform,
-            });
+            .insert_resource(helpers)
+            .insert_resource(services);
+    }
+}
+
+#[derive(Resource, Clone, Copy)]
+pub struct AnchorSelectionHelpers {
+    pub anchor_select_stream: Service<(), (), (Hover, Select)>,
+    pub anchor_cursor_transform: Service<(), ()>,
+    pub keyboard_just_pressed: Service<(), (), StreamOf<KeyCode>>,
+    pub cleanup_anchor_selection: Service<(), ()>,
+}
+
+impl AnchorSelectionHelpers {
+    pub fn from_app(app: &mut App) -> Self {
+        let anchor_select_stream = app.spawn_selection_service::<AnchorFilter>();
+        let anchor_cursor_transform = app.spawn_continuous_service(
+            Update,
+            select_anchor_cursor_transform
+            .configure(|config: SystemConfigs|
+                config.in_set(SelectionServiceStages::Pick)
+            ),
+        );
+        let cleanup_anchor_selection = app.world.spawn_service(
+            cleanup_anchor_selection.into_blocking_service()
+        );
+
+        let keyboard_just_pressed = app.world.resource::<KeyboardServices>()
+            .keyboard_just_pressed;
+
+        Self {
+            anchor_select_stream,
+            anchor_cursor_transform,
+            keyboard_just_pressed,
+            cleanup_anchor_selection,
+        }
+    }
+
+    pub fn spawn_anchor_selection_workflow<State: 'static + Send + Sync>(
+        &self,
+        anchor_setup: Service<BufferKey<State>, SelectionNodeResult>,
+        state_setup: Service<BufferKey<State>, SelectionNodeResult>,
+        update_preview: Service<(Hover, BufferKey<State>), SelectionNodeResult>,
+        update_current: Service<(SelectionCandidate, BufferKey<State>), SelectionNodeResult>,
+        handle_key_code: Service<(KeyCode, BufferKey<State>), SelectionNodeResult>,
+        cleanup_state: Service<BufferKey<State>, ()>,
+        world: &mut World,
+    ) -> Service<Option<Entity>, ()> {
+        world.spawn_io_workflow(build_anchor_selection_workflow(
+            anchor_setup,
+            state_setup,
+            update_preview,
+            update_current,
+            handle_key_code,
+            cleanup_state,
+            self.anchor_cursor_transform,
+            self.anchor_select_stream,
+            self.keyboard_just_pressed,
+            self.cleanup_anchor_selection
+        ))
+    }
+}
+
+#[derive(Resource, Clone, Copy)]
+pub struct AnchorSelectionServices {
+    pub create_edges: Service<Option<Entity>, ()>,
+}
+
+impl AnchorSelectionServices {
+    pub fn from_app(
+        helpers: &AnchorSelectionHelpers,
+        app: &mut App,
+    ) -> Self {
+        let anchor_setup = app.spawn_service(anchor_selection_setup::<CreateEdges>.into_blocking_service());
+        let state_setup = app.spawn_service(create_edges_setup.into_blocking_service());
+        let update_preview = app.spawn_service(on_hover_anchor_for_edge.into_blocking_service());
+        let update_current = app.spawn_service(on_select_anchor_for_edge.into_blocking_service());
+        let handle_key_code = app.spawn_service(on_esc_for_edge.into_blocking_service());
+        let cleanup_state = app.spawn_service(cleanup_create_edges.into_blocking_service());
+
+        let create_edges = helpers.spawn_anchor_selection_workflow(
+            anchor_setup,
+            state_setup,
+            update_preview,
+            update_current,
+            handle_key_code,
+            cleanup_state,
+            &mut app.world,
+        );
+
+        Self { create_edges }
+    }
+}
+
+#[derive(SystemParam)]
+pub struct AnchorSelection<'w, 's> {
+    pub services: Res<'w, AnchorSelectionServices>,
+    pub run: EventWriter<'w, RunSelector>,
+    pub commands: Commands<'w, 's>,
+}
+
+impl<'w, 's> AnchorSelection<'w, 's> {
+    pub fn create_lanes(&mut self) {
+        self.create_edges::<Lane<Entity>>(
+            EdgeContinuity::Continuous,
+            AnchorScope::General,
+        );
+    }
+
+    pub fn create_measurements(&mut self) {
+        self.create_edges::<Measurement<Entity>>(
+            EdgeContinuity::Separate,
+            AnchorScope::Drawing,
+        )
+    }
+
+    pub fn create_walls(&mut self) {
+        self.create_edges::<Wall<Entity>>(
+            EdgeContinuity::Continuous,
+            AnchorScope::General,
+        );
+    }
+
+    pub fn create_door(&mut self) {
+        self.create_edges::<Door<Entity>>(
+            EdgeContinuity::Single,
+            AnchorScope::General,
+        )
+    }
+
+    pub fn create_lift(&mut self) {
+        self.create_edges::<LiftProperties<Entity>>(
+            EdgeContinuity::Single,
+            AnchorScope::Site,
+        )
+    }
+
+    pub fn create_edges<T: Bundle + From<Edge<Entity>>>(
+        &mut self,
+        continuity: EdgeContinuity,
+        scope: AnchorScope,
+    ) {
+        let entity = self.commands.spawn(SelectorInput(
+            CreateEdges::new::<T>(continuity, scope)
+        )).id();
+
+        self.run.send(RunSelector {
+            selector: self.services.create_edges,
+            input: Some(entity),
+        });
     }
 }
 
@@ -514,7 +682,8 @@ impl<T> CommonNodeErrors for Option<T> {
 /// time for the workflow to terminate as normal. If the workflow needs to
 /// terminate because of an error, return `Err(Some(_))`.
 pub fn build_anchor_selection_workflow<State: 'static + Send + Sync>(
-    setup: Service<BufferKey<State>, SelectionNodeResult>,
+    anchor_setup: Service<BufferKey<State>, SelectionNodeResult>,
+    state_setup: Service<BufferKey<State>, SelectionNodeResult>,
     update_preview: Service<(Hover, BufferKey<State>), SelectionNodeResult>,
     update_current: Service<(SelectionCandidate, BufferKey<State>), SelectionNodeResult>,
     handle_key_code: Service<(KeyCode, BufferKey<State>), SelectionNodeResult>,
@@ -530,7 +699,13 @@ pub fn build_anchor_selection_workflow<State: 'static + Send + Sync>(
         let setup_node = builder.create_buffer_access(buffer);
         let begin_input_services = setup_node.output.chain(builder)
             .map_block(|(_, key)| key)
-            .then(setup)
+            .then(anchor_setup)
+            .branch_for_err(|err| err
+                .map_block(print_if_err).connect(scope.terminate)
+            )
+            .with_access(buffer)
+            .map_block(|(_, key)| key)
+            .then(state_setup)
             .branch_for_err(|err| err
                 .map_block(print_if_err).connect(scope.terminate)
             )
@@ -598,6 +773,44 @@ pub struct CreateEdges {
     pub scope: AnchorScope,
 }
 
+impl CreateEdges {
+    pub fn new<T: Bundle + From<Edge<Entity>>>(
+        continuity: EdgeContinuity,
+        scope: AnchorScope,
+    ) -> Self {
+        Self {
+            spawn_edge: create_edge::<T>,
+            preview_edge: None,
+            continuity,
+            scope,
+        }
+    }
+
+    pub fn initialize_preview(
+        &mut self,
+        anchor: Entity,
+        commands: &mut Commands,
+    ) {
+        let edge = Edge::new(anchor, anchor);
+        let edge = (self.spawn_edge)(edge, commands);
+        self.preview_edge = Some(PreviewEdge {
+            edge,
+            side: Side::start(),
+            provisional_start: false,
+        });
+
+        commands.add(ChangeDependent::add(anchor, edge));
+    }
+}
+
+fn create_edge<T: Bundle + From<Edge<Entity>>>(
+    edge: Edge<Entity>,
+    commands: &mut Commands,
+) -> Entity {
+    let new_bundle: T = edge.into();
+    commands.spawn((new_bundle, Pending)).id()
+}
+
 #[derive(Clone, Copy)]
 pub struct PreviewEdge {
     pub edge: Entity,
@@ -606,6 +819,29 @@ pub struct PreviewEdge {
     /// this edge. If this true, we will despawn the anchor during cleanup if
     /// the edge does not get completed.
     pub provisional_start: bool,
+}
+
+impl PreviewEdge {
+    pub fn cleanup(
+        &self,
+        edges: &Query<&'static Edge<Entity>>,
+        commands: &mut Commands,
+    ) -> SelectionNodeResult {
+        let edge = edges.get(self.edge).or_broken_query()?;
+        for anchor in edge.array() {
+            commands.add(ChangeDependent::remove(anchor, self.edge));
+        }
+
+        if self.provisional_start {
+            // The start anchor was created specifically for this preview edge
+            // which we are about to despawn. Let's despawn both so we aren't
+            // littering the scene with unintended anchors.
+            commands.get_entity(edge.start()).or_broken_query()?.despawn_recursive();
+        }
+
+        commands.get_entity(self.edge).or_broken_query()?.despawn_recursive();
+        Ok(())
+    }
 }
 
 pub enum EdgeContinuity {
@@ -633,13 +869,14 @@ pub fn anchor_selection_setup<State: Borrow<AnchorScope>>(
     mut visibility: Query<&'static mut Visibility>,
     mut hidden_anchors: ResMut<HiddenSelectAnchorEntities>,
     mut current_anchor_scope: ResMut<AnchorScope>,
+    cursor: Res<Cursor>,
 ) -> SelectionNodeResult
 where
     State: 'static + Send + Sync,
 {
     let access = access.get(&key).or_broken_buffer()?;
     let state = access.newest().or_missing_state()?;
-    let scope: &AnchorScope = state.borrow();
+    let scope: &AnchorScope = (&*state).borrow();
     match scope {
         AnchorScope::General | AnchorScope::Site => {
             // If we are working with normal level or site requests, hide all drawing anchors
@@ -656,8 +893,30 @@ where
         AnchorScope::Drawing => {}
     }
 
+    if scope.is_site() {
+        set_visibility(cursor.site_anchor_placement, &mut visibility, true);
+    } else {
+        set_visibility(cursor.level_anchor_placement, &mut visibility, true);
+    }
+
     *current_anchor_scope = *scope;
 
+    Ok(())
+}
+
+pub fn create_edges_setup(
+    In(key): In<BufferKey<CreateEdges>>,
+    mut access: BufferAccessMut<CreateEdges>,
+    cursor: Res<Cursor>,
+    mut commands: Commands,
+) -> SelectionNodeResult {
+    let mut access = access.get_mut(&key).or_broken_buffer()?;
+    let state = access.newest_mut().or_missing_state()?;
+
+    if state.preview_edge.is_none() {
+        dbg!(cursor.level_anchor_placement);
+        state.initialize_preview(cursor.level_anchor_placement, &mut commands);
+    }
     Ok(())
 }
 
@@ -669,8 +928,10 @@ pub fn on_hover_anchor_for_edge(
     mut edges: Query<&mut Edge<Entity>>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
+    dbg!();
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.newest_mut().or_missing_state()?;
+    dbg!();
 
     let anchor = match hover.0 {
         Some(anchor) => {
@@ -678,6 +939,7 @@ pub fn on_hover_anchor_for_edge(
             anchor
         }
         None => {
+            println!("vvvvvvvvvvvvvvvvvvvvvvvvvvvvv");
             cursor.add_mode(SELECT_ANCHOR_MODE_LABEL, &mut visibility);
             cursor.level_anchor_placement
         }
@@ -688,7 +950,13 @@ pub fn on_hover_anchor_for_edge(
         // side that we currently need to select for.
         let index = preview.side.index();
         let mut edge = edges.get_mut(preview.edge).or_broken_query()?;
-        edge.array_mut()[index] = anchor;
+
+        let old_anchor = edge.array_mut()[index];
+        if old_anchor != anchor {
+            commands.add(ChangeDependent::remove(old_anchor, preview.edge));
+            edge.array_mut()[index] = anchor;
+            commands.add(ChangeDependent::add(anchor, preview.edge));
+        }
     } else {
         // There is currently no active preview, so we need to create one.
         let edge = Edge::new(anchor, anchor);
@@ -698,6 +966,7 @@ pub fn on_hover_anchor_for_edge(
             side: Side::start(),
             provisional_start: false,
         });
+        commands.add(ChangeDependent::add(anchor, edge));
     }
 
     Ok(())
@@ -708,6 +977,7 @@ pub fn on_select_anchor_for_edge(
     mut access: BufferAccessMut<CreateEdges>,
     mut edges: Query<&mut Edge<Entity>>,
     mut commands: Commands,
+    cursor: Res<Cursor>,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.newest_mut().or_missing_state()?;
@@ -718,13 +988,38 @@ pub fn on_select_anchor_for_edge(
             Side::Left => {
                 // We are pinning down the first anchor of the edge
                 let mut edge = edges.get_mut(preview.edge).or_broken_query()?;
+                commands.add(ChangeDependent::remove(edge.left(), preview.edge));
                 *edge.left_mut() = anchor;
+                commands.add(ChangeDependent::add(anchor, preview.edge));
+
+                // if edge.right() != anchor {
+                //     commands.add(ChangeDependent::remove(edge.right(), preview.edge));
+                // }
+
+                commands.add(ChangeDependent::remove(edge.right(), preview.edge));
+                *edge.right_mut() = cursor.level_anchor_placement;
+                commands.add(ChangeDependent::add(cursor.level_anchor_placement, preview.edge));
+
+                preview.side = Side::Right;
                 preview.provisional_start = selection.provisional;
             }
             Side::Right => {
                 // We are finishing the edge
                 let mut edge = edges.get_mut(preview.edge).or_broken_query()?;
+                if edge.left() == anchor {
+                    // The user is trying to use the same point for the start
+                    // and end of an edge. Issue a warning and exit early.
+                    warn!(
+                        "You are trying to select an anchor {:?} for both the \
+                        start and end points of an edge, which is not allowed.",
+                        anchor,
+                    );
+                    return Ok(());
+                }
                 *edge.right_mut() = anchor;
+                commands.add(ChangeDependent::add(anchor, preview.edge));
+                commands.get_entity(preview.edge).or_broken_query()?.remove::<Preview>();
+
                 match state.continuity {
                     EdgeContinuity::Single => {
                         state.preview_edge = None;
@@ -733,19 +1028,24 @@ pub fn on_select_anchor_for_edge(
                         return Err(None);
                     }
                     EdgeContinuity::Separate => {
-                        // Start drawing a new edge from a blank slate
-                        state.preview_edge = None;
+                        // Start drawing a new edge from a blank slate with the
+                        // next selection
+                        dbg!(cursor.level_anchor_placement);
+                        state.initialize_preview(cursor.level_anchor_placement, &mut commands);
                     }
                     EdgeContinuity::Continuous => {
                         // Start drawing a new edge, picking up from the end
                         // point of the previous edge
-                        let edge = Edge::new(anchor, anchor);
+                        dbg!((anchor, cursor.level_anchor_placement));
+                        let edge = Edge::new(anchor, cursor.level_anchor_placement);
                         let edge = (state.spawn_edge)(edge, &mut commands);
                         state.preview_edge = Some(PreviewEdge {
                             edge,
-                            side: Side::start(),
+                            side: Side::end(),
                             provisional_start: false,
                         });
+                        commands.add(ChangeDependent::add(anchor, edge));
+                        commands.add(ChangeDependent::add(cursor.level_anchor_placement, edge));
                     }
                 }
             }
@@ -760,6 +1060,58 @@ pub fn on_select_anchor_for_edge(
             side: Side::start(),
             provisional_start: selection.provisional,
         });
+    }
+
+    Ok(())
+}
+
+pub fn on_esc_for_edge(
+    In((button, key)): In<(KeyCode, BufferKey<CreateEdges>)>,
+    mut access: BufferAccessMut<CreateEdges>,
+    mut edges: Query<&'static mut Edge<Entity>>,
+    cursor: Res<Cursor>,
+    mut commands: Commands,
+) -> SelectionNodeResult {
+    if !matches!(button, KeyCode::Escape) {
+        // The button was not the escape key, so there's nothing for us to do
+        // here.
+        return Ok(());
+    }
+
+    let mut access = access.get_mut(&key).or_broken_buffer()?;
+    let state = access.newest_mut().or_missing_state()?;
+
+    if let Some(preview) = &mut state.preview_edge {
+        if preview.side == Side::end() {
+            // We currently have an active preview edge and are selecting for
+            // the second point in the edge. Esc means we should back out of the
+            // current edge without exiting the edge creation workflow so the
+            // user can choose a different start point.
+            let mut edge = edges.get_mut(preview.edge).or_broken_query()?;
+            for anchor in edge.array() {
+                commands.add(ChangeDependent::remove(anchor, preview.edge));
+            }
+            if preview.provisional_start {
+                commands.get_entity(edge.start()).or_broken_query()?.despawn_recursive();
+            }
+
+            *edge.left_mut() = cursor.level_anchor_placement;
+            *edge.right_mut() = cursor.level_anchor_placement;
+            preview.side = Side::start();
+            preview.provisional_start = false;
+            commands.add(ChangeDependent::add(cursor.level_anchor_placement, preview.edge));
+
+        } else {
+            // We are selecting for the first point in the edge. If the user has
+            // pressed Esc then that means they want to stop creating edges
+            // altogether. Return Err(None) to indicate that the workflow should
+            // exit cleaning.
+            return Err(None);
+        }
+    } else {
+        // We currently have no preview active at all. If the user hits Esc then
+        // they want to exit the workflow altogether.
+        return Err(None);
     }
 
     Ok(())
@@ -793,30 +1145,8 @@ pub fn cleanup_create_edges(
 
     if let Some(preview) = state.preview_edge {
         // We created a preview, so we should despawn it while cleaning up
-        let edge = match edges.get(preview.edge) {
-            Ok(edge) => edge,
-            Err(err) => {
-                error!("Error while cleaning up edge creation: {err}");
-                return;
-            }
-        };
-
-        if preview.provisional_start {
-            // The start anchor was created specifically for this preview edge
-            // which we are about to despawn. Let's despawn both so we aren't
-            // littering the scene with unintended anchors.
-            if let Some(entity_mut) = commands.get_entity(edge.start()) {
-                entity_mut.despawn_recursive();
-            } else {
-                error!("Invalid start anchor while cleaning up edge creation");
-            }
-        }
-
-        if let Some(entity_mut) = commands.get_entity(preview.edge) {
-            entity_mut.despawn_recursive();
-        } else {
-            error!("Invalid edge while cleaning up edge creation");
-            return;
+        if let Err(Some(err)) = preview.cleanup(&edges, &mut commands) {
+            error!("{err}");
         }
     }
 }
@@ -884,8 +1214,8 @@ pub struct AnchorFilter<'w, 's> {
 }
 
 impl<'w, 's> SelectionFilter for AnchorFilter<'w ,'s> {
-    fn filter_hover(&mut self, select: Entity) -> Option<Entity> {
-        self.inspect.filter_hover(select)
+    fn filter_pick(&mut self, select: Entity) -> Option<Entity> {
+        self.inspect.filter_pick(select)
             .and_then(|e| {
                 if self.anchors.contains(e) {
                     Some(e)
@@ -896,7 +1226,11 @@ impl<'w, 's> SelectionFilter for AnchorFilter<'w ,'s> {
     }
 
     fn filter_select(&mut self, target: Entity) -> Option<Entity> {
-        self.filter_hover(target)
+        if self.anchors.contains(target) {
+            Some(target)
+        } else {
+            None
+        }
     }
 
     fn on_click(&mut self, hovered: Hover) -> Option<Select> {
@@ -949,6 +1283,7 @@ impl<'w, 's> SelectionFilter for AnchorFilter<'w ,'s> {
             }
         };
 
+        dbg!(new_anchor);
         Some(Select::provisional(new_anchor))
     }
 }
@@ -970,14 +1305,14 @@ fn compute_parent_inverse_pose(
 }
 
 pub trait SelectionFilter: SystemParam {
-    /// If the target entity is being hovered, give back the entity that should
+    /// If the target entity is being picked, give back the entity that should
     /// be recognized as the hovered entity. Return [`None`] to behave as if
     /// nothing is being hovered.
-    fn filter_hover(&mut self, target: Entity) -> Option<Entity>;
+    fn filter_pick(&mut self, target: Entity) -> Option<Entity>;
 
-    /// If the target entity is being selected, give back the entity that should
-    /// be recognized as the selected entity. Return [`None`] to deselect
-    /// anything that might currently be selected.
+    /// If the target entity is being hovered or selected, give back the entity
+    /// that should be recognized as the hovered or selected entity. Return
+    /// [`None`] to deselect anything that might currently be selected.
     fn filter_select(&mut self, target: Entity) -> Option<Entity>;
 
     /// For the given hover state, indicate what kind of [`Select`] signal should
@@ -991,14 +1326,14 @@ pub struct InspectorFilter<'w, 's> {
 }
 
 impl<'w, 's> SelectionFilter for InspectorFilter<'w, 's> {
-    fn filter_hover(&mut self, select: Entity) -> Option<Entity> {
+    fn filter_pick(&mut self, select: Entity) -> Option<Entity> {
         self.selectables.get(select).ok().map(|selectable| selectable.element)
+    }
+    fn filter_select(&mut self, target: Entity) -> Option<Entity> {
+        Some(target)
     }
     fn on_click(&mut self, hovered: Hover) -> Option<Select> {
         Some(Select::new(hovered.0))
-    }
-    fn filter_select(&mut self, target: Entity) -> Option<Entity> {
-        self.filter_hover(target)
     }
 }
 
@@ -1018,7 +1353,7 @@ impl<'w, 's> SelectionFilter for InspectorFilter<'w, 's> {
 /// streams.
 ///
 /// [`Category`]: rmf_site_format::Category
-pub fn hover_picking_service<Filter: SystemParam + 'static>(
+pub fn picking_service<Filter: SystemParam + 'static>(
     In(ContinuousService { key }): ContinuousServiceInput<(), ()>,
     orders: ContinuousQuery<(), ()>,
     mut picks: EventReader<ChangePick>,
@@ -1041,7 +1376,7 @@ where
 
     if let Some(pick) = picks.read().last() {
         hover.send(Hover(
-            pick.to.and_then(|change_pick_to| filter.filter_hover(change_pick_to))
+            pick.to.and_then(|change_pick_to| filter.filter_pick(change_pick_to))
         ));
     }
 }
@@ -1088,7 +1423,7 @@ where
     let mut filter = filter.into_inner();
 
     if let Some(new_hovered) = hover.read().last() {
-        let new_hovered = new_hovered.0.and_then(|e| filter.filter_hover(e));
+        let new_hovered = new_hovered.0.and_then(|e| filter.filter_select(e));
         if hovering.0 != new_hovered {
             if let Some(previous_hovered) = hovering.0 {
                 if let Ok(mut hovering) = hovered.get_mut(previous_hovered) {
@@ -1133,17 +1468,21 @@ pub fn select_service<Filter: SystemParam + 'static>(
 where
     for<'w, 's> Filter::Item<'w, 's>: SelectionFilter,
 {
+    // println!("=====================");
     let Some(mut orders) = orders.get_mut(&key) else {
+        // dbg!();
         return;
     };
 
     if orders.is_empty() {
+        // dbg!();
         // Nothing is asking for this service to run
         return;
     }
 
     let mut filter = filter.into_inner();
 
+    // dbg!();
     for selected in select.read() {
         let mut selected = *selected;
         if let Some(selected) = &mut selected.0 {
@@ -1159,10 +1498,12 @@ where
                             entity_mut.despawn_recursive();
                         }
                     }
+                    continue;
                 }
             }
         }
-        orders.for_each(|order| order.streams().send(selected));
+        orders.for_each(|order| order.streams().send(dbg!(selected)));
+        // orders.for_each(|order| order.streams().send(selected));
     }
 }
 
@@ -1171,8 +1512,12 @@ pub fn selection_update(
     mut selected: Query<&mut Selected>,
     mut selection: ResMut<Selection>,
 ) {
+    println!("=================");
+    dbg!();
     if selection.0 != new_selection.map(|s| s.candidate) {
+        dbg!();
         if let Some(previous_selection) = selection.0 {
+            dbg!(previous_selection);
             if let Ok(mut selected) = selected.get_mut(previous_selection) {
                 selected.is_selected = false;
             }
@@ -1184,7 +1529,8 @@ pub fn selection_update(
             }
         }
 
-        selection.0 = new_selection.map(|s| s.candidate);
+        dbg!();
+        selection.0 = dbg!(new_selection.map(|s| s.candidate));
     }
 }
 
