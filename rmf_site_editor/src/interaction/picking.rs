@@ -45,7 +45,14 @@ impl Default for PickingBlockers {
 
 /// Keep track of what entity is currently picked by the cursor
 #[derive(Debug, Clone, Copy, Default, Resource)]
-pub struct Picked(pub Option<Entity>);
+pub struct Picked {
+    /// This is the currently picked entity (if anything)
+    pub current: Option<Entity>,
+    /// This indicates that a workflow wants the current pick to be refreshed
+    /// even if it hasn't changed. If this is true, we will send a ChangePick
+    /// event on the next cycle.
+    pub refresh: bool,
+}
 
 #[derive(Debug, Clone, Copy, Default, Event)]
 pub struct ChangePick {
@@ -128,15 +135,20 @@ pub fn update_picked(
     mut change_pick: EventWriter<ChangePick>,
     current_workspace: Res<CurrentWorkspace>,
 ) {
+    let refresh = picked.refresh;
+    if refresh {
+        picked.refresh = false;
+    }
+
     if let Some(blockers) = blockers {
         if blockers.blocking() {
             // If picking is masked, then nothing should be picked
-            if picked.0.is_some() {
+            if picked.current.is_some() {
                 change_pick.send(ChangePick {
-                    from: picked.0,
+                    from: picked.current,
                     to: None,
                 });
-                picked.as_mut().0 = None;
+                picked.current = None;
             }
 
             return;
@@ -186,11 +198,11 @@ pub fn update_picked(
         None
     };
 
-    if picked.0 != current_picked {
+    if picked.current != current_picked || refresh {
         change_pick.send(ChangePick {
-            from: picked.0,
+            from: picked.current,
             to: current_picked,
         });
-        picked.as_mut().0 = current_picked;
+        picked.current = current_picked;
     }
 }

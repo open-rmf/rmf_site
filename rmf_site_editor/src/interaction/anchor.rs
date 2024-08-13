@@ -23,6 +23,12 @@ use crate::{
 };
 use bevy::prelude::*;
 
+/// Use this resource to indicate whether anchors should be constantly highlighted.
+/// This is used during anchor selection modes to make it easier for users to know
+/// where selectable anchors are.
+#[derive(Clone, Copy, Debug, Resource)]
+pub struct HighlightAnchors(pub bool);
+
 #[derive(Component, Debug, Clone, Copy)]
 pub struct AnchorVisualization {
     pub body: Entity,
@@ -37,6 +43,7 @@ pub fn add_anchor_visual_cues(
     >,
     categories: Query<&Category>,
     site_assets: Res<SiteAssets>,
+    highlight: Res<HighlightAnchors>,
 ) {
     for (e, parent, subordinate, anchor) in &new_anchors {
         let body_mesh = match categories.get(parent.get()).unwrap() {
@@ -65,12 +72,29 @@ pub fn add_anchor_visual_cues(
             .insert(OutlineVisualization::Anchor { body })
             .add_child(body);
 
-        // 3D anchors should always be visible with arrow cue meshes
-        if anchor.is_3D() {
-            entity_commands.insert(VisualCue::outline());
+        let cue = if anchor.is_3D() {
+            // 3D anchors should always be visible with arrow cue meshes
+            VisualCue::outline()
         } else {
-            entity_commands.insert(VisualCue::outline().irregular());
-        }
+            let mut cue = VisualCue::outline().irregular();
+            cue.xray.set_always(highlight.0);
+            cue
+        };
+
+        entity_commands.insert(cue);
+    }
+}
+
+pub fn on_highlight_anchors_change(
+    highlight: Res<HighlightAnchors>,
+    mut anchor_visual_cues: Query<&mut VisualCue, With<Anchor>>,
+) {
+    if !highlight.is_changed() {
+        return;
+    }
+
+    for mut cue in &mut anchor_visual_cues {
+        cue.xray.set_always(highlight.0);
     }
 }
 
@@ -152,22 +176,6 @@ pub fn update_unassigned_anchor_cues(
     for (deps, mut cue) in &mut anchors {
         if deps.is_empty() != cue.xray.unassigned() {
             cue.xray.set_unassigned(deps.is_empty())
-        }
-    }
-}
-
-pub fn update_anchor_cues_for_mode(
-    mode: Res<InteractionMode>,
-    mut anchors: Query<&mut VisualCue, With<Anchor>>,
-) {
-    if !mode.is_changed() {
-        return;
-    }
-
-    let anchor_always_visible = mode.is_selecting_anchor();
-    for mut cue in &mut anchors {
-        if cue.xray.always() != anchor_always_visible {
-            cue.xray.set_always(anchor_always_visible);
         }
     }
 }

@@ -337,8 +337,7 @@ pub fn update_gizmo_release(
     mut selection_blockers: ResMut<SelectionBlockers>,
     mut gizmo_state: ResMut<GizmoState>,
     mouse_button_input: Res<Input<MouseButton>>,
-    picked: Res<Picked>,
-    mut change_pick: EventWriter<ChangePick>,
+    mut picked: ResMut<Picked>,
 ) {
     if mouse_button_input.just_released(MouseButton::Left) {
         if let GizmoState::Dragging(e) = *gizmo_state {
@@ -356,10 +355,7 @@ pub fn update_gizmo_release(
             // to move the cursor off of whatever object it happens to be
             // hovering over after the drag is finished before interactions like
             // selecting or dragging can resume.
-            change_pick.send(ChangePick {
-                from: None,
-                to: picked.0,
-            });
+            picked.refresh = true;
         }
     }
 }

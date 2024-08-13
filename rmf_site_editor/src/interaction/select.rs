@@ -382,7 +382,7 @@ impl SpawnSelectionServiceExt for App {
             // Activate all the services at the start
             scope.input.chain(builder).fork_clone((
                 |chain: Chain<_>| chain
-                    .then(clear_picked.into_blocking_callback())
+                    .then(refresh_picked.into_blocking_callback())
                     .then(hover_picking)
                     .connect(scope.terminate),
                 |chain: Chain<_>| chain.connect(hover.input),
@@ -870,6 +870,7 @@ pub fn anchor_selection_setup<State: Borrow<AnchorScope>>(
     mut hidden_anchors: ResMut<HiddenSelectAnchorEntities>,
     mut current_anchor_scope: ResMut<AnchorScope>,
     cursor: Res<Cursor>,
+    mut highlight: ResMut<HighlightAnchors>,
 ) -> SelectionNodeResult
 where
     State: 'static + Send + Sync,
@@ -896,8 +897,11 @@ where
     if scope.is_site() {
         set_visibility(cursor.site_anchor_placement, &mut visibility, true);
     } else {
+        dbg!();
         set_visibility(cursor.level_anchor_placement, &mut visibility, true);
     }
+
+    highlight.0 = true;
 
     *current_anchor_scope = *scope;
 
@@ -928,10 +932,8 @@ pub fn on_hover_anchor_for_edge(
     mut edges: Query<&mut Edge<Entity>>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
-    dbg!();
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.newest_mut().or_missing_state()?;
-    dbg!();
 
     let anchor = match hover.0 {
         Some(anchor) => {
@@ -939,7 +941,6 @@ pub fn on_hover_anchor_for_edge(
             anchor
         }
         None => {
-            println!("vvvvvvvvvvvvvvvvvvvvvvvvvvvvv");
             cursor.add_mode(SELECT_ANCHOR_MODE_LABEL, &mut visibility);
             cursor.level_anchor_placement
         }
@@ -951,9 +952,13 @@ pub fn on_hover_anchor_for_edge(
         let index = preview.side.index();
         let mut edge = edges.get_mut(preview.edge).or_broken_query()?;
 
-        let old_anchor = edge.array_mut()[index];
+        let old_anchor = edge.array()[index];
         if old_anchor != anchor {
-            commands.add(ChangeDependent::remove(old_anchor, preview.edge));
+            let opposite_anchor = edge.array()[preview.side.opposite().index()];
+            if opposite_anchor != old_anchor {
+                commands.add(ChangeDependent::remove(old_anchor, preview.edge));
+            }
+
             edge.array_mut()[index] = anchor;
             commands.add(ChangeDependent::add(anchor, preview.edge));
         }
@@ -988,17 +993,23 @@ pub fn on_select_anchor_for_edge(
             Side::Left => {
                 // We are pinning down the first anchor of the edge
                 let mut edge = edges.get_mut(preview.edge).or_broken_query()?;
+                dbg!(&edge);
+                dbg!(("remove", edge.left()));
                 commands.add(ChangeDependent::remove(edge.left(), preview.edge));
                 *edge.left_mut() = anchor;
+                dbg!(("add", anchor));
                 commands.add(ChangeDependent::add(anchor, preview.edge));
 
-                // if edge.right() != anchor {
-                //     commands.add(ChangeDependent::remove(edge.right(), preview.edge));
-                // }
+                if edge.right() != anchor {
+                    dbg!(("remove", edge.right()));
+                    commands.add(ChangeDependent::remove(edge.right(), preview.edge));
+                }
 
-                commands.add(ChangeDependent::remove(edge.right(), preview.edge));
+                dbg!(("add", cursor.level_anchor_placement));
                 *edge.right_mut() = cursor.level_anchor_placement;
                 commands.add(ChangeDependent::add(cursor.level_anchor_placement, preview.edge));
+
+                dbg!(&edge);
 
                 preview.side = Side::Right;
                 preview.provisional_start = selection.provisional;
@@ -1157,6 +1168,7 @@ pub fn cleanup_anchor_selection(
     mut visibility: Query<&mut Visibility>,
     mut hidden_anchors: ResMut<HiddenSelectAnchorEntities>,
     mut anchor_scope: ResMut<AnchorScope>,
+    mut highlight: ResMut<HighlightAnchors>,
 ) {
     cursor.remove_mode(SELECT_ANCHOR_MODE_LABEL, &mut visibility);
     set_visibility(cursor.site_anchor_placement, &mut visibility, false);
@@ -1164,6 +1176,8 @@ pub fn cleanup_anchor_selection(
     for e in hidden_anchors.drawing_anchors.drain() {
         set_visibility(e, &mut visibility, true);
     }
+
+    highlight.0 = false;
 
     *anchor_scope = AnchorScope::General;
 }
@@ -1468,21 +1482,17 @@ pub fn select_service<Filter: SystemParam + 'static>(
 where
     for<'w, 's> Filter::Item<'w, 's>: SelectionFilter,
 {
-    // println!("=====================");
     let Some(mut orders) = orders.get_mut(&key) else {
-        // dbg!();
         return;
     };
 
     if orders.is_empty() {
-        // dbg!();
         // Nothing is asking for this service to run
         return;
     }
 
     let mut filter = filter.into_inner();
 
-    // dbg!();
     for selected in select.read() {
         let mut selected = *selected;
         if let Some(selected) = &mut selected.0 {
@@ -1502,8 +1512,8 @@ where
                 }
             }
         }
-        orders.for_each(|order| order.streams().send(dbg!(selected)));
-        // orders.for_each(|order| order.streams().send(selected));
+
+        orders.for_each(|order| order.streams().send(selected));
     }
 }
 
@@ -1512,12 +1522,8 @@ pub fn selection_update(
     mut selected: Query<&mut Selected>,
     mut selection: ResMut<Selection>,
 ) {
-    println!("=================");
-    dbg!();
     if selection.0 != new_selection.map(|s| s.candidate) {
-        dbg!();
         if let Some(previous_selection) = selection.0 {
-            dbg!(previous_selection);
             if let Ok(mut selected) = selected.get_mut(previous_selection) {
                 selected.is_selected = false;
             }
@@ -1529,21 +1535,18 @@ pub fn selection_update(
             }
         }
 
-        dbg!();
-        selection.0 = dbg!(new_selection.map(|s| s.candidate));
+        selection.0 = new_selection.map(|s| s.candidate);
     }
 }
 
 /// This is used to clear out the currently picked item at the start of a new
 /// selection workflow to make sure the Hover events don't get lost during the
 /// workflow switch.
-pub fn clear_picked(
+pub fn refresh_picked(
     In(_): In<()>,
     mut picked: ResMut<Picked>,
 ) {
-    if picked.0.is_some() {
-        picked.0 = None;
-    }
+    picked.refresh = true;
 }
 
 /// This is used to clear out hoverings and selections from a workflow that is

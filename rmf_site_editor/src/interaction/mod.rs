@@ -157,6 +157,7 @@ impl Plugin for InteractionPlugin {
             .init_resource::<PickingBlockers>()
             .init_resource::<GizmoState>()
             .init_resource::<InteractionMode>()
+            .insert_resource(HighlightAnchors(false))
             .init_resource::<HiddenSelectAnchorEntities>()
             .add_event::<ChangePick>()
             .add_event::<MoveTo>()
@@ -198,9 +199,9 @@ impl Plugin for InteractionPlugin {
                     update_anchor_visual_cues.after(SelectionServiceStages::Select),
                     update_popups.after(SelectionServiceStages::Select),
                     update_unassigned_anchor_cues,
-                    update_anchor_cues_for_mode,
-                    update_anchor_proximity_xray.after(SelectionServiceStages::Pick),
+                    update_anchor_proximity_xray.after(SelectionServiceStages::PickFlush),
                     remove_deleted_supports_from_visual_cues,
+                    on_highlight_anchors_change,
                 )
                     .run_if(in_state(InteractionState::Enable)),
             )
