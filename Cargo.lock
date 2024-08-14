@@ -795,7 +795,7 @@ version = "0.0.1"
 source = "git+https://github.com/open-rmf/bevy_impulse?branch=main#0341e568d44b1c67d99117e8241ee83ce72c3833"
 dependencies = [
  "quote",
- "syn 1.0.109",
+ "syn 2.0.52",
 ]
 
 [[package]]

@@ -15,10 +15,13 @@
  *
 */
 
-use crate::site::{
-    update_anchor_transforms, CollisionMeshMarker, ConstraintMarker, DoorMarker, FiducialMarker,
-    FloorMarker, LaneMarker, LiftCabin, LiftCabinDoorMarker, LocationTags, MeasurementMarker,
-    SiteUpdateSet, VisualMeshMarker, WallMarker,
+use crate::{
+    site::{
+        update_anchor_transforms, CollisionMeshMarker, ConstraintMarker, DoorMarker, FiducialMarker,
+        FloorMarker, LaneMarker, LiftCabin, LiftCabinDoorMarker, LocationTags, MeasurementMarker,
+        SiteUpdateSet, VisualMeshMarker, WallMarker,
+    },
+    interaction::SelectionServiceStages,
 };
 use crate::workcell::WorkcellVisualizationMarker;
 
@@ -135,7 +138,7 @@ impl Plugin for InteractionPlugin {
     fn build(&self, app: &mut App) {
         app.add_state::<InteractionState>()
             .configure_sets(
-                Update,
+                PostUpdate,
                 (
                     SiteUpdateSet::AssignOrphansFlush,
                     InteractionUpdateSet::AddVisuals,

@@ -50,6 +50,17 @@ pub struct SelectPlugin {}
 impl Plugin for SelectPlugin {
     fn build(&self, app: &mut App) {
         app
+        .configure_sets(
+            Update,
+            (
+                SelectionServiceStages::Pick,
+                SelectionServiceStages::PickFlush,
+                SelectionServiceStages::Hover,
+                SelectionServiceStages::HoverFlush,
+                SelectionServiceStages::Select,
+                SelectionServiceStages::SelectFlush,
+            ).chain()
+        )
         .init_resource::<SelectionBlockers>()
         .init_resource::<Selection>()
         .init_resource::<Hovering>()
@@ -59,12 +70,15 @@ impl Plugin for SelectPlugin {
         .add_systems(
             Update,
             (
-                apply_deferred
-                    .in_set(SelectionServiceStages::PickFlush)
-                    .after(SelectionServiceStages::Pick),
-                apply_deferred
-                    .in_set(SelectionServiceStages::HoverFlush)
-                    .after(SelectionServiceStages::Hover),
+                (apply_deferred, flush_impulses())
+                .chain()
+                .in_set(SelectionServiceStages::PickFlush),
+                (apply_deferred, flush_impulses())
+                .chain()
+                .in_set(SelectionServiceStages::HoverFlush),
+                (apply_deferred, flush_impulses())
+                .chain()
+                .in_set(SelectionServiceStages::SelectFlush),
             )
         )
         .add_plugins((
@@ -359,9 +373,7 @@ impl SpawnSelectionServiceExt for App {
             Update,
             hover_service::<F>
             .configure(|config: SystemConfigs|
-                config
-                .in_set(SelectionServiceStages::Hover)
-                .after(SelectionServiceStages::PickFlush)
+                config.in_set(SelectionServiceStages::Hover)
             ),
         );
 
@@ -369,9 +381,7 @@ impl SpawnSelectionServiceExt for App {
             Update,
             select_service::<F>
             .configure(|config: SystemConfigs|
-                config
-                .in_set(SelectionServiceStages::Select)
-                .after(SelectionServiceStages::HoverFlush)
+                config.in_set(SelectionServiceStages::Select)
             ),
         );
 
@@ -415,6 +425,7 @@ pub enum SelectionServiceStages {
     Hover,
     HoverFlush,
     Select,
+    SelectFlush,
 }
 
 #[derive(Resource)]
