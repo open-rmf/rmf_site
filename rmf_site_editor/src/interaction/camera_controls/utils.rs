@@ -74,12 +74,11 @@ pub fn get_camera_selected_point(
     camera_global_transform: &GlobalTransform,
     user_camera_display: Res<UserCameraDisplay>,
     mut immediate_raycast: Raycast,
-) -> Vec3 {
+) -> Option<Vec3> {
     // Assume that the camera spans the full window, covered by egui panels
     let available_viewport_center = user_camera_display.region.center();
     let camera_ray = camera
-        .viewport_to_world(camera_global_transform, available_viewport_center)
-        .expect("Active camera does not have a valid ray from center of its viewport");
+        .viewport_to_world(camera_global_transform, available_viewport_center)?;
     let camera_ray = Ray3d::new(camera_ray.origin, camera_ray.direction);
     let raycast_setting = RaycastSettings::default()
         .always_early_exit()
@@ -89,13 +88,13 @@ pub fn get_camera_selected_point(
     let intersections = immediate_raycast.cast_ray(camera_ray, &raycast_setting);
     if intersections.len() > 0 {
         let (_, intersection_data) = &intersections[0];
-        return intersection_data.position();
+        return Some(intersection_data.position());
     } else {
-        return get_groundplane_else_default_selection(
+        return Some(get_groundplane_else_default_selection(
             camera_ray.origin(),
             camera_ray.direction(),
             camera_ray.direction(),
-        );
+        ));
     }
 }
 

@@ -98,7 +98,6 @@ pub fn build_select_workflow(
         let run_service_buffer = builder.create_buffer::<RunSelector>(BufferSettings::keep_last(1));
         let input = scope.input.fork_clone(builder);
         let inspector = input.clone_chain(builder).then_node(inspector_service);
-        dbg!(&inspector);
         let new_selector_node = input.clone_chain(builder).then_node(new_selector_service);
         builder.connect(new_selector_node.output, scope.terminate);
         new_selector_node.streams.chain(builder)
@@ -121,6 +120,13 @@ pub fn build_select_workflow(
             .then_injection()
             .trigger()
             .connect(inspector.input);
+
+        // let injection = open_gate.output.chain(builder)
+        //     .map_block(|r: RunSelector| (r.input, r.selector))
+        //     .then_injection_node();
+        // injection.output.chain(builder)
+        //     .trigger()
+        //     .connect(inspector.input);
 
         DeliverySettings::Serial
     }
@@ -371,12 +377,11 @@ impl SpawnSelectionServiceExt for App {
 
         self.world.spawn_workflow::<_, _, (Hover, Select), _>(|scope, builder| {
             let hover = builder.create_node(hover_service);
-            builder.connect(dbg!(hover.streams), dbg!(scope.streams.0));
+            builder.connect(hover.streams, scope.streams.0);
             builder.connect(hover.output, scope.terminate);
 
             let select = builder.create_node(select_service);
-            builder.connect(dbg!(select.streams), dbg!(scope.streams.1));
-            // select.streams.chain(builder).map(print_debug("in scope")).connect(scope.streams.1);
+            builder.connect(select.streams, scope.streams.1);
             builder.connect(select.output, scope.terminate);
 
             // Activate all the services at the start
@@ -429,7 +434,6 @@ pub struct InspectorServicePlugin {}
 impl Plugin for InspectorServicePlugin {
     fn build(&self, app: &mut App) {
         let inspector_select_service = app.spawn_selection_service::<InspectorFilter>();
-        dbg!(inspector_select_service);
         let inspector_cursor_transform = app.spawn_continuous_service(
             Update,
             inspector_cursor_transform
@@ -443,11 +447,9 @@ impl Plugin for InspectorServicePlugin {
             let fork_input = scope.input.fork_clone(builder);
             fork_input.clone_chain(builder).then(inspector_cursor_transform).unused();
             let selection = fork_input.clone_chain(builder).then_node(inspector_select_service);
-            selection.streams.1.chain(builder).map(print_debug("out of scope")).then(selection_update).unused();
+            selection.streams.1.chain(builder).then(selection_update).unused();
             builder.connect(selection.output, scope.terminate);
         });
-        dbg!(inspector_service);
-        dbg!(inspector_cursor_transform);
 
         app.world.insert_resource(InspectorService {
             inspector_service,
@@ -869,7 +871,7 @@ pub fn anchor_selection_setup<State: Borrow<AnchorScope>>(
     mut visibility: Query<&'static mut Visibility>,
     mut hidden_anchors: ResMut<HiddenSelectAnchorEntities>,
     mut current_anchor_scope: ResMut<AnchorScope>,
-    cursor: Res<Cursor>,
+    mut cursor: ResMut<Cursor>,
     mut highlight: ResMut<HighlightAnchors>,
 ) -> SelectionNodeResult
 where
@@ -897,13 +899,14 @@ where
     if scope.is_site() {
         set_visibility(cursor.site_anchor_placement, &mut visibility, true);
     } else {
-        dbg!();
         set_visibility(cursor.level_anchor_placement, &mut visibility, true);
     }
 
     highlight.0 = true;
 
     *current_anchor_scope = *scope;
+
+    cursor.add_mode(SELECT_ANCHOR_MODE_LABEL, &mut visibility);
 
     Ok(())
 }
@@ -918,7 +921,6 @@ pub fn create_edges_setup(
     let state = access.newest_mut().or_missing_state()?;
 
     if state.preview_edge.is_none() {
-        dbg!(cursor.level_anchor_placement);
         state.initialize_preview(cursor.level_anchor_placement, &mut commands);
     }
     Ok(())
@@ -993,23 +995,16 @@ pub fn on_select_anchor_for_edge(
             Side::Left => {
                 // We are pinning down the first anchor of the edge
                 let mut edge = edges.get_mut(preview.edge).or_broken_query()?;
-                dbg!(&edge);
-                dbg!(("remove", edge.left()));
                 commands.add(ChangeDependent::remove(edge.left(), preview.edge));
                 *edge.left_mut() = anchor;
-                dbg!(("add", anchor));
                 commands.add(ChangeDependent::add(anchor, preview.edge));
 
                 if edge.right() != anchor {
-                    dbg!(("remove", edge.right()));
                     commands.add(ChangeDependent::remove(edge.right(), preview.edge));
                 }
 
-                dbg!(("add", cursor.level_anchor_placement));
                 *edge.right_mut() = cursor.level_anchor_placement;
                 commands.add(ChangeDependent::add(cursor.level_anchor_placement, preview.edge));
-
-                dbg!(&edge);
 
                 preview.side = Side::Right;
                 preview.provisional_start = selection.provisional;
@@ -1041,13 +1036,11 @@ pub fn on_select_anchor_for_edge(
                     EdgeContinuity::Separate => {
                         // Start drawing a new edge from a blank slate with the
                         // next selection
-                        dbg!(cursor.level_anchor_placement);
                         state.initialize_preview(cursor.level_anchor_placement, &mut commands);
                     }
                     EdgeContinuity::Continuous => {
                         // Start drawing a new edge, picking up from the end
                         // point of the previous edge
-                        dbg!((anchor, cursor.level_anchor_placement));
                         let edge = Edge::new(anchor, cursor.level_anchor_placement);
                         let edge = (state.spawn_edge)(edge, &mut commands);
                         state.preview_edge = Some(PreviewEdge {
@@ -1297,7 +1290,6 @@ impl<'w, 's> SelectionFilter for AnchorFilter<'w ,'s> {
             }
         };
 
-        dbg!(new_anchor);
         Some(Select::provisional(new_anchor))
     }
 }

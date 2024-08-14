@@ -135,11 +135,6 @@ pub fn update_picked(
     mut change_pick: EventWriter<ChangePick>,
     current_workspace: Res<CurrentWorkspace>,
 ) {
-    let refresh = picked.refresh;
-    if refresh {
-        picked.refresh = false;
-    }
-
     if let Some(blockers) = blockers {
         if blockers.blocking() {
             // If picking is masked, then nothing should be picked
@@ -197,6 +192,11 @@ pub fn update_picked(
 
         None
     };
+
+    let refresh = picked.refresh;
+    if refresh {
+        picked.refresh = false;
+    }
 
     if picked.current != current_picked || refresh {
         change_pick.send(ChangePick {
