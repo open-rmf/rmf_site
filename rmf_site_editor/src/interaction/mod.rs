@@ -234,7 +234,7 @@ impl Plugin for InteractionPlugin {
                     .run_if(in_state(InteractionState::Enable)),
             )
             .add_systems(
-                Update,
+                PostUpdate,
                 (
                     add_anchor_visual_cues,
                     remove_interaction_for_subordinate_anchors,
