@@ -1,0 +1,157 @@
+/*
+ * Copyright (C) 2024 Open Source Robotics Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+*/
+
+use crate::{
+    interaction::*,
+    site::Original,
+};
+use rmf_site_format::{Edge, Side};
+use bevy::prelude::*;
+use bevy_impulse::*;
+use std::borrow::Borrow;
+
+pub struct ReplaceEdgeAnchor {
+    /// The edge whose anchor is being replaced
+    pub edge: Entity,
+    /// The side of the edge which is being replaced
+    pub side: Side,
+    /// The original values for the edge. This is None until setup occurs, then
+    /// its value will be available.
+    pub original: Option<Edge<Entity>>,
+    /// The scope that the edge exists in
+    pub scope: AnchorScope,
+    /// Keeps track of whether the replacement really happened. If false, the
+    /// cleanup will revert the edge to its original state. If true, the cleanup
+    /// will not need to do anything.
+    pub replaced: bool,
+}
+
+impl ReplaceEdgeAnchor {
+    pub fn new(edge: Entity, side: Side, scope: AnchorScope) -> Self {
+        Self { edge, side, scope, original: None, replaced: false }
+    }
+
+    pub fn set_chosen(
+        &mut self,
+        chosen: Entity,
+        edges: &mut Query<&mut Edge<Entity>>,
+    ) -> SelectionNodeResult {
+        let original = self.original.or_broken_buffer()?;
+        let mut edge_mut = edges.get_mut(self.edge).or_broken_query()?;
+        if chosen == original.array()[self.side.opposite().index()] {
+            // The user is choosing the anchor on the opposite side of the edge as
+            // the replacement anchor. We take this to mean that the user wants to
+            // flip the edge.
+            *edge_mut.left_mut() = original.right();
+            *edge_mut.right_mut() = original.left();
+        } else {
+            edge_mut.array_mut()[self.side.index()] = chosen;
+        }
+
+        Ok(())
+    }
+}
+
+impl Borrow<AnchorScope> for ReplaceEdgeAnchor {
+    fn borrow(&self) -> &AnchorScope {
+        &self.scope
+    }
+}
+
+pub fn replace_edge_anchor_setup(
+    In(key): In<BufferKey<ReplaceEdgeAnchor>>,
+    mut access: BufferAccessMut<ReplaceEdgeAnchor>,
+    mut edges: Query<&'static mut Edge<Entity>>,
+    cursor: Res<Cursor>,
+    mut commands: Commands,
+) -> SelectionNodeResult {
+    let mut access = access.get_mut(&key).or_broken_buffer()?;
+    let state = access.newest_mut().or_missing_state()?;
+
+    let mut edge_mut = edges.get_mut(state.edge).or_broken_query()?;
+    let original_edge: Edge<Entity> = *edge_mut;
+    state.original = Some(original_edge);
+    edge_mut.array_mut()[state.side.index()] = cursor.level_anchor_placement;
+    commands.entity(state.edge).insert(Original(original_edge));
+
+    Ok(())
+}
+
+pub fn on_hover_for_replace_edge_anchor(
+    In((hover, key)): In<(Hover, BufferKey<ReplaceEdgeAnchor>)>,
+    mut access: BufferAccessMut<ReplaceEdgeAnchor>,
+    mut cursor: ResMut<Cursor>,
+    mut visibility: Query<&mut Visibility>,
+    mut edges: Query<&mut Edge<Entity>>,
+) -> SelectionNodeResult {
+    let mut access = access.get_mut(&key).or_broken_buffer()?;
+    let state = access.newest_mut().or_missing_state()?;
+
+    let chosen = match hover.0 {
+        Some(anchor) => {
+            cursor.remove_mode(SELECT_ANCHOR_MODE_LABEL, &mut visibility);
+            anchor
+        }
+        None => {
+            cursor.add_mode(SELECT_ANCHOR_MODE_LABEL, &mut visibility);
+            cursor.level_anchor_placement
+        }
+    };
+
+    state.set_chosen(chosen, &mut edges)
+}
+
+pub fn on_select_for_replace_edge_anchor(
+    In((selection, key)): In<(SelectionCandidate, BufferKey<ReplaceEdgeAnchor>)>,
+    mut access: BufferAccessMut<ReplaceEdgeAnchor>,
+    mut edges: Query<&mut Edge<Entity>>,
+) -> SelectionNodeResult {
+    let mut access = access.get_mut(&key).or_broken_buffer()?;
+    let state = access.newest_mut().or_missing_state()?;
+    state.set_chosen(selection.candidate, &mut edges)?;
+    state.replaced = true;
+    // Since the selection has been made, we should exit the workflow now
+    Err(None)
+}
+
+pub fn cleanup_replace_edge_anchor(
+    In(key): In<BufferKey<ReplaceEdgeAnchor>>,
+    mut access: BufferAccessMut<ReplaceEdgeAnchor>,
+    mut edges: Query<&'static mut Edge<Entity>>,
+    mut commands: Commands,
+) -> SelectionNodeResult {
+    let mut access = access.get_mut(&key).or_broken_buffer()?;
+    let state = access.pull().or_missing_state()?;
+
+    commands.get_entity(state.edge).or_broken_query()?
+        .remove::<Original<Edge<Entity>>>();
+
+    if state.replaced {
+        // The anchor was fully replaced, so nothing further to do
+        return Ok(());
+    }
+
+    // The anchor was not replaced so we need to revert to the original setup
+    let Some(original) = state.original else {
+        return Ok(());
+    };
+
+    let mut edge_mut = edges.get_mut(state.edge).or_broken_query()?;
+    *edge_mut = original;
+
+    Ok(())
+}
