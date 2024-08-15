@@ -1360,22 +1360,6 @@ impl SelectAnchorPathBuilder {
 
 type PlacementArc = Arc<dyn Placement + Send + Sync>;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Resource)]
-pub enum AnchorScope {
-    Drawing,
-    General,
-    Site,
-}
-
-impl AnchorScope {
-    pub fn is_site(&self) -> bool {
-        match self {
-            AnchorScope::Site => true,
-            _ => false,
-        }
-    }
-}
-
 /// This enum requests that the next selection should be an anchor, and that
 /// selection should be provided to one of the enumerated entities. When the
 /// inner object is None, that means the selection action should create a new

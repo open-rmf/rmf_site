@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::*,
-    site::{Anchor, DrawingMarker, Pending, ChangeDependent},
+    site::{Pending, ChangeDependent},
 };
 use rmf_site_format::{Edge, Side};
 use bevy::prelude::*;

@@ -17,14 +17,36 @@
 
 use crate::{
     interaction::*,
-    site::Original,
+    site::{Original, ChangeDependent},
 };
 use rmf_site_format::{Edge, Side};
 use bevy::prelude::*;
 use bevy_impulse::*;
 use std::borrow::Borrow;
 
-pub struct ReplaceEdgeAnchor {
+pub fn spawn_replace_side_service(
+    helpers: &AnchorSelectionHelpers,
+    app: &mut App,
+) -> Service<Option<Entity>, ()> {
+    let anchor_setup = app.spawn_service(anchor_selection_setup::<ReplaceSide>.into_blocking_service());
+    let state_setup = app.spawn_service(replace_side_setup.into_blocking_service());
+    let update_preview = app.spawn_service(on_hover_for_replace_side.into_blocking_service());
+    let update_current = app.spawn_service(on_select_for_replace_side.into_blocking_service());
+    let handle_key_code = app.spawn_service(on_keyboard_for_replace_side.into_blocking_service());
+    let cleanup_state = app.spawn_service(cleanup_replace_side.into_blocking_service());
+
+    helpers.spawn_anchor_selection_workflow(
+        anchor_setup,
+        state_setup,
+        update_preview,
+        update_current,
+        handle_key_code,
+        cleanup_state,
+        &mut app.world,
+    )
+}
+
+pub struct ReplaceSide {
     /// The edge whose anchor is being replaced
     pub edge: Entity,
     /// The side of the edge which is being replaced
@@ -40,7 +62,7 @@ pub struct ReplaceEdgeAnchor {
     pub replaced: bool,
 }
 
-impl ReplaceEdgeAnchor {
+impl ReplaceSide {
     pub fn new(edge: Entity, side: Side, scope: AnchorScope) -> Self {
         Self { edge, side, scope, original: None, replaced: false }
     }
@@ -49,9 +71,18 @@ impl ReplaceEdgeAnchor {
         &mut self,
         chosen: Entity,
         edges: &mut Query<&mut Edge<Entity>>,
+        commands: &mut Commands,
     ) -> SelectionNodeResult {
         let original = self.original.or_broken_buffer()?;
         let mut edge_mut = edges.get_mut(self.edge).or_broken_query()?;
+
+        for a in edge_mut.array() {
+            // Remove both current dependencies in case both of them change.
+            // If either dependency doesn't change then they'll be added back
+            // later anyway.
+            commands.add(ChangeDependent::remove(a, self.edge));
+        }
+
         if chosen == original.array()[self.side.opposite().index()] {
             // The user is choosing the anchor on the opposite side of the edge as
             // the replacement anchor. We take this to mean that the user wants to
@@ -62,19 +93,23 @@ impl ReplaceEdgeAnchor {
             edge_mut.array_mut()[self.side.index()] = chosen;
         }
 
+        for a in edge_mut.array() {
+            commands.add(ChangeDependent::add(a, self.edge));
+        }
+
         Ok(())
     }
 }
 
-impl Borrow<AnchorScope> for ReplaceEdgeAnchor {
+impl Borrow<AnchorScope> for ReplaceSide {
     fn borrow(&self) -> &AnchorScope {
         &self.scope
     }
 }
 
-pub fn replace_edge_anchor_setup(
-    In(key): In<BufferKey<ReplaceEdgeAnchor>>,
-    mut access: BufferAccessMut<ReplaceEdgeAnchor>,
+pub fn replace_side_setup(
+    In(key): In<BufferKey<ReplaceSide>>,
+    mut access: BufferAccessMut<ReplaceSide>,
     mut edges: Query<&'static mut Edge<Entity>>,
     cursor: Res<Cursor>,
     mut commands: Commands,
@@ -91,12 +126,13 @@ pub fn replace_edge_anchor_setup(
     Ok(())
 }
 
-pub fn on_hover_for_replace_edge_anchor(
-    In((hover, key)): In<(Hover, BufferKey<ReplaceEdgeAnchor>)>,
-    mut access: BufferAccessMut<ReplaceEdgeAnchor>,
+pub fn on_hover_for_replace_side(
+    In((hover, key)): In<(Hover, BufferKey<ReplaceSide>)>,
+    mut access: BufferAccessMut<ReplaceSide>,
     mut cursor: ResMut<Cursor>,
     mut visibility: Query<&mut Visibility>,
     mut edges: Query<&mut Edge<Entity>>,
+    mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.newest_mut().or_missing_state()?;
@@ -112,25 +148,37 @@ pub fn on_hover_for_replace_edge_anchor(
         }
     };
 
-    state.set_chosen(chosen, &mut edges)
+    state.set_chosen(chosen, &mut edges, &mut commands)
 }
 
-pub fn on_select_for_replace_edge_anchor(
-    In((selection, key)): In<(SelectionCandidate, BufferKey<ReplaceEdgeAnchor>)>,
-    mut access: BufferAccessMut<ReplaceEdgeAnchor>,
+pub fn on_select_for_replace_side(
+    In((selection, key)): In<(SelectionCandidate, BufferKey<ReplaceSide>)>,
+    mut access: BufferAccessMut<ReplaceSide>,
     mut edges: Query<&mut Edge<Entity>>,
+    mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.newest_mut().or_missing_state()?;
-    state.set_chosen(selection.candidate, &mut edges)?;
+    state.set_chosen(selection.candidate, &mut edges, &mut commands)?;
     state.replaced = true;
     // Since the selection has been made, we should exit the workflow now
     Err(None)
 }
 
-pub fn cleanup_replace_edge_anchor(
-    In(key): In<BufferKey<ReplaceEdgeAnchor>>,
-    mut access: BufferAccessMut<ReplaceEdgeAnchor>,
+pub fn on_keyboard_for_replace_side(
+    In((button, _)): In<(KeyCode, BufferKey<ReplaceSide>)>,
+) -> SelectionNodeResult {
+    if matches!(button, KeyCode::Escape) {
+        // The escape key was pressed so we should exit this mode
+        return Err(None);
+    }
+
+    Ok(())
+}
+
+pub fn cleanup_replace_side(
+    In(key): In<BufferKey<ReplaceSide>>,
+    mut access: BufferAccessMut<ReplaceSide>,
     mut edges: Query<&'static mut Edge<Entity>>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
