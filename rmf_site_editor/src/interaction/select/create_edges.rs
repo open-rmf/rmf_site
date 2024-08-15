@@ -166,6 +166,8 @@ pub fn on_hover_for_create_edges(
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.newest_mut().or_missing_state()?;
 
+    // TODO(@mxgrey): Consider moving this logic into AnchorFilter since it gets
+    // used by all the different anchor selection modes.
     let anchor = match hover.0 {
         Some(anchor) => {
             cursor.remove_mode(SELECT_ANCHOR_MODE_LABEL, &mut visibility);
@@ -253,7 +255,7 @@ pub fn on_select_for_create_edges(
                 }
                 *edge.right_mut() = anchor;
                 commands.add(ChangeDependent::add(anchor, preview.edge));
-                commands.get_entity(preview.edge).or_broken_query()?.remove::<Preview>();
+                commands.get_entity(preview.edge).or_broken_query()?.remove::<Pending>();
 
                 match state.continuity {
                     EdgeContinuity::Single => {

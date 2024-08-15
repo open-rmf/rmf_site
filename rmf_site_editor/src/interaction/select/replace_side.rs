@@ -32,7 +32,7 @@ pub fn spawn_replace_side_service(
     let state_setup = app.spawn_service(replace_side_setup.into_blocking_service());
     let update_preview = app.spawn_service(on_hover_for_replace_side.into_blocking_service());
     let update_current = app.spawn_service(on_select_for_replace_side.into_blocking_service());
-    let handle_key_code = app.spawn_service(on_keyboard_for_replace_side.into_blocking_service());
+    let handle_key_code = app.spawn_service(exit_on_esc::<ReplaceSide>.into_blocking_service());
     let cleanup_state = app.spawn_service(cleanup_replace_side.into_blocking_service());
 
     helpers.spawn_anchor_selection_workflow(
@@ -163,17 +163,6 @@ pub fn on_select_for_replace_side(
     state.replaced = true;
     // Since the selection has been made, we should exit the workflow now
     Err(None)
-}
-
-pub fn on_keyboard_for_replace_side(
-    In((button, _)): In<(KeyCode, BufferKey<ReplaceSide>)>,
-) -> SelectionNodeResult {
-    if matches!(button, KeyCode::Escape) {
-        // The escape key was pressed so we should exit this mode
-        return Err(None);
-    }
-
-    Ok(())
 }
 
 pub fn cleanup_replace_side(

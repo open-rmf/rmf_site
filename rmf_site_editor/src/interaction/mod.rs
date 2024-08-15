@@ -15,13 +15,10 @@
  *
 */
 
-use crate::{
-    site::{
-        update_anchor_transforms, CollisionMeshMarker, ConstraintMarker, DoorMarker, FiducialMarker,
-        FloorMarker, LaneMarker, LiftCabin, LiftCabinDoorMarker, LocationTags, MeasurementMarker,
-        SiteUpdateSet, VisualMeshMarker, WallMarker,
-    },
-    interaction::SelectionServiceStages,
+use crate::site::{
+    update_anchor_transforms, CollisionMeshMarker, ConstraintMarker, DoorMarker, FiducialMarker,
+    FloorMarker, LaneMarker, LiftCabin, LiftCabinDoorMarker, LocationTags, MeasurementMarker,
+    SiteUpdateSet, VisualMeshMarker, WallMarker,
 };
 use crate::workcell::WorkcellVisualizationMarker;
 

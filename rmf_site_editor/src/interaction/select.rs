@@ -47,6 +47,9 @@ use replace_side::*;
 pub mod select_anchor;
 pub use select_anchor::*;
 
+pub mod create_path;
+use create_path::*;
+
 pub const SELECT_ANCHOR_MODE_LABEL: &'static str = "select_anchor";
 
 #[derive(Default)]

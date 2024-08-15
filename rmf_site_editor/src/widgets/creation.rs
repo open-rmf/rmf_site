@@ -98,9 +98,7 @@ impl<'w, 's> Creation<'w, 's> {
                     }
 
                     if ui.button("Floor").clicked() {
-                        self.change_mode.send(ChangeMode::To(
-                            SelectAnchor::create_new_path().for_floor().into(),
-                        ));
+                        self.anchor_selection.create_floor();
                     }
                     if ui.button("Fiducial").clicked() {
                         self.change_mode.send(ChangeMode::To(

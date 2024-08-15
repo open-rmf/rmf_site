@@ -146,8 +146,8 @@ impl<'w, 's> InspectEdge<'w, 's> {
                         );
                     } else {
                         error!(
-                            "Failed to trigger an anchor replacement for side \
-                            {side:?} of edge {edge:?} with category {category:?}"
+                            "Invalid type of element for replace_side operation: {category:?} \
+                            Please report this error to the site editor maintainers."
                         );
                     }
                 }

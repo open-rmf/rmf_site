@@ -19,6 +19,7 @@ use bevy::prelude::*;
 use bevy_impulse::*;
 
 use crate::interaction::select::*;
+use rmf_site_format::{Path, Floor};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Resource)]
 pub enum AnchorScope {
@@ -112,6 +113,7 @@ impl AnchorSelectionHelpers {
 pub struct AnchorSelectionServices {
     pub create_edges: Service<Option<Entity>, ()>,
     pub replace_side: Service<Option<Entity>, ()>,
+    pub create_path: Service<Option<Entity>, ()>,
 }
 
 impl AnchorSelectionServices {
@@ -121,7 +123,8 @@ impl AnchorSelectionServices {
     ) -> Self {
         let create_edges = spawn_create_edges_service(helpers, app);
         let replace_side = spawn_replace_side_service(helpers, app);
-        Self { create_edges, replace_side }
+        let create_path = spawn_create_path_service(helpers, app);
+        Self { create_edges, replace_side, create_path }
     }
 }
 
@@ -168,6 +171,16 @@ impl<'w, 's> AnchorSelection<'w, 's> {
         )
     }
 
+    pub fn create_floor(&mut self) {
+        self.create_path::<Floor<Entity>>(
+            create_path_with_texture::<Floor<Entity>>,
+            3,
+            false,
+            true,
+            AnchorScope::General,
+        );
+    }
+
     pub fn replace_side(
         &mut self,
         edge: Entity,
@@ -203,6 +216,24 @@ impl<'w, 's> AnchorSelection<'w, 's> {
 
         self.run.send(RunSelector {
             selector: self.services.create_edges,
+            input: Some(entity),
+        });
+    }
+
+    pub fn create_path<T: Bundle + From<Path<Entity>>>(
+        &mut self,
+        spawn_path: fn(Path<Entity>, &mut Commands) -> Entity,
+        minimum_points: usize,
+        allow_inner_loops: bool,
+        implied_complete_loop: bool,
+        scope: AnchorScope,
+    ) {
+        let entity = self.commands.spawn(SelectorInput(CreatePath::new(
+            spawn_path, minimum_points, allow_inner_loops, implied_complete_loop, scope,
+        ))).id();
+
+        self.run.send(RunSelector {
+            selector: self.services.create_path,
             input: Some(entity),
         });
     }
@@ -509,6 +540,17 @@ where
     *current_anchor_scope = *scope;
 
     cursor.add_mode(SELECT_ANCHOR_MODE_LABEL, &mut visibility);
+
+    Ok(())
+}
+
+pub fn exit_on_esc<T>(
+    In((button, _)): In<(KeyCode, BufferKey<T>)>,
+) -> SelectionNodeResult {
+    if matches!(button, KeyCode::Escape) {
+        // The escape key was pressed so we should exit this mode
+        return Err(None);
+    }
 
     Ok(())
 }
