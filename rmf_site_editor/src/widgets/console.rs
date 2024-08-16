@@ -76,7 +76,7 @@ fn console_widget(In(input): In<PanelWidgetInput>, mut log_history: ResMut<LogHi
                         }
                         // Slider to adjust display limit
                         let history_size = log_history.log_history().len() as f64;
-                        let nearest_hundred: usize = 100*(history_size/100.0).ceil() as usize;
+                        let nearest_hundred: usize = 100 * (history_size / 100.0).ceil() as usize;
                         ui.add(egui::Slider::new(
                             log_history.display_limit_mut(),
                             10..=nearest_hundred,
