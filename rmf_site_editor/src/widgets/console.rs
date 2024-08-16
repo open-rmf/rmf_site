@@ -78,9 +78,11 @@ fn console_widget(In(input): In<PanelWidgetInput>, mut log_history: ResMut<LogHi
                         // TODO(@mxgrey): Consider allowing this range to
                         // automatically grow/shrink when the selected value
                         // approaches or leaves the upper limit.
+                        let history_size = log_history.log_history().len() as f64;
+                        let nearest_hundred: usize = 100*(history_size/100.0).ceil() as usize;
                         ui.add(egui::Slider::new(
                             log_history.display_limit_mut(),
-                            10..=1000,
+                            10..=nearest_hundred,
                         ));
 
                         if !all_were_checked && all_are_checked {
