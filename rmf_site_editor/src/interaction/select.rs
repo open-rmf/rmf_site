@@ -50,6 +50,9 @@ pub use select_anchor::*;
 pub mod create_path;
 use create_path::*;
 
+pub mod create_point;
+use create_point::*;
+
 pub const SELECT_ANCHOR_MODE_LABEL: &'static str = "select_anchor";
 
 #[derive(Default)]

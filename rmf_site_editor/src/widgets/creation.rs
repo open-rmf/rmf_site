@@ -80,9 +80,7 @@ impl<'w, 's> Creation<'w, 's> {
                     }
 
                     if ui.button("Location").clicked() {
-                        self.change_mode.send(ChangeMode::To(
-                            SelectAnchor::create_new_point().for_location().into(),
-                        ));
+                        self.anchor_selection.create_location();
                     }
 
                     if ui.button("Wall").clicked() {
@@ -101,9 +99,7 @@ impl<'w, 's> Creation<'w, 's> {
                         self.anchor_selection.create_floor();
                     }
                     if ui.button("Fiducial").clicked() {
-                        self.change_mode.send(ChangeMode::To(
-                            SelectAnchor::create_new_point().for_site_fiducial().into(),
-                        ));
+                        self.anchor_selection.create_site_fiducial();
                     }
 
                     ui.add_space(10.0);
@@ -138,11 +134,7 @@ impl<'w, 's> Creation<'w, 's> {
                 }
                 AppState::SiteDrawingEditor => {
                     if ui.button("Fiducial").clicked() {
-                        self.change_mode.send(ChangeMode::To(
-                            SelectAnchor::create_new_point()
-                                .for_drawing_fiducial()
-                                .into(),
-                        ));
+                        self.anchor_selection.create_drawing_fiducial();
                     }
                     if ui.button("Measurement").clicked() {
                         self.anchor_selection.create_measurements();

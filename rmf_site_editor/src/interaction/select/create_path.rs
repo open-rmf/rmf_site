@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::*,
-    site::{ChangeDependent, TextureNeedsAssignment}
+    site::{ChangeDependent, TextureNeedsAssignment, Pending},
 };
 use rmf_site_format::Path;
 use bevy::prelude::*;
@@ -131,7 +131,7 @@ pub fn create_path_with_texture<T: Bundle + From<Path<Entity>>>(
     commands: &mut Commands,
 ) -> Entity {
     let new_bundle: T = path.into();
-    commands.spawn((new_bundle, TextureNeedsAssignment)).id()
+    commands.spawn((new_bundle, TextureNeedsAssignment, Pending)).id()
 }
 
 pub fn create_path_setup(
@@ -253,6 +253,7 @@ pub fn cleanup_create_path(
         // happen if the setup needed to bail out for some reason.
         return Ok(());
     };
+    commands.get_entity(path).or_broken_query()?.remove::<Pending>();
     let mut path_mut = paths.get_mut(path).or_broken_query()?;
 
     // First check if the len-1 meets the minimum point requirement. If not we

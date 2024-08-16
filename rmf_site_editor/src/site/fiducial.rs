@@ -65,14 +65,16 @@ pub fn add_unused_fiducial_tracker(
 }
 
 pub fn update_fiducial_usage_tracker(
-    mut unused_fiducial_trackers: Query<(Entity, &mut FiducialUsage)>,
-    changed_parent: Query<Entity, (With<DrawingMarker>, Changed<Parent>)>,
-    changed_fiducial: Query<&Parent, (Changed<Affiliation<Entity>>, With<FiducialMarker>)>,
+    mut fiducial_usage_trackers: Query<(Entity, &mut FiducialUsage)>,
+    changed_scopes: Query<Entity, (With<DrawingMarker>, Or<(Changed<Parent>, Changed<Children>)>)>,
+    changed_fiducials: Query<&Parent, (
+        Or<(Changed<Affiliation<Entity>>, Changed<Parent>)>,
+        With<FiducialMarker>,
+    )>,
     sites: Query<(), With<NameOfSite>>,
     parent: Query<&Parent>,
     children: Query<&Children>,
     fiducials: Query<&Affiliation<Entity>, With<FiducialMarker>>,
-    changed_fiducials: Query<&Parent, (Changed<Affiliation<Entity>>, With<FiducialMarker>)>,
     fiducial_groups: Query<(Entity, &NameInSite, &Parent), (With<Group>, With<FiducialMarker>)>,
     changed_fiducial_groups: Query<
         Entity,
@@ -88,19 +90,19 @@ pub fn update_fiducial_usage_tracker(
     >,
     mut removed_fiducial_groups: RemovedComponents<Group>,
 ) {
-    for e in &changed_parent {
+    for e in &changed_scopes {
         if let Some(site) = find_parent_site(e, &sites, &parent) {
-            if let Ok((_, mut unused)) = unused_fiducial_trackers.get_mut(e) {
+            if let Ok((_, mut unused)) = fiducial_usage_trackers.get_mut(e) {
                 unused.site = site;
             }
         }
     }
 
-    for e in changed_parent
+    for e in changed_scopes
         .iter()
-        .chain(changed_fiducial.iter().map(|p| p.get()))
+        .chain(changed_fiducials.iter().map(|p| p.get()))
     {
-        let Ok((_, mut tracker)) = unused_fiducial_trackers.get_mut(e) else {
+        let Ok((_, mut tracker)) = fiducial_usage_trackers.get_mut(e) else {
             continue;
         };
         reset_fiducial_usage(e, &mut tracker, &fiducials, &fiducial_groups, &children);
@@ -110,7 +112,7 @@ pub fn update_fiducial_usage_tracker(
         let Ok((_, name, site)) = fiducial_groups.get(changed_group) else {
             continue;
         };
-        for (e, mut tracker) in &mut unused_fiducial_trackers {
+        for (e, mut tracker) in &mut fiducial_usage_trackers {
             if tracker.site == site.get() {
                 tracker.unused.insert(changed_group, name.0.clone());
                 let Ok(scope_children) = children.get(e) else {
@@ -137,15 +139,8 @@ pub fn update_fiducial_usage_tracker(
         }
     }
 
-    for parent in &changed_fiducials {
-        let Ok((e, mut tracker)) = unused_fiducial_trackers.get_mut(parent.get()) else {
-            continue;
-        };
-        reset_fiducial_usage(e, &mut tracker, &fiducials, &fiducial_groups, &children);
-    }
-
     for removed_group in removed_fiducial_groups.read() {
-        for (_, mut tracker) in &mut unused_fiducial_trackers {
+        for (_, mut tracker) in &mut fiducial_usage_trackers {
             tracker.used.remove(&removed_group);
             tracker.unused.remove(&removed_group);
         }
@@ -171,21 +166,21 @@ fn find_parent_site(
 }
 
 fn reset_fiducial_usage(
-    entity: Entity,
+    scope: Entity,
     tracker: &mut FiducialUsage,
     fiducials: &Query<&Affiliation<Entity>, With<FiducialMarker>>,
     fiducial_groups: &Query<(Entity, &NameInSite, &Parent), (With<Group>, With<FiducialMarker>)>,
     children: &Query<&Children>,
 ) {
     tracker.unused.clear();
+    tracker.used.clear();
     for (group, name, site) in fiducial_groups {
         if site.get() == tracker.site {
             tracker.unused.insert(group, name.0.clone());
-            tracker.used.remove(&group);
         }
     }
 
-    let Ok(scope_children) = children.get(entity) else {
+    let Ok(scope_children) = children.get(scope) else {
         return;
     };
     for child in scope_children {
@@ -242,6 +237,8 @@ pub fn assign_orphan_fiducials_to_parent(
     for (e, point) in &orphans {
         if let Ok(parent) = anchors.get(point.0) {
             commands.entity(e).set_parent(parent.get());
+        } else {
+            error!("No parent for anchor {:?} needed by fiducial {e:?}", point.0);
         }
     }
 }

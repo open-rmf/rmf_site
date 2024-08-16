@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    site::{Affiliation, Change, FiducialGroup, FiducialMarker, FiducialUsage, Group, NameInSite},
+    site::{Affiliation, Change, FiducialGroup, FiducialMarker, FiducialUsage, Group, NameInSite, SiteID},
     widgets::{prelude::*, Icons, Inspect, InspectionPlugin},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -92,6 +92,11 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectFiducial<'w, 's> {
             return;
         };
         let Ok(tracker) = params.usage.get(parent.get()) else {
+            error!(
+                "Unable to find usage tracker for parent {:?} of fiducial {:?}",
+                parent.get(),
+                selection,
+            );
             return;
         };
 

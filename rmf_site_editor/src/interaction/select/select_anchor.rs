@@ -19,7 +19,7 @@ use bevy::prelude::*;
 use bevy_impulse::*;
 
 use crate::interaction::select::*;
-use rmf_site_format::{Path, Floor};
+use rmf_site_format::{Path, Floor, Point, Location, Fiducial};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Resource)]
 pub enum AnchorScope {
@@ -114,6 +114,7 @@ pub struct AnchorSelectionServices {
     pub create_edges: Service<Option<Entity>, ()>,
     pub replace_side: Service<Option<Entity>, ()>,
     pub create_path: Service<Option<Entity>, ()>,
+    pub create_point: Service<Option<Entity>, ()>,
 }
 
 impl AnchorSelectionServices {
@@ -124,7 +125,8 @@ impl AnchorSelectionServices {
         let create_edges = spawn_create_edges_service(helpers, app);
         let replace_side = spawn_replace_side_service(helpers, app);
         let create_path = spawn_create_path_service(helpers, app);
-        Self { create_edges, replace_side, create_path }
+        let create_point = spawn_create_point_service(helpers, app);
+        Self { create_edges, replace_side, create_path, create_point }
     }
 }
 
@@ -181,6 +183,18 @@ impl<'w, 's> AnchorSelection<'w, 's> {
         );
     }
 
+    pub fn create_location(&mut self) {
+        self.create_point::<Location<Entity>>(false, AnchorScope::General);
+    }
+
+    pub fn create_site_fiducial(&mut self) {
+        self.create_point::<Fiducial<Entity>>(false, AnchorScope::Site);
+    }
+
+    pub fn create_drawing_fiducial(&mut self) {
+        self.create_point::<Fiducial<Entity>>(false, AnchorScope::Drawing);
+    }
+
     pub fn replace_side(
         &mut self,
         edge: Entity,
@@ -234,6 +248,21 @@ impl<'w, 's> AnchorSelection<'w, 's> {
 
         self.run.send(RunSelector {
             selector: self.services.create_path,
+            input: Some(entity),
+        });
+    }
+
+    pub fn create_point<T: Bundle + From<Point<Entity>>>(
+        &mut self,
+        repeating: bool,
+        scope: AnchorScope,
+    ) {
+        let entity = self.commands.spawn(SelectorInput(CreatePoint::new::<T>(
+            repeating, scope,
+        ))).id();
+
+        self.run.send(RunSelector {
+            selector: self.services.create_point,
             input: Some(entity),
         });
     }
@@ -439,8 +468,10 @@ impl<'w, 's> SelectionFilter for AnchorFilter<'w ,'s> {
                     error!("Cannot find current site");
                     return None;
                 };
-                let new_anchor = self.commands.spawn(AnchorBundle::at_transform(tf)).id();
-                self.commands.entity(site).add_child(new_anchor);
+                let new_anchor = self.commands
+                    .spawn(AnchorBundle::at_transform(tf))
+                    .set_parent(site)
+                    .id();
                 new_anchor
             }
             AnchorScope::Drawing => {
