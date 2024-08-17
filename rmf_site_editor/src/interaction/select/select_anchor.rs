@@ -115,6 +115,7 @@ pub struct AnchorSelectionServices {
     pub replace_side: Service<Option<Entity>, ()>,
     pub create_path: Service<Option<Entity>, ()>,
     pub create_point: Service<Option<Entity>, ()>,
+    pub replace_point: Service<Option<Entity>, ()>,
 }
 
 impl AnchorSelectionServices {
@@ -126,7 +127,8 @@ impl AnchorSelectionServices {
         let replace_side = spawn_replace_side_service(helpers, app);
         let create_path = spawn_create_path_service(helpers, app);
         let create_point = spawn_create_point_service(helpers, app);
-        Self { create_edges, replace_side, create_path, create_point }
+        let replace_point = spawn_replace_point_service(helpers, app);
+        Self { create_edges, replace_side, create_path, create_point, replace_point }
     }
 }
 
@@ -195,6 +197,21 @@ impl<'w, 's> AnchorSelection<'w, 's> {
         self.create_point::<Fiducial<Entity>>(false, AnchorScope::Drawing);
     }
 
+    pub fn create_edges<T: Bundle + From<Edge<Entity>>>(
+        &mut self,
+        continuity: EdgeContinuity,
+        scope: AnchorScope,
+    ) {
+        let state = self.commands.spawn(SelectorInput(
+            CreateEdges::new::<T>(continuity, scope)
+        )).id();
+
+        self.run.send(RunSelector {
+            selector: self.services.create_edges,
+            input: Some(state),
+        });
+    }
+
     pub fn replace_side(
         &mut self,
         edge: Entity,
@@ -207,31 +224,16 @@ impl<'w, 's> AnchorSelection<'w, 's> {
             Category::Lift => AnchorScope::Site,
             _ => return false,
         };
-        let entity = self.commands.spawn(SelectorInput(
+        let state = self.commands.spawn(SelectorInput(
             ReplaceSide::new(edge, side, scope)
         )).id();
 
         self.run.send(RunSelector {
             selector: self.services.replace_side,
-            input: Some(entity),
+            input: Some(state),
         });
 
         true
-    }
-
-    pub fn create_edges<T: Bundle + From<Edge<Entity>>>(
-        &mut self,
-        continuity: EdgeContinuity,
-        scope: AnchorScope,
-    ) {
-        let entity = self.commands.spawn(SelectorInput(
-            CreateEdges::new::<T>(continuity, scope)
-        )).id();
-
-        self.run.send(RunSelector {
-            selector: self.services.create_edges,
-            input: Some(entity),
-        });
     }
 
     pub fn create_path<T: Bundle + From<Path<Entity>>>(
@@ -242,13 +244,13 @@ impl<'w, 's> AnchorSelection<'w, 's> {
         implied_complete_loop: bool,
         scope: AnchorScope,
     ) {
-        let entity = self.commands.spawn(SelectorInput(CreatePath::new(
+        let state = self.commands.spawn(SelectorInput(CreatePath::new(
             spawn_path, minimum_points, allow_inner_loops, implied_complete_loop, scope,
         ))).id();
 
         self.run.send(RunSelector {
             selector: self.services.create_path,
-            input: Some(entity),
+            input: Some(state),
         });
     }
 
@@ -257,13 +259,28 @@ impl<'w, 's> AnchorSelection<'w, 's> {
         repeating: bool,
         scope: AnchorScope,
     ) {
-        let entity = self.commands.spawn(SelectorInput(CreatePoint::new::<T>(
+        let state = self.commands.spawn(SelectorInput(CreatePoint::new::<T>(
             repeating, scope,
         ))).id();
 
         self.run.send(RunSelector {
             selector: self.services.create_point,
-            input: Some(entity),
+            input: Some(state),
+        });
+    }
+
+    pub fn replace_point(
+        &mut self,
+        point: Entity,
+        scope: AnchorScope,
+    ) {
+        let state = self.commands.spawn(SelectorInput(ReplacePoint::new(
+            point, scope,
+        ))).id();
+
+        self.run.send(RunSelector {
+            selector: self.services.replace_point,
+            input: Some(state),
         });
     }
 }

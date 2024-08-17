@@ -91,6 +91,8 @@ impl ReplaceSide {
             *edge_mut.right_mut() = original.left();
         } else {
             edge_mut.array_mut()[self.side.index()] = chosen;
+            let opp = self.side.opposite().index();
+            edge_mut.array_mut()[opp] = original.array()[opp];
         }
 
         for a in edge_mut.array() {
@@ -117,11 +119,11 @@ pub fn replace_side_setup(
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.newest_mut().or_missing_state()?;
 
-    let mut edge_mut = edges.get_mut(state.edge).or_broken_query()?;
-    let original_edge: Edge<Entity> = *edge_mut;
+    let edge_ref = edges.get(state.edge).or_broken_query()?;
+    let original_edge: Edge<Entity> = *edge_ref;
     state.original = Some(original_edge);
-    edge_mut.array_mut()[state.side.index()] = cursor.level_anchor_placement;
     commands.entity(state.edge).insert(Original(original_edge));
+    state.set_chosen(cursor.level_anchor_placement, &mut edges, &mut commands)?;
 
     Ok(())
 }
@@ -172,7 +174,7 @@ pub fn cleanup_replace_side(
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
-    let state = access.pull().or_missing_state()?;
+    let mut state = access.pull().or_missing_state()?;
 
     commands.get_entity(state.edge).or_broken_query()?
         .remove::<Original<Edge<Entity>>>();
@@ -187,8 +189,8 @@ pub fn cleanup_replace_side(
         return Ok(());
     };
 
-    let mut edge_mut = edges.get_mut(state.edge).or_broken_query()?;
-    *edge_mut = original;
+    let revert = original.array()[state.side.index()];
+    state.set_chosen(revert, &mut edges, &mut commands)?;
 
     Ok(())
 }

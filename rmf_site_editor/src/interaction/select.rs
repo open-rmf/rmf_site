@@ -41,6 +41,9 @@ use anyhow::{anyhow, Error as Anyhow};
 pub mod create_edges;
 use create_edges::*;
 
+pub mod replace_point;
+use replace_point::*;
+
 pub mod replace_side;
 use replace_side::*;
 
