@@ -306,6 +306,15 @@ pub fn build_anchor_selection_workflow<State: 'static + Send + Sync>(
         let buffer = builder.create_buffer::<State>(BufferSettings::keep_last(1));
 
         let setup_node = builder.create_buffer_access(buffer);
+        scope.input.chain(builder)
+            .then(extract_selector_input.into_blocking_callback())
+            // If the setup failed, then terminate right away.
+            .branch_for_err(|chain: Chain<_>| chain.connect(scope.terminate))
+            .fork_option(
+                |some: Chain<_>| some.then_push(buffer).connect(setup_node.input),
+                |none: Chain<_>| none.connect(setup_node.input),
+            );
+
         let begin_input_services = setup_node.output.chain(builder)
             .map_block(|(_, key)| key)
             .then(anchor_setup)
@@ -320,15 +329,6 @@ pub fn build_anchor_selection_workflow<State: 'static + Send + Sync>(
             )
             .output()
             .fork_clone(builder);
-
-        scope.input.chain(builder)
-            .then(extract_selector_input.into_blocking_callback())
-            // If the setup failed (returned None), then terminate right away.
-            .branch_for_err(|chain: Chain<_>| chain.connect(scope.terminate))
-            .fork_option(
-                |chain: Chain<_>| chain.then_push(buffer).connect(setup_node.input),
-                |chain: Chain<_>| chain.connect(setup_node.input),
-            );
 
         begin_input_services.clone_chain(builder)
             .then(anchor_cursor_transform)
@@ -376,10 +376,59 @@ pub fn build_anchor_selection_workflow<State: 'static + Send + Sync>(
     }
 }
 
-fn print_if_err(err: Option<Anyhow>) {
+pub fn print_if_err(err: Option<Anyhow>) {
     if let Some(err) = err {
         error!("{err}");
     }
+}
+
+pub fn anchor_selection_setup<State: Borrow<AnchorScope>>(
+    In(key): In<BufferKey<State>>,
+    access: BufferAccess<State>,
+    anchors: Query<Entity, With<Anchor>>,
+    drawings: Query<(), With<DrawingMarker>>,
+    parents: Query<&'static Parent>,
+    mut visibility: Query<&'static mut Visibility>,
+    mut hidden_anchors: ResMut<HiddenSelectAnchorEntities>,
+    mut current_anchor_scope: ResMut<AnchorScope>,
+    mut cursor: ResMut<Cursor>,
+    mut highlight: ResMut<HighlightAnchors>,
+) -> SelectionNodeResult
+where
+    State: 'static + Send + Sync,
+{
+    let access = access.get(&key).or_broken_buffer()?;
+    let state = access.newest().or_broken_state()?;
+    let scope: &AnchorScope = (&*state).borrow();
+    match scope {
+        AnchorScope::General | AnchorScope::Site => {
+            // If we are working with normal level or site requests, hide all drawing anchors
+            for e in anchors.iter().filter(|e| {
+                parents
+                .get(*e)
+                .is_ok_and(|p| drawings.get(p.get()).is_ok())
+            }) {
+                set_visibility(e, &mut visibility, false);
+                hidden_anchors.drawing_anchors.insert(e);
+            }
+        }
+        // Nothing to hide, it's done by the drawing editor plugin
+        AnchorScope::Drawing => {}
+    }
+
+    if scope.is_site() {
+        set_visibility(cursor.site_anchor_placement, &mut visibility, true);
+    } else {
+        set_visibility(cursor.level_anchor_placement, &mut visibility, true);
+    }
+
+    highlight.0 = true;
+
+    *current_anchor_scope = *scope;
+
+    cursor.add_mode(SELECT_ANCHOR_MODE_LABEL, &mut visibility);
+
+    Ok(())
 }
 
 pub fn cleanup_anchor_selection(
@@ -543,55 +592,6 @@ fn compute_parent_inverse_pose(
     Some(pose.align_with(&Transform::from_matrix((inv_tf * goal_tf).into())))
 }
 
-pub fn anchor_selection_setup<State: Borrow<AnchorScope>>(
-    In(key): In<BufferKey<State>>,
-    access: BufferAccess<State>,
-    anchors: Query<Entity, With<Anchor>>,
-    drawings: Query<(), With<DrawingMarker>>,
-    parents: Query<&'static Parent>,
-    mut visibility: Query<&'static mut Visibility>,
-    mut hidden_anchors: ResMut<HiddenSelectAnchorEntities>,
-    mut current_anchor_scope: ResMut<AnchorScope>,
-    mut cursor: ResMut<Cursor>,
-    mut highlight: ResMut<HighlightAnchors>,
-) -> SelectionNodeResult
-where
-    State: 'static + Send + Sync,
-{
-    let access = access.get(&key).or_broken_buffer()?;
-    let state = access.newest().or_missing_state()?;
-    let scope: &AnchorScope = (&*state).borrow();
-    match scope {
-        AnchorScope::General | AnchorScope::Site => {
-            // If we are working with normal level or site requests, hide all drawing anchors
-            for e in anchors.iter().filter(|e| {
-                parents
-                .get(*e)
-                .is_ok_and(|p| drawings.get(p.get()).is_ok())
-            }) {
-                set_visibility(e, &mut visibility, false);
-                hidden_anchors.drawing_anchors.insert(e);
-            }
-        }
-        // Nothing to hide, it's done by the drawing editor plugin
-        AnchorScope::Drawing => {}
-    }
-
-    if scope.is_site() {
-        set_visibility(cursor.site_anchor_placement, &mut visibility, true);
-    } else {
-        set_visibility(cursor.level_anchor_placement, &mut visibility, true);
-    }
-
-    highlight.0 = true;
-
-    *current_anchor_scope = *scope;
-
-    cursor.add_mode(SELECT_ANCHOR_MODE_LABEL, &mut visibility);
-
-    Ok(())
-}
-
 pub fn exit_on_esc<T>(
     In((button, _)): In<(KeyCode, BufferKey<T>)>,
 ) -> SelectionNodeResult {
@@ -601,4 +601,37 @@ pub fn exit_on_esc<T>(
     }
 
     Ok(())
+}
+
+/// Update the virtual cursor transform while in select anchor mode
+pub fn select_anchor_cursor_transform(
+    In(ContinuousService { key }): ContinuousServiceInput<(), ()>,
+    orders: ContinuousQuery<(), ()>,
+    cursor: Res<Cursor>,
+    mut transforms: Query<&mut Transform>,
+    intersect_ground_params: IntersectGroundPlaneParams,
+) {
+    let Some(orders) = orders.view(&key) else {
+        return;
+    };
+
+    if orders.is_empty() {
+        return;
+    }
+
+    let intersection = match intersect_ground_params.ground_plane_intersection() {
+        Some(intersection) => intersection,
+        None => {
+            return;
+        }
+    };
+
+    let mut transform = match transforms.get_mut(cursor.frame) {
+        Ok(transform) => transform,
+        Err(_) => {
+            return;
+        }
+    };
+
+    *transform = Transform::from_translation(intersection.translation);
 }

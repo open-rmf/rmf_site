@@ -134,7 +134,7 @@ pub fn update_anchor_proximity_xray(
     }
 
     let p_c = match intersect_ground_params.ground_plane_intersection() {
-        Some(p) => p,
+        Some(p) => p.translation,
         None => return,
     };
 

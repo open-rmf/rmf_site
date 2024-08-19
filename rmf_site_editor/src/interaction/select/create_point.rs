@@ -106,7 +106,7 @@ pub fn create_point_setup(
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
-    let state = access.newest_mut().or_missing_state()?;
+    let state = access.newest_mut().or_broken_state()?;
 
     if state.point.is_none() {
         state.create_new_point(cursor.level_anchor_placement, &mut commands);
@@ -141,7 +141,7 @@ pub fn on_hover_for_create_point(
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
-    let state = access.newest_mut().or_missing_state()?;
+    let state = access.newest_mut().or_broken_state()?;
 
     let chosen = match hover.0 {
         Some(anchor) => {
@@ -154,7 +154,7 @@ pub fn on_hover_for_create_point(
         }
     };
 
-    let point = state.point.or_missing_state()?;
+    let point = state.point.or_broken_state()?;
     change_point(chosen, point, &mut points, &mut commands)
 }
 
@@ -166,8 +166,8 @@ pub fn on_select_for_create_point(
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
-    let state = access.newest_mut().or_missing_state()?;
-    let point = state.point.or_missing_state()?;
+    let state = access.newest_mut().or_broken_state()?;
+    let point = state.point.or_broken_state()?;
     change_point(selection.candidate, point, &mut points, &mut commands)?;
     commands.get_entity(point).or_broken_query()?.remove::<Pending>();
     if state.repeating {
@@ -186,7 +186,7 @@ pub fn cleanup_create_point(
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
-    let state = access.pull().or_missing_state()?;
+    let state = access.pull().or_broken_state()?;
 
     let Some(point) = state.point else {
         // If there is no point then there is nothing to cleanup.

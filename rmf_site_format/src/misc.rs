@@ -328,6 +328,13 @@ impl Default for Rotation {
     }
 }
 
+#[cfg(feature = "bevy")]
+impl From<Quat> for Rotation {
+    fn from(quat: Quat) -> Self {
+        Self::Quat(quat.to_array())
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
@@ -387,6 +394,16 @@ impl Pose {
             }
         }
         *self
+    }
+}
+
+#[cfg(feature = "bevy")]
+impl From<Transform> for Pose {
+    fn from(tf: Transform) -> Self {
+        Pose {
+            trans: tf.translation.into(),
+            rot: tf.rotation.into(),
+        }
     }
 }
 

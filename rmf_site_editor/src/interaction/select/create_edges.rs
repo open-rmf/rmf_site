@@ -147,7 +147,7 @@ pub fn create_edges_setup(
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
-    let state = access.newest_mut().or_missing_state()?;
+    let state = access.newest_mut().or_broken_state()?;
 
     if state.preview_edge.is_none() {
         state.initialize_preview(cursor.level_anchor_placement, &mut commands);
@@ -164,7 +164,7 @@ pub fn on_hover_for_create_edges(
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
-    let state = access.newest_mut().or_missing_state()?;
+    let state = access.newest_mut().or_broken_state()?;
 
     // TODO(@mxgrey): Consider moving this logic into AnchorFilter since it gets
     // used by all the different anchor selection modes.
@@ -218,7 +218,7 @@ pub fn on_select_for_create_edges(
     cursor: Res<Cursor>,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
-    let state = access.newest_mut().or_missing_state()?;
+    let state = access.newest_mut().or_broken_state()?;
 
     let anchor = selection.candidate;
     if let Some(preview) = &mut state.preview_edge {
@@ -314,7 +314,7 @@ pub fn on_keyboard_for_create_edges(
     }
 
     let mut access = access.get_mut(&key).or_broken_buffer()?;
-    let state = access.newest_mut().or_missing_state()?;
+    let state = access.newest_mut().or_broken_state()?;
 
     if let Some(preview) = &mut state.preview_edge {
         if preview.side == Side::end() {
@@ -359,7 +359,7 @@ pub fn cleanup_create_edges(
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
-    let state = access.pull().or_missing_state()?;
+    let state = access.pull().or_broken_state()?;
 
     if let Some(preview) = state.preview_edge {
         // We created a preview, so we should despawn it while cleaning up

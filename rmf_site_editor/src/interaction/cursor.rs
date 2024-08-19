@@ -21,10 +21,9 @@ use crate::{
     site::{AnchorBundle, Pending, SiteAssets, Trashcan},
 };
 use bevy::{ecs::system::SystemParam, prelude::*, window::PrimaryWindow};
-use bevy_mod_raycast::{deferred::RaycastMesh, deferred::RaycastSource, primitives::rays::Ray3d};
-use bevy_impulse::*;
+use bevy_mod_raycast::{deferred::RaycastMesh, primitives::{rays::Ray3d, Primitive3d}};
 
-use rmf_site_format::{FloorMarker, Model, ModelMarker, PrimitiveShape, WallMarker, WorkcellModel};
+use rmf_site_format::{FloorMarker, Model, ModelMarker, WallMarker, WorkcellModel};
 use std::collections::HashSet;
 
 /// A resource that keeps track of the unique entities that play a role in
@@ -108,7 +107,7 @@ impl Cursor {
         }
     }
 
-    fn remove_preview(&mut self, commands: &mut Commands) {
+    pub fn remove_preview(&mut self, commands: &mut Commands) {
         if let Some(current_preview) = self.preview_model {
             commands.entity(current_preview).set_parent(self.trashcan);
         }
@@ -285,7 +284,20 @@ pub struct IntersectGroundPlaneParams<'w, 's> {
 }
 
 impl<'w, 's> IntersectGroundPlaneParams<'w, 's> {
-    pub fn ground_plane_intersection(&self) -> Option<Vec3> {
+    pub fn ground_plane_intersection(&self) -> Option<Transform> {
+        let ground_plane = Primitive3d::Plane { point: Vec3::ZERO, normal: Vec3::Z };
+        self.primitive_intersection(ground_plane)
+    }
+
+    pub fn frame_plane_intersection(&self, frame: Entity) -> Option<Transform> {
+        let tf = self.global_transforms.get(frame).ok()?;
+        let affine = tf.affine();
+        let point = affine.translation.into();
+        let normal = affine.matrix3.col(2).into();
+        self.primitive_intersection(Primitive3d::Plane { point, normal })
+    }
+
+    pub fn primitive_intersection(&self, primitive: Primitive3d) -> Option<Transform> {
         let window = self.primary_windows.get_single().ok()?;
         let cursor_position = window.cursor_position()?;
         let e_active_camera = self.camera_controls.active_camera();
@@ -294,318 +306,17 @@ impl<'w, 's> IntersectGroundPlaneParams<'w, 's> {
         let primary_window = self.primary_window.get_single().ok()?;
         let ray =
             Ray3d::from_screenspace(cursor_position, active_camera, camera_tf, primary_window)?;
-        let n_p = Vec3::Z;
-        let n_r = ray.direction();
-        let denom = n_p.dot(n_r);
-        if denom.abs() < 1e-3 {
-            // Too close to parallel
-            return None;
-        }
 
-        Some(ray.origin() - n_r * ray.origin().dot(n_p) / denom)
-    }
-}
-
-/// Update the virtual cursor (dagger and circle) transform while in inspector mode
-pub fn inspector_cursor_transform(
-    In(ContinuousService { key }): ContinuousServiceInput<(), ()>,
-    orders: ContinuousQuery<(), ()>,
-    cursor: Res<Cursor>,
-    raycast_sources: Query<&RaycastSource<SiteRaycastSet>>,
-    mut transforms: Query<&mut Transform>,
-) {
-    let Some(orders) = orders.view(&key) else {
-        return;
-    };
-
-    if orders.is_empty() {
-        return;
-    }
-
-    let Ok(source) = raycast_sources.get_single() else {
-        return;
-    };
-    let intersection = match source.get_nearest_intersection() {
-        Some((_, intersection)) => intersection,
-        None => {
-            return;
-        }
-    };
-
-    let mut transform = match transforms.get_mut(cursor.frame) {
-        Ok(transform) => transform,
-        Err(_) => {
-            return;
-        }
-    };
-
-    let ray = Ray3d::new(intersection.position(), intersection.normal());
-
-    *transform = Transform::from_matrix(ray.to_aligned_transform([0., 0., 1.].into()));
-    // println!(">>>>> {:?}", transform.translation);
-    // for order in orders.iter() {
-    //     println!("session {:?} | source {:?} | provider {:?}", order.session(), order.source(), key.provider());
-    // }
-}
-
-/// Update the virtual cursor transform while in select anchor mode
-pub fn select_anchor_cursor_transform(
-    In(ContinuousService { key }): ContinuousServiceInput<(), ()>,
-    orders: ContinuousQuery<(), ()>,
-    cursor: Res<Cursor>,
-    mut transforms: Query<&mut Transform>,
-    intersect_ground_params: IntersectGroundPlaneParams,
-    mut count: Local<u64>,
-) {
-    let Some(orders) = orders.view(&key) else {
-        return;
-    };
-
-    if orders.is_empty() {
-        return;
-    }
-
-    let intersection = match intersect_ground_params.ground_plane_intersection() {
-        Some(intersection) => intersection,
-        None => {
-            return;
-        }
-    };
-
-    let mut transform = match transforms.get_mut(cursor.frame) {
-        Ok(transform) => transform,
-        Err(_) => {
-            return;
-        }
-    };
-
-    *count += 1;
-    *transform = Transform::from_translation(intersection);
-    // println!("{} vvvvvv {:?}", *count, transform.translation);
-    // for order in orders.iter() {
-    //     println!("session {:?} | source {:?} | provider {:?}", order.session(), order.source(), key.provider());
-    // }
-}
-
-pub fn select_3d_cursor_transform(
-    In(ContinuousService { key }): ContinuousServiceInput<(), ()>,
-    orders: ContinuousQuery<(), ()>,
-    cursor: Res<Cursor>,
-    raycast_sources: Query<&RaycastSource<SiteRaycastSet>>,
-    models: Query<(), Or<(With<ModelMarker>, With<PrimitiveShape>)>>,
-    mut transforms: Query<&mut Transform>,
-    hovering: Res<Hovering>,
-    intersect_ground_params: IntersectGroundPlaneParams,
-    mut visibility: Query<&mut Visibility>,
-) {
-    let Some(orders) = orders.view(&key) else {
-        return;
-    };
-
-    if orders.is_empty() {
-        return;
-    }
-
-    let mut transform = match transforms.get_mut(cursor.frame) {
-        Ok(transform) => transform,
-        Err(_) => {
-            error!("No cursor transform found");
-            return;
-        }
-    };
-
-    let Ok(source) = raycast_sources.get_single() else {
-        return;
-    };
-
-    // Check if there is an intersection to a mesh, if there isn't fallback to ground plane
-    if let Some((_, intersection)) = source.get_nearest_intersection() {
-        let Some(triangle) = intersection.triangle() else {
-            return;
+        let n = *match &primitive {
+            Primitive3d::Plane { normal, .. } => normal,
+            _ => {
+                warn!("Unsupported primitive type found");
+                return None;
+            },
         };
-        // Make sure we are hovering over a model and not anything else (i.e. anchor)
-        match cursor.preview_model {
-            None => {
-                if hovering.0.and_then(|e| models.get(e).ok()).is_some() {
-                    // Find the closest triangle vertex
-                    // TODO(luca) Also snap to edges of triangles or just disable altogether and snap
-                    // to area, then populate a MeshConstraint component to be used by downstream
-                    // spawning methods
-                    // TODO(luca) there must be a better way to find a minimum given predicate in Rust
-                    let triangle_vecs = vec![triangle.v1, triangle.v2];
-                    let position = intersection.position();
-                    let mut closest_vertex = triangle.v0;
-                    let mut closest_dist = position.distance(triangle.v0.into());
-                    for v in triangle_vecs {
-                        let dist = position.distance(v.into());
-                        if dist < closest_dist {
-                            closest_dist = dist;
-                            closest_vertex = v;
-                        }
-                    }
-                    //closest_vertex = *triangle_vecs.iter().min_by(|position, ver| position.distance(**ver).cmp(closest_dist)).unwrap();
-                    let ray = Ray3d::new(closest_vertex.into(), intersection.normal());
-                    *transform = Transform::from_matrix(
-                        ray.to_aligned_transform([0., 0., 1.].into()),
-                    );
-                    set_visibility(cursor.frame, &mut visibility, true);
-                } else {
-                    // Hide the cursor
-                    set_visibility(cursor.frame, &mut visibility, false);
-                }
-            }
-            Some(_) => {
-                // If we are placing a model avoid snapping to faced and just project to
-                // ground plane
-                let intersection = match intersect_ground_params.ground_plane_intersection()
-                {
-                    Some(intersection) => intersection,
-                    None => {
-                        return;
-                    }
-                };
-                set_visibility(cursor.frame, &mut visibility, true);
-                *transform = Transform::from_translation(intersection);
-            }
-        }
-    } else {
-        let intersection = match intersect_ground_params.ground_plane_intersection() {
-            Some(intersection) => intersection,
-            None => {
-                return;
-            }
-        };
-        set_visibility(cursor.frame, &mut visibility, true);
-        *transform = Transform::from_translation(intersection);
-    }
-}
+        let p = ray.intersects_primitive(primitive).map(|intersection| intersection.position())?;
 
-pub fn update_cursor_transform(
-    mode: Res<InteractionMode>,
-    cursor: Res<Cursor>,
-    raycast_sources: Query<&RaycastSource<SiteRaycastSet>>,
-    models: Query<(), Or<(With<ModelMarker>, With<PrimitiveShape>)>>,
-    mut transforms: Query<&mut Transform>,
-    hovering: Res<Hovering>,
-    intersect_ground_params: IntersectGroundPlaneParams,
-    mut visibility: Query<&mut Visibility>,
-) {
-    match &*mode {
-        InteractionMode::Inspect => {
-            // TODO(luca) this will not work if more than one raycast source exist
-            let Ok(source) = raycast_sources.get_single() else {
-                return;
-            };
-            let intersection = match source.get_nearest_intersection() {
-                Some((_, intersection)) => intersection,
-                None => {
-                    return;
-                }
-            };
-
-            let mut transform = match transforms.get_mut(cursor.frame) {
-                Ok(transform) => transform,
-                Err(_) => {
-                    return;
-                }
-            };
-
-            let ray = Ray3d::new(intersection.position(), intersection.normal());
-
-            *transform = Transform::from_matrix(ray.to_aligned_transform([0., 0., 1.].into()));
-        }
-        InteractionMode::SelectAnchor(_) => {
-            let intersection = match intersect_ground_params.ground_plane_intersection() {
-                Some(intersection) => intersection,
-                None => {
-                    return;
-                }
-            };
-
-            let mut transform = match transforms.get_mut(cursor.frame) {
-                Ok(transform) => transform,
-                Err(_) => {
-                    return;
-                }
-            };
-
-            *transform = Transform::from_translation(intersection);
-        }
-        // TODO(luca) snap to features of meshes
-        InteractionMode::SelectAnchor3D(_mode) => {
-            let mut transform = match transforms.get_mut(cursor.frame) {
-                Ok(transform) => transform,
-                Err(_) => {
-                    error!("No cursor transform found");
-                    return;
-                }
-            };
-
-            let Ok(source) = raycast_sources.get_single() else {
-                return;
-            };
-
-            // Check if there is an intersection to a mesh, if there isn't fallback to ground plane
-            if let Some((_, intersection)) = source.get_nearest_intersection() {
-                let Some(triangle) = intersection.triangle() else {
-                    return;
-                };
-                // Make sure we are hovering over a model and not anything else (i.e. anchor)
-                match cursor.preview_model {
-                    None => {
-                        if hovering.0.and_then(|e| models.get(e).ok()).is_some() {
-                            // Find the closest triangle vertex
-                            // TODO(luca) Also snap to edges of triangles or just disable altogether and snap
-                            // to area, then populate a MeshConstraint component to be used by downstream
-                            // spawning methods
-                            // TODO(luca) there must be a better way to find a minimum given predicate in Rust
-                            let triangle_vecs = vec![triangle.v1, triangle.v2];
-                            let position = intersection.position();
-                            let mut closest_vertex = triangle.v0;
-                            let mut closest_dist = position.distance(triangle.v0.into());
-                            for v in triangle_vecs {
-                                let dist = position.distance(v.into());
-                                if dist < closest_dist {
-                                    closest_dist = dist;
-                                    closest_vertex = v;
-                                }
-                            }
-                            //closest_vertex = *triangle_vecs.iter().min_by(|position, ver| position.distance(**ver).cmp(closest_dist)).unwrap();
-                            let ray = Ray3d::new(closest_vertex.into(), intersection.normal());
-                            *transform = Transform::from_matrix(
-                                ray.to_aligned_transform([0., 0., 1.].into()),
-                            );
-                            set_visibility(cursor.frame, &mut visibility, true);
-                        } else {
-                            // Hide the cursor
-                            set_visibility(cursor.frame, &mut visibility, false);
-                        }
-                    }
-                    Some(_) => {
-                        // If we are placing a model avoid snapping to faced and just project to
-                        // ground plane
-                        let intersection = match intersect_ground_params.ground_plane_intersection()
-                        {
-                            Some(intersection) => intersection,
-                            None => {
-                                return;
-                            }
-                        };
-                        set_visibility(cursor.frame, &mut visibility, true);
-                        *transform = Transform::from_translation(intersection);
-                    }
-                }
-            } else {
-                let intersection = match intersect_ground_params.ground_plane_intersection() {
-                    Some(intersection) => intersection,
-                    None => {
-                        return;
-                    }
-                };
-                set_visibility(cursor.frame, &mut visibility, true);
-                *transform = Transform::from_translation(intersection);
-            }
-        }
+        Some(Transform::from_translation(p).looking_to(n, Vec3::Z))
     }
 }
 

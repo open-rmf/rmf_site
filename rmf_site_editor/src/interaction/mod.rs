@@ -271,11 +271,16 @@ impl Plugin for InteractionPlugin {
 
 pub fn set_visibility(entity: Entity, q_visibility: &mut Query<&mut Visibility>, visible: bool) {
     if let Some(mut visibility) = q_visibility.get_mut(entity).ok() {
-        *visibility = if visible {
+        let v = if visible {
             Visibility::Inherited
         } else {
             Visibility::Hidden
         };
+
+        // Avoid a mutable access if nothing actually needs to change
+        if *visibility != v {
+            *visibility = v;
+        }
     }
 }
 

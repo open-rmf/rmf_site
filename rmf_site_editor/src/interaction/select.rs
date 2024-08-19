@@ -30,7 +30,10 @@ use bevy::{
     ecs::system::{SystemParam, StaticSystemParam}
 };
 use bevy_impulse::*;
-use bevy_mod_raycast::deferred::RaycastMesh;
+use bevy_mod_raycast::{
+    deferred::{RaycastMesh, RaycastSource},
+    primitives::rays::Ray3d,
+};
 use std::{
     collections::HashSet,
     borrow::Borrow,
@@ -41,6 +44,15 @@ use anyhow::{anyhow, Error as Anyhow};
 pub mod create_edges;
 use create_edges::*;
 
+pub mod create_path;
+use create_path::*;
+
+pub mod create_point;
+use create_point::*;
+
+pub mod place_object_3d;
+pub use place_object_3d::*;
+
 pub mod replace_point;
 use replace_point::*;
 
@@ -49,12 +61,6 @@ use replace_side::*;
 
 pub mod select_anchor;
 pub use select_anchor::*;
-
-pub mod create_path;
-use create_path::*;
-
-pub mod create_point;
-use create_point::*;
 
 pub const SELECT_ANCHOR_MODE_LABEL: &'static str = "select_anchor";
 
@@ -98,6 +104,7 @@ impl Plugin for SelectPlugin {
         .add_plugins((
             InspectorServicePlugin::default(),
             AnchorSelectionPlugin::default(),
+            ObjectPlacementPlugin::default(),
         ));
 
         let inspector_service = app.world.resource::<InspectorService>().inspector_service;
@@ -304,13 +311,11 @@ pub struct Hover(pub Option<Entity>);
 pub struct SelectionBlockers {
     /// An entity is being dragged
     pub dragging: bool,
-    /// An entity is being placed
-    pub placing: bool,
 }
 
 impl SelectionBlockers {
     pub fn blocking(&self) -> bool {
-        self.dragging || self.placing
+        self.dragging
     }
 }
 
@@ -318,7 +323,6 @@ impl Default for SelectionBlockers {
     fn default() -> Self {
         SelectionBlockers {
             dragging: false,
-            placing: false,
         }
     }
 }
@@ -368,7 +372,7 @@ impl SpawnSelectionServiceExt for App {
     where
         for<'w, 's> F::Item<'w, 's>: SelectionFilter,
     {
-        let hover_picking = self.spawn_continuous_service(
+        let picking_service = self.spawn_continuous_service(
             Update,
             picking_service::<F>
             .configure(|config: SystemConfigs|
@@ -405,7 +409,7 @@ impl SpawnSelectionServiceExt for App {
             scope.input.chain(builder).fork_clone((
                 |chain: Chain<_>| chain
                     .then(refresh_picked.into_blocking_callback())
-                    .then(hover_picking)
+                    .then(picking_service)
                     .connect(scope.terminate),
                 |chain: Chain<_>| chain.connect(hover.input),
                 |chain: Chain<_>| chain.connect(select.input),
@@ -482,7 +486,7 @@ pub type SelectionNodeResult = Result<(), Option<Anyhow>>;
 pub trait CommonNodeErrors {
     type Value;
     fn or_broken_buffer(self) -> Result<Self::Value, Option<Anyhow>>;
-    fn or_missing_state(self) -> Result<Self::Value, Option<Anyhow>>;
+    fn or_broken_state(self) -> Result<Self::Value, Option<Anyhow>>;
     fn or_broken_query(self) -> Result<Self::Value, Option<Anyhow>>;
 }
 
@@ -496,7 +500,7 @@ impl<T, E: Error> CommonNodeErrors for Result<T, E> {
         )
     }
 
-    fn or_missing_state(self) -> Result<Self::Value, Option<Anyhow>> {
+    fn or_broken_state(self) -> Result<Self::Value, Option<Anyhow>> {
         self.map_err(|err|
             Some(anyhow!(
                 "The state is missing from the workflow buffer: {err}"
@@ -521,7 +525,7 @@ impl<T> CommonNodeErrors for Option<T> {
         )
     }
 
-    fn or_missing_state(self) -> Result<Self::Value, Option<Anyhow>> {
+    fn or_broken_state(self) -> Result<Self::Value, Option<Anyhow>> {
         self.ok_or_else(||
             Some(anyhow!("The state is missing from the workflow buffer"))
         )
@@ -637,6 +641,7 @@ pub fn hover_service<Filter: SystemParam + 'static>(
     mut select: EventWriter<Select>,
     blockers: Option<Res<PickingBlockers>>,
     filter: StaticSystemParam<Filter>,
+    selection_blockers: Res<SelectionBlockers>,
 )
 where
     for<'w, 's> Filter::Item<'w, 's>: SelectionFilter,
@@ -647,6 +652,10 @@ where
 
     if orders.is_empty() {
         // Nothing is asking for this service to run
+        return;
+    }
+
+    if selection_blockers.blocking() {
         return;
     }
 
@@ -785,4 +794,41 @@ pub fn clear_hover_select(
             selected.is_selected = false;
         }
     }
+}
+
+/// Update the virtual cursor (dagger and circle) transform while in inspector mode
+pub fn inspector_cursor_transform(
+    In(ContinuousService { key }): ContinuousServiceInput<(), ()>,
+    orders: ContinuousQuery<(), ()>,
+    cursor: Res<Cursor>,
+    raycast_sources: Query<&RaycastSource<SiteRaycastSet>>,
+    mut transforms: Query<&mut Transform>,
+) {
+    let Some(orders) = orders.view(&key) else {
+        return;
+    };
+
+    if orders.is_empty() {
+        return;
+    }
+
+    let Ok(source) = raycast_sources.get_single() else {
+        return;
+    };
+    let intersection = match source.get_nearest_intersection() {
+        Some((_, intersection)) => intersection,
+        None => {
+            return;
+        }
+    };
+
+    let mut transform = match transforms.get_mut(cursor.frame) {
+        Ok(transform) => transform,
+        Err(_) => {
+            return;
+        }
+    };
+
+    let ray = Ray3d::new(intersection.position(), intersection.normal());
+    *transform = Transform::from_matrix(ray.to_aligned_transform([0., 0., 1.].into()));
 }

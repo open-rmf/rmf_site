@@ -102,8 +102,8 @@ impl CreatePath {
         path_mut: &mut Path<Entity>,
         commands: &mut Commands,
     ) -> SelectionNodeResult {
-        let path = self.path.or_missing_state()?;
-        let last = path_mut.0.last_mut().or_missing_state()?;
+        let path = self.path.or_broken_state()?;
+        let last = path_mut.0.last_mut().or_broken_state()?;
         if chosen == *last {
             // Nothing to change
             return Ok(());
@@ -141,7 +141,7 @@ pub fn create_path_setup(
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
-    let state = access.newest_mut().or_missing_state()?;
+    let state = access.newest_mut().or_broken_state()?;
 
     if state.path.is_none() {
         let path = Path(vec![cursor.level_anchor_placement]);
@@ -162,7 +162,7 @@ pub fn on_hover_for_create_path(
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
-    let state = access.newest_mut().or_missing_state()?;
+    let state = access.newest_mut().or_broken_state()?;
 
     let chosen = match hover.0 {
         Some(anchor) => {
@@ -175,7 +175,7 @@ pub fn on_hover_for_create_path(
         }
     };
 
-    let path = state.path.or_missing_state()?;
+    let path = state.path.or_broken_state()?;
     let mut path_mut = paths.get_mut(path).or_broken_query()?;
     state.set_last(chosen, path_mut.as_mut(), &mut commands)
 }
@@ -188,15 +188,15 @@ pub fn on_select_for_create_path(
     cursor: Res<Cursor>,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
-    let state = access.newest_mut().or_missing_state()?;
+    let state = access.newest_mut().or_broken_state()?;
 
     let chosen = selection.candidate;
     let provisional = selection.provisional;
-    let path = state.path.or_missing_state()?;
+    let path = state.path.or_broken_state()?;
     let mut path_mut = paths.get_mut(path).or_broken_query()?;
 
     if state.implied_complete_loop {
-        let first = path_mut.0.first().or_missing_state()?;
+        let first = path_mut.0.first().or_broken_state()?;
         if chosen == *first && path_mut.0.len() >= state.minimum_points {
             // The user has re-selected the first point and there are enough
             // points in the path to meet the minimum requirement, so we can
@@ -246,7 +246,7 @@ pub fn cleanup_create_path(
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
-    let state = access.pull().or_missing_state()?;
+    let state = access.pull().or_broken_state()?;
 
     let Some(path) = state.path else {
         // If there is no path then there is nothing to cleanup. This might

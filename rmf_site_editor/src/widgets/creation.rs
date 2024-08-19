@@ -17,7 +17,7 @@
 
 use crate::{
     inspector::{InspectAssetSourceComponent, InspectScaleComponent},
-    interaction::{ChangeMode, SelectAnchor, SelectAnchor3D, AnchorSelection},
+    interaction::{AnchorSelection, ObjectPlacement, PlaceableObject},
     site::{AssetSource, DefaultFile, DrawingBundle, Recall, RecallAssetSource, Scale},
     widgets::{prelude::*, AssetGalleryStatus},
     AppState, CurrentWorkspace,
@@ -43,13 +43,13 @@ impl Plugin for CreationPlugin {
 struct Creation<'w, 's> {
     default_file: Query<'w, 's, &'static DefaultFile>,
     app_state: Res<'w, State<AppState>>,
-    change_mode: EventWriter<'w, ChangeMode>,
     current_workspace: Res<'w, CurrentWorkspace>,
     pending_drawings: ResMut<'w, PendingDrawing>,
     pending_model: ResMut<'w, PendingModel>,
     asset_gallery: Option<ResMut<'w, AssetGalleryStatus>>,
     commands: Commands<'w, 's>,
     anchor_selection: AnchorSelection<'w, 's>,
+    object_placement: ObjectPlacement<'w, 's>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for Creation<'w, 's> {
@@ -142,6 +142,14 @@ impl<'w, 's> Creation<'w, 's> {
                 }
                 AppState::WorkcellEditor => {
                     if ui.button("Frame").clicked() {
+                        if let Some(workspace) = self.current_workspace.root {
+                            self.object_placement.place_object_3d(
+                                PlaceableObject::Anchor,
+
+                            )
+                        } else {
+                            warn!("Unable to create a new frame outside of a workspace");
+                        }
                         self.change_mode.send(ChangeMode::To(
                             SelectAnchor3D::create_new_point().for_anchor(None).into(),
                         ));

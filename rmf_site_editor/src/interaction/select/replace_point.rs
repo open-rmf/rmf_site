@@ -93,7 +93,7 @@ pub fn replace_point_setup(
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
-    let state = access.newest_mut().or_missing_state()?;
+    let state = access.newest_mut().or_broken_state()?;
 
     let original = *points.get(state.point).or_broken_query()?;
     state.original = Some(original);
@@ -112,7 +112,7 @@ pub fn on_hover_for_replace_point(
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
-    let state = access.newest_mut().or_missing_state()?;
+    let state = access.newest_mut().or_broken_state()?;
 
     let chosen = match hover.0 {
         Some(anchor) => {
@@ -135,7 +135,7 @@ pub fn on_select_for_replace_point(
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
-    let state = access.newest_mut().or_missing_state()?;
+    let state = access.newest_mut().or_broken_state()?;
     state.set_chosen(selection.candidate, &mut points, &mut commands)?;
     state.replaced = true;
     // Since the selection has been made, we should exit the workflow now
@@ -149,7 +149,7 @@ pub fn cleanup_replace_point(
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
-    let mut state = access.pull().or_missing_state()?;
+    let mut state = access.pull().or_broken_state()?;
 
     commands.get_entity(state.point).or_broken_query()?
         .remove::<Original<Point<Entity>>>();
