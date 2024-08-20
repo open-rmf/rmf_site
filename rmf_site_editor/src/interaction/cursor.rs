@@ -94,11 +94,20 @@ impl Cursor {
         }
     }
 
+    pub fn clear_blockers(&mut self, visibility: &mut Query<&mut Visibility>) {
+        let had_blockers = !self.blockers.is_empty();
+        self.blockers.clear();
+        if had_blockers {
+            self.toggle_visibility(visibility);
+        }
+    }
+
     fn toggle_visibility(&mut self, visibility: &mut Query<&mut Visibility>) {
         if let Ok(mut v) = visibility.get_mut(self.frame) {
             let new_visible = if self.should_be_visible() {
                 Visibility::Inherited
             } else {
+                println!("{}", std::backtrace::Backtrace::force_capture());
                 Visibility::Hidden
             };
             if new_visible != *v {
@@ -110,6 +119,7 @@ impl Cursor {
     pub fn remove_preview(&mut self, commands: &mut Commands) {
         if let Some(current_preview) = self.preview_model {
             commands.entity(current_preview).set_parent(self.trashcan);
+            self.preview_model = None;
         }
     }
 
@@ -118,6 +128,7 @@ impl Cursor {
         self.remove_preview(commands);
         self.preview_model = if let Some(model) = model {
             let e = commands.spawn(model).insert(Pending).id();
+            dbg!(e);
             commands.entity(self.frame).push_children(&[e]);
             Some(e)
         } else {
@@ -316,7 +327,7 @@ impl<'w, 's> IntersectGroundPlaneParams<'w, 's> {
         };
         let p = ray.intersects_primitive(primitive).map(|intersection| intersection.position())?;
 
-        Some(Transform::from_translation(p).looking_to(n, Vec3::Z))
+        Some(Transform::from_translation(p).with_rotation(aligned_z_axis(n)))
     }
 }
 
@@ -358,16 +369,18 @@ pub fn update_cursor_hover_visualization(
     }
 }
 
-// This system makes sure model previews are not picked up by raycasting
-pub fn make_model_previews_not_selectable(
-    mut commands: Commands,
-    new_models: Query<Entity, (With<ModelMarker>, Added<Selectable>)>,
-    cursor: Res<Cursor>,
-) {
-    if let Some(e) = cursor.preview_model.and_then(|m| new_models.get(m).ok()) {
-        commands
-            .entity(e)
-            .remove::<Selectable>()
-            .remove::<RaycastMesh<SiteRaycastSet>>();
+pub fn aligned_z_axis(z: Vec3) -> Quat {
+    if z.length_squared() < 1e-8 {
+        // The given direction is too close to singular
+        return Quat::IDENTITY;
     }
+
+    let axis = Vec3::Z.cross(z);
+    let length = axis.length();
+    if length < 1e-8 {
+        // The change in angle is too close to zero
+        return Quat::IDENTITY;
+    }
+    let angle = f32::asin(length);
+    Quat::from_axis_angle(axis/length, angle)
 }

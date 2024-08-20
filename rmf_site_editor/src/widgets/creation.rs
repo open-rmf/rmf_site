@@ -17,7 +17,7 @@
 
 use crate::{
     inspector::{InspectAssetSourceComponent, InspectScaleComponent},
-    interaction::{AnchorSelection, ObjectPlacement, PlaceableObject},
+    interaction::{AnchorSelection, ObjectPlacement, PlaceableObject, Selection},
     site::{AssetSource, DefaultFile, DrawingBundle, Recall, RecallAssetSource, Scale},
     widgets::{prelude::*, AssetGalleryStatus},
     AppState, CurrentWorkspace,
@@ -50,6 +50,7 @@ struct Creation<'w, 's> {
     commands: Commands<'w, 's>,
     anchor_selection: AnchorSelection<'w, 's>,
     object_placement: ObjectPlacement<'w, 's>,
+    selection: Res<'w, Selection>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for Creation<'w, 's> {
@@ -142,17 +143,7 @@ impl<'w, 's> Creation<'w, 's> {
                 }
                 AppState::WorkcellEditor => {
                     if ui.button("Frame").clicked() {
-                        if let Some(workspace) = self.current_workspace.root {
-                            self.object_placement.place_object_3d(
-                                PlaceableObject::Anchor,
-
-                            )
-                        } else {
-                            warn!("Unable to create a new frame outside of a workspace");
-                        }
-                        self.change_mode.send(ChangeMode::To(
-                            SelectAnchor3D::create_new_point().for_anchor(None).into(),
-                        ));
+                        self.place_object(PlaceableObject::Anchor);
                     }
                 }
             }
@@ -200,11 +191,7 @@ impl<'w, 's> Creation<'w, 's> {
                                                 scale: self.pending_model.scale,
                                                 ..default()
                                             };
-                                            self.change_mode.send(ChangeMode::To(
-                                                SelectAnchor3D::create_new_point()
-                                                    .for_model(model)
-                                                    .into(),
-                                            ));
+                                            self.place_object(PlaceableObject::Model(model));
                                         }
                                     }
                                     AppState::WorkcellEditor => {
@@ -219,11 +206,7 @@ impl<'w, 's> Creation<'w, 's> {
                                                 },
                                                 ..default()
                                             };
-                                            self.change_mode.send(ChangeMode::To(
-                                                SelectAnchor3D::create_new_point()
-                                                    .for_visual(workcell_model)
-                                                    .into(),
-                                            ));
+                                            self.place_object(PlaceableObject::VisualMesh(workcell_model));
                                         }
                                         if ui.button("Spawn collision").clicked() {
                                             let workcell_model = WorkcellModel {
@@ -233,11 +216,7 @@ impl<'w, 's> Creation<'w, 's> {
                                                 },
                                                 ..default()
                                             };
-                                            self.change_mode.send(ChangeMode::To(
-                                                SelectAnchor3D::create_new_point()
-                                                    .for_collision(workcell_model)
-                                                    .into(),
-                                            ));
+                                            self.place_object(PlaceableObject::CollisionMesh(workcell_model));
                                         }
                                         ui.add_space(10.0);
                                     }
@@ -247,6 +226,18 @@ impl<'w, 's> Creation<'w, 's> {
                 }
             }
         });
+    }
+
+    pub fn place_object(&mut self, object: PlaceableObject) {
+        if let Some(workspace) = self.current_workspace.root {
+            self.object_placement.place_object_3d(
+                object,
+                self.selection.0,
+                workspace,
+            );
+        } else {
+            warn!("Unable to create [{object:?}] outside of a workspace");
+        }
     }
 }
 

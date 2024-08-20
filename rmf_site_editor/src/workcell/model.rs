@@ -15,7 +15,10 @@
  *
 */
 
-use crate::site::{Dependents, ModelTrashcan, Pending};
+use crate::{
+    interaction::{VisualCue, Preview},
+    site::{Dependents, ModelTrashcan, Pending}
+};
 use bevy::prelude::*;
 use rmf_site_format::{
     ModelMarker, NameInSite, NameInWorkcell, NameOfWorkcell, Pose, PrimitiveShape,
@@ -34,6 +37,7 @@ pub fn flatten_loaded_models_hierarchy(
         ),
     >,
     all_model_parents: Query<(Entity, &Parent), (With<ModelMarker>, Without<Pending>)>,
+    properties: Query<(Option<&VisualCue>, Option<&Preview>)>,
     mut poses: Query<&mut Pose>,
     mut dependents: Query<&mut Dependents>,
     parents: Query<&Parent>,
@@ -57,10 +61,30 @@ pub fn flatten_loaded_models_hierarchy(
             if let Ok(mut deps) = dependents.get_mut(**model_parent) {
                 deps.insert(e);
             }
-            for (t1, t2) in child_pose.trans.iter_mut().zip(parent_pose.trans.iter()) {
-                *t1 += t2;
-            }
+            let tf_child = child_pose.transform();
+            let tf_parent = parent_pose.transform();
+            *child_pose = (tf_parent * tf_child).into();
+
+            // Note: This is wiping out properties that we might try to apply to the
+            // original model entity. Because of this, we need to manually push those
+            // properties (e.g. VisualCue, Preview) along to the flattened entities.
+            // This might not scale well in the long run.
+            let mut e_mut = commands.entity(e);
+            if let Ok((cue, preview)) = properties.get(parent_entity) {
+                if let Some(cue) = cue {
+                    dbg!((e, cue));
+                    e_mut.insert(cue.clone());
+                }
+                if let Some(preview) = preview {
+                    e_mut.insert(preview.clone());
+                }
+            } else {
+                error!("Properties query failed while flattening model");
+                continue;
+            };
+
             // Now despawn the unnecessary model
+            println!("FLATTENING {parent_entity:?}");
             commands.entity(parent_entity).set_parent(trashcan.0);
         }
     }

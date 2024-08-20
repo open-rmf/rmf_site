@@ -94,7 +94,6 @@ pub fn add_physical_light_visual_cues(
                         material: assets.physical_light_cover_material.clone(),
                         ..default()
                     })
-                    .insert(Selectable::new(e))
                     .insert(DragPlaneBundle::new(e, Vec3::Z).globally());
 
                 point
@@ -103,7 +102,6 @@ pub fn add_physical_light_visual_cues(
                         material: light_material.clone(),
                         ..default()
                     })
-                    .insert(Selectable::new(e))
                     .insert(DragPlaneBundle::new(e, Vec3::Z).globally());
             })
             .id();
@@ -123,7 +121,6 @@ pub fn add_physical_light_visual_cues(
                     material: assets.physical_light_cover_material.clone(),
                     ..default()
                 })
-                .insert(Selectable::new(e))
                 .insert(DragPlaneBundle::new(e, Vec3::Z).globally());
 
                 spot.spawn(PbrBundle {
@@ -131,7 +128,6 @@ pub fn add_physical_light_visual_cues(
                     material: light_material.clone(),
                     ..default()
                 })
-                .insert(Selectable::new(e))
                 .insert(DragPlaneBundle::new(e, Vec3::Z).globally());
             })
             .id();
@@ -151,7 +147,6 @@ pub fn add_physical_light_visual_cues(
                     material: assets.direction_light_cover_material.clone(),
                     ..default()
                 })
-                .insert(Selectable::new(e))
                 .insert(DragPlaneBundle::new(e, Vec3::Z).globally());
 
                 dir.spawn(PbrBundle {
@@ -159,7 +154,6 @@ pub fn add_physical_light_visual_cues(
                     material: light_material.clone(),
                     ..default()
                 })
-                .insert(Selectable::new(e))
                 .insert(DragPlaneBundle::new(e, Vec3::Z).globally());
             })
             .id();

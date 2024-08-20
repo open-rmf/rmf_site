@@ -493,48 +493,54 @@ pub trait CommonNodeErrors {
 impl<T, E: Error> CommonNodeErrors for Result<T, E> {
     type Value = T;
     fn or_broken_buffer(self) -> Result<Self::Value, Option<Anyhow>> {
-        self.map_err(|err|
+        self.map_err(|err| {
+            let backtrace = std::backtrace::Backtrace::force_capture();
             Some(anyhow!(
-                "The buffer in the workflow has been despawned: {err}"
+                "The buffer in the workflow is broken: {err}. Backtrace:\n{backtrace}"
             ))
-        )
+        })
     }
 
     fn or_broken_state(self) -> Result<Self::Value, Option<Anyhow>> {
-        self.map_err(|err|
+        self.map_err(|err| {
+            let backtrace = std::backtrace::Backtrace::force_capture();
             Some(anyhow!(
-                "The state is missing from the workflow buffer: {err}"
+                "The state is missing from the workflow buffer: {err}. Backtrace:\n{backtrace}"
             ))
-        )
+        })
     }
 
     fn or_broken_query(self) -> Result<Self::Value, Option<Anyhow>> {
-        self.map_err(|err|
+        self.map_err(|err| {
+            let backtrace = std::backtrace::Backtrace::force_capture();
             Some(anyhow!(
-                "A query that should have worked failed: {err}"
+                "A query that should have worked failed: {err}. Backtrace:\n{backtrace}"
             ))
-        )
+        })
     }
 }
 
 impl<T> CommonNodeErrors for Option<T> {
     type Value = T;
     fn or_broken_buffer(self) -> Result<Self::Value, Option<Anyhow>> {
-        self.ok_or_else(||
-            Some(anyhow!("The buffer in the workflow has been despawned"))
-        )
+        self.ok_or_else(|| {
+            let backtrace = std::backtrace::Backtrace::force_capture();
+            Some(anyhow!("The buffer in the workflow has been despawned. Backtrace:\n{backtrace}"))
+        })
     }
 
     fn or_broken_state(self) -> Result<Self::Value, Option<Anyhow>> {
-        self.ok_or_else(||
-            Some(anyhow!("The state is missing from the workflow buffer"))
-        )
+        self.ok_or_else(|| {
+            let backtrace = std::backtrace::Backtrace::force_capture();
+            Some(anyhow!("The state is missing from the workflow buffer. Backtrace:\n{backtrace}"))
+        })
     }
 
     fn or_broken_query(self) -> Result<Self::Value, Option<Anyhow>> {
-        self.ok_or_else(||
-            Some(anyhow!("A query that should have worked failed"))
-        )
+        self.ok_or_else(|| {
+            let backtrace = std::backtrace::Backtrace::force_capture();
+            Some(anyhow!("A query that should have worked failed. Backtrace:\n{backtrace}"))
+        })
     }
 }
 

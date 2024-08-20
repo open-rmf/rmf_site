@@ -125,7 +125,7 @@ pub fn move_anchor(
 }
 
 pub fn update_anchor_proximity_xray(
-    mut anchors: Query<(&GlobalTransform, &mut VisualCue), With<Anchor>>,
+    mut anchors: Query<(Entity, &GlobalTransform, &mut VisualCue), With<Anchor>>,
     intersect_ground_params: IntersectGroundPlaneParams,
     cursor_moved: EventReader<CursorMoved>,
 ) {
@@ -138,7 +138,7 @@ pub fn update_anchor_proximity_xray(
         None => return,
     };
 
-    for (anchor_tf, mut cue) in &mut anchors {
+    for (e, anchor_tf, mut cue) in &mut anchors {
         // TODO(MXG): Make the proximity range configurable
         let proximity = {
             // We make the xray effect a little "sticky" so that there isn't an
@@ -161,6 +161,7 @@ pub fn update_anchor_proximity_xray(
                 break 'xray false;
             }
 
+            dbg!(e);
             true
         };
 
@@ -311,7 +312,7 @@ pub fn update_anchor_visual_cues(
 }
 
 // NOTE(MXG): Currently only anchors ever have support cues, so we filter down
-// to entities with AnchorVisualCues. We will need to broaden that if any other
+// to entities with AnchorVisualization. We will need to broaden that if any other
 // visual cue types ever have a supporting role.
 pub fn remove_deleted_supports_from_visual_cues(
     mut hovered: Query<&mut Hovered, With<AnchorVisualization>>,

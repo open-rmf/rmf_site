@@ -135,11 +135,19 @@ pub fn propagate_visual_cues(
     changed_cues: Query<(Entity, &VisualCue), Or<(Changed<VisualCue>, Changed<Children>)>>,
     children: Query<&Children>,
     existing_cues: Query<(), With<VisualCue>>,
+
+
+    changed_layers: Query<(Entity, &RenderLayers, Option<&VisualCue>), Changed<RenderLayers>>,
+    layers: Query<&RenderLayers>,
+    parents: Query<&Parent>,
+    exists: Query<()>,
 ) {
     for (e, root_cue) in &changed_cues {
+        dbg!((e, root_cue));
         let mut queue = SmallVec::<[(Entity, VisualCue); 5]>::new();
         queue.push((e, root_cue.clone()));
         while let Some((top, top_cue)) = queue.pop() {
+            dbg!((top, top_cue.layers(), &top_cue));
             commands
                 .entity(top)
                 .insert(top_cue.layers())
@@ -155,5 +163,9 @@ pub fn propagate_visual_cues(
                 }
             }
         }
+    }
+
+    for (e, layers, cue) in &changed_layers {
+        dbg!((e, layers, cue));
     }
 }

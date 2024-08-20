@@ -16,8 +16,8 @@
 */
 
 use crate::{
-    interaction::{DragPlaneBundle, Selectable, MODEL_PREVIEW_LAYER},
-    site::{Category, PreventDeletion, SiteAssets},
+    interaction::{DragPlaneBundle, Selectable, MODEL_PREVIEW_LAYER, Preview, VisualCue},
+    site::{Category, PreventDeletion, SiteAssets, Dependents},
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
 };
 use bevy::{
@@ -89,7 +89,7 @@ pub struct ModelSceneRoot;
 pub fn handle_model_loaded_events(
     mut commands: Commands,
     loading_models: Query<
-        (Entity, &PendingSpawning, &Scale, Option<&RenderLayers>),
+        (Entity, &PendingSpawning, &Scale, Option<&RenderLayers>, Option<&Preview>, Option<&Pending>),
         With<ModelMarker>,
     >,
     mut current_scenes: Query<&mut ModelScene>,
@@ -97,12 +97,16 @@ pub fn handle_model_loaded_events(
     site_assets: Res<SiteAssets>,
     gltfs: Res<Assets<Gltf>>,
     untyped_assets: Res<Assets<LoadedUntypedAsset>>,
+    trashcan: Res<ModelTrashcan>,
+    mut dependents: Query<&mut Dependents>,
 ) {
     // For each model that is loading, check if its scene has finished loading
     // yet. If the scene has finished loading, then insert it as a child of the
     // model entity and make it selectable.
-    for (e, h, scale, render_layer) in loading_models.iter() {
+    for (e, h, scale, render_layer, preview, pending) in loading_models.iter() {
+        dbg!(e);
         if asset_server.is_loaded_with_dependencies(h.id()) {
+            dbg!(e);
             let Some(h) = untyped_assets.get(&**h) else {
                 warn!("Broken reference to untyped asset, this should not happen!");
                 continue;
@@ -158,15 +162,38 @@ pub fn handle_model_loaded_events(
 
             if let Some(id) = model_id {
                 let mut cmd = commands.entity(e);
+                dbg!((e, id));
                 cmd.insert(ModelSceneRoot).add_child(id);
-                if !render_layer.is_some_and(|l| l.iter().all(|l| l == MODEL_PREVIEW_LAYER)) {
+                let in_preview_layer = render_layer.is_some_and(|l| l.iter().all(|l| l == MODEL_PREVIEW_LAYER));
+                if !in_preview_layer && !preview.is_some() && !pending.is_some() {
+                    dbg!(e);
                     cmd.insert(Selectable::new(e));
                 }
                 current_scenes.get_mut(e).unwrap().entity = Some(id);
             }
+            dbg!(e);
             commands
                 .entity(e)
                 .remove::<(PreventDeletion, PendingSpawning)>();
+        } else {
+
+            match asset_server.load_state(h.id()) {
+                LoadState::Failed => dbg!(e),
+                LoadState::Loaded => dbg!(e),
+                LoadState::Loading => dbg!(e),
+                LoadState::NotLoaded => dbg!(e),
+            };
+
+            println!("THROWING AWAY {e:?}");
+            if asset_server.load_state(h.id()) == LoadState::Failed {
+                for mut deps in &mut dependents {
+                    deps.remove(&e);
+                }
+
+                commands.entity(e)
+                    .remove::<(PreventDeletion, PendingSpawning)>()
+                    .set_parent(trashcan.0);
+            }
         }
     }
 }
@@ -256,6 +283,7 @@ pub fn update_model_scenes(
             // Avoid respawning if spurious change detection was triggered
             if current_scene.source != *source || current_scene.format != *tentative_format {
                 if let Some(scene_entity) = current_scene.entity {
+                    println!("CHANGING {e:?}");
                     commands.entity(scene_entity).set_parent(trashcan.0);
                     commands.entity(e).remove::<ModelSceneRoot>();
                 }
@@ -401,7 +429,7 @@ pub fn clear_model_trashcan(
 
 pub fn make_models_selectable(
     mut commands: Commands,
-    new_scene_roots: Query<Entity, (Added<ModelSceneRoot>, Without<Pending>)>,
+    new_scene_roots: Query<Entity, (Added<ModelSceneRoot>, Without<Pending>, Without<Preview>)>,
     parents: Query<&Parent>,
     scene_roots: Query<(&Selectable, Option<&RenderLayers>), With<ModelMarker>>,
     all_children: Query<&Children>,
@@ -411,6 +439,7 @@ pub fn make_models_selectable(
     // We use adding of scene root as a marker of models being spawned, the component is added when
     // the scene fininshed loading and is spawned
     for model_scene_root in &new_scene_roots {
+        dbg!(model_scene_root);
         // Use a small vec here to try to dodge heap allocation if possible.
         // TODO(MXG): Run some tests to see if an allocation of 16 is typically
         // sufficient.
@@ -434,7 +463,6 @@ pub fn make_models_selectable(
         while let Some(e) = queue.pop() {
             commands
                 .entity(e)
-                .insert(selectable.clone())
                 .insert(DragPlaneBundle::new(selectable.element, Vec3::Z));
 
             if let Ok(mesh_handle) = mesh_handles.get(e) {
@@ -458,25 +486,74 @@ pub fn make_models_selectable(
 }
 
 /// Assigns the render layer of the root, if present, to all the children
-pub fn propagate_model_render_layers(
+pub fn propagate_model_properties(
     mut commands: Commands,
     new_scene_roots: Query<Entity, Added<ModelSceneRoot>>,
-    render_layers: Query<&RenderLayers>,
     parents: Query<&Parent>,
-    mesh_entities: Query<Entity, With<Handle<Mesh>>>,
+    mesh_entities: Query<(), With<Handle<Mesh>>>,
     children: Query<&Children>,
+    render_layers: Query<&RenderLayers>,
+    previews: Query<&Preview>,
+    pendings: Query<&Pending>,
+    visual_cue: Query<&VisualCue>,
 ) {
-    for e in &new_scene_roots {
-        let Some(render_layers) = AncestorIter::new(&parents, e)
-            .filter_map(|p| render_layers.get(p).ok())
-            .last()
-        else {
-            continue;
-        };
-        for c in DescendantIter::new(&children, e) {
-            if mesh_entities.get(c).is_ok() {
-                commands.entity(c).insert(render_layers.clone());
+    for root in &new_scene_roots {
+        dbg!(root);
+        propagate_model_property(
+            root, &render_layers, &parents, &children, &mesh_entities, &mut commands, &visual_cue
+        );
+        propagate_model_property(
+            root, &previews, &parents, &children, &mesh_entities, &mut commands, &visual_cue
+        );
+        propagate_model_property(
+            root, &pendings, &parents, &children, &mesh_entities, &mut commands, &visual_cue
+        );
+    }
+}
+
+pub fn propagate_model_property<Property: Component + Clone + std::fmt::Debug>(
+    root: Entity,
+    property_query: &Query<&Property>,
+    parents: &Query<&Parent>,
+    children: &Query<&Children>,
+    mesh_entities: &Query<(), With<Handle<Mesh>>>,
+    commands: &mut Commands,
+    visual_cue: &Query<&VisualCue>,
+) {
+    let property = match property_query.get(root) {
+        Ok(property) => {
+            dbg!((root, &property));
+            if let Ok(v) = visual_cue.get(root) {
+                dbg!(v);
             }
+            property
+        }
+        Err(_) => match AncestorIter::new(parents, root)
+            .filter_map(|p| {
+                dbg!(p);
+                if let Ok(v) = visual_cue.get(p) {
+                    dbg!(v);
+                }
+                property_query.get(p).ok()
+            })
+            .next()
+        {
+            Some(property) => {
+                dbg!(&property);
+                property
+            },
+            None => return,
+        }
+    };
+
+    // dbg!((root, std::any::type_name::<Property>()));
+    dbg!((root, &property));
+    commands.entity(root).insert(property.clone());
+
+    for c in DescendantIter::new(children, root) {
+        dbg!(c);
+        if mesh_entities.contains(c) {
+            commands.entity(c).insert(property.clone());
         }
     }
 }

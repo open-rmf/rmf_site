@@ -134,6 +134,7 @@ pub enum InteractionUpdateSet {
 impl Plugin for InteractionPlugin {
     fn build(&self, app: &mut App) {
         app.add_state::<InteractionState>()
+            .init_resource::<GizmoBlockers>()
             .configure_sets(
                 PostUpdate,
                 (
@@ -209,7 +210,6 @@ impl Plugin for InteractionPlugin {
             .add_systems(
                 Update,
                 (
-                    make_model_previews_not_selectable,
                     update_lane_visual_cues.after(SelectionServiceStages::Select),
                     update_edge_visual_cues.after(SelectionServiceStages::Select),
                     update_point_visual_cues.after(SelectionServiceStages::Select),

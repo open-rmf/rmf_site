@@ -135,7 +135,6 @@ impl AnchorSelectionServices {
 #[derive(SystemParam)]
 pub struct AnchorSelection<'w, 's> {
     pub services: Res<'w, AnchorSelectionServices>,
-    pub run: EventWriter<'w, RunSelector>,
     pub commands: Commands<'w, 's>,
 }
 
@@ -206,7 +205,7 @@ impl<'w, 's> AnchorSelection<'w, 's> {
             CreateEdges::new::<T>(continuity, scope)
         )).id();
 
-        self.run.send(RunSelector {
+        self.send(RunSelector {
             selector: self.services.create_edges,
             input: Some(state),
         });
@@ -228,7 +227,7 @@ impl<'w, 's> AnchorSelection<'w, 's> {
             ReplaceSide::new(edge, side, scope)
         )).id();
 
-        self.run.send(RunSelector {
+        self.send(RunSelector {
             selector: self.services.replace_side,
             input: Some(state),
         });
@@ -248,7 +247,7 @@ impl<'w, 's> AnchorSelection<'w, 's> {
             spawn_path, minimum_points, allow_inner_loops, implied_complete_loop, scope,
         ))).id();
 
-        self.run.send(RunSelector {
+        self.send(RunSelector {
             selector: self.services.create_path,
             input: Some(state),
         });
@@ -263,7 +262,7 @@ impl<'w, 's> AnchorSelection<'w, 's> {
             repeating, scope,
         ))).id();
 
-        self.run.send(RunSelector {
+        self.send(RunSelector {
             selector: self.services.create_point,
             input: Some(state),
         });
@@ -278,9 +277,15 @@ impl<'w, 's> AnchorSelection<'w, 's> {
             point, scope,
         ))).id();
 
-        self.run.send(RunSelector {
+        self.send(RunSelector {
             selector: self.services.replace_point,
             input: Some(state),
+        });
+    }
+
+    fn send(&mut self, run: RunSelector) {
+        self.commands.add(move |world: &mut World|{
+            world.send_event(run);
         });
     }
 }

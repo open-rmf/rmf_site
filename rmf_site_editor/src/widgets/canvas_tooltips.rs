@@ -30,11 +30,20 @@ pub struct CanvasTooltips {
     /// which is the most efficient way to produce tooltip text.
     ///
     /// If your text is not a string literal then push `Cow::Owned(your_string)`.
-    pub tips: Vec<Cow<'static, str>>,
+    tips: Vec<Cow<'static, str>>,
     /// We keep track of previous tooltips to keep order as consistent as possible
     /// to prevent flickering as it's possible for different systems to add in
     /// tooltips at different times.
     previous: Vec<Cow<'static, str>>,
+}
+
+impl CanvasTooltips {
+    pub fn add(&mut self, tip: Cow<'static, str>) {
+        if self.tips.contains(&tip) {
+            return;
+        }
+        self.tips.push(tip);
+    }
 }
 
 impl CanvasTooltips {
@@ -46,11 +55,12 @@ impl CanvasTooltips {
 
         let mut decremented = 0;
         for (i, old_tip) in self.previous.iter().enumerate() {
+            let i_actual = i - decremented;
             if let Some((j, _)) = self.tips.iter().enumerate().find(
                 |(_, new_tip)| *old_tip == **new_tip
             ) {
-                if i != j {
-                    self.tips.swap(i-decremented, j);
+                if i_actual != j {
+                    self.tips.swap(i_actual, j);
                 }
             } else {
                 decremented += 1;

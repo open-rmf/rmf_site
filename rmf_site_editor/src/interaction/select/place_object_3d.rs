@@ -93,7 +93,6 @@ impl ObjectPlacementServices {
 #[derive(SystemParam)]
 pub struct ObjectPlacement<'w, 's> {
     pub services: Res<'w, ObjectPlacementServices>,
-    pub run: EventWriter<'w, RunSelector>,
     pub commands: Commands<'w, 's>,
 }
 
@@ -105,9 +104,15 @@ impl<'w, 's> ObjectPlacement<'w, 's> {
         workspace: Entity,
     ) {
         let state = self.commands.spawn(SelectorInput(PlaceObject3d { object, parent, workspace })).id();
-        self.run.send(RunSelector {
+        self.send(RunSelector {
             selector: self.services.place_object_3d,
             input: Some(state),
+        });
+    }
+
+    fn send(&mut self, run: RunSelector) {
+        self.commands.add(move |world: &mut World| {
+            world.send_event(run);
         });
     }
 }
@@ -132,6 +137,7 @@ pub fn build_place_object_3d_workflow(
             .then(extract_selector_input::<PlaceObject3d>.into_blocking_callback())
             .branch_for_err(|chain: Chain<_>| chain.connect(scope.terminate))
             .cancel_on_none()
+            .then_push(buffer)
             .then_access(buffer)
             .then(setup)
             .branch_for_err(|err| err.map_block(print_if_err).connect(scope.terminate))
@@ -183,7 +189,7 @@ pub struct PlaceObject3d {
     pub workspace: Entity,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum PlaceableObject {
     Model(Model),
     Anchor,
@@ -200,6 +206,7 @@ pub fn place_object_3d_setup(
     mut select: EventWriter<Select>,
     mut highlight: ResMut<HighlightAnchors>,
     mut filter: PlaceObject3dFilter,
+    mut gizmo_blockers: ResMut<GizmoBlockers>,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.newest_mut().or_broken_buffer()?;
@@ -221,11 +228,13 @@ pub fn place_object_3d_setup(
 
     if let Some(parent) = state.parent {
         let parent = filter.filter_select(parent);
+        dbg!((state.parent, parent));
         select.send(Select::new(parent));
         state.parent = parent;
     }
 
     highlight.0 = true;
+    gizmo_blockers.selecting = true;
 
     cursor.add_mode(PLACE_OBJECT_3D_MODE_LABEL, &mut visibility);
 
@@ -238,11 +247,13 @@ pub fn place_object_3d_cleanup(
     mut visibility: Query<&mut Visibility>,
     mut commands: Commands,
     mut highlight: ResMut<HighlightAnchors>,
+    mut gizmo_blockers: ResMut<GizmoBlockers>,
 ) -> SelectionNodeResult {
     cursor.remove_preview(&mut commands);
     cursor.remove_mode(PLACE_OBJECT_3D_MODE_LABEL, &mut visibility);
     set_visibility(cursor.frame_placement, &mut visibility, false);
     highlight.0 = false;
+    gizmo_blockers.selecting = false;
 
     Ok(())
 }
@@ -285,7 +296,7 @@ pub fn place_object_3d_find_placement(
     };
 
     if state.parent.is_some() {
-        tooltips.tips.push(Cow::Borrowed("Esc: deselect current parent"));
+        tooltips.add(Cow::Borrowed("Esc: deselect current parent"));
     }
 
     let project_to_plane = keyboard_input.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
@@ -309,27 +320,32 @@ pub fn place_object_3d_find_placement(
     if state.parent.is_none() || !project_to_plane {
         for (e, i) in source.intersections() {
             let Some(e) = filter.filter_select(*e) else {
+                dbg!(e);
                 continue;
             };
 
             if let Some(parent) = state.parent {
+                dbg!((e, parent));
                 if e == parent {
                     new_hover = Some(parent);
+                    dbg!(e);
                     cursor.add_mode(PLACE_OBJECT_3D_MODE_LABEL, &mut visibility);
-                    tooltips.tips.push(Cow::Borrowed("Click to place"));
-                    tooltips.tips.push(Cow::Borrowed("+Shift: Project to parent frame"));
+                    tooltips.add(Cow::Borrowed("Click to place"));
+                    tooltips.add(Cow::Borrowed("+Shift: Project to parent frame"));
                     intersection = Some(
                         Transform::from_translation(i.position())
-                        .looking_to(i.normal(), Vec3::Z)
+                        .with_rotation(aligned_z_axis(i.normal()))
                     );
+                    set_visibility(cursor.frame, &mut visibility, true);
                     break;
                 }
             } else {
                 new_hover = Some(e);
                 select_new_parent = true;
+                dbg!(e);
                 cursor.remove_mode(PLACE_OBJECT_3D_MODE_LABEL, &mut visibility);
-                tooltips.tips.push(Cow::Borrowed("Click to set as parent"));
-                tooltips.tips.push(Cow::Borrowed("+Shift: Project to ground plane"));
+                tooltips.add(Cow::Borrowed("Click to set as parent"));
+                tooltips.add(Cow::Borrowed("+Shift: Project to ground plane"));
                 break;
             }
         }
@@ -340,13 +356,13 @@ pub fn place_object_3d_find_placement(
     }
 
     if !select_new_parent {
-        let intersection = intersection.or_else(|| {
+        intersection = intersection.or_else(|| {
             if let Some(parent) = state.parent {
-                tooltips.tips.push(Cow::Borrowed("Click to place"));
+                tooltips.add(Cow::Borrowed("Click to place"));
                 cursor.add_mode(PLACE_OBJECT_3D_MODE_LABEL, &mut visibility);
                 intersect_ground_params.frame_plane_intersection(parent)
             } else {
-                tooltips.tips.push(Cow::Borrowed("Click to place"));
+                tooltips.add(Cow::Borrowed("Click to place"));
                 cursor.add_mode(PLACE_OBJECT_3D_MODE_LABEL, &mut visibility);
                 intersect_ground_params.ground_plane_intersection()
             }
@@ -486,7 +502,11 @@ pub fn on_placement_chosen(
             .id()
         }
         PlaceableObject::Model(object) => {
-            let model_id = commands.spawn(object).id();
+            let model_id = commands.spawn((
+                object,
+                VisualCue::outline(),
+            )).id();
+            println!(" =================== created {:?}", model_id);
             // Create a parent anchor to contain the new model in
             commands.spawn((
                 AnchorBundle::new(Anchor::Pose3D(pose))

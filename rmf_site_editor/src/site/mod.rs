@@ -392,16 +392,24 @@ impl Plugin for SitePlugin {
         .add_systems(
             PostUpdate,
             (
+                (
+                    propagate_model_properties,
+                    make_models_selectable,
+                    // Counter-intuitively, we want to expand the model scenes
+                    // after propagating the model properties through the scene.
+                    // The reason is that the entities for the scene won't be
+                    // available until the next cycle is finished, so we want to
+                    // wait until the next cycle before propagating the properties
+                    // of any newly added scenes.
+                    handle_model_loaded_events,
+                ).chain(),
                 add_measurement_visuals,
                 update_changed_measurement,
                 update_measurement_for_moved_anchors,
-                handle_model_loaded_events,
                 update_model_scenes,
                 update_affiliations,
                 update_members_of_groups.after(update_affiliations),
                 update_model_scales,
-                make_models_selectable,
-                propagate_model_render_layers,
                 handle_new_primitive_shapes,
                 add_drawing_visuals,
                 handle_loaded_drawing,
