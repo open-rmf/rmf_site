@@ -17,9 +17,9 @@
 
 use crate::{
     interaction::{ModelPreviewCamera, ObjectPlacement, PlaceableObject, Selection},
-    site::{AssetSource, FuelClient, Model, SetFuelApiKey, UpdateFuelCache},
+    site::{AssetSource, FuelClient, Model, SetFuelApiKey, UpdateFuelCache, CurrentLevel},
     widgets::prelude::*,
-    CurrentWorkspace,
+    CurrentWorkspace, AppState,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{self, Button, ComboBox, ImageSource, RichText, ScrollArea, Ui, Window};
@@ -81,6 +81,8 @@ pub struct FuelAssetBrowser<'w, 's> {
     place_object: ObjectPlacement<'w, 's>,
     current_workspace: Res<'w, CurrentWorkspace>,
     current_selection: Res<'w, Selection>,
+    current_level: Res<'w, CurrentLevel>,
+    app_state: Res<'w, State<AppState>>,
 }
 
 fn fuel_asset_browser_panel(In(input): In<PanelWidgetInput>, world: &mut World) {
@@ -272,21 +274,35 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
 
                 if let Some(selected) = &gallery_status.selected {
                     if ui.button("Spawn model").clicked() {
-                        if let Some(workspace) = self.current_workspace.root {
-                            let model = Model {
-                                source: AssetSource::Remote(
-                                    selected.owner.clone() + "/" + &selected.name + "/model.sdf",
-                                ),
-                                ..default()
-                            };
+                        let model = Model {
+                            source: AssetSource::Remote(
+                                selected.owner.clone() + "/" + &selected.name + "/model.sdf",
+                            ),
+                            ..default()
+                        };
 
-                            self.place_object.place_object_3d(
-                                PlaceableObject::Model(model),
-                                self.current_selection.0,
-                                workspace,
-                            );
-                        } else {
-                            warn!("Cannot spawn a model outside of a workspace");
+                        match self.app_state.get() {
+                            AppState::SiteEditor => {
+                                if let Some(level) = self.current_level.0 {
+                                    self.place_object.place_object_2d(model, level);
+                                } else {
+                                    warn!("Cannot spawn a model outside of a workspace");
+                                }
+                            }
+                            AppState::WorkcellEditor => {
+                                if let Some(workspace) = self.current_workspace.root {
+                                    self.place_object.place_object_3d(
+                                        PlaceableObject::Model(model),
+                                        self.current_selection.0,
+                                        workspace,
+                                    );
+                                } else {
+                                    warn!("Cannot spawn a model outside of a workspace");
+                                }
+                            }
+                            _ => {
+                                warn!("Invalid mode for spawning a model: {:?}", &self.app_state);
+                            }
                         }
                     }
                 }

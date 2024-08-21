@@ -50,6 +50,12 @@ use create_path::*;
 pub mod create_point;
 use create_point::*;
 
+pub mod place_object;
+pub use place_object::*;
+
+pub mod place_object_2d;
+pub use place_object_2d::*;
+
 pub mod place_object_3d;
 pub use place_object_3d::*;
 

@@ -22,93 +22,44 @@ use crate::{
         FrameMarker, NameInWorkcell, Dependents, Pending,
     },
     widgets::canvas_tooltips::CanvasTooltips,
-    KeyboardServices,
     WorkspaceMarker,
 };
 use bevy::{
-    prelude::{*, Input as UserInput},
+    prelude::Input as UserInput,
     ecs::system::SystemParam,
 };
-use bevy_impulse::*;
 use bevy_mod_raycast::deferred::RaycastSource;
 use std::borrow::Cow;
 
 pub const PLACE_OBJECT_3D_MODE_LABEL: &'static str = "place_object_3d";
 
-#[derive(Default)]
-pub struct ObjectPlacementPlugin {}
+pub fn spawn_place_object_3d_workflow(app: &mut App) -> Service<Option<Entity>, ()> {
+    let setup = app.spawn_service(place_object_3d_setup);
+    let find_position = app.spawn_continuous_service(Update, place_object_3d_find_placement);
+    let placement_chosen = app.spawn_service(on_placement_chosen_3d.into_blocking_service());
+    let handle_key_code = app.spawn_service(on_keyboard_for_place_object_3d);
+    let cleanup = app.spawn_service(place_object_3d_cleanup.into_blocking_service());
+    let hover_service = app.spawn_continuous_service(
+        Update,
+        hover_service::<PlaceObject3dFilter>
+        .configure(|config: SystemConfigs|
+            config.in_set(SelectionServiceStages::Hover)
+        ),
+    );
+    let selection_update = app.world.resource::<InspectorService>().selection_update;
+    let keyboard_just_pressed = app.world.resource::<KeyboardServices>()
+        .keyboard_just_pressed;
 
-impl Plugin for ObjectPlacementPlugin {
-    fn build(&self, app: &mut App) {
-        let services = ObjectPlacementServices::from_app(app);
-        app.insert_resource(services);
-    }
-}
-
-
-#[derive(Resource, Clone, Copy)]
-pub struct ObjectPlacementServices {
-    pub place_object_3d: Service<Option<Entity>, ()>,
-}
-
-impl ObjectPlacementServices {
-    pub fn from_app(app: &mut App) -> Self {
-        let setup = app.spawn_service(place_object_3d_setup);
-        let find_position = app.spawn_continuous_service(Update, place_object_3d_find_placement);
-        let placement_chosen = app.spawn_service(on_placement_chosen.into_blocking_service());
-        let handle_key_code = app.spawn_service(on_keyboard_for_place_object_3d);
-        let cleanup = app.spawn_service(place_object_3d_cleanup.into_blocking_service());
-        let hover_service = app.spawn_continuous_service(
-            Update,
-            hover_service::<PlaceObject3dFilter>
-            .configure(|config: SystemConfigs|
-                config.in_set(SelectionServiceStages::Hover)
-            ),
-        );
-        let selection_update = app.world.resource::<InspectorService>().selection_update;
-        let keyboard_just_pressed = app.world.resource::<KeyboardServices>()
-            .keyboard_just_pressed;
-
-        let place_object_3d = app.world.spawn_io_workflow(build_place_object_3d_workflow(
-            setup,
-            find_position,
-            placement_chosen,
-            handle_key_code,
-            cleanup,
-            hover_service.optional_stream_cast(),
-            selection_update,
-            keyboard_just_pressed,
-        ));
-
-        Self { place_object_3d }
-    }
-}
-
-#[derive(SystemParam)]
-pub struct ObjectPlacement<'w, 's> {
-    pub services: Res<'w, ObjectPlacementServices>,
-    pub commands: Commands<'w, 's>,
-}
-
-impl<'w, 's> ObjectPlacement<'w, 's> {
-    pub fn place_object_3d(
-        &mut self,
-        object: PlaceableObject,
-        parent: Option<Entity>,
-        workspace: Entity,
-    ) {
-        let state = self.commands.spawn(SelectorInput(PlaceObject3d { object, parent, workspace })).id();
-        self.send(RunSelector {
-            selector: self.services.place_object_3d,
-            input: Some(state),
-        });
-    }
-
-    fn send(&mut self, run: RunSelector) {
-        self.commands.add(move |world: &mut World| {
-            world.send_event(run);
-        });
-    }
+    app.world.spawn_io_workflow(build_place_object_3d_workflow(
+        setup,
+        find_position,
+        placement_chosen,
+        handle_key_code,
+        cleanup,
+        hover_service.optional_stream_cast(),
+        selection_update,
+        keyboard_just_pressed,
+    ))
 }
 
 pub fn build_place_object_3d_workflow(
@@ -124,14 +75,11 @@ pub fn build_place_object_3d_workflow(
     keyboard_just_pressed: Service<(), (), StreamOf<KeyCode>>,
 ) -> impl FnOnce(Scope<Option<Entity>, ()>, &mut Builder) {
     move |scope, builder| {
-
         let buffer = builder.create_buffer::<PlaceObject3d>(BufferSettings::keep_last(1));
-
         let selection_update_node = builder.create_node(selection_update);
-
         let setup_node = scope.input.chain(builder)
             .then(extract_selector_input::<PlaceObject3d>.into_blocking_callback())
-            .branch_for_err(|chain: Chain<_>| chain.connect(scope.terminate))
+            .branch_for_err(|err| err.connect(scope.terminate))
             .cancel_on_none()
             .then_push(buffer)
             .then_access(buffer)
@@ -310,8 +258,8 @@ pub fn place_object_3d_find_placement(
 
     let mut transform = match transforms.get_mut(cursor.frame) {
         Ok(transform) => transform,
-        Err(_) => {
-            error!("No cursor transform found");
+        Err(err) => {
+            error!("No cursor transform found: {err}");
             return;
         }
     };
@@ -448,7 +396,6 @@ impl<'w, 's> SelectionFilter for PlaceObject3dFilter<'w, 's> {
 
     fn filter_select(&mut self, target: Entity) -> Option<Entity> {
         self.inspect.filter_select(target)
-        //.and_then(|e| self.find_frame(e))
     }
 
     fn on_click(&mut self, _: Hover) -> Option<Select> {
@@ -486,7 +433,7 @@ pub fn on_keyboard_for_place_object_3d(
     Ok(())
 }
 
-pub fn on_placement_chosen(
+pub fn on_placement_chosen_3d(
     In((placement, key)): In<(Transform, BufferKey<PlaceObject3d>)>,
     mut access: BufferAccessMut<PlaceObject3d>,
     mut commands: Commands,
@@ -496,7 +443,6 @@ pub fn on_placement_chosen(
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.pull().or_broken_state()?;
 
-    // let pose: Pose = placement.into();
     let pose: Pose = if let Some(parent) = state.parent {
         let parent_tf = global_tfs.get(parent).or_broken_query()?;
         let inv_tf = parent_tf.affine().inverse();
