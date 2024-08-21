@@ -17,9 +17,9 @@
 
 use crate::{
     interaction::{ModelPreviewCamera, ObjectPlacement, PlaceableObject, Selection},
-    site::{AssetSource, FuelClient, Model, SetFuelApiKey, UpdateFuelCache, CurrentLevel},
+    site::{AssetSource, CurrentLevel, FuelClient, Model, SetFuelApiKey, UpdateFuelCache},
     widgets::prelude::*,
-    CurrentWorkspace, AppState,
+    AppState, CurrentWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{self, Button, ComboBox, ImageSource, RichText, ScrollArea, Ui, Window};

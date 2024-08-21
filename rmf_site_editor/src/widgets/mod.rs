@@ -131,10 +131,10 @@ pub mod prelude {
     //! implementing and inserting their own widgets.
 
     pub use super::{
-        properties_panel::*, Inspect, InspectionPlugin, PanelSide, PanelWidget, PanelWidgetInput,
-        PropertiesPanel, PropertiesTilePlugin, ShareableWidget, ShowError, ShowResult,
-        ShowSharedWidget, Tile, TryShowWidgetEntity, TryShowWidgetWorld, Widget, WidgetSystem,
-        CanvasTooltips,
+        properties_panel::*, CanvasTooltips, Inspect, InspectionPlugin, PanelSide, PanelWidget,
+        PanelWidgetInput, PropertiesPanel, PropertiesTilePlugin, ShareableWidget, ShowError,
+        ShowResult, ShowSharedWidget, Tile, TryShowWidgetEntity, TryShowWidgetWorld, Widget,
+        WidgetSystem,
     };
     pub use bevy::ecs::{
         system::{SystemParam, SystemState},
@@ -150,33 +150,32 @@ pub struct StandardUiPlugin {}
 
 impl Plugin for StandardUiPlugin {
     fn build(&self, app: &mut App) {
-        app
-        .init_resource::<CanvasTooltips>()
-        .add_plugins((
-            IconsPlugin::default(),
-            MenuBarPlugin::default(),
-            SdfExportMenuPlugin::default(),
-            StandardPropertiesPanelPlugin::default(),
-            FuelAssetBrowserPlugin::default(),
-            DiagnosticsPlugin::default(),
-            ConsoleWidgetPlugin::default(),
-            UserCameraDisplayPlugin::default(),
-        ))
-        .add_systems(Startup, init_ui_style)
-        .add_systems(
-            Update,
-            site_ui_layout
-                .in_set(RenderUiSet)
-                .run_if(AppState::in_displaying_mode()),
-        )
-        .add_systems(
-            PostUpdate,
-            (
-                resolve_light_export_file,
-                resolve_nav_graph_import_export_files,
+        app.init_resource::<CanvasTooltips>()
+            .add_plugins((
+                IconsPlugin::default(),
+                MenuBarPlugin::default(),
+                SdfExportMenuPlugin::default(),
+                StandardPropertiesPanelPlugin::default(),
+                FuelAssetBrowserPlugin::default(),
+                DiagnosticsPlugin::default(),
+                ConsoleWidgetPlugin::default(),
+                UserCameraDisplayPlugin::default(),
+            ))
+            .add_systems(Startup, init_ui_style)
+            .add_systems(
+                Update,
+                site_ui_layout
+                    .in_set(RenderUiSet)
+                    .run_if(AppState::in_displaying_mode()),
             )
-                .run_if(AppState::in_site_mode()),
-        );
+            .add_systems(
+                PostUpdate,
+                (
+                    resolve_light_export_file,
+                    resolve_nav_graph_import_export_files,
+                )
+                    .run_if(AppState::in_site_mode()),
+            );
     }
 }
 

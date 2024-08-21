@@ -166,7 +166,7 @@ impl DragAxisBundle {
             selectable: Selectable {
                 is_selectable: true,
                 element: for_entity,
-            }
+            },
         }
     }
 
@@ -209,7 +209,7 @@ impl DragPlaneBundle {
             selectable: Selectable {
                 is_selectable: true,
                 element: for_entity,
-            }
+            },
         }
     }
 

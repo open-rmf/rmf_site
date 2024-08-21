@@ -20,7 +20,7 @@ use super::{
     CameraCommandType, CameraControls, ProjectionMode, MAX_FOV, MAX_SCALE, MIN_FOV, MIN_SCALE,
 };
 use crate::interaction::SiteRaycastSet;
-use bevy::input::mouse::{MouseWheel, MouseScrollUnit};
+use bevy::input::mouse::{MouseScrollUnit, MouseWheel};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy_mod_raycast::deferred::RaycastSource;
@@ -93,12 +93,8 @@ pub fn update_cursor_command(
         let mut scroll_motion = 0.0;
         for ev in mouse_wheel.read() {
             scroll_motion += match ev.unit {
-                MouseScrollUnit::Line => {
-                    ev.y
-                }
-                MouseScrollUnit::Pixel => {
-                    ev.y / 100.0
-                }
+                MouseScrollUnit::Line => ev.y,
+                MouseScrollUnit::Pixel => ev.y / 100.0,
             };
         }
 

@@ -85,9 +85,9 @@ pub fn handle_new_primitive_shapes(
                 } else {
                     e
                 };
-                commands.entity(id).insert(
-                    DragPlaneBundle::new(selectable, Vec3::Z),
-                );
+                commands
+                    .entity(id)
+                    .insert(DragPlaneBundle::new(selectable, Vec3::Z));
             }
         }
     }

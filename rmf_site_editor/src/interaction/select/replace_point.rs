@@ -19,16 +19,17 @@ use crate::{
     interaction::*,
     site::{ChangeDependent, Original},
 };
-use rmf_site_format::Point;
 use bevy::prelude::*;
 use bevy_impulse::*;
+use rmf_site_format::Point;
 use std::borrow::Borrow;
 
 pub fn spawn_replace_point_service(
     helpers: &AnchorSelectionHelpers,
     app: &mut App,
 ) -> Service<Option<Entity>, ()> {
-    let anchor_setup = app.spawn_service(anchor_selection_setup::<ReplacePoint>.into_blocking_service());
+    let anchor_setup =
+        app.spawn_service(anchor_selection_setup::<ReplacePoint>.into_blocking_service());
     let state_setup = app.spawn_service(replace_point_setup.into_blocking_service());
     let update_preview = app.spawn_service(on_hover_for_replace_point.into_blocking_service());
     let update_current = app.spawn_service(on_select_for_replace_point.into_blocking_service());
@@ -42,7 +43,7 @@ pub fn spawn_replace_point_service(
         update_current,
         handle_key_code,
         cleanup_state,
-        &mut app.world
+        &mut app.world,
     )
 }
 
@@ -62,7 +63,12 @@ pub struct ReplacePoint {
 
 impl ReplacePoint {
     pub fn new(point: Entity, scope: AnchorScope) -> Self {
-        Self { point, original: None, scope, replaced: false }
+        Self {
+            point,
+            original: None,
+            scope,
+            replaced: false,
+        }
     }
 
     pub fn set_chosen(
@@ -151,7 +157,9 @@ pub fn cleanup_replace_point(
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let mut state = access.pull().or_broken_state()?;
 
-    commands.get_entity(state.point).or_broken_query()?
+    commands
+        .get_entity(state.point)
+        .or_broken_query()?
         .remove::<Original<Point<Entity>>>();
 
     if state.replaced {

@@ -402,7 +402,8 @@ impl Plugin for SitePlugin {
                     // wait until the next cycle before propagating the properties
                     // of any newly added scenes.
                     handle_model_loaded_events,
-                ).chain(),
+                )
+                    .chain(),
                 add_measurement_visuals,
                 update_changed_measurement,
                 update_measurement_for_moved_anchors,

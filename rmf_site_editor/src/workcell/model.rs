@@ -16,8 +16,8 @@
 */
 
 use crate::{
-    interaction::{VisualCue, Preview},
-    site::{Dependents, ModelTrashcan, Pending}
+    interaction::{Preview, VisualCue},
+    site::{Dependents, ModelTrashcan, Pending},
 };
 use bevy::prelude::*;
 use rmf_site_format::{

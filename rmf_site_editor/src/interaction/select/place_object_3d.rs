@@ -18,16 +18,13 @@
 use crate::{
     interaction::select::*,
     site::{
-        Model, WorkcellModel, NameInSite, SiteID, AnchorBundle, Pose, Anchor,
-        FrameMarker, NameInWorkcell, Dependents, Pending,
+        Anchor, AnchorBundle, Dependents, FrameMarker, Model, NameInSite, NameInWorkcell, Pending,
+        Pose, SiteID, WorkcellModel,
     },
     widgets::canvas_tooltips::CanvasTooltips,
     WorkspaceMarker,
 };
-use bevy::{
-    prelude::Input as UserInput,
-    ecs::system::SystemParam,
-};
+use bevy::{ecs::system::SystemParam, prelude::Input as UserInput};
 use bevy_mod_raycast::deferred::RaycastSource;
 use std::borrow::Cow;
 
@@ -42,12 +39,12 @@ pub fn spawn_place_object_3d_workflow(app: &mut App) -> Service<Option<Entity>, 
     let hover_service = app.spawn_continuous_service(
         Update,
         hover_service::<PlaceObject3dFilter>
-        .configure(|config: SystemConfigs|
-            config.in_set(SelectionServiceStages::Hover)
-        ),
+            .configure(|config: SystemConfigs| config.in_set(SelectionServiceStages::Hover)),
     );
     let selection_update = app.world.resource::<InspectorService>().selection_update;
-    let keyboard_just_pressed = app.world.resource::<KeyboardServices>()
+    let keyboard_just_pressed = app
+        .world
+        .resource::<KeyboardServices>()
         .keyboard_just_pressed;
 
     app.world.spawn_io_workflow(build_place_object_3d_workflow(
@@ -77,7 +74,9 @@ pub fn build_place_object_3d_workflow(
     move |scope, builder| {
         let buffer = builder.create_buffer::<PlaceObject3d>(BufferSettings::keep_last(1));
         let selection_update_node = builder.create_node(selection_update);
-        let setup_node = scope.input.chain(builder)
+        let setup_node = scope
+            .input
+            .chain(builder)
             .then(extract_selector_input::<PlaceObject3d>.into_blocking_callback())
             .branch_for_err(|err| err.connect(scope.terminate))
             .cancel_on_none()
@@ -87,16 +86,21 @@ pub fn build_place_object_3d_workflow(
 
         builder.connect(setup_node.streams, selection_update_node.input);
 
-        let begin_input_services = setup_node.output.chain(builder)
+        let begin_input_services = setup_node
+            .output
+            .chain(builder)
             .branch_for_err(|err| err.map_block(print_if_err).connect(scope.terminate))
             .output()
             .fork_clone(builder);
 
-        let find_placement_node = begin_input_services.clone_chain(builder)
+        let find_placement_node = begin_input_services
+            .clone_chain(builder)
             .then_access(buffer)
             .then_node(find_placement);
 
-        find_placement_node.output.chain(builder)
+        find_placement_node
+            .output
+            .chain(builder)
             .with_access(buffer)
             .then(placement_chosen)
             .fork_result(
@@ -106,18 +110,24 @@ pub fn build_place_object_3d_workflow(
 
         builder.connect(find_placement_node.streams, selection_update_node.input);
 
-        begin_input_services.clone_chain(builder)
+        begin_input_services
+            .clone_chain(builder)
             .then(hover_service)
             .connect(scope.terminate);
 
-        let keyboard = begin_input_services.clone_chain(builder)
+        let keyboard = begin_input_services
+            .clone_chain(builder)
             .then_node(keyboard_just_pressed);
-        let handle_key_node = keyboard.streams.chain(builder)
+        let handle_key_node = keyboard
+            .streams
+            .chain(builder)
             .inner()
             .with_access(buffer)
             .then_node(handle_key_code);
 
-        handle_key_node.output.chain(builder)
+        handle_key_node
+            .output
+            .chain(builder)
             .dispose_on_ok()
             .map_block(print_if_err)
             .connect(scope.terminate);
@@ -125,12 +135,10 @@ pub fn build_place_object_3d_workflow(
         builder.connect(handle_key_node.streams, selection_update_node.input);
 
         builder.on_cleanup(buffer, move |scope, builder| {
-            scope.input.chain(builder)
-                .then(cleanup)
-                .fork_result(
-                    |ok| ok.connect(scope.terminate),
-                    |err| err.map_block(print_if_err).connect(scope.terminate),
-                );
+            scope.input.chain(builder).then(cleanup).fork_result(
+                |ok| ok.connect(scope.terminate),
+                |err| err.map_block(print_if_err).connect(scope.terminate),
+            );
         });
     }
 }
@@ -215,7 +223,11 @@ pub fn place_object_3d_cleanup(
 }
 
 pub fn place_object_3d_find_placement(
-    In(ContinuousService { key: srv_key }): ContinuousServiceInput<BufferKey<PlaceObject3d>, Transform, Select>,
+    In(ContinuousService { key: srv_key }): ContinuousServiceInput<
+        BufferKey<PlaceObject3d>,
+        Transform,
+        Select,
+    >,
     mut orders: ContinuousQuery<BufferKey<PlaceObject3d>, Transform, Select>,
     mut buffer: BufferAccessMut<PlaceObject3d>,
     mut cursor: ResMut<Cursor>,
@@ -286,7 +298,7 @@ pub fn place_object_3d_find_placement(
                     tooltips.add(Cow::Borrowed("+Shift: Project to parent frame"));
                     intersection = Some(
                         Transform::from_translation(i.position())
-                        .with_rotation(aligned_z_axis(i.normal()))
+                            .with_rotation(aligned_z_axis(i.normal())),
                     );
                     set_visibility(cursor.frame, &mut visibility, true);
                     break;
@@ -453,28 +465,25 @@ pub fn on_placement_chosen_3d(
     };
 
     let id = match state.object {
-        PlaceableObject::Anchor => {
-            commands.spawn((
+        PlaceableObject::Anchor => commands
+            .spawn((
                 AnchorBundle::new(Anchor::Pose3D(pose)),
                 FrameMarker,
                 NameInWorkcell("Unnamed".to_string()),
             ))
-            .id()
-        }
+            .id(),
         PlaceableObject::Model(object) => {
-            let model_id = commands.spawn((
-                object,
-                VisualCue::outline(),
-            )).id();
+            let model_id = commands.spawn((object, VisualCue::outline())).id();
             // Create a parent anchor to contain the new model in
-            commands.spawn((
-                AnchorBundle::new(Anchor::Pose3D(pose))
-                    .dependents(Dependents::single(model_id)),
-                FrameMarker,
-                NameInWorkcell("model_root".to_string()),
-            ))
-            .add_child(model_id)
-            .id()
+            commands
+                .spawn((
+                    AnchorBundle::new(Anchor::Pose3D(pose))
+                        .dependents(Dependents::single(model_id)),
+                    FrameMarker,
+                    NameInWorkcell("model_root".to_string()),
+                ))
+                .add_child(model_id)
+                .id()
         }
         PlaceableObject::VisualMesh(mut object) => {
             object.pose = pose;
@@ -490,7 +499,9 @@ pub fn on_placement_chosen_3d(
         }
     };
 
-    commands.entity(id).set_parent(state.parent.unwrap_or(state.workspace));
+    commands
+        .entity(id)
+        .set_parent(state.parent.unwrap_or(state.workspace));
     if let Some(parent) = state.parent {
         if let Ok(mut deps) = dependents.get_mut(parent) {
             deps.insert(id);

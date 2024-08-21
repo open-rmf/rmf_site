@@ -18,7 +18,9 @@
 use crate::{
     inspector::{InspectAssetSourceComponent, InspectScaleComponent},
     interaction::{AnchorSelection, ObjectPlacement, PlaceableObject, Selection},
-    site::{AssetSource, DefaultFile, DrawingBundle, Recall, RecallAssetSource, Scale, CurrentLevel},
+    site::{
+        AssetSource, CurrentLevel, DefaultFile, DrawingBundle, Recall, RecallAssetSource, Scale,
+    },
     widgets::{prelude::*, AssetGalleryStatus},
     AppState, CurrentWorkspace,
 };
@@ -207,7 +209,9 @@ impl<'w, 's> Creation<'w, 's> {
                                                 },
                                                 ..default()
                                             };
-                                            self.place_object(PlaceableObject::VisualMesh(workcell_model));
+                                            self.place_object(PlaceableObject::VisualMesh(
+                                                workcell_model,
+                                            ));
                                         }
                                         if ui.button("Spawn collision").clicked() {
                                             let workcell_model = WorkcellModel {
@@ -217,7 +221,9 @@ impl<'w, 's> Creation<'w, 's> {
                                                 },
                                                 ..default()
                                             };
-                                            self.place_object(PlaceableObject::CollisionMesh(workcell_model));
+                                            self.place_object(PlaceableObject::CollisionMesh(
+                                                workcell_model,
+                                            ));
                                         }
                                         ui.add_space(10.0);
                                     }
@@ -231,11 +237,8 @@ impl<'w, 's> Creation<'w, 's> {
 
     pub fn place_object(&mut self, object: PlaceableObject) {
         if let Some(workspace) = self.current_workspace.root {
-            self.object_placement.place_object_3d(
-                object,
-                self.selection.0,
-                workspace,
-            );
+            self.object_placement
+                .place_object_3d(object, self.selection.0, workspace);
         } else {
             warn!("Unable to create [{object:?}] outside of a workspace");
         }

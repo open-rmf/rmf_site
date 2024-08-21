@@ -17,18 +17,19 @@
 
 use crate::{
     interaction::*,
-    site::{Original, ChangeDependent},
+    site::{ChangeDependent, Original},
 };
-use rmf_site_format::{Edge, Side};
 use bevy::prelude::*;
 use bevy_impulse::*;
+use rmf_site_format::{Edge, Side};
 use std::borrow::Borrow;
 
 pub fn spawn_replace_side_service(
     helpers: &AnchorSelectionHelpers,
     app: &mut App,
 ) -> Service<Option<Entity>, ()> {
-    let anchor_setup = app.spawn_service(anchor_selection_setup::<ReplaceSide>.into_blocking_service());
+    let anchor_setup =
+        app.spawn_service(anchor_selection_setup::<ReplaceSide>.into_blocking_service());
     let state_setup = app.spawn_service(replace_side_setup.into_blocking_service());
     let update_preview = app.spawn_service(on_hover_for_replace_side.into_blocking_service());
     let update_current = app.spawn_service(on_select_for_replace_side.into_blocking_service());
@@ -64,7 +65,13 @@ pub struct ReplaceSide {
 
 impl ReplaceSide {
     pub fn new(edge: Entity, side: Side, scope: AnchorScope) -> Self {
-        Self { edge, side, scope, original: None, replaced: false }
+        Self {
+            edge,
+            side,
+            scope,
+            original: None,
+            replaced: false,
+        }
     }
 
     pub fn set_chosen(
@@ -176,7 +183,9 @@ pub fn cleanup_replace_side(
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let mut state = access.pull().or_broken_state()?;
 
-    commands.get_entity(state.edge).or_broken_query()?
+    commands
+        .get_entity(state.edge)
+        .or_broken_query()?
         .remove::<Original<Edge<Entity>>>();
 
     if state.replaced {

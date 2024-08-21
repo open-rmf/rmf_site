@@ -16,7 +16,7 @@
 */
 
 use crate::{site::*, Issue, ValidateWorkspace};
-use bevy::{prelude::*, render::primitives::Sphere, utils::Uuid, ecs::system::Command};
+use bevy::{ecs::system::Command, prelude::*, render::primitives::Sphere, utils::Uuid};
 use itertools::Itertools;
 use rmf_site_format::{Anchor, LevelElevation, LiftCabin};
 use std::collections::HashMap;
@@ -250,11 +250,19 @@ pub struct ChangeDependent {
 
 impl ChangeDependent {
     pub fn add(anchor: Entity, dependent: Entity) -> Self {
-        Self { anchor, dependent, include: true }
+        Self {
+            anchor,
+            dependent,
+            include: true,
+        }
     }
 
     pub fn remove(anchor: Entity, dependent: Entity) -> Self {
-        Self { anchor, dependent, include: false }
+        Self {
+            anchor,
+            dependent,
+            include: false,
+        }
     }
 }
 
@@ -263,8 +271,7 @@ impl Command for ChangeDependent {
         let Some(mut dependents) = world.get_mut::<Dependents>(self.anchor) else {
             error!(
                 "Unable to change dependency of {:?} on anchor {:?}",
-                self.dependent,
-                self.anchor,
+                self.dependent, self.anchor,
             );
             return;
         };

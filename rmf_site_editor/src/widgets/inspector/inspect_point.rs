@@ -16,8 +16,8 @@
 */
 
 use crate::{
-    interaction::{AnchorSelection, AnchorScope},
-    site::{Original, SiteID, DrawingMarker},
+    interaction::{AnchorScope, AnchorSelection},
+    site::{DrawingMarker, Original, SiteID},
     widgets::{
         inspector::{Inspect, InspectAnchor, InspectAnchorInput},
         prelude::*,
@@ -25,7 +25,7 @@ use crate::{
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{Grid, Ui};
-use rmf_site_format::{Point, NameOfSite};
+use rmf_site_format::{NameOfSite, Point};
 
 #[derive(SystemParam)]
 pub struct InspectPoint<'w, 's> {
@@ -50,10 +50,10 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPoint<'w, 's> {
             selection: id,
             panel,
             ..
-         }: Inspect,
-         ui: &mut Ui,
-         state: &mut SystemState<Self>,
-         world: &mut World,
+        }: Inspect,
+        ui: &mut Ui,
+        state: &mut SystemState<Self>,
+        world: &mut World,
     ) {
         let params = state.get_mut(world);
         let Ok((parent, current_point, original)) = params.points.get(id) else {

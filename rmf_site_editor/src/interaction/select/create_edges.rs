@@ -17,18 +17,19 @@
 
 use crate::{
     interaction::*,
-    site::{Pending, ChangeDependent},
+    site::{ChangeDependent, Pending},
 };
-use rmf_site_format::{Edge, Side};
 use bevy::prelude::*;
 use bevy_impulse::*;
+use rmf_site_format::{Edge, Side};
 use std::borrow::Borrow;
 
 pub fn spawn_create_edges_service(
     helpers: &AnchorSelectionHelpers,
     app: &mut App,
 ) -> Service<Option<Entity>, ()> {
-    let anchor_setup = app.spawn_service(anchor_selection_setup::<CreateEdges>.into_blocking_service());
+    let anchor_setup =
+        app.spawn_service(anchor_selection_setup::<CreateEdges>.into_blocking_service());
     let state_setup = app.spawn_service(create_edges_setup.into_blocking_service());
     let update_preview = app.spawn_service(on_hover_for_create_edges.into_blocking_service());
     let update_current = app.spawn_service(on_select_for_create_edges.into_blocking_service());
@@ -66,11 +67,7 @@ impl CreateEdges {
         }
     }
 
-    pub fn initialize_preview(
-        &mut self,
-        anchor: Entity,
-        commands: &mut Commands,
-    ) {
+    pub fn initialize_preview(&mut self, anchor: Entity, commands: &mut Commands) {
         let edge = Edge::new(anchor, anchor);
         let edge = (self.spawn_edge)(edge, commands);
         self.preview_edge = Some(PreviewEdge {
@@ -122,10 +119,16 @@ impl PreviewEdge {
             // The start anchor was created specifically for this preview edge
             // which we are about to despawn. Let's despawn both so we aren't
             // littering the scene with unintended anchors.
-            commands.get_entity(edge.start()).or_broken_query()?.despawn_recursive();
+            commands
+                .get_entity(edge.start())
+                .or_broken_query()?
+                .despawn_recursive();
         }
 
-        commands.get_entity(self.edge).or_broken_query()?.despawn_recursive();
+        commands
+            .get_entity(self.edge)
+            .or_broken_query()?
+            .despawn_recursive();
         Ok(())
     }
 }
@@ -235,7 +238,10 @@ pub fn on_select_for_create_edges(
                 }
 
                 *edge.right_mut() = cursor.level_anchor_placement;
-                commands.add(ChangeDependent::add(cursor.level_anchor_placement, preview.edge));
+                commands.add(ChangeDependent::add(
+                    cursor.level_anchor_placement,
+                    preview.edge,
+                ));
 
                 preview.side = Side::Right;
                 preview.provisional_start = selection.provisional;
@@ -255,7 +261,10 @@ pub fn on_select_for_create_edges(
                 }
                 *edge.right_mut() = anchor;
                 commands.add(ChangeDependent::add(anchor, preview.edge));
-                commands.get_entity(preview.edge).or_broken_query()?.remove::<Pending>();
+                commands
+                    .get_entity(preview.edge)
+                    .or_broken_query()?
+                    .remove::<Pending>();
 
                 match state.continuity {
                     EdgeContinuity::Single => {
@@ -327,15 +336,20 @@ pub fn on_keyboard_for_create_edges(
                 commands.add(ChangeDependent::remove(anchor, preview.edge));
             }
             if preview.provisional_start {
-                commands.get_entity(edge.start()).or_broken_query()?.despawn_recursive();
+                commands
+                    .get_entity(edge.start())
+                    .or_broken_query()?
+                    .despawn_recursive();
             }
 
             *edge.left_mut() = cursor.level_anchor_placement;
             *edge.right_mut() = cursor.level_anchor_placement;
             preview.side = Side::start();
             preview.provisional_start = false;
-            commands.add(ChangeDependent::add(cursor.level_anchor_placement, preview.edge));
-
+            commands.add(ChangeDependent::add(
+                cursor.level_anchor_placement,
+                preview.edge,
+            ));
         } else {
             // We are selecting for the first point in the edge. If the user has
             // pressed Esc then that means they want to stop creating edges

@@ -66,11 +66,20 @@ pub fn add_unused_fiducial_tracker(
 
 pub fn update_fiducial_usage_tracker(
     mut fiducial_usage_trackers: Query<(Entity, &mut FiducialUsage)>,
-    changed_scopes: Query<Entity, (With<DrawingMarker>, Or<(Changed<Parent>, Changed<Children>)>)>,
-    changed_fiducials: Query<&Parent, (
-        Or<(Changed<Affiliation<Entity>>, Changed<Parent>)>,
-        With<FiducialMarker>,
-    )>,
+    changed_scopes: Query<
+        Entity,
+        (
+            With<DrawingMarker>,
+            Or<(Changed<Parent>, Changed<Children>)>,
+        ),
+    >,
+    changed_fiducials: Query<
+        &Parent,
+        (
+            Or<(Changed<Affiliation<Entity>>, Changed<Parent>)>,
+            With<FiducialMarker>,
+        ),
+    >,
     sites: Query<(), With<NameOfSite>>,
     parent: Query<&Parent>,
     children: Query<&Children>,
@@ -238,7 +247,10 @@ pub fn assign_orphan_fiducials_to_parent(
         if let Ok(parent) = anchors.get(point.0) {
             commands.entity(e).set_parent(parent.get());
         } else {
-            error!("No parent for anchor {:?} needed by fiducial {e:?}", point.0);
+            error!(
+                "No parent for anchor {:?} needed by fiducial {e:?}",
+                point.0
+            );
         }
     }
 }

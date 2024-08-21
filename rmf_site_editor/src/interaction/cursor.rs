@@ -21,7 +21,10 @@ use crate::{
     site::{AnchorBundle, Pending, SiteAssets, Trashcan},
 };
 use bevy::{ecs::system::SystemParam, prelude::*, window::PrimaryWindow};
-use bevy_mod_raycast::{deferred::RaycastMesh, primitives::{rays::Ray3d, Primitive3d}};
+use bevy_mod_raycast::{
+    deferred::RaycastMesh,
+    primitives::{rays::Ray3d, Primitive3d},
+};
 
 use rmf_site_format::{FloorMarker, Model, ModelMarker, WallMarker, WorkcellModel};
 use std::collections::HashSet;
@@ -117,8 +120,9 @@ impl Cursor {
 
     pub fn remove_preview(&mut self, commands: &mut Commands) {
         if let Some(current_preview) = self.preview_model {
-            commands.get_entity(current_preview)
-                .map(|mut e_mut| { e_mut.set_parent(self.trashcan); });
+            commands.get_entity(current_preview).map(|mut e_mut| {
+                e_mut.set_parent(self.trashcan);
+            });
             self.preview_model = None;
         }
     }
@@ -295,7 +299,10 @@ pub struct IntersectGroundPlaneParams<'w, 's> {
 
 impl<'w, 's> IntersectGroundPlaneParams<'w, 's> {
     pub fn ground_plane_intersection(&self) -> Option<Transform> {
-        let ground_plane = Primitive3d::Plane { point: Vec3::ZERO, normal: Vec3::Z };
+        let ground_plane = Primitive3d::Plane {
+            point: Vec3::ZERO,
+            normal: Vec3::Z,
+        };
         self.primitive_intersection(ground_plane)
     }
 
@@ -322,9 +329,11 @@ impl<'w, 's> IntersectGroundPlaneParams<'w, 's> {
             _ => {
                 warn!("Unsupported primitive type found");
                 return None;
-            },
+            }
         };
-        let p = ray.intersects_primitive(primitive).map(|intersection| intersection.position())?;
+        let p = ray
+            .intersects_primitive(primitive)
+            .map(|intersection| intersection.position())?;
 
         Some(Transform::from_translation(p).with_rotation(aligned_z_axis(n)))
     }
@@ -381,6 +390,6 @@ pub fn aligned_z_axis(z: Vec3) -> Quat {
         // The change in angle is too close to zero
         return Quat::IDENTITY;
     }
-    let angle = f32::asin(axis_length/z_length);
-    Quat::from_axis_angle(axis/axis_length, angle)
+    let angle = f32::asin(axis_length / z_length);
+    Quat::from_axis_angle(axis / axis_length, angle)
 }

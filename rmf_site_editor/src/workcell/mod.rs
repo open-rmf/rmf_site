@@ -89,7 +89,8 @@ impl Plugin for WorkcellEditorPlugin {
                         // wait until the next cycle before propagating the properties
                         // of any newly added scenes.
                         handle_model_loaded_events,
-                    ).chain(),
+                    )
+                        .chain(),
                     update_model_scenes,
                     update_model_scales,
                     handle_new_primitive_shapes,

@@ -20,7 +20,10 @@ use crate::{
     site::{AlignSiteDrawings, Delete},
     CreateNewWorkspace, CurrentWorkspace, SaveWorkspace, WorkspaceLoader,
 };
-use bevy::{prelude::{*, Input as UserInput}, window::PrimaryWindow};
+use bevy::{
+    prelude::{Input as UserInput, *},
+    window::PrimaryWindow,
+};
 use bevy_egui::EguiContexts;
 use bevy_impulse::*;
 
@@ -40,11 +43,12 @@ impl Plugin for KeyboardInputPlugin {
         app.init_resource::<DebugMode>()
             .add_systems(Last, handle_keyboard_input);
 
-        let keyboard_just_pressed = app.spawn_continuous_service(
-            Last, keyboard_just_pressed_stream,
-        );
+        let keyboard_just_pressed =
+            app.spawn_continuous_service(Last, keyboard_just_pressed_stream);
 
-        app.insert_resource(KeyboardServices { keyboard_just_pressed });
+        app.insert_resource(KeyboardServices {
+            keyboard_just_pressed,
+        });
     }
 }
 

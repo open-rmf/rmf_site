@@ -56,9 +56,12 @@ impl CanvasTooltips {
         let mut decremented = 0;
         for (i, old_tip) in self.previous.iter().enumerate() {
             let i_actual = i - decremented;
-            if let Some((j, _)) = self.tips.iter().enumerate().find(
-                |(_, new_tip)| *old_tip == **new_tip
-            ) {
+            if let Some((j, _)) = self
+                .tips
+                .iter()
+                .enumerate()
+                .find(|(_, new_tip)| *old_tip == **new_tip)
+            {
                 if i_actual != j {
                     self.tips.swap(i_actual, j);
                 }
@@ -69,9 +72,7 @@ impl CanvasTooltips {
 
         let text = self.tips.join("\n");
 
-        egui::containers::popup::show_tooltip_text(
-            ctx, "cursor_tooltip".into(), text,
-        );
+        egui::containers::popup::show_tooltip_text(ctx, "cursor_tooltip".into(), text);
 
         self.previous = self.tips.drain(..).collect();
     }

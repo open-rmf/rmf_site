@@ -19,7 +19,7 @@ use bevy::prelude::*;
 use bevy_impulse::*;
 
 use crate::interaction::select::*;
-use rmf_site_format::{Path, Floor, Point, Location, Fiducial};
+use rmf_site_format::{Fiducial, Floor, Location, Path, Point};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Resource)]
 pub enum AnchorScope {
@@ -44,8 +44,7 @@ impl Plugin for AnchorSelectionPlugin {
     fn build(&self, app: &mut App) {
         let helpers = AnchorSelectionHelpers::from_app(app);
         let services = AnchorSelectionServices::from_app(&helpers, app);
-        app
-            .init_resource::<HiddenSelectAnchorEntities>()
+        app.init_resource::<HiddenSelectAnchorEntities>()
             .insert_resource(AnchorScope::General)
             .insert_resource(helpers)
             .insert_resource(services);
@@ -66,15 +65,15 @@ impl AnchorSelectionHelpers {
         let anchor_cursor_transform = app.spawn_continuous_service(
             Update,
             select_anchor_cursor_transform
-            .configure(|config: SystemConfigs|
-                config.in_set(SelectionServiceStages::Pick)
-            ),
+                .configure(|config: SystemConfigs| config.in_set(SelectionServiceStages::Pick)),
         );
-        let cleanup_anchor_selection = app.world.spawn_service(
-            cleanup_anchor_selection.into_blocking_service()
-        );
+        let cleanup_anchor_selection = app
+            .world
+            .spawn_service(cleanup_anchor_selection.into_blocking_service());
 
-        let keyboard_just_pressed = app.world.resource::<KeyboardServices>()
+        let keyboard_just_pressed = app
+            .world
+            .resource::<KeyboardServices>()
             .keyboard_just_pressed;
 
         Self {
@@ -105,7 +104,7 @@ impl AnchorSelectionHelpers {
             self.anchor_cursor_transform,
             self.anchor_select_stream,
             self.keyboard_just_pressed,
-            self.cleanup_anchor_selection
+            self.cleanup_anchor_selection,
         ))
     }
 }
@@ -120,16 +119,19 @@ pub struct AnchorSelectionServices {
 }
 
 impl AnchorSelectionServices {
-    pub fn from_app(
-        helpers: &AnchorSelectionHelpers,
-        app: &mut App,
-    ) -> Self {
+    pub fn from_app(helpers: &AnchorSelectionHelpers, app: &mut App) -> Self {
         let create_edges = spawn_create_edges_service(helpers, app);
         let replace_side = spawn_replace_side_service(helpers, app);
         let create_path = spawn_create_path_service(helpers, app);
         let create_point = spawn_create_point_service(helpers, app);
         let replace_point = spawn_replace_point_service(helpers, app);
-        Self { create_edges, replace_side, create_path, create_point, replace_point }
+        Self {
+            create_edges,
+            replace_side,
+            create_path,
+            create_point,
+            replace_point,
+        }
     }
 }
 
@@ -141,38 +143,23 @@ pub struct AnchorSelection<'w, 's> {
 
 impl<'w, 's> AnchorSelection<'w, 's> {
     pub fn create_lanes(&mut self) {
-        self.create_edges::<Lane<Entity>>(
-            EdgeContinuity::Continuous,
-            AnchorScope::General,
-        );
+        self.create_edges::<Lane<Entity>>(EdgeContinuity::Continuous, AnchorScope::General);
     }
 
     pub fn create_measurements(&mut self) {
-        self.create_edges::<Measurement<Entity>>(
-            EdgeContinuity::Separate,
-            AnchorScope::Drawing,
-        )
+        self.create_edges::<Measurement<Entity>>(EdgeContinuity::Separate, AnchorScope::Drawing)
     }
 
     pub fn create_walls(&mut self) {
-        self.create_edges::<Wall<Entity>>(
-            EdgeContinuity::Continuous,
-            AnchorScope::General,
-        );
+        self.create_edges::<Wall<Entity>>(EdgeContinuity::Continuous, AnchorScope::General);
     }
 
     pub fn create_door(&mut self) {
-        self.create_edges::<Door<Entity>>(
-            EdgeContinuity::Single,
-            AnchorScope::General,
-        )
+        self.create_edges::<Door<Entity>>(EdgeContinuity::Single, AnchorScope::General)
     }
 
     pub fn create_lift(&mut self) {
-        self.create_edges::<LiftProperties<Entity>>(
-            EdgeContinuity::Single,
-            AnchorScope::Site,
-        )
+        self.create_edges::<LiftProperties<Entity>>(EdgeContinuity::Single, AnchorScope::Site)
     }
 
     pub fn create_floor(&mut self) {
@@ -202,9 +189,10 @@ impl<'w, 's> AnchorSelection<'w, 's> {
         continuity: EdgeContinuity,
         scope: AnchorScope,
     ) {
-        let state = self.commands.spawn(SelectorInput(
-            CreateEdges::new::<T>(continuity, scope)
-        )).id();
+        let state = self
+            .commands
+            .spawn(SelectorInput(CreateEdges::new::<T>(continuity, scope)))
+            .id();
 
         self.send(RunSelector {
             selector: self.services.create_edges,
@@ -212,21 +200,17 @@ impl<'w, 's> AnchorSelection<'w, 's> {
         });
     }
 
-    pub fn replace_side(
-        &mut self,
-        edge: Entity,
-        side: Side,
-        category: Category,
-    ) -> bool {
+    pub fn replace_side(&mut self, edge: Entity, side: Side, category: Category) -> bool {
         let scope = match category {
             Category::Lane | Category::Wall | Category::Door => AnchorScope::General,
             Category::Measurement => AnchorScope::Drawing,
             Category::Lift => AnchorScope::Site,
             _ => return false,
         };
-        let state = self.commands.spawn(SelectorInput(
-            ReplaceSide::new(edge, side, scope)
-        )).id();
+        let state = self
+            .commands
+            .spawn(SelectorInput(ReplaceSide::new(edge, side, scope)))
+            .id();
 
         self.send(RunSelector {
             selector: self.services.replace_side,
@@ -244,9 +228,16 @@ impl<'w, 's> AnchorSelection<'w, 's> {
         implied_complete_loop: bool,
         scope: AnchorScope,
     ) {
-        let state = self.commands.spawn(SelectorInput(CreatePath::new(
-            spawn_path, minimum_points, allow_inner_loops, implied_complete_loop, scope,
-        ))).id();
+        let state = self
+            .commands
+            .spawn(SelectorInput(CreatePath::new(
+                spawn_path,
+                minimum_points,
+                allow_inner_loops,
+                implied_complete_loop,
+                scope,
+            )))
+            .id();
 
         self.send(RunSelector {
             selector: self.services.create_path,
@@ -259,9 +250,10 @@ impl<'w, 's> AnchorSelection<'w, 's> {
         repeating: bool,
         scope: AnchorScope,
     ) {
-        let state = self.commands.spawn(SelectorInput(CreatePoint::new::<T>(
-            repeating, scope,
-        ))).id();
+        let state = self
+            .commands
+            .spawn(SelectorInput(CreatePoint::new::<T>(repeating, scope)))
+            .id();
 
         self.send(RunSelector {
             selector: self.services.create_point,
@@ -269,14 +261,11 @@ impl<'w, 's> AnchorSelection<'w, 's> {
         });
     }
 
-    pub fn replace_point(
-        &mut self,
-        point: Entity,
-        scope: AnchorScope,
-    ) {
-        let state = self.commands.spawn(SelectorInput(ReplacePoint::new(
-            point, scope,
-        ))).id();
+    pub fn replace_point(&mut self, point: Entity, scope: AnchorScope) {
+        let state = self
+            .commands
+            .spawn(SelectorInput(ReplacePoint::new(point, scope)))
+            .id();
 
         self.send(RunSelector {
             selector: self.services.replace_point,
@@ -285,7 +274,7 @@ impl<'w, 's> AnchorSelection<'w, 's> {
     }
 
     fn send(&mut self, run: RunSelector) {
-        self.commands.add(move |world: &mut World|{
+        self.commands.add(move |world: &mut World| {
             world.send_event(run);
         });
     }
@@ -319,7 +308,9 @@ pub fn build_anchor_selection_workflow<State: 'static + Send + Sync>(
         let buffer = builder.create_buffer::<State>(BufferSettings::keep_last(1));
 
         let setup_node = builder.create_buffer_access(buffer);
-        scope.input.chain(builder)
+        scope
+            .input
+            .chain(builder)
             .then(extract_selector_input.into_blocking_callback())
             // If the setup failed, then terminate right away.
             .branch_for_err(|chain: Chain<_>| chain.connect(scope.terminate))
@@ -328,34 +319,41 @@ pub fn build_anchor_selection_workflow<State: 'static + Send + Sync>(
                 |none: Chain<_>| none.connect(setup_node.input),
             );
 
-        let begin_input_services = setup_node.output.chain(builder)
+        let begin_input_services = setup_node
+            .output
+            .chain(builder)
             .map_block(|(_, key)| key)
             .then(anchor_setup)
-            .branch_for_err(|err| err
-                .map_block(print_if_err).connect(scope.terminate)
-            )
+            .branch_for_err(|err| err.map_block(print_if_err).connect(scope.terminate))
             .with_access(buffer)
             .map_block(|(_, key)| key)
             .then(state_setup)
-            .branch_for_err(|err| err
-                .map_block(print_if_err).connect(scope.terminate)
-            )
+            .branch_for_err(|err| err.map_block(print_if_err).connect(scope.terminate))
             .output()
             .fork_clone(builder);
 
-        begin_input_services.clone_chain(builder)
+        begin_input_services
+            .clone_chain(builder)
             .then(anchor_cursor_transform)
             .unused();
 
-        let select = begin_input_services.clone_chain(builder).then_node(anchor_select_stream);
-        select.streams.0.chain(builder)
+        let select = begin_input_services
+            .clone_chain(builder)
+            .then_node(anchor_select_stream);
+        select
+            .streams
+            .0
+            .chain(builder)
             .with_access(buffer)
             .then(update_preview)
             .dispose_on_ok()
             .map_block(print_if_err)
             .connect(scope.terminate);
 
-        select.streams.1.chain(builder)
+        select
+            .streams
+            .1
+            .chain(builder)
             .map_block(|s| s.0)
             .dispose_on_none()
             .with_access(buffer)
@@ -364,8 +362,12 @@ pub fn build_anchor_selection_workflow<State: 'static + Send + Sync>(
             .map_block(print_if_err)
             .connect(scope.terminate);
 
-        let keyboard = begin_input_services.clone_chain(builder).then_node(keyboard_just_pressed);
-        keyboard.streams.chain(builder)
+        let keyboard = begin_input_services
+            .clone_chain(builder)
+            .then_node(keyboard_just_pressed);
+        keyboard
+            .streams
+            .chain(builder)
             .inner()
             .with_access(buffer)
             .then(handle_key_code)
@@ -378,11 +380,10 @@ pub fn build_anchor_selection_workflow<State: 'static + Send + Sync>(
             let anchor_node = builder.create_node(cleanup_anchor_selection);
 
             builder.connect(scope.input, state_node.input);
-            state_node.output.chain(builder)
-                .fork_result(
-                    |ok| ok.connect(anchor_node.input),
-                    |err| err.map_block(print_if_err).connect(anchor_node.input),
-                );
+            state_node.output.chain(builder).fork_result(
+                |ok| ok.connect(anchor_node.input),
+                |err| err.map_block(print_if_err).connect(anchor_node.input),
+            );
 
             builder.connect(anchor_node.output, scope.terminate);
         });
@@ -416,11 +417,10 @@ where
     match scope {
         AnchorScope::General | AnchorScope::Site => {
             // If we are working with normal level or site requests, hide all drawing anchors
-            for e in anchors.iter().filter(|e| {
-                parents
-                .get(*e)
-                .is_ok_and(|p| drawings.get(p.get()).is_ok())
-            }) {
+            for e in anchors
+                .iter()
+                .filter(|e| parents.get(*e).is_ok_and(|p| drawings.get(p.get()).is_ok()))
+            {
                 set_visibility(e, &mut visibility, false);
                 hidden_anchors.drawing_anchors.insert(e);
             }
@@ -499,7 +499,7 @@ pub fn extract_selector_input<T: 'static + Send + Sync>(
 
 #[derive(SystemParam)]
 pub struct AnchorFilter<'w, 's> {
-    inspect: InspectorFilter<'w ,'s>,
+    inspect: InspectorFilter<'w, 's>,
     anchors: Query<'w, 's, (), With<Anchor>>,
     cursor: Res<'w, Cursor>,
     anchor_scope: Res<'w, AnchorScope>,
@@ -511,16 +511,15 @@ pub struct AnchorFilter<'w, 's> {
     drawings: Query<'w, 's, &'static PixelsPerMeter, With<DrawingMarker>>,
 }
 
-impl<'w, 's> SelectionFilter for AnchorFilter<'w ,'s> {
+impl<'w, 's> SelectionFilter for AnchorFilter<'w, 's> {
     fn filter_pick(&mut self, select: Entity) -> Option<Entity> {
-        self.inspect.filter_pick(select)
-            .and_then(|e| {
-                if self.anchors.contains(e) {
-                    Some(e)
-                } else {
-                    None
-                }
-            })
+        self.inspect.filter_pick(select).and_then(|e| {
+            if self.anchors.contains(e) {
+                Some(e)
+            } else {
+                None
+            }
+        })
     }
 
     fn filter_select(&mut self, target: Entity) -> Option<Entity> {
@@ -549,7 +548,8 @@ impl<'w, 's> SelectionFilter for AnchorFilter<'w ,'s> {
                     error!("Cannot find current site");
                     return None;
                 };
-                let new_anchor = self.commands
+                let new_anchor = self
+                    .commands
                     .spawn(AnchorBundle::at_transform(tf))
                     .set_parent(site)
                     .id();
@@ -607,9 +607,7 @@ fn compute_parent_inverse_pose(
     Some(pose.align_with(&Transform::from_matrix((inv_tf * goal_tf).into())))
 }
 
-pub fn exit_on_esc<T>(
-    In((button, _)): In<(KeyCode, BufferKey<T>)>,
-) -> SelectionNodeResult {
+pub fn exit_on_esc<T>(In((button, _)): In<(KeyCode, BufferKey<T>)>) -> SelectionNodeResult {
     if matches!(button, KeyCode::Escape) {
         // The escape key was pressed so we should exit this mode
         return Err(None);

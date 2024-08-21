@@ -17,11 +17,11 @@
 
 use crate::{
     interaction::*,
-    site::{ChangeDependent, TextureNeedsAssignment, Pending},
+    site::{ChangeDependent, Pending, TextureNeedsAssignment},
 };
-use rmf_site_format::Path;
 use bevy::prelude::*;
 use bevy_impulse::*;
+use rmf_site_format::Path;
 use std::borrow::Borrow;
 
 use std::collections::HashSet;
@@ -30,7 +30,8 @@ pub fn spawn_create_path_service(
     helpers: &AnchorSelectionHelpers,
     app: &mut App,
 ) -> Service<Option<Entity>, ()> {
-    let anchor_setup = app.spawn_service(anchor_selection_setup::<CreatePath>.into_blocking_service());
+    let anchor_setup =
+        app.spawn_service(anchor_selection_setup::<CreatePath>.into_blocking_service());
     let state_setup = app.spawn_service(create_path_setup.into_blocking_service());
     let update_preview = app.spawn_service(on_hover_for_create_path.into_blocking_service());
     let update_current = app.spawn_service(on_select_for_create_path.into_blocking_service());
@@ -131,7 +132,9 @@ pub fn create_path_with_texture<T: Bundle + From<Path<Entity>>>(
     commands: &mut Commands,
 ) -> Entity {
     let new_bundle: T = path.into();
-    commands.spawn((new_bundle, TextureNeedsAssignment, Pending)).id()
+    commands
+        .spawn((new_bundle, TextureNeedsAssignment, Pending))
+        .id()
 }
 
 pub fn create_path_setup(
@@ -206,7 +209,7 @@ pub fn on_select_for_create_path(
     }
 
     if !state.allow_inner_loops {
-        for a in &path_mut.0[..path_mut.0.len()-1] {
+        for a in &path_mut.0[..path_mut.0.len() - 1] {
             if *a == chosen {
                 warn!(
                     "Attempting to create an inner loop in a type of path \
@@ -217,13 +220,11 @@ pub fn on_select_for_create_path(
         }
     }
 
-    if let Some(second_to_last) = path_mut.0.get(path_mut.0.len()-2) {
+    if let Some(second_to_last) = path_mut.0.get(path_mut.0.len() - 2) {
         if *second_to_last == chosen {
             // Even if inner loops are allowed, we should never allow the same
             // anchor to be chosen twice in a row.
-            warn!(
-                "Trying to select the same anchor for a path twice in a row"
-            );
+            warn!("Trying to select the same anchor for a path twice in a row");
             return Ok(());
         }
     }
@@ -253,12 +254,15 @@ pub fn cleanup_create_path(
         // happen if the setup needed to bail out for some reason.
         return Ok(());
     };
-    commands.get_entity(path).or_broken_query()?.remove::<Pending>();
+    commands
+        .get_entity(path)
+        .or_broken_query()?
+        .remove::<Pending>();
     let mut path_mut = paths.get_mut(path).or_broken_query()?;
 
     // First check if the len-1 meets the minimum point requirement. If not we
     // should despawn the path as well as any provisional anchors that it used.
-    if path_mut.0.len()-1 < state.minimum_points {
+    if path_mut.0.len() - 1 < state.minimum_points {
         // We did not collect enough points for the path so we should despawn it
         // as well as any provisional points it contains.
         for a in &path_mut.0 {
@@ -271,7 +275,10 @@ pub fn cleanup_create_path(
             }
         }
 
-        commands.get_entity(path).or_broken_query()?.despawn_recursive();
+        commands
+            .get_entity(path)
+            .or_broken_query()?
+            .despawn_recursive();
     } else {
         if let Some(a) = path_mut.0.last() {
             // The last point in the path is always a preview point so we need
@@ -288,7 +295,10 @@ pub fn cleanup_create_path(
         if path_mut.0.is_empty() {
             // The path is empty... we shouldn't keep an empty path so let's
             // just despawn it.
-            commands.get_entity(path).or_broken_query()?.despawn_recursive();
+            commands
+                .get_entity(path)
+                .or_broken_query()?
+                .despawn_recursive();
         }
     }
 

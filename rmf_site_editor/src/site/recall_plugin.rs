@@ -53,7 +53,9 @@ fn add_recaller<Recaller: Recall + Component + Default>(
     for (e, source) in &new_sources {
         let mut recaller = Recaller::default();
         recaller.remember(source);
-        commands.get_entity(e).map(|mut e_mut| { e_mut.insert(recaller); });
+        commands.get_entity(e).map(|mut e_mut| {
+            e_mut.insert(recaller);
+        });
     }
 }
 

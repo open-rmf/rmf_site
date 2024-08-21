@@ -19,16 +19,17 @@ use crate::{
     interaction::*,
     site::{ChangeDependent, Pending},
 };
-use rmf_site_format::Point;
 use bevy::prelude::*;
 use bevy_impulse::*;
+use rmf_site_format::Point;
 use std::borrow::Borrow;
 
 pub fn spawn_create_point_service(
     helpers: &AnchorSelectionHelpers,
     app: &mut App,
 ) -> Service<Option<Entity>, ()> {
-    let anchor_setup = app.spawn_service(anchor_selection_setup::<CreatePoint>.into_blocking_service());
+    let anchor_setup =
+        app.spawn_service(anchor_selection_setup::<CreatePoint>.into_blocking_service());
     let state_setup = app.spawn_service(create_point_setup.into_blocking_service());
     let update_preview = app.spawn_service(on_hover_for_create_point.into_blocking_service());
     let update_current = app.spawn_service(on_select_for_create_point.into_blocking_service());
@@ -61,10 +62,7 @@ pub struct CreatePoint {
 }
 
 impl CreatePoint {
-    pub fn new<T: Bundle + From<Point<Entity>>>(
-        repeating: bool,
-        scope: AnchorScope,
-    ) -> Self {
+    pub fn new<T: Bundle + From<Point<Entity>>>(repeating: bool, scope: AnchorScope) -> Self {
         Self {
             spawn_point: create_point::<T>,
             point: None,
@@ -73,11 +71,7 @@ impl CreatePoint {
         }
     }
 
-    pub fn create_new_point(
-        &mut self,
-        anchor: Entity,
-        commands: &mut Commands,
-    ) {
+    pub fn create_new_point(&mut self, anchor: Entity, commands: &mut Commands) {
         let point = Point(anchor);
         let point = (self.spawn_point)(point, commands);
         commands.add(ChangeDependent::add(anchor, point));
@@ -169,7 +163,10 @@ pub fn on_select_for_create_point(
     let state = access.newest_mut().or_broken_state()?;
     let point = state.point.or_broken_state()?;
     change_point(selection.candidate, point, &mut points, &mut commands)?;
-    commands.get_entity(point).or_broken_query()?.remove::<Pending>();
+    commands
+        .get_entity(point)
+        .or_broken_query()?
+        .remove::<Pending>();
     if state.repeating {
         state.create_new_point(cursor.level_anchor_placement, &mut commands);
         return Ok(());
@@ -195,7 +192,10 @@ pub fn cleanup_create_point(
 
     let point_ref = points.get(point).or_broken_query()?;
     commands.add(ChangeDependent::remove(point_ref.0, point));
-    commands.get_entity(point).or_broken_query()?.despawn_recursive();
+    commands
+        .get_entity(point)
+        .or_broken_query()?
+        .despawn_recursive();
 
     Ok(())
 }

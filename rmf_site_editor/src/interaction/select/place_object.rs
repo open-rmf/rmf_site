@@ -15,10 +15,7 @@
  *
 */
 
-use crate::{
-    interaction::select::*,
-    site::Model,
-};
+use crate::{interaction::select::*, site::Model};
 use bevy::ecs::system::SystemParam;
 
 #[derive(Default)]
@@ -41,7 +38,10 @@ impl ObjectPlacementServices {
     pub fn from_app(app: &mut App) -> Self {
         let place_object_2d = spawn_place_object_2d_workflow(app);
         let place_object_3d = spawn_place_object_3d_workflow(app);
-        Self { place_object_2d, place_object_3d }
+        Self {
+            place_object_2d,
+            place_object_3d,
+        }
     }
 }
 
@@ -52,12 +52,11 @@ pub struct ObjectPlacement<'w, 's> {
 }
 
 impl<'w, 's> ObjectPlacement<'w, 's> {
-    pub fn place_object_2d(
-        &mut self,
-        object: Model,
-        level: Entity,
-    ) {
-        let state = self.commands.spawn(SelectorInput(PlaceObject2d { object, level })).id();
+    pub fn place_object_2d(&mut self, object: Model, level: Entity) {
+        let state = self
+            .commands
+            .spawn(SelectorInput(PlaceObject2d { object, level }))
+            .id();
         self.send(RunSelector {
             selector: self.services.place_object_2d,
             input: Some(state),
@@ -70,7 +69,14 @@ impl<'w, 's> ObjectPlacement<'w, 's> {
         parent: Option<Entity>,
         workspace: Entity,
     ) {
-        let state = self.commands.spawn(SelectorInput(PlaceObject3d { object, parent, workspace })).id();
+        let state = self
+            .commands
+            .spawn(SelectorInput(PlaceObject3d {
+                object,
+                parent,
+                workspace,
+            }))
+            .id();
         self.send(RunSelector {
             selector: self.services.place_object_3d,
             input: Some(state),

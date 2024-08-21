@@ -16,30 +16,26 @@
 */
 
 use crate::{
-    CurrentWorkspace,
-    keyboard::KeyboardServices,
     interaction::*,
+    keyboard::KeyboardServices,
     site::{drawing_editor::CurrentEditDrawing, Anchor, AnchorBundle, DrawingMarker},
+    CurrentWorkspace,
 };
-use rmf_site_format::{
-    Door, Edge, Lane, LiftProperties, Measurement, NameOfSite, PixelsPerMeter, Wall,
-    Pose, Side, Category, Pending,
-};
+use anyhow::{anyhow, Error as Anyhow};
 use bevy::{
-    prelude::{*, Input},
-    ecs::system::{SystemParam, StaticSystemParam}
+    ecs::system::{StaticSystemParam, SystemParam},
+    prelude::{Input, *},
 };
 use bevy_impulse::*;
 use bevy_mod_raycast::{
     deferred::{RaycastMesh, RaycastSource},
     primitives::rays::Ray3d,
 };
-use std::{
-    collections::HashSet,
-    borrow::Borrow,
-    error::Error,
+use rmf_site_format::{
+    Category, Door, Edge, Lane, LiftProperties, Measurement, NameOfSite, Pending, PixelsPerMeter,
+    Pose, Side, Wall,
 };
-use anyhow::{anyhow, Error as Anyhow};
+use std::{borrow::Borrow, collections::HashSet, error::Error};
 
 pub mod create_edges;
 use create_edges::*;
@@ -75,8 +71,7 @@ pub struct SelectPlugin {}
 
 impl Plugin for SelectPlugin {
     fn build(&self, app: &mut App) {
-        app
-        .configure_sets(
+        app.configure_sets(
             Update,
             (
                 SelectionServiceStages::Pick,
@@ -85,7 +80,8 @@ impl Plugin for SelectPlugin {
                 SelectionServiceStages::HoverFlush,
                 SelectionServiceStages::Select,
                 SelectionServiceStages::SelectFlush,
-            ).chain()
+            )
+                .chain(),
         )
         .init_resource::<SelectionBlockers>()
         .init_resource::<Selection>()
@@ -97,15 +93,15 @@ impl Plugin for SelectPlugin {
             Update,
             (
                 (apply_deferred, flush_impulses())
-                .chain()
-                .in_set(SelectionServiceStages::PickFlush),
+                    .chain()
+                    .in_set(SelectionServiceStages::PickFlush),
                 (apply_deferred, flush_impulses())
-                .chain()
-                .in_set(SelectionServiceStages::HoverFlush),
+                    .chain()
+                    .in_set(SelectionServiceStages::HoverFlush),
                 (apply_deferred, flush_impulses())
-                .chain()
-                .in_set(SelectionServiceStages::SelectFlush),
-            )
+                    .chain()
+                    .in_set(SelectionServiceStages::SelectFlush),
+            ),
         )
         .add_plugins((
             InspectorServicePlugin::default(),
@@ -141,22 +137,25 @@ pub fn build_select_workflow(
         let inspector = input.clone_chain(builder).then_node(inspector_service);
         let new_selector_node = input.clone_chain(builder).then_node(new_selector_service);
         builder.connect(new_selector_node.output, scope.terminate);
-        new_selector_node.streams.chain(builder)
+        new_selector_node
+            .streams
+            .chain(builder)
             .inner()
             .connect(run_service_buffer.input_slot());
 
         let open_gate = builder.create_gate_open(run_service_buffer);
-        let trim = builder.create_trim([
-            TrimBranch::between(open_gate.input, inspector.input),
-        ]);
+        let trim = builder.create_trim([TrimBranch::between(open_gate.input, inspector.input)]);
         builder.connect(trim.output, open_gate.input);
 
-        builder.listen(run_service_buffer)
+        builder
+            .listen(run_service_buffer)
             .then(process_new_selector_service)
             .dispose_on_none()
             .connect(trim.input);
 
-        open_gate.output.chain(builder)
+        open_gate
+            .output
+            .chain(builder)
             .map_block(|r: RunSelector| (r.input, r.selector))
             .then_injection()
             .trigger()
@@ -299,11 +298,17 @@ pub struct SelectionCandidate {
 
 impl SelectionCandidate {
     pub fn new(candidate: Entity) -> SelectionCandidate {
-        SelectionCandidate { candidate, provisional: false }
+        SelectionCandidate {
+            candidate,
+            provisional: false,
+        }
     }
 
     pub fn provisional(candidate: Entity) -> SelectionCandidate {
-        SelectionCandidate { candidate, provisional: true }
+        SelectionCandidate {
+            candidate,
+            provisional: true,
+        }
     }
 }
 
@@ -327,9 +332,7 @@ impl SelectionBlockers {
 
 impl Default for SelectionBlockers {
     fn default() -> Self {
-        SelectionBlockers {
-            dragging: false,
-        }
+        SelectionBlockers { dragging: false }
     }
 }
 
@@ -381,55 +384,54 @@ impl SpawnSelectionServiceExt for App {
         let picking_service = self.spawn_continuous_service(
             Update,
             picking_service::<F>
-            .configure(|config: SystemConfigs|
-                config.in_set(SelectionServiceStages::Pick)
-            ),
+                .configure(|config: SystemConfigs| config.in_set(SelectionServiceStages::Pick)),
         );
 
         let hover_service = self.spawn_continuous_service(
             Update,
             hover_service::<F>
-            .configure(|config: SystemConfigs|
-                config.in_set(SelectionServiceStages::Hover)
-            ),
+                .configure(|config: SystemConfigs| config.in_set(SelectionServiceStages::Hover)),
         );
 
         let select_service = self.spawn_continuous_service(
             Update,
             select_service::<F>
-            .configure(|config: SystemConfigs|
-                config.in_set(SelectionServiceStages::Select)
-            ),
+                .configure(|config: SystemConfigs| config.in_set(SelectionServiceStages::Select)),
         );
 
-        self.world.spawn_workflow::<_, _, (Hover, Select), _>(|scope, builder| {
-            let hover = builder.create_node(hover_service);
-            builder.connect(hover.streams, scope.streams.0);
-            builder.connect(hover.output, scope.terminate);
+        self.world
+            .spawn_workflow::<_, _, (Hover, Select), _>(|scope, builder| {
+                let hover = builder.create_node(hover_service);
+                builder.connect(hover.streams, scope.streams.0);
+                builder.connect(hover.output, scope.terminate);
 
-            let select = builder.create_node(select_service);
-            builder.connect(select.streams, scope.streams.1);
-            builder.connect(select.output, scope.terminate);
+                let select = builder.create_node(select_service);
+                builder.connect(select.streams, scope.streams.1);
+                builder.connect(select.output, scope.terminate);
 
-            // Activate all the services at the start
-            scope.input.chain(builder).fork_clone((
-                |chain: Chain<_>| chain
-                    .then(refresh_picked.into_blocking_callback())
-                    .then(picking_service)
-                    .connect(scope.terminate),
-                |chain: Chain<_>| chain.connect(hover.input),
-                |chain: Chain<_>| chain.connect(select.input),
-            ));
+                // Activate all the services at the start
+                scope.input.chain(builder).fork_clone((
+                    |chain: Chain<_>| {
+                        chain
+                            .then(refresh_picked.into_blocking_callback())
+                            .then(picking_service)
+                            .connect(scope.terminate)
+                    },
+                    |chain: Chain<_>| chain.connect(hover.input),
+                    |chain: Chain<_>| chain.connect(select.input),
+                ));
 
-            // This is just a dummy buffer to let us have a cleanup workflow
-            let buffer = builder.create_buffer::<()>(BufferSettings::keep_all());
-            builder.on_cleanup(buffer, |scope, builder| {
-                scope.input.chain(builder)
-                    .trigger()
-                    .then(clear_hover_select.into_blocking_callback())
-                    .connect(scope.terminate);
-            });
-        })
+                // This is just a dummy buffer to let us have a cleanup workflow
+                let buffer = builder.create_buffer::<()>(BufferSettings::keep_all());
+                builder.on_cleanup(buffer, |scope, builder| {
+                    scope
+                        .input
+                        .chain(builder)
+                        .trigger()
+                        .then(clear_hover_select.into_blocking_callback())
+                        .connect(scope.terminate);
+                });
+            })
     }
 }
 
@@ -466,17 +468,25 @@ impl Plugin for InspectorServicePlugin {
         let inspector_cursor_transform = app.spawn_continuous_service(
             Update,
             inspector_cursor_transform
-            .configure(|config: SystemConfigs|
-                config.in_set(SelectionServiceStages::Pick)
-            ),
+                .configure(|config: SystemConfigs| config.in_set(SelectionServiceStages::Pick)),
         );
         let selection_update = app.spawn_service(selection_update);
 
         let inspector_service = app.world.spawn_workflow(|scope, builder| {
             let fork_input = scope.input.fork_clone(builder);
-            fork_input.clone_chain(builder).then(inspector_cursor_transform).unused();
-            let selection = fork_input.clone_chain(builder).then_node(inspector_select_service);
-            selection.streams.1.chain(builder).then(selection_update).unused();
+            fork_input
+                .clone_chain(builder)
+                .then(inspector_cursor_transform)
+                .unused();
+            let selection = fork_input
+                .clone_chain(builder)
+                .then_node(inspector_select_service);
+            selection
+                .streams
+                .1
+                .chain(builder)
+                .then(selection_update)
+                .unused();
             builder.connect(selection.output, scope.terminate);
         });
 
@@ -533,21 +543,27 @@ impl<T> CommonNodeErrors for Option<T> {
     fn or_broken_buffer(self) -> Result<Self::Value, Option<Anyhow>> {
         self.ok_or_else(|| {
             let backtrace = std::backtrace::Backtrace::force_capture();
-            Some(anyhow!("The buffer in the workflow has been despawned. Backtrace:\n{backtrace}"))
+            Some(anyhow!(
+                "The buffer in the workflow has been despawned. Backtrace:\n{backtrace}"
+            ))
         })
     }
 
     fn or_broken_state(self) -> Result<Self::Value, Option<Anyhow>> {
         self.ok_or_else(|| {
             let backtrace = std::backtrace::Backtrace::force_capture();
-            Some(anyhow!("The state is missing from the workflow buffer. Backtrace:\n{backtrace}"))
+            Some(anyhow!(
+                "The state is missing from the workflow buffer. Backtrace:\n{backtrace}"
+            ))
         })
     }
 
     fn or_broken_query(self) -> Result<Self::Value, Option<Anyhow>> {
         self.ok_or_else(|| {
             let backtrace = std::backtrace::Backtrace::force_capture();
-            Some(anyhow!("A query that should have worked failed. Backtrace:\n{backtrace}"))
+            Some(anyhow!(
+                "A query that should have worked failed. Backtrace:\n{backtrace}"
+            ))
         })
     }
 }
@@ -575,7 +591,10 @@ pub struct InspectorFilter<'w, 's> {
 
 impl<'w, 's> SelectionFilter for InspectorFilter<'w, 's> {
     fn filter_pick(&mut self, select: Entity) -> Option<Entity> {
-        self.selectables.get(select).ok().map(|selectable| selectable.element)
+        self.selectables
+            .get(select)
+            .ok()
+            .map(|selectable| selectable.element)
     }
     fn filter_select(&mut self, target: Entity) -> Option<Entity> {
         Some(target)
@@ -607,8 +626,7 @@ pub fn picking_service<Filter: SystemParam + 'static>(
     mut picks: EventReader<ChangePick>,
     mut hover: EventWriter<Hover>,
     filter: StaticSystemParam<Filter>,
-)
-where
+) where
     for<'w, 's> Filter::Item<'w, 's>: SelectionFilter,
 {
     let Some(orders) = orders.view(&key) else {
@@ -623,9 +641,10 @@ where
     let mut filter = filter.into_inner();
 
     if let Some(pick) = picks.read().last() {
-        hover.send(Hover(
-            pick.to.and_then(|change_pick_to| filter.filter_pick(change_pick_to))
-        ));
+        hover
+            .send(Hover(pick.to.and_then(|change_pick_to| {
+                filter.filter_pick(change_pick_to)
+            })));
     }
 }
 
@@ -656,8 +675,7 @@ pub fn hover_service<Filter: SystemParam + 'static>(
     blockers: Option<Res<PickingBlockers>>,
     filter: StaticSystemParam<Filter>,
     selection_blockers: Res<SelectionBlockers>,
-)
-where
+) where
     for<'w, 's> Filter::Item<'w, 's>: SelectionFilter,
 {
     let Some(mut orders) = orders.get_mut(&key) else {
@@ -712,13 +730,12 @@ where
 /// This complements [`hover_service`] and [`hover_picking`]
 /// and is the final piece of the [`SelectionService`] workflow.
 pub fn select_service<Filter: SystemParam + 'static>(
-    In(ContinuousService{ key }): ContinuousServiceInput<(), (), Select>,
+    In(ContinuousService { key }): ContinuousServiceInput<(), (), Select>,
     mut orders: ContinuousQuery<(), (), Select>,
     mut select: EventReader<Select>,
     filter: StaticSystemParam<Filter>,
     mut commands: Commands,
-)
-where
+) where
     for<'w, 's> Filter::Item<'w, 's>: SelectionFilter,
 {
     let Some(mut orders) = orders.get_mut(&key) else {
@@ -757,7 +774,10 @@ where
 }
 
 pub fn selection_update(
-    In(BlockingService { request: Select(new_selection), .. }): BlockingServiceInput<Select>,
+    In(BlockingService {
+        request: Select(new_selection),
+        ..
+    }): BlockingServiceInput<Select>,
     mut selected: Query<&mut Selected>,
     mut selection: ResMut<Selection>,
 ) {
@@ -781,10 +801,7 @@ pub fn selection_update(
 /// This is used to clear out the currently picked item at the start of a new
 /// selection workflow to make sure the Hover events don't get lost during the
 /// workflow switch.
-pub fn refresh_picked(
-    In(_): In<()>,
-    mut picked: ResMut<Picked>,
-) {
+pub fn refresh_picked(In(_): In<()>, mut picked: ResMut<Picked>) {
     picked.refresh = true;
 }
 

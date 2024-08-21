@@ -175,87 +175,86 @@ impl Plugin for InteractionPlugin {
             .add_plugins((CameraControlsPlugin, ModelPreviewPlugin));
 
         if !self.headless {
-            app
-            .add_plugins(SelectPlugin::default())
-            .add_systems(
-                Update,
-                (
-                    make_lift_doormat_gizmo,
-                    update_doormats_for_level_change,
-                    // update_cursor_transform,
-                    update_picking_cam,
-                    update_physical_light_visual_cues,
-                    make_selectable_entities_pickable,
-                    // handle_select_anchor_mode.after(SelectionServiceStages::Select),
-                    // handle_select_anchor_3d_mode.after(SelectionServiceStages::Select),
-                    update_anchor_visual_cues.after(SelectionServiceStages::Select),
-                    update_popups.after(SelectionServiceStages::Select),
-                    update_unassigned_anchor_cues,
-                    update_anchor_proximity_xray.after(SelectionServiceStages::PickFlush),
-                    remove_deleted_supports_from_visual_cues,
-                    on_highlight_anchors_change,
+            app.add_plugins(SelectPlugin::default())
+                .add_systems(
+                    Update,
+                    (
+                        make_lift_doormat_gizmo,
+                        update_doormats_for_level_change,
+                        // update_cursor_transform,
+                        update_picking_cam,
+                        update_physical_light_visual_cues,
+                        make_selectable_entities_pickable,
+                        // handle_select_anchor_mode.after(SelectionServiceStages::Select),
+                        // handle_select_anchor_3d_mode.after(SelectionServiceStages::Select),
+                        update_anchor_visual_cues.after(SelectionServiceStages::Select),
+                        update_popups.after(SelectionServiceStages::Select),
+                        update_unassigned_anchor_cues,
+                        update_anchor_proximity_xray.after(SelectionServiceStages::PickFlush),
+                        remove_deleted_supports_from_visual_cues,
+                        on_highlight_anchors_change,
+                    )
+                        .run_if(in_state(InteractionState::Enable)),
                 )
-                    .run_if(in_state(InteractionState::Enable)),
-            )
-            // Split the above because of a compile error when the tuple is too large
-            .add_systems(
-                Update,
-                (
-                    update_lane_visual_cues.after(SelectionServiceStages::Select),
-                    update_edge_visual_cues.after(SelectionServiceStages::Select),
-                    update_point_visual_cues.after(SelectionServiceStages::Select),
-                    update_path_visual_cues.after(SelectionServiceStages::Select),
-                    update_outline_visualization.after(SelectionServiceStages::Select),
-                    update_highlight_visualization.after(SelectionServiceStages::Select),
-                    update_cursor_hover_visualization.after(SelectionServiceStages::Select),
-                    update_gizmo_click_start.after(SelectionServiceStages::Select),
-                    update_gizmo_release,
-                    update_drag_motions
-                        .after(update_gizmo_click_start)
-                        .after(update_gizmo_release),
-                    handle_lift_doormat_clicks.after(update_gizmo_click_start),
-                    manage_previews,
-                    update_physical_camera_preview,
-                    dirty_changed_lifts,
-                    handle_preview_window_close,
+                // Split the above because of a compile error when the tuple is too large
+                .add_systems(
+                    Update,
+                    (
+                        update_lane_visual_cues.after(SelectionServiceStages::Select),
+                        update_edge_visual_cues.after(SelectionServiceStages::Select),
+                        update_point_visual_cues.after(SelectionServiceStages::Select),
+                        update_path_visual_cues.after(SelectionServiceStages::Select),
+                        update_outline_visualization.after(SelectionServiceStages::Select),
+                        update_highlight_visualization.after(SelectionServiceStages::Select),
+                        update_cursor_hover_visualization.after(SelectionServiceStages::Select),
+                        update_gizmo_click_start.after(SelectionServiceStages::Select),
+                        update_gizmo_release,
+                        update_drag_motions
+                            .after(update_gizmo_click_start)
+                            .after(update_gizmo_release),
+                        handle_lift_doormat_clicks.after(update_gizmo_click_start),
+                        manage_previews,
+                        update_physical_camera_preview,
+                        dirty_changed_lifts,
+                        handle_preview_window_close,
+                    )
+                        .run_if(in_state(InteractionState::Enable)),
                 )
-                    .run_if(in_state(InteractionState::Enable)),
-            )
-            .add_systems(
-                PostUpdate,
-                (
-                    add_anchor_visual_cues,
-                    remove_interaction_for_subordinate_anchors,
-                    add_lane_visual_cues,
-                    add_edge_visual_cues,
-                    add_point_visual_cues,
-                    add_path_visual_cues,
-                    add_outline_visualization,
-                    add_highlight_visualization,
-                    add_cursor_hover_visualization,
-                    add_physical_light_visual_cues,
-                    add_popups,
+                .add_systems(
+                    PostUpdate,
+                    (
+                        add_anchor_visual_cues,
+                        remove_interaction_for_subordinate_anchors,
+                        add_lane_visual_cues,
+                        add_edge_visual_cues,
+                        add_point_visual_cues,
+                        add_path_visual_cues,
+                        add_outline_visualization,
+                        add_highlight_visualization,
+                        add_cursor_hover_visualization,
+                        add_physical_light_visual_cues,
+                        add_popups,
+                    )
+                        .run_if(in_state(InteractionState::Enable))
+                        .in_set(InteractionUpdateSet::AddVisuals),
                 )
-                    .run_if(in_state(InteractionState::Enable))
-                    .in_set(InteractionUpdateSet::AddVisuals),
-            )
-            .add_systems(
-                Update,
-                propagate_visual_cues
-                    .run_if(in_state(InteractionState::Enable))
-                    .in_set(InteractionUpdateSet::ProcessVisuals),
-            )
-            .add_systems(OnExit(InteractionState::Enable), hide_cursor)
-            .add_systems(
-                PostUpdate,
-                (
-                    move_anchor.before(update_anchor_transforms),
-                    move_pose,
-                    make_gizmos_pickable,
+                .add_systems(
+                    Update,
+                    propagate_visual_cues
+                        .run_if(in_state(InteractionState::Enable))
+                        .in_set(InteractionUpdateSet::ProcessVisuals),
                 )
-                    .run_if(in_state(InteractionState::Enable)),
-            )
-            .add_systems(First, update_picked);
+                .add_systems(OnExit(InteractionState::Enable), hide_cursor)
+                .add_systems(
+                    PostUpdate,
+                    (
+                        move_anchor.before(update_anchor_transforms),
+                        move_pose,
+                        make_gizmos_pickable,
+                    )
+                        .run_if(in_state(InteractionState::Enable)),
+                )
+                .add_systems(First, update_picked);
         }
     }
 }

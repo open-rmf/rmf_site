@@ -15,10 +15,7 @@
  *
 */
 
-use crate::{
-    interaction::select::*,
-    site::Model,
-};
+use crate::{interaction::select::*, site::Model};
 use bevy::prelude::Input as UserInput;
 
 pub const PLACE_OBJECT_2D_MODE_LABEL: &'static str = "place_object_2d";
@@ -27,10 +24,13 @@ pub fn spawn_place_object_2d_workflow(app: &mut App) -> Service<Option<Entity>, 
     let setup = app.spawn_service(place_object_2d_setup.into_blocking_service());
     let find_position = app.spawn_continuous_service(Update, place_object_2d_find_placement);
     let placement_chosen = app.spawn_service(on_placement_chosen_2d.into_blocking_service());
-    let handle_key_code = app.spawn_service(on_keyboard_for_place_object_2d.into_blocking_service());
+    let handle_key_code =
+        app.spawn_service(on_keyboard_for_place_object_2d.into_blocking_service());
     let cleanup = app.spawn_service(place_object_2d_cleanup.into_blocking_service());
 
-    let keyboard_just_pressed = app.world.resource::<KeyboardServices>()
+    let keyboard_just_pressed = app
+        .world
+        .resource::<KeyboardServices>()
         .keyboard_just_pressed;
 
     app.world.spawn_io_workflow(build_place_object_2d_workflow(
@@ -54,7 +54,9 @@ pub fn build_place_object_2d_workflow(
     move |scope, builder| {
         let buffer = builder.create_buffer::<PlaceObject2d>(BufferSettings::keep_last(1));
 
-        let setup_finished = scope.input.chain(builder)
+        let setup_finished = scope
+            .input
+            .chain(builder)
             .then(extract_selector_input::<PlaceObject2d>.into_blocking_callback())
             .branch_for_err(|err| err.connect(scope.terminate))
             .cancel_on_none()
@@ -65,18 +67,22 @@ pub fn build_place_object_2d_workflow(
             .output()
             .fork_clone(builder);
 
-        setup_finished.clone_chain(builder)
+        setup_finished
+            .clone_chain(builder)
             .then(find_placement)
             .with_access(buffer)
             .then(placement_chosen)
             .fork_result(
                 |ok| ok.connect(scope.terminate),
-                |err| err.map_block(print_if_err).connect(scope.terminate)
+                |err| err.map_block(print_if_err).connect(scope.terminate),
             );
 
-        let keyboard_node = setup_finished.clone_chain(builder)
+        let keyboard_node = setup_finished
+            .clone_chain(builder)
             .then_node(keyboard_just_pressed);
-        keyboard_node.streams.chain(builder)
+        keyboard_node
+            .streams
+            .chain(builder)
             .inner()
             .then(handle_key_code)
             .fork_result(
@@ -85,7 +91,9 @@ pub fn build_place_object_2d_workflow(
             );
 
         builder.on_cleanup(buffer, move |scope, builder| {
-            scope.input.chain(builder)
+            scope
+                .input
+                .chain(builder)
                 .then(cleanup)
                 .connect(scope.terminate);
         });
@@ -174,9 +182,7 @@ pub fn place_object_2d_find_placement(
     }
 }
 
-pub fn on_keyboard_for_place_object_2d(
-    In(key): In<KeyCode>,
-) -> SelectionNodeResult {
+pub fn on_keyboard_for_place_object_2d(In(key): In<KeyCode>) -> SelectionNodeResult {
     if matches!(key, KeyCode::Escape) {
         // Simply end the workflow if the escape key was pressed
         info!("Exiting 2D object placement");

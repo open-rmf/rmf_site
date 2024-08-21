@@ -16,7 +16,10 @@
 */
 
 use crate::{
-    site::{Affiliation, Change, FiducialGroup, FiducialMarker, FiducialUsage, Group, NameInSite, SiteID},
+    site::{
+        Affiliation, Change, FiducialGroup, FiducialMarker, FiducialUsage, Group, NameInSite,
+        SiteID,
+    },
     widgets::{prelude::*, Icons, Inspect, InspectionPlugin},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};

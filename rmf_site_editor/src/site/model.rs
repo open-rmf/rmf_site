@@ -16,8 +16,8 @@
 */
 
 use crate::{
-    interaction::{DragPlaneBundle, Selectable, MODEL_PREVIEW_LAYER, Preview, VisualCue},
-    site::{Category, PreventDeletion, SiteAssets, Dependents},
+    interaction::{DragPlaneBundle, Preview, Selectable, VisualCue, MODEL_PREVIEW_LAYER},
+    site::{Category, Dependents, PreventDeletion, SiteAssets},
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
 };
 use bevy::{
@@ -89,7 +89,14 @@ pub struct ModelSceneRoot;
 pub fn handle_model_loaded_events(
     mut commands: Commands,
     loading_models: Query<
-        (Entity, &PendingSpawning, &Scale, Option<&RenderLayers>, Option<&Preview>, Option<&Pending>),
+        (
+            Entity,
+            &PendingSpawning,
+            &Scale,
+            Option<&RenderLayers>,
+            Option<&Preview>,
+            Option<&Pending>,
+        ),
         With<ModelMarker>,
     >,
     mut current_scenes: Query<&mut ModelScene>,
@@ -161,7 +168,8 @@ pub fn handle_model_loaded_events(
             if let Some(id) = model_id {
                 let mut cmd = commands.entity(e);
                 cmd.insert(ModelSceneRoot).add_child(id);
-                let in_preview_layer = render_layer.is_some_and(|l| l.iter().all(|l| l == MODEL_PREVIEW_LAYER));
+                let in_preview_layer =
+                    render_layer.is_some_and(|l| l.iter().all(|l| l == MODEL_PREVIEW_LAYER));
                 if !in_preview_layer && !preview.is_some() && !pending.is_some() {
                     cmd.insert(Selectable::new(e));
                 }
@@ -176,7 +184,8 @@ pub fn handle_model_loaded_events(
                     deps.remove(&e);
                 }
 
-                commands.entity(e)
+                commands
+                    .entity(e)
                     .remove::<(PreventDeletion, PendingSpawning)>()
                     .set_parent(trashcan.0);
             }
@@ -483,13 +492,28 @@ pub fn propagate_model_properties(
 ) {
     for root in &new_scene_roots {
         propagate_model_property(
-            root, &render_layers, &parents, &children, &mesh_entities, &mut commands,
+            root,
+            &render_layers,
+            &parents,
+            &children,
+            &mesh_entities,
+            &mut commands,
         );
         propagate_model_property(
-            root, &previews, &parents, &children, &mesh_entities, &mut commands,
+            root,
+            &previews,
+            &parents,
+            &children,
+            &mesh_entities,
+            &mut commands,
         );
         propagate_model_property(
-            root, &pendings, &parents, &children, &mesh_entities, &mut commands,
+            root,
+            &pendings,
+            &parents,
+            &children,
+            &mesh_entities,
+            &mut commands,
         );
     }
 }
@@ -510,7 +534,7 @@ pub fn propagate_model_property<Property: Component + Clone + std::fmt::Debug>(
         {
             Some(property) => property,
             None => return,
-        }
+        },
     };
 
     commands.entity(root).insert(property.clone());
