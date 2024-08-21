@@ -19,7 +19,7 @@ use crate::{
     interaction::select::*,
     site::{
         Model, WorkcellModel, NameInSite, SiteID, AnchorBundle, Pose, Anchor,
-        FrameMarker, NameInWorkcell, Dependents,
+        FrameMarker, NameInWorkcell, Dependents, Pending,
     },
     widgets::canvas_tooltips::CanvasTooltips,
     KeyboardServices,
@@ -53,10 +53,10 @@ pub struct ObjectPlacementServices {
 
 impl ObjectPlacementServices {
     pub fn from_app(app: &mut App) -> Self {
-        let setup = app.spawn_service(place_object_3d_setup.into_blocking_service());
+        let setup = app.spawn_service(place_object_3d_setup);
         let find_position = app.spawn_continuous_service(Update, place_object_3d_find_placement);
         let placement_chosen = app.spawn_service(on_placement_chosen.into_blocking_service());
-        let handle_key_code = app.spawn_service(on_keyboard_for_place_object_3d.into_blocking_service());
+        let handle_key_code = app.spawn_service(on_keyboard_for_place_object_3d);
         let cleanup = app.spawn_service(place_object_3d_cleanup.into_blocking_service());
         let hover_service = app.spawn_continuous_service(
             Update,
@@ -65,13 +65,7 @@ impl ObjectPlacementServices {
                 config.in_set(SelectionServiceStages::Hover)
             ),
         );
-        let select_service = app.spawn_continuous_service(
-            Update,
-            select_service::<PlaceObject3dFilter>
-            .configure(|config: SystemConfigs|
-                config.in_set(SelectionServiceStages::Select)
-            ),
-        );
+        let selection_update = app.world.resource::<InspectorService>().selection_update;
         let keyboard_just_pressed = app.world.resource::<KeyboardServices>()
             .keyboard_just_pressed;
 
@@ -82,7 +76,7 @@ impl ObjectPlacementServices {
             handle_key_code,
             cleanup,
             hover_service.optional_stream_cast(),
-            select_service.optional_stream_cast(),
+            selection_update,
             keyboard_just_pressed,
         ));
 
@@ -118,35 +112,43 @@ impl<'w, 's> ObjectPlacement<'w, 's> {
 }
 
 pub fn build_place_object_3d_workflow(
-    setup: Service<BufferKey<PlaceObject3d>, SelectionNodeResult>,
-    find_position: Service<BufferKey<PlaceObject3d>, Transform>,
+    setup: Service<BufferKey<PlaceObject3d>, SelectionNodeResult, Select>,
+    find_placement: Service<BufferKey<PlaceObject3d>, Transform, Select>,
     placement_chosen: Service<(Transform, BufferKey<PlaceObject3d>), SelectionNodeResult>,
-    handle_key_code: Service<(KeyCode, BufferKey<PlaceObject3d>), SelectionNodeResult>,
+    handle_key_code: Service<(KeyCode, BufferKey<PlaceObject3d>), SelectionNodeResult, Select>,
     cleanup: Service<BufferKey<PlaceObject3d>, SelectionNodeResult>,
     // Used to manage highlighting prospective parent frames
     hover_service: Service<(), ()>,
     // Used to manage highlighting the current parent frame
-    select_service: Service<(), ()>,
+    selection_update: Service<Select, ()>,
     keyboard_just_pressed: Service<(), (), StreamOf<KeyCode>>,
 ) -> impl FnOnce(Scope<Option<Entity>, ()>, &mut Builder) {
     move |scope, builder| {
 
         let buffer = builder.create_buffer::<PlaceObject3d>(BufferSettings::keep_last(1));
 
-        let begin_input_services = scope.input.chain(builder)
+        let selection_update_node = builder.create_node(selection_update);
+
+        let setup_node = scope.input.chain(builder)
             .then(extract_selector_input::<PlaceObject3d>.into_blocking_callback())
             .branch_for_err(|chain: Chain<_>| chain.connect(scope.terminate))
             .cancel_on_none()
             .then_push(buffer)
             .then_access(buffer)
-            .then(setup)
+            .then_node(setup);
+
+        builder.connect(setup_node.streams, selection_update_node.input);
+
+        let begin_input_services = setup_node.output.chain(builder)
             .branch_for_err(|err| err.map_block(print_if_err).connect(scope.terminate))
             .output()
             .fork_clone(builder);
 
-        begin_input_services.clone_chain(builder)
+        let find_placement_node = begin_input_services.clone_chain(builder)
             .then_access(buffer)
-            .then(find_position)
+            .then_node(find_placement);
+
+        find_placement_node.output.chain(builder)
             .with_access(buffer)
             .then(placement_chosen)
             .fork_result(
@@ -154,23 +156,25 @@ pub fn build_place_object_3d_workflow(
                 |err| err.map_block(print_if_err).connect(scope.terminate),
             );
 
+        builder.connect(find_placement_node.streams, selection_update_node.input);
+
         begin_input_services.clone_chain(builder)
             .then(hover_service)
             .connect(scope.terminate);
 
-        begin_input_services.clone_chain(builder)
-            .then(select_service)
-            .connect(scope.terminate);
-
         let keyboard = begin_input_services.clone_chain(builder)
             .then_node(keyboard_just_pressed);
-        keyboard.streams.chain(builder)
+        let handle_key_node = keyboard.streams.chain(builder)
             .inner()
             .with_access(buffer)
-            .then(handle_key_code)
+            .then_node(handle_key_code);
+
+        handle_key_node.output.chain(builder)
             .dispose_on_ok()
             .map_block(print_if_err)
             .connect(scope.terminate);
+
+        builder.connect(handle_key_node.streams, selection_update_node.input);
 
         builder.on_cleanup(buffer, move |scope, builder| {
             scope.input.chain(builder)
@@ -198,40 +202,44 @@ pub enum PlaceableObject {
 }
 
 pub fn place_object_3d_setup(
-    In(key): In<BufferKey<PlaceObject3d>>,
+    In(srv): BlockingServiceInput<BufferKey<PlaceObject3d>, Select>,
     mut access: BufferAccessMut<PlaceObject3d>,
     mut cursor: ResMut<Cursor>,
     mut visibility: Query<&mut Visibility>,
     mut commands: Commands,
-    mut select: EventWriter<Select>,
     mut highlight: ResMut<HighlightAnchors>,
     mut filter: PlaceObject3dFilter,
     mut gizmo_blockers: ResMut<GizmoBlockers>,
 ) -> SelectionNodeResult {
-    let mut access = access.get_mut(&key).or_broken_buffer()?;
+    let mut access = access.get_mut(&srv.request).or_broken_buffer()?;
     let state = access.newest_mut().or_broken_buffer()?;
 
     match &state.object {
         PlaceableObject::Anchor => {
             // Make the anchor placement component of the cursor visible
             set_visibility(cursor.frame_placement, &mut visibility, true);
+            set_visibility(cursor.dagger, &mut visibility, true);
+            set_visibility(cursor.halo, &mut visibility, true);
         }
         PlaceableObject::Model(m) => {
             // Spawn the model as a child of the cursor
             cursor.set_model_preview(&mut commands, Some(m.clone()));
+            set_visibility(cursor.dagger, &mut visibility, false);
+            set_visibility(cursor.halo, &mut visibility, false);
         }
         PlaceableObject::VisualMesh(m) | PlaceableObject::CollisionMesh(m) => {
             // Spawn the model as a child of the cursor
             cursor.set_workcell_model_preview(&mut commands, Some(m.clone()));
+            set_visibility(cursor.dagger, &mut visibility, false);
+            set_visibility(cursor.halo, &mut visibility, false);
         }
     }
 
     if let Some(parent) = state.parent {
         let parent = filter.filter_select(parent);
-        dbg!((state.parent, parent));
-        select.send(Select::new(parent));
         state.parent = parent;
     }
+    srv.streams.send(Select::new(state.parent));
 
     highlight.0 = true;
     gizmo_blockers.selecting = true;
@@ -259,8 +267,8 @@ pub fn place_object_3d_cleanup(
 }
 
 pub fn place_object_3d_find_placement(
-    In(ContinuousService { key: srv_key }): ContinuousServiceInput<BufferKey<PlaceObject3d>, Transform>,
-    mut orders: ContinuousQuery<BufferKey<PlaceObject3d>, Transform>,
+    In(ContinuousService { key: srv_key }): ContinuousServiceInput<BufferKey<PlaceObject3d>, Transform, Select>,
+    mut orders: ContinuousQuery<BufferKey<PlaceObject3d>, Transform, Select>,
     mut buffer: BufferAccessMut<PlaceObject3d>,
     mut cursor: ResMut<Cursor>,
     raycast_sources: Query<&RaycastSource<SiteRaycastSet>>,
@@ -271,7 +279,6 @@ pub fn place_object_3d_find_placement(
     keyboard_input: Res<UserInput<KeyCode>>,
     mut hover: EventWriter<Hover>,
     hovering: Res<Hovering>,
-    mut select: EventWriter<Select>,
     mouse_button_input: Res<UserInput<MouseButton>>,
     blockers: Option<Res<PickingBlockers>>,
     meta: Query<(Option<&'static NameInSite>, Option<&'static SiteID>)>,
@@ -313,22 +320,19 @@ pub fn place_object_3d_find_placement(
         return;
     };
 
-    // Check if there is an intersection to a mesh, if there isn't fallback to ground plane
+    // Check if there is an intersection with a mesh
     let mut intersection: Option<Transform> = None;
     let mut new_hover = None;
     let mut select_new_parent = false;
-    if state.parent.is_none() || !project_to_plane {
+    if !project_to_plane {
         for (e, i) in source.intersections() {
-            let Some(e) = filter.filter_select(*e) else {
-                dbg!(e);
+            let Some(e) = filter.filter_pick(*e) else {
                 continue;
             };
 
             if let Some(parent) = state.parent {
-                dbg!((e, parent));
                 if e == parent {
                     new_hover = Some(parent);
-                    dbg!(e);
                     cursor.add_mode(PLACE_OBJECT_3D_MODE_LABEL, &mut visibility);
                     tooltips.add(Cow::Borrowed("Click to place"));
                     tooltips.add(Cow::Borrowed("+Shift: Project to parent frame"));
@@ -342,13 +346,14 @@ pub fn place_object_3d_find_placement(
             } else {
                 new_hover = Some(e);
                 select_new_parent = true;
-                dbg!(e);
                 cursor.remove_mode(PLACE_OBJECT_3D_MODE_LABEL, &mut visibility);
                 tooltips.add(Cow::Borrowed("Click to set as parent"));
                 tooltips.add(Cow::Borrowed("+Shift: Project to ground plane"));
                 break;
             }
         }
+    } else {
+        cursor.add_mode(PLACE_OBJECT_3D_MODE_LABEL, &mut visibility);
     }
 
     if new_hover != hovering.0 {
@@ -379,7 +384,7 @@ pub fn place_object_3d_find_placement(
         if select_new_parent {
             if let Some(new_parent) = new_hover {
                 state.parent = Some(new_parent);
-                select.send(Select::new(Some(new_parent)));
+                order.streams().send(Select::new(Some(new_parent)));
                 if let Ok((name, id)) = meta.get(new_parent) {
                     let id = id.map(|id| id.0.to_string());
                     info!(
@@ -406,6 +411,7 @@ pub struct PlaceObject3dFilter<'w, 's> {
     frames: Query<'w, 's, (), With<FrameMarker>>,
     workspaces: Query<'w, 's, (), With<WorkspaceMarker>>,
     parents: Query<'w, 's, &'static Parent>,
+    ignore: Query<'w, 's, (), Or<(With<Preview>, With<Pending>)>>,
 }
 
 impl<'w, 's> PlaceObject3dFilter<'w, 's> {
@@ -430,11 +436,19 @@ impl<'w, 's> PlaceObject3dFilter<'w, 's> {
 
 impl<'w, 's> SelectionFilter for PlaceObject3dFilter<'w, 's> {
     fn filter_pick(&mut self, target: Entity) -> Option<Entity> {
-        self.inspect.filter_pick(target).and_then(|e| self.find_frame(e))
+        let e = self.inspect.filter_pick(target);
+
+        if let Some(e) = e {
+            if self.ignore.contains(e) {
+                return None;
+            }
+        }
+        e
     }
 
     fn filter_select(&mut self, target: Entity) -> Option<Entity> {
-        self.inspect.filter_select(target).and_then(|e| self.find_frame(e))
+        self.inspect.filter_select(target)
+        //.and_then(|e| self.find_frame(e))
     }
 
     fn on_click(&mut self, _: Hover) -> Option<Select> {
@@ -446,10 +460,10 @@ impl<'w, 's> SelectionFilter for PlaceObject3dFilter<'w, 's> {
 }
 
 pub fn on_keyboard_for_place_object_3d(
-    In((button, key)): In<(KeyCode, BufferKey<PlaceObject3d>)>,
+    In(srv): BlockingServiceInput<(KeyCode, BufferKey<PlaceObject3d>), Select>,
     mut access: BufferAccessMut<PlaceObject3d>,
-    mut select: EventWriter<Select>,
 ) -> SelectionNodeResult {
+    let (button, key) = srv.request;
     if !matches!(button, KeyCode::Escape) {
         // The button was not the escape key, so there's nothing for us to do
         // here.
@@ -463,7 +477,7 @@ pub fn on_keyboard_for_place_object_3d(
         // Remove the parent
         info!("Placing object in the ground plane");
         state.parent = None;
-        select.send(Select::new(None));
+        srv.streams.send(Select::new(None));
     } else {
         info!("Exiting 3D object placement");
         return Err(None);
@@ -506,7 +520,6 @@ pub fn on_placement_chosen(
                 object,
                 VisualCue::outline(),
             )).id();
-            println!(" =================== created {:?}", model_id);
             // Create a parent anchor to contain the new model in
             commands.spawn((
                 AnchorBundle::new(Anchor::Pose3D(pose))

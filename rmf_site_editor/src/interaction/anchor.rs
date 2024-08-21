@@ -161,7 +161,6 @@ pub fn update_anchor_proximity_xray(
                 break 'xray false;
             }
 
-            dbg!(e);
             true
         };
 

@@ -432,6 +432,8 @@ where
     *current_anchor_scope = *scope;
 
     cursor.add_mode(SELECT_ANCHOR_MODE_LABEL, &mut visibility);
+    set_visibility(cursor.dagger, &mut visibility, true);
+    set_visibility(cursor.halo, &mut visibility, true);
 
     Ok(())
 }

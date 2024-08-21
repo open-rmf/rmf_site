@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    interaction::{DragPlaneBundle, HeadlightToggle, InteractionAssets, Selectable},
+    interaction::{DragPlaneBundle, HeadlightToggle, InteractionAssets},
     site::LightKind,
 };
 use bevy::prelude::*;

@@ -72,7 +72,6 @@ pub fn flatten_loaded_models_hierarchy(
             let mut e_mut = commands.entity(e);
             if let Ok((cue, preview)) = properties.get(parent_entity) {
                 if let Some(cue) = cue {
-                    dbg!((e, cue));
                     e_mut.insert(cue.clone());
                 }
                 if let Some(preview) = preview {
@@ -84,7 +83,6 @@ pub fn flatten_loaded_models_hierarchy(
             };
 
             // Now despawn the unnecessary model
-            println!("FLATTENING {parent_entity:?}");
             commands.entity(parent_entity).set_parent(trashcan.0);
         }
     }

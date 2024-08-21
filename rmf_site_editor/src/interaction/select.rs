@@ -23,7 +23,7 @@ use crate::{
 };
 use rmf_site_format::{
     Door, Edge, Lane, LiftProperties, Measurement, NameOfSite, PixelsPerMeter, Wall,
-    Pose, Side, Category,
+    Pose, Side, Category, Pending,
 };
 use bevy::{
     prelude::{*, Input},
@@ -448,6 +448,7 @@ pub struct InspectorService {
     /// a general inspector. This service never terminates.
     pub inspector_select_service: Service<(), (), (Hover, Select)>,
     pub inspector_cursor_transform: Service<(), ()>,
+    pub selection_update: Service<Select, ()>,
 }
 
 #[derive(Default)]
@@ -477,6 +478,7 @@ impl Plugin for InspectorServicePlugin {
             inspector_service,
             inspector_select_service,
             inspector_cursor_transform,
+            selection_update,
         });
     }
 }
@@ -562,7 +564,7 @@ pub trait SelectionFilter: SystemParam {
 
 #[derive(SystemParam)]
 pub struct InspectorFilter<'w, 's> {
-    selectables: Query<'w, 's, &'static Selectable>,
+    selectables: Query<'w, 's, &'static Selectable, (Without<Preview>, Without<Pending>)>,
 }
 
 impl<'w, 's> SelectionFilter for InspectorFilter<'w, 's> {

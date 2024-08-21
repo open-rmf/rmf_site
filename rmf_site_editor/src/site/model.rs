@@ -104,9 +104,7 @@ pub fn handle_model_loaded_events(
     // yet. If the scene has finished loading, then insert it as a child of the
     // model entity and make it selectable.
     for (e, h, scale, render_layer, preview, pending) in loading_models.iter() {
-        dbg!(e);
         if asset_server.is_loaded_with_dependencies(h.id()) {
-            dbg!(e);
             let Some(h) = untyped_assets.get(&**h) else {
                 warn!("Broken reference to untyped asset, this should not happen!");
                 continue;
@@ -162,29 +160,17 @@ pub fn handle_model_loaded_events(
 
             if let Some(id) = model_id {
                 let mut cmd = commands.entity(e);
-                dbg!((e, id));
                 cmd.insert(ModelSceneRoot).add_child(id);
                 let in_preview_layer = render_layer.is_some_and(|l| l.iter().all(|l| l == MODEL_PREVIEW_LAYER));
                 if !in_preview_layer && !preview.is_some() && !pending.is_some() {
-                    dbg!(e);
                     cmd.insert(Selectable::new(e));
                 }
                 current_scenes.get_mut(e).unwrap().entity = Some(id);
             }
-            dbg!(e);
             commands
                 .entity(e)
                 .remove::<(PreventDeletion, PendingSpawning)>();
         } else {
-
-            match asset_server.load_state(h.id()) {
-                LoadState::Failed => dbg!(e),
-                LoadState::Loaded => dbg!(e),
-                LoadState::Loading => dbg!(e),
-                LoadState::NotLoaded => dbg!(e),
-            };
-
-            println!("THROWING AWAY {e:?}");
             if asset_server.load_state(h.id()) == LoadState::Failed {
                 for mut deps in &mut dependents {
                     deps.remove(&e);
@@ -439,7 +425,6 @@ pub fn make_models_selectable(
     // We use adding of scene root as a marker of models being spawned, the component is added when
     // the scene fininshed loading and is spawned
     for model_scene_root in &new_scene_roots {
-        dbg!(model_scene_root);
         // Use a small vec here to try to dodge heap allocation if possible.
         // TODO(MXG): Run some tests to see if an allocation of 16 is typically
         // sufficient.
@@ -495,18 +480,16 @@ pub fn propagate_model_properties(
     render_layers: Query<&RenderLayers>,
     previews: Query<&Preview>,
     pendings: Query<&Pending>,
-    visual_cue: Query<&VisualCue>,
 ) {
     for root in &new_scene_roots {
-        dbg!(root);
         propagate_model_property(
-            root, &render_layers, &parents, &children, &mesh_entities, &mut commands, &visual_cue
+            root, &render_layers, &parents, &children, &mesh_entities, &mut commands,
         );
         propagate_model_property(
-            root, &previews, &parents, &children, &mesh_entities, &mut commands, &visual_cue
+            root, &previews, &parents, &children, &mesh_entities, &mut commands,
         );
         propagate_model_property(
-            root, &pendings, &parents, &children, &mesh_entities, &mut commands, &visual_cue
+            root, &pendings, &parents, &children, &mesh_entities, &mut commands,
         );
     }
 }
@@ -518,40 +501,21 @@ pub fn propagate_model_property<Property: Component + Clone + std::fmt::Debug>(
     children: &Query<&Children>,
     mesh_entities: &Query<(), With<Handle<Mesh>>>,
     commands: &mut Commands,
-    visual_cue: &Query<&VisualCue>,
 ) {
     let property = match property_query.get(root) {
-        Ok(property) => {
-            dbg!((root, &property));
-            if let Ok(v) = visual_cue.get(root) {
-                dbg!(v);
-            }
-            property
-        }
+        Ok(property) => property,
         Err(_) => match AncestorIter::new(parents, root)
-            .filter_map(|p| {
-                dbg!(p);
-                if let Ok(v) = visual_cue.get(p) {
-                    dbg!(v);
-                }
-                property_query.get(p).ok()
-            })
+            .filter_map(|p| property_query.get(p).ok())
             .next()
         {
-            Some(property) => {
-                dbg!(&property);
-                property
-            },
+            Some(property) => property,
             None => return,
         }
     };
 
-    // dbg!((root, std::any::type_name::<Property>()));
-    dbg!((root, &property));
     commands.entity(root).insert(property.clone());
 
     for c in DescendantIter::new(children, root) {
-        dbg!(c);
         if mesh_entities.contains(c) {
             commands.entity(c).insert(property.clone());
         }

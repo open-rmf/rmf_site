@@ -168,11 +168,9 @@ pub fn propagate_visual_cues(
     disabled_xray: Query<(), With<DisableXray>>,
 ) {
     for (e, root_cue) in &changed_cues {
-        dbg!((e, root_cue));
         let mut queue = SmallVec::<[(Entity, VisualCue); 5]>::new();
         queue.push((e, root_cue.clone()));
         while let Some((top, top_cue)) = queue.pop() {
-            dbg!((top, top_cue.layers(), &top_cue));
             commands
                 .entity(top)
                 .insert(top_cue.layers())

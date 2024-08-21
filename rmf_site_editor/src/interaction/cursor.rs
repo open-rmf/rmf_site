@@ -107,7 +107,6 @@ impl Cursor {
             let new_visible = if self.should_be_visible() {
                 Visibility::Inherited
             } else {
-                println!("{}", std::backtrace::Backtrace::force_capture());
                 Visibility::Hidden
             };
             if new_visible != *v {
@@ -128,7 +127,6 @@ impl Cursor {
         self.remove_preview(commands);
         self.preview_model = if let Some(model) = model {
             let e = commands.spawn(model).insert(Pending).id();
-            dbg!(e);
             commands.entity(self.frame).push_children(&[e]);
             Some(e)
         } else {
@@ -370,17 +368,18 @@ pub fn update_cursor_hover_visualization(
 }
 
 pub fn aligned_z_axis(z: Vec3) -> Quat {
-    if z.length_squared() < 1e-8 {
+    let z_length = z.length();
+    if z_length < 1e-8 {
         // The given direction is too close to singular
         return Quat::IDENTITY;
     }
 
     let axis = Vec3::Z.cross(z);
-    let length = axis.length();
-    if length < 1e-8 {
+    let axis_length = axis.length();
+    if axis_length < 1e-8 {
         // The change in angle is too close to zero
         return Quat::IDENTITY;
     }
-    let angle = f32::asin(length);
-    Quat::from_axis_angle(axis/length, angle)
+    let angle = f32::asin(axis_length/z_length);
+    Quat::from_axis_angle(axis/axis_length, angle)
 }
