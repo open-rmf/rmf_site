@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    interaction::{ChangeMode, ChangeProjectionMode, InteractionMode, Selection},
+    interaction::{ChangeProjectionMode, Selection},
     site::{AlignSiteDrawings, Delete},
     CreateNewWorkspace, CurrentWorkspace, SaveWorkspace, WorkspaceLoader,
 };
@@ -51,9 +51,7 @@ impl Plugin for KeyboardInputPlugin {
 fn handle_keyboard_input(
     keyboard_input: Res<UserInput<KeyCode>>,
     selection: Res<Selection>,
-    current_mode: Res<InteractionMode>,
     mut egui_context: EguiContexts,
-    mut change_mode: EventWriter<ChangeMode>,
     mut delete: EventWriter<Delete>,
     mut save_workspace: EventWriter<SaveWorkspace>,
     mut new_workspace: EventWriter<CreateNewWorkspace>,
@@ -87,17 +85,11 @@ fn handle_keyboard_input(
         change_camera_mode.send(ChangeProjectionMode::to_perspective());
     }
 
-    if keyboard_input.just_pressed(KeyCode::Escape) {
-        change_mode.send(ChangeMode::Backout);
-    }
-
     if keyboard_input.just_pressed(KeyCode::Delete) || keyboard_input.just_pressed(KeyCode::Back) {
-        if current_mode.is_inspecting() {
-            if let Some(selection) = selection.0 {
-                delete.send(Delete::new(selection));
-            } else {
-                warn!("No selected entity to delete");
-            }
+        if let Some(selection) = selection.0 {
+            delete.send(Delete::new(selection));
+        } else {
+            warn!("No selected entity to delete");
         }
     }
 

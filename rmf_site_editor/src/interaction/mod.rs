@@ -55,9 +55,6 @@ pub use lift::*;
 pub mod light;
 pub use light::*;
 
-pub mod mode;
-pub use mode::*;
-
 pub mod model_preview;
 pub use model_preview::*;
 
@@ -81,9 +78,6 @@ pub use preview::*;
 
 pub mod select;
 pub use select::*;
-
-pub mod select_anchor;
-pub use select_anchor::*;
 
 pub mod visual_cue;
 pub use visual_cue::*;
@@ -157,12 +151,9 @@ impl Plugin for InteractionPlugin {
             .init_resource::<Picked>()
             .init_resource::<PickingBlockers>()
             .init_resource::<GizmoState>()
-            .init_resource::<InteractionMode>()
             .insert_resource(HighlightAnchors(false))
-            .init_resource::<HiddenSelectAnchorEntities>()
             .add_event::<ChangePick>()
             .add_event::<MoveTo>()
-            .add_event::<ChangeMode>()
             .add_event::<GizmoClicked>()
             .add_event::<SpawnPreview>()
             .add_plugins((
@@ -264,7 +255,7 @@ impl Plugin for InteractionPlugin {
                 )
                     .run_if(in_state(InteractionState::Enable)),
             )
-            .add_systems(First, (update_picked, update_interaction_mode));
+            .add_systems(First, update_picked);
         }
     }
 }

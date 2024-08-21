@@ -45,6 +45,7 @@ impl Plugin for AnchorSelectionPlugin {
         let helpers = AnchorSelectionHelpers::from_app(app);
         let services = AnchorSelectionServices::from_app(&helpers, app);
         app
+            .init_resource::<HiddenSelectAnchorEntities>()
             .insert_resource(AnchorScope::General)
             .insert_resource(helpers)
             .insert_resource(services);
@@ -288,6 +289,13 @@ impl<'w, 's> AnchorSelection<'w, 's> {
             world.send_event(run);
         });
     }
+}
+
+#[derive(Resource, Default)]
+pub struct HiddenSelectAnchorEntities {
+    /// All drawing anchors, hidden when users draw level entities such as walls, lanes, floors to
+    /// make sure they don't connect to drawing anchors
+    pub drawing_anchors: HashSet<Entity>,
 }
 
 /// The first five services should be customized for the State data. The services

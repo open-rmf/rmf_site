@@ -117,7 +117,8 @@ impl Cursor {
 
     pub fn remove_preview(&mut self, commands: &mut Commands) {
         if let Some(current_preview) = self.preview_model {
-            commands.entity(current_preview).set_parent(self.trashcan);
+            commands.get_entity(current_preview)
+                .map(|mut e_mut| { e_mut.set_parent(self.trashcan); });
             self.preview_model = None;
         }
     }

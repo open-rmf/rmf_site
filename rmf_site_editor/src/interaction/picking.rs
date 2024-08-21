@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{interaction::*, site::Anchor, CurrentWorkspace};
+use crate::{interaction::*, CurrentWorkspace};
 use bevy::prelude::*;
 use bevy_mod_raycast::{deferred::RaycastSource, immediate::RaycastVisibility};
 
@@ -91,49 +91,30 @@ pub fn update_picking_cam(
 fn pick_topmost(
     picks: impl Iterator<Item = Entity>,
     selectable: &Query<&Selectable>,
-    anchors: &Query<&Parent, (With<Anchor>, Without<Preview>)>,
-    mode: &Res<InteractionMode>,
-    current_site: Entity,
 ) -> Option<Entity> {
     for topmost_entity in picks {
-        match &**mode {
-            InteractionMode::SelectAnchor(request) => {
-                if let Ok(sel) = selectable.get(topmost_entity) {
-                    if sel.is_selectable {
-                        if let Ok(parent) = anchors.get(sel.element) {
-                            if request.site_scope() && parent.get() != current_site {
-                                continue;
-                            }
-                        } else {
-                            continue;
-                        }
-                    } else {
-                        continue;
-                    }
-                } else {
-                    continue;
-                }
+        if let Ok(sel) = selectable.get(topmost_entity) {
+            if !sel.is_selectable {
+                continue;
             }
-            _ => {
-                // Do nothing
-            }
+        } else {
+            continue;
         }
+
         return Some(topmost_entity);
     }
 
     return None;
 }
 
+// TODO(@mxgrey): Consider making this a service similar to hover_service and select_service
 pub fn update_picked(
-    mode: Res<InteractionMode>,
     selectable: Query<&Selectable>,
-    anchors: Query<&Parent, (With<Anchor>, Without<Preview>)>,
     blockers: Option<Res<PickingBlockers>>,
     pick_source_query: Query<&RaycastSource<SiteRaycastSet>>,
     visual_cues: Query<&ComputedVisualCue>,
     mut picked: ResMut<Picked>,
     mut change_pick: EventWriter<ChangePick>,
-    current_workspace: Res<CurrentWorkspace>,
 ) {
     if let Some(blockers) = blockers {
         if blockers.blocking() {
@@ -149,11 +130,6 @@ pub fn update_picked(
             return;
         }
     }
-
-    let current_site = match current_workspace.root {
-        Some(current_site) => current_site,
-        None => return,
-    };
 
     let current_picked = 'current_picked: {
         for pick_source in &pick_source_query {
@@ -171,9 +147,6 @@ pub fn update_picked(
                     })
                     .map(|(e, _)| *e),
                 &selectable,
-                &anchors,
-                &mode,
-                current_site,
             ) {
                 break 'current_picked Some(topmost);
             }
@@ -182,9 +155,6 @@ pub fn update_picked(
             if let Some(topmost) = pick_topmost(
                 picks.iter().map(|(e, _)| *e),
                 &selectable,
-                &anchors,
-                &mode,
-                current_site,
             ) {
                 break 'current_picked Some(topmost);
             }

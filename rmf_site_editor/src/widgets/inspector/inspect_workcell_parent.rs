@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    interaction::{ChangeMode, Hover, SelectAnchor3D},
+    interaction::Hover,
     site::{FrameMarker, MeshConstraint, NameInWorkcell, NameOfWorkcell},
     widgets::{prelude::*, Icons, Inspect, SelectorWidget},
 };
@@ -39,7 +39,6 @@ pub struct InspectWorkcellParent<'w, 's> {
     mesh_constraints: Query<'w, 's, &'static MeshConstraint<Entity>>,
     icons: Res<'w, Icons>,
     selector: SelectorWidget<'w, 's>,
-    change_mode: ResMut<'w, Events<ChangeMode>>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectWorkcellParent<'w, 's> {
@@ -78,9 +77,7 @@ impl<'w, 's> InspectWorkcellParent<'w, 's> {
                 assign_response.on_hover_text("Reassign");
 
                 if parent_replace {
-                    let request =
-                        SelectAnchor3D::replace_point(id, parent).for_anchor(Some(parent));
-                    self.change_mode.send(ChangeMode::To(request.into()));
+                    error!("Parent reassignment has not been implemented yet");
                 }
             });
         }
