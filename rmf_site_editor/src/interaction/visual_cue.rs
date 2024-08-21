@@ -66,11 +66,16 @@ impl VisibilityDependents {
     pub fn any(&self) -> bool {
         !self.none()
     }
+
+    pub fn union(mut self, other: Self) -> Self {
+        self.0 = self.0 | other.0;
+        self
+    }
 }
 
 /// A component to tag entities that are only meant to be visual cues and
 /// should be excluded from visualization or analysis of physical objects.
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, Copy)]
 pub struct VisualCue {
     /// Allow this visual cue to be outlined when it is interacted with
     pub allow_outline: bool,
@@ -82,8 +87,13 @@ pub struct VisualCue {
 }
 
 /// Copied from VisualCue or inherited from parents
-#[derive(Component, Debug, Clone, Deref, DerefMut)]
+#[derive(Component, Debug, Clone, Copy, Deref, DerefMut)]
 pub struct ComputedVisualCue(pub VisualCue);
+
+/// Apply this to structs which should never be viewed with the xray camera
+/// (i.e. they should never be rendered over objects that are in front of them)
+#[derive(Component, Debug, Clone, Copy)]
+pub struct DisableXray;
 
 impl VisualCue {
     pub fn outline() -> VisualCue {
@@ -122,6 +132,26 @@ impl VisualCue {
         }
         layers
     }
+
+    pub fn with_constraints(mut self, constraints: VisualCueConstraints) -> Self {
+        if constraints.disable_xray {
+            // Shift all xray visibility over to the regular visibility
+            self.regular = self.regular.union(self.xray);
+            // Then eliminate all xray visibility
+            self.xray = VisibilityDependents::new_none();
+        }
+        self
+    }
+}
+
+pub struct VisualCueConstraints {
+    pub disable_xray: bool,
+}
+
+impl VisualCueConstraints {
+    pub fn new(disable_xray: bool) -> Self {
+        Self { disable_xray }
+    }
 }
 
 /// This system propagates visual cue tags and the correct RenderLayer to all
@@ -135,12 +165,7 @@ pub fn propagate_visual_cues(
     changed_cues: Query<(Entity, &VisualCue), Or<(Changed<VisualCue>, Changed<Children>)>>,
     children: Query<&Children>,
     existing_cues: Query<(), With<VisualCue>>,
-
-
-    changed_layers: Query<(Entity, &RenderLayers, Option<&VisualCue>), Changed<RenderLayers>>,
-    layers: Query<&RenderLayers>,
-    parents: Query<&Parent>,
-    exists: Query<()>,
+    disabled_xray: Query<(), With<DisableXray>>,
 ) {
     for (e, root_cue) in &changed_cues {
         dbg!((e, root_cue));
@@ -151,7 +176,7 @@ pub fn propagate_visual_cues(
             commands
                 .entity(top)
                 .insert(top_cue.layers())
-                .insert(ComputedVisualCue(top_cue.clone()));
+                .insert(ComputedVisualCue(top_cue));
 
             if let Ok(children) = children.get(top) {
                 for child in children {
@@ -159,13 +184,11 @@ pub fn propagate_visual_cues(
                         continue;
                     }
 
-                    queue.push((*child, top_cue.clone()));
+                    let disable_xray = disabled_xray.get(*child).is_ok();
+                    let constraints = VisualCueConstraints::new(disable_xray);
+                    queue.push((*child, top_cue.clone().with_constraints(constraints)));
                 }
             }
         }
-    }
-
-    for (e, layers, cue) in &changed_layers {
-        dbg!((e, layers, cue));
     }
 }
