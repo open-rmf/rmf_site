@@ -493,7 +493,10 @@ pub fn on_placement_chosen_3d(
         }
     };
 
-    commands.get_entity(id).or_broken_query()?.set_parent(parent);
+    commands
+        .get_entity(id)
+        .or_broken_query()?
+        .set_parent(parent);
     if let Ok(mut deps) = dependents.get_mut(parent) {
         deps.insert(id);
     }

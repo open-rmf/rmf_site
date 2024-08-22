@@ -93,17 +93,10 @@ impl<'w, 's> ObjectPlacement<'w, 's> {
         });
     }
 
-    pub fn replace_parent_3d(
-        &mut self,
-        object: Entity,
-        workspace: Entity,
-    ) {
+    pub fn replace_parent_3d(&mut self, object: Entity, workspace: Entity) {
         let state = self
             .commands
-            .spawn(SelectorInput(ReplaceParent3d {
-                object,
-                workspace,
-            }))
+            .spawn(SelectorInput(ReplaceParent3d { object, workspace }))
             .id();
         self.send(RunSelector {
             selector: self.services.replace_parent_3d,

@@ -31,7 +31,8 @@ pub fn spawn_replace_parent_3d_workflow(
     let setup = app.spawn_service(replace_parent_3d_setup.into_blocking_service());
     let find_parent = app.spawn_continuous_service(Update, replace_parent_3d_find_parent);
     let parent_chosen = app.spawn_service(replace_parent_3d_parent_chosen.into_blocking_service());
-    let handle_key_code = app.spawn_service(on_keyboard_for_replace_parent_3d.into_blocking_service());
+    let handle_key_code =
+        app.spawn_service(on_keyboard_for_replace_parent_3d.into_blocking_service());
     let cleanup = app.spawn_service(replace_parent_3d_cleanup.into_blocking_service());
     let keyboard_just_pressed = app
         .world
@@ -178,7 +179,9 @@ pub fn replace_parent_3d_find_parent(
                     return;
                 }
 
-                info!("Received parent replacement selection signal for an invalid parent candidate");
+                info!(
+                    "Received parent replacement selection signal for an invalid parent candidate"
+                );
             }
             None => {
                 // The user has sent a signal to remove the object from its parent
@@ -199,15 +202,23 @@ pub fn replace_parent_3d_find_parent(
             continue;
         };
 
-        if AncestorIter::new(&parents, e).filter(|e| *e == object).next().is_some() {
+        if AncestorIter::new(&parents, e)
+            .filter(|e| *e == object)
+            .next()
+            .is_some()
+        {
             ignore_click = true;
-            tooltips.add(Cow::Borrowed("Cannot select a child of the object to be its parent"));
+            tooltips.add(Cow::Borrowed(
+                "Cannot select a child of the object to be its parent",
+            ));
             break;
         }
 
         if e == object {
             ignore_click = true;
-            tooltips.add(Cow::Borrowed("Cannot select an object to be its own parent"));
+            tooltips.add(Cow::Borrowed(
+                "Cannot select an object to be its own parent",
+            ));
             break;
         }
 
@@ -239,16 +250,17 @@ pub fn replace_parent_3d_parent_chosen(
     let access = access.get(&key).or_broken_buffer()?;
     let state = access.newest().or_broken_state()?;
 
-    let parent = parent.and_then(|p| {
-        if frames.contains(p) {
-            Some(p)
-        } else {
-            // The selected parent is not a frame, so find its first ancestor
-            // that contains a FrameMarker
-            AncestorIter::new(&parents, p).find(|e| frames.contains(*e))
-        }
-    })
-    .unwrap_or(state.workspace);
+    let parent = parent
+        .and_then(|p| {
+            if frames.contains(p) {
+                Some(p)
+            } else {
+                // The selected parent is not a frame, so find its first ancestor
+                // that contains a FrameMarker
+                AncestorIter::new(&parents, p).find(|e| frames.contains(*e))
+            }
+        })
+        .unwrap_or(state.workspace);
 
     let previous_parent = parents.get(state.object).or_broken_query()?.get();
     if parent == previous_parent {
@@ -260,9 +272,9 @@ pub fn replace_parent_3d_parent_chosen(
     let inv_parent_tf = global_tfs.get(parent).or_broken_query()?.affine().inverse();
     let relative_pose: Pose = Transform::from_matrix((inv_parent_tf * object_tf).into()).into();
 
-    let [mut previous_deps, mut new_deps] = dependents.get_many_mut(
-        [previous_parent, parent]
-    ).or_broken_query()?;
+    let [mut previous_deps, mut new_deps] = dependents
+        .get_many_mut([previous_parent, parent])
+        .or_broken_query()?;
 
     if let Ok(mut pose_mut) = poses.get_mut(state.object) {
         *pose_mut = relative_pose;
@@ -273,16 +285,17 @@ pub fn replace_parent_3d_parent_chosen(
 
     // Do all mutations after everything is successfully queried so we don't
     // risk an inconsistent/broken world due to a query failing.
-    commands.get_entity(state.object).or_broken_query()?.set_parent(parent);
+    commands
+        .get_entity(state.object)
+        .or_broken_query()?
+        .set_parent(parent);
     previous_deps.remove(&state.object);
     new_deps.insert(state.object);
 
     Ok(())
 }
 
-pub fn on_keyboard_for_replace_parent_3d(
-    In(code): In<KeyCode>,
-) -> SelectionNodeResult {
+pub fn on_keyboard_for_replace_parent_3d(In(code): In<KeyCode>) -> SelectionNodeResult {
     if matches!(code, KeyCode::Escape) {
         // Simply exit the workflow if the user presses esc
         return Err(None);
