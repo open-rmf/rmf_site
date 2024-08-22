@@ -22,7 +22,6 @@ use crate::{
         SiteID, WorkcellModel,
     },
     widgets::canvas_tooltips::CanvasTooltips,
-    WorkspaceMarker,
 };
 use bevy::{ecs::system::SystemParam, prelude::Input as UserInput};
 use bevy_mod_raycast::deferred::RaycastSource;
@@ -30,17 +29,15 @@ use std::borrow::Cow;
 
 pub const PLACE_OBJECT_3D_MODE_LABEL: &'static str = "place_object_3d";
 
-pub fn spawn_place_object_3d_workflow(app: &mut App) -> Service<Option<Entity>, ()> {
+pub fn spawn_place_object_3d_workflow(
+    hover_service: Service<(), (), Hover>,
+    app: &mut App,
+) -> Service<Option<Entity>, ()> {
     let setup = app.spawn_service(place_object_3d_setup);
     let find_position = app.spawn_continuous_service(Update, place_object_3d_find_placement);
     let placement_chosen = app.spawn_service(on_placement_chosen_3d.into_blocking_service());
     let handle_key_code = app.spawn_service(on_keyboard_for_place_object_3d);
     let cleanup = app.spawn_service(place_object_3d_cleanup.into_blocking_service());
-    let hover_service = app.spawn_continuous_service(
-        Update,
-        hover_service::<PlaceObject3dFilter>
-            .configure(|config: SystemConfigs| config.in_set(SelectionServiceStages::Hover)),
-    );
     let selection_update = app.world.resource::<InspectorService>().selection_update;
     let keyboard_just_pressed = app
         .world
@@ -373,34 +370,11 @@ pub fn place_object_3d_find_placement(
 #[derive(SystemParam)]
 pub struct PlaceObject3dFilter<'w, 's> {
     inspect: InspectorFilter<'w, 's>,
-    frames: Query<'w, 's, (), With<FrameMarker>>,
-    workspaces: Query<'w, 's, (), With<WorkspaceMarker>>,
-    parents: Query<'w, 's, &'static Parent>,
     ignore: Query<'w, 's, (), Or<(With<Preview>, With<Pending>)>>,
     // We aren't using this in the filter functions, we're sneaking this query
     // into this system param to skirt around the 16-parameter limit for
     // place_object_3d_find_placement
     anchors: Query<'w, 's, (), With<Anchor>>,
-}
-
-impl<'w, 's> PlaceObject3dFilter<'w, 's> {
-    pub fn find_frame(&self, mut e: Entity) -> Option<Entity> {
-        loop {
-            if self.frames.contains(e) {
-                return Some(e);
-            }
-
-            if self.workspaces.contains(e) {
-                return Some(e);
-            }
-
-            if let Ok(parent) = self.parents.get(e) {
-                e = parent.get();
-            } else {
-                return None;
-            }
-        }
-    }
 }
 
 impl<'w, 's> SelectionFilter for PlaceObject3dFilter<'w, 's> {
@@ -472,7 +446,7 @@ pub fn on_placement_chosen_3d(
             if frames.contains(p) {
                 Some(p)
             } else {
-                // The selected parent is not a frame, so find the first ancestor
+                // The selected parent is not a frame, so find its first ancestor
                 // that contains a FrameMarker
                 AncestorIter::new(&parents, p).find(|e| frames.contains(*e))
             }
@@ -519,7 +493,7 @@ pub fn on_placement_chosen_3d(
         }
     };
 
-    commands.entity(id).set_parent(parent);
+    commands.get_entity(id).or_broken_query()?.set_parent(parent);
     if let Ok(mut deps) = dependents.get_mut(parent) {
         deps.insert(id);
     }
