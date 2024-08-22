@@ -167,8 +167,6 @@ pub fn replace_parent_3d_find_parent(
         return;
     };
 
-    tooltips.add(Cow::Borrowed("Select new parent"));
-
     let object = *order.request();
     for s in selected.read() {
         // Allow users to signal the choice of parent by means other than clicking
@@ -223,6 +221,12 @@ pub fn replace_parent_3d_find_parent(
         }
 
         hovered = Some(e);
+    }
+
+    if hovered.is_some() {
+        tooltips.add(Cow::Borrowed("Click to select this as the parent"));
+    } else if !ignore_click {
+        tooltips.add(Cow::Borrowed("Click to remove parent"));
     }
 
     if hovered != hovering.0 {
