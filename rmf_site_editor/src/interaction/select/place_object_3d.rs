@@ -18,8 +18,8 @@
 use crate::{
     interaction::select::*,
     site::{
-        Anchor, AnchorBundle, Dependents, FrameMarker, Model, NameInSite,
-        NameInWorkcell, Pending, SiteID, WorkcellModel,
+        Anchor, AnchorBundle, Dependents, FrameMarker, Model, NameInSite, NameInWorkcell, Pending,
+        SiteID, WorkcellModel,
     },
     widgets::canvas_tooltips::CanvasTooltips,
     WorkspaceMarker,
@@ -466,15 +466,18 @@ pub fn on_placement_chosen_3d(
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.pull().or_broken_state()?;
 
-    let parent = state.parent.and_then(|p|
-        if frames.contains(p) {
-            Some(p)
-        } else {
-            // The selected parent is not a frame, so find the first ancestor
-            // that contains a FrameMarker
-            AncestorIter::new(&parents, p).find(|e| frames.contains(*e))
-        }
-    ).unwrap_or(state.workspace);
+    let parent = state
+        .parent
+        .and_then(|p| {
+            if frames.contains(p) {
+                Some(p)
+            } else {
+                // The selected parent is not a frame, so find the first ancestor
+                // that contains a FrameMarker
+                AncestorIter::new(&parents, p).find(|e| frames.contains(*e))
+            }
+        })
+        .unwrap_or(state.workspace);
 
     let parent_tf = global_tfs.get(parent).or_broken_query()?;
     let inv_tf = parent_tf.affine().inverse();
