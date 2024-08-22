@@ -181,12 +181,9 @@ impl Plugin for InteractionPlugin {
                     (
                         make_lift_doormat_gizmo,
                         update_doormats_for_level_change,
-                        // update_cursor_transform,
                         update_picking_cam,
                         update_physical_light_visual_cues,
                         make_selectable_entities_pickable,
-                        // handle_select_anchor_mode.after(SelectionServiceStages::Select),
-                        // handle_select_anchor_3d_mode.after(SelectionServiceStages::Select),
                         update_anchor_visual_cues.after(SelectionServiceStages::Select),
                         update_popups.after(SelectionServiceStages::Select),
                         update_unassigned_anchor_cues,
