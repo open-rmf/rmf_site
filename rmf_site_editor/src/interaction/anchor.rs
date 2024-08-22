@@ -199,10 +199,11 @@ pub fn update_anchor_visual_cues(
     mut visibility: Query<&mut Visibility>,
     mut materials: Query<&mut Handle<StandardMaterial>>,
     deps: Query<&Dependents>,
-    cursor: Res<Cursor>,
+    mut cursor: ResMut<Cursor>,
     site_assets: Res<SiteAssets>,
     interaction_assets: Res<InteractionAssets>,
     debug_mode: Option<Res<DebugMode>>,
+    gizmo_blockers: Res<GizmoBlockers>,
 ) {
     for (
         a,
@@ -243,8 +244,10 @@ pub fn update_anchor_visual_cues(
                 .set_support_hovered(!hovered.support_hovering.is_empty());
         }
 
-        if hovered.is_hovered {
-            set_visibility(cursor.frame, &mut visibility, false);
+        if hovered.is_hovered && !gizmo_blockers.blocking() {
+            cursor.add_blocker(a, &mut visibility);
+        } else {
+            cursor.remove_blocker(a, &mut visibility);
         }
 
         if hovered.cue() && selected.cue() {

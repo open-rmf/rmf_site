@@ -296,11 +296,16 @@ pub fn place_object_3d_find_placement(
                     cursor.add_mode(PLACE_OBJECT_3D_MODE_LABEL, &mut visibility);
                     tooltips.add(Cow::Borrowed("Click to place"));
                     tooltips.add(Cow::Borrowed("+Shift: Project to parent frame"));
-                    intersection = Some(
-                        Transform::from_translation(i.position())
-                            .with_rotation(aligned_z_axis(i.normal())),
-                    );
-                    set_visibility(cursor.frame, &mut visibility, true);
+
+                    // Don't use the intersection with the parent if the parent
+                    // is an anchor because that results in silly orientations
+                    // which the user probably does not want.
+                    if !filter.anchors.contains(e) {
+                        intersection = Some(
+                            Transform::from_translation(i.position())
+                                .with_rotation(aligned_z_axis(i.normal())),
+                        );
+                    }
                     break;
                 }
             } else {
@@ -372,6 +377,10 @@ pub struct PlaceObject3dFilter<'w, 's> {
     workspaces: Query<'w, 's, (), With<WorkspaceMarker>>,
     parents: Query<'w, 's, &'static Parent>,
     ignore: Query<'w, 's, (), Or<(With<Preview>, With<Pending>)>>,
+    // We aren't using this in the filter functions, we're sneaking this query
+    // into this system param to skirt around the 16-parameter limit for
+    // place_object_3d_find_placement
+    anchors: Query<'w, 's, (), With<Anchor>>,
 }
 
 impl<'w, 's> PlaceObject3dFilter<'w, 's> {
@@ -466,7 +475,6 @@ pub fn on_placement_chosen_3d(
             AncestorIter::new(&parents, p).find(|e| frames.contains(*e))
         }
     ).unwrap_or(state.workspace);
-
 
     let parent_tf = global_tfs.get(parent).or_broken_query()?;
     let inv_tf = parent_tf.affine().inverse();

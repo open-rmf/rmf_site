@@ -278,7 +278,6 @@ pub fn update_model_scenes(
             // Avoid respawning if spurious change detection was triggered
             if current_scene.source != *source || current_scene.format != *tentative_format {
                 if let Some(scene_entity) = current_scene.entity {
-                    println!("CHANGING {e:?}");
                     commands.entity(scene_entity).set_parent(trashcan.0);
                     commands.entity(e).remove::<ModelSceneRoot>();
                 }
