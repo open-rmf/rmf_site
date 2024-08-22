@@ -18,8 +18,8 @@
 use crate::{
     interaction::select::*,
     site::{
-        Anchor, AnchorBundle, Dependents, FrameMarker, Model, NameInSite, NameInWorkcell, Pending,
-        Pose, SiteID, WorkcellModel,
+        Anchor, AnchorBundle, Dependents, FrameMarker, Model, NameInSite,
+        NameInWorkcell, Pending, SiteID, WorkcellModel,
     },
     widgets::canvas_tooltips::CanvasTooltips,
     WorkspaceMarker,
@@ -451,18 +451,27 @@ pub fn on_placement_chosen_3d(
     mut commands: Commands,
     mut dependents: Query<&mut Dependents>,
     global_tfs: Query<&GlobalTransform>,
+    parents: Query<&Parent>,
+    frames: Query<(), With<FrameMarker>>,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.pull().or_broken_state()?;
 
-    let pose: Pose = if let Some(parent) = state.parent {
-        let parent_tf = global_tfs.get(parent).or_broken_query()?;
-        let inv_tf = parent_tf.affine().inverse();
-        let placement_tf = placement.compute_affine();
-        Transform::from_matrix((inv_tf * placement_tf).into()).into()
-    } else {
-        placement.into()
-    };
+    let parent = state.parent.and_then(|p|
+        if frames.contains(p) {
+            Some(p)
+        } else {
+            // The selected parent is not a frame, so find the first ancestor
+            // that contains a FrameMarker
+            AncestorIter::new(&parents, p).find(|e| frames.contains(*e))
+        }
+    ).unwrap_or(state.workspace);
+
+
+    let parent_tf = global_tfs.get(parent).or_broken_query()?;
+    let inv_tf = parent_tf.affine().inverse();
+    let placement_tf = placement.compute_affine();
+    let pose = Transform::from_matrix((inv_tf * placement_tf).into()).into();
 
     let id = match state.object {
         PlaceableObject::Anchor => commands
@@ -499,13 +508,9 @@ pub fn on_placement_chosen_3d(
         }
     };
 
-    commands
-        .entity(id)
-        .set_parent(state.parent.unwrap_or(state.workspace));
-    if let Some(parent) = state.parent {
-        if let Ok(mut deps) = dependents.get_mut(parent) {
-            deps.insert(id);
-        }
+    commands.entity(id).set_parent(parent);
+    if let Ok(mut deps) = dependents.get_mut(parent) {
+        deps.insert(id);
     }
 
     Ok(())
