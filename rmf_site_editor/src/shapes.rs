@@ -876,7 +876,7 @@ pub(crate) fn make_physical_camera_mesh() -> Mesh {
     )
     .transform_by(
         Affine3A::from_translation([lens_hood_protrusion * scale, 0., 0.].into())
-            * Affine3A::from_rotation_y(-90_f32.to_radians())
+            * Affine3A::from_rotation_y(-(90_f32).to_radians())
             * Affine3A::from_rotation_z(45_f32.to_radians()),
     )
     .merge_into(&mut mesh);

@@ -75,6 +75,9 @@ pub use inspect_primitive_shape::*;
 pub mod inspect_measurement;
 pub use inspect_measurement::*;
 
+pub mod inspect_model_description;
+pub use inspect_model_description::*;
+
 pub mod inspect_motion;
 pub use inspect_motion::*;
 
@@ -98,6 +101,9 @@ pub use inspect_scale::*;
 
 pub mod inspect_side;
 pub use inspect_side::*;
+
+pub mod inspect_task;
+pub use inspect_task::*;
 
 pub mod inspect_texture;
 pub use inspect_texture::*;
@@ -178,6 +184,7 @@ impl Plugin for StandardInspectorPlugin {
         app.add_plugins(MinimalInspectorPlugin::default())
             .add_plugins((
                 InspectionPlugin::<InspectName>::new(),
+                InspectionPlugin::<InspectSelectedModelDescription>::new(),
                 InspectionPlugin::<InspectAnchor>::new(),
                 InspectionPlugin::<InspectAnchorDependents>::new(),
                 InspectionPlugin::<InspectEdge>::new(),
@@ -191,10 +198,11 @@ impl Plugin for StandardInspectorPlugin {
                 InspectionPlugin::<InspectMotion>::new(),
                 InspectionPlugin::<InspectPose>::new(),
                 InspectionPlugin::<InspectScale>::new(),
-                InspectionPlugin::<InspectLight>::new(),
                 // Reached the tuple limit
             ))
             .add_plugins((
+                InspectTaskPlugin::default(),
+                InspectionPlugin::<InspectLight>::new(),
                 InspectionPlugin::<InspectDoor>::new(),
                 InspectionPlugin::<InspectAssetSource>::new(),
                 InspectionPlugin::<InspectPrimitiveShape>::new(),
@@ -203,9 +211,18 @@ impl Plugin for StandardInspectorPlugin {
                 InspectionPlugin::<InspectJoint>::new(),
                 InspectionPlugin::<InspectMeasurement>::new(),
                 InspectionPlugin::<InspectPhysicalCameraProperties>::new(),
-                InspectLiftPlugin::default(),
-                InspectionPlugin::<InspectPreview>::new(),
                 InspectionPlugin::<InspectGroup>::new(),
+                InspectModelDescriptionPlugin::default(),
+                InspectLiftPlugin::default(),
+            ))
+            .add_plugins((
+                InspectModelPropertyPlugin::<InspectModelScale, Scale>::new("Scale".to_string()),
+                InspectModelPropertyPlugin::<InspectModelAssetSource, AssetSource>::new(
+                    "Source".to_string(),
+                ),
+                InspectModelPropertyPlugin::<InspectModelDifferentialDrive, DifferentialDrive>::new(
+                    "Differential Drve".to_string(),
+                ),
             ));
     }
 }
