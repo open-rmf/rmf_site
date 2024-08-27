@@ -18,8 +18,8 @@
 use bevy::prelude::*;
 use bevy_impulse::*;
 
-use crate::{site::CurrentLevel, interaction::select::*};
-use rmf_site_format::{Fiducial, Floor, Location, Path, Point, LevelElevation};
+use crate::{interaction::select::*, site::CurrentLevel};
+use rmf_site_format::{Fiducial, Floor, LevelElevation, Location, Path, Point};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Resource)]
 pub enum AnchorScope {
@@ -151,7 +151,10 @@ impl<'w, 's> AnchorSelection<'w, 's> {
     }
 
     pub fn create_walls(&mut self) {
-        self.create_edges_with_texture::<Wall<Entity>>(EdgeContinuity::Continuous, AnchorScope::General);
+        self.create_edges_with_texture::<Wall<Entity>>(
+            EdgeContinuity::Continuous,
+            AnchorScope::General,
+        );
     }
 
     pub fn create_door(&mut self) {
@@ -207,7 +210,9 @@ impl<'w, 's> AnchorSelection<'w, 's> {
     ) {
         let state = self
             .commands
-            .spawn(SelectorInput(CreateEdges::new_with_texture::<T>(continuity, scope)))
+            .spawn(SelectorInput(CreateEdges::new_with_texture::<T>(
+                continuity, scope,
+            )))
             .id();
 
         self.send(RunSelector {
@@ -536,9 +541,9 @@ pub struct AnchorFilter<'w, 's> {
 
 impl<'w, 's> SelectionFilter for AnchorFilter<'w, 's> {
     fn filter_pick(&mut self, select: Entity) -> Option<Entity> {
-        self.inspect.filter_pick(select).and_then(|e| {
-            self.filter_target(e)
-        })
+        self.inspect
+            .filter_pick(select)
+            .and_then(|e| self.filter_target(e))
     }
 
     fn filter_select(&mut self, target: Entity) -> Option<Entity> {
@@ -607,7 +612,7 @@ impl<'w, 's> SelectionFilter for AnchorFilter<'w, 's> {
     }
 }
 
-impl<'w, 's> AnchorFilter<'w ,'s> {
+impl<'w, 's> AnchorFilter<'w, 's> {
     fn filter_anchor(&mut self, target: Entity) -> Option<Entity> {
         if self.anchors.contains(target) {
             Some(target)

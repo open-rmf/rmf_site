@@ -291,13 +291,14 @@ pub fn update_fiducial_for_moved_anchors(
     for dependents in &changed_anchors {
         for dependent in dependents.iter() {
             if let Ok((e, point, mut tf)) = fiducials.get_mut(*dependent) {
-                let position = match anchors.point_in_parent_frame_of(point.0, Category::Fiducial, e) {
-                    Ok(position) => position,
-                    Err(err) => {
-                        error!("failed to update fiducial: {err}");
-                        continue;
-                    }
-                };
+                let position =
+                    match anchors.point_in_parent_frame_of(point.0, Category::Fiducial, e) {
+                        Ok(position) => position,
+                        Err(err) => {
+                            error!("failed to update fiducial: {err}");
+                            continue;
+                        }
+                    };
                 tf.translation = position;
             }
         }

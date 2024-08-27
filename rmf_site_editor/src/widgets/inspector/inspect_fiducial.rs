@@ -17,8 +17,8 @@
 
 use crate::{
     site::{
-        Affiliation, Change, FiducialGroup, FiducialMarker, FiducialUsage,
-        Group, NameInSite, NameOfSite,
+        Affiliation, Change, FiducialGroup, FiducialMarker, FiducialUsage, Group, NameInSite,
+        NameOfSite,
     },
     widgets::{prelude::*, Icons, Inspect, InspectionPlugin},
 };
@@ -99,7 +99,12 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectFiducial<'w, 's> {
             error!(
                 "Unable to find usage tracker for parent {:?} [{}] of fiducial {:?}",
                 parent.get(),
-                params.names.get(parent.get()).ok().map(|n| n.0.as_str()).unwrap_or("<name missing>"),
+                params
+                    .names
+                    .get(parent.get())
+                    .ok()
+                    .map(|n| n.0.as_str())
+                    .unwrap_or("<name missing>"),
                 selection,
             );
             return;
