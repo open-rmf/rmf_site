@@ -151,7 +151,7 @@ impl<'w, 's> AnchorSelection<'w, 's> {
     }
 
     pub fn create_walls(&mut self) {
-        self.create_edges::<Wall<Entity>>(EdgeContinuity::Continuous, AnchorScope::General);
+        self.create_edges_with_texture::<Wall<Entity>>(EdgeContinuity::Continuous, AnchorScope::General);
     }
 
     pub fn create_door(&mut self) {
@@ -192,6 +192,22 @@ impl<'w, 's> AnchorSelection<'w, 's> {
         let state = self
             .commands
             .spawn(SelectorInput(CreateEdges::new::<T>(continuity, scope)))
+            .id();
+
+        self.send(RunSelector {
+            selector: self.services.create_edges,
+            input: Some(state),
+        });
+    }
+
+    pub fn create_edges_with_texture<T: Bundle + From<Edge<Entity>>>(
+        &mut self,
+        continuity: EdgeContinuity,
+        scope: AnchorScope,
+    ) {
+        let state = self
+            .commands
+            .spawn(SelectorInput(CreateEdges::new_with_texture::<T>(continuity, scope)))
             .id();
 
         self.send(RunSelector {

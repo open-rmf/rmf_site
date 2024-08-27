@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::*,
-    site::{ChangeDependent, Pending},
+    site::{ChangeDependent, Pending, TextureNeedsAssignment},
 };
 use bevy::prelude::*;
 use bevy_impulse::*;
@@ -67,6 +67,18 @@ impl CreateEdges {
         }
     }
 
+    pub fn new_with_texture<T: Bundle + From<Edge<Entity>>>(
+        continuity: EdgeContinuity,
+        scope: AnchorScope,
+    ) -> Self {
+        Self {
+            spawn_edge: create_edge_with_texture::<T>,
+            preview_edge: None,
+            continuity,
+            scope,
+        }
+    }
+
     pub fn initialize_preview(&mut self, anchor: Entity, commands: &mut Commands) {
         let edge = Edge::new(anchor, anchor);
         let edge = (self.spawn_edge)(edge, commands);
@@ -92,6 +104,16 @@ fn create_edge<T: Bundle + From<Edge<Entity>>>(
 ) -> Entity {
     let new_bundle: T = edge.into();
     commands.spawn((new_bundle, Pending)).id()
+}
+
+fn create_edge_with_texture<T: Bundle + From<Edge<Entity>>>(
+    edge: Edge<Entity>,
+    commands: &mut Commands,
+) -> Entity {
+    let new_bundle: T = edge.into();
+    commands
+        .spawn((new_bundle, TextureNeedsAssignment, Pending))
+        .id()
 }
 
 #[derive(Clone, Copy)]

@@ -80,7 +80,6 @@ pub struct InspectFiducial<'w, 's> {
     commands: Commands<'w, 's>,
     change_affiliation: EventWriter<'w, Change<Affiliation<Entity>>>,
     names: Query<'w, 's, &'static NameInSite>,
-    name_of_site: Query<'w, 's, &'static NameOfSite>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectFiducial<'w, 's> {

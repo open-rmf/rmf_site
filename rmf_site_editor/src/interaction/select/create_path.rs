@@ -220,12 +220,14 @@ pub fn on_select_for_create_path(
         }
     }
 
-    if let Some(second_to_last) = path_mut.0.get(path_mut.0.len() - 2) {
-        if *second_to_last == chosen {
-            // Even if inner loops are allowed, we should never allow the same
-            // anchor to be chosen twice in a row.
-            warn!("Trying to select the same anchor for a path twice in a row");
-            return Ok(());
+    if path_mut.0.len() >= 2 {
+        if let Some(second_to_last) = path_mut.0.get(path_mut.0.len() - 2) {
+            if *second_to_last == chosen {
+                // Even if inner loops are allowed, we should never allow the same
+                // anchor to be chosen twice in a row.
+                warn!("Trying to select the same anchor for a path twice in a row");
+                return Ok(());
+            }
         }
     }
 
