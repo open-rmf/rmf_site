@@ -266,9 +266,13 @@ pub fn update_changed_fiducial(
     anchors: AnchorParams,
 ) {
     for (e, point, mut tf) in fiducials.iter_mut() {
-        let position = anchors
-            .point_in_parent_frame_of(point.0, Category::Fiducial, e)
-            .unwrap();
+        let position = match anchors.point_in_parent_frame_of(point.0, Category::Fiducial, e) {
+            Ok(position) => position,
+            Err(err) => {
+                error!("failed to update fiducial: {err}");
+                return;
+            }
+        };
         tf.translation = position;
     }
 }
@@ -287,9 +291,13 @@ pub fn update_fiducial_for_moved_anchors(
     for dependents in &changed_anchors {
         for dependent in dependents.iter() {
             if let Ok((e, point, mut tf)) = fiducials.get_mut(*dependent) {
-                let position = anchors
-                    .point_in_parent_frame_of(point.0, Category::Fiducial, e)
-                    .unwrap();
+                let position = match anchors.point_in_parent_frame_of(point.0, Category::Fiducial, e) {
+                    Ok(position) => position,
+                    Err(err) => {
+                        error!("failed to update fiducial: {err}");
+                        continue;
+                    }
+                };
                 tf.translation = position;
             }
         }

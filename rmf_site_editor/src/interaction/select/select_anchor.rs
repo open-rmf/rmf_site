@@ -18,8 +18,8 @@
 use bevy::prelude::*;
 use bevy_impulse::*;
 
-use crate::interaction::select::*;
-use rmf_site_format::{Fiducial, Floor, Location, Path, Point};
+use crate::{site::CurrentLevel, interaction::select::*};
+use rmf_site_format::{Fiducial, Floor, Location, Path, Point, LevelElevation};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Resource)]
 pub enum AnchorScope {
@@ -407,6 +407,7 @@ pub fn anchor_selection_setup<State: Borrow<AnchorScope>>(
     mut current_anchor_scope: ResMut<AnchorScope>,
     mut cursor: ResMut<Cursor>,
     mut highlight: ResMut<HighlightAnchors>,
+    mut gizmo_blockers: ResMut<GizmoBlockers>,
 ) -> SelectionNodeResult
 where
     State: 'static + Send + Sync,
@@ -436,6 +437,7 @@ where
     }
 
     highlight.0 = true;
+    gizmo_blockers.selecting = true;
 
     *current_anchor_scope = *scope;
 
@@ -453,6 +455,7 @@ pub fn cleanup_anchor_selection(
     mut hidden_anchors: ResMut<HiddenSelectAnchorEntities>,
     mut anchor_scope: ResMut<AnchorScope>,
     mut highlight: ResMut<HighlightAnchors>,
+    mut gizmo_blockers: ResMut<GizmoBlockers>,
 ) {
     cursor.remove_mode(SELECT_ANCHOR_MODE_LABEL, &mut visibility);
     set_visibility(cursor.site_anchor_placement, &mut visibility, false);
@@ -462,6 +465,7 @@ pub fn cleanup_anchor_selection(
     }
 
     highlight.0 = false;
+    gizmo_blockers.selecting = false;
 
     *anchor_scope = AnchorScope::General;
 }
@@ -509,29 +513,24 @@ pub struct AnchorFilter<'w, 's> {
     commands: Commands<'w, 's>,
     current_drawing: Res<'w, CurrentEditDrawing>,
     drawings: Query<'w, 's, &'static PixelsPerMeter, With<DrawingMarker>>,
+    parents: Query<'w, 's, &'static Parent>,
+    levels: Query<'w, 's, (), With<LevelElevation>>,
+    current_level: Res<'w, CurrentLevel>,
 }
 
 impl<'w, 's> SelectionFilter for AnchorFilter<'w, 's> {
     fn filter_pick(&mut self, select: Entity) -> Option<Entity> {
         self.inspect.filter_pick(select).and_then(|e| {
-            if self.anchors.contains(e) {
-                Some(e)
-            } else {
-                None
-            }
+            self.filter_target(e)
         })
     }
 
     fn filter_select(&mut self, target: Entity) -> Option<Entity> {
-        if self.anchors.contains(target) {
-            Some(target)
-        } else {
-            None
-        }
+        self.filter_target(target)
     }
 
     fn on_click(&mut self, hovered: Hover) -> Option<Select> {
-        if let Some(candidate) = hovered.0 {
+        if let Some(candidate) = hovered.0.and_then(|e| self.filter_target(e)) {
             return Some(Select::new(Some(candidate)));
         }
 
@@ -577,13 +576,69 @@ impl<'w, 's> SelectionFilter for AnchorFilter<'w, 's> {
                     .id()
             }
             AnchorScope::General => {
-                // TODO(@mxgrey): Consider putting the anchor directly into the
-                // current level instead of relying on orphan behavior
-                self.commands.spawn(AnchorBundle::at_transform(tf)).id()
+                let Some(level) = self.current_level.0 else {
+                    error!("No current level selected to place the anchor");
+                    return None;
+                };
+                self.commands
+                    .spawn(AnchorBundle::at_transform(tf))
+                    .set_parent(level)
+                    .id()
             }
         };
 
         Some(Select::provisional(new_anchor))
+    }
+}
+
+impl<'w, 's> AnchorFilter<'w ,'s> {
+    fn filter_anchor(&mut self, target: Entity) -> Option<Entity> {
+        if self.anchors.contains(target) {
+            Some(target)
+        } else {
+            None
+        }
+    }
+
+    fn filter_scope(&mut self, target: Entity) -> Option<Entity> {
+        let parent = match self.parents.get(target) {
+            Ok(parent) => parent.get(),
+            Err(err) => {
+                error!("Unable to detect parent for target anchor {target:?}: {err}");
+                return None;
+            }
+        };
+
+        match &*self.anchor_scope {
+            AnchorScope::General => {
+                let is_site = self.open_sites.contains(parent);
+                let is_level = self.levels.contains(parent);
+                if is_site || is_level {
+                    Some(target)
+                } else {
+                    None
+                }
+            }
+            AnchorScope::Site => {
+                if self.open_sites.contains(parent) {
+                    Some(target)
+                } else {
+                    None
+                }
+            }
+            AnchorScope::Drawing => {
+                if self.drawings.contains(parent) {
+                    Some(target)
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
+    fn filter_target(&mut self, target: Entity) -> Option<Entity> {
+        self.filter_anchor(target)
+            .and_then(|target| self.filter_scope(target))
     }
 }
 
