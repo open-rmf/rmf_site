@@ -114,7 +114,7 @@ impl Plugin for SelectPlugin {
 
         let inspector_service = app.world.resource::<InspectorService>().inspector_service;
         let new_selector_service = app.spawn_event_streaming_service::<RunSelector>(Update);
-        let select_workflow = app.world.spawn_io_workflow(build_select_workflow(
+        let select_workflow = app.world.spawn_io_workflow(build_selection_workflow(
             inspector_service,
             new_selector_service,
         ));
@@ -126,7 +126,8 @@ impl Plugin for SelectPlugin {
     }
 }
 
-pub fn build_select_workflow(
+/// This builder function creates the high-level selection
+pub fn build_selection_workflow(
     inspector_service: Service<(), ()>,
     new_selector_service: Service<(), (), StreamOf<RunSelector>>,
 ) -> impl FnOnce(Scope<(), ()>, &mut Builder) -> DeliverySettings {
@@ -474,12 +475,24 @@ impl Plugin for InspectorServicePlugin {
                 .configure(|config: SystemConfigs| config.in_set(SelectionServiceStages::Pick)),
         );
         let selection_update = app.spawn_service(selection_update);
+        let keyboard_just_pressed = app
+            .world
+            .resource::<KeyboardServices>()
+            .keyboard_just_pressed;
 
         let inspector_service = app.world.spawn_workflow(|scope, builder| {
             let fork_input = scope.input.fork_clone(builder);
             fork_input
                 .clone_chain(builder)
                 .then(inspector_cursor_transform)
+                .unused();
+            let keyboard = fork_input
+                .clone_chain(builder)
+                .then_node(keyboard_just_pressed);
+            keyboard.streams
+                .chain(builder)
+                .inner()
+                .then(deselect_on_esc.into_blocking_callback())
                 .unused();
             let selection = fork_input
                 .clone_chain(builder)
@@ -499,6 +512,15 @@ impl Plugin for InspectorServicePlugin {
             inspector_cursor_transform,
             selection_update,
         });
+    }
+}
+
+pub fn deselect_on_esc(
+    In(code): In<KeyCode>,
+    mut select: EventWriter<Select>,
+) {
+    if matches!(code, KeyCode::Escape) {
+        select.send(Select::new(None));
     }
 }
 
