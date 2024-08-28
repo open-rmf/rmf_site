@@ -486,10 +486,10 @@ impl Plugin for InspectorServicePlugin {
                 .clone_chain(builder)
                 .then(inspector_cursor_transform)
                 .unused();
-            let keyboard = fork_input
+            fork_input
                 .clone_chain(builder)
-                .then_node(keyboard_just_pressed);
-            keyboard.streams
+                .then_node(keyboard_just_pressed)
+                .streams
                 .chain(builder)
                 .inner()
                 .then(deselect_on_esc.into_blocking_callback())
