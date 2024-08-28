@@ -70,9 +70,9 @@ pub use select_anchor::*;
 pub const SELECT_ANCHOR_MODE_LABEL: &'static str = "select_anchor";
 
 #[derive(Default)]
-pub struct SelectPlugin {}
+pub struct SelectionPlugin {}
 
-impl Plugin for SelectPlugin {
+impl Plugin for SelectionPlugin {
     fn build(&self, app: &mut App) {
         app.configure_sets(
             Update,
@@ -114,31 +114,69 @@ impl Plugin for SelectPlugin {
 
         let inspector_service = app.world.resource::<InspectorService>().inspector_service;
         let new_selector_service = app.spawn_event_streaming_service::<RunSelector>(Update);
-        let select_workflow = app.world.spawn_io_workflow(build_selection_workflow(
+        let selection_workflow = app.world.spawn_io_workflow(build_selection_workflow(
             inspector_service,
             new_selector_service,
         ));
 
         // Get the selection workflow running
         app.world.command(|commands| {
-            commands.request((), select_workflow).detach();
+            commands.request((), selection_workflow).detach();
         });
     }
 }
 
-/// This builder function creates the high-level selection
+/// This builder function creates the high-level workflow that manages "selection"
+/// behavior, which is largely driven by mouse interactions. "Selection" behaviors
+/// determine how the application responds to the mouse cursor hovering over
+/// objects in the scene and what happens when the mouse is clicked.
+///
+/// The default selection behavior is the "inspector" service which allows the
+/// user to select objects in the scene so that their properties get displayed
+/// in the inspector panel. The inspector service will automatically be run by
+/// this workflow at startup.
+///
+/// When the user asks for some other type of mouse interaction to begin, such as
+/// drawing walls and floors, or placing models in the scene, this workflow will
+/// "trim" (stop) the inspector workflow and inject the new requested interaction
+/// mode into the workflow. The requested interaction mode is represented by a
+/// service specified by the `selector` field of [`RunSelector`]. When that
+/// service terminates, this workflow will resume running the inspector service
+/// until the user requests some other mouse interaction service to run.
+///
+/// In most cases downstream users will not need to call this function since the
+/// [`SelectionPlugin`] will use this to build and run the default selection
+/// workflow. If you are not using the [`SelectionPlugin`] that we provide and
+/// want to customize the inspector service, then you could use this to build a
+/// customized selection workflow by passingin a custom inspector service.
 pub fn build_selection_workflow(
     inspector_service: Service<(), ()>,
     new_selector_service: Service<(), (), StreamOf<RunSelector>>,
 ) -> impl FnOnce(Scope<(), ()>, &mut Builder) -> DeliverySettings {
     move |scope, builder| {
+        // This creates a service that will listen to run_service_buffer.
+        // The job of this service is to atomically pull the most recent item
+        // out of the buffer and also close the buffer gate to ensure that we
+        // never have multiple selector services racing to be injected. If we
+        // don't bother to close the gate after pulling exactly one selection
+        // service, then it's theoretically possible for multiple selection
+        // services to get simultaneously injected after the trim operation
+        // finishes.
         let process_new_selector_service = builder
             .commands()
             .spawn_service(process_new_selector.into_blocking_service());
 
+        // The run_service_buffer queues up the most recent RunSelector request
+        // sent in by the user. That request will be held in this buffer while
+        // we wait for any ongoing mouse interaction services to cleanly exit
+        // after we trigger the trim operation.
         let run_service_buffer = builder.create_buffer::<RunSelector>(BufferSettings::keep_last(1));
         let input = scope.input.fork_clone(builder);
+        // Run the default inspector service
         let inspector = input.clone_chain(builder).then_node(inspector_service);
+
+        // Create a node that reads RunSelector events from the world and streams
+        // them into the workflow.
         let new_selector_node = input.clone_chain(builder).then_node(new_selector_service);
         builder.connect(new_selector_node.output, scope.terminate);
         new_selector_node
@@ -148,15 +186,24 @@ pub fn build_selection_workflow(
             .connect(run_service_buffer.input_slot());
 
         let open_gate = builder.create_gate_open(run_service_buffer);
+        // Create an operation that trims the gate opening operation, the injected
+        // selector service, and the default inspector service.
         let trim = builder.create_trim([TrimBranch::between(open_gate.input, inspector.input)]);
         builder.connect(trim.output, open_gate.input);
 
+        // Create a sequence where we listen for updates in the run service buffer,
+        // then pull an item out of the buffer (if available), then begin the
+        // trim of all ongoing selection services, then opening the gate of the
+        // buffer to allow new selection services to be started.
         builder
             .listen(run_service_buffer)
             .then(process_new_selector_service)
             .dispose_on_none()
             .connect(trim.input);
 
+        // After we open the gate it is safe to inject the user-requested selecion
+        // service. Once that service finishes, we will trigger the inspector to
+        // resume.
         open_gate
             .output
             .chain(builder)
@@ -165,6 +212,7 @@ pub fn build_selection_workflow(
             .trigger()
             .connect(inspector.input);
 
+        // This workflow only makes sense to run in serial.
         DeliverySettings::Serial
     }
 }
@@ -515,10 +563,7 @@ impl Plugin for InspectorServicePlugin {
     }
 }
 
-pub fn deselect_on_esc(
-    In(code): In<KeyCode>,
-    mut select: EventWriter<Select>,
-) {
+pub fn deselect_on_esc(In(code): In<KeyCode>, mut select: EventWriter<Select>) {
     if matches!(code, KeyCode::Escape) {
         select.send(Select::new(None));
     }

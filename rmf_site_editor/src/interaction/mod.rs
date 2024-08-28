@@ -175,7 +175,7 @@ impl Plugin for InteractionPlugin {
             .add_plugins((CameraControlsPlugin, ModelPreviewPlugin));
 
         if !self.headless {
-            app.add_plugins(SelectPlugin::default())
+            app.add_plugins(SelectionPlugin::default())
                 .add_systems(
                     Update,
                     (

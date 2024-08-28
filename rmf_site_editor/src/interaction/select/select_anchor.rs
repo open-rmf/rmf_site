@@ -309,10 +309,49 @@ pub struct HiddenSelectAnchorEntities {
 }
 
 /// The first five services should be customized for the State data. The services
-/// that return NodeResult should return `Ok(())` if it is okay for the
+/// that return [`SelectionNodeResult`] should return `Ok(())` if it is okay for the
 /// workflow to continue as normal, and they should return `Err(None)` if it's
 /// time for the workflow to terminate as normal. If the workflow needs to
 /// terminate because of an error, return `Err(Some(_))`.
+///
+/// In most cases you should use [`AnchorSelectionHelpers::spawn_anchor_selection_workflow`]
+/// instead of running this function yourself directly, unless you know that you
+/// need to customize the last four services.
+///
+/// * `anchor_setup`: This is run once at the start of the workflow to prepare the
+///   world to select anchors from the right kind of scope for the request. This
+///   is usually just [`anchor_selection_setup`] instantiated for the right type
+///   of state.
+/// * `state_setup`: This is for any additional custom setup that is relevant to
+///   the state information for your selection workflow. This gets run exactly once
+///   immediately after `anchor_setup`
+/// * `update_preview`: This is run each time a [`Hover`] signal arrives. This
+///   is where you should put the logic to update the preview that's being displayed
+///   for users.
+/// * `update_current`: This is run each time a [`Select`] signal containing `Some`
+///   value is sent. This is where you should put the logic to make a persistent
+///   (rather than just a preview) modification to the world.
+/// * `handle_key_code`: This is where you should put the logic for how your
+///   workflow responds to various key codes. For example, should the workflow
+///   exit?
+/// * `cleanup_state`: This is where you should run anything that's needed to
+///   clean up the state of the world after your workflow is finished running.
+///   This will be run no matter whether your workflow terminates with a success,
+///   terminates with a failure, or cancels prematurely.
+///
+/// ### The remaining parameters can all be provided by [`AnchorSelectionHelpers`] in most cases:
+///
+/// * `anchor_cursor_transform`: This service should update the 3D cursor transform.
+///   A suitable service for this is available from [`AnchorSelectionHelpers`].
+/// * `anchor_select_stream`: This service should produce the [`Hover`] and [`Select`]
+///   streams that hook into `update_preview` and `update_current` respectively.
+///   A suitable service for this is provided by [`AnchorSelectionHelpers`].
+/// * `keyobard_just_pressed`: This service should produce [`KeyCode`] streams
+///   when the keyboard gets pressed. A suitable service for this is provided by
+///   [`AnchorSelectionHelpers`].
+/// * `cleanup_anchor_selection`: This service will run during the cleanup phase
+///   and should cleanup any anchor-related modifications to the world. A suitable
+///   service for this is provided by [`AnchorSelectionHelpers`].
 pub fn build_anchor_selection_workflow<State: 'static + Send + Sync>(
     anchor_setup: Service<BufferKey<State>, SelectionNodeResult>,
     state_setup: Service<BufferKey<State>, SelectionNodeResult>,
