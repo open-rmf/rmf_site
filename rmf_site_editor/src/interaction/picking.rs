@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{interaction::*, CurrentWorkspace};
+use crate::interaction::*;
 use bevy::prelude::*;
 use bevy_mod_raycast::{deferred::RaycastSource, immediate::RaycastVisibility};
 

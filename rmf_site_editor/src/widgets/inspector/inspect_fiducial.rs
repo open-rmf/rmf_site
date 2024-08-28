@@ -17,8 +17,8 @@
 
 use crate::{
     site::{
-        Affiliation, Change, FiducialGroup, FiducialMarker, FiducialUsage, Group, NameInSite,
-        NameOfSite,
+        Affiliation, Change, FiducialGroup, FiducialMarker, FiducialUsage, Group,
+        NameInSite,
     },
     widgets::{prelude::*, Icons, Inspect, InspectionPlugin},
 };

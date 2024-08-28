@@ -21,12 +21,9 @@ use crate::{
     site::{AnchorBundle, Pending, SiteAssets, Trashcan},
 };
 use bevy::{ecs::system::SystemParam, prelude::*, window::PrimaryWindow};
-use bevy_mod_raycast::{
-    deferred::RaycastMesh,
-    primitives::{rays::Ray3d, Primitive3d},
-};
+use bevy_mod_raycast::primitives::{rays::Ray3d, Primitive3d};
 
-use rmf_site_format::{FloorMarker, Model, ModelMarker, WallMarker, WorkcellModel};
+use rmf_site_format::{FloorMarker, Model, WallMarker, WorkcellModel};
 use std::collections::HashSet;
 
 /// A resource that keeps track of the unique entities that play a role in

@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    interaction::{DragPlaneBundle, Preview, Selectable, VisualCue, MODEL_PREVIEW_LAYER},
+    interaction::{DragPlaneBundle, Preview, Selectable, MODEL_PREVIEW_LAYER},
     site::{Category, Dependents, PreventDeletion, SiteAssets},
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
 };

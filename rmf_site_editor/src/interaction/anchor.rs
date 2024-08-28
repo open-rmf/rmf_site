@@ -125,7 +125,7 @@ pub fn move_anchor(
 }
 
 pub fn update_anchor_proximity_xray(
-    mut anchors: Query<(Entity, &GlobalTransform, &mut VisualCue), With<Anchor>>,
+    mut anchors: Query<(&GlobalTransform, &mut VisualCue), With<Anchor>>,
     intersect_ground_params: IntersectGroundPlaneParams,
     cursor_moved: EventReader<CursorMoved>,
 ) {
@@ -138,8 +138,8 @@ pub fn update_anchor_proximity_xray(
         None => return,
     };
 
-    for (e, anchor_tf, mut cue) in &mut anchors {
-        // TODO(MXG): Make the proximity range configurable
+    for (anchor_tf, mut cue) in &mut anchors {
+        // TODO(@mxgrey): Make the proximity range configurable
         let proximity = {
             // We make the xray effect a little "sticky" so that there isn't an
             // ugly flicker for anchors that are right at the edge of the

@@ -31,7 +31,7 @@ pub mod display_color;
 pub use display_color::*;
 
 pub mod drawing_editor;
-pub use drawing_editor::*;
+pub use drawing_editor::{*, alignment};
 
 pub mod door;
 pub use door::*;
@@ -118,8 +118,8 @@ pub mod wall;
 pub use wall::*;
 
 use crate::recency::{RecencyRank, RecencyRankingPlugin};
-use crate::{clear_old_issues_on_new_validate_event, AppState, RegisterIssueType};
-pub use rmf_site_format::*;
+use crate::{AppState, RegisterIssueType};
+pub use rmf_site_format::{*, Style, PointLight, SpotLight, DirectionalLight};
 
 use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
 
