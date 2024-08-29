@@ -767,7 +767,7 @@ dependencies = [
 [[package]]
 name = "bevy_impulse"
 version = "0.0.1"
-source = "git+https://github.com/open-rmf/bevy_impulse?branch=main#3e681a91033427c5ae24995f4e53d19f656f278f"
+source = "git+https://github.com/open-rmf/bevy_impulse?branch=main#2d86d5c58aaf18e5c9be933d3c5155ce1dc80dcc"
 dependencies = [
  "anyhow",
  "arrayvec",
@@ -778,14 +778,24 @@ dependencies = [
  "bevy_derive",
  "bevy_ecs",
  "bevy_hierarchy",
+ "bevy_impulse_derive",
  "bevy_tasks",
  "bevy_time",
  "bevy_utils",
- "crossbeam",
  "futures",
  "itertools",
  "smallvec",
  "thiserror",
+ "tokio",
+]
+
+[[package]]
+name = "bevy_impulse_derive"
+version = "0.0.1"
+source = "git+https://github.com/open-rmf/bevy_impulse?branch=main#2d86d5c58aaf18e5c9be933d3c5155ce1dc80dcc"
+dependencies = [
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -1844,19 +1854,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7059fff8937831a9ae6f0fe4d658ffabf58f2ca96aa9dec1c889f936f705f216"
 
 [[package]]
-name = "crossbeam"
-version = "0.8.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1137cd7e7fc0fb5d3c5a8678be38ec56e819125d8d7907411fe24ccb943faca8"
-dependencies = [
- "crossbeam-channel",
- "crossbeam-deque",
- "crossbeam-epoch",
- "crossbeam-queue",
- "crossbeam-utils",
-]
-
-[[package]]
 name = "crossbeam-channel"
 version = "0.5.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1880,15 +1877,6 @@ name = "crossbeam-epoch"
 version = "0.9.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b82ac4a3c2ca9c3460964f020e1402edd5753411d7737aa39c3714ad1b5420e"
-dependencies = [
- "crossbeam-utils",
-]
-
-[[package]]
-name = "crossbeam-queue"
-version = "0.3.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df0346b5d5e76ac2fe4e327c5fd1118d6be7c51dfb18f9b7922923f287471e35"
 dependencies = [
  "crossbeam-utils",
 ]
@@ -4321,6 +4309,7 @@ dependencies = [
 name = "rmf_site_editor"
 version = "0.0.1"
 dependencies = [
+ "anyhow",
  "bevy",
  "bevy_egui",
  "bevy_gltf_export",
@@ -4946,6 +4935,16 @@ checksum = "5f7ca3ec0405b0f2f95e0dbcced28882190dc79b0dac63ff82533d256d770223"
 dependencies = [
  "ahash",
  "log",
+]
+
+[[package]]
+name = "tokio"
+version = "1.39.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "daa4fb1bc778bd6f04cbfc4bb2d06a7396a8f299dc33ea1900cedaa316f467b1"
+dependencies = [
+ "backtrace",
+ "pin-project-lite",
 ]
 
 [[package]]

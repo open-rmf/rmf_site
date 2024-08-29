@@ -16,9 +16,10 @@
 */
 
 use crate::{
-    interaction::{ChangeMode, Hover, SelectAnchor3D},
+    interaction::{Hover, ObjectPlacement},
     site::{FrameMarker, MeshConstraint, NameInWorkcell, NameOfWorkcell},
     widgets::{prelude::*, Icons, Inspect, SelectorWidget},
+    CurrentWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{ImageButton, Ui};
@@ -39,7 +40,8 @@ pub struct InspectWorkcellParent<'w, 's> {
     mesh_constraints: Query<'w, 's, &'static MeshConstraint<Entity>>,
     icons: Res<'w, Icons>,
     selector: SelectorWidget<'w, 's>,
-    change_mode: ResMut<'w, Events<ChangeMode>>,
+    object_placement: ObjectPlacement<'w, 's>,
+    current_workspace: Res<'w, CurrentWorkspace>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectWorkcellParent<'w, 's> {
@@ -78,9 +80,11 @@ impl<'w, 's> InspectWorkcellParent<'w, 's> {
                 assign_response.on_hover_text("Reassign");
 
                 if parent_replace {
-                    let request =
-                        SelectAnchor3D::replace_point(id, parent).for_anchor(Some(parent));
-                    self.change_mode.send(ChangeMode::To(request.into()));
+                    if let Some(workspace) = self.current_workspace.root {
+                        self.object_placement.replace_parent_3d(id, workspace)
+                    } else {
+                        warn!("Cannot replace a parent when no workspace is active");
+                    }
                 }
             });
         }

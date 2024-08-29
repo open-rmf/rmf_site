@@ -76,6 +76,7 @@ pub struct InspectFiducial<'w, 's> {
     search_for_fiducial: ResMut<'w, SearchForFiducial>,
     commands: Commands<'w, 's>,
     change_affiliation: EventWriter<'w, Change<Affiliation<Entity>>>,
+    names: Query<'w, 's, &'static NameInSite>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectFiducial<'w, 's> {
@@ -92,6 +93,17 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectFiducial<'w, 's> {
             return;
         };
         let Ok(tracker) = params.usage.get(parent.get()) else {
+            error!(
+                "Unable to find usage tracker for parent {:?} [{}] of fiducial {:?}",
+                parent.get(),
+                params
+                    .names
+                    .get(parent.get())
+                    .ok()
+                    .map(|n| n.0.as_str())
+                    .unwrap_or("<name missing>"),
+                selection,
+            );
             return;
         };
 
