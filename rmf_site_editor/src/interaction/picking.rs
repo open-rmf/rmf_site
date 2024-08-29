@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{interaction::*, site::Anchor, CurrentWorkspace};
+use crate::interaction::*;
 use bevy::prelude::*;
 use bevy_mod_raycast::{deferred::RaycastSource, immediate::RaycastVisibility};
 
@@ -45,7 +45,14 @@ impl Default for PickingBlockers {
 
 /// Keep track of what entity is currently picked by the cursor
 #[derive(Debug, Clone, Copy, Default, Resource)]
-pub struct Picked(pub Option<Entity>);
+pub struct Picked {
+    /// This is the currently picked entity (if anything)
+    pub current: Option<Entity>,
+    /// This indicates that a workflow wants the current pick to be refreshed
+    /// even if it hasn't changed. If this is true, we will send a ChangePick
+    /// event on the next cycle.
+    pub refresh: bool,
+}
 
 #[derive(Debug, Clone, Copy, Default, Event)]
 pub struct ChangePick {
@@ -84,69 +91,45 @@ pub fn update_picking_cam(
 fn pick_topmost(
     picks: impl Iterator<Item = Entity>,
     selectable: &Query<&Selectable>,
-    anchors: &Query<&Parent, (With<Anchor>, Without<Preview>)>,
-    mode: &Res<InteractionMode>,
-    current_site: Entity,
 ) -> Option<Entity> {
     for topmost_entity in picks {
-        match &**mode {
-            InteractionMode::SelectAnchor(request) => {
-                if let Ok(sel) = selectable.get(topmost_entity) {
-                    if sel.is_selectable {
-                        if let Ok(parent) = anchors.get(sel.element) {
-                            if request.site_scope() && parent.get() != current_site {
-                                continue;
-                            }
-                        } else {
-                            continue;
-                        }
-                    } else {
-                        continue;
-                    }
-                } else {
-                    continue;
-                }
+        if let Ok(sel) = selectable.get(topmost_entity) {
+            if !sel.is_selectable {
+                continue;
             }
-            _ => {
-                // Do nothing
-            }
+        } else {
+            continue;
         }
+
         return Some(topmost_entity);
     }
 
     return None;
 }
 
+// TODO(@mxgrey): Consider making this a service similar to hover_service and select_service
 pub fn update_picked(
-    mode: Res<InteractionMode>,
     selectable: Query<&Selectable>,
-    anchors: Query<&Parent, (With<Anchor>, Without<Preview>)>,
     blockers: Option<Res<PickingBlockers>>,
     pick_source_query: Query<&RaycastSource<SiteRaycastSet>>,
     visual_cues: Query<&ComputedVisualCue>,
     mut picked: ResMut<Picked>,
     mut change_pick: EventWriter<ChangePick>,
-    current_workspace: Res<CurrentWorkspace>,
 ) {
     if let Some(blockers) = blockers {
         if blockers.blocking() {
             // If picking is masked, then nothing should be picked
-            if picked.0.is_some() {
+            if picked.current.is_some() {
                 change_pick.send(ChangePick {
-                    from: picked.0,
+                    from: picked.current,
                     to: None,
                 });
-                picked.as_mut().0 = None;
+                picked.current = None;
             }
 
             return;
         }
     }
-
-    let current_site = match current_workspace.root {
-        Some(current_site) => current_site,
-        None => return,
-    };
 
     let current_picked = 'current_picked: {
         for pick_source in &pick_source_query {
@@ -164,21 +147,12 @@ pub fn update_picked(
                     })
                     .map(|(e, _)| *e),
                 &selectable,
-                &anchors,
-                &mode,
-                current_site,
             ) {
                 break 'current_picked Some(topmost);
             }
 
             // Now look at all possible pickables
-            if let Some(topmost) = pick_topmost(
-                picks.iter().map(|(e, _)| *e),
-                &selectable,
-                &anchors,
-                &mode,
-                current_site,
-            ) {
+            if let Some(topmost) = pick_topmost(picks.iter().map(|(e, _)| *e), &selectable) {
                 break 'current_picked Some(topmost);
             }
         }
@@ -186,11 +160,16 @@ pub fn update_picked(
         None
     };
 
-    if picked.0 != current_picked {
+    let refresh = picked.refresh;
+    if refresh {
+        picked.refresh = false;
+    }
+
+    if picked.current != current_picked || refresh {
         change_pick.send(ChangePick {
-            from: picked.0,
+            from: picked.current,
             to: current_picked,
         });
-        picked.as_mut().0 = current_picked;
+        picked.current = current_picked;
     }
 }

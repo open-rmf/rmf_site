@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    interaction::{ChangeMode, SelectAnchor},
+    interaction::AnchorSelection,
     site::{Category, EdgeLabels, Original, SiteID},
     widgets::{
         inspector::{Inspect, InspectAnchor, InspectAnchorInput},
@@ -39,7 +39,7 @@ pub struct InspectEdge<'w, 's> {
             Option<&'static EdgeLabels>,
         ),
     >,
-    change_mode: EventWriter<'w, ChangeMode>,
+    anchor_selection: AnchorSelection<'w, 's>,
 }
 
 impl<'w, 's> ShareableWidget for InspectEdge<'w, 's> {}
@@ -138,19 +138,16 @@ impl<'w, 's> InspectEdge<'w, 's> {
         match response {
             Some(response) => {
                 if response.replace {
-                    if let Some(request) =
-                        SelectAnchor::replace_side(id, side).for_category(category)
-                    {
+                    let mut params = state.get_mut(world);
+                    if params.anchor_selection.replace_side(id, side, category) {
                         info!(
                             "Triggered anchor replacement for side \
                             {side:?} of edge {edge:?} with category {category:?}"
                         );
-                        let mut params = state.get_mut(world);
-                        params.change_mode.send(ChangeMode::To(request.into()));
                     } else {
                         error!(
-                            "Failed to trigger an anchor replacement for side \
-                            {side:?} of edge {edge:?} with category {category:?}"
+                            "Invalid type of element for replace_side operation: {category:?} \
+                            Please report this error to the site editor maintainers."
                         );
                     }
                 }

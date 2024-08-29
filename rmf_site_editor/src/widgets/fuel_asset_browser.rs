@@ -16,11 +16,10 @@
 */
 
 use crate::{
-    interaction::{ChangeMode, ModelPreviewCamera, SelectAnchor3D},
-    site::{
-        model::ModelSpawningExt, AssetSource, FuelClient, Model, SetFuelApiKey, UpdateFuelCache,
-    },
+    interaction::{ModelPreviewCamera, ObjectPlacement, PlaceableObject, Selection},
+    site::{model::ModelSpawningExt, AssetSource, CurrentLevel, FuelClient, Model, SetFuelApiKey, UpdateFuelCache},
     widgets::prelude::*,
+    AppState, CurrentWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{self, Button, ComboBox, ImageSource, RichText, ScrollArea, Ui, Window};
@@ -79,7 +78,11 @@ pub struct FuelAssetBrowser<'w, 's> {
     update_cache: EventWriter<'w, UpdateFuelCache>,
     set_api_key: EventWriter<'w, SetFuelApiKey>,
     commands: Commands<'w, 's>,
-    change_mode: EventWriter<'w, ChangeMode>,
+    place_object: ObjectPlacement<'w, 's>,
+    current_workspace: Res<'w, CurrentWorkspace>,
+    current_selection: Res<'w, Selection>,
+    current_level: Res<'w, CurrentLevel>,
+    app_state: Res<'w, State<AppState>>,
 }
 
 fn fuel_asset_browser_panel(In(input): In<PanelWidgetInput>, world: &mut World) {
@@ -277,9 +280,30 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                             ),
                             ..default()
                         };
-                        self.change_mode.send(ChangeMode::To(
-                            SelectAnchor3D::create_new_point().for_model(model).into(),
-                        ));
+
+                        match self.app_state.get() {
+                            AppState::SiteEditor => {
+                                if let Some(level) = self.current_level.0 {
+                                    self.place_object.place_object_2d(model, level);
+                                } else {
+                                    warn!("Cannot spawn a model outside of a workspace");
+                                }
+                            }
+                            AppState::WorkcellEditor => {
+                                if let Some(workspace) = self.current_workspace.root {
+                                    self.place_object.place_object_3d(
+                                        PlaceableObject::Model(model),
+                                        self.current_selection.0,
+                                        workspace,
+                                    );
+                                } else {
+                                    warn!("Cannot spawn a model outside of a workspace");
+                                }
+                            }
+                            _ => {
+                                warn!("Invalid mode for spawning a model: {:?}", &self.app_state);
+                            }
+                        }
                     }
                 }
             }

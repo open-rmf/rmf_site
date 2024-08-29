@@ -16,8 +16,8 @@
 */
 
 use crate::{
-    interaction::{DragPlaneBundle, Selectable, VisualCue, MODEL_PREVIEW_LAYER},
-    site::{Category, Model, PreventDeletion, SiteAssets},
+    interaction::{DragPlaneBundle, Preview, Selectable, MODEL_PREVIEW_LAYER},
+    site::{Category, Dependents, Model, PreventDeletion, SiteAssets},
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
 };
 use bevy::{
@@ -405,6 +405,7 @@ pub fn add_components_to_spawned_model(
     In((parent, scene_entity, model)): In<(Entity, Entity, Model)>,
     mut commands: Commands,
     vis: Query<&Visibility>,
+    not_selectable_markers_query: Query<(Option<&RenderLayers>, Has<Preview>, Has<Pending>)>,
 ) {
     // TODO(luca) just use commands.insert_if_new when updating to bevy 0.15, check
     // https://github.com/bevyengine/bevy/pull/14646
@@ -419,8 +420,16 @@ pub fn add_components_to_spawned_model(
         )))
         .insert(model)
         .insert(Category::Model)
-        .insert(Selectable::new(parent))
         .add_child(scene_entity);
+    let mut selectable = true;
+    if let Ok((render_layer, preview, pending)) = not_selectable_markers_query.get(parent) {
+        let in_preview_layer =
+            render_layer.is_some_and(|l| l.iter().all(|l| l == MODEL_PREVIEW_LAYER));
+        selectable = in_preview_layer || preview || pending;
+    }
+    if selectable {
+        commands.entity(parent).insert(Selectable::new(parent));
+    }
     if vis.get(parent).is_err() {
         commands.entity(parent).insert(VisibilityBundle::default());
     }
@@ -624,7 +633,7 @@ impl ModelLoadingServices {
                 // The model and its dependencies are spawned, make them selectable / propagate
                 // render layers
                 // TODO(luca) Consider cleanup strategies for failure, should we despawn models?
-                .then(propagate_model_render_layers.into_blocking_callback())
+                .then(propagate_model_properties.into_blocking_callback())
                 .then(make_models_selectable.into_blocking_callback())
                 .connect(scope.terminate)
         });
@@ -822,7 +831,7 @@ pub fn update_model_scales(
 pub fn make_models_selectable(
     In(model_scene_root): In<Entity>,
     mut commands: Commands,
-    pending: Query<(), With<Pending>>,
+    pending_or_previews: Query<(), Or<(With<Pending>, With<Preview>)>>,
     parents: Query<&Parent>,
     scene_roots: Query<(&Selectable, Option<&RenderLayers>), With<ModelMarker>>,
     all_children: Query<&Children>,
@@ -830,7 +839,7 @@ pub fn make_models_selectable(
     mut mesh_assets: ResMut<Assets<Mesh>>,
 ) -> Entity {
     // Pending items (i.e. mouse previews) should not be selectable
-    if pending.get(model_scene_root).is_ok() {
+    if pending_or_previews.get(model_scene_root).is_ok() {
         return model_scene_root;
     }
     // Use a small vec here to try to dodge heap allocation if possible.
@@ -853,11 +862,10 @@ pub fn make_models_selectable(
     }
     queue.push(model_scene_root);
 
-    while let Some(e) = queue.pop() {
-        commands
-            .entity(e)
-            .insert(selectable.clone())
-            .insert(DragPlaneBundle::new(selectable.element, Vec3::Z));
+        while let Some(e) = queue.pop() {
+            commands
+                .entity(e)
+                .insert(DragPlaneBundle::new(selectable.element, Vec3::Z));
 
         if let Ok(mesh_handle) = mesh_handles.get(e) {
             if let Some(mesh) = mesh_assets.get_mut(mesh_handle) {
@@ -879,15 +887,18 @@ pub fn make_models_selectable(
     model_scene_root
 }
 
-/// Assigns the render layer of the root, if present, to all its children
-pub fn propagate_model_render_layers(
+/// Assigns the render layer of the root, if present, to all the children
+pub fn propagate_model_properties(
     In(e): In<Entity>,
     mut commands: Commands,
     render_layers: Query<&RenderLayers>,
+    previews: Query<&Preview>,
+    pendings: Query<&Pending>,
     parents: Query<&Parent>,
-    mesh_entities: Query<Entity, With<Handle<Mesh>>>,
+    mesh_entities: Query<(), With<Handle<Mesh>>>,
     children: Query<&Children>,
 ) -> Entity {
+    /*
     let Some(render_layers) = AncestorIter::new(&parents, e)
         .filter_map(|p| render_layers.get(p).ok())
         .last()
@@ -897,7 +908,58 @@ pub fn propagate_model_render_layers(
     for c in DescendantIter::new(&children, e) {
         if mesh_entities.get(c).is_ok() {
             commands.entity(c).insert(render_layers.clone());
+    */
+    propagate_model_property(
+        e,
+        &render_layers,
+        &parents,
+        &children,
+        &mesh_entities,
+        &mut commands,
+    );
+    propagate_model_property(
+        e,
+        &previews,
+        &parents,
+        &children,
+        &mesh_entities,
+        &mut commands,
+    );
+    propagate_model_property(
+        e,
+        &pendings,
+        &parents,
+        &children,
+        &mesh_entities,
+        &mut commands,
+    );
+    e
+}
+
+pub fn propagate_model_property<Property: Component + Clone + std::fmt::Debug>(
+    root: Entity,
+    property_query: &Query<&Property>,
+    parents: &Query<&Parent>,
+    children: &Query<&Children>,
+    mesh_entities: &Query<(), With<Handle<Mesh>>>,
+    commands: &mut Commands,
+) {
+    let property = match property_query.get(root) {
+        Ok(property) => property,
+        Err(_) => match AncestorIter::new(parents, root)
+            .filter_map(|p| property_query.get(p).ok())
+            .next()
+        {
+            Some(property) => property,
+            None => return,
+        },
+    };
+
+    commands.entity(root).insert(property.clone());
+
+    for c in DescendantIter::new(children, root) {
+        if mesh_entities.contains(c) {
+            commands.entity(c).insert(property.clone());
         }
     }
-    e
 }

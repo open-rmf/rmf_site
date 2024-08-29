@@ -48,7 +48,8 @@ use crate::AppState;
 use crate::{
     shapes::make_infinite_grid,
     site::{
-        handle_new_primitive_shapes, handle_update_fuel_cache_requests,
+        handle_new_primitive_shapes,
+        handle_update_fuel_cache_requests, propagate_model_properties,
         read_update_fuel_cache_results, reload_failed_models_with_new_api_key,
         update_anchor_transforms, update_model_scales, update_model_tentative_formats,
         update_transforms_for_changed_poses,
@@ -78,6 +79,21 @@ impl Plugin for WorkcellEditorPlugin {
             .add_systems(
                 Update,
                 (
+                    /*
+                    (
+                        propagate_model_properties,
+                        make_models_selectable,
+                        // Counter-intuitively, we want to expand the model scenes
+                        // after propagating the model properties through the scene.
+                        // The reason is that the entities for the scene won't be
+                        // available until the next cycle is finished, so we want to
+                        // wait until the next cycle before propagating the properties
+                        // of any newly added scenes.
+                        handle_model_loaded_events,
+                    )
+                        .chain(),
+                    update_model_scenes,
+                    */
                     update_model_scales,
                     handle_new_primitive_shapes,
                     update_model_tentative_formats,

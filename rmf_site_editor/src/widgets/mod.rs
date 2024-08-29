@@ -68,6 +68,9 @@ use console::*;
 pub mod creation;
 use creation::*;
 
+pub mod canvas_tooltips;
+pub use canvas_tooltips::*;
+
 pub mod diagnostics;
 use diagnostics::*;
 
@@ -128,9 +131,10 @@ pub mod prelude {
     //! implementing and inserting their own widgets.
 
     pub use super::{
-        properties_panel::*, Inspect, InspectionPlugin, PanelSide, PanelWidget, PanelWidgetInput,
-        PropertiesPanel, PropertiesTilePlugin, ShareableWidget, ShowError, ShowResult,
-        ShowSharedWidget, Tile, TryShowWidgetEntity, TryShowWidgetWorld, Widget, WidgetSystem,
+        properties_panel::*, CanvasTooltips, Inspect, InspectionPlugin, PanelSide, PanelWidget,
+        PanelWidgetInput, PropertiesPanel, PropertiesTilePlugin, ShareableWidget, ShowError,
+        ShowResult, ShowSharedWidget, Tile, TryShowWidgetEntity, TryShowWidgetWorld, Widget,
+        WidgetSystem,
     };
     pub use bevy::ecs::{
         system::{SystemParam, SystemState},
@@ -146,31 +150,32 @@ pub struct StandardUiPlugin {}
 
 impl Plugin for StandardUiPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((
-            IconsPlugin::default(),
-            MenuBarPlugin::default(),
-            SdfExportMenuPlugin::default(),
-            StandardPropertiesPanelPlugin::default(),
-            FuelAssetBrowserPlugin::default(),
-            DiagnosticsPlugin::default(),
-            ConsoleWidgetPlugin::default(),
-            UserCameraDisplayPlugin::default(),
-        ))
-        .add_systems(Startup, init_ui_style)
-        .add_systems(
-            Update,
-            site_ui_layout
-                .in_set(RenderUiSet)
-                .run_if(AppState::in_displaying_mode()),
-        )
-        .add_systems(
-            PostUpdate,
-            (
-                resolve_light_export_file,
-                resolve_nav_graph_import_export_files,
+        app.init_resource::<CanvasTooltips>()
+            .add_plugins((
+                IconsPlugin::default(),
+                MenuBarPlugin::default(),
+                SdfExportMenuPlugin::default(),
+                StandardPropertiesPanelPlugin::default(),
+                FuelAssetBrowserPlugin::default(),
+                DiagnosticsPlugin::default(),
+                ConsoleWidgetPlugin::default(),
+                UserCameraDisplayPlugin::default(),
+            ))
+            .add_systems(Startup, init_ui_style)
+            .add_systems(
+                Update,
+                site_ui_layout
+                    .in_set(RenderUiSet)
+                    .run_if(AppState::in_displaying_mode()),
             )
-                .run_if(AppState::in_site_mode()),
-        );
+            .add_systems(
+                PostUpdate,
+                (
+                    resolve_light_export_file,
+                    resolve_nav_graph_import_export_files,
+                )
+                    .run_if(AppState::in_site_mode()),
+            );
     }
 }
 
@@ -409,7 +414,7 @@ pub fn site_ui_layout(
     render_panels(world, panel_widgets, egui_context_state);
 
     let mut egui_context = egui_context_state.get_mut(world);
-    let ctx = egui_context.ctx_mut();
+    let mut ctx = egui_context.ctx_mut().clone();
     let ui_has_focus =
         ctx.wants_pointer_input() || ctx.wants_keyboard_input() || ctx.is_pointer_over_area();
 
@@ -424,6 +429,9 @@ pub fn site_ui_layout(
         if hover.is_empty() {
             hover.send(Hover(None));
         }
+    } else {
+        // If the UI does not have focus then render the CanvasTooltips.
+        world.resource_mut::<CanvasTooltips>().render(&mut ctx);
     }
 }
 
