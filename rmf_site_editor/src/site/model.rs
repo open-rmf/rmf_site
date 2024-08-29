@@ -273,7 +273,6 @@ pub fn spawn_scene_for_loaded_model(
     } else {
         None
     }?;
-    world.entity_mut(model_id).set_parent(parent);
     Some((model_id, scene_handle))
 }
 
@@ -415,9 +414,7 @@ pub fn add_components_to_spawned_model(
             source: model.source.clone(),
             entity: scene_entity,
         })
-        .insert(TransformBundle::from_transform(Transform::from_scale(
-            model.scale.0,
-        )))
+        .insert(TransformBundle::default())
         .insert(model)
         .insert(Category::Model)
         .add_child(scene_entity);
