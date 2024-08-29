@@ -17,7 +17,9 @@
 
 use crate::{
     interaction::{ChangeMode, ModelPreviewCamera, SelectAnchor3D},
-    site::{AssetSource, FuelClient, Model, SetFuelApiKey, UpdateFuelCache},
+    site::{
+        model::ModelSpawningExt, AssetSource, FuelClient, Model, SetFuelApiKey, UpdateFuelCache,
+    },
     widgets::prelude::*,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -262,7 +264,7 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                             ),
                             ..default()
                         };
-                        self.commands.entity(model_entity).insert(model);
+                        self.commands.spawn_model(model_entity, model, None);
                         gallery_status.selected = Some(selected.clone());
                     }
                 }

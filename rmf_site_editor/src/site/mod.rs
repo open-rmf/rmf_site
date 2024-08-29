@@ -191,8 +191,6 @@ impl Plugin for SitePlugin {
         .init_resource::<PhysicalLightToggle>()
         .init_resource::<FuelCacheUpdateChannel>()
         .init_resource::<FuelCacheProgressChannel>()
-        .init_resource::<ModelTrashcan>()
-        .init_resource::<ModelLoadingServices>()
         .register_type::<NameInSite>()
         .register_type::<AssetSource>()
         .register_type::<Pose>()
@@ -264,6 +262,7 @@ impl Plugin for SitePlugin {
             DeletionPlugin,
             DrawingEditorPlugin,
             SiteVisualizerPlugin,
+            ModelLoadingPlugin::default(),
         ))
         .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
         .add_issue_type(&DUPLICATED_LIFT_NAME_ISSUE_UUID, "Duplicate lift name")
@@ -321,7 +320,6 @@ impl Plugin for SitePlugin {
                 add_category_to_graphs,
                 add_tags_to_lift,
                 add_material_for_display_colors,
-                clear_model_trashcan,
                 add_physical_lights,
             )
                 .run_if(AppState::in_site_mode())
@@ -399,8 +397,8 @@ impl Plugin for SitePlugin {
                 update_affiliations,
                 update_members_of_groups.after(update_affiliations),
                 update_model_scales,
-                make_models_selectable,
-                propagate_model_render_layers,
+                // make_models_selectable,
+                // propagate_model_render_layers,
                 handle_new_primitive_shapes,
                 add_drawing_visuals,
                 handle_loaded_drawing,

@@ -15,7 +15,7 @@
  *
 */
 
-use crate::site::{Dependents, ModelTrashcan, Pending};
+use crate::site::{Dependents, Pending};
 use bevy::prelude::*;
 use rmf_site_format::{
     ModelMarker, NameInSite, NameInWorkcell, NameOfWorkcell, Pose, PrimitiveShape,
@@ -37,7 +37,6 @@ pub fn flatten_loaded_models_hierarchy(
     mut poses: Query<&mut Pose>,
     mut dependents: Query<&mut Dependents>,
     parents: Query<&Parent>,
-    trashcan: Res<ModelTrashcan>,
 ) {
     for (e, parent) in &new_models {
         // Traverse up the hierarchy to find the first model parent and reassign it
@@ -61,7 +60,7 @@ pub fn flatten_loaded_models_hierarchy(
                 *t1 += t2;
             }
             // Now despawn the unnecessary model
-            commands.entity(parent_entity).set_parent(trashcan.0);
+            commands.entity(parent_entity).despawn_recursive();
         }
     }
 }

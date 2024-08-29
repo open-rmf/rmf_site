@@ -48,10 +48,10 @@ use crate::AppState;
 use crate::{
     shapes::make_infinite_grid,
     site::{
-        clear_model_trashcan, handle_new_primitive_shapes, handle_update_fuel_cache_requests,
-        make_models_selectable, propagate_model_render_layers, read_update_fuel_cache_results,
-        reload_failed_models_with_new_api_key, update_anchor_transforms, update_model_scales,
-        update_model_tentative_formats, update_transforms_for_changed_poses,
+        handle_new_primitive_shapes, handle_update_fuel_cache_requests,
+        read_update_fuel_cache_results, reload_failed_models_with_new_api_key,
+        update_anchor_transforms, update_model_scales, update_model_tentative_formats,
+        update_transforms_for_changed_poses,
     },
 };
 
@@ -84,8 +84,6 @@ impl Plugin for WorkcellEditorPlugin {
                     replace_name_in_site_components,
                     handle_create_joint_events,
                     cleanup_orphaned_joints,
-                    propagate_model_render_layers,
-                    make_models_selectable,
                     handle_update_fuel_cache_requests,
                     read_update_fuel_cache_results,
                     reload_failed_models_with_new_api_key,
@@ -94,10 +92,6 @@ impl Plugin for WorkcellEditorPlugin {
                     handle_export_urdf_menu_events,
                 )
                     .run_if(in_state(AppState::WorkcellEditor)),
-            )
-            .add_systems(
-                PreUpdate,
-                clear_model_trashcan.run_if(in_state(AppState::WorkcellEditor)),
             )
             .add_systems(
                 Update,

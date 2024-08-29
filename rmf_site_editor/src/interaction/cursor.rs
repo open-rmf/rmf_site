@@ -18,7 +18,7 @@
 use crate::{
     animate::*,
     interaction::*,
-    site::{AnchorBundle, Pending, SiteAssets, Trashcan},
+    site::{AnchorBundle, ModelSpawningExt, Pending, SiteAssets},
 };
 use bevy::{ecs::system::SystemParam, prelude::*, window::PrimaryWindow};
 use bevy_mod_raycast::{deferred::RaycastMesh, deferred::RaycastSource, primitives::rays::Ray3d};
@@ -36,7 +36,6 @@ pub struct Cursor {
     pub level_anchor_placement: Entity,
     pub site_anchor_placement: Entity,
     pub frame_placement: Entity,
-    pub trashcan: Entity,
     pub preview_model: Option<Entity>,
     dependents: HashSet<Entity>,
     /// Use a &str to label each mode that might want to turn the cursor on
@@ -108,16 +107,16 @@ impl Cursor {
 
     fn remove_preview(&mut self, commands: &mut Commands) {
         if let Some(current_preview) = self.preview_model {
-            commands.entity(current_preview).set_parent(self.trashcan);
+            commands.entity(current_preview).despawn_recursive();
         }
     }
 
-    // TODO(luca) reduce duplication here
+    // TODO(luca) reduce duplication here, fix to use command
     pub fn set_model_preview(&mut self, commands: &mut Commands, model: Option<Model>) {
         self.remove_preview(commands);
         self.preview_model = if let Some(model) = model {
-            let e = commands.spawn(model).insert(Pending).id();
-            commands.entity(self.frame).push_children(&[e]);
+            let e = commands.spawn(Pending).set_parent(self.frame).id();
+            commands.spawn_model(e, model, None);
             Some(e)
         } else {
             None
@@ -249,8 +248,6 @@ impl FromWorld for Cursor {
             })
             .id();
 
-        let trashcan = world.spawn(Trashcan).id();
-
         Self {
             frame: cursor,
             halo,
@@ -258,7 +255,6 @@ impl FromWorld for Cursor {
             level_anchor_placement,
             site_anchor_placement,
             frame_placement,
-            trashcan,
             preview_model: None,
             dependents: Default::default(),
             modes: Default::default(),

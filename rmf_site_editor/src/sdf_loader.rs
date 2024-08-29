@@ -76,13 +76,18 @@ pub enum SdfError {
     MissingModelTag,
     #[error("Failed parsing asset source: {0}")]
     UnsupportedAssetSource(String),
-    #[error("Failed reading mesh at source: {0}")]
-    MissingMesh(String),
+    #[error(
+        "Failed reading submesh at: {0}, make sure it exists,
+             is accessible and has a supported format (dae is not supported).
+             If it belongs to a private organization make sure to set an API
+             key to access it"
+    )]
+    FailedLoadingSubasset(String),
 }
 
 /// Combines the path from the SDF that is currently being processed with the path of a mesh
 /// referenced in the SDF to generate an AssetSource that can be loaded by the AssetServer.
-fn compute_model_source<'a, 'b>(
+async fn compute_model_source<'a, 'b>(
     load_context: &'a mut LoadContext<'b>,
     subasset_uri: &'a str,
 ) -> Result<AssetSource, SdfError> {
@@ -133,21 +138,23 @@ fn compute_model_source<'a, 'b>(
         Ok(asset_source)
     } else {
         // It's a path relative to this model, concatenate it to the current context path.
+        // Note that since the current path is the file (i.e. path/subfolder/model.sdf) we need to
+        // concatenate to its parent
         let path = load_context
             .asset_path()
+            .parent()
+            .unwrap()
             .resolve(subasset_uri)
             .or_else(|e| Err(SdfError::UnsupportedAssetSource(e.to_string())))?;
         AssetSource::try_from(path.to_string().as_str()).map_err(SdfError::UnsupportedAssetSource)
     }?;
     // Fire a loading here so we can make sure all the sub assets are retrievable and prefetched
     // Unwrap is safe since this was constructed above and the try_from calls would have failed
-    async move {
-        let asset_source_string = String::try_from(&asset_source).unwrap();
-        load_context
-            .load_direct(asset_source_string)
-            .await
-            .map_err(|_| SdfError::MissingMesh(asset_source_string))
-    }?;
+    let asset_source_string = String::try_from(&asset_source).unwrap();
+    load_context
+        .load_direct(&asset_source_string)
+        .await
+        .map_err(|_| SdfError::FailedLoadingSubasset(asset_source_string))?;
     Ok(asset_source)
 }
 
@@ -178,7 +185,7 @@ fn parse_pose(pose: &Option<SdfPose>) -> Pose {
     }
 }
 
-fn spawn_geometry<'a, 'b>(
+async fn spawn_geometry<'a, 'b>(
     world: &'a mut World,
     geometry: &'a SdfGeometry,
     geometry_name: &'a str,
@@ -192,7 +199,7 @@ fn spawn_geometry<'a, 'b>(
             world
                 .spawn(Model {
                     name: NameInSite(geometry_name.to_owned()),
-                    source: compute_model_source(load_context, &mesh.uri)?,
+                    source: compute_model_source(load_context, &mesh.uri).await?,
                     pose,
                     is_static: IsStatic(is_static),
                     scale: parse_scale(&mesh.scale),
@@ -277,7 +284,8 @@ async fn load_model<'a, 'b>(
                             &visual.pose,
                             load_context,
                             model.r#static.unwrap_or(false),
-                        )?;
+                        )
+                        .await?;
                         match id {
                             Some(id) => {
                                 world
@@ -297,7 +305,8 @@ async fn load_model<'a, 'b>(
                             &collision.pose,
                             load_context,
                             model.r#static.unwrap_or(false),
-                        )?;
+                        )
+                        .await?;
                         match id {
                             Some(id) => {
                                 world

@@ -210,11 +210,6 @@ fn generate_site_entities(
                     consider_id(*light_id);
                 }
 
-                for (model_id, model) in &level_data.models {
-                    level.spawn(model.clone()).insert(SiteID(*model_id));
-                    consider_id(*model_id);
-                }
-
                 for (physical_camera_id, physical_camera) in &level_data.physical_cameras {
                     level
                         .spawn(physical_camera.clone())
@@ -229,6 +224,29 @@ fn generate_site_entities(
                     consider_id(*camera_pose_id);
                 }
             });
+
+        use bevy_impulse::IntoBlockingCallback;
+        for (model_id, model) in &level_data.models {
+            let site_id = SiteID(*model_id);
+            let model_entity = commands
+                .spawn_empty()
+                .insert(site_id)
+                .set_parent(level_entity)
+                .id();
+            commands.spawn_model(
+                model_entity,
+                model.clone(),
+                Some(
+                    (move |In(e): In<Entity>, world: &mut World| {
+                        world.entity_mut(e).insert(site_id).set_parent(level_entity);
+                        e
+                    })
+                    .into_blocking_callback(),
+                ),
+            );
+            // level.spawn(model.clone()).insert(SiteID(*model_id));
+            consider_id(*model_id);
+        }
 
         // TODO(MXG): Log when a RecencyRanking fails to load correctly.
         commands

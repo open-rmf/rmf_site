@@ -18,9 +18,9 @@
 use crate::{
     interaction::*,
     site::{
-        drawing_editor::CurrentEditDrawing, Anchor, AnchorBundle, Category, CollisionMeshMarker,
-        Dependents, DrawingMarker, Original, PathBehavior, Pending, TextureNeedsAssignment,
-        VisualMeshMarker,
+        drawing_editor::CurrentEditDrawing, model::ModelSpawningExt, Anchor, AnchorBundle,
+        Category, CollisionMeshMarker, Dependents, DrawingMarker, Original, PathBehavior, Pending,
+        TextureNeedsAssignment, VisualMeshMarker,
     },
     AppState, CurrentWorkspace,
 };
@@ -2203,8 +2203,9 @@ pub fn handle_select_anchor_3d_mode(
                     PlaceableObject::Model(ref a) => {
                         let mut model = a.clone();
                         // If we are in workcell mode, add a "base link" frame to the model
+                        let child_id = params.commands.spawn_empty().id();
                         if matches!(**app_state, AppState::WorkcellEditor) {
-                            let child_id = params.commands.spawn(model).id();
+                            params.commands.spawn_model(child_id, model, None);
                             params
                                 .commands
                                 .spawn((
@@ -2217,7 +2218,8 @@ pub fn handle_select_anchor_3d_mode(
                                 .id()
                         } else {
                             model.pose = pose;
-                            params.commands.spawn(model).id()
+                            params.commands.spawn_model(child_id, model, None);
+                            child_id
                         }
                     }
                     PlaceableObject::VisualMesh(ref a) => {
