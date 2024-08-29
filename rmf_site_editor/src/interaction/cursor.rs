@@ -120,29 +120,11 @@ impl Cursor {
         }
     }
 
-    // TODO(luca) reduce duplication here, fix to use command
     pub fn set_model_preview(&mut self, commands: &mut Commands, model: Option<Model>) {
         self.remove_preview(commands);
         self.preview_model = if let Some(model) = model {
             let e = commands.spawn(Pending).set_parent(self.frame).id();
             commands.spawn_model(e, model, None);
-            Some(e)
-        } else {
-            None
-        }
-    }
-
-    pub fn set_workcell_model_preview(
-        &mut self,
-        commands: &mut Commands,
-        model: Option<WorkcellModel>,
-    ) {
-        self.remove_preview(commands);
-        self.preview_model = if let Some(model) = model {
-            let mut cmd = commands.spawn(Pending);
-            let e = cmd.id();
-            model.add_bevy_components(&mut cmd);
-            commands.entity(self.frame).push_children(&[e]);
             Some(e)
         } else {
             None

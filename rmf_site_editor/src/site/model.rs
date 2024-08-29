@@ -862,10 +862,10 @@ pub fn make_models_selectable(
     }
     queue.push(model_scene_root);
 
-        while let Some(e) = queue.pop() {
-            commands
-                .entity(e)
-                .insert(DragPlaneBundle::new(selectable.element, Vec3::Z));
+    while let Some(e) = queue.pop() {
+        commands
+            .entity(e)
+            .insert(DragPlaneBundle::new(selectable.element, Vec3::Z));
 
         if let Ok(mesh_handle) = mesh_handles.get(e) {
             if let Some(mesh) = mesh_assets.get_mut(mesh_handle) {

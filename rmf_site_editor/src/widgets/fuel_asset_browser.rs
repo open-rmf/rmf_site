@@ -17,7 +17,10 @@
 
 use crate::{
     interaction::{ModelPreviewCamera, ObjectPlacement, PlaceableObject, Selection},
-    site::{model::ModelSpawningExt, AssetSource, CurrentLevel, FuelClient, Model, SetFuelApiKey, UpdateFuelCache},
+    site::{
+        model::ModelSpawningExt, AssetSource, CurrentLevel, FuelClient, Model, SetFuelApiKey,
+        UpdateFuelCache,
+    },
     widgets::prelude::*,
     AppState, CurrentWorkspace,
 };

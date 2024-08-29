@@ -18,8 +18,8 @@
 use crate::{
     interaction::select::*,
     site::{
-        Anchor, AnchorBundle, Dependents, FrameMarker, Model, NameInSite, NameInWorkcell, Pending,
-        SiteID, WorkcellModel,
+        Anchor, AnchorBundle, Dependents, FrameMarker, Model, ModelSpawningExt, NameInSite,
+        NameInWorkcell, Pending, SiteID, WorkcellModel,
     },
     widgets::canvas_tooltips::CanvasTooltips,
 };
@@ -150,8 +150,8 @@ pub struct PlaceObject3d {
 pub enum PlaceableObject {
     Model(Model),
     Anchor,
-    VisualMesh(WorkcellModel),
-    CollisionMesh(WorkcellModel),
+    VisualMesh(Model),
+    CollisionMesh(Model),
 }
 
 pub fn place_object_3d_setup(
@@ -174,15 +174,11 @@ pub fn place_object_3d_setup(
             set_visibility(cursor.dagger, &mut visibility, true);
             set_visibility(cursor.halo, &mut visibility, true);
         }
-        PlaceableObject::Model(m) => {
+        PlaceableObject::Model(m)
+        | PlaceableObject::VisualMesh(m)
+        | PlaceableObject::CollisionMesh(m) => {
             // Spawn the model as a child of the cursor
             cursor.set_model_preview(&mut commands, Some(m.clone()));
-            set_visibility(cursor.dagger, &mut visibility, false);
-            set_visibility(cursor.halo, &mut visibility, false);
-        }
-        PlaceableObject::VisualMesh(m) | PlaceableObject::CollisionMesh(m) => {
-            // Spawn the model as a child of the cursor
-            cursor.set_workcell_model_preview(&mut commands, Some(m.clone()));
             set_visibility(cursor.dagger, &mut visibility, false);
             set_visibility(cursor.halo, &mut visibility, false);
         }
@@ -467,7 +463,8 @@ pub fn on_placement_chosen_3d(
             ))
             .id(),
         PlaceableObject::Model(object) => {
-            let model_id = commands.spawn((object, VisualCue::outline())).id();
+            let model_id = commands.spawn(VisualCue::outline()).id();
+            commands.spawn_model(model_id, object, None);
             // Create a parent anchor to contain the new model in
             commands
                 .spawn((
@@ -480,16 +477,16 @@ pub fn on_placement_chosen_3d(
                 .id()
         }
         PlaceableObject::VisualMesh(mut object) => {
+            let id = commands.spawn(VisualMeshMarker).id();
             object.pose = pose;
-            let mut cmd = commands.spawn(VisualMeshMarker);
-            object.add_bevy_components(&mut cmd);
-            cmd.id()
+            commands.spawn_model(id, object, None);
+            id
         }
         PlaceableObject::CollisionMesh(mut object) => {
+            let id = commands.spawn(CollisionMeshMarker).id();
             object.pose = pose;
-            let mut cmd = commands.spawn(CollisionMeshMarker);
-            object.add_bevy_components(&mut cmd);
-            cmd.id()
+            commands.spawn_model(id, object, None);
+            id
         }
     };
 

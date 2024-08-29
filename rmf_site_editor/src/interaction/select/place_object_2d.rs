@@ -15,7 +15,10 @@
  *
 */
 
-use crate::{interaction::select::*, site::Model};
+use crate::{
+    interaction::select::*,
+    site::{Model, ModelSpawningExt},
+};
 use bevy::prelude::Input as UserInput;
 
 pub const PLACE_OBJECT_2D_MODE_LABEL: &'static str = "place_object_2d";
@@ -201,7 +204,9 @@ pub fn on_placement_chosen_2d(
     let mut state = access.pull().or_broken_state()?;
 
     state.object.pose = placement.into();
-    commands.spawn(state.object).set_parent(state.level);
+    let id = commands.spawn_empty().set_parent(state.level).id();
+    commands.spawn_model(id, state.object, None);
+    // commands.spawn(state.object).set_parent(state.level);
 
     Ok(())
 }
