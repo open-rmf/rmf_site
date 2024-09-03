@@ -30,7 +30,7 @@ use bevy::{ecs::system::EntityCommands, prelude::*};
 use std::collections::HashSet;
 
 use rmf_site_format::{
-    Category, ConstraintDependents, FrameMarker, Geometry, IsStatic, MeshConstraint, ModelMarker,
+    Category, ConstraintDependents, FrameMarker, Geometry, MeshConstraint, ModelMarker,
     NameInWorkcell, Parented, Scale, SiteID, Workcell, WorkcellModel,
 };
 
@@ -102,7 +102,6 @@ fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> E
                                 name,
                                 pose,
                                 scale,
-                                IsStatic::default(),
                                 ModelMarker,
                                 VisualMeshMarker,
                                 Category::Visual,
@@ -114,7 +113,6 @@ fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> E
                                 name,
                                 pose,
                                 scale,
-                                IsStatic::default(),
                                 ModelMarker,
                                 CollisionMeshMarker,
                                 Category::Collision,

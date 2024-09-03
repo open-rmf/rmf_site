@@ -407,28 +407,18 @@ pub enum ModelLoadingSet {
 }
 
 fn finalize_model(
-    In(AsyncService {
-        request, channel, ..
-    }): AsyncServiceInput<ModelLoadingRequest>,
-) -> impl Future<Output = Result<(), ModelLoadingError>> {
-    async move {
+    In(request): In<ModelLoadingRequest>,
+    world: &mut World,
+) -> Result<(), ModelLoadingError> {
+    world.command(|cmd: &mut Commands| {
         if let Some(then_command) = request.then_command {
-            let parent = request.parent.clone();
-            channel
-                .command(move |cmd| (then_command)(cmd.entity(parent)))
-                .await
-                .available()
-                .ok_or(ModelLoadingError::WorkflowExecutionError)?;
+            (then_command)(cmd.entity(request.parent));
         }
         if let Some(then) = request.then {
-            channel
-                .query(request.parent, then)
-                .await
-                .available()
-                .ok_or(ModelLoadingError::WorkflowExecutionError)?;
+            cmd.request(request.parent, then).detach();
         }
-        Ok(())
-    }
+    });
+    Ok(())
 }
 
 impl ModelLoadingServices {
@@ -453,7 +443,6 @@ impl ModelLoadingServices {
         );
         let load_model_dependencies = app.world.spawn_service(load_model_dependencies);
         let model_loading_service = app.world.spawn_service(handle_model_loading);
-        let finalize_model = app.world.spawn_service(finalize_model);
         // TODO(luca) reduce duplication for logging blocks
         let load_model = app.world.spawn_workflow(|scope, builder| {
             scope
@@ -472,7 +461,7 @@ impl ModelLoadingServices {
                 .map_block(|res| match res {
                     Ok(entity) => Ok(entity),
                     Err(e) => {
-                        error!("Failed loading model dependencies {:?}", e);
+                        error!("Failed loading model dependencies: {e}");
                         Err(e)
                     }
                 })
@@ -481,7 +470,7 @@ impl ModelLoadingServices {
                 // render layers
                 .then(propagate_model_properties.into_blocking_callback())
                 .then(make_models_selectable.into_blocking_callback())
-                .then(finalize_model)
+                .then(finalize_model.into_blocking_callback())
                 .connect(scope.terminate)
         });
 

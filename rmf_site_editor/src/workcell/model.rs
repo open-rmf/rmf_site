@@ -20,7 +20,7 @@ use crate::{
     site::Dependents,
 };
 use bevy::prelude::*;
-use rmf_site_format::{ModelMarker, Pose, PrimitiveShape};
+use rmf_site_format::{ModelMarker, NameInSite, NameInWorkcell, Pose, PrimitiveShape};
 
 /// SDFs loaded through site editor wrap all the collisions and visuals into a single Model entity.
 /// This doesn't quite work for URDF / workcells since we need to export and edit single visuals
@@ -36,6 +36,7 @@ pub fn flatten_loaded_model_hierarchy(
     children: Query<&Children>,
     meshes: Query<(), With<Handle<Mesh>>>,
     models: Query<(), Or<(With<ModelMarker>, With<PrimitiveShape>)>>,
+    site_names: Query<&NameInSite>,
 ) {
     let Ok(new_parent) = parents.get(old_parent) else {
         warn!(
@@ -61,6 +62,13 @@ pub fn flatten_loaded_model_hierarchy(
             if !parent_found {
                 commands.entity(c).insert(Selectable::new(c));
             }
+        }
+        // Change site names to workcell names
+        if let Ok(name) = site_names.get(c) {
+            commands
+                .entity(c)
+                .insert(NameInWorkcell(name.0.clone()))
+                .remove::<NameInSite>();
         }
         let Ok(mut child_pose) = poses.get_mut(c) else {
             continue;
