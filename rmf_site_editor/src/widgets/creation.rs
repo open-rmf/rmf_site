@@ -27,7 +27,7 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, Ui};
 
-use rmf_site_format::{DrawingProperties, Geometry, Model, WorkcellModel};
+use rmf_site_format::{DrawingProperties, Model};
 
 /// This widget provides a widget with buttons for creating new site elements.
 #[derive(Default)]

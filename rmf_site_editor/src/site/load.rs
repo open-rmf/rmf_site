@@ -226,7 +226,6 @@ fn generate_site_entities(
             });
 
         for (model_id, model) in &level_data.models {
-            let site_id = SiteID(*model_id);
             let model_entity = commands
                 .spawn(SiteID(*model_id))
                 .set_parent(level_entity)

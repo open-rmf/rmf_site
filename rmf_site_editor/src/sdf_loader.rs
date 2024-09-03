@@ -78,9 +78,9 @@ pub enum SdfError {
     UnsupportedAssetSource(String),
     #[error(
         "Failed reading submesh at: {0}, make sure it exists,
-             is accessible and has a supported format (dae is not supported).
-             If it belongs to a private organization make sure to set an API
-             key to access it"
+         is accessible and has a supported format (dae is not supported).
+         If it belongs to a private organization make sure to set an API
+         key to access it"
     )]
     FailedLoadingSubasset(String),
 }

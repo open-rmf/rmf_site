@@ -17,12 +17,10 @@
 
 use crate::{
     interaction::{Preview, Selectable, VisualCue},
-    site::{Dependents, Pending},
+    site::Dependents,
 };
 use bevy::prelude::*;
-use rmf_site_format::{
-    ModelMarker, NameInSite, NameInWorkcell, NameOfWorkcell, Pose, PrimitiveShape,
-};
+use rmf_site_format::{ModelMarker, Pose, PrimitiveShape};
 
 /// SDFs loaded through site editor wrap all the collisions and visuals into a single Model entity.
 /// This doesn't quite work for URDF / workcells since we need to export and edit single visuals

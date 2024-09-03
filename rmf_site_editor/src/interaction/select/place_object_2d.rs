@@ -208,7 +208,6 @@ pub fn on_placement_chosen_2d(
     commands.spawn_model(
         ModelLoadingRequest::new(id, state.object.source.clone()).then_insert_model(state.object),
     );
-    // commands.spawn(state.object).set_parent(state.level);
 
     Ok(())
 }

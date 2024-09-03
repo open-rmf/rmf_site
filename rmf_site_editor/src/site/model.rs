@@ -17,20 +17,19 @@
 
 use crate::{
     interaction::{DragPlaneBundle, Preview, MODEL_PREVIEW_LAYER},
-    site::{Category, Dependents, Model, PreventDeletion, SiteAssets},
+    site::{Category, Model, SiteAssets},
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
 };
 use bevy::{
-    asset::{AssetLoadError, LoadState, LoadedUntypedAsset, UntypedAssetId},
-    ecs::system::{Command, EntityCommands, SystemParam},
+    ecs::system::{Command, EntityCommands},
     gltf::Gltf,
     prelude::*,
     render::view::RenderLayers,
-    scene::{scene_spawner_system, SceneInstance},
+    scene::SceneInstance,
 };
 use bevy_impulse::*;
 use bevy_mod_outline::OutlineMeshExt;
-use rmf_site_format::{AssetSource, IsStatic, ModelMarker, NameInSite, Pending, Pose, Scale};
+use rmf_site_format::{AssetSource, ModelMarker, Pending, Scale};
 use smallvec::SmallVec;
 use std::{any::TypeId, future::Future};
 use thiserror::Error;
@@ -85,7 +84,6 @@ impl TentativeModelFormat {
 
     pub fn get_all_for_source(name: &str) -> SmallVec<[AssetSource; 6]> {
         let model_name = name.split('/').last().unwrap();
-        let format = TentativeModelFormat::default();
         SmallVec::from([
             AssetSource::Search(name.to_owned()),
             AssetSource::Search(name.to_owned() + "/model.sdf"),
@@ -96,9 +94,6 @@ impl TentativeModelFormat {
         ])
     }
 }
-
-#[derive(Debug, Component, Deref, DerefMut)]
-pub struct PendingSpawning(Handle<LoadedUntypedAsset>);
 
 #[derive(Resource)]
 /// Services that deal with workspace loading
@@ -172,12 +167,12 @@ fn load_asset_source(
         asset_server
             .load_untyped_async(&asset_path)
             .await
-            .map_err(|e| ModelLoadingError::AssetServerError(e.to_string()))
+            .map_err(|e| ModelLoadingError::AssetServerError(source, e.to_string()))
     }
 }
 
 pub fn spawn_scene_for_loaded_model(
-    In((parent, h)): In<(Entity, UntypedHandle)>,
+    In(h): In<UntypedHandle>,
     world: &mut World,
 ) -> Option<(Entity, Option<Handle<Scene>>)> {
     // For each model that is loading, check if its scene has finished loading
@@ -302,7 +297,7 @@ fn handle_model_loading(
         };
         // Now we have a handle and a parent entity, call the spawn scene service
         let res = channel
-            .query((request.parent, handle), spawn_scene)
+            .query(handle, spawn_scene)
             .await
             .available()
             .ok_or(ModelLoadingError::WorkflowExecutionError)?;
@@ -335,7 +330,6 @@ pub fn add_components_to_spawned_model(
     mut commands: Commands,
     vis: Query<&Visibility>,
     tf: Query<&Transform>,
-    not_selectable_markers_query: Query<(Option<&RenderLayers>, Has<Preview>, Has<Pending>)>,
 ) {
     // TODO(luca) just use commands.insert_if_new when updating to bevy 0.15, check
     // https://github.com/bevyengine/bevy/pull/14646
@@ -390,11 +384,15 @@ fn load_model_dependencies(
     async move {
         for (model_entity, source) in models {
             let request = ModelLoadingRequest::new(model_entity, source);
+            let source = request.source.clone();
             channel
                 .query(request, load_model)
                 .await
                 .available()
-                .ok_or(ModelLoadingError::WorkflowExecutionError)??;
+                .ok_or(ModelLoadingError::WorkflowExecutionError)?
+                .map_err(|err| {
+                    ModelLoadingError::FailedLoadingDependency(source, err.to_string())
+                })?;
         }
         Ok(request)
     }
@@ -408,14 +406,10 @@ pub enum ModelLoadingSet {
     CheckSceneFlush,
 }
 
-/// Cleans up a model that failed spawning
-pub fn cleanup_failed_model(In(e): In<Entity>) {}
-
 fn finalize_model(
     In(AsyncService {
         request, channel, ..
     }): AsyncServiceInput<ModelLoadingRequest>,
-    world: &mut World,
 ) -> impl Future<Output = Result<(), ModelLoadingError>> {
     async move {
         if let Some(then_command) = request.then_command {
@@ -460,6 +454,7 @@ impl ModelLoadingServices {
         let load_model_dependencies = app.world.spawn_service(load_model_dependencies);
         let model_loading_service = app.world.spawn_service(handle_model_loading);
         let finalize_model = app.world.spawn_service(finalize_model);
+        // TODO(luca) reduce duplication for logging blocks
         let load_model = app.world.spawn_workflow(|scope, builder| {
             scope
                 .input
@@ -474,6 +469,13 @@ impl ModelLoadingServices {
                 })
                 .connect_on_err(scope.terminate)
                 .then(load_model_dependencies)
+                .map_block(|res| match res {
+                    Ok(entity) => Ok(entity),
+                    Err(e) => {
+                        error!("Failed loading model dependencies {:?}", e);
+                        Err(e)
+                    }
+                })
                 .connect_on_err(scope.terminate)
                 // The model and its dependencies are spawned, make them selectable / propagate
                 // render layers
@@ -536,87 +538,26 @@ impl ModelLoadingRequest {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ModelLoadingError {
+    #[error("Error executing the model loading workflow")]
     WorkflowExecutionError,
-    AssetServerError(String),
+    #[error("Asset server error while loading [{0:?}]: {1}")]
+    AssetServerError(AssetSource, String),
+    #[error("Asset source [{0:?}] couldn't be parsed into a path")]
     InvalidAssetSource(AssetSource),
+    #[error(
+        "Failed loading asset [{0:?}], try using an API key if it belongs to a private \
+            organization, or add its path to the {MODEL_ENVIRONMENT_VARIABLE} environment variable"
+    )]
     FailedLoadingAsset(AssetSource),
-    /// The file that was loaded does not contain a model
+    #[error("Asset at source [{0:?}] did not contain a model")]
     NonModelAsset(AssetSource),
+    #[error("Failed loading dependency for model with source [{0:?}]: {1}")]
+    FailedLoadingDependency(AssetSource, String),
     // TODO(luca) remove this
+    #[error("Skipped reloading asset, its source was unchanged")]
     Unchanged,
-}
-
-pub fn update_model_tentative_formats(
-    mut commands: Commands,
-    changed_models: Query<Entity, (Changed<AssetSource>, With<ModelMarker>)>,
-    mut loading_models: Query<
-        (
-            Entity,
-            &mut TentativeModelFormat,
-            &PendingSpawning,
-            &AssetSource,
-        ),
-        With<ModelMarker>,
-    >,
-    asset_server: Res<AssetServer>,
-) {
-    return;
-    static SUPPORTED_EXTENSIONS: &[&str] = &["obj", "stl", "sdf", "glb", "gltf"];
-    for e in changed_models.iter() {
-        // Reset to the first format
-        commands.entity(e).insert(TentativeModelFormat::default());
-    }
-    // Check from the asset server if any format failed, if it did try the next
-    for (e, mut tentative_format, h, source) in loading_models.iter_mut() {
-        if matches!(asset_server.get_load_state(h.id()), Some(LoadState::Failed)) {
-            let mut cmd = commands.entity(e);
-            cmd.remove::<PreventDeletion>();
-            // We want to iterate only for search asset types, for others just print an error
-            if matches!(source, AssetSource::Search(_)) {
-                if let Some(fmt) = tentative_format.next() {
-                    *tentative_format = fmt;
-                    cmd.remove::<PendingSpawning>();
-                    continue;
-                }
-            }
-            let asset_path = match String::try_from(source) {
-                Ok(asset_path) => asset_path,
-                Err(err) => {
-                    error!(
-                        "Invalid syntax while creating asset path to load a model: {err}. \
-                        Check that your asset information was input correctly. \
-                        Current value:\n{:?}",
-                        source,
-                    );
-                    continue;
-                }
-            };
-            let model_ext = asset_path
-                .rsplit_once('.')
-                .map(|s| s.1.to_owned())
-                .unwrap_or_else(|| tentative_format.to_string(""));
-            let reason = if !SUPPORTED_EXTENSIONS.iter().any(|e| model_ext.ends_with(e)) {
-                "Format not supported".to_owned()
-            } else {
-                match source {
-                    AssetSource::Search(_) | AssetSource::Remote(_) => format!(
-                        "Model not found, try using an API key if it belongs to \
-                                a private organization, or add its path to the {} \
-                                environment variable",
-                        MODEL_ENVIRONMENT_VARIABLE
-                    ),
-                    _ => "Failed parsing file".to_owned(),
-                }
-            };
-            warn!(
-                "Failed loading Model with source {}: {}",
-                asset_path, reason
-            );
-            cmd.remove::<TentativeModelFormat>();
-        }
-    }
 }
 
 pub fn update_model_scales(

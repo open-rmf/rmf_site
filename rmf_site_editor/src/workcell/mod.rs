@@ -48,10 +48,9 @@ use crate::AppState;
 use crate::{
     shapes::make_infinite_grid,
     site::{
-        handle_new_primitive_shapes, handle_update_fuel_cache_requests, propagate_model_properties,
+        handle_new_primitive_shapes, handle_update_fuel_cache_requests,
         read_update_fuel_cache_results, reload_failed_models_with_new_api_key,
-        update_anchor_transforms, update_model_scales, update_model_tentative_formats,
-        update_transforms_for_changed_poses,
+        update_anchor_transforms, update_model_scales, update_transforms_for_changed_poses,
     },
 };
 

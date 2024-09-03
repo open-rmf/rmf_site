@@ -30,8 +30,8 @@ use bevy::{ecs::system::EntityCommands, prelude::*};
 use std::collections::HashSet;
 
 use rmf_site_format::{
-    Category, ConstraintDependents, FrameMarker, Geometry, IsStatic, MeshConstraint, Model,
-    ModelMarker, NameInSite, NameInWorkcell, Parented, Scale, SiteID, Workcell, WorkcellModel,
+    Category, ConstraintDependents, FrameMarker, Geometry, IsStatic, MeshConstraint, ModelMarker,
+    NameInWorkcell, Parented, Scale, SiteID, Workcell, WorkcellModel,
 };
 
 #[derive(Event)]

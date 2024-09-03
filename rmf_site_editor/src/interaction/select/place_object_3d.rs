@@ -19,7 +19,7 @@ use crate::{
     interaction::select::*,
     site::{
         Anchor, AnchorBundle, Dependents, FrameMarker, Model, ModelLoadingRequest,
-        ModelSpawningExt, NameInWorkcell, Pending, SiteID, WorkcellModel,
+        ModelSpawningExt, NameInWorkcell, Pending, SiteID,
     },
     widgets::canvas_tooltips::CanvasTooltips,
     workcell::flatten_loaded_model_hierarchy,

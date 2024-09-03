@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    site::{Change, DefaultFile, ModelLoadingRequest, ModelSpawningExt, Pending},
+    site::{DefaultFile, ModelLoadingRequest, ModelSpawningExt, Pending},
     widgets::{prelude::*, Inspect},
     CurrentWorkspace,
 };
