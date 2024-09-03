@@ -417,7 +417,6 @@ impl Plugin for SitePlugin {
                 handle_loaded_drawing,
                 update_drawing_rank,
                 add_physical_camera_visuals,
-                load_new_models,
             )
                 .run_if(AppState::in_site_mode())
                 .in_set(SiteUpdateSet::BetweenVisibilityAndTransform),

@@ -18,10 +18,11 @@
 use crate::{
     interaction::select::*,
     site::{
-        Anchor, AnchorBundle, Dependents, FrameMarker, Model, ModelSpawningExt, NameInSite,
-        NameInWorkcell, Pending, SiteID, WorkcellModel,
+        Anchor, AnchorBundle, Dependents, FrameMarker, Model, ModelLoadingRequest,
+        ModelSpawningExt, NameInSite, NameInWorkcell, Pending, SiteID, WorkcellModel,
     },
     widgets::canvas_tooltips::CanvasTooltips,
+    workcell::flatten_loaded_model_hierarchy,
 };
 use bevy::{ecs::system::SystemParam, prelude::Input as UserInput};
 use bevy_mod_raycast::deferred::RaycastSource;
@@ -454,6 +455,7 @@ pub fn on_placement_chosen_3d(
     let placement_tf = placement.compute_affine();
     let pose = Transform::from_matrix((inv_tf * placement_tf).into()).into();
 
+    let cb = flatten_loaded_model_hierarchy.into_blocking_callback();
     let id = match state.object {
         PlaceableObject::Anchor => commands
             .spawn((
@@ -463,8 +465,12 @@ pub fn on_placement_chosen_3d(
             ))
             .id(),
         PlaceableObject::Model(object) => {
+            // TODO(luca) check if we should have a custom then_commands here
             let model_id = commands.spawn(VisualCue::outline()).id();
-            commands.spawn_model(model_id, object, None);
+            let req = ModelLoadingRequest::new(model_id, object.source.clone())
+                .then(cb)
+                .then_insert_model(object);
+            commands.spawn_model(req);
             // Create a parent anchor to contain the new model in
             commands
                 .spawn((
@@ -479,13 +485,19 @@ pub fn on_placement_chosen_3d(
         PlaceableObject::VisualMesh(mut object) => {
             let id = commands.spawn(VisualMeshMarker).id();
             object.pose = pose;
-            commands.spawn_model(id, object, None);
+            let req = ModelLoadingRequest::new(id, object.source.clone())
+                .then(cb)
+                .then_insert_model(object);
+            commands.spawn_model(req);
             id
         }
         PlaceableObject::CollisionMesh(mut object) => {
             let id = commands.spawn(CollisionMeshMarker).id();
             object.pose = pose;
-            commands.spawn_model(id, object, None);
+            let req = ModelLoadingRequest::new(id, object.source.clone())
+                .then(cb)
+                .then_insert_model(object);
+            commands.spawn_model(req);
             id
         }
     };

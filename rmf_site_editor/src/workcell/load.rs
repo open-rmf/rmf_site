@@ -20,8 +20,8 @@ use std::path::PathBuf;
 
 use crate::{
     site::{
-        AnchorBundle, CollisionMeshMarker, DefaultFile, Dependents, PreventDeletion,
-        VisualMeshMarker,
+        AnchorBundle, CollisionMeshMarker, DefaultFile, Dependents, ModelLoadingRequest,
+        ModelSpawningExt, PreventDeletion, VisualMeshMarker,
     },
     workcell::ChangeCurrentWorkcell,
     WorkspaceMarker,
@@ -30,7 +30,8 @@ use bevy::prelude::*;
 use std::collections::HashSet;
 
 use rmf_site_format::{
-    Category, ConstraintDependents, FrameMarker, MeshConstraint, SiteID, Workcell,
+    Category, ConstraintDependents, FrameMarker, Geometry, IsStatic, MeshConstraint, Model,
+    ModelMarker, NameInSite, NameInWorkcell, Parented, Scale, SiteID, Workcell, WorkcellModel,
 };
 
 #[derive(Event)]
@@ -41,6 +42,12 @@ pub struct LoadWorkcell {
     pub focus: bool,
     /// Set if the workcell was loaded from a file
     pub default_file: Option<PathBuf>,
+}
+
+// Helper type only used in this module to help with visual / collision spawning
+enum WorkcellModelType {
+    Visual,
+    Collision,
 }
 
 fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> Entity {
@@ -61,30 +68,82 @@ fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> E
             "Workcell root cannot be deleted".to_string(),
         ))
         .id();
-    id_to_entity.insert(&workcell.id, root);
+    id_to_entity.insert(workcell.id, root);
 
-    for (id, parented_visual) in &workcell.visuals {
-        let mut cmd = commands.spawn((SiteID(*id), VisualMeshMarker, Category::Visual));
-        let e = cmd.id();
-        parented_visual.bundle.add_bevy_components(&mut cmd);
-        // TODO(luca) this hashmap update is duplicated, refactor into function
-        let child_entities: &mut Vec<Entity> = parent_to_child_entities
-            .entry(parented_visual.parent)
-            .or_default();
+    let mut add_model = |parented: &Parented<u32, WorkcellModel>,
+                         id: u32,
+                         commands: &mut Commands,
+                         model_type: WorkcellModelType|
+     -> Entity {
+        let e = match &parented.bundle.geometry {
+            Geometry::Primitive(primitive) => {
+                let mut cmd = commands.spawn((
+                    primitive.clone(),
+                    parented.bundle.pose.clone(),
+                    NameInWorkcell(parented.bundle.name.clone()),
+                ));
+                match model_type {
+                    WorkcellModelType::Visual => cmd.insert((VisualMeshMarker, Category::Visual)),
+                    WorkcellModelType::Collision => {
+                        cmd.insert((CollisionMeshMarker, Category::Collision))
+                    }
+                };
+                cmd.id()
+            }
+            Geometry::Mesh { source, scale } => {
+                let scale = Scale(scale.unwrap_or(Vec3::ONE));
+                let pose = parented.bundle.pose.clone();
+                let name = NameInWorkcell(parented.bundle.name.clone());
+                let id = commands.spawn(ConstraintDependents::default()).id();
+                let req = match model_type {
+                    WorkcellModelType::Visual => ModelLoadingRequest::new(id, source.clone())
+                        .then_command(move |cmd: &mut Commands| {
+                            cmd.entity(id).insert((
+                                name,
+                                pose,
+                                scale,
+                                IsStatic::default(),
+                                ModelMarker,
+                                VisualMeshMarker,
+                                Category::Visual,
+                            ));
+                        }),
+                    WorkcellModelType::Collision => ModelLoadingRequest::new(id, source.clone())
+                        .then_command(move |cmd: &mut Commands| {
+                            cmd.entity(id).insert((
+                                name,
+                                pose,
+                                scale,
+                                IsStatic::default(),
+                                ModelMarker,
+                                CollisionMeshMarker,
+                                Category::Collision,
+                            ));
+                        }),
+                };
+                commands.spawn_model(req);
+                id
+            }
+        };
+        commands.entity(e).insert(SiteID(id));
+        let child_entities: &mut Vec<Entity> =
+            parent_to_child_entities.entry(parented.parent).or_default();
         child_entities.push(e);
         id_to_entity.insert(id, e);
+        e
+    };
+
+    for (id, parented_visual) in &workcell.visuals {
+        add_model(parented_visual, *id, commands, WorkcellModelType::Visual);
     }
 
     for (id, parented_collision) in &workcell.collisions {
-        let mut cmd = commands.spawn((SiteID(*id), CollisionMeshMarker, Category::Collision));
-        let e = cmd.id();
-        parented_collision.bundle.add_bevy_components(&mut cmd);
-        // TODO(luca) this hashmap update is duplicated, refactor into function
-        let child_entities: &mut Vec<Entity> = parent_to_child_entities
-            .entry(parented_collision.parent)
-            .or_default();
-        child_entities.push(e);
-        id_to_entity.insert(id, e);
+        add_model(
+            parented_collision,
+            *id,
+            commands,
+            WorkcellModelType::Collision,
+        );
     }
 
     for (id, parented_anchor) in &workcell.frames {
@@ -115,7 +174,7 @@ fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> E
             .entry(parented_anchor.parent)
             .or_default();
         child_entities.push(e);
-        id_to_entity.insert(id, e);
+        id_to_entity.insert(*id, e);
     }
 
     for (id, parented_inertia) in &workcell.inertias {
@@ -129,7 +188,7 @@ fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> E
             .entry(parented_inertia.parent)
             .or_default();
         child_entities.push(e);
-        id_to_entity.insert(id, e);
+        id_to_entity.insert(*id, e);
     }
 
     for (id, parented_joint) in &workcell.joints {
@@ -141,7 +200,7 @@ fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> E
             .entry(parented_joint.parent)
             .or_default();
         child_entities.push(e);
-        id_to_entity.insert(id, e);
+        id_to_entity.insert(*id, e);
     }
 
     // Add constraint dependents to models

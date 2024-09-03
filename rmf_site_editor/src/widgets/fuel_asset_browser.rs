@@ -18,8 +18,8 @@
 use crate::{
     interaction::{ModelPreviewCamera, ObjectPlacement, PlaceableObject, Selection},
     site::{
-        model::ModelSpawningExt, AssetSource, CurrentLevel, FuelClient, Model, SetFuelApiKey,
-        UpdateFuelCache,
+        AssetSource, CurrentLevel, FuelClient, Model, ModelLoadingRequest, ModelSpawningExt,
+        SetFuelApiKey, UpdateFuelCache,
     },
     widgets::prelude::*,
     AppState, CurrentWorkspace,
@@ -270,7 +270,10 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                             ),
                             ..default()
                         };
-                        self.commands.spawn_model(model_entity, model, None);
+                        self.commands.spawn_model(
+                            ModelLoadingRequest::new(model_entity, model.source.clone())
+                                .then_insert_model(model),
+                        );
                         gallery_status.selected = Some(selected.clone());
                     }
                 }

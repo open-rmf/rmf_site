@@ -18,7 +18,7 @@
 use crate::{
     animate::*,
     interaction::*,
-    site::{AnchorBundle, ModelSpawningExt, Pending, SiteAssets},
+    site::{AnchorBundle, ModelLoadingRequest, ModelSpawningExt, Pending, SiteAssets},
 };
 use bevy::{ecs::system::SystemParam, prelude::*, window::PrimaryWindow};
 use bevy_mod_raycast::primitives::{rays::Ray3d, Primitive3d};
@@ -124,7 +124,9 @@ impl Cursor {
         self.remove_preview(commands);
         self.preview_model = if let Some(model) = model {
             let e = commands.spawn(Pending).set_parent(self.frame).id();
-            commands.spawn_model(e, model, None);
+            commands.spawn_model(
+                ModelLoadingRequest::new(e, model.source.clone()).then_insert_model(model),
+            );
             Some(e)
         } else {
             None

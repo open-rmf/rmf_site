@@ -16,13 +16,86 @@
 */
 
 use crate::{
-    interaction::{Preview, VisualCue},
+    interaction::{Preview, Selectable, VisualCue},
     site::{Dependents, Pending},
 };
 use bevy::prelude::*;
 use rmf_site_format::{
     ModelMarker, NameInSite, NameInWorkcell, NameOfWorkcell, Pose, PrimitiveShape,
 };
+
+pub fn flatten_loaded_model_hierarchy(
+    In(old_parent): In<Entity>,
+    mut commands: Commands,
+    cues: Query<&VisualCue>,
+    previews: Query<&Preview>,
+    mut poses: Query<&mut Pose>,
+    mut dependents: Query<&mut Dependents>,
+    parents: Query<&Parent>,
+    children: Query<&Children>,
+    meshes: Query<(), With<Handle<Mesh>>>,
+    models: Query<(), Or<(With<ModelMarker>, With<PrimitiveShape>)>>,
+) {
+    let Ok(new_parent) = parents.get(old_parent) else {
+        warn!(
+            "Failed flattening model hierarchy, model {:?} has no parent",
+            old_parent
+        );
+        return;
+    };
+    println!("Old parent is {:?}", old_parent);
+    println!("New parent is {:?}", new_parent);
+    let Ok(parent_pose) = poses.get(old_parent).cloned() else {
+        return;
+    };
+    for c in DescendantIter::new(&children, old_parent) {
+        if meshes.get(c).is_ok() {
+            // Set its selectable to the first parent model, or to itself if none is found
+            let mut parent_found = false;
+            for p in AncestorIter::new(&parents, c) {
+                if models.get(p).is_ok() {
+                    commands.entity(c).insert(Selectable::new(p));
+                    parent_found = true;
+                    break;
+                }
+            }
+            if !parent_found {
+                commands.entity(c).insert(Selectable::new(c));
+            }
+        }
+        println!("Child found");
+        let Ok(mut child_pose) = poses.get_mut(c) else {
+            continue;
+        };
+        commands.entity(**new_parent).add_child(c);
+        if let Ok(mut deps) = dependents.get_mut(**new_parent) {
+            println!("Adding {:?} dependent to {:?}", c, new_parent);
+            deps.insert(c);
+        }
+        let tf_child = child_pose.transform();
+        let tf_parent = parent_pose.transform();
+        *child_pose = (tf_parent * tf_child).into();
+
+        // Note: This is wiping out properties that we might try to apply to the
+        // original model entity. Because of this, we need to manually push those
+        // properties (e.g. VisualCue, Preview) along to the flattened entities.
+        // This might not scale well in the long run.
+        let mut c_mut = commands.entity(c);
+        if let Ok(cue) = cues.get(old_parent) {
+            c_mut.insert(cue.clone());
+        }
+        if let Ok(preview) = previews.get(old_parent) {
+            c_mut.insert(preview.clone());
+        }
+    }
+    if let Ok(mut parent_dependents) = dependents.get_mut(**new_parent) {
+        println!("Removing dependent {:?} from {:?}", old_parent, new_parent);
+        parent_dependents.remove(&old_parent);
+    }
+
+    // Now despawn the unnecessary model
+    commands.entity(old_parent).despawn_recursive();
+}
 
 /// SDFs loaded through site editor wrap all the collisions and visuals into a single Model entity.
 /// This doesn't quite work for URDF / workcells since we need to export and edit single visuals
@@ -93,6 +166,7 @@ pub fn replace_name_in_site_components(
     workcells: Query<(), With<NameOfWorkcell>>,
     parents: Query<&Parent>,
 ) {
+    return;
     for (e, name) in &new_names {
         if AncestorIter::new(&parents, e).any(|p| workcells.get(p).is_ok()) {
             commands

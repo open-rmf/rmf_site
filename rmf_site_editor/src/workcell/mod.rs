@@ -78,24 +78,8 @@ impl Plugin for WorkcellEditorPlugin {
             .add_systems(
                 Update,
                 (
-                    /*
-                    (
-                        propagate_model_properties,
-                        make_models_selectable,
-                        // Counter-intuitively, we want to expand the model scenes
-                        // after propagating the model properties through the scene.
-                        // The reason is that the entities for the scene won't be
-                        // available until the next cycle is finished, so we want to
-                        // wait until the next cycle before propagating the properties
-                        // of any newly added scenes.
-                        handle_model_loaded_events,
-                    )
-                        .chain(),
-                    update_model_scenes,
-                    */
                     update_model_scales,
                     handle_new_primitive_shapes,
-                    update_model_tentative_formats,
                     replace_name_in_site_components,
                     handle_create_joint_events,
                     cleanup_orphaned_joints,
@@ -121,10 +105,6 @@ impl Plugin for WorkcellEditorPlugin {
                     update_transforms_for_changed_poses,
                 )
                     .run_if(in_state(AppState::WorkcellEditor)),
-            )
-            .add_systems(
-                PostUpdate,
-                (flatten_loaded_models_hierarchy,).run_if(in_state(AppState::WorkcellEditor)),
             );
     }
 

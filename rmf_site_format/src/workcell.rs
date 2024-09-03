@@ -410,33 +410,6 @@ pub struct WorkcellModel {
     pub pose: Pose,
 }
 
-#[cfg(feature = "bevy")]
-impl WorkcellModel {
-    pub fn add_bevy_components(&self, commands: &mut EntityCommands) {
-        match &self.geometry {
-            Geometry::Primitive(primitive) => {
-                commands.insert((
-                    primitive.clone(),
-                    self.pose.clone(),
-                    NameInWorkcell(self.name.clone()),
-                ));
-            }
-            Geometry::Mesh { source, scale } => {
-                let scale = Scale(scale.unwrap_or(Vec3::ONE));
-                // TODO(luca) Make a bundle for workcell models to avoid manual insertion here
-                commands.insert((
-                    NameInWorkcell(self.name.clone()),
-                    source.clone(),
-                    self.pose.clone(),
-                    ConstraintDependents::default(),
-                    scale,
-                    ModelMarker,
-                ));
-            }
-        }
-    }
-}
-
 // TODO(luca) we might need a different bundle to denote a workcell included in site
 // editor mode to deal with serde of workcells there (that would only have an asset source?)
 /// Container for serialization / deserialization of workcells

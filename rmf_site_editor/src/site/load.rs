@@ -225,26 +225,15 @@ fn generate_site_entities(
                 }
             });
 
-        use bevy_impulse::IntoBlockingCallback;
         for (model_id, model) in &level_data.models {
             let site_id = SiteID(*model_id);
             let model_entity = commands
-                .spawn_empty()
-                .insert(site_id)
+                .spawn(SiteID(*model_id))
                 .set_parent(level_entity)
                 .id();
-            commands.spawn_model(
-                model_entity,
-                model.clone(),
-                Some(
-                    (move |In(e): In<Entity>, world: &mut World| {
-                        world.entity_mut(e).insert(site_id).set_parent(level_entity);
-                        e
-                    })
-                    .into_blocking_callback(),
-                ),
-            );
-            // level.spawn(model.clone()).insert(SiteID(*model_id));
+            let req = ModelLoadingRequest::new(model_entity, model.source.clone())
+                .then_insert_model(model.clone());
+            commands.spawn_model(req);
             consider_id(*model_id);
         }
 
