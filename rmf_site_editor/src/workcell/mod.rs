@@ -80,7 +80,6 @@ impl Plugin for WorkcellEditorPlugin {
                 (
                     update_model_scales,
                     handle_new_primitive_shapes,
-                    replace_name_in_site_components,
                     handle_create_joint_events,
                     cleanup_orphaned_joints,
                     handle_update_fuel_cache_requests,

@@ -19,12 +19,15 @@ use crate::{
     interaction::select::*,
     site::{
         Anchor, AnchorBundle, Dependents, FrameMarker, Model, ModelLoadingRequest,
-        ModelSpawningExt, NameInSite, NameInWorkcell, Pending, SiteID, WorkcellModel,
+        ModelSpawningExt, NameInWorkcell, Pending, SiteID, WorkcellModel,
     },
     widgets::canvas_tooltips::CanvasTooltips,
     workcell::flatten_loaded_model_hierarchy,
 };
-use bevy::{ecs::system::SystemParam, prelude::Input as UserInput};
+use bevy::{
+    ecs::system::{EntityCommands, SystemParam},
+    prelude::Input as UserInput,
+};
 use bevy_mod_raycast::deferred::RaycastSource;
 use std::borrow::Cow;
 
@@ -235,7 +238,7 @@ pub fn place_object_3d_find_placement(
     hovering: Res<Hovering>,
     mouse_button_input: Res<UserInput<MouseButton>>,
     blockers: Option<Res<PickingBlockers>>,
-    meta: Query<(Option<&'static NameInSite>, Option<&'static SiteID>)>,
+    meta: Query<(Option<&'static NameInWorkcell>, Option<&'static SiteID>)>,
     mut filter: PlaceObject3dFilter,
 ) {
     let Some(mut orders) = orders.get_mut(&srv_key) else {
@@ -456,6 +459,14 @@ pub fn on_placement_chosen_3d(
     let pose = Transform::from_matrix((inv_tf * placement_tf).into()).into();
 
     let cb = flatten_loaded_model_hierarchy.into_blocking_callback();
+    let add_model_components = |object: Model, mut cmd: EntityCommands| {
+        cmd.insert((
+            NameInWorkcell(object.name.0),
+            object.pose,
+            object.is_static,
+            object.scale,
+        ));
+    };
     let id = match state.object {
         PlaceableObject::Anchor => commands
             .spawn((
@@ -469,7 +480,9 @@ pub fn on_placement_chosen_3d(
             let model_id = commands.spawn(VisualCue::outline()).id();
             let req = ModelLoadingRequest::new(model_id, object.source.clone())
                 .then(cb)
-                .then_insert_model(object);
+                .then_command(move |cmd: EntityCommands| {
+                    add_model_components(object, cmd);
+                });
             commands.spawn_model(req);
             // Create a parent anchor to contain the new model in
             commands
@@ -483,20 +496,26 @@ pub fn on_placement_chosen_3d(
                 .id()
         }
         PlaceableObject::VisualMesh(mut object) => {
-            let id = commands.spawn(VisualMeshMarker).id();
+            let id = commands.spawn((VisualMeshMarker, Category::Visual)).id();
             object.pose = pose;
             let req = ModelLoadingRequest::new(id, object.source.clone())
                 .then(cb)
-                .then_insert_model(object);
+                .then_command(move |cmd: EntityCommands| {
+                    add_model_components(object, cmd);
+                });
             commands.spawn_model(req);
             id
         }
         PlaceableObject::CollisionMesh(mut object) => {
-            let id = commands.spawn(CollisionMeshMarker).id();
+            let id = commands
+                .spawn((CollisionMeshMarker, Category::Collision))
+                .id();
             object.pose = pose;
             let req = ModelLoadingRequest::new(id, object.source.clone())
                 .then(cb)
-                .then_insert_model(object);
+                .then_command(move |cmd: EntityCommands| {
+                    add_model_components(object, cmd);
+                });
             commands.spawn_model(req);
             id
         }

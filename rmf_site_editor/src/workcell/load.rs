@@ -26,7 +26,7 @@ use crate::{
     workcell::ChangeCurrentWorkcell,
     WorkspaceMarker,
 };
-use bevy::prelude::*;
+use bevy::{ecs::system::EntityCommands, prelude::*};
 use std::collections::HashSet;
 
 use rmf_site_format::{
@@ -97,8 +97,8 @@ fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> E
                 let id = commands.spawn(ConstraintDependents::default()).id();
                 let req = match model_type {
                     WorkcellModelType::Visual => ModelLoadingRequest::new(id, source.clone())
-                        .then_command(move |cmd: &mut Commands| {
-                            cmd.entity(id).insert((
+                        .then_command(move |mut cmd: EntityCommands| {
+                            cmd.insert((
                                 name,
                                 pose,
                                 scale,
@@ -109,8 +109,8 @@ fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> E
                             ));
                         }),
                     WorkcellModelType::Collision => ModelLoadingRequest::new(id, source.clone())
-                        .then_command(move |cmd: &mut Commands| {
-                            cmd.entity(id).insert((
+                        .then_command(move |mut cmd: EntityCommands| {
+                            cmd.insert((
                                 name,
                                 pose,
                                 scale,
@@ -133,17 +133,12 @@ fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> E
         e
     };
 
-    for (id, parented_visual) in &workcell.visuals {
-        add_model(parented_visual, *id, commands, WorkcellModelType::Visual);
+    for (id, visual) in &workcell.visuals {
+        add_model(visual, *id, commands, WorkcellModelType::Visual);
     }
 
-    for (id, parented_collision) in &workcell.collisions {
-        add_model(
-            parented_collision,
-            *id,
-            commands,
-            WorkcellModelType::Collision,
-        );
+    for (id, collision) in &workcell.collisions {
+        add_model(collision, *id, commands, WorkcellModelType::Collision);
     }
 
     for (id, parented_anchor) in &workcell.frames {

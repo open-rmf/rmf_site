@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    site::{model::ModelSpawningExt, Change, DefaultFile, Pending},
+    site::{Change, DefaultFile, ModelLoadingRequest, ModelSpawningExt, Pending},
     widgets::{prelude::*, Inspect},
     CurrentWorkspace,
 };
@@ -60,7 +60,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectAssetSource<'w, 's> {
         {
             params
                 .commands
-                .set_model_asset_source(selection, new_source);
+                .spawn_model(ModelLoadingRequest::new(selection, new_source));
         }
         ui.add_space(10.0);
     }

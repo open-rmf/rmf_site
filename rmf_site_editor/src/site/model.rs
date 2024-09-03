@@ -16,13 +16,13 @@
 */
 
 use crate::{
-    interaction::{DragPlaneBundle, Preview, Selectable, MODEL_PREVIEW_LAYER},
+    interaction::{DragPlaneBundle, Preview, MODEL_PREVIEW_LAYER},
     site::{Category, Dependents, Model, PreventDeletion, SiteAssets},
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
 };
 use bevy::{
     asset::{AssetLoadError, LoadState, LoadedUntypedAsset, UntypedAssetId},
-    ecs::system::{Command, SystemParam},
+    ecs::system::{Command, EntityCommands, SystemParam},
     gltf::Gltf,
     prelude::*,
     render::view::RenderLayers,
@@ -106,9 +106,6 @@ pub struct ModelLoadingServices {
     /// Service that loads the requested model
     pub load_model: Service<ModelLoadingRequest, Result<(), ModelLoadingError>>,
     pub check_scene_is_spawned: Service<(Entity, Option<Handle<Scene>>), Entity>,
-    /// This workflow updates an existing model to a new asset source
-    // TODO(luca) consider using a Result here
-    pub update_asset_source_for_model: Service<(Entity, AssetSource), ()>,
 }
 
 #[derive(Default)]
@@ -237,48 +234,24 @@ pub fn spawn_scene_for_loaded_model(
     Some((model_id, scene_handle))
 }
 
-/// Return Some(input) if the source changed and we might need to continue downstream operations.
-/// None if there was no change and we can dispose downstream operations.
+/// Return true if the source changed and we might need to continue downstream operations.
+/// false if there was no change and we can dispose downstream operations.
 pub fn despawn_if_asset_source_changed(
     In((e, source)): In<(Entity, AssetSource)>,
     mut commands: Commands,
     model_scenes: Query<&ModelScene>,
-) -> Option<(Entity, AssetSource)> {
+) -> bool {
+    commands.entity(e).insert(source.clone());
     let Ok(scene) = model_scenes.get(e) else {
-        return Some((e, source));
+        return true;
     };
 
     if scene.source == source {
-        return None;
+        return false;
     }
     commands.entity(scene.entity).despawn_recursive();
     commands.entity(e).remove::<ModelScene>();
-    Some((e, source))
-}
-
-/// Err(()) if no model is actually spawned so we can't update its source
-/// Ok(()) if there was a model and a request to update it was dispatched
-pub fn update_asset_source_for_model(
-    In((e, source)): In<(Entity, AssetSource)>,
-    mut commands: Commands,
-    mut models: Query<(
-        Entity,
-        &mut AssetSource,
-        &NameInSite,
-        &Pose,
-        &IsStatic,
-        &Scale,
-    )>,
-) -> Result<(), ()> {
-    let Ok((scene_entity, mut current_source, name, pose, is_static, scale)) = models.get_mut(e)
-    else {
-        return Err(());
-    };
-
-    *current_source = source.clone();
-    let req = ModelLoadingRequest::new(e, source);
-    commands.spawn_model(req);
-    Ok(())
+    true
 }
 
 fn handle_model_loading(
@@ -290,7 +263,7 @@ fn handle_model_loading(
     let check_scene_is_spawned = model_services.check_scene_is_spawned.clone();
     let spawn_scene = spawn_scene_for_loaded_model.into_blocking_callback();
     async move {
-        channel
+        let asset_changed = channel
             .query(
                 (request.parent, request.source.clone()),
                 despawn_if_asset_source_changed.into_blocking_callback(),
@@ -298,6 +271,10 @@ fn handle_model_loading(
             .await
             .available()
             .ok_or(ModelLoadingError::WorkflowExecutionError)?;
+        if !asset_changed {
+            // TODO(luca) change into an Result<_, Option<ModelLoadingError>>,
+            return Err(ModelLoadingError::Unchanged);
+        }
         let sources = match request.source {
             AssetSource::Search(ref name) => TentativeModelFormat::get_all_for_source(name),
             AssetSource::Local(_) | AssetSource::Remote(_) | AssetSource::Package(_) => {
@@ -357,6 +334,7 @@ pub fn add_components_to_spawned_model(
     In((parent, scene_entity, source)): In<(Entity, Entity, AssetSource)>,
     mut commands: Commands,
     vis: Query<&Visibility>,
+    tf: Query<&Transform>,
     not_selectable_markers_query: Query<(Option<&RenderLayers>, Has<Preview>, Has<Pending>)>,
 ) {
     // TODO(luca) just use commands.insert_if_new when updating to bevy 0.15, check
@@ -367,19 +345,12 @@ pub fn add_components_to_spawned_model(
             source: source,
             entity: scene_entity,
         })
-        .insert(TransformBundle::default())
         .add_child(scene_entity);
-    /*
-    if let Ok((render_layer, preview, pending)) = not_selectable_markers_query.get(parent) {
-        let in_preview_layer =
-            render_layer.is_some_and(|l| l.iter().all(|l| l == MODEL_PREVIEW_LAYER));
-        if !in_preview_layer && !preview && !pending {
-            commands.entity(parent).insert(Selectable::new(parent));
-        }
-    }
-    */
     if vis.get(parent).is_err() {
         commands.entity(parent).insert(VisibilityBundle::default());
+    }
+    if tf.get(parent).is_err() {
+        commands.entity(parent).insert(TransformBundle::default());
     }
 }
 
@@ -394,38 +365,13 @@ impl Command for ModelLoadingRequest {
     }
 }
 
-/// Command used to change the asset source for a preexisting model
-pub struct SetModelAssetSourceCommand {
-    model: Entity,
-    source: AssetSource,
-}
-
-impl Command for SetModelAssetSourceCommand {
-    fn apply(self, world: &mut World) {
-        let services = world.get_resource::<ModelLoadingServices>()
-            .expect("Model loading services not found, make sure the `ModelLoadingServices` Resource has been added to your world");
-        let update_asset_source = services.update_asset_source_for_model.clone();
-        world.command(|commands| {
-            commands
-                .request((self.model, self.source), update_asset_source)
-                .detach();
-        });
-    }
-}
-
 pub trait ModelSpawningExt<'w, 's> {
     fn spawn_model(&mut self, request: ModelLoadingRequest);
-
-    fn set_model_asset_source(&mut self, model: Entity, source: AssetSource);
 }
 
 impl<'w, 's> ModelSpawningExt<'w, 's> for Commands<'w, 's> {
     fn spawn_model(&mut self, request: ModelLoadingRequest) {
         self.add(request);
-    }
-
-    fn set_model_asset_source(&mut self, model: Entity, source: AssetSource) {
-        self.add(SetModelAssetSourceCommand { model, source });
     }
 }
 
@@ -434,34 +380,16 @@ fn load_model_dependencies(
         request, channel, ..
     }): AsyncServiceInput<ModelLoadingRequest>,
     children_q: Query<&Children>,
-    models: Query<(&NameInSite, &AssetSource, &Pose, &IsStatic, &Scale), With<ModelMarker>>,
+    models: Query<&AssetSource, With<ModelMarker>>,
     model_loading: Res<ModelLoadingServices>,
 ) -> impl Future<Output = Result<ModelLoadingRequest, ModelLoadingError>> {
     let models = DescendantIter::new(&children_q, request.parent)
-        .filter_map(|c| {
-            models
-                .get(c)
-                .ok()
-                .map(|(name, source, pose, is_static, scale)| {
-                    (
-                        c,
-                        Model {
-                            name: name.clone(),
-                            source: source.clone(),
-                            pose: pose.clone(),
-                            is_static: is_static.clone(),
-                            scale: scale.clone(),
-                            marker: Default::default(),
-                        },
-                    )
-                })
-        })
+        .filter_map(|c| models.get(c).ok().map(|source| (c, source.clone())))
         .collect::<Vec<_>>();
     let load_model = model_loading.load_model.clone();
     async move {
-        for (model_entity, model) in models {
-            let request = ModelLoadingRequest::new(model_entity, model.source.clone())
-                .then_insert_model(model);
+        for (model_entity, source) in models {
+            let request = ModelLoadingRequest::new(model_entity, source);
             channel
                 .query(request, load_model)
                 .await
@@ -491,8 +419,9 @@ fn finalize_model(
 ) -> impl Future<Output = Result<(), ModelLoadingError>> {
     async move {
         if let Some(then_command) = request.then_command {
+            let parent = request.parent.clone();
             channel
-                .command(|cmd| (then_command)(cmd))
+                .command(move |cmd| (then_command)(cmd.entity(parent)))
                 .await
                 .available()
                 .ok_or(ModelLoadingError::WorkflowExecutionError)?;
@@ -531,16 +460,6 @@ impl ModelLoadingServices {
         let load_model_dependencies = app.world.spawn_service(load_model_dependencies);
         let model_loading_service = app.world.spawn_service(handle_model_loading);
         let finalize_model = app.world.spawn_service(finalize_model);
-        let update_asset_source_for_model = app.world.spawn_workflow(|scope, builder| {
-            scope
-                .input
-                .chain(builder)
-                .then(despawn_if_asset_source_changed.into_blocking_callback())
-                .dispose_on_none()
-                .then(update_asset_source_for_model.into_blocking_callback())
-                .map_block(|_| ())
-                .connect(scope.terminate)
-        });
         let load_model = app.world.spawn_workflow(|scope, builder| {
             scope
                 .input
@@ -567,7 +486,6 @@ impl ModelLoadingServices {
         Self {
             load_model,
             check_scene_is_spawned,
-            update_asset_source_for_model,
         }
     }
 }
@@ -577,14 +495,14 @@ pub struct ModelLoadingRequest {
     // TODO(luca) make this an option to avoid users having to do spawn_empty if they don't need to
     // pass an entity
     pub parent: Entity,
+    /// AssetSource pointing to which asset we want to load
     pub source: AssetSource,
-    // pub model: Model,
     /// A callback to be executed on the spawned model. This can be used for complex operations
     /// that require querying / interactions with the ECS
     pub then: Option<Callback<Entity, ()>>,
     /// A command to be executed at the end of spawning. This can be used for simple operations such
     /// as adding / removing components, setting hierarchy.
-    pub then_command: Option<Box<dyn FnOnce(&mut Commands) + Send + Sync>>,
+    pub then_command: Option<Box<dyn FnOnce(EntityCommands) + Send + Sync>>,
 }
 
 impl ModelLoadingRequest {
@@ -603,13 +521,13 @@ impl ModelLoadingRequest {
     }
 
     pub fn then_insert_model(mut self, model: Model) -> Self {
-        self.then_command = Some(Box::new(move |cmd: &mut Commands| {
-            cmd.entity(self.parent).insert((model, Category::Model));
+        self.then_command = Some(Box::new(move |mut cmd: EntityCommands| {
+            cmd.insert((model, Category::Model));
         }));
         self
     }
 
-    pub fn then_command<F: FnOnce(&mut Commands) + Send + Sync + 'static>(
+    pub fn then_command<F: FnOnce(EntityCommands) + Send + Sync + 'static>(
         mut self,
         command: F,
     ) -> Self {
@@ -626,6 +544,8 @@ pub enum ModelLoadingError {
     FailedLoadingAsset(AssetSource),
     /// The file that was loaded does not contain a model
     NonModelAsset(AssetSource),
+    // TODO(luca) remove this
+    Unchanged,
 }
 
 pub fn update_model_tentative_formats(

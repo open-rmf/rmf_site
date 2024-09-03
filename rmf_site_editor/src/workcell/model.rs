@@ -24,6 +24,9 @@ use rmf_site_format::{
     ModelMarker, NameInSite, NameInWorkcell, NameOfWorkcell, Pose, PrimitiveShape,
 };
 
+/// SDFs loaded through site editor wrap all the collisions and visuals into a single Model entity.
+/// This doesn't quite work for URDF / workcells since we need to export and edit single visuals
+/// and collisions, hence we process the loaded models to flatten them here
 pub fn flatten_loaded_model_hierarchy(
     In(old_parent): In<Entity>,
     mut commands: Commands,
@@ -43,8 +46,6 @@ pub fn flatten_loaded_model_hierarchy(
         );
         return;
     };
-    println!("Old parent is {:?}", old_parent);
-    println!("New parent is {:?}", new_parent);
     let Ok(parent_pose) = poses.get(old_parent).cloned() else {
         return;
     };
@@ -63,13 +64,11 @@ pub fn flatten_loaded_model_hierarchy(
                 commands.entity(c).insert(Selectable::new(c));
             }
         }
-        println!("Child found");
         let Ok(mut child_pose) = poses.get_mut(c) else {
             continue;
         };
         commands.entity(**new_parent).add_child(c);
         if let Ok(mut deps) = dependents.get_mut(**new_parent) {
-            println!("Adding {:?} dependent to {:?}", c, new_parent);
             deps.insert(c);
         }
         let tf_child = child_pose.transform();
@@ -89,90 +88,9 @@ pub fn flatten_loaded_model_hierarchy(
         }
     }
     if let Ok(mut parent_dependents) = dependents.get_mut(**new_parent) {
-        println!("Removing dependent {:?} from {:?}", old_parent, new_parent);
         parent_dependents.remove(&old_parent);
     }
 
     // Now despawn the unnecessary model
     commands.entity(old_parent).despawn_recursive();
-}
-
-/// SDFs loaded through site editor wrap all the collisions and visuals into a single Model entity.
-/// This doesn't quite work for URDF / workcells since we need to export and edit single visuals
-/// and collisions, hence we process the loaded models to flatten them here
-pub fn flatten_loaded_models_hierarchy(
-    mut commands: Commands,
-    new_models: Query<
-        (Entity, &Parent),
-        (
-            Without<Pending>,
-            Or<(Added<ModelMarker>, Added<PrimitiveShape>)>,
-        ),
-    >,
-    all_model_parents: Query<(Entity, &Parent), (With<ModelMarker>, Without<Pending>)>,
-    properties: Query<(Option<&VisualCue>, Option<&Preview>)>,
-    mut poses: Query<&mut Pose>,
-    mut dependents: Query<&mut Dependents>,
-    parents: Query<&Parent>,
-) {
-    for (e, parent) in &new_models {
-        // Traverse up the hierarchy to find the first model parent and reassign it
-        if let Some((parent_entity, model_parent)) =
-            AncestorIter::new(&parents, **parent).find_map(|e| all_model_parents.get(e).ok())
-        {
-            let Ok(parent_pose) = poses.get(parent_entity).cloned() else {
-                continue;
-            };
-            let Ok(mut child_pose) = poses.get_mut(e) else {
-                continue;
-            };
-            if let Ok(mut parent_dependents) = dependents.get_mut(**model_parent) {
-                parent_dependents.remove(&parent_entity);
-            }
-            commands.entity(**model_parent).add_child(e);
-            if let Ok(mut deps) = dependents.get_mut(**model_parent) {
-                deps.insert(e);
-            }
-            let tf_child = child_pose.transform();
-            let tf_parent = parent_pose.transform();
-            *child_pose = (tf_parent * tf_child).into();
-
-            // Note: This is wiping out properties that we might try to apply to the
-            // original model entity. Because of this, we need to manually push those
-            // properties (e.g. VisualCue, Preview) along to the flattened entities.
-            // This might not scale well in the long run.
-            let mut e_mut = commands.entity(e);
-            if let Ok((cue, preview)) = properties.get(parent_entity) {
-                if let Some(cue) = cue {
-                    e_mut.insert(cue.clone());
-                }
-                if let Some(preview) = preview {
-                    e_mut.insert(preview.clone());
-                }
-            } else {
-                error!("Properties query failed while flattening model");
-                continue;
-            };
-
-            // Now despawn the unnecessary model
-            commands.entity(parent_entity).despawn_recursive();
-        }
-    }
-}
-
-pub fn replace_name_in_site_components(
-    mut commands: Commands,
-    new_names: Query<(Entity, &NameInSite), Added<NameInSite>>,
-    workcells: Query<(), With<NameOfWorkcell>>,
-    parents: Query<&Parent>,
-) {
-    return;
-    for (e, name) in &new_names {
-        if AncestorIter::new(&parents, e).any(|p| workcells.get(p).is_ok()) {
-            commands
-                .entity(e)
-                .insert(NameInWorkcell(name.0.clone()))
-                .remove::<NameInSite>();
-        }
-    }
 }
