@@ -48,7 +48,7 @@ pub fn headless_sdf_export(
     mut exit: EventWriter<bevy::app::AppExit>,
     // TODO(luca) this won't work, we need this query to be empty if there are no more load model
     // workflows running
-    missing_models: Query<(), Without<ModelScene>>,
+    missing_models: Query<(), (With<ModelMarker>, Without<ModelScene>)>,
     // missing_models: Query<(), (With<TentativeModelFormat>, Without<ModelScene>)>,
     mut export_state: ResMut<HeadlessSdfExportState>,
     sites: Query<(Entity, &NameOfSite)>,

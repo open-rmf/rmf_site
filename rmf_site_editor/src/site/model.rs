@@ -38,18 +38,26 @@ pub struct ModelScene {
     entity: Entity,
 }
 
-/// Stores a sequence of model formats to try loading, the site editor will try them in a sequence
-/// until one is successful, or all fail
-pub fn get_all_for_source(name: &str) -> SmallVec<[AssetSource; 6]> {
-    let model_name = name.split('/').last().unwrap();
-    SmallVec::from([
-        AssetSource::Search(name.to_owned()),
-        AssetSource::Search(name.to_owned() + "/model.sdf"),
-        AssetSource::Search(name.to_owned() + "/" + model_name + ".obj"),
-        AssetSource::Search(name.to_owned() + ".glb"),
-        AssetSource::Search(name.to_owned() + ".stl"),
-        AssetSource::Search(name.to_owned() + "/" + model_name + ".glb"),
-    ])
+/// For a given `AssetSource`, return all the sources that we should try loading.
+pub fn get_all_for_source(source: &AssetSource) -> SmallVec<[AssetSource; 6]> {
+    match source {
+        AssetSource::Search(ref name) => {
+            let model_name = name.split('/').last().unwrap();
+            SmallVec::from([
+                AssetSource::Search(name.to_owned()),
+                AssetSource::Search(name.to_owned() + "/model.sdf"),
+                AssetSource::Search(name.to_owned() + "/" + model_name + ".obj"),
+                AssetSource::Search(name.to_owned() + ".glb"),
+                AssetSource::Search(name.to_owned() + ".stl"),
+                AssetSource::Search(name.to_owned() + "/" + model_name + ".glb"),
+            ])
+        }
+        AssetSource::Local(_) | AssetSource::Remote(_) | AssetSource::Package(_) => {
+            let mut v = SmallVec::new();
+            v.push(source.clone());
+            v
+        }
+    }
 }
 
 #[derive(Resource)]
@@ -227,14 +235,7 @@ fn handle_model_loading(
             // TODO(luca) change into an Result<_, Option<ModelLoadingError>>,
             return Err(ModelLoadingError::Unchanged);
         }
-        let sources = match request.source {
-            AssetSource::Search(ref name) => get_all_for_source(name),
-            AssetSource::Local(_) | AssetSource::Remote(_) | AssetSource::Package(_) => {
-                let mut v = SmallVec::new();
-                v.push(request.source.clone());
-                v
-            }
-        };
+        let sources = get_all_for_source(&request.source);
 
         let load_asset_source = load_asset_source.into_async_callback();
         let mut handle = None;
