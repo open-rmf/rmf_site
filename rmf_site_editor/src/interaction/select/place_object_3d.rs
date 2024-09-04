@@ -472,11 +472,9 @@ pub fn on_placement_chosen_3d(
             .id(),
         PlaceableObject::Model(object) => {
             let model_id = commands.spawn(VisualCue::outline()).id();
-            let req = ModelLoadingRequest::new(model_id, object.source.clone())
-                .then(flatten_models)
-                .then_command(move |cmd: EntityCommands| {
-                    add_model_components(object, cmd);
-                });
+            let source = object.source.clone();
+            add_model_components(object, commands.entity(model_id));
+            let req = ModelLoadingRequest::new(model_id, source).then(flatten_models);
             commands.spawn_model(req);
             // Create a parent anchor to contain the new model in
             commands
@@ -492,11 +490,9 @@ pub fn on_placement_chosen_3d(
         PlaceableObject::VisualMesh(mut object) => {
             let id = commands.spawn((VisualMeshMarker, Category::Visual)).id();
             object.pose = pose;
-            let req = ModelLoadingRequest::new(id, object.source.clone())
-                .then(flatten_models)
-                .then_command(move |cmd: EntityCommands| {
-                    add_model_components(object, cmd);
-                });
+            let source = object.source.clone();
+            add_model_components(object, commands.entity(id));
+            let req = ModelLoadingRequest::new(id, source).then(flatten_models);
             commands.spawn_model(req);
             id
         }
@@ -505,11 +501,9 @@ pub fn on_placement_chosen_3d(
                 .spawn((CollisionMeshMarker, Category::Collision))
                 .id();
             object.pose = pose;
-            let req = ModelLoadingRequest::new(id, object.source.clone())
-                .then(flatten_models)
-                .then_command(move |cmd: EntityCommands| {
-                    add_model_components(object, cmd);
-                });
+            let source = object.source.clone();
+            add_model_components(object, commands.entity(id));
+            let req = ModelLoadingRequest::new(id, source).then(flatten_models);
             commands.spawn_model(req);
             id
         }

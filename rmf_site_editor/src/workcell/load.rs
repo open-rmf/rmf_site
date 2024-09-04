@@ -20,13 +20,13 @@ use std::path::PathBuf;
 
 use crate::{
     site::{
-        AnchorBundle, CollisionMeshMarker, DefaultFile, Dependents, ModelLoadingRequest,
-        ModelSpawningExt, PreventDeletion, VisualMeshMarker,
+        AnchorBundle, CollisionMeshMarker, DefaultFile, Dependents, ModelSpawningExt,
+        PreventDeletion, VisualMeshMarker,
     },
     workcell::ChangeCurrentWorkcell,
     WorkspaceMarker,
 };
-use bevy::{ecs::system::EntityCommands, prelude::*};
+use bevy::prelude::*;
 use std::collections::HashSet;
 
 use rmf_site_format::{
@@ -75,16 +75,14 @@ fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> E
                     ));
                 }
                 Geometry::Mesh { source, scale } => {
-                    let scale = Scale(scale.unwrap_or(Vec3::ONE));
-                    let pose = parented.bundle.pose.clone();
-                    let name = NameInWorkcell(parented.bundle.name.clone());
-                    commands.entity(e).insert(ConstraintDependents::default());
-                    let req = ModelLoadingRequest::new(e, source.clone()).then_command(
-                        move |mut cmd: EntityCommands| {
-                            cmd.insert((name, pose, scale, ModelMarker));
-                        },
-                    );
-                    commands.spawn_model(req);
+                    commands.entity(e).insert((
+                        ConstraintDependents::default(),
+                        NameInWorkcell(parented.bundle.name.clone()),
+                        parented.bundle.pose.clone(),
+                        Scale(scale.unwrap_or(Vec3::ONE)),
+                        ModelMarker,
+                    ));
+                    commands.spawn_model((e, source.clone()).into());
                 }
             };
             commands.entity(e).insert(SiteID(id));

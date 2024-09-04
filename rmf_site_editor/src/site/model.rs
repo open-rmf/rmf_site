@@ -21,11 +21,7 @@ use crate::{
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
 };
 use bevy::{
-    ecs::system::{Command, EntityCommands},
-    gltf::Gltf,
-    prelude::*,
-    render::view::RenderLayers,
-    scene::SceneInstance,
+    ecs::system::Command, gltf::Gltf, prelude::*, render::view::RenderLayers, scene::SceneInstance,
 };
 use bevy_impulse::*;
 use bevy_mod_outline::OutlineMeshExt;
@@ -372,9 +368,6 @@ fn finalize_model(
     world: &mut World,
 ) -> Result<(), ModelLoadingError> {
     world.command(|cmd: &mut Commands| {
-        if let Some(then_command) = request.then_command {
-            (then_command)(cmd.entity(request.parent));
-        }
         if let Some(then) = request.then {
             cmd.request(request.parent, then).detach();
         }
@@ -452,9 +445,6 @@ pub struct ModelLoadingRequest {
     /// A callback to be executed on the spawned model. This can be used for complex operations
     /// that require querying / interactions with the ECS
     pub then: Option<Callback<Entity, ()>>,
-    /// A command to be executed at the end of spawning. This can be used for simple operations such
-    /// as adding / removing components, setting hierarchy.
-    pub then_command: Option<Box<dyn FnOnce(EntityCommands) + Send + Sync>>,
 }
 
 impl From<(Entity, AssetSource)> for ModelLoadingRequest {
@@ -469,20 +459,11 @@ impl ModelLoadingRequest {
             parent,
             source,
             then: None,
-            then_command: None,
         }
     }
 
     pub fn then(mut self, then: Callback<Entity, ()>) -> Self {
         self.then = Some(then);
-        self
-    }
-
-    pub fn then_command<F: FnOnce(EntityCommands) + Send + Sync + 'static>(
-        mut self,
-        command: F,
-    ) -> Self {
-        self.then_command = Some(Box::new(command));
         self
     }
 }
