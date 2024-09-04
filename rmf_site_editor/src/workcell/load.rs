@@ -44,12 +44,6 @@ pub struct LoadWorkcell {
     pub default_file: Option<PathBuf>,
 }
 
-// Helper type only used in this module to help with visual / collision spawning
-enum WorkcellModelType {
-    Visual,
-    Collision,
-}
-
 fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> Entity {
     // Create hashmap of ids to entity to correctly generate hierarchy
     let mut id_to_entity = HashMap::new();
@@ -70,73 +64,46 @@ fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> E
         .id();
     id_to_entity.insert(workcell.id, root);
 
-    let mut add_model = |parented: &Parented<u32, WorkcellModel>,
-                         id: u32,
-                         commands: &mut Commands,
-                         model_type: WorkcellModelType|
-     -> Entity {
-        let e = match &parented.bundle.geometry {
-            Geometry::Primitive(primitive) => {
-                let mut cmd = commands.spawn((
-                    primitive.clone(),
-                    parented.bundle.pose.clone(),
-                    NameInWorkcell(parented.bundle.name.clone()),
-                ));
-                match model_type {
-                    WorkcellModelType::Visual => cmd.insert((VisualMeshMarker, Category::Visual)),
-                    WorkcellModelType::Collision => {
-                        cmd.insert((CollisionMeshMarker, Category::Collision))
-                    }
-                };
-                cmd.id()
-            }
-            Geometry::Mesh { source, scale } => {
-                let scale = Scale(scale.unwrap_or(Vec3::ONE));
-                let pose = parented.bundle.pose.clone();
-                let name = NameInWorkcell(parented.bundle.name.clone());
-                let id = commands.spawn(ConstraintDependents::default()).id();
-                let req = match model_type {
-                    WorkcellModelType::Visual => ModelLoadingRequest::new(id, source.clone())
-                        .then_command(move |mut cmd: EntityCommands| {
-                            cmd.insert((
-                                name,
-                                pose,
-                                scale,
-                                ModelMarker,
-                                VisualMeshMarker,
-                                Category::Visual,
-                            ));
-                        }),
-                    WorkcellModelType::Collision => ModelLoadingRequest::new(id, source.clone())
-                        .then_command(move |mut cmd: EntityCommands| {
-                            cmd.insert((
-                                name,
-                                pose,
-                                scale,
-                                ModelMarker,
-                                CollisionMeshMarker,
-                                Category::Collision,
-                            ));
-                        }),
-                };
-                commands.spawn_model(req);
-                id
-            }
+    let mut add_model =
+        |parented: &Parented<u32, WorkcellModel>, id: u32, e: Entity, commands: &mut Commands| {
+            match &parented.bundle.geometry {
+                Geometry::Primitive(primitive) => {
+                    commands.entity(e).insert((
+                        primitive.clone(),
+                        parented.bundle.pose.clone(),
+                        NameInWorkcell(parented.bundle.name.clone()),
+                    ));
+                }
+                Geometry::Mesh { source, scale } => {
+                    let scale = Scale(scale.unwrap_or(Vec3::ONE));
+                    let pose = parented.bundle.pose.clone();
+                    let name = NameInWorkcell(parented.bundle.name.clone());
+                    commands.entity(e).insert(ConstraintDependents::default());
+                    let req = ModelLoadingRequest::new(e, source.clone()).then_command(
+                        move |mut cmd: EntityCommands| {
+                            cmd.insert((name, pose, scale, ModelMarker));
+                        },
+                    );
+                    commands.spawn_model(req);
+                }
+            };
+            commands.entity(e).insert(SiteID(id));
+            let child_entities: &mut Vec<Entity> =
+                parent_to_child_entities.entry(parented.parent).or_default();
+            child_entities.push(e);
+            id_to_entity.insert(id, e);
         };
-        commands.entity(e).insert(SiteID(id));
-        let child_entities: &mut Vec<Entity> =
-            parent_to_child_entities.entry(parented.parent).or_default();
-        child_entities.push(e);
-        id_to_entity.insert(id, e);
-        e
-    };
 
     for (id, visual) in &workcell.visuals {
-        add_model(visual, *id, commands, WorkcellModelType::Visual);
+        let e = commands.spawn((VisualMeshMarker, Category::Visual)).id();
+        add_model(visual, *id, e, commands);
     }
 
     for (id, collision) in &workcell.collisions {
-        add_model(collision, *id, commands, WorkcellModelType::Collision);
+        let e = commands
+            .spawn((CollisionMeshMarker, Category::Collision))
+            .id();
+        add_model(collision, *id, e, commands);
     }
 
     for (id, parented_anchor) in &workcell.frames {

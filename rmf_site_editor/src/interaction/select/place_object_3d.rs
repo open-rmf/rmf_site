@@ -476,7 +476,6 @@ pub fn on_placement_chosen_3d(
             ))
             .id(),
         PlaceableObject::Model(object) => {
-            // TODO(luca) check if we should have a custom then_commands here
             let model_id = commands.spawn(VisualCue::outline()).id();
             let req = ModelLoadingRequest::new(model_id, object.source.clone())
                 .then(cb)
