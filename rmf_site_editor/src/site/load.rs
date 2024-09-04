@@ -226,13 +226,12 @@ fn generate_site_entities(
             });
 
         for (model_id, model) in &level_data.models {
+            let source = model.source.clone();
             let model_entity = commands
-                .spawn(SiteID(*model_id))
+                .spawn((Category::Model, model.clone(), SiteID(*model_id)))
                 .set_parent(level_entity)
                 .id();
-            let req = ModelLoadingRequest::new(model_entity, model.source.clone())
-                .then_insert_model(model.clone());
-            commands.spawn_model(req);
+            commands.spawn_model((model_entity, source).into());
             consider_id(*model_id);
         }
 

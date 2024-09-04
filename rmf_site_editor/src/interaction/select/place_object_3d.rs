@@ -458,14 +458,9 @@ pub fn on_placement_chosen_3d(
     let placement_tf = placement.compute_affine();
     let pose = Transform::from_matrix((inv_tf * placement_tf).into()).into();
 
-    let cb = flatten_loaded_model_hierarchy.into_blocking_callback();
+    let flatten_models = flatten_loaded_model_hierarchy.into_blocking_callback();
     let add_model_components = |object: Model, mut cmd: EntityCommands| {
-        cmd.insert((
-            NameInWorkcell(object.name.0),
-            object.pose,
-            object.is_static,
-            object.scale,
-        ));
+        cmd.insert((NameInWorkcell(object.name.0), object.pose, object.scale));
     };
     let id = match state.object {
         PlaceableObject::Anchor => commands
@@ -478,7 +473,7 @@ pub fn on_placement_chosen_3d(
         PlaceableObject::Model(object) => {
             let model_id = commands.spawn(VisualCue::outline()).id();
             let req = ModelLoadingRequest::new(model_id, object.source.clone())
-                .then(cb)
+                .then(flatten_models)
                 .then_command(move |cmd: EntityCommands| {
                     add_model_components(object, cmd);
                 });
@@ -498,7 +493,7 @@ pub fn on_placement_chosen_3d(
             let id = commands.spawn((VisualMeshMarker, Category::Visual)).id();
             object.pose = pose;
             let req = ModelLoadingRequest::new(id, object.source.clone())
-                .then(cb)
+                .then(flatten_models)
                 .then_command(move |cmd: EntityCommands| {
                     add_model_components(object, cmd);
                 });
@@ -511,7 +506,7 @@ pub fn on_placement_chosen_3d(
                 .id();
             object.pose = pose;
             let req = ModelLoadingRequest::new(id, object.source.clone())
-                .then(cb)
+                .then(flatten_models)
                 .then_command(move |cmd: EntityCommands| {
                     add_model_components(object, cmd);
                 });

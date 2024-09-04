@@ -313,6 +313,7 @@ impl Plugin for SitePlugin {
                 assign_orphan_elements_to_level::<DrawingMarker>,
                 assign_orphan_elements_to_level::<FloorMarker>,
                 assign_orphan_elements_to_level::<LightKind>,
+                assign_orphan_elements_to_level::<ModelMarker>,
                 assign_orphan_elements_to_level::<PhysicalCameraProperties>,
                 assign_orphan_elements_to_level::<WallMarker>,
                 add_category_to_graphs,

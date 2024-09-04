@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::{DragPlaneBundle, Preview, MODEL_PREVIEW_LAYER},
-    site::{Category, Model, SiteAssets},
+    site::SiteAssets,
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
 };
 use bevy::{
@@ -44,55 +44,16 @@ pub struct ModelScene {
 
 /// Stores a sequence of model formats to try loading, the site editor will try them in a sequence
 /// until one is successful, or all fail
-#[derive(Component, Debug, Default, Clone, PartialEq)]
-pub enum TentativeModelFormat {
-    #[default]
-    Plain,
-    GlbFlat,
-    Obj,
-    Stl,
-    GlbFolder,
-    Sdf,
-}
-
-impl TentativeModelFormat {
-    pub fn next(&self) -> Option<Self> {
-        use TentativeModelFormat::*;
-        match self {
-            Plain => Some(GlbFlat),
-            GlbFlat => Some(Obj),
-            Obj => Some(Stl),
-            Stl => Some(GlbFolder),
-            GlbFolder => Some(Sdf),
-            Sdf => None,
-        }
-    }
-
-    // Returns what should be appended to the asset source to make it work with the bevy asset
-    // loader matching the format
-    pub fn to_string(&self, model_name: &str) -> String {
-        use TentativeModelFormat::*;
-        match self {
-            Plain => "".to_owned(),
-            Obj => ("/".to_owned() + model_name + ".obj").into(),
-            GlbFlat => ".glb".into(),
-            Stl => ".stl".into(),
-            GlbFolder => ("/".to_owned() + model_name + ".glb").into(),
-            Sdf => "/model.sdf".to_owned(),
-        }
-    }
-
-    pub fn get_all_for_source(name: &str) -> SmallVec<[AssetSource; 6]> {
-        let model_name = name.split('/').last().unwrap();
-        SmallVec::from([
-            AssetSource::Search(name.to_owned()),
-            AssetSource::Search(name.to_owned() + "/model.sdf"),
-            AssetSource::Search(name.to_owned() + "/" + model_name + ".obj"),
-            AssetSource::Search(name.to_owned() + ".glb"),
-            AssetSource::Search(name.to_owned() + ".stl"),
-            AssetSource::Search(name.to_owned() + "/" + model_name + ".glb"),
-        ])
-    }
+pub fn get_all_for_source(name: &str) -> SmallVec<[AssetSource; 6]> {
+    let model_name = name.split('/').last().unwrap();
+    SmallVec::from([
+        AssetSource::Search(name.to_owned()),
+        AssetSource::Search(name.to_owned() + "/model.sdf"),
+        AssetSource::Search(name.to_owned() + "/" + model_name + ".obj"),
+        AssetSource::Search(name.to_owned() + ".glb"),
+        AssetSource::Search(name.to_owned() + ".stl"),
+        AssetSource::Search(name.to_owned() + "/" + model_name + ".glb"),
+    ])
 }
 
 #[derive(Resource)]
@@ -271,7 +232,7 @@ fn handle_model_loading(
             return Err(ModelLoadingError::Unchanged);
         }
         let sources = match request.source {
-            AssetSource::Search(ref name) => TentativeModelFormat::get_all_for_source(name),
+            AssetSource::Search(ref name) => get_all_for_source(name),
             AssetSource::Local(_) | AssetSource::Remote(_) | AssetSource::Package(_) => {
                 let mut v = SmallVec::new();
                 v.push(request.source.clone());
@@ -496,6 +457,12 @@ pub struct ModelLoadingRequest {
     pub then_command: Option<Box<dyn FnOnce(EntityCommands) + Send + Sync>>,
 }
 
+impl From<(Entity, AssetSource)> for ModelLoadingRequest {
+    fn from(t: (Entity, AssetSource)) -> Self {
+        ModelLoadingRequest::new(t.0, t.1)
+    }
+}
+
 impl ModelLoadingRequest {
     pub fn new(parent: Entity, source: AssetSource) -> Self {
         Self {
@@ -508,13 +475,6 @@ impl ModelLoadingRequest {
 
     pub fn then(mut self, then: Callback<Entity, ()>) -> Self {
         self.then = Some(then);
-        self
-    }
-
-    pub fn then_insert_model(mut self, model: Model) -> Self {
-        self.then_command = Some(Box::new(move |mut cmd: EntityCommands| {
-            cmd.insert((model, Category::Model));
-        }));
         self
     }
 

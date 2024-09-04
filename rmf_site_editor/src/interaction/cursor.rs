@@ -18,7 +18,7 @@
 use crate::{
     animate::*,
     interaction::*,
-    site::{AnchorBundle, ModelLoadingRequest, ModelSpawningExt, Pending, SiteAssets},
+    site::{AnchorBundle, ModelSpawningExt, Pending, SiteAssets},
 };
 use bevy::{ecs::system::SystemParam, prelude::*, window::PrimaryWindow};
 use bevy_mod_raycast::primitives::{rays::Ray3d, Primitive3d};
@@ -123,10 +123,9 @@ impl Cursor {
     pub fn set_model_preview(&mut self, commands: &mut Commands, model: Option<Model>) {
         self.remove_preview(commands);
         self.preview_model = if let Some(model) = model {
-            let e = commands.spawn(Pending).set_parent(self.frame).id();
-            commands.spawn_model(
-                ModelLoadingRequest::new(e, model.source.clone()).then_insert_model(model),
-            );
+            let source = model.source.clone();
+            let e = commands.spawn((model, Pending)).set_parent(self.frame).id();
+            commands.spawn_model((e, source).into());
             Some(e)
         } else {
             None

@@ -9,7 +9,7 @@ use crate::SaveWorkspace;
 use crate::{
     site::{
         ChildLiftCabinGroup, CollisionMeshMarker, DoorSegments, DrawingMarker, FloorSegments,
-        LiftDoormat, ModelScene, TentativeModelFormat, VisualMeshMarker,
+        LiftDoormat, ModelScene, VisualMeshMarker,
     },
     Autoload, WorkspaceLoader,
 };
@@ -46,7 +46,10 @@ pub fn headless_sdf_export(
     mut commands: Commands,
     mut export: EventWriter<SaveWorkspace>,
     mut exit: EventWriter<bevy::app::AppExit>,
-    missing_models: Query<(), (With<TentativeModelFormat>, Without<ModelScene>)>,
+    // TODO(luca) this won't work, we need this query to be empty if there are no more load model
+    // workflows running
+    missing_models: Query<(), Without<ModelScene>>,
+    // missing_models: Query<(), (With<TentativeModelFormat>, Without<ModelScene>)>,
     mut export_state: ResMut<HeadlessSdfExportState>,
     sites: Query<(Entity, &NameOfSite)>,
     drawings: Query<Entity, With<DrawingMarker>>,

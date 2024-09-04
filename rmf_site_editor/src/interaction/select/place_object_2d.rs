@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::select::*,
-    site::{Model, ModelLoadingRequest, ModelSpawningExt},
+    site::{Model, ModelSpawningExt},
 };
 use bevy::prelude::Input as UserInput;
 
@@ -204,10 +204,12 @@ pub fn on_placement_chosen_2d(
     let mut state = access.pull().or_broken_state()?;
 
     state.object.pose = placement.into();
-    let id = commands.spawn_empty().set_parent(state.level).id();
-    commands.spawn_model(
-        ModelLoadingRequest::new(id, state.object.source.clone()).then_insert_model(state.object),
-    );
+    let source = state.object.source.clone();
+    let id = commands
+        .spawn((Category::Model, state.object))
+        .set_parent(state.level)
+        .id();
+    commands.spawn_model((id, source).into());
 
     Ok(())
 }

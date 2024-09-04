@@ -18,8 +18,8 @@
 use crate::{
     interaction::{ModelPreviewCamera, ObjectPlacement, PlaceableObject, Selection},
     site::{
-        AssetSource, CurrentLevel, FuelClient, Model, ModelLoadingRequest, ModelSpawningExt,
-        SetFuelApiKey, UpdateFuelCache,
+        AssetSource, CurrentLevel, FuelClient, Model, ModelSpawningExt, SetFuelApiKey,
+        UpdateFuelCache,
     },
     widgets::prelude::*,
     AppState, CurrentWorkspace,
@@ -264,16 +264,14 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                     if let Some(selected) = new_selected {
                         // Set the model preview source to what is selected
                         let model_entity = self.model_preview_camera.model_entity;
-                        let model = Model {
-                            source: AssetSource::Remote(
-                                selected.owner.clone() + "/" + &selected.name + "/model.sdf",
-                            ),
-                            ..default()
-                        };
-                        self.commands.spawn_model(
-                            ModelLoadingRequest::new(model_entity, model.source.clone())
-                                .then_insert_model(model),
+                        let source = AssetSource::Remote(
+                            selected.owner.clone() + "/" + &selected.name + "/model.sdf",
                         );
+                        self.commands.entity(model_entity).insert(Model {
+                            source: source.clone(),
+                            ..default()
+                        });
+                        self.commands.spawn_model((model_entity, source).into());
                         gallery_status.selected = Some(selected.clone());
                     }
                 }
