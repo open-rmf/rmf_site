@@ -312,8 +312,36 @@ impl Command for ModelLoadingRequest {
             .expect("Model loading services not found, make sure the `ModelLoadingServices` Resource has been added to your world");
         let load_model = services.load_model.clone();
         world.command(|commands| {
-            commands.request(self, load_model).detach();
+            let e = self.parent;
+            let promise = commands.request(self, load_model).take_response();
+            commands.entity(e).insert(ModelLoadingState(promise));
         });
+    }
+}
+
+/// Component added to models that are being loaded
+#[derive(Component, Deref, DerefMut)]
+pub struct ModelLoadingState(Promise<Result<(), ModelLoadingError>>);
+
+/// Marker component added to models that failed loading
+#[derive(Component)]
+pub struct ModelFailedLoading;
+
+/// Polling system that checks the state of promises and prints errors / adds marker components if
+/// models failed loading
+pub fn maintain_model_loading_states(
+    mut loading_states: Query<(Entity, &mut ModelLoadingState)>,
+    mut commands: Commands,
+) {
+    for (e, mut state) in &mut loading_states {
+        if (**state).peek().is_available() {
+            let result = state.take().available().unwrap();
+            if let Err(err) = result {
+                commands.entity(e).insert(ModelFailedLoading);
+                error!("{err}");
+            }
+            commands.entity(e).remove::<ModelLoadingState>();
+        }
     }
 }
 
@@ -339,17 +367,16 @@ fn load_model_dependencies(
         .filter_map(|c| models.get(c).ok().map(|source| (c, source.clone())))
         .collect::<Vec<_>>();
     let load_model = model_loading.load_model.clone();
+    let root_source = request.source.clone();
     async move {
         for (model_entity, source) in models {
-            let request = ModelLoadingRequest::new(model_entity, source);
-            let source = request.source.clone();
             channel
-                .query(request, load_model)
+                .query((model_entity, source).into(), load_model)
                 .await
                 .available()
                 .ok_or(ModelLoadingError::WorkflowExecutionError)?
                 .map_err(|err| {
-                    ModelLoadingError::FailedLoadingDependency(source, err.to_string())
+                    ModelLoadingError::FailedLoadingDependency(root_source.clone(), err.to_string())
                 })?;
         }
         Ok(request)
@@ -386,6 +413,7 @@ impl ModelLoadingServices {
             )
                 .chain(),
         )
+        .add_systems(Update, maintain_model_loading_states)
         .add_systems(
             PostUpdate,
             (apply_deferred, flush_impulses()).in_set(ModelLoadingSet::CheckSceneFlush),
@@ -404,22 +432,8 @@ impl ModelLoadingServices {
                 .input
                 .chain(builder)
                 .then(model_loading_service)
-                .map_block(|res| match res {
-                    Ok(entity) => Ok(entity),
-                    Err(e) => {
-                        error!("{:?}", e);
-                        Err(e)
-                    }
-                })
                 .connect_on_err(scope.terminate)
                 .then(load_model_dependencies)
-                .map_block(|res| match res {
-                    Ok(entity) => Ok(entity),
-                    Err(e) => {
-                        error!("Failed loading model dependencies: {e}");
-                        Err(e)
-                    }
-                })
                 .connect_on_err(scope.terminate)
                 // The model and its dependencies are spawned, make them selectable / propagate
                 // render layers
@@ -478,8 +492,9 @@ pub enum ModelLoadingError {
     #[error("Asset source [{0:?}] couldn't be parsed into a path")]
     InvalidAssetSource(AssetSource),
     #[error(
-        "Failed loading asset [{0:?}], try using an API key if it belongs to a private \
-            organization, or add its path to the {MODEL_ENVIRONMENT_VARIABLE} environment variable"
+        "Failed loading asset [{0:?}], make sure it is in a supported format (.dae is not supported),\
+        try using an API key if it belongs to a private organization \
+        or add its path to the {MODEL_ENVIRONMENT_VARIABLE} environment variable."
     )]
     FailedLoadingAsset(AssetSource),
     #[error("Asset at source [{0:?}] did not contain a model")]
@@ -492,7 +507,7 @@ pub enum ModelLoadingError {
 }
 
 pub fn update_model_scales(
-    changed_scales: Query<(&Scale, &ModelScene), Changed<Scale>>,
+    changed_scales: Query<(&Scale, &ModelScene), Or<(Changed<Scale>, Changed<ModelScene>)>>,
     mut transforms: Query<&mut Transform>,
 ) {
     for (scale, scene) in changed_scales.iter() {
