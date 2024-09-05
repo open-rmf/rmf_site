@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::{Hover, ObjectPlacement},
-    site::{FrameMarker, MeshConstraint, NameInWorkcell, NameOfWorkcell},
+    site::{FrameMarker, NameInWorkcell, NameOfWorkcell},
     widgets::{prelude::*, Icons, Inspect, SelectorWidget},
     CurrentWorkspace,
 };
@@ -37,7 +37,6 @@ pub struct InspectWorkcellParent<'w, 's> {
             With<NameOfWorkcell>,
         )>,
     >,
-    mesh_constraints: Query<'w, 's, &'static MeshConstraint<Entity>>,
     icons: Res<'w, Icons>,
     selector: SelectorWidget<'w, 's>,
     object_placement: ObjectPlacement<'w, 's>,
@@ -65,10 +64,6 @@ impl<'w, 's> InspectWorkcellParent<'w, 's> {
             .and_then(|p| self.workcell_elements.get(**p))
         {
             ui.vertical(|ui| {
-                if let Ok(c) = self.mesh_constraints.get(id) {
-                    ui.label("Mesh Parent");
-                    self.selector.show_widget(c.entity, ui);
-                }
                 ui.label("Parent Frame");
                 self.selector.show_widget(parent, ui);
                 let assign_response = ui.add(ImageButton::new(self.icons.edit.egui()));

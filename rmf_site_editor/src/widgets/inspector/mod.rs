@@ -66,9 +66,6 @@ pub use inspect_light::*;
 pub mod inspect_location;
 pub use inspect_location::*;
 
-pub mod inspect_mesh_constraint;
-pub use inspect_mesh_constraint::*;
-
 pub mod inspect_point;
 pub use inspect_point::*;
 
@@ -202,7 +199,6 @@ impl Plugin for StandardInspectorPlugin {
                 InspectionPlugin::<InspectDoor>::new(),
                 InspectionPlugin::<InspectAssetSource>::new(),
                 InspectionPlugin::<InspectPrimitiveShape>::new(),
-                InspectionPlugin::<InspectModelDependents>::new(),
                 InspectionPlugin::<InspectWorkcellParent>::new(),
                 InspectionPlugin::<InspectJoint>::new(),
                 InspectionPlugin::<InspectMeasurement>::new(),
