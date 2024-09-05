@@ -226,7 +226,6 @@ impl Plugin for SitePlugin {
             ChangePlugin::<NameOfWorkcell>::default(),
             ChangePlugin::<Pose>::default(),
             ChangePlugin::<Scale>::default(),
-            ChangePlugin::<MeshConstraint<Entity>>::default(),
             ChangePlugin::<Distance>::default(),
             ChangePlugin::<Texture>::default(),
         ))

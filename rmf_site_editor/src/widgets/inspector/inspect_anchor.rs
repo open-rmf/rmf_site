@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::{Hover, MoveTo},
-    site::{Anchor, Category, Change, Dependents, JointProperties, MeshConstraint, Subordinate},
+    site::{Anchor, Category, Dependents, JointProperties, Subordinate},
     widgets::{
         inspector::{Inspect, InspectPoseComponent},
         prelude::*,
@@ -39,14 +39,12 @@ pub struct InspectAnchor<'w, 's> {
             &'static Transform,
             Option<&'static Subordinate>,
             &'static Parent,
-            Option<&'static MeshConstraint<Entity>>,
         ),
     >,
     icons: Res<'w, Icons>,
     joints: Query<'w, 's, Entity, With<JointProperties>>,
     hover: EventWriter<'w, Hover>,
     move_to: EventWriter<'w, MoveTo>,
-    mesh_constraints: EventWriter<'w, Change<MeshConstraint<Entity>>>,
     create_joint: EventWriter<'w, CreateJoint>,
 }
 
@@ -127,7 +125,7 @@ fn impl_inspect_anchor(
 
     let mut params = state.get_mut(world);
 
-    if let Ok((anchor, tf, subordinate, parent, mesh_constraint)) = params.anchors.get(id) {
+    if let Ok((anchor, tf, subordinate, parent)) = params.anchors.get(id) {
         if let Some(subordinate) = subordinate.map(|s| s.0) {
             panel.orthogonal(ui, |ui| {
                 if let Some(boss) = subordinate {
@@ -168,30 +166,13 @@ fn impl_inspect_anchor(
                 }
                 Anchor::Pose3D(pose) => {
                     panel.align(ui, |ui| {
-                        if let Some(c) = mesh_constraint {
-                            if let Some(new_pose) =
-                                InspectPoseComponent::new(&c.relative_pose).for_rotation().show(ui)
-                            {
-                                // TODO(luca) Using moveto doesn't allow switching between
-                                // variants of Pose3D
-                                params.mesh_constraints.send(Change::new(
-                                    MeshConstraint {
-                                        entity: c.entity,
-                                        element: c.element.clone(),
-                                        relative_pose: new_pose,
-                                    },
-                                    id,
-                                ));
-                            }
-                        } else {
-                            if let Some(new_pose) = InspectPoseComponent::new(pose).show(ui) {
-                                // TODO(luca) Using moveto doesn't allow switching between variants of
-                                // Pose3D
-                                params.move_to.send(MoveTo {
-                                    entity: id,
-                                    transform: new_pose.transform(),
-                                });
-                            }
+                        if let Some(new_pose) = InspectPoseComponent::new(pose).show(ui) {
+                            // TODO(luca) Using moveto doesn't allow switching between variants of
+                            // Pose3D
+                            params.move_to.send(MoveTo {
+                                entity: id,
+                                transform: new_pose.transform(),
+                            });
                         }
                         // If the parent is not a joint, add a joint creation widget
                         if params.joints.get(parent.get()).is_err() {

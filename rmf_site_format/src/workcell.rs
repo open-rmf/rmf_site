@@ -17,9 +17,6 @@
 
 use std::collections::{BTreeMap, HashMap};
 
-#[cfg(feature = "bevy")]
-use std::collections::HashSet;
-
 use std::io;
 
 use crate::misc::Rotation;
@@ -27,9 +24,7 @@ use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::ecs::system::EntityCommands;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{
-    Bundle, Component, Deref, DerefMut, Entity, Reflect, ReflectComponent, SpatialBundle,
-};
+use bevy::prelude::{Bundle, Component, Deref, DerefMut, SpatialBundle};
 #[cfg(feature = "bevy")]
 use bevy::reflect::{TypePath, TypeUuid};
 use glam::{EulerRot, Vec3};
@@ -54,31 +49,9 @@ pub struct Frame {
     pub anchor: Anchor,
     #[serde(default, skip_serializing_if = "is_default")]
     pub name: Option<NameInWorkcell>,
-    #[serde(default, skip_serializing_if = "is_default")]
-    pub mesh_constraint: Option<MeshConstraint<u32>>,
     #[serde(skip)]
     pub marker: FrameMarker,
 }
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub struct MeshConstraint<T: RefTrait> {
-    pub entity: T,
-    pub element: MeshElement,
-    pub relative_pose: Pose,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub enum MeshElement {
-    Vertex(u32),
-    // TODO(luca) edge and vertices
-}
-
-/// Attached to Model entities to keep track of constraints attached to them,
-/// for change detection and hierarchy propagation
-#[cfg(feature = "bevy")]
-#[derive(Component, Deref, DerefMut, Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
-pub struct ConstraintDependents(pub HashSet<Entity>);
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
@@ -289,114 +262,6 @@ pub enum Geometry {
     },
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
-#[cfg_attr(feature = "bevy", reflect(Component))]
-pub enum PrimitiveShape {
-    Box { size: [f32; 3] },
-    Cylinder { radius: f32, length: f32 },
-    Capsule { radius: f32, length: f32 },
-    Sphere { radius: f32 },
-}
-
-impl Default for PrimitiveShape {
-    fn default() -> Self {
-        Self::Box {
-            size: [1.0, 1.0, 1.0],
-        }
-    }
-}
-
-impl PrimitiveShape {
-    pub fn label(&self) -> String {
-        match &self {
-            PrimitiveShape::Box { .. } => "Box",
-            PrimitiveShape::Cylinder { .. } => "Cylinder",
-            PrimitiveShape::Capsule { .. } => "Capsule",
-            PrimitiveShape::Sphere { .. } => "Sphere",
-        }
-        .to_string()
-    }
-}
-
-#[derive(Clone, Debug, Default, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub struct RecallPrimitiveShape {
-    pub box_size: Option<[f32; 3]>,
-    pub cylinder_radius: Option<f32>,
-    pub cylinder_length: Option<f32>,
-    pub capsule_radius: Option<f32>,
-    pub capsule_length: Option<f32>,
-    pub sphere_radius: Option<f32>,
-}
-
-impl Recall for RecallPrimitiveShape {
-    type Source = PrimitiveShape;
-
-    fn remember(&mut self, source: &PrimitiveShape) {
-        match source {
-            PrimitiveShape::Box { size } => {
-                self.box_size = Some(*size);
-            }
-            PrimitiveShape::Cylinder { radius, length } => {
-                self.cylinder_radius = Some(*radius);
-                self.cylinder_length = Some(*length);
-            }
-            PrimitiveShape::Capsule { radius, length } => {
-                self.capsule_radius = Some(*radius);
-                self.capsule_length = Some(*length);
-            }
-            PrimitiveShape::Sphere { radius } => {
-                self.sphere_radius = Some(*radius);
-            }
-        }
-    }
-}
-
-impl RecallPrimitiveShape {
-    pub fn assume_box(&self, current: &PrimitiveShape) -> PrimitiveShape {
-        if matches!(current, PrimitiveShape::Box { .. }) {
-            current.clone()
-        } else {
-            PrimitiveShape::Box {
-                size: self.box_size.unwrap_or_default(),
-            }
-        }
-    }
-
-    pub fn assume_cylinder(&self, current: &PrimitiveShape) -> PrimitiveShape {
-        if matches!(current, PrimitiveShape::Cylinder { .. }) {
-            current.clone()
-        } else {
-            PrimitiveShape::Cylinder {
-                radius: self.cylinder_radius.unwrap_or_default(),
-                length: self.cylinder_length.unwrap_or_default(),
-            }
-        }
-    }
-
-    pub fn assume_capsule(&self, current: &PrimitiveShape) -> PrimitiveShape {
-        if matches!(current, PrimitiveShape::Capsule { .. }) {
-            current.clone()
-        } else {
-            PrimitiveShape::Capsule {
-                radius: self.capsule_radius.unwrap_or_default(),
-                length: self.capsule_length.unwrap_or_default(),
-            }
-        }
-    }
-
-    pub fn assume_sphere(&self, current: &PrimitiveShape) -> PrimitiveShape {
-        if matches!(current, PrimitiveShape::Sphere { .. }) {
-            current.clone()
-        } else {
-            PrimitiveShape::Sphere {
-                radius: self.sphere_radius.unwrap_or_default(),
-            }
-        }
-    }
-}
-
 impl Default for Geometry {
     fn default() -> Self {
         Geometry::Primitive(PrimitiveShape::Box { size: [0.0; 3] })
@@ -538,7 +403,6 @@ impl Workcell {
                     bundle: Frame {
                         anchor: Anchor::Pose3D(Pose::default()),
                         name: Some(NameInWorkcell(link.name.clone())),
-                        mesh_constraint: Default::default(),
                         marker: Default::default(),
                     },
                 },
@@ -692,7 +556,6 @@ impl Workcell {
                 name: Some(NameInWorkcell(String::from(
                     self.properties.name.0.clone() + "_workcell_link",
                 ))),
-                mesh_constraint: None,
                 marker: FrameMarker,
             };
             frames.insert(
