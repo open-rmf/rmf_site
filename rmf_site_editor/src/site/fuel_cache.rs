@@ -15,7 +15,7 @@
  *
 */
 
-use crate::site::{AssetSource, ModelFailedLoading, ModelSpawningExt};
+use crate::site::{AssetSource, ModelScene, ModelSpawningExt};
 use crate::site_asset_io::FUEL_API_KEY;
 use crate::widgets::AssetGalleryStatus;
 use bevy::prelude::*;
@@ -127,7 +127,7 @@ pub fn read_update_fuel_cache_results(
 pub fn reload_failed_models_with_new_api_key(
     mut commands: Commands,
     mut api_key_events: EventReader<SetFuelApiKey>,
-    failed_models: Query<(Entity, &AssetSource), With<ModelFailedLoading>>,
+    failed_models: Query<(Entity, &AssetSource), Without<ModelScene>>,
 ) {
     if let Some(key) = api_key_events.read().last() {
         info!("New API Key set, attempting to re-download failed models");

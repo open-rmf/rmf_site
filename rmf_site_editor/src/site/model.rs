@@ -31,7 +31,8 @@ use std::{any::TypeId, future::Future};
 use thiserror::Error;
 
 /// Denotes the properties of the current spawned scene for the model, to despawn when updating AssetSource
-/// and avoid spurious reloading if the new `AssetSource` is equal to the old one
+/// and avoid spurious reloading if the new `AssetSource` is equal to the old one.
+/// Models without a `ModelScene` either failed spawning or are still being spawned.
 #[derive(Component, Debug, Clone)]
 pub struct ModelScene {
     source: AssetSource,
@@ -319,10 +320,6 @@ impl Command for ModelLoadingRequest {
 #[derive(Component, Deref, DerefMut)]
 pub struct ModelLoadingState(Promise<ModelLoadingResult>);
 
-/// Marker component added to models that failed loading
-#[derive(Component)]
-pub struct ModelFailedLoading;
-
 /// Polling system that checks the state of promises and prints errors / adds marker components if
 /// models failed loading
 pub fn maintain_model_loading_states(
@@ -333,7 +330,6 @@ pub fn maintain_model_loading_states(
         if (**state).peek().is_available() {
             let result = state.take().available().unwrap();
             if let Some(err) = result.err().flatten() {
-                commands.entity(e).insert(ModelFailedLoading);
                 // Cleanup the scene
                 if let Some(scene) = scene_opt {
                     commands.entity(scene.entity).despawn_recursive();
