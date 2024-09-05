@@ -27,7 +27,7 @@ use bevy::ecs::system::EntityCommands;
 use bevy::prelude::{Bundle, Component, Deref, DerefMut, SpatialBundle};
 #[cfg(feature = "bevy")]
 use bevy::reflect::{TypePath, TypeUuid};
-use glam::{EulerRot, Vec3};
+use glam::Vec3;
 use serde::{Deserialize, Serialize};
 use thiserror::Error as ThisError;
 
@@ -305,31 +305,6 @@ pub enum UrdfImportError {
     // TODO(luca) Add urdf_rs::JointType to this error, it doesn't implement Display
     #[error("unsupported joint type found")]
     UnsupportedJointType,
-}
-
-impl From<Pose> for urdf_rs::Pose {
-    fn from(pose: Pose) -> Self {
-        urdf_rs::Pose {
-            rpy: match pose.rot {
-                Rotation::EulerExtrinsicXYZ(arr) => urdf_rs::Vec3(arr.map(|v| v.radians().into())),
-                Rotation::Yaw(v) => urdf_rs::Vec3([0.0, 0.0, v.radians().into()]),
-                Rotation::Quat([x, y, z, w]) => {
-                    let (z, y, x) = glam::quat(x, y, z, w).to_euler(EulerRot::ZYX);
-                    urdf_rs::Vec3([x as f64, y as f64, z as f64])
-                }
-            },
-            xyz: urdf_rs::Vec3(pose.trans.map(|v| v as f64)),
-        }
-    }
-}
-
-impl From<&urdf_rs::Pose> for Pose {
-    fn from(pose: &urdf_rs::Pose) -> Self {
-        Pose {
-            trans: pose.xyz.map(|t| t as f32),
-            rot: Rotation::EulerExtrinsicXYZ(pose.rpy.map(|t| Angle::Rad(t as f32))),
-        }
-    }
 }
 
 impl From<Geometry> for urdf_rs::Geometry {
