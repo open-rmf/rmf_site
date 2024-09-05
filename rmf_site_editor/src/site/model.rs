@@ -259,8 +259,7 @@ fn handle_model_loading(
         let Some((scene_entity, scene_handle)) = res else {
             return Err(Some(ModelLoadingError::NonModelAsset(request.source)));
         };
-        // Spawn a ModelScene to keep track of what was spawned, as well as setting scale in the
-        // request
+        // Spawn a ModelScene to keep track of what was spawned and set parenthood / transforms
         let add_components_to_spawned_model =
             add_components_to_spawned_model.into_blocking_callback();
         channel
@@ -271,7 +270,7 @@ fn handle_model_loading(
             .await
             .available()
             .ok_or(Some(ModelLoadingError::WorkflowExecutionError))?;
-        let _ = channel
+        channel
             .query((scene_entity, scene_handle), check_scene_is_spawned)
             .await
             .available()
@@ -327,14 +326,19 @@ pub struct ModelFailedLoading;
 /// Polling system that checks the state of promises and prints errors / adds marker components if
 /// models failed loading
 pub fn maintain_model_loading_states(
-    mut loading_states: Query<(Entity, &mut ModelLoadingState)>,
+    mut loading_states: Query<(Entity, &mut ModelLoadingState, Option<&ModelScene>)>,
     mut commands: Commands,
 ) {
-    for (e, mut state) in &mut loading_states {
+    for (e, mut state, scene_opt) in &mut loading_states {
         if (**state).peek().is_available() {
             let result = state.take().available().unwrap();
             if let Some(err) = result.err().flatten() {
                 commands.entity(e).insert(ModelFailedLoading);
+                // Cleanup the scene
+                if let Some(scene) = scene_opt {
+                    commands.entity(scene.entity).despawn_recursive();
+                    commands.entity(e).remove::<ModelScene>();
+                }
                 error!("{err}");
             }
             commands.entity(e).remove::<ModelLoadingState>();
