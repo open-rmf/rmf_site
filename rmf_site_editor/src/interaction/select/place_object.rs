@@ -31,26 +31,13 @@ impl Plugin for ObjectPlacementPlugin {
 #[derive(Resource, Clone, Copy)]
 pub struct ObjectPlacementServices {
     pub place_object_2d: Service<Option<Entity>, ()>,
-    pub place_object_3d: Service<Option<Entity>, ()>,
-    pub replace_parent_3d: Service<Option<Entity>, ()>,
-    pub hover_service_object_3d: Service<(), (), Hover>,
 }
 
 impl ObjectPlacementServices {
     pub fn from_app(app: &mut App) -> Self {
-        let hover_service_object_3d = app.spawn_continuous_service(
-            Update,
-            hover_service::<PlaceObject3dFilter>
-                .configure(|config: SystemConfigs| config.in_set(SelectionServiceStages::Hover)),
-        );
         let place_object_2d = spawn_place_object_2d_workflow(app);
-        let place_object_3d = spawn_place_object_3d_workflow(hover_service_object_3d, app);
-        let replace_parent_3d = spawn_replace_parent_3d_workflow(hover_service_object_3d, app);
         Self {
             place_object_2d,
-            place_object_3d,
-            replace_parent_3d,
-            hover_service_object_3d,
         }
     }
 }
@@ -69,37 +56,6 @@ impl<'w, 's> ObjectPlacement<'w, 's> {
             .id();
         self.send(RunSelector {
             selector: self.services.place_object_2d,
-            input: Some(state),
-        });
-    }
-
-    pub fn place_object_3d(
-        &mut self,
-        object: PlaceableObject,
-        parent: Option<Entity>,
-        workspace: Entity,
-    ) {
-        let state = self
-            .commands
-            .spawn(SelectorInput(PlaceObject3d {
-                object,
-                parent,
-                workspace,
-            }))
-            .id();
-        self.send(RunSelector {
-            selector: self.services.place_object_3d,
-            input: Some(state),
-        });
-    }
-
-    pub fn replace_parent_3d(&mut self, object: Entity, workspace: Entity) {
-        let state = self
-            .commands
-            .spawn(SelectorInput(ReplaceParent3d { object, workspace }))
-            .id();
-        self.send(RunSelector {
-            selector: self.services.replace_parent_3d,
             input: Some(state),
         });
     }

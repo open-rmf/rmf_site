@@ -16,9 +16,10 @@
 */
 
 use crate::{
-    site::{Dependents, FrameMarker, JointProperties},
+    site::Dependents,
     widgets::{prelude::*, Inspect, SelectorWidget},
 };
+use rmf_workcell_format::{FrameMarker, JointProperties};
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::Ui;
 

@@ -105,8 +105,8 @@ pub use inspect_texture::*;
 pub mod inspect_value;
 pub use inspect_value::*;
 
-pub mod inspect_workcell_parent;
-pub use inspect_workcell_parent::*;
+//pub mod inspect_workcell_parent;
+//pub use inspect_workcell_parent::*;
 
 use crate::{
     interaction::Selection,
@@ -199,7 +199,7 @@ impl Plugin for StandardInspectorPlugin {
                 InspectionPlugin::<InspectDoor>::new(),
                 InspectionPlugin::<InspectAssetSource>::new(),
                 InspectionPlugin::<InspectPrimitiveShape>::new(),
-                InspectionPlugin::<InspectWorkcellParent>::new(),
+                //InspectionPlugin::<InspectWorkcellParent>::new(),
                 InspectionPlugin::<InspectJoint>::new(),
                 InspectionPlugin::<InspectMeasurement>::new(),
                 InspectionPlugin::<InspectPhysicalCameraProperties>::new(),

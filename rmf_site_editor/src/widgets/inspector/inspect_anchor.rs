@@ -17,14 +17,17 @@
 
 use crate::{
     interaction::{Hover, MoveTo},
-    site::{Anchor, Category, Dependents, JointProperties, Subordinate},
+    site::{Anchor, Category, Dependents, Subordinate},
     widgets::{
         inspector::{Inspect, InspectPoseComponent},
         prelude::*,
         Icons, SelectorWidget,
     },
-    workcell::CreateJoint,
+    // TODO(luca) restore create joint feature by (temporarily) adding it to rmf_workcell_format?
+    // otherwise consider creating a new widget for anchor inspection
+    // workcell::CreateJoint,
 };
+use rmf_workcell_format::JointProperties;
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{DragValue, ImageButton, Ui};
 use std::collections::{BTreeMap, BTreeSet};
@@ -45,7 +48,8 @@ pub struct InspectAnchor<'w, 's> {
     joints: Query<'w, 's, Entity, With<JointProperties>>,
     hover: EventWriter<'w, Hover>,
     move_to: EventWriter<'w, MoveTo>,
-    create_joint: EventWriter<'w, CreateJoint>,
+    // TODO(luca) restore
+    // create_joint: EventWriter<'w, CreateJoint>,
 }
 
 impl<'w, 's> ShareableWidget for InspectAnchor<'w, 's> {}
@@ -177,10 +181,13 @@ fn impl_inspect_anchor(
                         // If the parent is not a joint, add a joint creation widget
                         if params.joints.get(parent.get()).is_err() {
                             if ui.button("Create joint").on_hover_text("Create a fixed joint and place it between the parent frame and this frame").clicked() {
+                                // TODO(luca) restore
+                                /*
                                 params.create_joint.send(CreateJoint {
                                     parent: parent.get(),
                                     child: id,
                                 });
+                                */
                             }
                         }
                     });

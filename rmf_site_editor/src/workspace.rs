@@ -22,10 +22,11 @@ use std::path::PathBuf;
 
 use crate::interaction::InteractionState;
 use crate::site::{DefaultFile, LoadSite, SaveSite};
-use crate::workcell::{LoadWorkcell, SaveWorkcell};
+// use crate::workcell::{LoadWorkcell, SaveWorkcell};
 use crate::AppState;
 use rmf_site_format::legacy::building_map::BuildingMap;
-use rmf_site_format::{NameOfSite, Site, Workcell};
+use rmf_site_format::{NameOfSite, Site};
+use rmf_workcell_format::Workcell;
 
 use crossbeam_channel::{Receiver, Sender};
 
@@ -185,8 +186,8 @@ impl Plugin for WorkspacePlugin {
         app.add_event::<ChangeCurrentWorkspace>()
             .add_event::<CreateNewWorkspace>()
             .add_event::<SaveWorkspace>()
-            .add_event::<SaveWorkcell>()
-            .add_event::<LoadWorkcell>()
+            //.add_event::<SaveWorkcell>()
+            //.add_event::<LoadWorkcell>()
             .init_resource::<CurrentWorkspace>()
             .init_resource::<RecallWorkspace>()
             .init_resource::<SaveWorkspaceChannels>()
@@ -208,7 +209,7 @@ pub fn dispatch_new_workspace_events(
     state: Res<State<AppState>>,
     mut new_workspace: EventReader<CreateNewWorkspace>,
     mut load_site: EventWriter<LoadSite>,
-    mut load_workcell: EventWriter<LoadWorkcell>,
+    // mut load_workcell: EventWriter<LoadWorkcell>,
 ) {
     if let Some(_cmd) = new_workspace.read().last() {
         match state.get() {
@@ -223,11 +224,13 @@ pub fn dispatch_new_workspace_events(
                 });
             }
             AppState::WorkcellEditor => {
+                /*
                 load_workcell.send(LoadWorkcell {
                     workcell: Workcell::default(),
                     focus: true,
                     default_file: None,
                 });
+                */
             }
         }
     }
@@ -239,7 +242,7 @@ pub fn process_load_workspace_files(
     mut app_state: ResMut<NextState<AppState>>,
     mut interaction_state: ResMut<NextState<InteractionState>>,
     mut load_site: EventWriter<LoadSite>,
-    mut load_workcell: EventWriter<LoadWorkcell>,
+    // mut load_workcell: EventWriter<LoadWorkcell>,
 ) {
     let LoadWorkspaceFile(default_file, data) = request;
     match data {
@@ -307,14 +310,16 @@ pub fn process_load_workspace_files(
         WorkspaceData::Workcell(data) => {
             info!("Opening workcell file");
             match Workcell::from_bytes(&data) {
-                Ok(workcell) => {
+                Ok(_workcell) => {
                     // Switch state
                     app_state.set(AppState::WorkcellEditor);
+                    /*
                     load_workcell.send(LoadWorkcell {
                         workcell,
                         focus: true,
                         default_file,
                     });
+                    */
                     interaction_state.set(InteractionState::Enable);
                 }
                 Err(err) => {
@@ -332,14 +337,16 @@ pub fn process_load_workspace_files(
                 Ok(urdf) => {
                     // TODO(luca) make this function return a result and this a match statement
                     match Workcell::from_urdf(&urdf) {
-                        Ok(workcell) => {
+                        Ok(_workcell) => {
                             // Switch state
                             app_state.set(AppState::WorkcellEditor);
+                            /*
                             load_workcell.send(LoadWorkcell {
                                 workcell,
                                 focus: true,
                                 default_file,
                             });
+                            */
                             interaction_state.set(InteractionState::Enable);
                         }
                         Err(err) => {
@@ -574,17 +581,19 @@ fn dispatch_save_workspace_events(
 fn workspace_file_save_complete(
     app_state: Res<State<AppState>>,
     mut save_site: EventWriter<SaveSite>,
-    mut save_workcell: EventWriter<SaveWorkcell>,
+    // mut save_workcell: EventWriter<SaveWorkcell>,
     save_channels: Res<SaveWorkspaceChannels>,
 ) {
     if let Ok(result) = save_channels.receiver.try_recv() {
         match app_state.get() {
             AppState::WorkcellEditor => {
+                /*
                 save_workcell.send(SaveWorkcell {
                     root: result.root,
                     to_file: result.path,
                     format: result.format,
                 });
+                */
             }
             AppState::SiteEditor | AppState::SiteDrawingEditor | AppState::SiteVisualizer => {
                 save_site.send(SaveSite {

@@ -16,11 +16,12 @@
 */
 
 use crate::site::{
-    update_anchor_transforms, CollisionMeshMarker, ConstraintMarker, DoorMarker, FiducialMarker,
+    update_anchor_transforms, CollisionMeshMarker, DoorMarker, FiducialMarker,
     FloorMarker, LaneMarker, LiftCabin, LiftCabinDoorMarker, LocationTags, MeasurementMarker,
     SiteUpdateSet, VisualMeshMarker, WallMarker,
 };
-use crate::workcell::WorkcellVisualizationMarker;
+// TODO(luca) restore
+// use crate::workcell::WorkcellVisualizationMarker;
 
 pub mod anchor;
 pub use anchor::*;
@@ -165,12 +166,11 @@ impl Plugin for InteractionPlugin {
                 CategoryVisibilityPlugin::<LiftCabinDoorMarker>::visible(true),
                 CategoryVisibilityPlugin::<LocationTags>::visible(true),
                 CategoryVisibilityPlugin::<FiducialMarker>::visible(true),
-                CategoryVisibilityPlugin::<ConstraintMarker>::visible(true),
                 CategoryVisibilityPlugin::<VisualMeshMarker>::visible(true),
                 CategoryVisibilityPlugin::<CollisionMeshMarker>::visible(false),
                 CategoryVisibilityPlugin::<MeasurementMarker>::visible(true),
                 CategoryVisibilityPlugin::<WallMarker>::visible(true),
-                CategoryVisibilityPlugin::<WorkcellVisualizationMarker>::visible(true),
+                // CategoryVisibilityPlugin::<WorkcellVisualizationMarker>::visible(true),
             ))
             .add_plugins((CameraControlsPlugin, ModelPreviewPlugin));
 
