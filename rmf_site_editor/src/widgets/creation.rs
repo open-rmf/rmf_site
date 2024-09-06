@@ -17,7 +17,7 @@
 
 use crate::{
     inspector::{InspectAssetSourceComponent, InspectScaleComponent},
-    interaction::{AnchorSelection, ObjectPlacement, PlaceableObject, Selection},
+    interaction::{AnchorSelection, ObjectPlacement},
     site::{
         AssetSource, CurrentLevel, DefaultFile, DrawingBundle, Recall, RecallAssetSource, Scale,
     },
@@ -53,7 +53,6 @@ struct Creation<'w, 's> {
     commands: Commands<'w, 's>,
     anchor_selection: AnchorSelection<'w, 's>,
     object_placement: ObjectPlacement<'w, 's>,
-    selection: Res<'w, Selection>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for Creation<'w, 's> {
@@ -145,9 +144,11 @@ impl<'w, 's> Creation<'w, 's> {
                     }
                 }
                 AppState::WorkcellEditor => {
+                    /*
                     if ui.button("Frame").clicked() {
                         self.place_object(PlaceableObject::Anchor);
                     }
+                    */
                 }
             }
             match self.app_state.get() {
@@ -198,6 +199,7 @@ impl<'w, 's> Creation<'w, 's> {
                                         }
                                     }
                                     AppState::WorkcellEditor => {
+                                        /*
                                         if ui.button("Browse fuel").clicked() {
                                             asset_gallery.show = true;
                                         }
@@ -220,6 +222,7 @@ impl<'w, 's> Creation<'w, 's> {
                                             ));
                                         }
                                         ui.add_space(10.0);
+                                        */
                                     }
                                 }
                             }
@@ -227,15 +230,6 @@ impl<'w, 's> Creation<'w, 's> {
                 }
             }
         });
-    }
-
-    pub fn place_object(&mut self, object: PlaceableObject) {
-        if let Some(workspace) = self.current_workspace.root {
-            self.object_placement
-                .place_object_3d(object, self.selection.0, workspace);
-        } else {
-            warn!("Unable to create [{object:?}] outside of a workspace");
-        }
     }
 
     pub fn spawn_model_2d(&mut self, object: Model) {

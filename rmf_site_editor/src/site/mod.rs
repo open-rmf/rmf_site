@@ -120,6 +120,7 @@ pub use wall::*;
 use crate::recency::{RecencyRank, RecencyRankingPlugin};
 use crate::{AppState, RegisterIssueType};
 pub use rmf_site_format::{DirectionalLight, PointLight, SpotLight, Style, *};
+use rmf_workcell_format::{NameInWorkcell, NameOfWorkcell, JointProperties};
 
 use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
 

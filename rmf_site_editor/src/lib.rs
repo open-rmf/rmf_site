@@ -1,3 +1,4 @@
+#[allow(warnings)]
 use bevy::{app::ScheduleRunnerPlugin, log::LogPlugin, pbr::DirectionalLightShadowMap, prelude::*};
 use bevy_egui::EguiPlugin;
 use main_menu::MainMenuPlugin;
@@ -34,9 +35,6 @@ use log::LogHistoryPlugin;
 
 pub mod main_menu;
 pub mod site;
-// mod warehouse_generator;
-pub mod workcell;
-use workcell::WorkcellEditorPlugin;
 pub mod interaction;
 
 pub mod workspace;
@@ -45,7 +43,6 @@ use workspace::*;
 pub mod sdf_loader;
 
 pub mod site_asset_io;
-//pub mod urdf_loader;
 use sdf_loader::*;
 
 pub mod view_menu;
@@ -87,7 +84,7 @@ pub enum AppState {
     MainMenu,
     SiteEditor,
     SiteVisualizer,
-    //WarehouseGenerator,
+    // TODO(luca) remove this
     WorkcellEditor,
     SiteDrawingEditor,
 }
@@ -237,7 +234,6 @@ impl Plugin for SiteEditor {
             app.add_plugins((
                 StandardUiPlugin::default(),
                 MainMenuPlugin,
-                WorkcellEditorPlugin,
             ))
             // Note order matters, plugins that edit the menus must be initialized after the UI
             .add_plugins((ViewMenuPlugin, OSMViewPlugin, SiteWireframePlugin));

@@ -17,10 +17,10 @@
 
 use crate::{
     interaction::{Hover, ObjectPlacement},
-    site::{FrameMarker, NameInWorkcell, NameOfWorkcell},
     widgets::{prelude::*, Icons, Inspect, SelectorWidget},
     CurrentWorkspace,
 };
+use rmf_workcell_format::{FrameMarker, NameInWorkcell, NameOfWorkcell};
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{ImageButton, Ui};
 
@@ -75,11 +75,13 @@ impl<'w, 's> InspectWorkcellParent<'w, 's> {
                 assign_response.on_hover_text("Reassign");
 
                 if parent_replace {
+                    /*
                     if let Some(workspace) = self.current_workspace.root {
                         self.object_placement.replace_parent_3d(id, workspace)
                     } else {
                         warn!("Cannot replace a parent when no workspace is active");
                     }
+                    */
                 }
             });
         }

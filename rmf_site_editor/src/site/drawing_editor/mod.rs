@@ -24,11 +24,12 @@ use crate::AppState;
 use crate::{
     interaction::{ChangeProjectionMode, Selection, SuppressHighlight},
     site::{
-        DrawingMarker, Edge, MeasurementMarker, NameOfSite, NameOfWorkcell, Pending,
+        DrawingMarker, Edge, MeasurementMarker, NameOfSite, Pending,
         PreventDeletion,
     },
     CurrentWorkspace, WorkspaceMarker,
 };
+use rmf_workcell_format::NameOfWorkcell;
 
 #[derive(Clone, Copy, Event)]
 pub struct BeginEditDrawing(pub Entity);

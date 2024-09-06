@@ -16,13 +16,13 @@
 */
 
 use crate::{
-    interaction::{ModelPreviewCamera, ObjectPlacement, PlaceableObject, Selection},
+    interaction::{ModelPreviewCamera, ObjectPlacement},
     site::{
         AssetSource, CurrentLevel, FuelClient, Model, ModelSpawningExt, SetFuelApiKey,
         UpdateFuelCache,
     },
     widgets::prelude::*,
-    AppState, CurrentWorkspace,
+    AppState,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{self, Button, ComboBox, ImageSource, RichText, ScrollArea, Ui, Window};
@@ -82,8 +82,6 @@ pub struct FuelAssetBrowser<'w, 's> {
     set_api_key: EventWriter<'w, SetFuelApiKey>,
     commands: Commands<'w, 's>,
     place_object: ObjectPlacement<'w, 's>,
-    current_workspace: Res<'w, CurrentWorkspace>,
-    current_selection: Res<'w, Selection>,
     current_level: Res<'w, CurrentLevel>,
     app_state: Res<'w, State<AppState>>,
 }
@@ -294,6 +292,7 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                                 }
                             }
                             AppState::WorkcellEditor => {
+                                /*
                                 if let Some(workspace) = self.current_workspace.root {
                                     self.place_object.place_object_3d(
                                         PlaceableObject::Model(model),
@@ -303,6 +302,7 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                                 } else {
                                     warn!("Cannot spawn a model outside of a workspace");
                                 }
+                                */
                             }
                             _ => {
                                 warn!("Invalid mode for spawning a model: {:?}", &self.app_state);
