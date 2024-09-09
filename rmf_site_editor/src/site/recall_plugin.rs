@@ -37,7 +37,7 @@ where
             (
                 add_recaller::<T>.after(SiteUpdateSet::ProcessChanges),
                 update_recaller::<T>.after(SiteUpdateSet::ProcessChanges),
-            )
+            ),
         );
     }
 }

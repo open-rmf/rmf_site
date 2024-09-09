@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{widgets::prelude::*, AppState, CreateNewWorkspace, SaveWorkspace, WorkspaceLoader};
+use crate::{widgets::prelude::*, CreateNewWorkspace, SaveWorkspace, WorkspaceLoader};
 
 use bevy::ecs::query::Has;
 use bevy::prelude::*;
@@ -176,8 +176,7 @@ impl MenuEvent {
 }
 
 /// Helper function to render a submenu starting at the entity.
-fn render_sub_menu(
-    state: &State<AppState>,
+pub fn render_sub_menu(
     ui: &mut Ui,
     entity: &Entity,
     children: &Query<&Children>,
@@ -218,7 +217,6 @@ fn render_sub_menu(
 
             for child in child_items.iter() {
                 render_sub_menu(
-                    state,
                     ui,
                     child,
                     children,
@@ -236,7 +234,6 @@ fn render_sub_menu(
 
         for child in child_items.iter() {
             render_sub_menu(
-                state,
                 ui,
                 child,
                 children,
@@ -251,7 +248,6 @@ fn render_sub_menu(
 
 #[derive(SystemParam)]
 struct MenuParams<'w, 's> {
-    state: Res<'w, State<AppState>>,
     menus: Query<'w, 's, (&'static Menu, Entity)>,
     menu_items: Query<'w, 's, (&'static mut MenuItem, Has<MenuDisabled>)>,
     extension_events: EventWriter<'w, MenuEvent>,
@@ -297,7 +293,6 @@ fn top_menu_bar(
                 }
 
                 render_sub_menu(
-                    &menu_params.state,
                     ui,
                     &file_menu.get(),
                     &children,
@@ -309,7 +304,6 @@ fn top_menu_bar(
             });
             ui.menu_button("View", |ui| {
                 render_sub_menu(
-                    &menu_params.state,
                     ui,
                     &menu_params.view_menu.get(),
                     &children,
@@ -325,7 +319,6 @@ fn top_menu_bar(
                     && (*entity != file_menu.get() && *entity != menu_params.view_menu.get())
             }) {
                 render_sub_menu(
-                    &menu_params.state,
                     ui,
                     &entity,
                     &children,
