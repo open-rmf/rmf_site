@@ -114,13 +114,16 @@ pub use texture::*;
 pub mod util;
 pub use util::*;
 
+pub mod view_menu;
+pub use view_menu::*;
+
 pub mod wall;
 pub use wall::*;
 
 use crate::recency::{RecencyRank, RecencyRankingPlugin};
 use crate::{AppState, RegisterIssueType};
 pub use rmf_site_format::{DirectionalLight, PointLight, SpotLight, Style, *};
-use rmf_workcell_format::{NameInWorkcell, NameOfWorkcell, JointProperties};
+use rmf_workcell_format::{NameInWorkcell, NameOfWorkcell};
 
 use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
 
@@ -186,12 +189,9 @@ impl Plugin for SitePlugin {
             apply_deferred.in_set(SiteUpdateSet::AssignOrphansFlush),
         )
         .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
-        .init_resource::<FuelClient>()
         .init_resource::<SiteAssets>()
         .init_resource::<CurrentLevel>()
         .init_resource::<PhysicalLightToggle>()
-        .init_resource::<FuelCacheUpdateChannel>()
-        .init_resource::<FuelCacheProgressChannel>()
         .register_type::<NameInSite>()
         .register_type::<AssetSource>()
         .register_type::<Pose>()
@@ -211,8 +211,6 @@ impl Plugin for SitePlugin {
         .add_event::<ExportLights>()
         .add_event::<ConsiderAssociatedGraph>()
         .add_event::<ConsiderLocationTag>()
-        .add_event::<UpdateFuelCache>()
-        .add_event::<SetFuelApiKey>()
         .add_event::<MergeGroups>()
         .add_plugins((
             ChangePlugin::<AssociatedGraphs<Entity>>::default(),
@@ -255,7 +253,6 @@ impl Plugin for SitePlugin {
             ChangePlugin::<GlobalDrawingVisibility>::default(),
             ChangePlugin::<PreferredSemiTransparency>::default(),
             ChangePlugin::<Affiliation<Entity>>::default(),
-            ChangePlugin::<JointProperties>::default(),
             RecencyRankingPlugin::<NavGraphMarker>::default(),
             RecencyRankingPlugin::<FloorMarker>::default(),
             RecencyRankingPlugin::<DrawingMarker>::default(),
@@ -263,6 +260,7 @@ impl Plugin for SitePlugin {
             DrawingEditorPlugin,
             SiteVisualizerPlugin,
             ModelLoadingPlugin::default(),
+            FuelPlugin::default(),
         ))
         .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
         .add_issue_type(&DUPLICATED_LIFT_NAME_ISSUE_UUID, "Duplicate lift name")
@@ -328,9 +326,6 @@ impl Plugin for SitePlugin {
             PostUpdate,
             (
                 add_wall_visual,
-                handle_update_fuel_cache_requests,
-                read_update_fuel_cache_results,
-                reload_failed_models_with_new_api_key,
                 update_walls_for_moved_anchors,
                 update_walls,
                 update_transforms_for_changed_poses,

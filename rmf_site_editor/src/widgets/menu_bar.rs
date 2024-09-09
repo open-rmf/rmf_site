@@ -21,8 +21,6 @@ use bevy::ecs::query::Has;
 use bevy::prelude::*;
 use bevy_egui::egui::{self, Button, Ui};
 
-use std::collections::HashSet;
-
 /// Add the standard menu bar to the application.
 #[derive(Default)]
 pub struct MenuBarPlugin {}
@@ -86,10 +84,6 @@ impl MenuItem {
         }
     }
 }
-
-/// Contains the states that the menu should be visualized in.
-#[derive(Debug, Clone, Component, Deref, DerefMut)]
-pub struct MenuVisualizationStates(pub HashSet<AppState>);
 
 /// This resource provides the root entity for the file menu
 #[derive(Resource)]
@@ -189,15 +183,9 @@ fn render_sub_menu(
     children: &Query<&Children>,
     menus: &Query<(&Menu, Entity)>,
     menu_items: &Query<(&mut MenuItem, Has<MenuDisabled>)>,
-    menu_states: &Query<Option<&MenuVisualizationStates>>,
     extension_events: &mut EventWriter<MenuEvent>,
     skip_top_label: bool,
 ) {
-    if let Some(states) = menu_states.get(*entity).ok().flatten() {
-        if !states.contains(state.get()) {
-            return;
-        }
-    }
     if let Ok((e, disabled)) = menu_items.get(*entity) {
         // Draw ui
         match e {
@@ -236,7 +224,6 @@ fn render_sub_menu(
                     children,
                     menus,
                     menu_items,
-                    menu_states,
                     extension_events,
                     false,
                 );
@@ -255,7 +242,6 @@ fn render_sub_menu(
                 children,
                 menus,
                 menu_items,
-                menu_states,
                 extension_events,
                 false,
             );
@@ -268,7 +254,6 @@ struct MenuParams<'w, 's> {
     state: Res<'w, State<AppState>>,
     menus: Query<'w, 's, (&'static Menu, Entity)>,
     menu_items: Query<'w, 's, (&'static mut MenuItem, Has<MenuDisabled>)>,
-    menu_states: Query<'w, 's, Option<&'static MenuVisualizationStates>>,
     extension_events: EventWriter<'w, MenuEvent>,
     view_menu: Res<'w, ViewMenu>,
 }
@@ -318,7 +303,6 @@ fn top_menu_bar(
                     &children,
                     &menu_params.menus,
                     &menu_params.menu_items,
-                    &menu_params.menu_states,
                     &mut menu_params.extension_events,
                     true,
                 );
@@ -331,7 +315,6 @@ fn top_menu_bar(
                     &children,
                     &menu_params.menus,
                     &menu_params.menu_items,
-                    &menu_params.menu_states,
                     &mut menu_params.extension_events,
                     true,
                 );
@@ -348,7 +331,6 @@ fn top_menu_bar(
                     &children,
                     &menu_params.menus,
                     &menu_params.menu_items,
-                    &menu_params.menu_states,
                     &mut menu_params.extension_events,
                     false,
                 );

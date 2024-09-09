@@ -37,6 +37,25 @@ pub struct FuelCacheUpdated(Option<Vec<FuelModel>>);
 #[derive(Deref, DerefMut, Event)]
 pub struct SetFuelApiKey(pub String);
 
+#[derive(Default)]
+pub struct FuelPlugin { }
+
+impl Plugin for FuelPlugin {
+    fn build(&self, app: &mut App) {
+        app
+            .add_event::<UpdateFuelCache>()
+            .add_event::<SetFuelApiKey>()
+            .init_resource::<FuelClient>()
+            .init_resource::<FuelCacheUpdateChannel>()
+            .init_resource::<FuelCacheProgressChannel>()
+            .add_systems(PostUpdate,
+                (handle_update_fuel_cache_requests,
+                read_update_fuel_cache_results,
+                reload_failed_models_with_new_api_key,
+            ));
+    }
+}
+
 /// Using channels instead of events to allow usage in wasm since, unlike event writers, they can
 /// be cloned and moved into async functions therefore don't have lifetime issues
 #[derive(Debug, Resource)]
