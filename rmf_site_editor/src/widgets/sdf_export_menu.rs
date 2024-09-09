@@ -15,10 +15,9 @@
  *
 */
 
-use crate::menu_bar::{FileMenu, MenuEvent, MenuItem, MenuVisualizationStates};
+use crate::menu_bar::{FileMenu, MenuEvent, MenuItem};
 use crate::{AppState, ExportFormat, SaveWorkspace, SaveWorkspaceDestination};
 use bevy::prelude::*;
-use std::collections::HashSet;
 
 /// Keeps track of which entity is associated to the export sdf button.
 #[derive(Resource)]
@@ -34,17 +33,9 @@ impl SdfExportMenu {
 
 impl FromWorld for SdfExportMenu {
     fn from_world(world: &mut World) -> Self {
-        let site_states = HashSet::from([
-            AppState::SiteEditor,
-            AppState::SiteVisualizer,
-            AppState::SiteDrawingEditor,
-        ]);
         let file_header = world.resource::<FileMenu>().get();
         let export_sdf = world
-            .spawn((
-                MenuItem::Text("Export Sdf".to_string()),
-                MenuVisualizationStates(site_states),
-            ))
+            .spawn(MenuItem::Text("Export Sdf".to_string()))
             .set_parent(file_header)
             .id();
 

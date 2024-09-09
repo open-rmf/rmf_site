@@ -20,12 +20,9 @@ use crate::site::{
     CollisionMeshMarker, DoorMarker, FiducialMarker, FloorMarker, LaneMarker, LiftCabin,
     LiftCabinDoorMarker, LocationTags, MeasurementMarker, VisualMeshMarker, WallMarker,
 };
-use crate::widgets::menu_bar::{MenuEvent, MenuItem, MenuVisualizationStates, ViewMenu};
-// use crate::workcell::WorkcellVisualizationMarker;
-use crate::AppState;
+use crate::widgets::menu_bar::{MenuEvent, MenuItem, ViewMenu};
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
-use std::collections::HashSet;
 
 #[derive(SystemParam)]
 struct VisibilityEvents<'w> {
@@ -40,7 +37,6 @@ struct VisibilityEvents<'w> {
     walls: EventWriter<'w, SetCategoryVisibility<WallMarker>>,
     visuals: EventWriter<'w, SetCategoryVisibility<VisualMeshMarker>>,
     collisions: EventWriter<'w, SetCategoryVisibility<CollisionMeshMarker>>,
-    // origin_axis: EventWriter<'w, SetCategoryVisibility<WorkcellVisualizationMarker>>,
 }
 
 #[derive(Default)]
@@ -58,18 +54,10 @@ pub struct ViewMenuItems {
     collisions: Entity,
     visuals: Entity,
     walls: Entity,
-    // origin_axis: Entity,
 }
 
 impl FromWorld for ViewMenuItems {
     fn from_world(world: &mut World) -> Self {
-        let site_states = HashSet::from([
-            AppState::SiteEditor,
-            AppState::SiteDrawingEditor,
-            AppState::SiteVisualizer,
-        ]);
-        let mut active_states = site_states.clone();
-        active_states.insert(AppState::WorkcellEditor);
         let view_header = world.resource::<ViewMenu>().get();
         let default_visibility = world.resource::<CategoryVisibility<DoorMarker>>();
         let doors = world
@@ -77,7 +65,6 @@ impl FromWorld for ViewMenuItems {
                 "Doors".to_string(),
                 default_visibility.0,
             ))
-            .insert(MenuVisualizationStates(site_states.clone()))
             .set_parent(view_header)
             .id();
         let default_visibility = world.resource::<CategoryVisibility<FloorMarker>>();
@@ -86,7 +73,6 @@ impl FromWorld for ViewMenuItems {
                 "Floors".to_string(),
                 default_visibility.0,
             ))
-            .insert(MenuVisualizationStates(site_states.clone()))
             .set_parent(view_header)
             .id();
         let default_visibility = world.resource::<CategoryVisibility<LaneMarker>>();
@@ -95,7 +81,6 @@ impl FromWorld for ViewMenuItems {
                 "Lanes".to_string(),
                 default_visibility.0,
             ))
-            .insert(MenuVisualizationStates(site_states.clone()))
             .set_parent(view_header)
             .id();
         let default_visibility = world.resource::<CategoryVisibility<LiftCabin<Entity>>>();
@@ -104,7 +89,6 @@ impl FromWorld for ViewMenuItems {
                 "Lifts".to_string(),
                 default_visibility.0,
             ))
-            .insert(MenuVisualizationStates(site_states.clone()))
             .set_parent(view_header)
             .id();
         let default_visibility = world.resource::<CategoryVisibility<LocationTags>>();
@@ -113,7 +97,6 @@ impl FromWorld for ViewMenuItems {
                 "Locations".to_string(),
                 default_visibility.0,
             ))
-            .insert(MenuVisualizationStates(site_states.clone()))
             .set_parent(view_header)
             .id();
         let default_visibility = world.resource::<CategoryVisibility<FiducialMarker>>();
@@ -122,7 +105,6 @@ impl FromWorld for ViewMenuItems {
                 "Fiducials".to_string(),
                 default_visibility.0,
             ))
-            .insert(MenuVisualizationStates(site_states.clone()))
             .set_parent(view_header)
             .id();
         let default_visibility = world.resource::<CategoryVisibility<MeasurementMarker>>();
@@ -131,7 +113,6 @@ impl FromWorld for ViewMenuItems {
                 "Measurements".to_string(),
                 default_visibility.0,
             ))
-            .insert(MenuVisualizationStates(site_states.clone()))
             .set_parent(view_header)
             .id();
         let default_visibility = world.resource::<CategoryVisibility<CollisionMeshMarker>>();
@@ -140,7 +121,6 @@ impl FromWorld for ViewMenuItems {
                 "Collision meshes".to_string(),
                 default_visibility.0,
             ))
-            .insert(MenuVisualizationStates(active_states.clone()))
             .set_parent(view_header)
             .id();
         let default_visibility = world.resource::<CategoryVisibility<VisualMeshMarker>>();
@@ -149,7 +129,6 @@ impl FromWorld for ViewMenuItems {
                 "Visual meshes".to_string(),
                 default_visibility.0,
             ))
-            .insert(MenuVisualizationStates(active_states))
             .set_parent(view_header)
             .id();
         let default_visibility = world.resource::<CategoryVisibility<WallMarker>>();
@@ -158,21 +137,8 @@ impl FromWorld for ViewMenuItems {
                 "Walls".to_string(),
                 default_visibility.0,
             ))
-            .insert(MenuVisualizationStates(site_states))
             .set_parent(view_header)
             .id();
-        /*
-        let default_visibility =
-            world.resource::<CategoryVisibility<WorkcellVisualizationMarker>>();
-        let origin_axis = world
-            .spawn(MenuItem::CheckBox(
-                "Reference axis".to_string(),
-                default_visibility.0,
-            ))
-            .insert(MenuVisualizationStates(workcell_states))
-            .set_parent(view_header)
-            .id();
-        */
 
         ViewMenuItems {
             doors,
@@ -185,7 +151,6 @@ impl FromWorld for ViewMenuItems {
             collisions,
             visuals,
             walls,
-            // origin_axis,
         }
     }
 }

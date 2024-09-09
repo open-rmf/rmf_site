@@ -18,15 +18,14 @@
 use crate::{
     site::{Change, FilteredIssueKinds, FilteredIssues, IssueKey},
     widgets::{
-        menu_bar::{MenuEvent, MenuItem, MenuVisualizationStates, ToolMenu},
+        menu_bar::{MenuEvent, MenuItem, ToolMenu},
         prelude::*,
         SelectorWidget,
     },
-    AppState, CurrentWorkspace, Icons, Issue, IssueDictionary, ValidateWorkspace,
+    CurrentWorkspace, Icons, Issue, IssueDictionary, ValidateWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{self, Button, Checkbox, Grid, ImageButton, ScrollArea, Ui};
-use std::collections::HashSet;
 
 /// Add a [`Diagnostics`] widget to your application.
 #[derive(Default)]
@@ -239,21 +238,12 @@ pub struct IssueMenu {
 
 impl FromWorld for IssueMenu {
     fn from_world(world: &mut World) -> Self {
-        let target_states = HashSet::from([
-            AppState::SiteEditor,
-            AppState::SiteDrawingEditor,
-            AppState::SiteVisualizer,
-        ]);
         // Tools menu
+        let tool_header = world.resource::<ToolMenu>().get();
         let diagnostic_tool = world
             .spawn(MenuItem::Text("Diagnostic Tool".to_string()))
-            .insert(MenuVisualizationStates(target_states))
+            .set_parent(tool_header)
             .id();
-
-        let tool_header = world.resource::<ToolMenu>().get();
-        world
-            .entity_mut(tool_header)
-            .push_children(&[diagnostic_tool]);
 
         IssueMenu { diagnostic_tool }
     }

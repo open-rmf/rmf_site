@@ -45,9 +45,6 @@ pub mod sdf_loader;
 pub mod site_asset_io;
 use sdf_loader::*;
 
-pub mod view_menu;
-use view_menu::*;
-
 pub mod wireframe;
 use wireframe::*;
 
@@ -236,7 +233,7 @@ impl Plugin for SiteEditor {
                 MainMenuPlugin,
             ))
             // Note order matters, plugins that edit the menus must be initialized after the UI
-            .add_plugins((ViewMenuPlugin, OSMViewPlugin, SiteWireframePlugin));
+            .add_plugins((site::ViewMenuPlugin, OSMViewPlugin, SiteWireframePlugin));
         }
 
         // Ref https://github.com/bevyengine/bevy/issues/10877. The default behavior causes issues
