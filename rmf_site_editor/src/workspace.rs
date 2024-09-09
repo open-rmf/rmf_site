@@ -191,6 +191,7 @@ impl Plugin for WorkspacePlugin {
             .init_resource::<CurrentWorkspace>()
             .init_resource::<RecallWorkspace>()
             .init_resource::<SaveWorkspaceChannels>()
+            .init_resource::<FileDialogServices>()
             .init_resource::<WorkspaceLoadingServices>()
             .add_systems(
                 Update,
@@ -367,6 +368,63 @@ pub fn process_load_workspace_files(
     }
 }
 
+/// Services that spawn async file dialogs for various purposes, i.e. loading files, saving files /
+/// folders.
+#[derive(Resource)]
+pub struct FileDialogServices {
+    /// Open a dialog to pick a file, return its path and data
+    pub pick_file_for_loading: Service<(), (PathBuf, Vec<u8>)>,
+    /// Pick a file to save data into
+    // pub save_to_file: Service<Vec<u8>, ()>,
+    /// Pick a folder
+    pub pick_folder: Service<(), PathBuf>,
+}
+
+impl FromWorld for FileDialogServices {
+    fn from_world(world: &mut World) -> Self {
+        let pick_file_for_loading = world.spawn_workflow(|scope, builder| {
+            scope
+                .input
+                .chain(builder)
+                .map_async(|_| async move {
+                    if let Some(file) = AsyncFileDialog::new().pick_file().await {
+                        let data = file.read().await;
+                        #[cfg(not(target_arch = "wasm32"))]
+                        let file = file.path().to_path_buf();
+                        #[cfg(target_arch = "wasm32")]
+                        let file = PathBuf::from(file.file_name());
+                        return Some((file, data));
+                    }
+                    None
+                })
+                .cancel_on_none()
+                .connect(scope.terminate)
+        });
+
+        let pick_folder = world.spawn_workflow(|scope, builder| {
+            scope
+                .input
+                .chain(builder)
+                .map_async(|_| async move {
+                    if cfg!(target_arch = "wasm32") {
+                        AsyncFileDialog::new().pick_folder().await.map(|f| f.path().into())
+                    } else {
+                        warn!("Folder dialogs are not implemented in wasm");
+                        None
+                    }
+                })
+                .cancel_on_none()
+                .connect(scope.terminate)
+        });
+
+        Self {
+            pick_file_for_loading,
+            // save_to_file,
+            pick_folder,
+        }
+    }
+}
+
 #[derive(Resource)]
 /// Services that deal with workspace loading
 pub struct WorkspaceLoadingServices {
@@ -383,22 +441,16 @@ pub struct WorkspaceLoadingServices {
 impl FromWorld for WorkspaceLoadingServices {
     fn from_world(world: &mut World) -> Self {
         let process_load_files = world.spawn_service(process_load_workspace_files);
+        let pick_file = world.resource::<FileDialogServices>().pick_file_for_loading.clone();
         // Spawn all the services
         let load_workspace_from_dialog = world.spawn_workflow(|scope, builder| {
             scope
                 .input
                 .chain(builder)
-                .map_async(|_| async move {
-                    if let Some(file) = AsyncFileDialog::new().pick_file().await {
-                        let data = file.read().await;
-                        #[cfg(not(target_arch = "wasm32"))]
-                        let file = file.path().to_path_buf();
-                        #[cfg(target_arch = "wasm32")]
-                        let file = PathBuf::from(file.file_name());
-                        let data = WorkspaceData::new(&file, data)?;
-                        return Some(LoadWorkspaceFile(Some(file), data));
-                    }
-                    None
+                .then(pick_file)
+                .map_async(|(path, data)| async move {
+                    let data = WorkspaceData::new(&path, data)?;
+                    Some(LoadWorkspaceFile(Some(path), data))
                 })
                 .cancel_on_none()
                 .then(process_load_files)
