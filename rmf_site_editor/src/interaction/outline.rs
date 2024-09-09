@@ -19,8 +19,8 @@ use crate::{interaction::*, site::DrawingMarker};
 use bevy::render::view::RenderLayers;
 use bevy_mod_outline::{OutlineBundle, OutlineMode, OutlineRenderLayers, OutlineVolume};
 use rmf_site_format::{
-    DoorType, FiducialMarker, FloorMarker, LiftCabin, LightKind, LocationTags,
-    MeasurementMarker, ModelMarker, PhysicalCameraProperties, PrimitiveShape, WallMarker,
+    DoorType, FiducialMarker, FloorMarker, LiftCabin, LightKind, LocationTags, MeasurementMarker,
+    ModelMarker, PhysicalCameraProperties, PrimitiveShape, WallMarker,
 };
 use smallvec::SmallVec;
 

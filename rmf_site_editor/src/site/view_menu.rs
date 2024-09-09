@@ -190,10 +190,6 @@ fn handle_view_menu_events(
             events.visuals.send(toggle(event.source()).into());
         } else if event.clicked() && event.source() == view_menu.walls {
             events.walls.send(toggle(event.source()).into());
-            /*
-        } else if event.clicked() && event.source() == view_menu.origin_axis {
-            events.origin_axis.send(toggle(event.source()).into());
-            */
         }
     }
 }

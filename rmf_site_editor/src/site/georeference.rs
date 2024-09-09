@@ -9,9 +9,7 @@ use utm::*;
 use crate::{
     generate_map_tiles,
     interaction::camera_controls,
-    widgets::menu_bar::{
-        Menu, MenuDisabled, MenuEvent, MenuItem, ToolMenu, ViewMenu,
-    },
+    widgets::menu_bar::{Menu, MenuDisabled, MenuEvent, MenuItem, ToolMenu, ViewMenu},
     workspace::CurrentWorkspace,
     OSMTile,
 };
@@ -559,9 +557,7 @@ impl FromWorld for OSMMenu {
         let view_reference = world
             .spawn(MenuItem::Text("View Reference".to_string()))
             .id();
-        let settings_reference = world
-            .spawn(MenuItem::Text("Settings".to_string()))
-            .id();
+        let settings_reference = world.spawn(MenuItem::Text("Settings".to_string())).id();
 
         let sub_menu = world
             .spawn(Menu::from_title("Geographic Offset".to_string()))

@@ -19,9 +19,9 @@ use crate::{
     site::Dependents,
     widgets::{prelude::*, Inspect, SelectorWidget},
 };
-use rmf_workcell_format::{FrameMarker, JointProperties};
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::Ui;
+use rmf_workcell_format::{FrameMarker, JointProperties};
 
 #[derive(SystemParam)]
 pub struct InspectJoint<'w, 's> {

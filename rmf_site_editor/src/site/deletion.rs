@@ -109,8 +109,7 @@ impl Plugin for DeletionPlugin {
         .init_resource::<DeletionFilters>()
         .add_systems(
             First,
-            handle_deletion_requests
-                .in_set(SiteUpdateSet::Deletion),
+            handle_deletion_requests.in_set(SiteUpdateSet::Deletion),
         );
     }
 }
