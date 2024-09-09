@@ -22,7 +22,7 @@ use crate::{
         Category, CurrentLevel, Dependents, LevelElevation, LevelProperties, NameInSite,
         SiteUpdateSet,
     },
-    AppState, Issue,
+    Issue,
 };
 use bevy::{
     ecs::system::{BoxedSystem, SystemParam, SystemState},
@@ -110,8 +110,7 @@ impl Plugin for DeletionPlugin {
         .add_systems(
             First,
             handle_deletion_requests
-                .in_set(SiteUpdateSet::Deletion)
-                .run_if(AppState::in_displaying_mode()),
+                .in_set(SiteUpdateSet::Deletion),
         );
     }
 }
