@@ -233,15 +233,15 @@ fn process_new_selector(
 pub struct RunSelector {
     /// The select workflow will run this service until it terminates and then
     /// revert back to the inspector selector.
-    selector: Service<Option<Entity>, ()>,
+    pub selector: Service<Option<Entity>, ()>,
     /// If there is input for the selector, it will be stored in a [`SelectorInput`]
     /// component in this entity. The entity will be despawned as soon as the
     /// input is extracted.
-    input: Option<Entity>,
+    pub input: Option<Entity>,
 }
 
 #[derive(Component)]
-pub struct SelectorInput<T>(T);
+pub struct SelectorInput<T>(pub T);
 
 /// This component is put on entities with meshes to mark them as items that can
 /// be interacted with to
