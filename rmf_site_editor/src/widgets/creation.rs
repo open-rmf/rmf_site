@@ -19,7 +19,7 @@ use crate::{
     inspector::{InspectAssetSourceComponent, InspectScaleComponent},
     interaction::{AnchorSelection, ObjectPlacement},
     site::{
-        AssetSource, CurrentLevel, DefaultFile, DrawingBundle, Recall, RecallAssetSource, Scale,
+        AssetSource, DefaultFile, DrawingBundle, Recall, RecallAssetSource, Scale,
     },
     widgets::{prelude::*, AssetGalleryStatus},
     AppState, CurrentWorkspace,
@@ -46,7 +46,6 @@ struct Creation<'w, 's> {
     default_file: Query<'w, 's, &'static DefaultFile>,
     app_state: Res<'w, State<AppState>>,
     current_workspace: Res<'w, CurrentWorkspace>,
-    current_level: Res<'w, CurrentLevel>,
     pending_drawings: ResMut<'w, PendingDrawing>,
     pending_model: ResMut<'w, PendingModel>,
     asset_gallery: Option<ResMut<'w, AssetGalleryStatus>>,
@@ -195,7 +194,7 @@ impl<'w, 's> Creation<'w, 's> {
                                                 scale: self.pending_model.scale,
                                                 ..default()
                                             };
-                                            self.spawn_model_2d(model);
+                                            self.object_placement.place_object_2d(model);
                                         }
                                     }
                                     AppState::WorkcellEditor => {
@@ -230,14 +229,6 @@ impl<'w, 's> Creation<'w, 's> {
                 }
             }
         });
-    }
-
-    pub fn spawn_model_2d(&mut self, object: Model) {
-        if let Some(level) = self.current_level.0 {
-            self.object_placement.place_object_2d(object, level);
-        } else {
-            warn!("Unable to create [{object:?}] outside of a level");
-        }
     }
 }
 
