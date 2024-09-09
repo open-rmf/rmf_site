@@ -38,21 +38,23 @@ pub struct FuelCacheUpdated(Option<Vec<FuelModel>>);
 pub struct SetFuelApiKey(pub String);
 
 #[derive(Default)]
-pub struct FuelPlugin { }
+pub struct FuelPlugin {}
 
 impl Plugin for FuelPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_event::<UpdateFuelCache>()
+        app.add_event::<UpdateFuelCache>()
             .add_event::<SetFuelApiKey>()
             .init_resource::<FuelClient>()
             .init_resource::<FuelCacheUpdateChannel>()
             .init_resource::<FuelCacheProgressChannel>()
-            .add_systems(PostUpdate,
-                (handle_update_fuel_cache_requests,
-                read_update_fuel_cache_results,
-                reload_failed_models_with_new_api_key,
-            ));
+            .add_systems(
+                PostUpdate,
+                (
+                    handle_update_fuel_cache_requests,
+                    read_update_fuel_cache_results,
+                    reload_failed_models_with_new_api_key,
+                ),
+            );
     }
 }
 

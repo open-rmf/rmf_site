@@ -33,9 +33,9 @@ use recency::*;
 mod shapes;
 use log::LogHistoryPlugin;
 
+pub mod interaction;
 pub mod main_menu;
 pub mod site;
-pub mod interaction;
 
 pub mod workspace;
 use workspace::*;
@@ -228,12 +228,9 @@ impl Plugin for SiteEditor {
             ));
 
         if self.headless_export.is_none() {
-            app.add_plugins((
-                StandardUiPlugin::default(),
-                MainMenuPlugin,
-            ))
-            // Note order matters, plugins that edit the menus must be initialized after the UI
-            .add_plugins((site::ViewMenuPlugin, OSMViewPlugin, SiteWireframePlugin));
+            app.add_plugins((StandardUiPlugin::default(), MainMenuPlugin))
+                // Note order matters, plugins that edit the menus must be initialized after the UI
+                .add_plugins((site::ViewMenuPlugin, OSMViewPlugin, SiteWireframePlugin));
         }
 
         // Ref https://github.com/bevyengine/bevy/issues/10877. The default behavior causes issues

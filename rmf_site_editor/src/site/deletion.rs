@@ -105,8 +105,7 @@ impl Plugin for DeletionPlugin {
         .add_event::<Delete>()
         .add_systems(
             First,
-            handle_deletion_requests
-                .in_set(SiteUpdateSet::Deletion),
+            handle_deletion_requests.in_set(SiteUpdateSet::Deletion),
         );
     }
 }

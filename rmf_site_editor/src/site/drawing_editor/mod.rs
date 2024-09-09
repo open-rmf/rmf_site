@@ -23,10 +23,7 @@ pub use alignment::*;
 use crate::AppState;
 use crate::{
     interaction::{ChangeProjectionMode, Selection, SuppressHighlight},
-    site::{
-        DrawingMarker, Edge, MeasurementMarker, NameOfSite, Pending,
-        PreventDeletion,
-    },
+    site::{DrawingMarker, Edge, MeasurementMarker, NameOfSite, Pending, PreventDeletion},
     CurrentWorkspace, WorkspaceMarker,
 };
 use rmf_workcell_format::NameOfWorkcell;

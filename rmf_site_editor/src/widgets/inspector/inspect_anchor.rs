@@ -27,9 +27,9 @@ use crate::{
     // otherwise consider creating a new widget for anchor inspection
     // workcell::CreateJoint,
 };
-use rmf_workcell_format::JointProperties;
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{DragValue, ImageButton, Ui};
+use rmf_workcell_format::JointProperties;
 use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(SystemParam)]

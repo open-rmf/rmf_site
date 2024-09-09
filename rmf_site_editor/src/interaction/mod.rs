@@ -16,9 +16,9 @@
 */
 
 use crate::site::{
-    update_anchor_transforms, CollisionMeshMarker, DoorMarker, FiducialMarker,
-    FloorMarker, LaneMarker, LiftCabin, LiftCabinDoorMarker, LocationTags, MeasurementMarker,
-    SiteUpdateSet, VisualMeshMarker, WallMarker,
+    update_anchor_transforms, CollisionMeshMarker, DoorMarker, FiducialMarker, FloorMarker,
+    LaneMarker, LiftCabin, LiftCabinDoorMarker, LocationTags, MeasurementMarker, SiteUpdateSet,
+    VisualMeshMarker, WallMarker,
 };
 // TODO(luca) restore
 // use crate::workcell::WorkcellVisualizationMarker;

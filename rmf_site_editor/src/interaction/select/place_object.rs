@@ -36,9 +36,7 @@ pub struct ObjectPlacementServices {
 impl ObjectPlacementServices {
     pub fn from_app(app: &mut App) -> Self {
         let place_object_2d = spawn_place_object_2d_workflow(app);
-        Self {
-            place_object_2d,
-        }
+        Self { place_object_2d }
     }
 }
 

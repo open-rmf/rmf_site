@@ -407,7 +407,10 @@ impl FromWorld for FileDialogServices {
                 .chain(builder)
                 .map_async(|_| async move {
                     if cfg!(target_arch = "wasm32") {
-                        AsyncFileDialog::new().pick_folder().await.map(|f| f.path().into())
+                        AsyncFileDialog::new()
+                            .pick_folder()
+                            .await
+                            .map(|f| f.path().into())
                     } else {
                         warn!("Folder dialogs are not implemented in wasm");
                         None
@@ -441,7 +444,10 @@ pub struct WorkspaceLoadingServices {
 impl FromWorld for WorkspaceLoadingServices {
     fn from_world(world: &mut World) -> Self {
         let process_load_files = world.spawn_service(process_load_workspace_files);
-        let pick_file = world.resource::<FileDialogServices>().pick_file_for_loading.clone();
+        let pick_file = world
+            .resource::<FileDialogServices>()
+            .pick_file_for_loading
+            .clone();
         // Spawn all the services
         let load_workspace_from_dialog = world.spawn_workflow(|scope, builder| {
             scope
