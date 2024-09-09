@@ -290,10 +290,13 @@ impl<'w, 's> WidgetSystem<Tile> for Inspector<'w, 's> {
         state: &mut SystemState<Self>,
         world: &mut World,
     ) {
+        // TODO(luca) make sure this doesn't show in building preview mode
+        /*
         match world.resource::<State<AppState>>().get() {
             AppState::SiteEditor | AppState::SiteDrawingEditor | AppState::WorkcellEditor => {}
             _ => return,
         }
+        */
 
         CollapsingHeader::new("Inspect")
             .default_open(true)

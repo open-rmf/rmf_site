@@ -16,7 +16,6 @@
 */
 
 use crate::site::SiteUpdateSet;
-use crate::AppState;
 use bevy::prelude::*;
 use std::fmt::Debug;
 
@@ -64,7 +63,6 @@ impl<T: Component + Clone + Debug> Plugin for ChangePlugin<T> {
         app.add_event::<Change<T>>().add_systems(
             PreUpdate,
             update_changed_values::<T>
-                .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::ProcessChanges),
         );
     }
