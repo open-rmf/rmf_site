@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{widgets::prelude::*, CreateNewWorkspace, WorkspaceLoader, WorkspaceSaver};
+use crate::widgets::prelude::*;
 
 use bevy::ecs::query::Has;
 use bevy::prelude::*;
@@ -65,7 +65,8 @@ impl Menu {
 #[derive(Component)]
 #[non_exhaustive]
 pub enum MenuItem {
-    Text(String),
+    /// Text + Shortcut hint if available
+    Text(TextMenuItem),
     CheckBox(String, bool),
 }
 
@@ -82,6 +83,31 @@ impl MenuItem {
             MenuItem::CheckBox(_, ref mut value) => Some(value),
             _ => None,
         }
+    }
+}
+
+pub struct TextMenuItem {
+    pub text: String,
+    pub shortcut: Option<String>,
+}
+
+impl From<&str> for TextMenuItem {
+    fn from(text: &str) -> Self {
+        Self {
+            text: text.into(),
+            shortcut: None,
+        }
+    }
+}
+
+impl TextMenuItem {
+    pub fn new(text: &str) -> Self {
+        text.into()
+    }
+
+    pub fn shortcut(mut self, shortcut: &str) -> Self {
+        self.shortcut = Some(shortcut.into());
+        self
     }
 }
 
@@ -188,8 +214,12 @@ pub fn render_sub_menu(
     if let Ok((e, disabled)) = menu_items.get(*entity) {
         // Draw ui
         match e {
-            MenuItem::Text(title) => {
-                if ui.add_enabled(!disabled, Button::new(title)).clicked() {
+            MenuItem::Text(item) => {
+                let mut button = Button::new(&item.text);
+                if let Some(ref shortcut) = &item.shortcut {
+                    button = button.shortcut_text(shortcut);
+                }
+                if ui.add_enabled(!disabled, button).clicked() {
                     extension_events.send(MenuEvent::MenuClickEvent(*entity));
                 }
             }
@@ -256,9 +286,6 @@ struct MenuParams<'w, 's> {
 
 fn top_menu_bar(
     In(input): In<PanelWidgetInput>,
-    mut new_workspace: EventWriter<CreateNewWorkspace>,
-    mut workspace_loader: WorkspaceLoader,
-    mut workspace_saver: WorkspaceSaver,
     file_menu: Res<FileMenu>,
     top_level_components: Query<(), Without<Parent>>,
     children: Query<&Children>,
@@ -267,31 +294,6 @@ fn top_menu_bar(
     egui::TopBottomPanel::top("top_panel").show(&input.context, |ui| {
         egui::menu::bar(ui, |ui| {
             ui.menu_button("File", |ui| {
-                if ui.add(Button::new("New").shortcut_text("Ctrl+N")).clicked() {
-                    new_workspace.send(CreateNewWorkspace);
-                }
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    if ui
-                        .add(Button::new("Save").shortcut_text("Ctrl+S"))
-                        .clicked()
-                    {
-                        workspace_saver.save_to_default_file();
-                    }
-                    if ui
-                        .add(Button::new("Save As").shortcut_text("Ctrl+Shift+S"))
-                        .clicked()
-                    {
-                        workspace_saver.save_to_dialog();
-                    }
-                }
-                if ui
-                    .add(Button::new("Open").shortcut_text("Ctrl+O"))
-                    .clicked()
-                {
-                    workspace_loader.load_from_dialog();
-                }
-
                 render_sub_menu(
                     ui,
                     &file_menu.get(),

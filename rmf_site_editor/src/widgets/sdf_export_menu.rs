@@ -15,7 +15,7 @@
  *
 */
 
-use crate::menu_bar::{FileMenu, MenuEvent, MenuItem};
+use crate::menu_bar::{FileMenu, MenuEvent, MenuItem, TextMenuItem};
 use crate::{AppState, WorkspaceSaver};
 use bevy::prelude::*;
 
@@ -35,7 +35,9 @@ impl FromWorld for SdfExportMenu {
     fn from_world(world: &mut World) -> Self {
         let file_header = world.resource::<FileMenu>().get();
         let export_sdf = world
-            .spawn(MenuItem::Text("Export Sdf".to_string()))
+            .spawn(MenuItem::Text(
+                TextMenuItem::new("Export Sdf").shortcut("Ctrl-E"),
+            ))
             .set_parent(file_header)
             .id();
 

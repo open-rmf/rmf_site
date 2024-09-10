@@ -125,6 +125,9 @@ use view_nav_graphs::*;
 pub mod view_occupancy;
 use view_occupancy::*;
 
+pub mod workspace;
+use workspace::*;
+
 pub mod prelude {
     //! This module gives easy access to the traits, structs, and plugins that
     //! we expect downstream users are likely to want easy access to if they are
@@ -155,12 +158,13 @@ impl Plugin for StandardUiPlugin {
                 IconsPlugin::default(),
                 MenuBarPlugin::default(),
                 #[cfg(not(target_arch = "wasm32"))]
-                SdfExportMenuPlugin::default(),
                 StandardPropertiesPanelPlugin::default(),
                 FuelAssetBrowserPlugin::default(),
                 DiagnosticsPlugin::default(),
                 ConsoleWidgetPlugin::default(),
                 UserCameraDisplayPlugin::default(),
+                WorkspaceMenuPlugin::default(),
+                SdfExportMenuPlugin::default(),
             ))
             .add_systems(Startup, init_ui_style)
             .add_systems(
