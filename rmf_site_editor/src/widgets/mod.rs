@@ -174,7 +174,7 @@ impl Plugin for StandardUiPlugin {
                     resolve_light_export_file,
                     resolve_nav_graph_import_export_files,
                 )
-                    .run_if(AppState::in_site_mode()),
+                    .run_if(AppState::in_displaying_mode()),
             );
     }
 }

@@ -15,8 +15,11 @@
  *
 */
 
-use crate::{interaction::select::*, site::{CurrentLevel, Model}};
-use bevy::ecs::system::{Command, SystemState, SystemParam};
+use crate::{
+    interaction::select::*,
+    site::{CurrentLevel, Model},
+};
+use bevy::ecs::system::{Command, SystemParam, SystemState};
 
 #[derive(Default)]
 pub struct ObjectPlacementPlugin {}

@@ -283,12 +283,12 @@ impl Plugin for SitePlugin {
                 update_material_for_display_color,
             )
                 .after(SiteUpdateSet::ProcessChangesFlush)
-                .run_if(AppState::in_site_mode()),
+                .run_if(AppState::in_displaying_mode()),
         )
         .add_systems(
             Update,
             (save_site, save_nav_graphs, change_site.before(load_site))
-                .run_if(AppState::in_site_mode()),
+                .run_if(AppState::in_displaying_mode()),
         )
         .add_systems(
             PostUpdate,
@@ -309,7 +309,7 @@ impl Plugin for SitePlugin {
                 add_material_for_display_colors,
                 add_physical_lights,
             )
-                .run_if(AppState::in_site_mode())
+                .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::AssignOrphans),
         )
         .add_systems(
@@ -323,7 +323,7 @@ impl Plugin for SitePlugin {
                 export_lights,
                 set_camera_transform_for_changed_site,
             )
-                .run_if(AppState::in_site_mode())
+                .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenVisibilityAndTransform),
         )
         .add_systems(
@@ -346,7 +346,7 @@ impl Plugin for SitePlugin {
                 update_changed_lane,
                 update_lane_for_moved_anchor,
             )
-                .run_if(AppState::in_site_mode())
+                .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenVisibilityAndTransform),
         )
         .add_systems(
@@ -369,7 +369,7 @@ impl Plugin for SitePlugin {
                 update_physical_lights,
                 toggle_physical_lights,
             )
-                .run_if(AppState::in_site_mode())
+                .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenVisibilityAndTransform),
         )
         .add_systems(
@@ -387,7 +387,7 @@ impl Plugin for SitePlugin {
                 update_drawing_rank,
                 add_physical_camera_visuals,
             )
-                .run_if(AppState::in_site_mode())
+                .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenVisibilityAndTransform),
         );
     }

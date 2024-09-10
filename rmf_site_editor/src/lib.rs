@@ -81,26 +81,14 @@ pub enum AppState {
     MainMenu,
     SiteEditor,
     SiteVisualizer,
-    // TODO(luca) remove this
-    WorkcellEditor,
     SiteDrawingEditor,
 }
 
 impl AppState {
-    pub fn in_site_mode() -> impl Condition<()> {
-        IntoSystem::into_system(|state: Res<State<AppState>>| match state.get() {
-            AppState::SiteEditor | AppState::SiteVisualizer | AppState::SiteDrawingEditor => true,
-            AppState::MainMenu | AppState::WorkcellEditor => false,
-        })
-    }
-
     pub fn in_displaying_mode() -> impl Condition<()> {
         IntoSystem::into_system(|state: Res<State<AppState>>| match state.get() {
             AppState::MainMenu => false,
-            AppState::SiteEditor
-            | AppState::SiteVisualizer
-            | AppState::WorkcellEditor
-            | AppState::SiteDrawingEditor => true,
+            AppState::SiteEditor | AppState::SiteVisualizer | AppState::SiteDrawingEditor => true,
         })
     }
 }

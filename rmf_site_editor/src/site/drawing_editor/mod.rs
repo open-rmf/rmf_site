@@ -26,7 +26,6 @@ use crate::{
     site::{DrawingMarker, Edge, MeasurementMarker, NameOfSite, Pending, PreventDeletion},
     CurrentWorkspace, WorkspaceMarker,
 };
-use rmf_workcell_format::NameOfWorkcell;
 
 #[derive(Clone, Copy, Event)]
 pub struct BeginEditDrawing(pub Entity);
@@ -84,7 +83,6 @@ fn switch_edit_drawing_mode(
     current_workspace: Res<CurrentWorkspace>,
     parent: Query<&Parent, With<DrawingMarker>>,
     is_site: Query<(), With<NameOfSite>>,
-    is_workcell: Query<(), With<NameOfWorkcell>>,
 ) {
     // TODO(@mxgrey): We can make this implementation much cleaner after we
     // update to the latest version of bevy that distinguishes between inherited
@@ -174,8 +172,6 @@ fn switch_edit_drawing_mode(
 
             if is_site.contains(w) {
                 app_state.set(AppState::SiteEditor);
-            } else if is_workcell.contains(w) {
-                app_state.set(AppState::WorkcellEditor);
             } else {
                 // This logic can probably be improved with an editor mode stack
                 error!(
