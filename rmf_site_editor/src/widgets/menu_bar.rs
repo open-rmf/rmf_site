@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{widgets::prelude::*, CreateNewWorkspace, SaveWorkspace, WorkspaceLoader};
+use crate::{widgets::prelude::*, CreateNewWorkspace, WorkspaceLoader, WorkspaceSaver};
 
 use bevy::ecs::query::Has;
 use bevy::prelude::*;
@@ -257,8 +257,8 @@ struct MenuParams<'w, 's> {
 fn top_menu_bar(
     In(input): In<PanelWidgetInput>,
     mut new_workspace: EventWriter<CreateNewWorkspace>,
-    mut save: EventWriter<SaveWorkspace>,
     mut workspace_loader: WorkspaceLoader,
+    mut workspace_saver: WorkspaceSaver,
     file_menu: Res<FileMenu>,
     top_level_components: Query<(), Without<Parent>>,
     children: Query<&Children>,
@@ -276,13 +276,13 @@ fn top_menu_bar(
                         .add(Button::new("Save").shortcut_text("Ctrl+S"))
                         .clicked()
                     {
-                        save.send(SaveWorkspace::new().to_default_file());
+                        workspace_saver.save_to_default_file();
                     }
                     if ui
                         .add(Button::new("Save As").shortcut_text("Ctrl+Shift+S"))
                         .clicked()
                     {
-                        save.send(SaveWorkspace::new().to_dialog());
+                        workspace_saver.save_to_dialog();
                     }
                 }
                 if ui
