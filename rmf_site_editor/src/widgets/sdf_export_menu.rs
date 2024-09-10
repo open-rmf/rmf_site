@@ -65,7 +65,7 @@ impl Plugin for SdfExportMenuPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SdfExportMenu>().add_systems(
             Update,
-            handle_export_sdf_menu_events.run_if(AppState::in_site_mode()),
+            handle_export_sdf_menu_events.run_if(AppState::in_displaying_mode()),
         );
     }
 }

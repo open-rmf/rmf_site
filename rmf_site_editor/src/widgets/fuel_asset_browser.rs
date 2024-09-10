@@ -17,10 +17,7 @@
 
 use crate::{
     interaction::{ModelPreviewCamera, ObjectPlacementExt},
-    site::{
-        AssetSource, FuelClient, Model, ModelSpawningExt, SetFuelApiKey,
-        UpdateFuelCache,
-    },
+    site::{AssetSource, FuelClient, Model, ModelSpawningExt, SetFuelApiKey, UpdateFuelCache},
     widgets::prelude::*,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
