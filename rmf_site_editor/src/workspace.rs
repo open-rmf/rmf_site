@@ -555,34 +555,36 @@ impl FromWorld for WorkspaceSavingServices {
 // not Send in wasm so it can't be sent to another thread through an event. We would need to
 // refactor saving to be fully done in the async task rather than send an event to have wasm saving.
 impl<'w, 's> WorkspaceSaver<'w, 's> {
-    /// Request to spawn a dialog and load a workspace
+    /// Request to spawn a dialog and save the workspace
     pub fn save_to_dialog(&mut self) {
         self.commands
             .request((), self.workspace_saving.save_workspace_to_dialog)
             .detach();
     }
 
+    /// Request to save the workspace to the default file (or a dialog if no default file is
+    /// available).
     pub fn save_to_default_file(&mut self) {
         self.commands
             .request((), self.workspace_saving.save_workspace_to_default_file)
             .detach();
     }
 
-    /// Request to spawn a dialog to select a file and create a new site with a blank level
+    /// Request to save the workspace to the requested path
     pub fn save_to_path(&mut self, path: PathBuf) {
         self.commands
             .request(path, self.workspace_saving.save_workspace_to_path)
             .detach();
     }
 
-    /// Request to load a workspace from a path
+    /// Request to export the workspace as a sdf to a folder selected from a dialog
     pub fn export_sdf_to_dialog(&mut self) {
         self.commands
             .request((), self.workspace_saving.export_sdf_to_dialog)
             .detach();
     }
 
-    /// Request to load a workspace from data
+    /// Request to export the workspace as a sdf to provided folder
     pub fn export_sdf_to_path(&mut self, path: PathBuf) {
         self.commands
             .request(path, self.workspace_saving.export_sdf_to_path)

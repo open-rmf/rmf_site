@@ -1312,6 +1312,11 @@ pub fn save_site(world: &mut World) {
                         error!("Unable to create folder {}: {e}", new_path.display());
                         continue;
                     }
+                } else {
+                    if !new_path.is_dir() {
+                        error!("SDF can only be exported to a folder");
+                        continue;
+                    }
                 }
                 let mut sdf_path = new_path.clone();
                 sdf_path.push(&site.properties.name.0);
