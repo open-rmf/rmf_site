@@ -551,13 +551,9 @@ pub struct OSMMenu {
 impl FromWorld for OSMMenu {
     fn from_world(world: &mut World) -> Self {
         // Tools menu
-        let set_reference = world
-            .spawn(MenuItem::Text("Set Reference".to_string()))
-            .id();
-        let view_reference = world
-            .spawn(MenuItem::Text("View Reference".to_string()))
-            .id();
-        let settings_reference = world.spawn(MenuItem::Text("Settings".to_string())).id();
+        let set_reference = world.spawn(MenuItem::Text("Set Reference".into())).id();
+        let view_reference = world.spawn(MenuItem::Text("View Reference".into())).id();
+        let settings_reference = world.spawn(MenuItem::Text("Settings".into())).id();
 
         let sub_menu = world
             .spawn(Menu::from_title("Geographic Offset".to_string()))

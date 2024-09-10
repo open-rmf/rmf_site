@@ -118,6 +118,10 @@ fn handle_keyboard_input(
             }
         }
 
+        if keyboard_input.just_pressed(KeyCode::E) {
+            workspace_saver.export_sdf_to_dialog();
+        }
+
         // TODO(luca) pop up a confirmation prompt if the current file is not saved, or create a
         // gui to switch between open workspaces
         if keyboard_input.just_pressed(KeyCode::N) {

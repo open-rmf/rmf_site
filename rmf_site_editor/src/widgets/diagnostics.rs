@@ -241,7 +241,7 @@ impl FromWorld for IssueMenu {
         // Tools menu
         let tool_header = world.resource::<ToolMenu>().get();
         let diagnostic_tool = world
-            .spawn(MenuItem::Text("Diagnostic Tool".to_string()))
+            .spawn(MenuItem::Text("Diagnostic Tool".into()))
             .set_parent(tool_header)
             .id();
 
