@@ -16,7 +16,7 @@
 */
 
 use crate::menu_bar::{FileMenu, MenuEvent, MenuItem};
-use crate::{AppState, ExportFormat, SaveWorkspace, SaveWorkspaceDestination};
+use crate::{AppState, WorkspaceSaver};
 use bevy::prelude::*;
 
 /// Keeps track of which entity is associated to the export sdf button.
@@ -46,14 +46,11 @@ impl FromWorld for SdfExportMenu {
 fn handle_export_sdf_menu_events(
     mut menu_events: EventReader<MenuEvent>,
     sdf_menu: Res<SdfExportMenu>,
-    mut save_events: EventWriter<SaveWorkspace>,
+    mut workspace_saver: WorkspaceSaver,
 ) {
     for event in menu_events.read() {
         if event.clicked() && event.source() == sdf_menu.get() {
-            save_events.send(SaveWorkspace {
-                destination: SaveWorkspaceDestination::Dialog,
-                format: ExportFormat::Sdf,
-            });
+            workspace_saver.export_sdf_to_dialog();
         }
     }
 }

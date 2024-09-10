@@ -154,6 +154,7 @@ impl Plugin for StandardUiPlugin {
             .add_plugins((
                 IconsPlugin::default(),
                 MenuBarPlugin::default(),
+                #[cfg(not(target_arch = "wasm32"))]
                 SdfExportMenuPlugin::default(),
                 StandardPropertiesPanelPlugin::default(),
                 FuelAssetBrowserPlugin::default(),
