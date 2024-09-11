@@ -86,7 +86,7 @@ pub enum ExportFormat {
 
 /// Used to keep track of visibility when switching workspace
 #[derive(Debug, Default, Resource)]
-pub struct RecallWorkspace(Option<Entity>);
+pub struct RecallWorkspace(pub Option<Entity>);
 
 impl CurrentWorkspace {
     pub fn to_site(self, open_sites: &Query<Entity, With<NameOfSite>>) -> Option<Entity> {
@@ -212,14 +212,21 @@ pub fn process_load_workspace_files(
     }
 }
 
+/// Filter that can be added to a file dialog request to filter extensions
+#[derive(Clone, Debug)]
+pub struct FileDialogFilter {
+    pub name: String,
+    pub extensions: Vec<String>,
+}
+
 /// Services that spawn async file dialogs for various purposes, i.e. loading files, saving files /
 /// folders.
 #[derive(Resource)]
 pub struct FileDialogServices {
     /// Open a dialog to pick a file, return its path and data
-    pub pick_file_and_load: Service<(), (PathBuf, Vec<u8>)>,
+    pub pick_file_and_load: Service<Vec<FileDialogFilter>, (PathBuf, Vec<u8>)>,
     /// Pick a file to save data into
-    pub pick_file_for_saving: Service<(), PathBuf>,
+    pub pick_file_for_saving: Service<Vec<FileDialogFilter>, PathBuf>,
     /// Pick a folder
     pub pick_folder: Service<(), PathBuf>,
 }
@@ -230,8 +237,12 @@ impl FromWorld for FileDialogServices {
             scope
                 .input
                 .chain(builder)
-                .map_async(|_| async move {
-                    if let Some(file) = AsyncFileDialog::new().pick_file().await {
+                .map_async(|filters: Vec<FileDialogFilter>| async move {
+                    let mut dialog = AsyncFileDialog::new();
+                    for filter in filters {
+                        dialog = dialog.add_filter(filter.name, &filter.extensions);
+                    }
+                    if let Some(file) = dialog.pick_file().await {
                         let data = file.read().await;
                         #[cfg(not(target_arch = "wasm32"))]
                         let file = file.path().to_path_buf();
@@ -249,8 +260,12 @@ impl FromWorld for FileDialogServices {
             scope
                 .input
                 .chain(builder)
-                .map_async(|_| async move {
-                    let file = AsyncFileDialog::new().save_file().await?;
+                .map_async(|filters: Vec<FileDialogFilter>| async move {
+                    let mut dialog = AsyncFileDialog::new();
+                    for filter in filters {
+                        dialog = dialog.add_filter(filter.name, &filter.extensions);
+                    }
+                    let file = dialog.save_file().await?;
                     #[cfg(not(target_arch = "wasm32"))]
                     let file = file.path().to_path_buf();
                     #[cfg(target_arch = "wasm32")]
@@ -311,11 +326,22 @@ impl FromWorld for WorkspaceLoadingServices {
             .resource::<FileDialogServices>()
             .pick_file_and_load
             .clone();
+        let loading_filters = vec![
+            FileDialogFilter {
+                name: "Legacy building".into(),
+                extensions: vec!["building.yaml".into()],
+            },
+            FileDialogFilter {
+                name: "Site".into(),
+                extensions: vec!["site.ron".into(), "site.json".into()],
+            },
+        ];
         // Spawn all the services
         let load_workspace_from_dialog = world.spawn_workflow(|scope, builder| {
             scope
                 .input
                 .chain(builder)
+                .map_block(move |_| loading_filters.clone())
                 .then(pick_file)
                 .map_async(|(path, data)| async move {
                     let data = WorkspaceData::new(&path, data)?;
@@ -491,11 +517,16 @@ impl FromWorld for WorkspaceSavingServices {
             .pick_file_for_saving
             .clone();
         let pick_folder = world.resource::<FileDialogServices>().pick_folder.clone();
+        let saving_filters = vec![FileDialogFilter {
+            name: "Site".into(),
+            extensions: vec!["site.ron".into(), "site.json".into()],
+        }];
         // Spawn all the services
         let save_workspace_to_dialog = world.spawn_workflow(|scope, builder| {
             scope
                 .input
                 .chain(builder)
+                .map_block(move |_| saving_filters.clone())
                 .then(pick_file)
                 .map_block(|path| (path, ExportFormat::default()))
                 .then(send_file_save)
