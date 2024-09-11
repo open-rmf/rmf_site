@@ -161,7 +161,6 @@ impl Plugin for StandardUiPlugin {
                 FuelAssetBrowserPlugin::default(),
                 DiagnosticsPlugin::default(),
                 ConsoleWidgetPlugin::default(),
-                UserCameraDisplayPlugin::default(),
                 WorkspaceMenuPlugin::default(),
                 #[cfg(not(target_arch = "wasm32"))]
                 SdfExportMenuPlugin::default(),

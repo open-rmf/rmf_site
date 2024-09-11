@@ -244,7 +244,6 @@ impl Plugin for DrawingEditorPlugin {
         app.add_event::<BeginEditDrawing>()
             .add_event::<FinishEditDrawing>()
             .add_event::<AlignSiteDrawings>()
-            .init_resource::<CurrentEditDrawing>()
             .add_systems(Update, switch_edit_drawing_mode)
             .add_systems(
                 Update,
