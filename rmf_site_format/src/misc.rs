@@ -18,7 +18,7 @@
 use crate::RefTrait;
 #[cfg(feature = "bevy")]
 use bevy::prelude::*;
-use glam::{Quat, Vec2, Vec3};
+use glam::{EulerRot, Quat, Vec2, Vec3};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
