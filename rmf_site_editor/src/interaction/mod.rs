@@ -16,12 +16,11 @@
 */
 
 use crate::site::{
-    update_anchor_transforms, CollisionMeshMarker, DoorMarker, FiducialMarker, FloorMarker,
-    LaneMarker, LiftCabin, LiftCabinDoorMarker, LocationTags, MeasurementMarker, SiteUpdateSet,
-    VisualMeshMarker, WallMarker,
+    update_anchor_transforms, CollisionMeshMarker, CurrentEditDrawing, CurrentLevel, DoorMarker,
+    FiducialMarker, FloorMarker, LaneMarker, LiftCabin, LiftCabinDoorMarker, LocationTags,
+    MeasurementMarker, SiteUpdateSet, ToggleLiftDoorAvailability, VisualMeshMarker, WallMarker,
 };
-// TODO(luca) restore
-// use crate::workcell::WorkcellVisualizationMarker;
+use crate::widgets::UserCameraDisplayPlugin;
 
 pub mod anchor;
 pub use anchor::*;
@@ -152,11 +151,14 @@ impl Plugin for InteractionPlugin {
             .init_resource::<Picked>()
             .init_resource::<PickingBlockers>()
             .init_resource::<GizmoState>()
+            .init_resource::<CurrentEditDrawing>()
+            .init_resource::<CurrentLevel>()
             .insert_resource(HighlightAnchors(false))
             .add_event::<ChangePick>()
             .add_event::<MoveTo>()
             .add_event::<GizmoClicked>()
             .add_event::<SpawnPreview>()
+            .add_event::<ToggleLiftDoorAvailability>()
             .add_plugins((
                 OutlinePlugin,
                 CategoryVisibilityPlugin::<DoorMarker>::visible(true),
@@ -170,9 +172,12 @@ impl Plugin for InteractionPlugin {
                 CategoryVisibilityPlugin::<CollisionMeshMarker>::visible(false),
                 CategoryVisibilityPlugin::<MeasurementMarker>::visible(true),
                 CategoryVisibilityPlugin::<WallMarker>::visible(true),
-                // CategoryVisibilityPlugin::<WorkcellVisualizationMarker>::visible(true),
             ))
-            .add_plugins((CameraControlsPlugin, ModelPreviewPlugin));
+            .add_plugins((
+                CameraControlsPlugin,
+                ModelPreviewPlugin,
+                UserCameraDisplayPlugin::default(),
+            ));
 
         if !self.headless {
             app.add_plugins(SelectionPlugin::default())
