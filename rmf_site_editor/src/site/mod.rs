@@ -90,11 +90,11 @@ pub use physical_camera::*;
 pub mod pose;
 pub use pose::*;
 
+pub mod primitive_shape;
+pub use primitive_shape::*;
+
 pub mod recall_plugin;
 pub use recall_plugin::RecallPlugin;
-
-pub mod sdf;
-pub use sdf::*;
 
 pub mod save;
 pub use save::*;
