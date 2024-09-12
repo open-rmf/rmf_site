@@ -15,9 +15,7 @@ impl FromWorld for MyMenuHandler {
         // This is all it takes to register a new menu item
         // We need to keep track of the entity in order to make
         // sure that we can check the callback
-        let unique_export = world
-            .spawn(MenuItem::Text("My unique export".to_string()))
-            .id();
+        let unique_export = world.spawn(MenuItem::Text("My unique export".into())).id();
 
         // Make it a child of the "File Menu"
         let file_header = world.resource::<FileMenu>().get();
@@ -37,9 +35,7 @@ impl FromWorld for MyMenuHandler {
         world.entity_mut(menu).push_children(&[sub_menu]);
 
         // Finally we can create a custom action
-        let custom_nested_menu = world
-            .spawn(MenuItem::Text("My Awesome Action".to_string()))
-            .id();
+        let custom_nested_menu = world.spawn(MenuItem::Text("My Awesome Action".into())).id();
         world
             .entity_mut(sub_menu)
             .push_children(&[custom_nested_menu]);
@@ -56,7 +52,7 @@ impl FromWorld for MyMenuHandler {
 /// an event that is of the same type as the one we are supposed to
 /// handle.
 fn watch_unique_export_click(mut reader: EventReader<MenuEvent>, menu_handle: Res<MyMenuHandler>) {
-    for event in reader.iter() {
+    for event in reader.read() {
         if event.clicked() && event.source() == menu_handle.unique_export {
             println!("Doing our epic export");
         }
@@ -67,7 +63,7 @@ fn watch_unique_export_click(mut reader: EventReader<MenuEvent>, menu_handle: Re
 /// an event that is of the same type as the one we are supposed to
 /// handle.
 fn watch_submenu_click(mut reader: EventReader<MenuEvent>, menu_handle: Res<MyMenuHandler>) {
-    for event in reader.iter() {
+    for event in reader.read() {
         if event.clicked() && event.source() == menu_handle.custom_nested_menu {
             println!("Submenu clicked");
         }

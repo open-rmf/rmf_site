@@ -106,7 +106,6 @@ use crate::{
     interaction::Selection,
     site::{Category, SiteID},
     widgets::prelude::*,
-    AppState,
 };
 use bevy::{
     ecs::system::{SystemParam, SystemState},

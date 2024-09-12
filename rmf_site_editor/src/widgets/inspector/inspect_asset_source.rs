@@ -144,6 +144,7 @@ impl<'a> InspectAssetSourceComponent<'a> {
                     // Button to load from file, disabled for wasm since there are no local files
                     #[cfg(not(target_arch = "wasm32"))]
                     if ui.button("Browse").clicked() {
+                        // TODO(luca) change this to use FileDialogServices and be async
                         if let Some(file) = FileDialog::new().pick_file() {
                             if let Some(src) = file.to_str() {
                                 if let (Some(default_file), true) = (self.default_file, is_relative)
