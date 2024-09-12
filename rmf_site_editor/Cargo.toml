@@ -35,7 +35,7 @@ thread_local = "*"
 geo = "0.27"
 thiserror = "*"
 rmf_site_format = { path = "../rmf_site_format", features = ["bevy"] }
-rmf_workcell_format = { path = "../../rmf_workcell/rmf_workcell_format", features = ["bevy"] }
+rmf_workcell_format = { git = "https://github.com/luca-della-vedova/rmf_workcell", branch = "first_commit", features = ["bevy_support"]}
 itertools = "*"
 bitfield = "*"
 crossbeam-channel = "0.5"
