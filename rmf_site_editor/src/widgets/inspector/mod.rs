@@ -45,9 +45,6 @@ pub use inspect_geography::*;
 pub mod inspect_group;
 pub use inspect_group::*;
 
-pub mod inspect_joint;
-pub use inspect_joint::*;
-
 pub mod inspect_is_static;
 pub use inspect_is_static::*;
 
@@ -199,7 +196,6 @@ impl Plugin for StandardInspectorPlugin {
                 InspectionPlugin::<InspectDoor>::new(),
                 InspectionPlugin::<InspectAssetSource>::new(),
                 InspectionPlugin::<InspectPrimitiveShape>::new(),
-                InspectionPlugin::<InspectJoint>::new(),
                 InspectionPlugin::<InspectMeasurement>::new(),
                 InspectionPlugin::<InspectPhysicalCameraProperties>::new(),
                 InspectLiftPlugin::default(),

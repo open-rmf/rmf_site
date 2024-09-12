@@ -26,7 +26,6 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{DragValue, ImageButton, Ui};
-use rmf_workcell_format::{CreateJoint, JointProperties};
 use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(SystemParam)]
@@ -38,14 +37,11 @@ pub struct InspectAnchor<'w, 's> {
             &'static Anchor,
             &'static Transform,
             Option<&'static Subordinate>,
-            &'static Parent,
         ),
     >,
     icons: Res<'w, Icons>,
-    joints: Query<'w, 's, Entity, With<JointProperties>>,
     hover: EventWriter<'w, Hover>,
     move_to: EventWriter<'w, MoveTo>,
-    create_joint: EventWriter<'w, CreateJoint>,
 }
 
 impl<'w, 's> ShareableWidget for InspectAnchor<'w, 's> {}
@@ -125,7 +121,7 @@ fn impl_inspect_anchor(
 
     let mut params = state.get_mut(world);
 
-    if let Ok((anchor, tf, subordinate, parent)) = params.anchors.get(id) {
+    if let Ok((anchor, tf, subordinate)) = params.anchors.get(id) {
         if let Some(subordinate) = subordinate.map(|s| s.0) {
             panel.orthogonal(ui, |ui| {
                 if let Some(boss) = subordinate {
@@ -173,15 +169,6 @@ fn impl_inspect_anchor(
                                 entity: id,
                                 transform: new_pose.transform(),
                             });
-                        }
-                        // If the parent is not a joint, add a joint creation widget
-                        if params.joints.get(parent.get()).is_err() {
-                            if ui.button("Create joint").on_hover_text("Create a fixed joint and place it between the parent frame and this frame").clicked() {
-                                params.create_joint.send(CreateJoint {
-                                    parent: parent.get(),
-                                    child: id,
-                                });
-                            }
                         }
                     });
                 }
