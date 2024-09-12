@@ -123,7 +123,6 @@ pub use wall::*;
 use crate::recency::{RecencyRank, RecencyRankingPlugin};
 use crate::{AppState, RegisterIssueType};
 pub use rmf_site_format::{DirectionalLight, PointLight, SpotLight, Style, *};
-use rmf_workcell_format::{CreateJoint, NameInWorkcell, NameOfWorkcell};
 
 use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
 
@@ -200,7 +199,6 @@ impl Plugin for SitePlugin {
         .add_event::<ConsiderAssociatedGraph>()
         .add_event::<ConsiderLocationTag>()
         .add_event::<MergeGroups>()
-        .add_event::<CreateJoint>()
         .add_plugins((
             ChangePlugin::<AssociatedGraphs<Entity>>::default(),
             RecallPlugin::<RecallAssociatedGraphs<Entity>>::default(),
@@ -210,8 +208,6 @@ impl Plugin for SitePlugin {
             RecallPlugin::<RecallReverseLane>::default(),
             ChangePlugin::<NameOfSite>::default(),
             ChangePlugin::<NameInSite>::default(),
-            ChangePlugin::<NameInWorkcell>::default(),
-            ChangePlugin::<NameOfWorkcell>::default(),
             ChangePlugin::<Pose>::default(),
             ChangePlugin::<Scale>::default(),
             ChangePlugin::<Distance>::default(),
