@@ -19,7 +19,6 @@ use crate::widgets::{FileMenu, MenuDisabled, MenuEvent, MenuItem, TextMenuItem};
 use crate::{AppState, CreateNewWorkspace, WorkspaceLoader, WorkspaceSaver};
 use bevy::prelude::*;
 
-// TODO(luca) fill fields with callbacks used to create / load / save workspaces
 #[derive(Default)]
 pub struct WorkspaceMenuPlugin {}
 

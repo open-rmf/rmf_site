@@ -102,9 +102,6 @@ pub use inspect_texture::*;
 pub mod inspect_value;
 pub use inspect_value::*;
 
-//pub mod inspect_workcell_parent;
-//pub use inspect_workcell_parent::*;
-
 use crate::{
     interaction::Selection,
     site::{Category, SiteID},
