@@ -18,7 +18,7 @@
 use crate::RefTrait;
 #[cfg(feature = "bevy")]
 use bevy::prelude::*;
-use glam::{EulerRot, Quat, Vec2, Vec3};
+use glam::{Quat, Vec2, Vec3};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -353,6 +353,7 @@ impl Default for Pose {
     }
 }
 
+#[cfg(feature = "urdf")]
 impl From<Pose> for urdf_rs::Pose {
     fn from(pose: Pose) -> Self {
         urdf_rs::Pose {
@@ -360,7 +361,7 @@ impl From<Pose> for urdf_rs::Pose {
                 Rotation::EulerExtrinsicXYZ(arr) => urdf_rs::Vec3(arr.map(|v| v.radians().into())),
                 Rotation::Yaw(v) => urdf_rs::Vec3([0.0, 0.0, v.radians().into()]),
                 Rotation::Quat([x, y, z, w]) => {
-                    let (z, y, x) = glam::quat(x, y, z, w).to_euler(EulerRot::ZYX);
+                    let (z, y, x) = glam::quat(x, y, z, w).to_euler(glam::EulerRot::ZYX);
                     urdf_rs::Vec3([x as f64, y as f64, z as f64])
                 }
             },
@@ -369,6 +370,7 @@ impl From<Pose> for urdf_rs::Pose {
     }
 }
 
+#[cfg(feature = "urdf")]
 impl From<&urdf_rs::Pose> for Pose {
     fn from(pose: &urdf_rs::Pose) -> Self {
         Pose {
