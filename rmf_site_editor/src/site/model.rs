@@ -68,7 +68,9 @@ pub type ModelLoadingResult = Result<ModelLoadingRequest, Option<ModelLoadingErr
 pub struct ModelLoadingServices {
     /// Service that loads the requested model
     pub load_model: Service<ModelLoadingRequest, ModelLoadingResult>,
-    pub check_scene_is_spawned: Service<(Entity, Option<Handle<Scene>>), Entity>,
+    /// Continuous service that sends a response when the scene at the requested entity finished
+    /// spawning.
+    pub check_scene_is_spawned: Service<Entity, Entity>,
 }
 
 #[derive(Default)]
@@ -83,8 +85,8 @@ impl Plugin for ModelLoadingPlugin {
 
 // For each InstanceId send a response when it is spawned
 fn check_scenes_are_spawned(
-    In(ContinuousService { key }): ContinuousServiceInput<(Entity, Option<Handle<Scene>>), Entity>,
-    mut orders: ContinuousQuery<(Entity, Option<Handle<Scene>>), Entity>,
+    In(ContinuousService { key }): ContinuousServiceInput<Entity, Entity>,
+    mut orders: ContinuousQuery<Entity, Entity>,
     instance_ids: Query<(), With<SceneInstance>>,
     // We use having children as a proxy for scene having been spawned, alternatives are fairly
     // complex (i.e. reading the instance_is_ready API needs the InstanceId that is private, the
@@ -97,18 +99,9 @@ fn check_scenes_are_spawned(
 
     orders.for_each(|order| {
         let req = order.request().clone();
-        match req.1 {
-            Some(_) => {
-                // There is a scene, make sure the entity has a `SceneInstance` component that marks
-                // it as spawned
-                if instance_ids.get(req.0).is_ok() && children.get(req.0).is_ok() {
-                    order.respond(req.0);
-                }
-            }
-            None => {
-                // No scene is present, we can just proceed
-                order.respond(req.0);
-            }
+        // Make sure the entity has a `SceneInstance` component that marks it as spawned
+        if instance_ids.get(req).is_ok() && children.get(req).is_ok() {
+            order.respond(req);
         }
     })
 }
@@ -136,14 +129,14 @@ fn load_asset_source(
 }
 
 pub fn spawn_scene_for_loaded_model(
-    In(h): In<UntypedHandle>,
+    In((parent, h, source)): In<(Entity, UntypedHandle, AssetSource)>,
     world: &mut World,
-) -> Option<(Entity, Option<Handle<Scene>>)> {
+) -> Option<(Entity, bool)> {
     // For each model that is loading, check if its scene has finished loading
     // yet. If the scene has finished loading, then insert it as a child of the
     // model entity and make it selectable.
     let type_id = h.type_id();
-    let (model_id, scene_handle) = if type_id == TypeId::of::<Gltf>() {
+    let (model_id, is_scene) = if type_id == TypeId::of::<Gltf>() {
         // Note we can't do an `if let Some()` because get(Handle) panics if the type is
         // not the stored type
         let gltfs = world.resource::<Assets<Gltf>>();
@@ -154,26 +147,10 @@ pub fn spawn_scene_for_loaded_model(
             .as_ref()
             .map(|s| s.clone())
             .unwrap_or(gltf.scenes.get(0).unwrap().clone());
-        Some((
-            world
-                .spawn(SceneBundle {
-                    scene: scene.clone(),
-                    ..default()
-                })
-                .id(),
-            Some(scene),
-        ))
+        Some((world.spawn(SceneBundle { scene, ..default() }).id(), true))
     } else if type_id == TypeId::of::<Scene>() {
         let scene = h.clone().typed::<Scene>();
-        Some((
-            world
-                .spawn(SceneBundle {
-                    scene: scene.clone(),
-                    ..default()
-                })
-                .id(),
-            Some(scene),
-        ))
+        Some((world.spawn(SceneBundle { scene, ..default() }).id(), true))
     } else if type_id == TypeId::of::<Mesh>() {
         let site_assets = world.resource::<SiteAssets>();
         let mesh = h.clone().typed::<Mesh>();
@@ -185,12 +162,23 @@ pub fn spawn_scene_for_loaded_model(
                     ..default()
                 })
                 .id(),
-            None,
+            false,
         ))
     } else {
         None
     }?;
-    Some((model_id, scene_handle))
+    // Add scene and visibility bundle if not present already
+    world
+        .entity_mut(parent)
+        .insert(ModelScene {
+            source: source,
+            entity: model_id,
+        })
+        .add_child(model_id);
+    if world.get::<Visibility>(parent).is_none() {
+        world.entity_mut(parent).insert(SpatialBundle::default());
+    }
+    Some((model_id, is_scene))
 }
 
 /// Return true if the source changed and we might need to continue downstream operations.
@@ -253,53 +241,25 @@ fn handle_model_loading(
         };
         // Now we have a handle and a parent entity, call the spawn scene service
         let res = channel
-            .query(handle, spawn_scene)
-            .await
-            .available()
-            .ok_or(Some(ModelLoadingError::WorkflowExecutionError))?;
-        let Some((scene_entity, scene_handle)) = res else {
-            return Err(Some(ModelLoadingError::NonModelAsset(request.source)));
-        };
-        // Spawn a ModelScene to keep track of what was spawned and set parenthood / transforms
-        let add_components_to_spawned_model =
-            add_components_to_spawned_model.into_blocking_callback();
-        channel
             .query(
-                (request.parent, scene_entity, request.source.clone()),
-                add_components_to_spawned_model,
+                (request.parent, handle, request.source.clone()),
+                spawn_scene,
             )
             .await
             .available()
             .ok_or(Some(ModelLoadingError::WorkflowExecutionError))?;
-        channel
-            .query((scene_entity, scene_handle), check_scene_is_spawned)
-            .await
-            .available()
-            .ok_or(Some(ModelLoadingError::WorkflowExecutionError))?;
+        let Some((scene_entity, is_scene)) = res else {
+            return Err(Some(ModelLoadingError::NonModelAsset(request.source)));
+        };
+        if is_scene {
+            // Wait for the scene to be spawned, if there is one
+            channel
+                .query(scene_entity, check_scene_is_spawned)
+                .await
+                .available()
+                .ok_or(Some(ModelLoadingError::WorkflowExecutionError))?;
+        }
         Ok(request)
-    }
-}
-
-pub fn add_components_to_spawned_model(
-    In((parent, scene_entity, source)): In<(Entity, Entity, AssetSource)>,
-    mut commands: Commands,
-    vis: Query<&Visibility>,
-    tf: Query<&Transform>,
-) {
-    // TODO(luca) just use commands.insert_if_new when updating to bevy 0.15, check
-    // https://github.com/bevyengine/bevy/pull/14646
-    commands
-        .entity(parent)
-        .insert(ModelScene {
-            source: source,
-            entity: scene_entity,
-        })
-        .add_child(scene_entity);
-    if vis.get(parent).is_err() {
-        commands.entity(parent).insert(VisibilityBundle::default());
-    }
-    if tf.get(parent).is_err() {
-        commands.entity(parent).insert(TransformBundle::default());
     }
 }
 
