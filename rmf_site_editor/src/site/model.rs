@@ -149,11 +149,11 @@ pub fn spawn_scene_for_loaded_model(
             .unwrap_or(gltf.scenes.get(0).unwrap().clone());
         Some((world.spawn(SceneBundle { scene, ..default() }).id(), true))
     } else if type_id == TypeId::of::<Scene>() {
-        let scene = h.clone().typed::<Scene>();
+        let scene = h.typed::<Scene>();
         Some((world.spawn(SceneBundle { scene, ..default() }).id(), true))
     } else if type_id == TypeId::of::<Mesh>() {
         let site_assets = world.resource::<SiteAssets>();
-        let mesh = h.clone().typed::<Mesh>();
+        let mesh = h.typed::<Mesh>();
         Some((
             world
                 .spawn(PbrBundle {
@@ -176,7 +176,7 @@ pub fn spawn_scene_for_loaded_model(
         })
         .add_child(model_id);
     if world.get::<Visibility>(parent).is_none() {
-        world.entity_mut(parent).insert(SpatialBundle::default());
+        world.entity_mut(parent).insert(VisibilityBundle::default());
     }
     Some((model_id, is_scene))
 }
