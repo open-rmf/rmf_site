@@ -16,7 +16,7 @@
 */
 
 use crate::{interaction::select::*, site::Model};
-use bevy::prelude::Input as UserInput;
+use bevy::prelude::ButtonInput;
 
 pub const PLACE_OBJECT_2D_MODE_LABEL: &'static str = "place_object_2d";
 
@@ -147,7 +147,7 @@ pub fn place_object_2d_find_placement(
     cursor: Res<Cursor>,
     mut transforms: Query<&mut Transform>,
     intersect_ground_params: IntersectGroundPlaneParams,
-    mouse_button_input: Res<UserInput<MouseButton>>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
     blockers: Option<Res<PickingBlockers>>,
 ) {
     let Some(mut orders) = orders.get_mut(&key) else {

@@ -20,7 +20,7 @@ use bevy::{prelude::*, window::PrimaryWindow};
 use bevy_egui::EguiContexts;
 
 pub fn handle_workcell_keyboard_input(
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     mut egui_context: EguiContexts,
     mut save_events: EventWriter<SaveWorkspace>,
     primary_windows: Query<Entity, With<PrimaryWindow>>,
@@ -42,7 +42,7 @@ pub fn handle_workcell_keyboard_input(
     }
 
     if keyboard_input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) {
-        if keyboard_input.just_pressed(KeyCode::E) {
+        if keyboard_input.just_pressed(KeyCode::KeyE) {
             save_events.send(SaveWorkspace {
                 destination: SaveWorkspaceDestination::Dialog,
                 format: ExportFormat::Urdf,

@@ -21,7 +21,10 @@ use crate::{
     site::{AnchorBundle, Pending, SiteAssets, Trashcan},
 };
 use bevy::{ecs::system::SystemParam, prelude::*, window::PrimaryWindow};
-use bevy_mod_raycast::primitives::{rays::Ray3d, Primitive3d};
+use bevy_mod_raycast::primitives::{
+    rays::{intersects_primitive, ray_from_screenspace},
+    Primitive3d,
+};
 
 use rmf_site_format::{FloorMarker, Model, WallMarker, WorkcellModel};
 use std::collections::HashSet;
@@ -318,8 +321,7 @@ impl<'w, 's> IntersectGroundPlaneParams<'w, 's> {
         let active_camera = self.cameras.get(e_active_camera).ok()?;
         let camera_tf = self.global_transforms.get(e_active_camera).ok()?;
         let primary_window = self.primary_window.get_single().ok()?;
-        let ray =
-            Ray3d::from_screenspace(cursor_position, active_camera, camera_tf, primary_window)?;
+        let ray = ray_from_screenspace(cursor_position, active_camera, camera_tf, primary_window)?;
 
         let n = *match &primitive {
             Primitive3d::Plane { normal, .. } => normal,
@@ -328,9 +330,7 @@ impl<'w, 's> IntersectGroundPlaneParams<'w, 's> {
                 return None;
             }
         };
-        let p = ray
-            .intersects_primitive(primitive)
-            .map(|intersection| intersection.position())?;
+        let p = intersects_primitive(ray, primitive).map(|intersection| intersection.position())?;
 
         Some(Transform::from_translation(p).with_rotation(aligned_z_axis(n)))
     }

@@ -24,12 +24,12 @@ use crate::{
 use anyhow::{anyhow, Error as Anyhow};
 use bevy::{
     ecs::system::{StaticSystemParam, SystemParam},
-    prelude::{Input, *},
+    prelude::*,
 };
 use bevy_impulse::*;
 use bevy_mod_raycast::{
     deferred::{RaycastMesh, RaycastSource},
-    primitives::rays::Ray3d,
+    primitives::rays::to_aligned_transform,
 };
 use rmf_site_format::{
     Category, Door, Edge, Lane, LiftProperties, Measurement, NameOfSite, Pending, PixelsPerMeter,
@@ -739,7 +739,7 @@ pub fn hover_service<Filter: SystemParam + 'static>(
     mut hovered: Query<&mut Hovered>,
     mut hovering: ResMut<Hovering>,
     mut hover: EventReader<Hover>,
-    mouse_button_input: Res<Input<MouseButton>>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
     touch_input: Res<Touches>,
     mut select: EventWriter<Select>,
     blockers: Option<Res<PickingBlockers>>,
@@ -931,5 +931,5 @@ pub fn inspector_cursor_transform(
     };
 
     let ray = Ray3d::new(intersection.position(), intersection.normal());
-    *transform = Transform::from_matrix(ray.to_aligned_transform([0., 0., 1.].into()));
+    *transform = Transform::from_matrix(to_aligned_transform(ray, [0., 0., 1.].into()));
 }

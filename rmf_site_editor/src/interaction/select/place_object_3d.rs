@@ -23,7 +23,7 @@ use crate::{
     },
     widgets::canvas_tooltips::CanvasTooltips,
 };
-use bevy::{ecs::system::SystemParam, prelude::Input as UserInput};
+use bevy::{ecs::system::SystemParam, prelude::ButtonInput};
 use bevy_mod_raycast::deferred::RaycastSource;
 use std::borrow::Cow;
 
@@ -233,10 +233,10 @@ pub fn place_object_3d_find_placement(
     intersect_ground_params: IntersectGroundPlaneParams,
     mut visibility: Query<&mut Visibility>,
     mut tooltips: ResMut<CanvasTooltips>,
-    keyboard_input: Res<UserInput<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     mut hover: EventWriter<Hover>,
     hovering: Res<Hovering>,
-    mouse_button_input: Res<UserInput<MouseButton>>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
     blockers: Option<Res<PickingBlockers>>,
     meta: Query<(Option<&'static NameInSite>, Option<&'static SiteID>)>,
     mut filter: PlaceObject3dFilter,
