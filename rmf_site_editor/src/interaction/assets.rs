@@ -202,11 +202,14 @@ impl InteractionAssets {
 
         commands.entity(drag_parent).with_children(|parent| {
             for (polyline, material) in &self.centimeter_finite_grid {
-                parent.spawn(PolylineBundle {
-                    polyline: polyline.clone(),
-                    material: material.clone(),
-                    ..default()
-                });
+                parent.spawn((
+                    PolylineBundle {
+                        polyline: polyline.clone(),
+                        material: material.clone(),
+                        ..default()
+                    },
+                    DisableXray,
+                ));
             }
         });
 

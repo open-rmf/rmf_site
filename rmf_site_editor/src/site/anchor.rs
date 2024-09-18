@@ -16,7 +16,7 @@
 */
 
 use crate::{site::*, Issue, ValidateWorkspace};
-use bevy::{prelude::*, render::primitives::Sphere, utils::Uuid};
+use bevy::{ecs::system::Command, prelude::*, render::primitives::Sphere, utils::Uuid};
 use itertools::Itertools;
 use rmf_site_format::{Anchor, LevelElevation, LiftCabin};
 use std::collections::HashMap;
@@ -86,17 +86,6 @@ impl AnchorBundle {
 /// guided towards how to modify the anchor or understand its purpose.
 #[derive(Component, Debug, Default, Clone, Copy)]
 pub struct Subordinate(pub Option<Entity>);
-
-/// The PreviewAnchor component is held by exactly one Anchor entity that will
-/// follow the cursor when the interaction mode is to add a new Anchor.
-#[derive(Component)]
-pub struct PreviewAnchor {
-    /// If the preview anchor will be replacing an existing anchor, then this
-    /// field keeps track of which anchor is being replaced. This information
-    /// is helpful for sending dependents back to their original anchor if the
-    /// user cancels the add-anchor interaction mode.
-    replacing: Option<Entity>,
-}
 
 pub fn update_anchor_transforms(
     mut changed_anchors: Query<(&Anchor, &mut Transform), Changed<Anchor>>,
@@ -249,6 +238,48 @@ pub fn check_for_close_unconnected_anchors(
                     }
                 }
             }
+        }
+    }
+}
+
+pub struct ChangeDependent {
+    pub anchor: Entity,
+    pub dependent: Entity,
+    pub include: bool,
+}
+
+impl ChangeDependent {
+    pub fn add(anchor: Entity, dependent: Entity) -> Self {
+        Self {
+            anchor,
+            dependent,
+            include: true,
+        }
+    }
+
+    pub fn remove(anchor: Entity, dependent: Entity) -> Self {
+        Self {
+            anchor,
+            dependent,
+            include: false,
+        }
+    }
+}
+
+impl Command for ChangeDependent {
+    fn apply(self, world: &mut World) {
+        let Some(mut dependents) = world.get_mut::<Dependents>(self.anchor) else {
+            error!(
+                "Unable to change dependency of {:?} on anchor {:?}",
+                self.dependent, self.anchor,
+            );
+            return;
+        };
+
+        if self.include {
+            dependents.insert(self.dependent);
+        } else {
+            dependents.remove(&self.dependent);
         }
     }
 }

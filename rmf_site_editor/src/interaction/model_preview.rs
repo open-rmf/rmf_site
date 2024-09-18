@@ -15,7 +15,7 @@
  *
 */
 
-use crate::interaction::{DEFAULT_CAMERA_EV100, MODEL_PREVIEW_LAYER};
+use crate::interaction::{Preview, DEFAULT_CAMERA_EV100, MODEL_PREVIEW_LAYER};
 use bevy::render::render_resource::{
     Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
@@ -86,7 +86,7 @@ impl FromWorld for ModelPreviewCamera {
             .insert(RenderLayers::from_layers(&[MODEL_PREVIEW_LAYER]))
             .id();
         let model_entity = world
-            .spawn(RenderLayers::from_layers(&[MODEL_PREVIEW_LAYER]))
+            .spawn((RenderLayers::from_layers(&[MODEL_PREVIEW_LAYER]), Preview))
             .id();
         let light_entity = world
             .spawn(RenderLayers::from_layers(&[MODEL_PREVIEW_LAYER]))

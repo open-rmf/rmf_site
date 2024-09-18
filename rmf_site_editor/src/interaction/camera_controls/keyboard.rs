@@ -187,7 +187,7 @@ pub fn update_keyboard_command(
 
         // Set camera selection as orbit center, discard once orbit operation complete
         let camera_selection = match keyboard_command.camera_selection {
-            Some(camera_selection) => camera_selection,
+            Some(camera_selection) => Some(camera_selection),
             None => get_camera_selected_point(
                 &camera,
                 &camera_global_transform,
@@ -195,6 +195,12 @@ pub fn update_keyboard_command(
                 immediate_raycast,
             ),
         };
+
+        let Some(camera_selection) = camera_selection else {
+            warn!("Point could not be calculated for camera");
+            return;
+        };
+
         if command_type == CameraCommandType::Orbit {
             camera_controls.orbit_center = Some(camera_selection);
         }

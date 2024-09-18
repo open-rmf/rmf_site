@@ -293,7 +293,11 @@ impl Plugin for SiteAssetIoPlugin {
             "package",
             BevyAssetSource::build().with_reader(|| {
                 Box::new(SiteAssetReader::new(|path: &Path| {
-                    let path = (*expand_package_path(path.to_str().unwrap(), None)).to_owned();
+                    let path = (*expand_package_path(
+                        &("package://".to_owned() + path.to_str().unwrap()),
+                        None,
+                    ))
+                    .to_owned();
                     Box::pin(async move { load_from_file(path.into()) })
                 }))
             }),
