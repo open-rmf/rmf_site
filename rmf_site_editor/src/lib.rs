@@ -230,6 +230,7 @@ impl Plugin for SiteEditor {
                 OccupancyPlugin,
                 WorkspacePlugin,
                 IssuePlugin,
+                bevy_impulse::ImpulsePlugin::default(),
             ));
 
         if self.headless_export.is_none() {

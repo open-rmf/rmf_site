@@ -16,14 +16,14 @@
 */
 
 use super::demo_world::*;
-use crate::{AppState, Autoload, LoadWorkspace, WorkspaceData};
+use crate::{AppState, Autoload, WorkspaceData, WorkspaceLoader};
 use bevy::{app::AppExit, prelude::*, window::PrimaryWindow};
 use bevy_egui::{egui, EguiContexts};
 
 fn egui_ui(
     mut egui_context: EguiContexts,
     mut _exit: EventWriter<AppExit>,
-    mut _load_workspace: EventWriter<LoadWorkspace>,
+    mut workspace_loader: WorkspaceLoader,
     mut _app_state: ResMut<State<AppState>>,
     autoload: Option<ResMut<Autoload>>,
     primary_windows: Query<Entity, With<PrimaryWindow>>,
@@ -32,7 +32,7 @@ fn egui_ui(
         #[cfg(not(target_arch = "wasm32"))]
         {
             if let Some(filename) = autoload.filename.take() {
-                _load_workspace.send(LoadWorkspace::Path(filename));
+                workspace_loader.load_from_path(filename);
             }
         }
         return;
@@ -57,23 +57,21 @@ fn egui_ui(
 
             ui.horizontal(|ui| {
                 if ui.button("View demo map").clicked() {
-                    _load_workspace.send(LoadWorkspace::Data(WorkspaceData::LegacyBuilding(
-                        demo_office(),
-                    )));
+                    workspace_loader.load_from_data(WorkspaceData::LegacyBuilding(demo_office()));
                 }
 
                 if ui.button("Open a file").clicked() {
-                    _load_workspace.send(LoadWorkspace::Dialog);
+                    workspace_loader.load_from_dialog();
                 }
 
                 if ui.button("Create new file").clicked() {
-                    _load_workspace.send(LoadWorkspace::BlankFromDialog);
+                    workspace_loader.create_empty_from_dialog();
                 }
 
                 // TODO(@mxgrey): Bring this back when we have finished developing
                 // the key features for workcell editing.
                 // if ui.button("Workcell Editor").clicked() {
-                //     _load_workspace.send(LoadWorkspace::Data(WorkspaceData::Workcell(
+                //     workspace_loader.send(LoadWorkspace::Data(WorkspaceData::Workcell(
                 //         demo_workcell(),
                 //     )));
                 // }
