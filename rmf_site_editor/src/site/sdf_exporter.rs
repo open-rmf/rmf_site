@@ -4,7 +4,7 @@ use bevy_gltf_export::{export_meshes, CompressGltfOptions, MeshData};
 
 use std::path::Path;
 
-use crate::SaveWorkspace;
+use crate::WorkspaceSaver;
 
 use crate::{
     site::{
@@ -44,7 +44,7 @@ impl HeadlessSdfExportState {
 
 pub fn headless_sdf_export(
     mut commands: Commands,
-    mut export: EventWriter<SaveWorkspace>,
+    mut workspace_saver: WorkspaceSaver,
     mut exit: EventWriter<bevy::app::AppExit>,
     missing_models: Query<(), With<ModelLoadingState>>,
     mut export_state: ResMut<HeadlessSdfExportState>,
@@ -85,7 +85,7 @@ pub fn headless_sdf_export(
         } else {
             if !export_state.save_requested && export_state.iterations > 5 {
                 let path = std::path::PathBuf::from(export_state.target_path.clone());
-                export.send(SaveWorkspace::new().to_sdf().to_path(&path));
+                workspace_saver.export_sdf_to_path(path);
                 export_state.save_requested = true;
                 export_state.iterations = 0;
             } else if export_state.save_requested && export_state.iterations > 5 {

@@ -15,19 +15,16 @@
  *
 */
 
-use bevy::{ecs::system::SystemParam, prelude::*, tasks::AsyncComputeTaskPool};
+use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_impulse::*;
 use rfd::AsyncFileDialog;
 use std::path::PathBuf;
 
 use crate::interaction::InteractionState;
 use crate::site::{DefaultFile, LoadSite, SaveSite};
-use crate::workcell::{LoadWorkcell, SaveWorkcell};
 use crate::AppState;
 use rmf_site_format::legacy::building_map::BuildingMap;
-use rmf_site_format::{NameOfSite, Site, Workcell};
-
-use crossbeam_channel::{Receiver, Sender};
+use rmf_site_format::{NameOfSite, Site};
 
 /// Used as an event to command that a new workspace should be made the current one
 #[derive(Clone, Copy, Debug, Event)]
@@ -50,8 +47,6 @@ pub enum WorkspaceData {
     LegacyBuilding(Vec<u8>),
     RonSite(Vec<u8>),
     JsonSite(Vec<u8>),
-    Workcell(Vec<u8>),
-    WorkcellUrdf(Vec<u8>),
     LoadSite(LoadSite),
 }
 
@@ -64,10 +59,6 @@ impl WorkspaceData {
             Some(WorkspaceData::RonSite(data))
         } else if filename.ends_with("site.json") {
             Some(WorkspaceData::JsonSite(data))
-        } else if filename.ends_with("workcell.json") {
-            Some(WorkspaceData::Workcell(data))
-        } else if filename.ends_with("urdf") {
-            Some(WorkspaceData::WorkcellUrdf(data))
         } else {
             error!("Unrecognized file type {:?}", filename);
             None
@@ -86,90 +77,16 @@ pub struct CurrentWorkspace {
 
 pub struct LoadWorkspaceFile(pub Option<PathBuf>, pub WorkspaceData);
 
-#[derive(Event)]
-pub struct SaveWorkspace {
-    /// If specified workspace will be saved to requested file, otherwise the default file
-    pub destination: SaveWorkspaceDestination,
-    /// If specified the workspace will be exported to a specific format
-    pub format: ExportFormat,
-}
-
-impl SaveWorkspace {
-    pub fn new() -> Self {
-        Self {
-            destination: SaveWorkspaceDestination::default(),
-            format: ExportFormat::default(),
-        }
-    }
-
-    pub fn to_default_file(mut self) -> Self {
-        self.destination = SaveWorkspaceDestination::DefaultFile;
-        self
-    }
-
-    pub fn to_dialog(mut self) -> Self {
-        self.destination = SaveWorkspaceDestination::Dialog;
-        self
-    }
-
-    pub fn to_path(mut self, path: &PathBuf) -> Self {
-        self.destination = SaveWorkspaceDestination::Path(path.clone());
-        self
-    }
-
-    pub fn to_urdf(mut self) -> Self {
-        self.format = ExportFormat::Urdf;
-        self
-    }
-
-    pub fn to_sdf(mut self) -> Self {
-        self.format = ExportFormat::Sdf;
-        self
-    }
-}
-
-#[derive(Default, Debug, Clone)]
-pub enum SaveWorkspaceDestination {
-    #[default]
-    DefaultFile,
-    Dialog,
-    Path(PathBuf),
-}
-
 #[derive(Clone, Default, Debug)]
 pub enum ExportFormat {
     #[default]
     Default,
-    Urdf,
     Sdf,
-}
-
-/// Event used in channels to communicate the file handle that was chosen by the user.
-#[derive(Debug)]
-pub struct SaveWorkspaceFile {
-    path: PathBuf,
-    format: ExportFormat,
-    root: Entity,
-}
-
-/// Use a channel since file dialogs are async and channel senders can be cloned and passed into an
-/// async block.
-#[derive(Debug, Resource)]
-pub struct SaveWorkspaceChannels {
-    pub sender: Sender<SaveWorkspaceFile>,
-    pub receiver: Receiver<SaveWorkspaceFile>,
-}
-
-impl Default for SaveWorkspaceChannels {
-    fn default() -> Self {
-        let (sender, receiver) = crossbeam_channel::unbounded();
-        Self { sender, receiver }
-    }
 }
 
 /// Used to keep track of visibility when switching workspace
 #[derive(Debug, Default, Resource)]
-pub struct RecallWorkspace(Option<Entity>);
+pub struct RecallWorkspace(pub Option<Entity>);
 
 impl CurrentWorkspace {
     pub fn to_site(self, open_sites: &Query<Entity, With<NameOfSite>>) -> Option<Entity> {
@@ -184,23 +101,15 @@ impl Plugin for WorkspacePlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<ChangeCurrentWorkspace>()
             .add_event::<CreateNewWorkspace>()
-            .add_event::<SaveWorkspace>()
-            .add_event::<SaveWorkcell>()
-            .add_event::<LoadWorkcell>()
             .init_resource::<CurrentWorkspace>()
             .init_resource::<RecallWorkspace>()
-            .init_resource::<SaveWorkspaceChannels>()
+            .init_resource::<FileDialogServices>()
             .init_resource::<WorkspaceLoadingServices>()
+            .init_resource::<WorkspaceSavingServices>()
             .add_systems(
                 Update,
-                (
-                    dispatch_new_workspace_events,
-                    sync_workspace_visibility,
-                    workspace_file_save_complete,
-                ),
+                (dispatch_new_workspace_events, sync_workspace_visibility),
             );
-        #[cfg(not(target_arch = "wasm32"))]
-        app.add_systems(Update, dispatch_save_workspace_events);
     }
 }
 
@@ -208,7 +117,6 @@ pub fn dispatch_new_workspace_events(
     state: Res<State<AppState>>,
     mut new_workspace: EventReader<CreateNewWorkspace>,
     mut load_site: EventWriter<LoadSite>,
-    mut load_workcell: EventWriter<LoadWorkcell>,
 ) {
     if let Some(_cmd) = new_workspace.read().last() {
         match state.get() {
@@ -218,13 +126,6 @@ pub fn dispatch_new_workspace_events(
             AppState::SiteEditor | AppState::SiteDrawingEditor | AppState::SiteVisualizer => {
                 load_site.send(LoadSite {
                     site: Site::blank_L1("new".to_owned()),
-                    focus: true,
-                    default_file: None,
-                });
-            }
-            AppState::WorkcellEditor => {
-                load_workcell.send(LoadWorkcell {
-                    workcell: Workcell::default(),
                     focus: true,
                     default_file: None,
                 });
@@ -239,7 +140,6 @@ pub fn process_load_workspace_files(
     mut app_state: ResMut<NextState<AppState>>,
     mut interaction_state: ResMut<NextState<InteractionState>>,
     mut load_site: EventWriter<LoadSite>,
-    mut load_workcell: EventWriter<LoadWorkcell>,
 ) {
     let LoadWorkspaceFile(default_file, data) = request;
     match data {
@@ -304,58 +204,104 @@ pub fn process_load_workspace_files(
                 }
             }
         }
-        WorkspaceData::Workcell(data) => {
-            info!("Opening workcell file");
-            match Workcell::from_bytes(&data) {
-                Ok(workcell) => {
-                    // Switch state
-                    app_state.set(AppState::WorkcellEditor);
-                    load_workcell.send(LoadWorkcell {
-                        workcell,
-                        focus: true,
-                        default_file,
-                    });
-                    interaction_state.set(InteractionState::Enable);
-                }
-                Err(err) => {
-                    error!("Failed loading workcell {:?}", err);
-                }
-            }
-        }
-        WorkspaceData::WorkcellUrdf(data) => {
-            info!("Importing urdf workcell");
-            let Ok(utf) = std::str::from_utf8(&data) else {
-                error!("Failed converting urdf bytes to string");
-                return;
-            };
-            match urdf_rs::read_from_string(utf) {
-                Ok(urdf) => {
-                    // TODO(luca) make this function return a result and this a match statement
-                    match Workcell::from_urdf(&urdf) {
-                        Ok(workcell) => {
-                            // Switch state
-                            app_state.set(AppState::WorkcellEditor);
-                            load_workcell.send(LoadWorkcell {
-                                workcell,
-                                focus: true,
-                                default_file,
-                            });
-                            interaction_state.set(InteractionState::Enable);
-                        }
-                        Err(err) => {
-                            error!("Failed converting urdf to workcell {:?}", err);
-                        }
-                    }
-                }
-                Err(err) => {
-                    error!("Failed loading urdf workcell {:?}", err);
-                }
-            }
-        }
         WorkspaceData::LoadSite(site) => {
             app_state.set(AppState::SiteEditor);
             load_site.send(site);
             interaction_state.set(InteractionState::Enable);
+        }
+    }
+}
+
+/// Filter that can be added to a file dialog request to filter extensions
+#[derive(Clone, Debug)]
+pub struct FileDialogFilter {
+    pub name: String,
+    pub extensions: Vec<String>,
+}
+
+/// Services that spawn async file dialogs for various purposes, i.e. loading files, saving files /
+/// folders.
+#[derive(Resource)]
+pub struct FileDialogServices {
+    /// Open a dialog to pick a file, return its path and data
+    pub pick_file_and_load: Service<Vec<FileDialogFilter>, (PathBuf, Vec<u8>)>,
+    /// Pick a file to save data into
+    pub pick_file_for_saving: Service<Vec<FileDialogFilter>, PathBuf>,
+    /// Pick a folder
+    pub pick_folder: Service<(), PathBuf>,
+}
+
+impl FromWorld for FileDialogServices {
+    fn from_world(world: &mut World) -> Self {
+        let pick_file_and_load = world.spawn_workflow(|scope, builder| {
+            scope
+                .input
+                .chain(builder)
+                .map_async(|filters: Vec<FileDialogFilter>| async move {
+                    let mut dialog = AsyncFileDialog::new();
+                    for filter in filters {
+                        dialog = dialog.add_filter(filter.name, &filter.extensions);
+                    }
+                    if let Some(file) = dialog.pick_file().await {
+                        let data = file.read().await;
+                        #[cfg(not(target_arch = "wasm32"))]
+                        let file = file.path().to_path_buf();
+                        #[cfg(target_arch = "wasm32")]
+                        let file = PathBuf::from(file.file_name());
+                        return Some((file, data));
+                    }
+                    None
+                })
+                .cancel_on_none()
+                .connect(scope.terminate)
+        });
+
+        let pick_file_for_saving = world.spawn_workflow(|scope, builder| {
+            scope
+                .input
+                .chain(builder)
+                .map_async(|filters: Vec<FileDialogFilter>| async move {
+                    let mut dialog = AsyncFileDialog::new();
+                    for filter in filters {
+                        dialog = dialog.add_filter(filter.name, &filter.extensions);
+                    }
+                    let file = dialog.save_file().await?;
+                    #[cfg(not(target_arch = "wasm32"))]
+                    let file = file.path().to_path_buf();
+                    #[cfg(target_arch = "wasm32")]
+                    let file = PathBuf::from(file.file_name());
+                    Some(file)
+                })
+                .cancel_on_none()
+                .connect(scope.terminate)
+        });
+
+        let pick_folder = world.spawn_workflow(|scope, builder| {
+            scope
+                .input
+                .chain(builder)
+                .map_async(|_| async move {
+                    #[cfg(not(target_arch = "wasm32"))]
+                    {
+                        AsyncFileDialog::new()
+                            .pick_folder()
+                            .await
+                            .map(|f| f.path().into())
+                    }
+                    #[cfg(target_arch = "wasm32")]
+                    {
+                        warn!("Folder dialogs are not implemented in wasm");
+                        None
+                    }
+                })
+                .cancel_on_none()
+                .connect(scope.terminate)
+        });
+
+        Self {
+            pick_file_and_load,
+            pick_file_for_saving,
+            pick_folder,
         }
     }
 }
@@ -376,22 +322,30 @@ pub struct WorkspaceLoadingServices {
 impl FromWorld for WorkspaceLoadingServices {
     fn from_world(world: &mut World) -> Self {
         let process_load_files = world.spawn_service(process_load_workspace_files);
+        let pick_file = world
+            .resource::<FileDialogServices>()
+            .pick_file_and_load
+            .clone();
+        let loading_filters = vec![
+            FileDialogFilter {
+                name: "Legacy building".into(),
+                extensions: vec!["building.yaml".into()],
+            },
+            FileDialogFilter {
+                name: "Site".into(),
+                extensions: vec!["site.ron".into(), "site.json".into()],
+            },
+        ];
         // Spawn all the services
         let load_workspace_from_dialog = world.spawn_workflow(|scope, builder| {
             scope
                 .input
                 .chain(builder)
-                .map_async(|_| async move {
-                    if let Some(file) = AsyncFileDialog::new().pick_file().await {
-                        let data = file.read().await;
-                        #[cfg(not(target_arch = "wasm32"))]
-                        let file = file.path().to_path_buf();
-                        #[cfg(target_arch = "wasm32")]
-                        let file = PathBuf::from(file.file_name());
-                        let data = WorkspaceData::new(&file, data)?;
-                        return Some(LoadWorkspaceFile(Some(file), data));
-                    }
-                    None
+                .map_block(move |_| loading_filters.clone())
+                .then(pick_file)
+                .map_async(|(path, data)| async move {
+                    let data = WorkspaceData::new(&path, data)?;
+                    Some(LoadWorkspaceFile(Some(path), data))
                 })
                 .cancel_on_none()
                 .then(process_load_files)
@@ -509,93 +463,171 @@ pub struct WorkspaceLoader<'w, 's> {
     commands: Commands<'w, 's>,
 }
 
-// TODO(luca) implement this in wasm, it's supported since rfd version 0.12, however it requires
-// calling .write on the `FileHandle` object returned by the AsyncFileDialog. Such FileHandle is
-// not Send in wasm so it can't be sent to another thread through an event. We would need to
-// refactor saving to be fully done in the async task rather than send an event to have wasm saving.
-#[cfg(not(target_arch = "wasm32"))]
-fn dispatch_save_workspace_events(
-    mut save_events: EventReader<SaveWorkspace>,
-    save_channels: Res<SaveWorkspaceChannels>,
-    workspace: Res<CurrentWorkspace>,
-    default_files: Query<&DefaultFile>,
+/// Handles the file saving events
+fn send_file_save(
+    In(BlockingService { request, .. }): BlockingServiceInput<(PathBuf, ExportFormat)>,
+    app_state: Res<State<AppState>>,
+    mut save_site: EventWriter<SaveSite>,
+    current_workspace: Res<CurrentWorkspace>,
 ) {
-    let spawn_dialog = |format: &ExportFormat, root| {
-        let sender = save_channels.sender.clone();
-        let format = format.clone();
-        AsyncComputeTaskPool::get()
-            .spawn(async move {
-                if let Some(file) = AsyncFileDialog::new().save_file().await {
-                    let path = file.path().to_path_buf();
-                    sender
-                        .send(SaveWorkspaceFile { path, format, root })
-                        .expect("Failed sending save event");
-                }
-            })
-            .detach();
+    let Some(ws_root) = current_workspace.root else {
+        warn!("Failed saving workspace, no current workspace found");
+        return;
     };
-    for event in save_events.read() {
-        if let Some(ws_root) = workspace.root {
-            match &event.destination {
-                SaveWorkspaceDestination::DefaultFile => {
-                    if let Some(file) = default_files.get(ws_root).ok().map(|f| f.0.clone()) {
-                        save_channels
-                            .sender
-                            .send(SaveWorkspaceFile {
-                                path: file,
-                                format: event.format.clone(),
-                                root: ws_root,
-                            })
-                            .expect("Failed sending save request");
-                    } else {
-                        spawn_dialog(&event.format, ws_root);
-                    }
-                }
-                SaveWorkspaceDestination::Dialog => spawn_dialog(&event.format, ws_root),
-                SaveWorkspaceDestination::Path(path) => {
-                    save_channels
-                        .sender
-                        .send(SaveWorkspaceFile {
-                            path: path.clone(),
-                            format: event.format.clone(),
-                            root: ws_root,
-                        })
-                        .expect("Failed sending save request");
-                }
-            }
-        } else {
-            warn!("Unable to save, no workspace loaded");
-            return;
+    match app_state.get() {
+        AppState::SiteEditor | AppState::SiteDrawingEditor | AppState::SiteVisualizer => {
+            save_site.send(SaveSite {
+                site: ws_root,
+                to_file: request.0,
+                format: request.1,
+            });
+        }
+        AppState::MainMenu => { /* Noop */ }
+    }
+}
+
+#[derive(Resource)]
+/// Services that deal with workspace loading
+pub struct WorkspaceSavingServices {
+    /// Service that spawns a save file dialog and saves the current site accordingly.
+    pub save_workspace_to_dialog: Service<(), ()>,
+    /// Saves the current workspace at the requested path.
+    pub save_workspace_to_path: Service<PathBuf, ()>,
+    /// Saves the current workspace in the current default file.
+    pub save_workspace_to_default_file: Service<(), ()>,
+    /// Opens a dialog to pick a folder and exports the requested workspace as an SDF.
+    pub export_sdf_to_dialog: Service<(), ()>,
+    /// Exports the requested workspace as an SDF in the requested path.
+    pub export_sdf_to_path: Service<PathBuf, ()>,
+}
+
+impl FromWorld for WorkspaceSavingServices {
+    fn from_world(world: &mut World) -> Self {
+        let send_file_save = world.spawn_service(send_file_save);
+        let get_default_file = |In(()): In<_>,
+                                current_workspace: Res<CurrentWorkspace>,
+                                default_files: Query<&DefaultFile>|
+         -> Option<PathBuf> {
+            let ws_root = current_workspace.root?;
+            default_files.get(ws_root).ok().map(|f| f.0.clone())
+        };
+        let get_default_file = get_default_file.into_blocking_callback();
+        let pick_file = world
+            .resource::<FileDialogServices>()
+            .pick_file_for_saving
+            .clone();
+        let pick_folder = world.resource::<FileDialogServices>().pick_folder.clone();
+        let saving_filters = vec![FileDialogFilter {
+            name: "Site".into(),
+            extensions: vec!["site.ron".into(), "site.json".into()],
+        }];
+        // Spawn all the services
+        let save_workspace_to_dialog = world.spawn_workflow(|scope, builder| {
+            scope
+                .input
+                .chain(builder)
+                .map_block(move |_| saving_filters.clone())
+                .then(pick_file)
+                .map_block(|path| (path, ExportFormat::default()))
+                .then(send_file_save)
+                .connect(scope.terminate)
+        });
+        let save_workspace_to_path = world.spawn_workflow(|scope, builder| {
+            scope
+                .input
+                .chain(builder)
+                .map_block(|path| (path, ExportFormat::default()))
+                .then(send_file_save)
+                .connect(scope.terminate)
+        });
+        let save_workspace_to_default_file = world.spawn_workflow(|scope, builder| {
+            scope
+                .input
+                .chain(builder)
+                .then(get_default_file)
+                .branch_for_none(|chain: Chain<()>| {
+                    chain
+                        .then(save_workspace_to_dialog)
+                        .connect(scope.terminate)
+                })
+                .then(save_workspace_to_path)
+                .connect(scope.terminate)
+        });
+        let export_sdf_to_dialog = world.spawn_workflow(|scope, builder| {
+            scope
+                .input
+                .chain(builder)
+                .then(pick_folder)
+                .map_block(|path| (path, ExportFormat::Sdf))
+                .then(send_file_save)
+                .connect(scope.terminate)
+        });
+        let export_sdf_to_path = world.spawn_workflow(|scope, builder| {
+            scope
+                .input
+                .chain(builder)
+                .map_block(|path| (path, ExportFormat::Sdf))
+                .then(send_file_save)
+                .connect(scope.terminate)
+        });
+
+        Self {
+            save_workspace_to_dialog,
+            save_workspace_to_path,
+            save_workspace_to_default_file,
+            export_sdf_to_dialog,
+            export_sdf_to_path,
         }
     }
 }
 
-/// Handles the file saving events
-fn workspace_file_save_complete(
-    app_state: Res<State<AppState>>,
-    mut save_site: EventWriter<SaveSite>,
-    mut save_workcell: EventWriter<SaveWorkcell>,
-    save_channels: Res<SaveWorkspaceChannels>,
-) {
-    if let Ok(result) = save_channels.receiver.try_recv() {
-        match app_state.get() {
-            AppState::WorkcellEditor => {
-                save_workcell.send(SaveWorkcell {
-                    root: result.root,
-                    to_file: result.path,
-                    format: result.format,
-                });
-            }
-            AppState::SiteEditor | AppState::SiteDrawingEditor | AppState::SiteVisualizer => {
-                save_site.send(SaveSite {
-                    site: result.root,
-                    to_file: result.path,
-                    format: result.format,
-                });
-            }
-            AppState::MainMenu => { /* Noop */ }
-        }
+// TODO(luca) implement saving in wasm, it's supported since rfd version 0.12, however it requires
+// calling .write on the `FileHandle` object returned by the AsyncFileDialog. Such FileHandle is
+// not Send in wasm so it can't be sent to another thread through an event. We would need to
+// refactor saving to be fully done in the async task rather than send an event to have wasm saving.
+impl<'w, 's> WorkspaceSaver<'w, 's> {
+    /// Request to spawn a dialog and save the workspace
+    pub fn save_to_dialog(&mut self) {
+        self.commands
+            .request((), self.workspace_saving.save_workspace_to_dialog)
+            .detach();
     }
+
+    /// Request to save the workspace to the default file (or a dialog if no default file is
+    /// available).
+    pub fn save_to_default_file(&mut self) {
+        self.commands
+            .request((), self.workspace_saving.save_workspace_to_default_file)
+            .detach();
+    }
+
+    /// Request to save the workspace to the requested path
+    pub fn save_to_path(&mut self, path: PathBuf) {
+        self.commands
+            .request(path, self.workspace_saving.save_workspace_to_path)
+            .detach();
+    }
+
+    /// Request to export the workspace as a sdf to a folder selected from a dialog
+    pub fn export_sdf_to_dialog(&mut self) {
+        self.commands
+            .request((), self.workspace_saving.export_sdf_to_dialog)
+            .detach();
+    }
+
+    /// Request to export the workspace as a sdf to provided folder
+    pub fn export_sdf_to_path(&mut self, path: PathBuf) {
+        self.commands
+            .request(path, self.workspace_saving.export_sdf_to_path)
+            .detach();
+    }
+}
+
+/// `SystemParam` used to request for workspace loading operations
+#[derive(SystemParam)]
+pub struct WorkspaceSaver<'w, 's> {
+    workspace_saving: Res<'w, WorkspaceSavingServices>,
+    commands: Commands<'w, 's>,
 }
 
 pub fn sync_workspace_visibility(

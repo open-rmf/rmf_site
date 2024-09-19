@@ -23,10 +23,7 @@ pub use alignment::*;
 use crate::AppState;
 use crate::{
     interaction::{ChangeProjectionMode, Selection, SuppressHighlight},
-    site::{
-        DrawingMarker, Edge, MeasurementMarker, NameOfSite, NameOfWorkcell, Pending,
-        PreventDeletion,
-    },
+    site::{DrawingMarker, Edge, MeasurementMarker, NameOfSite, Pending, PreventDeletion},
     CurrentWorkspace, WorkspaceMarker,
 };
 
@@ -86,7 +83,6 @@ fn switch_edit_drawing_mode(
     current_workspace: Res<CurrentWorkspace>,
     parent: Query<&Parent, With<DrawingMarker>>,
     is_site: Query<(), With<NameOfSite>>,
-    is_workcell: Query<(), With<NameOfWorkcell>>,
 ) {
     // TODO(@mxgrey): We can make this implementation much cleaner after we
     // update to the latest version of bevy that distinguishes between inherited
@@ -176,8 +172,6 @@ fn switch_edit_drawing_mode(
 
             if is_site.contains(w) {
                 app_state.set(AppState::SiteEditor);
-            } else if is_workcell.contains(w) {
-                app_state.set(AppState::WorkcellEditor);
             } else {
                 // This logic can probably be improved with an editor mode stack
                 error!(
@@ -250,7 +244,6 @@ impl Plugin for DrawingEditorPlugin {
         app.add_event::<BeginEditDrawing>()
             .add_event::<FinishEditDrawing>()
             .add_event::<AlignSiteDrawings>()
-            .init_resource::<CurrentEditDrawing>()
             .add_systems(Update, switch_edit_drawing_mode)
             .add_systems(
                 Update,

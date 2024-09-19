@@ -45,9 +45,6 @@ pub use inspect_geography::*;
 pub mod inspect_group;
 pub use inspect_group::*;
 
-pub mod inspect_joint;
-pub use inspect_joint::*;
-
 pub mod inspect_is_static;
 pub use inspect_is_static::*;
 
@@ -65,9 +62,6 @@ pub use inspect_light::*;
 
 pub mod inspect_location;
 pub use inspect_location::*;
-
-pub mod inspect_mesh_constraint;
-pub use inspect_mesh_constraint::*;
 
 pub mod inspect_point;
 pub use inspect_point::*;
@@ -108,14 +102,10 @@ pub use inspect_texture::*;
 pub mod inspect_value;
 pub use inspect_value::*;
 
-pub mod inspect_workcell_parent;
-pub use inspect_workcell_parent::*;
-
 use crate::{
     interaction::Selection,
     site::{Category, SiteID},
     widgets::prelude::*,
-    AppState,
 };
 use bevy::{
     ecs::system::{SystemParam, SystemState},
@@ -202,9 +192,6 @@ impl Plugin for StandardInspectorPlugin {
                 InspectionPlugin::<InspectDoor>::new(),
                 InspectionPlugin::<InspectAssetSource>::new(),
                 InspectionPlugin::<InspectPrimitiveShape>::new(),
-                InspectionPlugin::<InspectModelDependents>::new(),
-                InspectionPlugin::<InspectWorkcellParent>::new(),
-                InspectionPlugin::<InspectJoint>::new(),
                 InspectionPlugin::<InspectMeasurement>::new(),
                 InspectionPlugin::<InspectPhysicalCameraProperties>::new(),
                 InspectLiftPlugin::default(),
@@ -294,10 +281,13 @@ impl<'w, 's> WidgetSystem<Tile> for Inspector<'w, 's> {
         state: &mut SystemState<Self>,
         world: &mut World,
     ) {
+        // TODO(luca) make sure this doesn't show in building preview mode
+        /*
         match world.resource::<State<AppState>>().get() {
             AppState::SiteEditor | AppState::SiteDrawingEditor | AppState::WorkcellEditor => {}
             _ => return,
         }
+        */
 
         CollapsingHeader::new("Inspect")
             .default_open(true)
