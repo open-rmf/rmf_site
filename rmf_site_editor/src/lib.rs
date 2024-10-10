@@ -121,7 +121,7 @@ pub fn run_js() {
 
 pub fn run(command_line_args: Vec<String>) {
     let mut app = App::new();
-    let mut headless_export = None;
+    let mut _headless_export = None;
 
     #[cfg(not(target_arch = "wasm32"))]
     {
@@ -132,10 +132,10 @@ pub fn run(command_line_args: Vec<String>) {
                 command_line_args.import.map(Into::into),
             ));
         }
-        headless_export = command_line_args.headless_export;
+        _headless_export = command_line_args.headless_export;
     }
 
-    app.add_plugins(SiteEditor::default().headless_export(headless_export));
+    app.add_plugins(SiteEditor::default().headless_export(_headless_export));
     app.run();
 }
 
@@ -230,6 +230,7 @@ impl Plugin for SiteEditor {
                 OccupancyPlugin,
                 WorkspacePlugin,
                 IssuePlugin,
+                bevy_impulse::ImpulsePlugin::default(),
             ));
 
         if self.headless_export.is_none() {

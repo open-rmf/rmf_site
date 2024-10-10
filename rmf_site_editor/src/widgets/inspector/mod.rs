@@ -69,6 +69,9 @@ pub use inspect_location::*;
 pub mod inspect_mesh_constraint;
 pub use inspect_mesh_constraint::*;
 
+pub mod inspect_point;
+pub use inspect_point::*;
+
 pub mod inspect_primitive_shape;
 pub use inspect_primitive_shape::*;
 
@@ -188,6 +191,7 @@ impl Plugin for StandardInspectorPlugin {
                 InspectionPlugin::<InspectAnchor>::new(),
                 InspectionPlugin::<InspectAnchorDependents>::new(),
                 InspectionPlugin::<InspectEdge>::new(),
+                InspectionPlugin::<InspectPoint>::new(),
                 InspectionPlugin::<InspectGeography>::new(),
                 InspectFiducialPlugin::default(),
                 InspectionPlugin::<InspectLayer>::new(),
@@ -197,10 +201,10 @@ impl Plugin for StandardInspectorPlugin {
                 InspectTexturePlugin::default(),
                 InspectionPlugin::<InspectMotion>::new(),
                 InspectionPlugin::<InspectPose>::new(),
-                InspectionPlugin::<InspectScale>::new(),
                 // Reached the tuple limit
             ))
             .add_plugins((
+                InspectionPlugin::<InspectScale>::new(),
                 InspectTaskPlugin::default(),
                 InspectionPlugin::<InspectLight>::new(),
                 InspectionPlugin::<InspectDoor>::new(),

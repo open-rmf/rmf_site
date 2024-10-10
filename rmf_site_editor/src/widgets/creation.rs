@@ -17,8 +17,11 @@
 
 use crate::{
     inspector::{InspectAssetSourceComponent, InspectScaleComponent},
-    interaction::{ChangeMode, SelectAnchor, SelectAnchor3D},
-    site::{AssetSource, Category, DefaultFile, DrawingBundle, Recall, RecallAssetSource, Scale},
+    interaction::{AnchorSelection, ObjectPlacement, PlaceableObject, Selection},
+    site::{
+        AssetSource, Category, CurrentLevel, DefaultFile, DrawingBundle, Recall,
+        RecallAssetSource, Scale
+    },
     widgets::{prelude::*, AssetGalleryStatus},
     AppState, CurrentWorkspace,
 };
@@ -45,7 +48,6 @@ impl Plugin for CreationPlugin {
 struct Creation<'w, 's> {
     default_file: Query<'w, 's, &'static DefaultFile>,
     app_state: Res<'w, State<AppState>>,
-    change_mode: EventWriter<'w, ChangeMode>,
     current_workspace: Res<'w, CurrentWorkspace>,
     model_descriptions: Query<
         'w,
@@ -54,8 +56,12 @@ struct Creation<'w, 's> {
         (With<ModelMarker>, With<Group>),
     >,
     creation_data: ResMut<'w, CreationData>,
+    current_level: Res<'w, CurrentLevel>,
     asset_gallery: Option<ResMut<'w, AssetGalleryStatus>>,
     commands: Commands<'w, 's>,
+    anchor_selection: AnchorSelection<'w, 's>,
+    object_placement: ObjectPlacement<'w, 's>,
+    selection: Res<'w, Selection>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for Creation<'w, 's> {
@@ -117,71 +123,49 @@ impl<'w, 's> Creation<'w, 's> {
                     .num_columns(3)
                     .show(ui, |ui| {
                         if ui.button("↔ Lane").clicked() {
-                            self.change_mode.send(ChangeMode::To(
-                                SelectAnchor::create_new_edge_sequence().for_lane().into(),
-                            ));
+                            self.anchor_selection.create_lanes();
                         }
 
                         if ui.button("📌 Location").clicked() {
-                            self.change_mode.send(ChangeMode::To(
-                                SelectAnchor::create_new_point().for_location().into(),
-                            ));
+                            self.anchor_selection.create_location();
                         }
 
                         if ui.button("■ Wall").clicked() {
-                            self.change_mode.send(ChangeMode::To(
-                                SelectAnchor::create_new_edge_sequence().for_wall().into(),
-                            ));
+                            self.anchor_selection.create_walls();
                         }
 
                         ui.end_row();
 
                         if ui.button("🚪 Door").clicked() {
-                            self.change_mode.send(ChangeMode::To(
-                                SelectAnchor::create_one_new_edge().for_door().into(),
-                            ));
+                            self.anchor_selection.create_door();
                         }
 
                         if ui.button("⬍ Lift").clicked() {
-                            self.change_mode.send(ChangeMode::To(
-                                SelectAnchor::create_one_new_edge().for_lift().into(),
-                            ));
+                            self.anchor_selection.create_lift();
                         }
 
                         if ui.button("✏ Floor").clicked() {
-                            self.change_mode.send(ChangeMode::To(
-                                SelectAnchor::create_new_path().for_floor().into(),
-                            ));
+                            self.anchor_selection.create_floor();
                         }
 
                         ui.end_row();
 
                         if ui.button("☉ Fiducial").clicked() {
-                            self.change_mode.send(ChangeMode::To(
-                                SelectAnchor::create_new_point().for_site_fiducial().into(),
-                            ));
+                            self.anchor_selection.create_site_fiducial();
                         }
                     });
             }
             AppState::SiteDrawingEditor => {
                 if ui.button("Fiducial").clicked() {
-                    self.change_mode.send(ChangeMode::To(
-                        SelectAnchor::create_new_point()
-                            .for_drawing_fiducial()
-                            .into(),
-                    ));
+                    self.anchor_selection.create_drawing_fiducial();
                 }
                 if ui.button("Measurement").clicked() {
-                    self.change_mode.send(ChangeMode::To(
-                        SelectAnchor::create_one_new_edge().for_measurement().into(),
-                    ));
+                    self.anchor_selection.create_measurements();
                 }
             }
             AppState::WorkcellEditor => {
                 if ui.button("Frame").clicked() {
-                    self.change_mode.send(ChangeMode::To(
-                        SelectAnchor3D::create_new_point().for_anchor(None).into(),
-                    ));
+                    self.place_object(PlaceableObject::Anchor);
                 }
             }
             _ => {
@@ -307,11 +291,12 @@ impl<'w, 's> Creation<'w, 's> {
                                                     )),
                                                     ..Default::default()
                                                 };
-                                            self.change_mode.send(ChangeMode::To(
-                                                SelectAnchor3D::create_new_point()
-                                                    .for_model_instance(model_instance)
-                                                    .into(),
-                                            ));
+                                            // TODO(@xiyuoh) Use self.place_object instead without double borrowing mut
+                                            let object = PlaceableObject::ModelInstance(
+                                                model_instance,
+                                            );
+                                            self.object_placement
+                                                .place_object_3d(object, self.selection.0, site_entity);
                                         }
                                     }
                                 }
@@ -368,11 +353,16 @@ impl<'w, 's> Creation<'w, 's> {
                                     },
                                     ..default()
                                 };
-                                self.change_mode.send(ChangeMode::To(
-                                    SelectAnchor3D::create_new_point()
-                                        .for_visual(workcell_model)
-                                        .into(),
-                                ));
+                                // TODO(@xiyuoh) Use self.place_object instead without double borrowing mut
+                                let object = PlaceableObject::VisualMesh(
+                                    workcell_model,
+                                );
+                                if let Some(workspace) = self.current_workspace.root {
+                                    self.object_placement
+                                        .place_object_3d(object, self.selection.0, workspace);
+                                } else {
+                                    warn!("Unable to create [{object:?}] outside of a workspace");
+                                }
                             }
                             if ui.button("Spawn collision").clicked() {
                                 let workcell_model = WorkcellModel {
@@ -382,10 +372,8 @@ impl<'w, 's> Creation<'w, 's> {
                                     },
                                     ..default()
                                 };
-                                self.change_mode.send(ChangeMode::To(
-                                    SelectAnchor3D::create_new_point()
-                                        .for_collision(workcell_model)
-                                        .into(),
+                                self.place_object(PlaceableObject::CollisionMesh(
+                                    workcell_model,
                                 ));
                             }
                             ui.add_space(10.0);
@@ -452,16 +440,38 @@ impl<'w, 's> Creation<'w, 's> {
                                 )),
                                 ..Default::default()
                             };
-                            self.change_mode.send(ChangeMode::To(
-                                SelectAnchor3D::create_new_point()
-                                    .for_model_instance(model_instance)
-                                    .into(),
-                            ));
+                            // TODO(@xiyuoh) Use self.place_object instead without double borrowing mut
+                            let object = PlaceableObject::ModelInstance(
+                                model_instance,
+                            );
+                            if let Some(workspace) = self.current_workspace.root {
+                                self.object_placement
+                                    .place_object_3d(object, self.selection.0, workspace);
+                            } else {
+                                warn!("Unable to create [{object:?}] outside of a workspace");
+                            }
                         }
                     });
                     ui.text_edit_singleline(&mut pending_model_instance.instance_name);
                 });
             }
+        }
+    }
+
+    pub fn place_object(&mut self, object: PlaceableObject) {
+        if let Some(workspace) = self.current_workspace.root {
+            self.object_placement
+                .place_object_3d(object, self.selection.0, workspace);
+        } else {
+            warn!("Unable to create [{object:?}] outside of a workspace");
+        }
+    }
+
+    pub fn spawn_model_2d(&mut self, object: ModelInstance<Entity>) {
+        if let Some(level) = self.current_level.0 {
+            self.object_placement.place_object_2d(object, level);
+        } else {
+            warn!("Unable to create [{object:?}] outside of a level");
         }
     }
 }

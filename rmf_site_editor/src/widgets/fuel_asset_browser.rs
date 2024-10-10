@@ -16,13 +16,13 @@
 */
 
 use crate::{
-    interaction::ModelPreviewCamera,
+    interaction::{ModelPreviewCamera, ObjectPlacement, PlaceableObject, Selection},
     site::{
-        AssetSource, FuelClient, Model, ModelDescriptionBundle, ModelProperty, NameInSite, Scale,
-        SetFuelApiKey, UpdateFuelCache,
+        AssetSource, CurrentLevel, FuelClient, Model, ModelDescriptionBundle,
+        ModelProperty, NameInSite, Scale, SetFuelApiKey, UpdateFuelCache,
     },
     widgets::prelude::*,
-    CurrentWorkspace,
+    AppState, CurrentWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{self, Button, ComboBox, ImageSource, RichText, ScrollArea, Ui, Window};
@@ -82,6 +82,10 @@ pub struct FuelAssetBrowser<'w, 's> {
     update_cache: EventWriter<'w, UpdateFuelCache>,
     set_api_key: EventWriter<'w, SetFuelApiKey>,
     commands: Commands<'w, 's>,
+    place_object: ObjectPlacement<'w, 's>,
+    current_selection: Res<'w, Selection>,
+    current_level: Res<'w, CurrentLevel>,
+    app_state: Res<'w, State<AppState>>,
 }
 
 fn fuel_asset_browser_panel(In(input): In<PanelWidgetInput>, world: &mut World) {
@@ -281,12 +285,29 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                             scale: ModelProperty(Scale::default()),
                             ..Default::default()
                         };
-                        if let Some(site_entity) = self.current_workspace.root {
-                            self.commands
-                                .spawn(model_description)
-                                .set_parent(site_entity);
-                        } else {
-                            warn!("No current site found to load model description");
+
+                        match self.app_state.get() {
+                            AppState::SiteEditor => {
+                                if let Some(level) = self.current_level.0 {
+                                    self.commands
+                                        .spawn(model_description)
+                                        .set_parent(level);
+                                } else {
+                                    warn!("Cannot spawn a model outside of a workspace");
+                                }
+                            }
+                            AppState::WorkcellEditor => {
+                                if let Some(workspace) = self.current_workspace.root {
+                                    self.commands
+                                        .spawn(model_description)
+                                        .set_parent(workspace);
+                                } else {
+                                    warn!("Cannot spawn a model outside of a workspace");
+                                }
+                            }
+                            _ => {
+                                warn!("Invalid mode for spawning a model: {:?}", &self.app_state);
+                            }
                         }
                     }
                 }

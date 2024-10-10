@@ -410,7 +410,7 @@ fn instance_selector(
         )
         .clicked()
     {
-        select.send(Select(Some(*entity)));
+        select.send(Select::new(Some(*entity)));
     };
     ui.label(format!("[{}]", name.0));
 }

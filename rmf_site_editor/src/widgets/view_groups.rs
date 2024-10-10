@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    interaction::{ChangeMode, SelectAnchor3D},
+    interaction::{ObjectPlacement, PlaceableObject},
     site::{
         Affiliation, Change, Delete, FiducialMarker, Group, MergeGroups, ModelInstance,
         ModelMarker, NameInSite, SiteID, Texture,
@@ -66,11 +66,11 @@ pub struct ViewGroups<'w, 's> {
 pub struct ViewGroupsEvents<'w, 's> {
     current_workspace: ResMut<'w, CurrentWorkspace>,
     selector: SelectorWidget<'w, 's>,
-    change_mode: EventWriter<'w, ChangeMode>,
     merge_groups: EventWriter<'w, MergeGroups>,
     delete: EventWriter<'w, Delete>,
     name: EventWriter<'w, Change<NameInSite>>,
     commands: Commands<'w, 's>,
+    object_placement: ObjectPlacement<'w, 's>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for ViewGroups<'w, 's> {
@@ -198,11 +198,17 @@ impl<'w, 's> ViewGroups<'w, 's> {
                                     description: Affiliation(Some(child.clone())),
                                     ..Default::default()
                                 };
-                                events.change_mode.send(ChangeMode::To(
-                                    SelectAnchor3D::create_new_point()
-                                        .for_model_instance(model_instance)
-                                        .into(),
-                                ));
+                                let object = PlaceableObject::ModelInstance(
+                                    model_instance
+                                );
+                                // TODO(@xiyuoh) Reconsider what should parent be
+                                if let Some(workspace) = events.current_workspace.root {
+                                    events.object_placement.place_object_3d(
+                                        object, None, workspace
+                                    );
+                                } else {
+                                    warn!("Unable to create [{object:?}] outside of a workspace");
+                                }
                             };
                         };
                         events.selector.show_widget(*child, ui);

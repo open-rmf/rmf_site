@@ -38,6 +38,28 @@ impl Side {
         }
     }
 
+    /// In places where the `Side` enum is used to indicated start/end instead
+    /// of left/right, we use Left to indicate the starting side. This method
+    /// formally encodes that.
+    pub fn start() -> Side {
+        Side::Left
+    }
+
+    pub fn is_start(&self) -> bool {
+        matches!(self, Side::Left)
+    }
+
+    /// In places where the `Side` enum is used to indicated start/end instead
+    /// of left/right, we use Right to indicate the ending side. This method
+    /// formally encodes that.
+    pub fn end() -> Side {
+        Side::Right
+    }
+
+    pub fn is_end(&self) -> bool {
+        matches!(self, Side::Right)
+    }
+
     pub fn opposite(&self) -> Side {
         match self {
             Side::Left => Side::Right,
@@ -306,6 +328,13 @@ impl Default for Rotation {
     }
 }
 
+#[cfg(feature = "bevy")]
+impl From<Quat> for Rotation {
+    fn from(quat: Quat) -> Self {
+        Self::Quat(quat.to_array())
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
@@ -365,6 +394,16 @@ impl Pose {
             }
         }
         *self
+    }
+}
+
+#[cfg(feature = "bevy")]
+impl From<Transform> for Pose {
+    fn from(tf: Transform) -> Self {
+        Pose {
+            trans: tf.translation.into(),
+            rot: tf.rotation.into(),
+        }
     }
 }
 

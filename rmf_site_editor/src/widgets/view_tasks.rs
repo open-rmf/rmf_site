@@ -134,7 +134,7 @@ fn show_task(
                     )
                     .clicked()
                 {
-                    select.send(Select(Some(*robot_entity)));
+                    select.send(Select::new(Some(*robot_entity)));
                 }
             });
 
@@ -158,7 +158,7 @@ fn show_task(
                                 )
                                 .clicked()
                             {
-                                select.send(Select(Some(entity)));
+                                select.send(Select::new(Some(entity)));
                             }
                         }
                     });

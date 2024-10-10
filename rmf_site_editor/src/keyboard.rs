@@ -16,12 +16,16 @@
 */
 
 use crate::{
-    interaction::{ChangeMode, ChangeProjectionMode, InteractionMode, Selection},
+    interaction::{ChangeProjectionMode, Selection},
     site::{AlignSiteDrawings, Delete},
-    CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
+    CreateNewWorkspace, CurrentWorkspace, SaveWorkspace, WorkspaceLoader,
 };
-use bevy::{prelude::*, window::PrimaryWindow};
+use bevy::{
+    prelude::{Input as UserInput, *},
+    window::PrimaryWindow,
+};
 use bevy_egui::EguiContexts;
+use bevy_impulse::*;
 
 #[derive(Debug, Clone, Copy, Resource)]
 pub struct DebugMode(pub bool);
@@ -38,24 +42,29 @@ impl Plugin for KeyboardInputPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<DebugMode>()
             .add_systems(Last, handle_keyboard_input);
+
+        let keyboard_just_pressed =
+            app.spawn_continuous_service(Last, keyboard_just_pressed_stream);
+
+        app.insert_resource(KeyboardServices {
+            keyboard_just_pressed,
+        });
     }
 }
 
 fn handle_keyboard_input(
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<UserInput<KeyCode>>,
     selection: Res<Selection>,
-    current_mode: Res<InteractionMode>,
     mut egui_context: EguiContexts,
-    mut change_mode: EventWriter<ChangeMode>,
     mut delete: EventWriter<Delete>,
     mut save_workspace: EventWriter<SaveWorkspace>,
     mut new_workspace: EventWriter<CreateNewWorkspace>,
-    mut load_workspace: EventWriter<LoadWorkspace>,
     mut change_camera_mode: EventWriter<ChangeProjectionMode>,
     mut debug_mode: ResMut<DebugMode>,
     mut align_site: EventWriter<AlignSiteDrawings>,
     current_workspace: Res<CurrentWorkspace>,
     primary_windows: Query<Entity, With<PrimaryWindow>>,
+    mut workspace_loader: WorkspaceLoader,
 ) {
     let Some(egui_context) = primary_windows
         .get_single()
@@ -80,17 +89,11 @@ fn handle_keyboard_input(
         change_camera_mode.send(ChangeProjectionMode::to_perspective());
     }
 
-    if keyboard_input.just_pressed(KeyCode::Escape) {
-        change_mode.send(ChangeMode::Backout);
-    }
-
     if keyboard_input.just_pressed(KeyCode::Delete) || keyboard_input.just_pressed(KeyCode::Back) {
-        if current_mode.is_inspecting() {
-            if let Some(selection) = selection.0 {
-                delete.send(Delete::new(selection));
-            } else {
-                warn!("No selected entity to delete");
-            }
+        if let Some(selection) = selection.0 {
+            delete.send(Delete::new(selection));
+        } else {
+            warn!("No selected entity to delete");
         }
     }
 
@@ -122,7 +125,30 @@ fn handle_keyboard_input(
         }
 
         if keyboard_input.just_pressed(KeyCode::O) {
-            load_workspace.send(LoadWorkspace::Dialog);
+            workspace_loader.load_from_dialog();
         }
     }
+}
+
+pub fn keyboard_just_pressed_stream(
+    In(ContinuousService { key }): ContinuousServiceInput<(), (), StreamOf<KeyCode>>,
+    mut orders: ContinuousQuery<(), (), StreamOf<KeyCode>>,
+    keyboard_input: Res<UserInput<KeyCode>>,
+) {
+    let Some(mut orders) = orders.get_mut(&key) else {
+        return;
+    };
+
+    if orders.is_empty() {
+        return;
+    }
+
+    for key_code in keyboard_input.get_just_pressed() {
+        orders.for_each(|order| order.streams().send(StreamOf(*key_code)));
+    }
+}
+
+#[derive(Resource)]
+pub struct KeyboardServices {
+    pub keyboard_just_pressed: Service<(), (), StreamOf<KeyCode>>,
 }
