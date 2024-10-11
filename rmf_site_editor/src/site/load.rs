@@ -317,6 +317,7 @@ fn generate_site_entities(
                     }
                 });
         });
+
         for (door_id, door) in &lift_data.cabin_doors {
             let door_entity = commands
                 .spawn(door.convert(&id_to_entity).for_site(site_id)?)

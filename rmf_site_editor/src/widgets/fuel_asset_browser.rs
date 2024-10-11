@@ -76,13 +76,13 @@ pub struct AssetGalleryStatus {
 pub struct FuelAssetBrowser<'w, 's> {
     fuel_client: ResMut<'w, FuelClient>,
     // TODO(luca) refactor to see whether we need
-    current_workspace: Res<'w, CurrentWorkspace>,
     asset_gallery_status: ResMut<'w, AssetGalleryStatus>,
     model_preview_camera: Res<'w, ModelPreviewCamera>,
     update_cache: EventWriter<'w, UpdateFuelCache>,
     set_api_key: EventWriter<'w, SetFuelApiKey>,
     commands: Commands<'w, 's>,
     place_object: ObjectPlacement<'w, 's>,
+    current_workspace: Res<'w, CurrentWorkspace>,
     current_selection: Res<'w, Selection>,
     current_level: Res<'w, CurrentLevel>,
     app_state: Res<'w, State<AppState>>,

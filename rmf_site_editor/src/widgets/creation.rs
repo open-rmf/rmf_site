@@ -25,7 +25,7 @@ use crate::{
     widgets::{prelude::*, AssetGalleryStatus},
     AppState, CurrentWorkspace,
 };
-use bevy::{audio::Source, ecs::system::SystemParam, prelude::*};
+use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, ComboBox, Grid, Ui};
 
 use rmf_site_format::{

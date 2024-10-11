@@ -1,13 +1,12 @@
 use super::{
     floor::FloorParameters, level::Level, lift::Lift, wall::WallProperties, PortingError, Result,
 };
-use crate::ModelInstance;
 use crate::{
     alignment::align_legacy_building, Affiliation, Anchor, Angle, AssetSource, AssociatedGraphs,
     Category, DisplayColor, Dock as SiteDock, Drawing as SiteDrawing, DrawingProperties,
     Fiducial as SiteFiducial, FiducialGroup, FiducialMarker, Guided, Lane as SiteLane, LaneMarker,
     Level as SiteLevel, LevelElevation, LevelProperties as SiteLevelProperties,
-    ModelDescriptionBundle, Motion, NameInSite, NameOfSite, NavGraph, Navigation,
+    ModelDescriptionBundle, ModelInstance, Motion, NameInSite, NameOfSite, NavGraph, Navigation,
     OrientationConstraint, PixelsPerMeter, Pose, PreferredSemiTransparency, RankingsInLevel,
     ReverseLane, Rotation, ScenarioBundle, Site, SiteProperties, Texture as SiteTexture,
     TextureGroup, UserCameraPose, DEFAULT_NAV_GRAPH_COLORS,
