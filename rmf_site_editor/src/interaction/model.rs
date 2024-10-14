@@ -43,25 +43,21 @@ pub fn update_model_instance_visual_cues(
     for (instance_entity, mut instance_selected, mut instance_hovered, affiliation, tasks) in
         &mut model_instances
     {
-        // By clearing instance supports for selected / hovered, we assume instances will never
-        // be supporting select / hovering for anything else
         let mut is_description_selected = false;
         if let Some(description_entity) = affiliation.0 {
             if let Ok((_, description_selected, description_hovered)) =
                 model_descriptions.get(description_entity)
             {
                 if description_selected.cue() {
-                    instance_selected
-                        .support_selected
-                        .insert(description_entity);
+                    instance_selected.support_selected.insert(description_entity);
                     is_description_selected = true;
                 } else {
-                    instance_selected.support_selected.clear();
+                    instance_selected.support_selected.remove(&description_entity);
                 }
                 if description_hovered.cue() {
                     instance_hovered.support_hovering.insert(description_entity);
                 } else {
-                    instance_hovered.support_hovering.clear();
+                    instance_hovered.support_hovering.remove(&description_entity);
                 }
             }
         }
