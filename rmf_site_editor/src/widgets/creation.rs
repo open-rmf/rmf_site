@@ -112,7 +112,6 @@ impl<'w, 's> Creation<'w, 's> {
             CreationData::ModelDescription(_) => {
                 self.show_create_model_description(ui);
             }
-            CreationData::ModelInstance(_) => self.show_create_model_instance(ui),
         }
     }
 
@@ -384,78 +383,6 @@ impl<'w, 's> Creation<'w, 's> {
         }
     }
 
-    pub fn show_create_model_instance(&mut self, ui: &mut Ui) {
-        match self.app_state.get() {
-            AppState::MainMenu | AppState::SiteDrawingEditor | AppState::SiteVisualizer => {}
-            AppState::SiteEditor | AppState::WorkcellEditor => {
-                let pending_model_instance = match *self.creation_data {
-                    CreationData::ModelInstance(ref mut pending_model) => pending_model,
-                    _ => return,
-                };
-
-                let mut style = (*ui.ctx().style()).clone();
-                style.wrap = Some(false);
-                ui.horizontal(|ui| {
-                    ui.ctx().set_style(style);
-                    ui.label("Description");
-                    let selected_text = pending_model_instance
-                        .description_entity
-                        .and_then(|description_entity| {
-                            self.model_descriptions
-                                .get(description_entity)
-                                .ok()
-                                .map(|(_, name, _)| name.0.clone())
-                        })
-                        .unwrap_or_else(|| "Select Description".to_string());
-                    ComboBox::from_id_source("select_instance_to_spawn")
-                        .selected_text(selected_text)
-                        .show_ui(ui, |ui| {
-                            for (entity, name, site_id) in self.model_descriptions.iter() {
-                                if ui
-                                    .selectable_label(
-                                        pending_model_instance.description_entity == Some(entity),
-                                        format!(
-                                            "#{} {}",
-                                            site_id
-                                                .map(|s| s.to_string())
-                                                .unwrap_or("*".to_string()),
-                                            name.0
-                                        ),
-                                    )
-                                    .clicked()
-                                {
-                                    pending_model_instance.description_entity = Some(entity);
-                                }
-                            }
-                        });
-                });
-
-                let mut spawn_model: bool = false;
-                ui.horizontal(|ui| {
-                    ui.add_enabled_ui(pending_model_instance.description_entity.is_some(), |ui| {
-                        if ui.button("➕ Spawn").clicked() {
-                            spawn_model = true;
-                        }
-                    });
-                    ui.text_edit_singleline(&mut pending_model_instance.instance_name);
-                });
-                // Borrow mutable self outside closure
-                if spawn_model {
-                    let model_instance: ModelInstance<Entity> = ModelInstance {
-                        name: NameInSite(pending_model_instance.instance_name.clone()),
-                        description: Affiliation(Some(
-                            pending_model_instance.description_entity.unwrap(),
-                        )),
-                        ..Default::default()
-                    };
-                    self.place_object(PlaceableObject::ModelInstance(
-                        model_instance,
-                    ));
-                }
-            }
-        }
-    }
-
     pub fn place_object(&mut self, object: PlaceableObject) {
         if let Some(workspace) = self.current_workspace.root {
             self.object_placement
@@ -480,7 +407,6 @@ enum CreationData {
     SiteObject,
     Drawing(PendingDrawing),
     ModelDescription(PendingModelDescription),
-    ModelInstance(PendingModelInstance),
 }
 
 impl CreationData {
@@ -489,7 +415,6 @@ impl CreationData {
             Self::SiteObject => "Site Object",
             Self::Drawing(_) => "Drawing",
             Self::ModelDescription(_) => "Model Description",
-            Self::ModelInstance(_) => "Model Instance",
         }
     }
 
@@ -498,7 +423,6 @@ impl CreationData {
             "Site Object" => Self::SiteObject,
             "Drawing" => Self::Drawing(PendingDrawing::default()),
             "Model Description" => Self::ModelDescription(PendingModelDescription::default()),
-            "Model Instance" => Self::ModelInstance(PendingModelInstance::default()),
             _ => Self::SiteObject,
         }
     }
@@ -508,7 +432,6 @@ impl CreationData {
             "Site Object",
             "Drawing",
             "Model Description",
-            "Model Instance",
         ]
     }
 }
