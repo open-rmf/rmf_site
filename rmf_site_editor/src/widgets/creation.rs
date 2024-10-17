@@ -265,22 +265,21 @@ impl<'w, 's> Creation<'w, 's> {
                                 };
                                 if ui.button(add_icon).clicked() {
                                     if let Some(site_entity) = self.current_workspace.root {
-                                        let model_description_bundle = ModelDescriptionBundle {
-                                            name: NameInSite(pending_model.name.clone()),
-                                            source: ModelProperty(pending_model.source.clone()),
-                                            is_static: ModelProperty(IsStatic::default()),
-                                            scale: ModelProperty(pending_model.scale.clone()),
-                                            group: Group,
-                                            marker: ModelMarker,
-                                        };
-                                        let description_entity = self
-                                            .commands
-                                            .spawn(model_description_bundle)
-                                            .insert(Category::ModelDescription)
-                                            .set_parent(site_entity)
-                                            .id();
-
                                         if pending_model.spawn_instance {
+                                            let model_description_bundle = ModelDescriptionBundle {
+                                                name: NameInSite(pending_model.name.clone()),
+                                                source: ModelProperty(pending_model.source.clone()),
+                                                is_static: ModelProperty(IsStatic::default()),
+                                                scale: ModelProperty(pending_model.scale.clone()),
+                                                group: Group,
+                                                marker: ModelMarker,
+                                            };
+                                            let description_entity = self
+                                                .commands
+                                                .spawn(model_description_bundle)
+                                                .insert(Category::ModelDescription)
+                                                .set_parent(site_entity)
+                                                .id();
                                             let model_instance: ModelInstance<Entity> =
                                                 ModelInstance {
                                                     name: NameInSite(
@@ -291,7 +290,7 @@ impl<'w, 's> Creation<'w, 's> {
                                                     )),
                                                     ..Default::default()
                                                 };
-                                            // TODO(@xiyuoh) Use self.place_object instead without double borrowing mut
+                                            // Use place_object_3d here to avoid double borrowing mut self
                                             let object = PlaceableObject::ModelInstance(
                                                 model_instance,
                                             );
@@ -345,6 +344,8 @@ impl<'w, 's> Creation<'w, 's> {
                             {
                                 asset_gallery.show = !asset_gallery.show;
                             }
+                            // TODO(@xiyuoh) Review this block again after PR 239 has been merged.
+                            // Use self.place_object instead without double borrowing mut
                             if ui.button("Spawn visual").clicked() {
                                 let workcell_model = WorkcellModel {
                                     geometry: Geometry::Mesh {
@@ -353,7 +354,6 @@ impl<'w, 's> Creation<'w, 's> {
                                     },
                                     ..default()
                                 };
-                                // TODO(@xiyuoh) Use self.place_object instead without double borrowing mut
                                 let object = PlaceableObject::VisualMesh(
                                     workcell_model,
                                 );
@@ -430,30 +430,28 @@ impl<'w, 's> Creation<'w, 's> {
                         });
                 });
 
+                let mut spawn_model: bool = false;
                 ui.horizontal(|ui| {
                     ui.add_enabled_ui(pending_model_instance.description_entity.is_some(), |ui| {
                         if ui.button("➕ Spawn").clicked() {
-                            let model_instance: ModelInstance<Entity> = ModelInstance {
-                                name: NameInSite(pending_model_instance.instance_name.clone()),
-                                description: Affiliation(Some(
-                                    pending_model_instance.description_entity.unwrap(),
-                                )),
-                                ..Default::default()
-                            };
-                            // TODO(@xiyuoh) Use self.place_object instead without double borrowing mut
-                            let object = PlaceableObject::ModelInstance(
-                                model_instance,
-                            );
-                            if let Some(workspace) = self.current_workspace.root {
-                                self.object_placement
-                                    .place_object_3d(object, self.selection.0, workspace);
-                            } else {
-                                warn!("Unable to create [{object:?}] outside of a workspace");
-                            }
+                            spawn_model = true;
                         }
                     });
                     ui.text_edit_singleline(&mut pending_model_instance.instance_name);
                 });
+                // Borrow mutable self outside closure
+                if spawn_model {
+                    let model_instance: ModelInstance<Entity> = ModelInstance {
+                        name: NameInSite(pending_model_instance.instance_name.clone()),
+                        description: Affiliation(Some(
+                            pending_model_instance.description_entity.unwrap(),
+                        )),
+                        ..Default::default()
+                    };
+                    self.place_object(PlaceableObject::ModelInstance(
+                        model_instance,
+                    ));
+                }
             }
         }
     }
