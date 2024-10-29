@@ -207,14 +207,12 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
         if let Ok(model_description) = model_descriptions.get(*site_child) {
             if !site_ids.contains(model_description) {
                 new_entities.push(model_description);
-                println!("NEW DESCRIPTION");
             }
         }
 
         if let Ok(model_instance) = model_instances.get(*site_child) {
             if !site_ids.contains(model_instance) {
                 new_entities.push(model_instance);
-                println!("NEW INSTANCE");
             }
         }
 
@@ -1371,7 +1369,7 @@ fn generate_scenarios(
             }
         }
     }
-    println!("ADDED SCENARIOS: {:?}", res.len());
+    info!("Added scenarios: {:?}", res.len());
     Ok(res)
 }
 
