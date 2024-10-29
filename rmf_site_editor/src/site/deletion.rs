@@ -84,7 +84,7 @@ struct DeletionParams<'w, 's> {
     edges: Query<'w, 's, &'static Edge<Entity>>,
     points: Query<'w, 's, &'static Point<Entity>>,
     paths: Query<'w, 's, &'static Path<Entity>>,
-    instances: Query<'w, 's, &'static Affiliation<Entity>, (With<InstanceMarker>, Without<Group>)>,
+    instances: Query<'w, 's, &'static Affiliation<Entity>, With<InstanceMarker>>,
     parents: Query<'w, 's, &'static mut Parent>,
     dependents: Query<'w, 's, &'static mut Dependents>,
     constraint_dependents: Query<'w, 's, &'static mut ConstraintDependents>,

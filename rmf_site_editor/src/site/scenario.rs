@@ -232,8 +232,8 @@ pub fn handle_remove_scenarios(
         }
 
         // Delete with dependents
-        if let Ok((_, _, Some(mut depenedents))) = scenarios.get_mut(request.0) {
-            depenedents.extend(subtree_dependents.iter());
+        if let Ok((_, _, Some(mut dependents))) = scenarios.get_mut(request.0) {
+            dependents.extend(subtree_dependents.iter());
         } else {
             commands
                 .entity(request.0)

@@ -75,7 +75,7 @@ impl<T: RefTrait> Scenario<T> {
                     (
                         id_map
                             .get(&id)
-                            .expect("Scenario contains non existent moved instance")
+                            .expect("Scenario contains non existent added instance")
                             .clone(),
                         pose,
                     )
