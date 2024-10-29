@@ -248,19 +248,19 @@ fn generate_site_entities(
 
     let mut model_description_dependents = HashMap::<Entity, HashSet<Entity>>::new();
     for (model_description_id, model_description) in &site_data.model_descriptions {
-        let model_description = commands
+        let model_description_entity = commands
             .spawn(model_description.clone())
             .insert(SiteID(*model_description_id))
             .insert(Category::ModelDescription)
             .set_parent(site_id)
             .id();
-        id_to_entity.insert(*model_description_id, model_description);
+        id_to_entity.insert(*model_description_id, model_description_entity);
         consider_id(*model_description_id);
-        model_description_dependents.insert(model_description, HashSet::new());
+        model_description_dependents.insert(model_description_entity, HashSet::new());
     }
 
-    for (model_instance_id, model_instance) in &site_data.model_instances {
-        let model_instance = model_instance.convert(&id_to_entity).for_site(site_id)?;
+    for (model_instance_id, model_instance_data) in &site_data.model_instances {
+        let model_instance = model_instance_data.convert(&id_to_entity).for_site(site_id)?;
         let model_instance_entity = commands
             .spawn(model_instance.clone())
             .insert(SiteID(*model_instance_id))
@@ -284,13 +284,12 @@ fn generate_site_entities(
             .insert(Dependents(dependents));
     }
 
-    // let mut model_description_dependents = HashMap::<Entity, HashSet<Entity>>::new();
-    for (scenario_id, scenario_bundle) in &site_data.scenarios {
-        let parent = match scenario_bundle.scenario.parent_scenario.0 {
+    for (scenario_id, scenario_bundle_data) in &site_data.scenarios {
+        let parent = match scenario_bundle_data.scenario.parent_scenario.0 {
             Some(parent_id) => *id_to_entity.get(&parent_id).unwrap_or(&site_id),
             None => site_id,
         };
-        let scenario_bundle = scenario_bundle.convert(&id_to_entity).for_site(site_id)?;
+        let scenario_bundle = scenario_bundle_data.convert(&id_to_entity).for_site(site_id)?;
         let scenario_entity = commands
             .spawn(scenario_bundle.clone())
             .insert(SiteID(*scenario_id))
