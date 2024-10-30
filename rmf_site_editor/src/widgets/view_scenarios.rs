@@ -25,7 +25,7 @@ use crate::{
     CurrentWorkspace, Icons,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{Button, CollapsingHeader, Color32, ScrollArea, Ui};
+use bevy_egui::egui::{Align, Button, CollapsingHeader, Color32, Layout, ScrollArea, Ui};
 use rmf_site_format::{Angle, InstanceMarker, Pose, ScenarioBundle, SiteID};
 
 const INSTANCES_VIEWER_HEIGHT: f32 = 200.0;
@@ -97,14 +97,16 @@ impl<'w, 's> ViewScenarios<'w, 's> {
                         self.change_name
                             .send(Change::new(NameInSite(new_name), current_scenario_entity));
                     }
-                    if ui
-                        .button("❌")
-                        .on_hover_text("Delete this scenario and all its child scenarios")
-                        .clicked()
-                    {
-                        self.remove_scenario
-                            .send(RemoveScenario(current_scenario_entity));
-                    }
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        if ui
+                            .button("❌")
+                            .on_hover_text("Delete this scenario and all its child scenarios")
+                            .clicked()
+                        {
+                            self.remove_scenario
+                                .send(RemoveScenario(current_scenario_entity));
+                        }
+                    });
                 });
                 ui.label("From Previous:");
                 // Added
@@ -370,7 +372,7 @@ fn show_scenario_widget(
     });
 }
 
-/// Creates a collasible header exposing a scroll area for viewing instances
+/// Creates a collapsible header exposing a scroll area for viewing instances
 fn collapsing_instance_viewer<R>(
     header_name: &str,
     id: &str,
