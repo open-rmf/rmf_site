@@ -264,21 +264,21 @@ impl<'w, 's> Creation<'w, 's> {
                                 };
                                 if ui.button(add_icon).clicked() {
                                     if let Some(site_entity) = self.current_workspace.root {
+                                        let model_description_bundle = ModelDescriptionBundle {
+                                            name: NameInSite(pending_model.name.clone()),
+                                            source: ModelProperty(pending_model.source.clone()),
+                                            is_static: ModelProperty(IsStatic::default()),
+                                            scale: ModelProperty(pending_model.scale.clone()),
+                                            group: Group,
+                                            marker: ModelMarker,
+                                        };
+                                        let description_entity = self
+                                            .commands
+                                            .spawn(model_description_bundle)
+                                            .insert(Category::ModelDescription)
+                                            .set_parent(site_entity)
+                                            .id();
                                         if pending_model.spawn_instance {
-                                            let model_description_bundle = ModelDescriptionBundle {
-                                                name: NameInSite(pending_model.name.clone()),
-                                                source: ModelProperty(pending_model.source.clone()),
-                                                is_static: ModelProperty(IsStatic::default()),
-                                                scale: ModelProperty(pending_model.scale.clone()),
-                                                group: Group,
-                                                marker: ModelMarker,
-                                            };
-                                            let description_entity = self
-                                                .commands
-                                                .spawn(model_description_bundle)
-                                                .insert(Category::ModelDescription)
-                                                .set_parent(site_entity)
-                                                .id();
                                             let model_instance: ModelInstance<Entity> =
                                                 ModelInstance {
                                                     name: NameInSite(
@@ -289,12 +289,12 @@ impl<'w, 's> Creation<'w, 's> {
                                                     )),
                                                     ..Default::default()
                                                 };
-                                            // Use place_object_3d here to avoid double borrowing mut self
-                                            let object = PlaceableObject::ModelInstance(
-                                                model_instance,
-                                            );
-                                            self.object_placement
-                                                .place_object_3d(object, self.selection.0, site_entity);
+                                            // Use place_object_2d here to avoid double borrowing mut self
+                                            if let Some(level) = self.current_level.0 {
+                                                self.object_placement.place_object_2d(model_instance, level);
+                                            } else {
+                                                warn!("Unable to create [{model_instance:?}] outside of a level");
+                                            }
                                         }
                                     }
                                 }

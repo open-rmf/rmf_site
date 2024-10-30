@@ -18,7 +18,7 @@
 use crate::{
     interaction::{ObjectPlacement, PlaceableObject},
     site::{
-        Affiliation, Change, Delete, FiducialMarker, Group, MergeGroups, ModelInstance,
+        Affiliation, Change, CurrentLevel, Delete, FiducialMarker, Group, MergeGroups, ModelInstance,
         ModelMarker, NameInSite, SiteID, Texture,
     },
     widgets::{prelude::*, SelectorWidget},
@@ -65,6 +65,7 @@ pub struct ViewGroups<'w, 's> {
 #[derive(SystemParam)]
 pub struct ViewGroupsEvents<'w, 's> {
     current_workspace: ResMut<'w, CurrentWorkspace>,
+    current_level: Res<'w, CurrentLevel>,
     selector: SelectorWidget<'w, 's>,
     merge_groups: EventWriter<'w, MergeGroups>,
     delete: EventWriter<'w, Delete>,
@@ -198,16 +199,10 @@ impl<'w, 's> ViewGroups<'w, 's> {
                                     description: Affiliation(Some(child.clone())),
                                     ..Default::default()
                                 };
-                                let object = PlaceableObject::ModelInstance(
-                                    model_instance
-                                );
-                                // TODO(@xiyuoh) Reconsider what should parent be
-                                if let Some(workspace) = events.current_workspace.root {
-                                    events.object_placement.place_object_3d(
-                                        object, None, workspace
-                                    );
+                                if let Some(level) = events.current_level.0 {
+                                    events.object_placement.place_object_2d(model_instance, level);
                                 } else {
-                                    warn!("Unable to create [{object:?}] outside of a workspace");
+                                    warn!("Unable to create [{model_instance:?}] outside of a level");
                                 }
                             };
                         };
