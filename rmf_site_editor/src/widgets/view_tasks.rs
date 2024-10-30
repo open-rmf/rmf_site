@@ -164,7 +164,9 @@ fn show_task(
                     });
                 }
                 Task::WaitFor { duration } => {
-                    ui.label(format!("Wait For: {}", duration));
+                    // TODO(@xiyuoh) provide selectable label for different units
+                    // internal conversions
+                    ui.label(format!("Wait For: {} seconds", duration));
                 }
             }
         });
