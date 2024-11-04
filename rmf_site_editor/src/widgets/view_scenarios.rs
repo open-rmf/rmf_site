@@ -45,6 +45,7 @@ impl Plugin for ViewScenariosPlugin {
 pub struct ViewScenarios<'w, 's> {
     commands: Commands<'w, 's>,
     children: Query<'w, 's, &'static Children>,
+    parent: Query<'w, 's, &'static Parent>,
     scenarios: Query<
         'w,
         's,
@@ -285,6 +286,9 @@ impl<'w, 's> ViewScenarios<'w, 's> {
         self.scenarios
             .iter()
             .filter(|(_, _, scenario)| scenario.parent_scenario.0.is_none())
+            .filter(|(scenario_entity, _, _)| self.current_workspace.root.is_some_and(
+                |e| e == **self.parent.get(*scenario_entity).ok().unwrap()
+            ))
             .for_each(|(scenario_entity, _, _)| {
                 show_scenario_widget(
                     ui,
