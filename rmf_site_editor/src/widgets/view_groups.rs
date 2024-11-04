@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    interaction::{ObjectPlacement, PlaceableObject},
+    interaction::ObjectPlacement,
     site::{
         Affiliation, Change, CurrentLevel, Delete, FiducialMarker, Group, MergeGroups, ModelInstance,
         ModelMarker, NameInSite, SiteID, Texture,

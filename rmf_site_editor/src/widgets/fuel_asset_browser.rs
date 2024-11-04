@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    interaction::{ModelPreviewCamera, ObjectPlacement, PlaceableObject, Selection},
+    interaction::{ModelPreviewCamera, ObjectPlacement, Selection},
     site::{
         AssetSource, CurrentLevel, FuelClient, Model, ModelDescriptionBundle,
         ModelProperty, NameInSite, Scale, SetFuelApiKey, UpdateFuelCache,

@@ -49,12 +49,6 @@ struct Creation<'w, 's> {
     default_file: Query<'w, 's, &'static DefaultFile>,
     app_state: Res<'w, State<AppState>>,
     current_workspace: Res<'w, CurrentWorkspace>,
-    model_descriptions: Query<
-        'w,
-        's,
-        (Entity, &'static NameInSite, Option<&'static SiteID>),
-        (With<ModelMarker>, With<Group>),
-    >,
     creation_data: ResMut<'w, CreationData>,
     current_level: Res<'w, CurrentLevel>,
     asset_gallery: Option<ResMut<'w, AssetGalleryStatus>>,
@@ -289,7 +283,6 @@ impl<'w, 's> Creation<'w, 's> {
                                                     )),
                                                     ..Default::default()
                                                 };
-                                            // Use place_object_2d here to avoid double borrowing mut self
                                             if let Some(level) = self.current_level.0 {
                                                 self.object_placement.place_object_2d(model_instance, level);
                                             } else {
@@ -389,14 +382,6 @@ impl<'w, 's> Creation<'w, 's> {
                 .place_object_3d(object, self.selection.0, workspace);
         } else {
             warn!("Unable to create [{object:?}] outside of a workspace");
-        }
-    }
-
-    pub fn spawn_model_2d(&mut self, object: ModelInstance<Entity>) {
-        if let Some(level) = self.current_level.0 {
-            self.object_placement.place_object_2d(object, level);
-        } else {
-            warn!("Unable to create [{object:?}] outside of a level");
         }
     }
 }
