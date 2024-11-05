@@ -24,7 +24,7 @@ use crate::{
     },
     AppState, Issue,
 };
-use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy::{ecs::system::{SystemParam, SystemState}, prelude::*};
 use rmf_site_format::{ConstraintDependents, Edge, MeshConstraint, Path, Point};
 use std::collections::HashSet;
 
@@ -114,7 +114,11 @@ impl Plugin for DeletionPlugin {
     }
 }
 
-fn handle_deletion_requests(mut deletions: EventReader<Delete>, mut params: DeletionParams) {
+fn handle_deletion_requests(
+    world: &mut World,
+    state: &mut SystemState<(EventReader<Delete>, DeletionParams)>,
+) {
+    let (mut deletions, mut params) = state.get_mut(world);
     for delete in deletions.read() {
         if delete.and_dependents {
             recursive_dependent_delete(delete.element, &mut params);
@@ -122,6 +126,7 @@ fn handle_deletion_requests(mut deletions: EventReader<Delete>, mut params: Dele
             cautious_delete(delete.element, &mut params);
         }
     }
+    state.apply(world);
 }
 
 fn cautious_delete(element: Entity, params: &mut DeletionParams) {
