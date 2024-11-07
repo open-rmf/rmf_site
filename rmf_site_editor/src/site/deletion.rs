@@ -24,7 +24,7 @@ use crate::{
     },
     AppState, Issue,
 };
-use bevy::{ecs::system::{SystemParam, SystemState}, prelude::*};
+use bevy::{ecs::system::{BoxedSystem, SystemParam, SystemState}, prelude::*};
 use rmf_site_format::{ConstraintDependents, Edge, MeshConstraint, Path, Point};
 use std::collections::HashSet;
 
@@ -105,6 +105,7 @@ impl Plugin for DeletionPlugin {
         )
         .add_systems(First, apply_deferred.in_set(SiteUpdateSet::DeletionFlush))
         .add_event::<Delete>()
+        .init_resource::<DeletionFilter>()
         .add_systems(
             First,
             handle_deletion_requests
@@ -114,18 +115,69 @@ impl Plugin for DeletionPlugin {
     }
 }
 
+pub struct DeletionBox {
+    system: BoxedSystem<Vec<Entity>, Vec<Entity>>,
+    initialized: bool,
+}
+
+impl DeletionBox {
+    pub fn new(system: BoxedSystem<Vec<Entity>, Vec<Entity>>) -> Self {
+        Self {
+            system: system,
+            initialized: false
+        }
+    }
+}
+
+#[derive(Default, Resource)]
+pub struct DeletionFilter {
+    boxed_systems: Vec<DeletionBox>,
+    pending_delete: Vec<Delete>,
+}
+
 fn handle_deletion_requests(
     world: &mut World,
-    state: &mut SystemState<(EventReader<Delete>, DeletionParams)>,
+    state: &mut SystemState<(
+        EventReader<Delete>,
+        DeletionParams,
+        ResMut<DeletionFilter>,
+    )>,
 ) {
-    let (mut deletions, mut params) = state.get_mut(world);
+    let (mut deletions, _, mut deletion_filter) = state.get_mut(world);
     for delete in deletions.read() {
+        deletion_filter.pending_delete.push(*delete);
+    }
+
+    world.resource_scope::<DeletionFilter, ()>(|world, mut deletion_filter| {
+        let mut pending_delete: Vec<Entity> = Vec::new();
+        for delete in deletion_filter.pending_delete.iter() {
+            pending_delete.push(delete.element);
+        }
+        // Run through all boxed systems to filter out entities that should not
+        // be sent to delete
+        for boxed_system in deletion_filter.boxed_systems.iter_mut() {
+            if !boxed_system.initialized {
+                boxed_system.system.initialize(world);
+                boxed_system.initialized = true;
+            }
+            pending_delete = boxed_system.system.run(
+                pending_delete,
+                world
+            );
+        }
+        deletion_filter.pending_delete
+            .retain(|delete| pending_delete.iter().any(|e| *e == delete.element));
+    });
+
+    let (_, mut params, mut deletion_filter) = state.get_mut(world);
+    for delete in deletion_filter.pending_delete.iter() {
         if delete.and_dependents {
             recursive_dependent_delete(delete.element, &mut params);
         } else {
             cautious_delete(delete.element, &mut params);
         }
     }
+    deletion_filter.pending_delete.clear();
     state.apply(world);
 }
 
