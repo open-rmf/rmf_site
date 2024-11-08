@@ -48,7 +48,7 @@ impl PreventDeletion {
 
 /// This is an event used to delete site elements. Deleting the element is
 /// recursive, so all its children will be deleted along with it.
-#[derive(Debug, Clone, Copy, Event)]
+#[derive(Debug, Clone, Copy, Eq, Event, Hash, PartialEq)]
 pub struct Delete {
     pub element: Entity,
     /// If this is true, all dependents of the element or any of its children
@@ -116,12 +116,12 @@ impl Plugin for DeletionPlugin {
 }
 
 pub struct DeletionBox {
-    system: BoxedSystem<Vec<Entity>, Vec<Entity>>,
+    system: BoxedSystem<HashSet<Entity>, HashSet<Entity>>,
     initialized: bool,
 }
 
 impl DeletionBox {
-    pub fn new(system: BoxedSystem<Vec<Entity>, Vec<Entity>>) -> Self {
+    pub fn new(system: BoxedSystem<HashSet<Entity>, HashSet<Entity>>) -> Self {
         Self {
             system: system,
             initialized: false
@@ -132,7 +132,7 @@ impl DeletionBox {
 #[derive(Default, Resource)]
 pub struct DeletionFilter {
     boxed_systems: Vec<DeletionBox>,
-    pending_delete: Vec<Delete>,
+    pending_delete: HashSet<Delete>,
 }
 
 fn handle_deletion_requests(
@@ -144,14 +144,17 @@ fn handle_deletion_requests(
     )>,
 ) {
     let (mut deletions, _, mut deletion_filter) = state.get_mut(world);
+    if deletions.is_empty() {
+        return;
+    }
     for delete in deletions.read() {
-        deletion_filter.pending_delete.push(*delete);
+        deletion_filter.pending_delete.insert(*delete);
     }
 
     world.resource_scope::<DeletionFilter, ()>(|world, mut deletion_filter| {
-        let mut pending_delete: Vec<Entity> = Vec::new();
+        let mut pending_delete: HashSet<Entity> = HashSet::new();
         for delete in deletion_filter.pending_delete.iter() {
-            pending_delete.push(delete.element);
+            pending_delete.insert(delete.element);
         }
         // Run through all boxed systems to filter out entities that should not
         // be sent to delete
@@ -166,7 +169,7 @@ fn handle_deletion_requests(
             );
         }
         deletion_filter.pending_delete
-            .retain(|delete| pending_delete.iter().any(|e| *e == delete.element));
+            .retain(|delete| pending_delete.contains(&delete.element));
     });
 
     let (_, mut params, mut deletion_filter) = state.get_mut(world);
