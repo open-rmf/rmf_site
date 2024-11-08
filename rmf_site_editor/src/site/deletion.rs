@@ -50,7 +50,7 @@ impl PreventDeletion {
 
 /// This is an event used to delete site elements. Deleting the element is
 /// recursive, so all its children will be deleted along with it.
-#[derive(Debug, Clone, Copy, Event, Eq, Hash, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, Event, Hash, PartialEq)]
 pub struct Delete {
     pub element: Entity,
     /// If this is true, all dependents of the element or any of its children
