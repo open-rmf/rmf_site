@@ -19,14 +19,14 @@ use crate::{
     interaction::{Select, Selection},
     log::Log,
     site::{
-        Category, ChangeCurrentScenario, CurrentLevel, CurrentScenario, Dependents,
-        LevelElevation, LevelProperties, NameInSite, Scenario, SiteUpdateSet,
+        Category, CurrentLevel, Dependents, LevelElevation, LevelProperties,
+        NameInSite, SiteUpdateSet,
     },
     AppState, Issue,
 };
 use bevy::{ecs::system::{BoxedSystem, SystemParam, SystemState}, prelude::*};
 use rmf_site_format::{
-    Affiliation, ConstraintDependents, Edge, Group, InstanceMarker, MeshConstraint, Path, Point,
+    ConstraintDependents, Edge, MeshConstraint, Path, Point,
 };
 use std::collections::HashSet;
 
@@ -84,7 +84,6 @@ struct DeletionParams<'w, 's> {
     edges: Query<'w, 's, &'static Edge<Entity>>,
     points: Query<'w, 's, &'static Point<Entity>>,
     paths: Query<'w, 's, &'static Path<Entity>>,
-    instances: Query<'w, 's, &'static Affiliation<Entity>, With<InstanceMarker>>,
     parents: Query<'w, 's, &'static mut Parent>,
     dependents: Query<'w, 's, &'static mut Dependents>,
     constraint_dependents: Query<'w, 's, &'static mut ConstraintDependents>,
@@ -106,7 +105,6 @@ impl Plugin for DeletionPlugin {
             First,
             (SiteUpdateSet::Deletion, SiteUpdateSet::DeletionFlush).chain(),
         )
-        .add_systems(Startup, setup_deletion_filter)
         .add_systems(First, apply_deferred.in_set(SiteUpdateSet::DeletionFlush))
         .add_event::<Delete>()
         .init_resource::<DeletionFilters>()
@@ -156,12 +154,6 @@ impl DeletionFilters {
     }
 }
 
-fn setup_deletion_filter(mut deletion_filter: ResMut<DeletionFilter>) {
-    deletion_filter.boxed_systems.push(
-        DeletionBox::new(Box::new(IntoSystem::into_system(filter_instance_deletion)))
-    );
-}
-
 fn handle_deletion_requests(
     world: &mut World,
     state: &mut SystemState<(
@@ -187,6 +179,9 @@ fn handle_deletion_requests(
 
     let (_, mut params) = state.get_mut(world);
     for delete in pending_delete.iter() {
+        if **params.selection == Some(delete.element) {
+            params.select.send(Select(None));
+        }
         if delete.and_dependents {
             recursive_dependent_delete(delete.element, &mut params);
         } else {
@@ -447,56 +442,4 @@ fn perform_deletions(all_to_delete: HashSet<Entity>, params: &mut DeletionParams
         // TODO(MXG): Replace this with a move to the trash bin group.
         params.commands.entity(e).despawn();
     }
-}
-
-/// Handle requests to remove model instances. If an instance was added in this scenario, or if
-/// the scenario is root, the InstanceMarker is removed, allowing it to be permanently deleted.
-/// Otherwise, it is only temporarily removed.
-fn filter_instance_deletion(
-    In(mut input): In<HashSet<Entity>>,
-    mut deletion_params: DeletionParams,
-    mut scenarios: Query<&mut Scenario<Entity>>,
-    current_scenario: ResMut<CurrentScenario>,
-    mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
-) -> HashSet<Entity> {
-    let Some(current_scenario_entity) = current_scenario.0 else {
-        return input;
-    };
-
-    let mut remove_only: HashSet<Entity> = HashSet::new();
-    for removal in input.iter() {
-        if let Ok(_) = deletion_params.instances.get(*removal) {
-            if **deletion_params.selection == Some(*removal) {
-                deletion_params.select.send(Select(None));
-            }
-            // Filter out
-            if let Ok(mut current_scenario) = scenarios.get_mut(current_scenario_entity) {
-                // Delete if root scenario
-                if current_scenario.parent_scenario.0.is_none() {
-                    current_scenario
-                        .added_instances
-                        .retain(|(e, _)| *e != *removal);
-                    continue;
-                }
-                // Delete if added in this scenario
-                if let Some(added_id) = current_scenario
-                    .added_instances
-                    .iter()
-                    .position(|(e, _)| *e == *removal)
-                {
-                    current_scenario.added_instances.remove(added_id);
-                    continue;
-                }
-                // Otherwise, remove only
-                current_scenario
-                    .moved_instances
-                    .retain(|(e, _)| *e != *removal);
-                current_scenario.removed_instances.push(*removal);
-                change_current_scenario.send(ChangeCurrentScenario(current_scenario_entity));
-                remove_only.insert(*removal);
-            }
-        }
-    }
-    input.retain(|e| !remove_only.contains(e));
-    input
 }

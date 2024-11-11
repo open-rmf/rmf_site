@@ -18,13 +18,14 @@
 use crate::{
     interaction::Selection,
     site::{
-        CurrentScenario, Delete, Dependents, InstanceMarker, Pending, Pose, Scenario,
-        ScenarioBundle, ScenarioMarker, SiteParent,
+        CurrentScenario, Delete, DeletionBox, DeletionFilters, Dependents,
+        InstanceMarker, Pending, Pose, Scenario, ScenarioBundle, ScenarioMarker, SiteParent,
     },
     CurrentWorkspace,
 };
 use bevy::prelude::*;
-use std::collections::HashMap;
+use rmf_site_format::Affiliation;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, Copy, Debug, Event)]
 pub struct ChangeCurrentScenario(pub Entity);
@@ -241,4 +242,58 @@ pub fn handle_remove_scenarios(
         }
         delete.send(Delete::new(request.0).and_dependents());
     }
+}
+
+pub fn setup_instance_deletion_filter(mut deletion_filter: ResMut<DeletionFilters>) {
+    deletion_filter.insert(
+        DeletionBox(Box::new(IntoSystem::into_system(filter_instance_deletion)))
+    );
+}
+
+/// Handle requests to remove model instances. If an instance was added in this scenario, or if
+/// the scenario is root, the InstanceMarker is removed, allowing it to be permanently deleted.
+/// Otherwise, it is only temporarily removed.
+fn filter_instance_deletion(
+    In(mut input): In<HashSet<Delete>>,
+    mut scenarios: Query<&mut Scenario<Entity>>,
+    current_scenario: ResMut<CurrentScenario>,
+    mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
+    model_instance: Query<&Affiliation<Entity>, With<InstanceMarker>>,
+) -> HashSet<Delete> {
+    let Some(current_scenario_entity) = current_scenario.0 else {
+        return input;
+    };
+
+    let mut remove_only: HashSet<Delete> = HashSet::new();
+    for removal in input.iter() {
+        if let Ok(_) = model_instance.get(removal.element) {
+            if let Ok(mut current_scenario) = scenarios.get_mut(current_scenario_entity) {
+                // Delete if root scenario
+                if current_scenario.parent_scenario.0.is_none() {
+                    current_scenario
+                        .added_instances
+                        .retain(|(e, _)| *e != removal.element);
+                    continue;
+                }
+                // Delete if added in this scenario
+                if let Some(added_id) = current_scenario
+                    .added_instances
+                    .iter()
+                    .position(|(e, _)| *e == removal.element)
+                {
+                    current_scenario.added_instances.remove(added_id);
+                    continue;
+                }
+                // Otherwise, remove only
+                current_scenario
+                    .moved_instances
+                    .retain(|(e, _)| *e != removal.element);
+                current_scenario.removed_instances.push(removal.element);
+                change_current_scenario.send(ChangeCurrentScenario(current_scenario_entity));
+                remove_only.insert(*removal);
+            }
+        }
+    }
+    input.retain(|delete| !remove_only.contains(delete));
+    input
 }
