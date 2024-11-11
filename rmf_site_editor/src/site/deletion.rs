@@ -105,7 +105,7 @@ impl Plugin for DeletionPlugin {
         )
         .add_systems(First, apply_deferred.in_set(SiteUpdateSet::DeletionFlush))
         .add_event::<Delete>()
-        .init_resource::<DeletionFilter>()
+        .init_resource::<DeletionFilters>()
         .add_systems(
             First,
             handle_deletion_requests
@@ -115,24 +115,41 @@ impl Plugin for DeletionPlugin {
     }
 }
 
-pub struct DeletionBox {
-    system: BoxedSystem<HashSet<Entity>, HashSet<Entity>>,
-    initialized: bool,
-}
-
-impl DeletionBox {
-    pub fn new(system: BoxedSystem<HashSet<Entity>, HashSet<Entity>>) -> Self {
-        Self {
-            system: system,
-            initialized: false
-        }
-    }
-}
+#[derive(Deref, DerefMut)]
+pub struct DeletionBox(pub BoxedSystem<HashSet<Delete>, HashSet<Delete>>);
 
 #[derive(Default, Resource)]
-pub struct DeletionFilter {
+pub struct DeletionFilters {
     boxed_systems: Vec<DeletionBox>,
-    pending_delete: HashSet<Delete>,
+    pending_insertion: Vec<DeletionBox>,
+}
+
+impl DeletionFilters {
+    pub fn insert(&mut self, filter: DeletionBox) {
+        self.pending_insertion.push(filter);
+    }
+
+    fn insert_boxes(&mut self, world: &mut World) {
+        while !self.pending_insertion.is_empty() {
+            let mut inserted = self.pending_insertion.pop().unwrap();
+            inserted.initialize(world);
+            self.boxed_systems.push(inserted);
+        }
+    }
+
+    fn run_boxes(
+        &mut self,
+        mut pending_delete: HashSet<Delete>,
+        world: &mut World
+    ) -> HashSet<Delete> {
+        for boxed_system in self.boxed_systems.iter_mut() {
+            pending_delete = boxed_system.0.run(
+                pending_delete,
+                world
+            );
+        }
+        pending_delete
+    }
 }
 
 fn handle_deletion_requests(
@@ -140,47 +157,32 @@ fn handle_deletion_requests(
     state: &mut SystemState<(
         EventReader<Delete>,
         DeletionParams,
-        ResMut<DeletionFilter>,
     )>,
 ) {
-    let (mut deletions, _, mut deletion_filter) = state.get_mut(world);
+    let (mut deletions, _) = state.get_mut(world);
     if deletions.is_empty() {
         return;
     }
+    let mut pending_delete: HashSet<Delete> = HashSet::new();
     for delete in deletions.read() {
-        deletion_filter.pending_delete.insert(*delete);
+        pending_delete.insert(*delete);
     }
 
-    world.resource_scope::<DeletionFilter, ()>(|world, mut deletion_filter| {
-        let mut pending_delete: HashSet<Entity> = HashSet::new();
-        for delete in deletion_filter.pending_delete.iter() {
-            pending_delete.insert(delete.element);
-        }
+    world.resource_scope::<DeletionFilters, ()>(|world, mut deletion_filters| {
+        deletion_filters.insert_boxes(world);
         // Run through all boxed systems to filter out entities that should not
         // be sent to delete
-        for boxed_system in deletion_filter.boxed_systems.iter_mut() {
-            if !boxed_system.initialized {
-                boxed_system.system.initialize(world);
-                boxed_system.initialized = true;
-            }
-            pending_delete = boxed_system.system.run(
-                pending_delete,
-                world
-            );
-        }
-        deletion_filter.pending_delete
-            .retain(|delete| pending_delete.contains(&delete.element));
+        pending_delete = deletion_filters.run_boxes(pending_delete.clone(), world);
     });
 
-    let (_, mut params, mut deletion_filter) = state.get_mut(world);
-    for delete in deletion_filter.pending_delete.iter() {
+    let (_, mut params) = state.get_mut(world);
+    for delete in pending_delete.iter() {
         if delete.and_dependents {
             recursive_dependent_delete(delete.element, &mut params);
         } else {
             cautious_delete(delete.element, &mut params);
         }
     }
-    deletion_filter.pending_delete.clear();
     state.apply(world);
 }
 
