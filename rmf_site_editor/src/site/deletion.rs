@@ -26,7 +26,7 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{
-    Affiliation, ConstraintDependents, Edge, Group, InstanceMarker, MeshConstraint, Path, Point,
+    Affiliation, ConstraintDependents, Edge, InstanceMarker, MeshConstraint, Path, Point,
 };
 use std::collections::HashSet;
 

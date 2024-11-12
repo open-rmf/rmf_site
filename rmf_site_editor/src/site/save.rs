@@ -110,7 +110,6 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
                     With<LightKind>,
                     With<ModelMarker>,
                     With<PhysicalCameraProperties>,
-                    With<ScenarioMarker>,
                     With<WallMarker>,
                 )>,
                 Without<Pending>,
@@ -192,9 +191,9 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
 
                         if drawings.contains(*child) {
                             if let Ok(drawing_children) = children.get(*child) {
-                                for child in drawing_children {
-                                    if !site_ids.contains(*child) {
-                                        new_entities.push(*child);
+                                for drawing_child in drawing_children {
+                                    if !site_ids.contains(*drawing_child) {
+                                        new_entities.push(*drawing_child);
                                     }
                                 }
                             }
@@ -1309,9 +1308,8 @@ fn generate_scenarios(
         Query<(Entity, &NameInSite, &SiteID, &Scenario<Entity>), With<ScenarioMarker>>,
         Query<&SiteID, With<InstanceMarker>>,
         Query<&Children>,
-        Query<&Parent>,
     )> = SystemState::new(world);
-    let (scenarios, instances, children, parent) = state.get(world);
+    let (scenarios, instances, children) = state.get(world);
     let mut res = BTreeMap::<u32, ScenarioBundle<u32>>::new();
 
     if let Ok(site_children) = children.get(site) {

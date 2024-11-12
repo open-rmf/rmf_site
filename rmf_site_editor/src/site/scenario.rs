@@ -243,6 +243,7 @@ pub fn handle_remove_scenarios(
     }
 }
 
+// TODO(@xiyuoh) Replace this with a filter boxed system
 #[derive(Debug, Clone, Copy, Event)]
 pub struct RemoveInstance(pub Entity);
 

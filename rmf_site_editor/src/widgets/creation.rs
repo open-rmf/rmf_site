@@ -30,7 +30,7 @@ use bevy_egui::egui::{CollapsingHeader, ComboBox, Grid, Ui};
 
 use rmf_site_format::{
     Affiliation, DrawingProperties, Geometry, Group, IsStatic, ModelDescriptionBundle,
-    ModelInstance, ModelMarker, ModelProperty, NameInSite, SiteID, WorkcellModel,
+    ModelInstance, ModelMarker, ModelProperty, NameInSite, WorkcellModel,
 };
 
 /// This widget provides a widget with buttons for creating new site elements.
@@ -425,21 +425,6 @@ impl CreationData {
 struct PendingDrawing {
     pub source: AssetSource,
     pub recall_source: RecallAssetSource,
-}
-
-#[derive(Clone)]
-struct PendingModelInstance {
-    pub description_entity: Option<Entity>,
-    pub instance_name: String,
-}
-
-impl Default for PendingModelInstance {
-    fn default() -> Self {
-        Self {
-            description_entity: None,
-            instance_name: "<Unnamed Instance>".to_string(),
-        }
-    }
 }
 
 #[derive(Clone)]

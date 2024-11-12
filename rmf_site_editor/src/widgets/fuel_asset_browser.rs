@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    interaction::{ModelPreviewCamera, ObjectPlacement, Selection},
+    interaction::ModelPreviewCamera,
     site::{
         AssetSource, CurrentLevel, FuelClient, Model, ModelDescriptionBundle,
         ModelProperty, NameInSite, Scale, SetFuelApiKey, UpdateFuelCache,
@@ -81,9 +81,7 @@ pub struct FuelAssetBrowser<'w, 's> {
     update_cache: EventWriter<'w, UpdateFuelCache>,
     set_api_key: EventWriter<'w, SetFuelApiKey>,
     commands: Commands<'w, 's>,
-    place_object: ObjectPlacement<'w, 's>,
     current_workspace: Res<'w, CurrentWorkspace>,
-    current_selection: Res<'w, Selection>,
     current_level: Res<'w, CurrentLevel>,
     app_state: Res<'w, State<AppState>>,
 }

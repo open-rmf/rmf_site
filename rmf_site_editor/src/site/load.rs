@@ -17,10 +17,7 @@
 
 use crate::{recency::RecencyRanking, site::*, WorkspaceMarker};
 use bevy::{ecs::system::SystemParam, prelude::*};
-use std::{
-    collections::{HashMap, HashSet},
-    path::PathBuf,
-};
+use std::{collections::{HashMap, HashSet}, path::PathBuf};
 use thiserror::Error as ThisError;
 
 /// This component is given to the site to keep track of what file it should be
