@@ -24,7 +24,10 @@ use crate::{
     },
     AppState, Issue,
 };
-use bevy::{ecs::system::{BoxedSystem, SystemParam, SystemState}, prelude::*};
+use bevy::{
+    ecs::system::{BoxedSystem, SystemParam, SystemState},
+    prelude::*,
+};
 use rmf_site_format::{ConstraintDependents, Edge, MeshConstraint, Path, Point};
 use std::collections::HashSet;
 
@@ -140,13 +143,10 @@ impl DeletionFilters {
     fn run_boxes(
         &mut self,
         mut pending_delete: HashSet<Delete>,
-        world: &mut World
+        world: &mut World,
     ) -> HashSet<Delete> {
         for boxed_system in self.boxed_systems.iter_mut() {
-            pending_delete = boxed_system.0.run(
-                pending_delete,
-                world
-            );
+            pending_delete = boxed_system.0.run(pending_delete, world);
         }
         pending_delete
     }
@@ -154,10 +154,7 @@ impl DeletionFilters {
 
 fn handle_deletion_requests(
     world: &mut World,
-    state: &mut SystemState<(
-        EventReader<Delete>,
-        DeletionParams,
-    )>,
+    state: &mut SystemState<(EventReader<Delete>, DeletionParams)>,
 ) {
     let (mut deletions, _) = state.get_mut(world);
     if deletions.is_empty() {
