@@ -17,7 +17,10 @@
 
 use crate::{recency::RecencyRanking, site::*, WorkspaceMarker};
 use bevy::{ecs::system::SystemParam, prelude::*};
-use std::{collections::{HashMap, HashSet}, path::PathBuf};
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+};
 use thiserror::Error as ThisError;
 
 /// This component is given to the site to keep track of what file it should be
@@ -257,7 +260,9 @@ fn generate_site_entities(
     }
 
     for (model_instance_id, model_instance_data) in &site_data.model_instances {
-        let model_instance = model_instance_data.convert(&id_to_entity).for_site(site_id)?;
+        let model_instance = model_instance_data
+            .convert(&id_to_entity)
+            .for_site(site_id)?;
         let model_instance_entity = commands
             .spawn(model_instance.clone())
             .insert(SiteID(*model_instance_id))
@@ -286,7 +291,9 @@ fn generate_site_entities(
             Some(parent_id) => *id_to_entity.get(&parent_id).unwrap_or(&site_id),
             None => site_id,
         };
-        let scenario_bundle = scenario_bundle_data.convert(&id_to_entity).for_site(site_id)?;
+        let scenario_bundle = scenario_bundle_data
+            .convert(&id_to_entity)
+            .for_site(site_id)?;
         let scenario_entity = commands
             .spawn(scenario_bundle.clone())
             .insert(SiteID(*scenario_id))

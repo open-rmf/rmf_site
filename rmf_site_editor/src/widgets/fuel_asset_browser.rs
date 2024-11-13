@@ -18,8 +18,8 @@
 use crate::{
     interaction::ModelPreviewCamera,
     site::{
-        AssetSource, Category, CurrentLevel, FuelClient, ModelDescriptionBundle,
-        ModelProperty, NameInSite, SetFuelApiKey, UpdateFuelCache,
+        AssetSource, Category, CurrentLevel, FuelClient, ModelDescriptionBundle, ModelProperty,
+        NameInSite, SetFuelApiKey, UpdateFuelCache,
     },
     widgets::prelude::*,
     AppState, CurrentWorkspace,

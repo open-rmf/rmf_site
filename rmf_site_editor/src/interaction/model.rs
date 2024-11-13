@@ -49,15 +49,21 @@ pub fn update_model_instance_visual_cues(
                 model_descriptions.get(description_entity)
             {
                 if description_selected.cue() {
-                    instance_selected.support_selected.insert(description_entity);
+                    instance_selected
+                        .support_selected
+                        .insert(description_entity);
                     is_description_selected = true;
                 } else {
-                    instance_selected.support_selected.remove(&description_entity);
+                    instance_selected
+                        .support_selected
+                        .remove(&description_entity);
                 }
                 if description_hovered.cue() {
                     instance_hovered.support_hovering.insert(description_entity);
                 } else {
-                    instance_hovered.support_hovering.remove(&description_entity);
+                    instance_hovered
+                        .support_hovering
+                        .remove(&description_entity);
                 }
             }
         }

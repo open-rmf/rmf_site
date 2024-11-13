@@ -18,9 +18,8 @@
 use crate::{
     interaction::{DragPlaneBundle, Preview, Selectable, MODEL_PREVIEW_LAYER},
     site::{
-        Affiliation, AssetSource, Category, CurrentLevel, Dependents, Group,
-        ModelMarker, ModelProperty, NameInSite, Pending, Pose, PreventDeletion,
-        Scale, SiteAssets, SiteParent,
+        Affiliation, AssetSource, Category, CurrentLevel, Dependents, Group, ModelMarker,
+        ModelProperty, NameInSite, Pending, Pose, PreventDeletion, Scale, SiteAssets, SiteParent,
     },
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
 };

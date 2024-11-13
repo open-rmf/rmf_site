@@ -19,8 +19,8 @@ use crate::{
     inspector::{InspectAssetSourceComponent, InspectScaleComponent},
     interaction::{AnchorSelection, ObjectPlacement, PlaceableObject, Selection},
     site::{
-        AssetSource, Category, CurrentLevel, DefaultFile, DrawingBundle, Recall,
-        RecallAssetSource, Scale
+        AssetSource, Category, CurrentLevel, DefaultFile, DrawingBundle, Recall, RecallAssetSource,
+        Scale,
     },
     widgets::{prelude::*, AssetGalleryStatus},
     AppState, CurrentWorkspace,
@@ -346,12 +346,13 @@ impl<'w, 's> Creation<'w, 's> {
                                     },
                                     ..default()
                                 };
-                                let object = PlaceableObject::VisualMesh(
-                                    workcell_model,
-                                );
+                                let object = PlaceableObject::VisualMesh(workcell_model);
                                 if let Some(workspace) = self.current_workspace.root {
-                                    self.object_placement
-                                        .place_object_3d(object, self.selection.0, workspace);
+                                    self.object_placement.place_object_3d(
+                                        object,
+                                        self.selection.0,
+                                        workspace,
+                                    );
                                 } else {
                                     warn!("Unable to create [{object:?}] outside of a workspace");
                                 }
@@ -364,9 +365,7 @@ impl<'w, 's> Creation<'w, 's> {
                                     },
                                     ..default()
                                 };
-                                self.place_object(PlaceableObject::CollisionMesh(
-                                    workcell_model,
-                                ));
+                                self.place_object(PlaceableObject::CollisionMesh(workcell_model));
                             }
                             ui.add_space(10.0);
                         }
@@ -413,11 +412,7 @@ impl CreationData {
     }
 
     fn string_values() -> Vec<&'static str> {
-        vec![
-            "Site Object",
-            "Drawing",
-            "Model Description",
-        ]
+        vec!["Site Object", "Drawing", "Model Description"]
     }
 }
 
