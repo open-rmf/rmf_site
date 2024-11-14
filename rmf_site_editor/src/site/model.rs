@@ -262,6 +262,9 @@ fn handle_model_loading(
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash, DeliveryLabel)]
+struct SpawnModelLabel(Entity);
+
 impl Command for ModelLoadingRequest {
     fn apply(self, world: &mut World) {
         let services = world.get_resource::<ModelLoadingServices>()
@@ -269,7 +272,9 @@ impl Command for ModelLoadingRequest {
         let load_model = services.load_model.clone();
         world.command(|commands| {
             let e = self.parent;
-            let promise = commands.request(self, load_model).take_response();
+            let promise = commands
+                .request(self, load_model.instruct(SpawnModelLabel(e).preempt()))
+                .take_response();
             commands.entity(e).insert(ModelLoadingState(promise));
         });
     }
