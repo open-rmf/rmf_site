@@ -133,8 +133,7 @@ impl DeletionFilters {
     }
 
     fn insert_boxes(&mut self, world: &mut World) {
-        while !self.pending_insertion.is_empty() {
-            let mut inserted = self.pending_insertion.pop().unwrap();
+        for mut inserted in self.pending_insertion.drain(..) {
             inserted.initialize(world);
             self.boxed_systems.push(inserted);
         }
@@ -165,12 +164,13 @@ fn handle_deletion_requests(
         pending_delete.insert(*delete);
     }
 
-    world.resource_scope::<DeletionFilters, ()>(|world, mut deletion_filters| {
-        deletion_filters.insert_boxes(world);
-        // Run through all boxed systems to filter out entities that should not
-        // be sent to delete
-        pending_delete = deletion_filters.run_boxes(pending_delete.clone(), world);
-    });
+    pending_delete =
+        world.resource_scope::<DeletionFilters, _>(move |world, mut deletion_filters| {
+            deletion_filters.insert_boxes(world);
+            // Run through all boxed systems to filter out entities that should not
+            // be sent to delete
+            deletion_filters.run_boxes(pending_delete, world)
+        });
 
     let (_, mut params) = state.get_mut(world);
     for delete in pending_delete.iter() {
