@@ -86,11 +86,8 @@ impl Plugin for ModelLoadingPlugin {
 fn check_scenes_are_spawned(
     In(ContinuousService { key }): ContinuousServiceInput<Entity, Entity>,
     mut orders: ContinuousQuery<Entity, Entity>,
-    instance_ids: Query<(), With<SceneInstance>>,
-    // We use having children as a proxy for scene having been spawned, alternatives are fairly
-    // complex (i.e. reading the instance_is_ready API needs the InstanceId that is private, the
-    // SceneInstanceReady event needs access to the parent entity that we would need in a Local
-    children: Query<(), With<Children>>,
+    instance_ids: Query<&SceneInstance>,
+    scene_spawner: Res<SceneSpawner>,
 ) {
     let Some(mut orders) = orders.get_mut(&key) else {
         return;
@@ -98,8 +95,11 @@ fn check_scenes_are_spawned(
 
     orders.for_each(|order| {
         let req = order.request().clone();
-        // Make sure the entity has a `SceneInstance` component that marks it as spawned
-        if instance_ids.get(req).is_ok() && children.get(req).is_ok() {
+        // Make sure the instance is ready
+        if instance_ids
+            .get(req)
+            .is_ok_and(|id| scene_spawner.instance_is_ready(**id))
+        {
             order.respond(req);
         }
     })
