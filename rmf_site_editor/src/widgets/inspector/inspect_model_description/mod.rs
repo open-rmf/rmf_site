@@ -372,7 +372,7 @@ impl<'w, 's> InspectSelectedModelDescription<'w, 's> {
             .get(current_description_entity)
             .unwrap();
 
-        if self.model_descriptions.get(id).is_ok() {
+        if !self.model_instances.get(id).is_ok() {
             return;
         }
 
