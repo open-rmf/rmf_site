@@ -35,7 +35,7 @@ use thiserror::Error;
 #[derive(Component, Debug, Clone)]
 pub struct ModelScene {
     source: AssetSource,
-    entity: Entity,
+    scene_root: Entity,
 }
 
 /// For a given `AssetSource`, return all the sources that we should try loading.
@@ -171,7 +171,7 @@ pub fn spawn_scene_for_loaded_model(
         .entity_mut(parent)
         .insert(ModelScene {
             source: source,
-            entity: model_id,
+            scene_root: model_id,
         })
         .add_child(model_id);
     if world.get::<Visibility>(parent).is_none() {
@@ -195,7 +195,7 @@ pub fn despawn_if_asset_source_changed(
     if scene.source == source {
         return false;
     }
-    commands.entity(scene.entity).despawn_recursive();
+    commands.entity(scene.scene_root).despawn_recursive();
     commands.entity(e).remove::<ModelScene>();
     true
 }
@@ -295,7 +295,7 @@ pub fn maintain_model_loading_states(
             if let Some(err) = result.err().flatten() {
                 // Cleanup the scene
                 if let Some(scene) = scene_opt {
-                    commands.entity(scene.entity).despawn_recursive();
+                    commands.entity(scene.scene_root).despawn_recursive();
                     commands.entity(e).remove::<ModelScene>();
                 }
                 error!("{err}");
@@ -473,7 +473,7 @@ pub fn update_model_scales(
     mut transforms: Query<&mut Transform>,
 ) {
     for (scale, scene) in changed_scales.iter() {
-        if let Ok(mut tf) = transforms.get_mut(scene.entity) {
+        if let Ok(mut tf) = transforms.get_mut(scene.scene_root) {
             tf.scale = **scale;
         }
     }
