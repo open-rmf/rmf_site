@@ -18,8 +18,8 @@
 use crate::{
     interaction::select::*,
     site::{
-        Anchor, AnchorBundle, Dependents, FrameMarker, ModelInstance, NameInSite, NameInWorkcell, Pending,
-        SiteID, WorkcellModel,
+        Anchor, AnchorBundle, Dependents, FrameMarker, ModelInstance, NameInSite, NameInWorkcell,
+        Pending, SiteID, WorkcellModel,
     },
     widgets::canvas_tooltips::CanvasTooltips,
 };

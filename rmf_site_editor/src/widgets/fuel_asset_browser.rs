@@ -16,10 +16,10 @@
 */
 
 use crate::{
-    interaction::{ModelPreviewCamera, ObjectPlacement, Selection},
+    interaction::ModelPreviewCamera,
     site::{
-        AssetSource, CurrentLevel, FuelClient, Model, ModelDescriptionBundle,
-        ModelProperty, NameInSite, Scale, SetFuelApiKey, UpdateFuelCache,
+        AssetSource, Category, CurrentLevel, FuelClient, ModelDescriptionBundle, ModelProperty,
+        NameInSite, SetFuelApiKey, UpdateFuelCache,
     },
     widgets::prelude::*,
     AppState, CurrentWorkspace,
@@ -27,6 +27,7 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{self, Button, ComboBox, ImageSource, RichText, ScrollArea, Ui, Window};
 use gz_fuel::FuelModel;
+use rmf_site_format::{Group, Model, ModelMarker};
 
 /// Add a [`FuelAssetBrowser`] widget to your application.
 #[derive(Default)]
@@ -81,9 +82,7 @@ pub struct FuelAssetBrowser<'w, 's> {
     update_cache: EventWriter<'w, UpdateFuelCache>,
     set_api_key: EventWriter<'w, SetFuelApiKey>,
     commands: Commands<'w, 's>,
-    place_object: ObjectPlacement<'w, 's>,
     current_workspace: Res<'w, CurrentWorkspace>,
-    current_selection: Res<'w, Selection>,
     current_level: Res<'w, CurrentLevel>,
     app_state: Res<'w, State<AppState>>,
 }
@@ -282,7 +281,8 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                             source: ModelProperty(AssetSource::Remote(
                                 selected.owner.clone() + "/" + &selected.name + "/model.sdf",
                             )),
-                            scale: ModelProperty(Scale::default()),
+                            group: Group,
+                            marker: ModelMarker,
                             ..Default::default()
                         };
 
@@ -291,6 +291,7 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                                 if let Some(level) = self.current_level.0 {
                                     self.commands
                                         .spawn(model_description)
+                                        .insert(Category::ModelDescription)
                                         .set_parent(level);
                                 } else {
                                     warn!("Cannot spawn a model outside of a workspace");
@@ -300,6 +301,7 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                                 if let Some(workspace) = self.current_workspace.root {
                                     self.commands
                                         .spawn(model_description)
+                                        .insert(Category::ModelDescription)
                                         .set_parent(workspace);
                                 } else {
                                     warn!("Cannot spawn a model outside of a workspace");

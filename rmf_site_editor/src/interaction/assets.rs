@@ -55,7 +55,7 @@ impl InteractionAssets {
         // The arrows should originate in the mesh origin
         let pos = Vec3::splat(0.0);
         let rot_x = Quat::from_rotation_y(90_f32.to_radians());
-        let rot_y = Quat::from_rotation_x((-90_f32).to_radians());
+        let rot_y = Quat::from_rotation_x(-90_f32.to_radians());
         let rot_z = Quat::default();
         let x_mat = self.x_axis_materials.clone();
         let y_mat = self.y_axis_materials.clone();
@@ -145,12 +145,12 @@ impl InteractionAssets {
             (
                 self.x_axis_materials.clone(),
                 Vec3::new(-offset, 0., height),
-                Quat::from_rotation_y(-(90_f32).to_radians()),
+                Quat::from_rotation_y(-90_f32.to_radians()),
             ),
             (
                 self.y_axis_materials.clone(),
                 Vec3::new(0., offset, height),
-                Quat::from_rotation_x(-(90_f32).to_radians()),
+                Quat::from_rotation_x(-90_f32.to_radians()),
             ),
             (
                 self.y_axis_materials.clone(),
@@ -190,7 +190,7 @@ impl InteractionAssets {
             (
                 self.y_axis_materials.clone(),
                 Vec3::new(0., offset, 0.),
-                Quat::from_rotation_x(-(90_f32).to_radians()),
+                Quat::from_rotation_x(-90_f32.to_radians()),
             ),
             (
                 self.z_axis_materials.clone(),

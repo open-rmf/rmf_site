@@ -18,8 +18,8 @@
 use crate::{
     interaction::Selection,
     site::{
-        CurrentScenario, Delete, DeletionBox, DeletionFilters, Dependents,
-        InstanceMarker, Pending, Pose, Scenario, ScenarioBundle, ScenarioMarker, SiteParent,
+        CurrentScenario, Delete, DeletionBox, DeletionFilters, Dependents, InstanceMarker, Pending,
+        Pose, Scenario, ScenarioBundle, ScenarioMarker, SiteParent,
     },
     CurrentWorkspace,
 };
@@ -245,9 +245,9 @@ pub fn handle_remove_scenarios(
 }
 
 pub fn setup_instance_deletion_filter(mut deletion_filter: ResMut<DeletionFilters>) {
-    deletion_filter.insert(
-        DeletionBox(Box::new(IntoSystem::into_system(filter_instance_deletion)))
-    );
+    deletion_filter.insert(DeletionBox(Box::new(IntoSystem::into_system(
+        filter_instance_deletion,
+    ))));
 }
 
 /// Handle requests to remove model instances. If an instance was added in this scenario, or if

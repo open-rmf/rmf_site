@@ -18,8 +18,8 @@
 use crate::{
     interaction::ObjectPlacement,
     site::{
-        Affiliation, Change, CurrentLevel, Delete, FiducialMarker, Group, MergeGroups, ModelInstance,
-        ModelMarker, NameInSite, SiteID, Texture,
+        Affiliation, Change, CurrentLevel, Delete, FiducialMarker, Group, MergeGroups,
+        ModelInstance, ModelMarker, NameInSite, SiteID, Texture,
     },
     widgets::{prelude::*, SelectorWidget},
     AppState, CurrentWorkspace, Icons,
@@ -200,9 +200,13 @@ impl<'w, 's> ViewGroups<'w, 's> {
                                     ..Default::default()
                                 };
                                 if let Some(level) = events.current_level.0 {
-                                    events.object_placement.place_object_2d(model_instance, level);
+                                    events
+                                        .object_placement
+                                        .place_object_2d(model_instance, level);
                                 } else {
-                                    warn!("Unable to create [{model_instance:?}] outside of a level");
+                                    warn!(
+                                        "Unable to create [{model_instance:?}] outside of a level"
+                                    );
                                 }
                             };
                         };

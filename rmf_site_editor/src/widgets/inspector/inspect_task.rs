@@ -17,7 +17,7 @@
 
 use crate::{
     site::{
-        update_model_instances, ChangePlugin, Group, LocationTags, MobileRobotMarker,
+        update_model_instances, ChangePlugin, GoToPlace, Group, LocationTags, MobileRobotMarker,
         ModelProperty, NameInSite, Point, Task, Tasks,
     },
     widgets::{prelude::*, Inspect, InspectionPlugin},
@@ -26,6 +26,7 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Align, Button, Color32, ComboBox, DragValue, Frame, Layout, Stroke, Ui};
 use std::any::TypeId;
+use strum::IntoEnumIterator;
 
 #[derive(Default)]
 pub struct InspectTaskPlugin {}
@@ -98,7 +99,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectTasks<'w, 's> {
                 ui.set_min_width(ui.available_width());
 
                 if tasks.0.is_empty() {
-                    ui.label("No Tasks");
+                    ui.label("No tasks");
                 } else {
                     let mut deleted_ids = Vec::new();
                     for (id, task) in tasks.0.iter_mut().enumerate() {
@@ -132,15 +133,15 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectTasks<'w, 's> {
             ComboBox::from_id_source("pending_edit_task")
                 .selected_text(params.pending_task.0.label())
                 .show_ui(ui, |ui| {
-                    for label in Task::<Entity>::labels() {
+                    for task in Task::<Entity>::iter() {
                         if ui
                             .selectable_label(
-                                label == params.pending_task.0.label(),
-                                label.to_string(),
+                                task.label() == params.pending_task.0.label(),
+                                task.label(),
                             )
                             .clicked()
                         {
-                            *params.pending_task = PendingTask(task_from_label(label));
+                            *params.pending_task = PendingTask(task);
                         }
                     }
                 });
@@ -176,7 +177,8 @@ fn edit_task_component(
                 ui.label(task.label());
 
                 match task {
-                    Task::GoToPlace { location } => {
+                    Task::GoToPlace(go_to_place) => {
+                        let location = go_to_place.location.unwrap_or(Point(Entity::PLACEHOLDER));
                         let selected_location_name = locations
                             .get(location.0)
                             .map(|(_, name, _)| name.0.clone())
@@ -190,17 +192,18 @@ fn edit_task_component(
                                         .selectable_label(location.0 == entity, name.0.clone())
                                         .clicked()
                                     {
-                                        *location = Point(entity);
+                                        go_to_place.location = Some(Point(entity));
                                     }
                                 }
                             });
                     }
-                    Task::WaitFor { duration } => {
+                    Task::WaitFor(wait_for) => {
                         ui.add(
-                            DragValue::new(duration)
+                            DragValue::new(&mut wait_for.duration)
                                 .clamp_range(0_f32..=std::f32::INFINITY)
                                 .speed(0.01),
                         );
+                        ui.label(" seconds");
                     }
                 }
 
@@ -222,9 +225,9 @@ pub struct PendingTask(Task<Entity>);
 
 impl FromWorld for PendingTask {
     fn from_world(_world: &mut World) -> Self {
-        PendingTask(Task::GoToPlace {
-            location: Point(Entity::PLACEHOLDER),
-        })
+        PendingTask(Task::GoToPlace(GoToPlace {
+            location: Some(Point(Entity::PLACEHOLDER)),
+        }))
     }
 }
 
@@ -252,18 +255,13 @@ fn is_task_valid(
     locations: &Query<(Entity, &NameInSite, &LocationTags)>,
 ) -> bool {
     match task {
-        Task::GoToPlace { location } => locations.get(location.0).is_ok(),
+        Task::GoToPlace(go_to_place) => {
+            if let Some(location) = go_to_place.location {
+                locations.get(location.0).is_ok()
+            } else {
+                false
+            }
+        }
         _ => true,
-    }
-}
-
-pub fn task_from_label(label: &str) -> Task<Entity> {
-    let labels = Task::<Entity>::labels();
-    match labels.iter().position(|&l| l == label) {
-        Some(0) => Task::GoToPlace {
-            location: Point(Entity::PLACEHOLDER),
-        },
-        Some(1) => Task::WaitFor { duration: 0.0 },
-        _ => Task::WaitFor { duration: 0.0 },
     }
 }

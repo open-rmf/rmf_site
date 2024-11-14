@@ -93,7 +93,7 @@ impl<'w, 's> ViewTasks<'w, 's> {
                     }
                 }
                 if total_task_count == 0 {
-                    ui.label("No Tasks");
+                    ui.label("No tasks");
                 }
             });
     }
@@ -140,33 +140,35 @@ fn show_task(
 
             // Task
             match task {
-                Task::GoToPlace { location } => {
+                Task::GoToPlace(go_to_place) => {
                     ui.horizontal(|ui| {
                         ui.label("Go To Place: ");
-                        if let Ok((entity, name, _, site_id)) = site_entities.get(location.0) {
-                            if ui
-                                .selectable_label(
-                                    selected.0.is_some_and(|s| s == entity),
-                                    format!(
-                                        "Location #{} [{}]",
-                                        site_id
-                                            .map(|id| id.to_string())
-                                            .unwrap_or("unsaved".to_string()),
-                                        name.0
+                        if let Some(location) = go_to_place.location {
+                            if let Ok((entity, name, _, site_id)) = site_entities.get(location.0) {
+                                if ui
+                                    .selectable_label(
+                                        selected.0.is_some_and(|s| s == entity),
+                                        format!(
+                                            "Location #{} [{}]",
+                                            site_id
+                                                .map(|id| id.to_string())
+                                                .unwrap_or("unsaved".to_string()),
+                                            name.0
+                                        )
+                                        .to_string(),
                                     )
-                                    .to_string(),
-                                )
-                                .clicked()
-                            {
-                                select.send(Select::new(Some(entity)));
+                                    .clicked()
+                                {
+                                    select.send(Select::new(Some(entity)));
+                                }
                             }
                         }
                     });
                 }
-                Task::WaitFor { duration } => {
+                Task::WaitFor(wait_for) => {
                     // TODO(@xiyuoh) provide selectable label for different units
                     // internal conversions
-                    ui.label(format!("Wait For: {} seconds", duration));
+                    ui.label(format!("Wait For: {} seconds", wait_for.duration));
                 }
             }
         });

@@ -24,7 +24,7 @@ use std::collections::HashMap;
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct Model {
-    /// Name of the model instance
+    /// Name of the model
     pub name: NameInSite,
     /// Where the model should be loaded from
     pub source: AssetSource,
@@ -58,10 +58,6 @@ impl Default for Model {
         }
     }
 }
-
-///
-///
-///
 
 /// Defines a property in a model description, that will be added to all instances
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
