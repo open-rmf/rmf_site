@@ -19,15 +19,16 @@ use crate::{
     interaction::{Select, Selection},
     log::Log,
     site::{
-        Category, CurrentLevel, Dependents, LevelElevation, LevelProperties,
-        NameInSite, SiteUpdateSet,
+        Category, CurrentLevel, Dependents, LevelElevation, LevelProperties, NameInSite,
+        SiteUpdateSet,
     },
     AppState, Issue,
 };
-use bevy::{ecs::system::{BoxedSystem, SystemParam, SystemState}, prelude::*};
-use rmf_site_format::{
-    ConstraintDependents, Edge, MeshConstraint, Path, Point,
+use bevy::{
+    ecs::system::{BoxedSystem, SystemParam, SystemState},
+    prelude::*,
 };
+use rmf_site_format::{ConstraintDependents, Edge, MeshConstraint, Path, Point};
 use std::collections::HashSet;
 
 // TODO(MXG): Use this module to implement the deletion buffer. The role of the
@@ -132,8 +133,7 @@ impl DeletionFilters {
     }
 
     fn insert_boxes(&mut self, world: &mut World) {
-        while !self.pending_insertion.is_empty() {
-            let mut inserted = self.pending_insertion.pop().unwrap();
+        for mut inserted in self.pending_insertion.drain(..) {
             inserted.initialize(world);
             self.boxed_systems.push(inserted);
         }
@@ -142,13 +142,10 @@ impl DeletionFilters {
     fn run_boxes(
         &mut self,
         mut pending_delete: HashSet<Delete>,
-        world: &mut World
+        world: &mut World,
     ) -> HashSet<Delete> {
         for boxed_system in self.boxed_systems.iter_mut() {
-            pending_delete = boxed_system.0.run(
-                pending_delete,
-                world
-            );
+            pending_delete = boxed_system.0.run(pending_delete, world);
         }
         pending_delete
     }
@@ -156,10 +153,7 @@ impl DeletionFilters {
 
 fn handle_deletion_requests(
     world: &mut World,
-    state: &mut SystemState<(
-        EventReader<Delete>,
-        DeletionParams,
-    )>,
+    state: &mut SystemState<(EventReader<Delete>, DeletionParams)>,
 ) {
     let (mut deletions, _) = state.get_mut(world);
     if deletions.is_empty() {
@@ -170,12 +164,13 @@ fn handle_deletion_requests(
         pending_delete.insert(*delete);
     }
 
-    world.resource_scope::<DeletionFilters, ()>(|world, mut deletion_filters| {
-        deletion_filters.insert_boxes(world);
-        // Run through all boxed systems to filter out entities that should not
-        // be sent to delete
-        pending_delete = deletion_filters.run_boxes(pending_delete.clone(), world);
-    });
+    pending_delete =
+        world.resource_scope::<DeletionFilters, _>(move |world, mut deletion_filters| {
+            deletion_filters.insert_boxes(world);
+            // Run through all boxed systems to filter out entities that should not
+            // be sent to delete
+            deletion_filters.run_boxes(pending_delete, world)
+        });
 
     let (_, mut params) = state.get_mut(world);
     for delete in pending_delete.iter() {
