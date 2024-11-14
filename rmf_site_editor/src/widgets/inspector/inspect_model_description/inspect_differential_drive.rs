@@ -63,8 +63,8 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelDifferentialDrive<'w, 's> {
 
         ui.label("Differential Drive");
         ui.indent("inspect_differential_drive_properties", |ui| {
-            Grid::new("inspect_diferential_drive_1")
-                .num_columns(2)
+            Grid::new("inspect_diferential_drive")
+                .num_columns(3)
                 .show(ui, |ui| {
                     ui.label("max velocity");
                     ui.add(
@@ -102,12 +102,8 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelDifferentialDrive<'w, 's> {
                             );
                         }
                     };
-                    ui.label("m")
-                });
+                    ui.label("m");
 
-            Grid::new("inspect_differential_drive_2")
-                .num_columns(3)
-                .show(ui, |ui| {
                     ui.label("center offset");
                     ui.label("x");
                     ui.label("y");
