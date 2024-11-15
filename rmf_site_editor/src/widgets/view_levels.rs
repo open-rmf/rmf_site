@@ -17,8 +17,8 @@
 
 use crate::{
     site::{
-        Category, Change, CurrentLevel, Delete, DrawingMarker, FloorMarker, LevelElevation,
-        LevelProperties, NameInSite,
+        Category, Change, ChangeCurrentScenario, CurrentLevel, CurrentScenario, Delete,
+        DrawingMarker, FloorMarker, LevelElevation, LevelProperties, NameInSite,
     },
     widgets::{prelude::*, Icons},
     AppState, CurrentWorkspace, RecencyRanking,
@@ -51,6 +51,8 @@ pub struct ViewLevels<'w, 's> {
     delete: EventWriter<'w, Delete>,
     commands: Commands<'w, 's>,
     app_state: Res<'w, State<AppState>>,
+    current_scenario: ResMut<'w, CurrentScenario>,
+    change_current_scenario: EventWriter<'w, ChangeCurrentScenario>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for ViewLevels<'w, 's> {
@@ -103,6 +105,12 @@ impl<'w, 's> ViewLevels<'w, 's> {
                         ))
                         .id();
                     self.current_level.0 = Some(new_level);
+                    // We trigger a ChangeCurrentScenario despite staying in the
+                    // same scenario to trigger visibility updates on all model instances
+                    if let Some(current_scenario) = self.current_scenario.0 {
+                        self.change_current_scenario
+                            .send(ChangeCurrentScenario(current_scenario));
+                    }
                 }
 
                 self.display_levels.new_elevation = show_elevation;
