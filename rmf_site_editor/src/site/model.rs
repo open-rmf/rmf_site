@@ -17,7 +17,10 @@
 
 use crate::{
     interaction::{DragPlaneBundle, Preview, Selectable, MODEL_PREVIEW_LAYER},
-    site::{Category, Dependents, PreventDeletion, SiteAssets},
+    site::{
+        Affiliation, AssetSource, Category, CurrentLevel, Dependents, Group, ModelMarker,
+        ModelProperty, NameInSite, Pending, Pose, PreventDeletion, Scale, SiteAssets, SiteParent,
+    },
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
 };
 use bevy::{
@@ -27,7 +30,6 @@ use bevy::{
     render::view::RenderLayers,
 };
 use bevy_mod_outline::OutlineMeshExt;
-use rmf_site_format::{AssetSource, ModelMarker, Pending, Pose, Scale};
 use smallvec::SmallVec;
 use std::any::TypeId;
 
@@ -541,6 +543,64 @@ pub fn propagate_model_property<Property: Component + Clone + std::fmt::Debug>(
     for c in DescendantIter::new(children, root) {
         if mesh_entities.contains(c) {
             commands.entity(c).insert(property.clone());
+        }
+    }
+}
+
+/// This system keeps model instances up to date with the properties of their affiliated descriptions
+pub fn update_model_instances<T: Component + Default + Clone>(
+    mut commands: Commands,
+    model_properties: Query<
+        (Entity, &NameInSite, Ref<ModelProperty<T>>),
+        (With<ModelMarker>, With<Group>),
+    >,
+    model_instances: Query<(Entity, Ref<Affiliation<Entity>>), (With<ModelMarker>, Without<Group>)>,
+    mut removals: RemovedComponents<ModelProperty<T>>,
+) {
+    // Removals
+    if !removals.is_empty() {
+        for description_entity in removals.read() {
+            for (instance_entity, affiliation) in model_instances.iter() {
+                if affiliation.0 == Some(description_entity) {
+                    commands.entity(instance_entity).remove::<T>();
+                }
+            }
+        }
+    }
+
+    // Changes
+    for (instance_entity, affiliation) in model_instances.iter() {
+        if let Some(description_entity) = affiliation.0 {
+            if let Ok((_, _, property)) = model_properties.get(description_entity) {
+                if property.is_changed() || affiliation.is_changed() {
+                    let mut cmd = commands.entity(instance_entity);
+                    cmd.remove::<ModelProperty<T>>();
+                    cmd.insert(property.0.clone());
+                }
+            }
+        }
+    }
+}
+
+pub fn assign_orphan_model_instances_to_level(
+    mut commands: Commands,
+    mut orphan_instances: Query<
+        (Entity, Option<&Parent>, &mut SiteParent<Entity>),
+        (With<ModelMarker>, Without<Group>),
+    >,
+    current_level: Res<CurrentLevel>,
+) {
+    let current_level = match current_level.0 {
+        Some(c) => c,
+        None => return,
+    };
+
+    for (instance_entity, parent, mut site_parent) in orphan_instances.iter_mut() {
+        if parent.is_none() {
+            commands.entity(current_level).add_child(instance_entity);
+        }
+        if site_parent.0.is_none() {
+            site_parent.0 = Some(current_level);
         }
     }
 }

@@ -19,11 +19,12 @@ use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Bundle, Component, Reflect, ReflectComponent};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct Model {
-    /// Name of the model instance
+    /// Name of the model
     pub name: NameInSite,
     /// Where the model should be loaded from
     pub source: AssetSource,
@@ -55,5 +56,65 @@ impl Default for Model {
             scale: Scale::default(),
             marker: ModelMarker,
         }
+    }
+}
+
+/// Defines a property in a model description, that will be added to all instances
+#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+pub struct ModelProperty<T: Default + Clone>(pub T);
+
+/// Bundle with all required components for a valid model description
+#[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
+pub struct ModelDescriptionBundle {
+    pub name: NameInSite,
+    pub source: ModelProperty<AssetSource>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub is_static: ModelProperty<IsStatic>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub scale: ModelProperty<Scale>,
+    #[serde(skip)]
+    pub group: Group,
+    #[serde(skip)]
+    pub marker: ModelMarker,
+}
+
+/// Bundle with all required components for a valid model instance
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
+pub struct ModelInstance<T: RefTrait> {
+    pub name: NameInSite,
+    pub pose: Pose,
+    pub parent: SiteParent<T>,
+    pub description: Affiliation<T>,
+    #[serde(skip)]
+    pub marker: ModelMarker,
+    #[serde(skip)]
+    pub instance_marker: InstanceMarker,
+}
+
+impl<T: RefTrait> Default for ModelInstance<T> {
+    fn default() -> Self {
+        Self {
+            name: NameInSite("<Unnamed>".to_string()),
+            pose: Pose::default(),
+            parent: SiteParent::default(),
+            description: Affiliation::default(),
+            marker: ModelMarker,
+            instance_marker: InstanceMarker,
+        }
+    }
+}
+
+impl<T: RefTrait> ModelInstance<T> {
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<ModelInstance<U>, T> {
+        Ok(ModelInstance {
+            name: self.name.clone(),
+            pose: self.pose.clone(),
+            parent: self.parent.convert(id_map)?,
+            description: self.description.convert(id_map)?,
+            ..Default::default()
+        })
     }
 }

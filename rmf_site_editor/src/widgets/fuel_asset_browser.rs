@@ -16,14 +16,18 @@
 */
 
 use crate::{
-    interaction::{ModelPreviewCamera, ObjectPlacement, PlaceableObject, Selection},
-    site::{AssetSource, CurrentLevel, FuelClient, Model, SetFuelApiKey, UpdateFuelCache},
+    interaction::ModelPreviewCamera,
+    site::{
+        AssetSource, Category, CurrentLevel, FuelClient, ModelDescriptionBundle, ModelProperty,
+        NameInSite, SetFuelApiKey, UpdateFuelCache,
+    },
     widgets::prelude::*,
     AppState, CurrentWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{self, Button, ComboBox, ImageSource, RichText, ScrollArea, Ui, Window};
 use gz_fuel::FuelModel;
+use rmf_site_format::{Group, Model, ModelMarker};
 
 /// Add a [`FuelAssetBrowser`] widget to your application.
 #[derive(Default)]
@@ -78,9 +82,7 @@ pub struct FuelAssetBrowser<'w, 's> {
     update_cache: EventWriter<'w, UpdateFuelCache>,
     set_api_key: EventWriter<'w, SetFuelApiKey>,
     commands: Commands<'w, 's>,
-    place_object: ObjectPlacement<'w, 's>,
     current_workspace: Res<'w, CurrentWorkspace>,
-    current_selection: Res<'w, Selection>,
     current_level: Res<'w, CurrentLevel>,
     app_state: Res<'w, State<AppState>>,
 }
@@ -273,29 +275,34 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                 }
 
                 if let Some(selected) = &gallery_status.selected {
-                    if ui.button("Spawn model").clicked() {
-                        let model = Model {
-                            source: AssetSource::Remote(
+                    if ui.button("Load as Description").clicked() {
+                        let model_description = ModelDescriptionBundle {
+                            name: NameInSite(selected.owner.clone() + "/" + &selected.name),
+                            source: ModelProperty(AssetSource::Remote(
                                 selected.owner.clone() + "/" + &selected.name + "/model.sdf",
-                            ),
-                            ..default()
+                            )),
+                            group: Group,
+                            marker: ModelMarker,
+                            ..Default::default()
                         };
 
                         match self.app_state.get() {
                             AppState::SiteEditor => {
                                 if let Some(level) = self.current_level.0 {
-                                    self.place_object.place_object_2d(model, level);
+                                    self.commands
+                                        .spawn(model_description)
+                                        .insert(Category::ModelDescription)
+                                        .set_parent(level);
                                 } else {
                                     warn!("Cannot spawn a model outside of a workspace");
                                 }
                             }
                             AppState::WorkcellEditor => {
                                 if let Some(workspace) = self.current_workspace.root {
-                                    self.place_object.place_object_3d(
-                                        PlaceableObject::Model(model),
-                                        self.current_selection.0,
-                                        workspace,
-                                    );
+                                    self.commands
+                                        .spawn(model_description)
+                                        .insert(Category::ModelDescription)
+                                        .set_parent(workspace);
                                 } else {
                                     warn!("Cannot spawn a model outside of a workspace");
                                 }

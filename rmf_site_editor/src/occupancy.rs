@@ -140,6 +140,8 @@ pub struct CalculateGrid {
     pub floor: f32,
     /// Ignore meshes above this height
     pub ceiling: f32,
+    // Ignore these entities
+    pub ignore: Option<HashSet<Entity>>,
 }
 
 enum Group {
@@ -180,6 +182,14 @@ fn calculate_grid(
         let physical_entities = collect_physical_entities(&bodies, &meta);
         info!("Checking {:?} physical entities", physical_entities.len());
         for e in &physical_entities {
+            if request
+                .ignore
+                .as_ref()
+                .is_some_and(|ignored_set| ignored_set.contains(e))
+            {
+                continue;
+            }
+
             let (_, mesh, aabb, tf) = match bodies.get(*e) {
                 Ok(body) => body,
                 Err(_) => continue,

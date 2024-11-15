@@ -18,8 +18,8 @@
 use crate::{
     interaction::select::*,
     site::{
-        Anchor, AnchorBundle, Dependents, FrameMarker, Model, NameInSite, NameInWorkcell, Pending,
-        SiteID, WorkcellModel,
+        Anchor, AnchorBundle, Dependents, FrameMarker, ModelInstance, NameInSite, NameInWorkcell,
+        Pending, SiteID, WorkcellModel,
     },
     widgets::canvas_tooltips::CanvasTooltips,
 };
@@ -148,7 +148,7 @@ pub struct PlaceObject3d {
 
 #[derive(Clone, Debug)]
 pub enum PlaceableObject {
-    Model(Model),
+    ModelInstance(ModelInstance<Entity>),
     Anchor,
     VisualMesh(WorkcellModel),
     CollisionMesh(WorkcellModel),
@@ -174,9 +174,9 @@ pub fn place_object_3d_setup(
             set_visibility(cursor.dagger, &mut visibility, true);
             set_visibility(cursor.halo, &mut visibility, true);
         }
-        PlaceableObject::Model(m) => {
+        PlaceableObject::ModelInstance(m) => {
             // Spawn the model as a child of the cursor
-            cursor.set_model_preview(&mut commands, Some(m.clone()));
+            cursor.set_model_instance_preview(&mut commands, Some(m.clone()));
             set_visibility(cursor.dagger, &mut visibility, false);
             set_visibility(cursor.halo, &mut visibility, false);
         }
@@ -466,7 +466,7 @@ pub fn on_placement_chosen_3d(
                 NameInWorkcell("Unnamed".to_string()),
             ))
             .id(),
-        PlaceableObject::Model(object) => {
+        PlaceableObject::ModelInstance(object) => {
             let model_id = commands.spawn((object, VisualCue::outline())).id();
             // Create a parent anchor to contain the new model in
             commands

@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{interaction::select::*, site::Model};
+use crate::{interaction::select::*, site::ModelInstance};
 use bevy::prelude::Input as UserInput;
 
 pub const PLACE_OBJECT_2D_MODE_LABEL: &'static str = "place_object_2d";
@@ -101,7 +101,7 @@ pub fn build_place_object_2d_workflow(
 }
 
 pub struct PlaceObject2d {
-    pub object: Model,
+    pub object: ModelInstance<Entity>,
     pub level: Entity,
 }
 
@@ -117,7 +117,7 @@ pub fn place_object_2d_setup(
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.newest_mut().or_broken_buffer()?;
 
-    cursor.set_model_preview(&mut commands, Some(state.object.clone()));
+    cursor.set_model_instance_preview(&mut commands, Some(state.object.clone()));
     set_visibility(cursor.dagger, &mut visibility, false);
     set_visibility(cursor.halo, &mut visibility, false);
 
