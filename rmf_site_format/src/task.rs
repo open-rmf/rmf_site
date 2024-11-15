@@ -17,7 +17,10 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Component, Reflect, ReflectComponent};
+use bevy::{
+    prelude::{Component, ReflectComponent},
+    reflect::Reflect,
+};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt};
 use strum_macros::EnumIter;
@@ -37,7 +40,8 @@ impl<T: RefTrait> Default for GoToPlace<T> {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Reflect)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct WaitFor {
     pub duration: f32,
 }
