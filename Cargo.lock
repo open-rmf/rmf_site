@@ -766,8 +766,8 @@ dependencies = [
 
 [[package]]
 name = "bevy_impulse"
-version = "0.0.1"
-source = "git+https://github.com/open-rmf/bevy_impulse?branch=main#2d86d5c58aaf18e5c9be933d3c5155ce1dc80dcc"
+version = "0.0.2"
+source = "git+https://github.com/open-rmf/bevy_impulse?branch=main#72fcd726b9885971caba1b0d6d901bb01c5a86ed"
 dependencies = [
  "anyhow",
  "arrayvec",
@@ -783,7 +783,7 @@ dependencies = [
  "bevy_time",
  "bevy_utils",
  "futures",
- "itertools",
+ "itertools 0.13.0",
  "smallvec",
  "thiserror",
  "tokio",
@@ -791,11 +791,11 @@ dependencies = [
 
 [[package]]
 name = "bevy_impulse_derive"
-version = "0.0.1"
-source = "git+https://github.com/open-rmf/bevy_impulse?branch=main#2d86d5c58aaf18e5c9be933d3c5155ce1dc80dcc"
+version = "0.0.2"
+source = "git+https://github.com/open-rmf/bevy_impulse?branch=main#72fcd726b9885971caba1b0d6d901bb01c5a86ed"
 dependencies = [
  "quote",
- "syn 1.0.109",
+ "syn 2.0.52",
 ]
 
 [[package]]
@@ -1325,7 +1325,7 @@ dependencies = [
  "bitflags 2.4.2",
  "cexpr",
  "clang-sys",
- "itertools",
+ "itertools 0.11.0",
  "lazy_static",
  "lazycell",
  "proc-macro2",
@@ -1990,7 +1990,7 @@ version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "79127ed59a85d7687c409e9978547cffb7dc79675355ed22da6b66fd5f6ead01"
 dependencies = [
- "itertools",
+ "itertools 0.11.0",
  "num-traits",
 ]
 
@@ -2818,7 +2818,7 @@ dependencies = [
  "dirs",
  "ehttp",
  "futures-lite 2.2.0",
- "itertools",
+ "itertools 0.11.0",
  "serde",
  "serde_json",
 ]
@@ -3082,6 +3082,15 @@ name = "itertools"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b1c173a5686ce8bfa551b3563d0c2170bf24ca44da99c7ca4bfdab5418c3fe57"
+dependencies = [
+ "either",
+]
+
+[[package]]
+name = "itertools"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
 dependencies = [
  "either",
 ]
@@ -4329,7 +4338,7 @@ dependencies = [
  "futures-lite 1.13.0",
  "geo",
  "gz-fuel",
- "itertools",
+ "itertools 0.11.0",
  "nalgebra",
  "pathdiff",
  "rfd",
