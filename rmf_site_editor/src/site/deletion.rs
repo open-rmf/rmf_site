@@ -20,7 +20,7 @@ use crate::{
     log::Log,
     site::{
         Category, CurrentLevel, Dependents, LevelElevation, LevelProperties, NameInSite,
-        RemoveInstance, SiteUpdateSet,
+        SiteUpdateSet,
     },
     AppState, Issue,
 };
@@ -28,9 +28,7 @@ use bevy::{
     ecs::system::{BoxedSystem, SystemParam, SystemState},
     prelude::*,
 };
-use rmf_site_format::{
-    Affiliation, ConstraintDependents, Edge, InstanceMarker, MeshConstraint, Path, Point,
-};
+use rmf_site_format::{ConstraintDependents, Edge, MeshConstraint, Path, Point};
 use std::collections::HashSet;
 
 // TODO(MXG): Use this module to implement the deletion buffer. The role of the
@@ -87,7 +85,6 @@ struct DeletionParams<'w, 's> {
     edges: Query<'w, 's, &'static Edge<Entity>>,
     points: Query<'w, 's, &'static Point<Entity>>,
     paths: Query<'w, 's, &'static Path<Entity>>,
-    instances: Query<'w, 's, &'static Affiliation<Entity>, With<InstanceMarker>>,
     parents: Query<'w, 's, &'static mut Parent>,
     dependents: Query<'w, 's, &'static mut Dependents>,
     constraint_dependents: Query<'w, 's, &'static mut ConstraintDependents>,
@@ -96,7 +93,6 @@ struct DeletionParams<'w, 's> {
     selection: Res<'w, Selection>,
     current_level: ResMut<'w, CurrentLevel>,
     levels: Query<'w, 's, Entity, With<LevelElevation>>,
-    remove_instance: EventWriter<'w, RemoveInstance>,
     select: EventWriter<'w, Select>,
     log: EventWriter<'w, Log>,
     issues: Query<'w, 's, (Entity, &'static mut Issue)>,
@@ -198,14 +194,6 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
                 queue.push(*child);
             }
         }
-    }
-
-    if let Ok(_) = params.instances.get(element) {
-        params.remove_instance.send(RemoveInstance(element));
-        if **params.selection == Some(element) {
-            params.select.send(Select(None));
-        }
-        return;
     }
 
     for descendent in &all_descendents {
