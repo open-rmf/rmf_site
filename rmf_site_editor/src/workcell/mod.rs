@@ -48,11 +48,9 @@ use crate::AppState;
 use crate::{
     shapes::make_infinite_grid,
     site::{
-        clear_model_trashcan, handle_model_loaded_events, handle_new_primitive_shapes,
-        handle_update_fuel_cache_requests, make_models_selectable, propagate_model_properties,
+        handle_new_primitive_shapes, handle_update_fuel_cache_requests,
         read_update_fuel_cache_results, reload_failed_models_with_new_api_key,
-        update_anchor_transforms, update_model_scales, update_model_scenes,
-        update_model_tentative_formats, update_transforms_for_changed_poses,
+        update_anchor_transforms, update_model_scales, update_transforms_for_changed_poses,
     },
 };
 
@@ -79,23 +77,8 @@ impl Plugin for WorkcellEditorPlugin {
             .add_systems(
                 Update,
                 (
-                    (
-                        propagate_model_properties,
-                        make_models_selectable,
-                        // Counter-intuitively, we want to expand the model scenes
-                        // after propagating the model properties through the scene.
-                        // The reason is that the entities for the scene won't be
-                        // available until the next cycle is finished, so we want to
-                        // wait until the next cycle before propagating the properties
-                        // of any newly added scenes.
-                        handle_model_loaded_events,
-                    )
-                        .chain(),
-                    update_model_scenes,
                     update_model_scales,
                     handle_new_primitive_shapes,
-                    update_model_tentative_formats,
-                    replace_name_in_site_components,
                     handle_create_joint_events,
                     cleanup_orphaned_joints,
                     handle_update_fuel_cache_requests,
@@ -106,10 +89,6 @@ impl Plugin for WorkcellEditorPlugin {
                     handle_export_urdf_menu_events,
                 )
                     .run_if(in_state(AppState::WorkcellEditor)),
-            )
-            .add_systems(
-                PreUpdate,
-                clear_model_trashcan.run_if(in_state(AppState::WorkcellEditor)),
             )
             .add_systems(
                 Update,
@@ -124,10 +103,6 @@ impl Plugin for WorkcellEditorPlugin {
                     update_transforms_for_changed_poses,
                 )
                     .run_if(in_state(AppState::WorkcellEditor)),
-            )
-            .add_systems(
-                PostUpdate,
-                (flatten_loaded_models_hierarchy,).run_if(in_state(AppState::WorkcellEditor)),
             );
     }
 

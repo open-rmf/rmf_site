@@ -210,11 +210,6 @@ fn generate_site_entities(
                     consider_id(*light_id);
                 }
 
-                for (model_id, model) in &level_data.models {
-                    level.spawn(model.clone()).insert(SiteID(*model_id));
-                    consider_id(*model_id);
-                }
-
                 for (physical_camera_id, physical_camera) in &level_data.physical_cameras {
                     level
                         .spawn(physical_camera.clone())
@@ -229,6 +224,16 @@ fn generate_site_entities(
                     consider_id(*camera_pose_id);
                 }
             });
+
+        for (model_id, model) in &level_data.models {
+            let source = model.source.clone();
+            let model_entity = commands
+                .spawn((Category::Model, model.clone(), SiteID(*model_id)))
+                .set_parent(level_entity)
+                .id();
+            commands.spawn_model((model_entity, source).into());
+            consider_id(*model_id);
+        }
 
         // TODO(MXG): Log when a RecencyRanking fails to load correctly.
         commands
