@@ -226,10 +226,12 @@ fn handle_model_loading(
                 .query(source, load_asset_source.clone())
                 .await
                 .available()
-                .ok_or(ModelLoadingError::new(
-                    request.clone(),
-                    Some(ModelLoadingErrorKind::WorkflowExecutionError),
-                ))?;
+                .ok_or_else(|| {
+                    ModelLoadingError::new(
+                        request.clone(),
+                        ModelLoadingErrorKind::WorkflowExecutionError,
+                    )
+                })?;
             if let Ok(h) = res {
                 handle = Some(h);
                 break;
@@ -238,7 +240,7 @@ fn handle_model_loading(
         let Some(handle) = handle else {
             return Err(ModelLoadingError::new(
                 request.clone(),
-                Some(ModelLoadingErrorKind::FailedLoadingAsset),
+                ModelLoadingErrorKind::FailedLoadingAsset,
             ));
         };
         // Now we have a handle and a parent entity, call the spawn scene service
@@ -249,14 +251,16 @@ fn handle_model_loading(
             )
             .await
             .available()
-            .ok_or(ModelLoadingError::new(
-                request.clone(),
-                Some(ModelLoadingErrorKind::WorkflowExecutionError),
-            ))?;
+            .ok_or_else(|| {
+                ModelLoadingError::new(
+                    request.clone(),
+                    ModelLoadingErrorKind::WorkflowExecutionError,
+                )
+            })?;
         let Some((scene_entity, is_scene)) = res else {
             return Err(ModelLoadingError::new(
                 request.clone(),
-                Some(ModelLoadingErrorKind::NonModelAsset),
+                ModelLoadingErrorKind::NonModelAsset,
             ));
         };
         if is_scene {
@@ -265,10 +269,12 @@ fn handle_model_loading(
                 .query(scene_entity, check_scene_is_spawned)
                 .await
                 .available()
-                .ok_or(ModelLoadingError::new(
-                    request.clone(),
-                    Some(ModelLoadingErrorKind::WorkflowExecutionError),
-                ))?;
+                .ok_or_else(|| {
+                    ModelLoadingError::new(
+                        request.clone(),
+                        ModelLoadingErrorKind::WorkflowExecutionError,
+                    )
+                })?;
         }
         Ok(request)
     }
@@ -296,17 +302,15 @@ fn handle_model_loading_errors(
         Ok(ref success) => success.request.parent,
         Err(ref err) => {
             let parent = err.request.parent;
-            if err.kind.is_some() {
-                // There was an actual error, cleanup the scene
-                if let Ok(scene) = model_scenes.get(parent) {
-                    commands.entity(scene.scene_root).despawn_recursive();
-                    commands.entity(parent).remove::<ModelScene>();
-                }
-                error!("{err}");
-                commands
-                    .entity(parent)
-                    .insert(ModelFailedLoading(err.clone()));
+            // There was an actual error, cleanup the scene
+            if let Ok(scene) = model_scenes.get(parent) {
+                commands.entity(scene.scene_root).despawn_recursive();
+                commands.entity(parent).remove::<ModelScene>();
             }
+            error!("{err}");
+            commands
+                .entity(parent)
+                .insert(ModelFailedLoading(err.clone()));
             parent
         }
     };
@@ -392,16 +396,16 @@ fn load_model_dependencies(
                 .query(ModelLoadingRequest::new(model_entity, source), load_model)
                 .await
                 .available()
-                .ok_or(ModelLoadingError::new(
-                    request.clone(),
-                    Some(ModelLoadingErrorKind::WorkflowExecutionError),
-                ))?
+                .ok_or_else(|| {
+                    ModelLoadingError::new(
+                        request.clone(),
+                        ModelLoadingErrorKind::WorkflowExecutionError,
+                    )
+                })?
                 .map_err(|err| {
                     ModelLoadingError::new(
                         request.clone(),
-                        Some(ModelLoadingErrorKind::FailedLoadingDependency(
-                            err.to_string(),
-                        )),
+                        ModelLoadingErrorKind::FailedLoadingDependency(err.to_string()),
                     )
                 })?;
         }
@@ -454,7 +458,7 @@ impl ModelLoadingServices {
                             Ok(success.request)
                         }
                     })
-                    .branch_for_err(|success| success.map(|s| Ok(s)).connect(scope.terminate))
+                    .branch_for_err(|success| success.map_block(|s| Ok(s)).connect(scope.terminate))
                     .then(model_loading_service)
                     .connect_on_err(scope.terminate)
                     .then(load_model_dependencies)
@@ -513,20 +517,11 @@ pub struct ModelLoadingSuccess {
 #[derive(Clone, Debug)]
 pub struct ModelLoadingError {
     pub request: ModelLoadingRequest,
-    pub kind: Option<ModelLoadingErrorKind>,
-}
-
-impl From<(ModelLoadingRequest, ModelLoadingErrorKind)> for ModelLoadingError {
-    fn from(t: (ModelLoadingRequest, ModelLoadingErrorKind)) -> Self {
-        Self {
-            request: t.0,
-            kind: Some(t.1),
-        }
-    }
+    pub kind: ModelLoadingErrorKind,
 }
 
 impl ModelLoadingError {
-    pub fn new(request: ModelLoadingRequest, kind: Option<ModelLoadingErrorKind>) -> Self {
+    pub fn new(request: ModelLoadingRequest, kind: ModelLoadingErrorKind) -> Self {
         Self { request, kind }
     }
 }
@@ -538,8 +533,7 @@ impl fmt::Display for ModelLoadingError {
             "Failed to execute model loading request for entity {0:?} and source {1:?} ",
             self.request.parent, self.request.source
         )?;
-        // TODO(luca) change error to not be an option
-        write!(f, "Reason: {:?}", self.kind)
+        write!(f, "Reason: {0}", self.kind)
     }
 }
 
