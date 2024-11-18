@@ -157,7 +157,7 @@ pub fn handle_loaded_drawing(
                 let mesh = make_flat_rect_mesh(width, height).transform_by(
                     Affine3A::from_translation(Vec3::new(width / 2.0, -height / 2.0, 0.0)),
                 );
-                let mesh = mesh_assets.add(mesh.into());
+                let mesh = mesh_assets.add(mesh);
                 let default = parent
                     .map(|p| default_drawing_vis.get(p.get()).ok())
                     .flatten();

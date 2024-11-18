@@ -24,6 +24,7 @@ use crate::{
 use bevy::{
     prelude::*,
     render::mesh::{Indices, PrimitiveTopology},
+    render::render_asset::RenderAssetUsages,
     utils::Uuid,
 };
 use rmf_site_format::{Category, DoorType, Edge, DEFAULT_LEVEL_HEIGHT};
@@ -264,10 +265,13 @@ fn make_door_cues(door_width: f32, kind: &DoorType) -> (Mesh, Mesh) {
                 .into_mesh_and_outline()
         }
         _ => {
-            let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+            let mut mesh = Mesh::new(
+                PrimitiveTopology::TriangleList,
+                RenderAssetUsages::default(),
+            );
             mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, Vec::<[f32; 3]>::new());
             mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, Vec::<[f32; 3]>::new());
-            mesh.set_indices(Some(Indices::U32(vec![])));
+            mesh.insert_indices(Indices::U32(vec![]));
             (mesh.clone(), mesh)
         }
     }

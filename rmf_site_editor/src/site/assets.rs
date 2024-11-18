@@ -19,21 +19,9 @@ use crate::{shapes::*, site::*};
 use bevy::{asset::embedded_asset, math::Affine3A, prelude::*};
 
 pub(crate) fn add_site_icons(app: &mut App) {
-    // Taken from https://github.com/bevyengine/bevy/issues/10377#issuecomment-1858797002
-    // TODO(luca) remove once we migrate to Bevy 0.13 that includes the fix
-    #[cfg(any(not(target_family = "windows"), target_env = "gnu"))]
-    {
-        embedded_asset!(app, "src/", "icons/battery.png");
-        embedded_asset!(app, "src/", "icons/parking.png");
-        embedded_asset!(app, "src/", "icons/stopwatch.png");
-    }
-
-    #[cfg(all(target_family = "windows", not(target_env = "gnu")))]
-    {
-        embedded_asset!(app, "src\\", "icons\\battery.png");
-        embedded_asset!(app, "src\\", "icons\\parking.png");
-        embedded_asset!(app, "src\\", "icons\\stopwatch.png");
-    }
+    embedded_asset!(app, "src/", "icons/battery.png");
+    embedded_asset!(app, "src/", "icons/parking.png");
+    embedded_asset!(app, "src/", "icons/stopwatch.png");
 }
 
 #[derive(Resource)]
@@ -183,7 +171,7 @@ impl FromWorld for SiteAssets {
 
         let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
         let level_anchor_mesh = meshes.add(
-            Mesh::from(shape::UVSphere {
+            Mesh::from(Sphere {
                 radius: 0.05, // TODO(MXG): Make the vertex radius configurable
                 ..Default::default()
             })
@@ -194,34 +182,28 @@ impl FromWorld for SiteAssets {
             .add(Mesh::from(make_diamond(0.15 / 2.0, 0.15).transform_by(
                 Affine3A::from_translation([0.0, 0.0, 0.15 / 2.0].into()),
             )));
-        let site_anchor_mesh = meshes.add(Mesh::from(shape::UVSphere {
+        let site_anchor_mesh = meshes.add(Mesh::from(Sphere {
             radius: 0.05, // TODO(MXG): Make the vertex radius configurable
             ..Default::default()
         }));
-        let lane_mid_mesh = meshes.add(make_flat_square_mesh(1.0).into());
-        let lane_mid_outline = meshes.add(make_flat_rect_mesh(1.0, 1.125).into());
-        let lane_end_mesh = meshes.add(
-            make_flat_disk(
-                Circle {
-                    radius: LANE_WIDTH / 2.0,
-                    height: 0.0,
-                },
-                32,
-            )
-            .into(),
-        );
-        let lane_end_outline = meshes.add(
-            make_flat_disk(
-                Circle {
-                    radius: 1.125 * LANE_WIDTH / 2.0,
-                    height: 0.0,
-                },
-                32,
-            )
-            .into(),
-        );
+        let lane_mid_mesh = meshes.add(make_flat_square_mesh(1.0));
+        let lane_mid_outline = meshes.add(make_flat_rect_mesh(1.0, 1.125));
+        let lane_end_mesh = meshes.add(make_flat_disk(
+            OffsetCircle {
+                radius: LANE_WIDTH / 2.0,
+                height: 0.0,
+            },
+            32,
+        ));
+        let lane_end_outline = meshes.add(make_flat_disk(
+            OffsetCircle {
+                radius: 1.125 * LANE_WIDTH / 2.0,
+                height: 0.0,
+            },
+            32,
+        ));
         let box_mesh = meshes.add(
-            Mesh::from(shape::Box::new(1., 1., 1.))
+            Mesh::from(Cuboid::new(1., 1., 1.))
                 .with_generated_outline_normals()
                 .unwrap(),
         );
@@ -243,8 +225,7 @@ impl FromWorld for SiteAssets {
             .with_generated_outline_normals()
             .unwrap(),
         );
-        let location_tag_mesh =
-            meshes.add(make_location_icon(1.1 * LANE_WIDTH / 2.0, 0.01, 6).into());
+        let location_tag_mesh = meshes.add(make_location_icon(1.1 * LANE_WIDTH / 2.0, 0.01, 6));
         let physical_camera_mesh = meshes.add(
             make_physical_camera_mesh()
                 .with_generated_outline_normals()

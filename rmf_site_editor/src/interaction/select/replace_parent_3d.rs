@@ -20,7 +20,7 @@ use crate::{
     site::{Dependents, FrameMarker},
     widgets::canvas_tooltips::CanvasTooltips,
 };
-use bevy::prelude::Input as UserInput;
+use bevy::prelude::ButtonInput;
 use bevy_mod_raycast::deferred::RaycastSource;
 use std::borrow::Cow;
 
@@ -151,7 +151,7 @@ pub fn replace_parent_3d_find_parent(
     parents: Query<&Parent>,
     mut filter: PlaceObject3dFilter,
     hovering: Res<Hovering>,
-    mouse_button_input: Res<UserInput<MouseButton>>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
     blockers: Option<Res<PickingBlockers>>,
     mut selected: EventReader<Select>,
 ) {
