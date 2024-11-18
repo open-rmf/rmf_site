@@ -64,7 +64,7 @@ pub fn get_all_for_source(source: &AssetSource) -> SmallVec<[AssetSource; 6]> {
     }
 }
 
-pub type ModelLoadingResult = Result<ModelLoadingRequest, ModelLoadingError>;
+pub type ModelLoadingResult = Result<ModelLoadingSuccess, ModelLoadingError>;
 
 #[derive(Resource)]
 /// Services that deal with model loading
@@ -182,24 +182,31 @@ pub fn spawn_scene_for_loaded_model(
     Some((model_id, is_scene))
 }
 
-/// Return true if the source changed and we might need to continue downstream operations.
-/// false if there was no change and we can dispose downstream operations.
-pub fn despawn_if_asset_source_changed(
-    In((e, source)): In<(Entity, AssetSource)>,
+/// Return Some(request) if the source changed and we might need to continue downstream operations.
+/// Err(request) if there was no change and we can dispose downstream operations.
+pub fn cleanup_if_asset_source_changed(
+    In(request): In<ModelLoadingRequest>,
     mut commands: Commands,
     model_scenes: Query<&ModelScene>,
-) -> bool {
-    commands.entity(e).insert(source.clone());
-    let Ok(scene) = model_scenes.get(e) else {
-        return true;
+) -> ModelLoadingSuccess {
+    let mut success = ModelLoadingSuccess {
+        request: request.clone(),
+        unchanged: false,
+    };
+    commands
+        .entity(request.parent)
+        .insert(request.source.clone());
+    let Ok(scene) = model_scenes.get(request.parent) else {
+        return success;
     };
 
-    if scene.source == source {
-        return false;
+    if scene.source == request.source {
+        success.unchanged = true;
+        return success;
     }
     commands.entity(scene.scene_root).despawn_recursive();
-    commands.entity(e).remove::<ModelScene>();
-    true
+    commands.entity(request.parent).remove::<ModelScene>();
+    success
 }
 
 fn handle_model_loading(
@@ -207,24 +214,9 @@ fn handle_model_loading(
         request, channel, ..
     }): AsyncServiceInput<ModelLoadingRequest>,
     model_services: Res<ModelLoadingServices>,
-) -> impl Future<Output = ModelLoadingResult> {
+) -> impl Future<Output = Result<ModelLoadingRequest, ModelLoadingError>> {
     let check_scene_is_spawned = model_services.check_scene_is_spawned.clone();
-    let spawn_scene = spawn_scene_for_loaded_model.into_blocking_callback();
     async move {
-        let asset_changed = channel
-            .query(
-                (request.parent, request.source.clone()),
-                despawn_if_asset_source_changed.into_blocking_callback(),
-            )
-            .await
-            .available()
-            .ok_or((
-                request.clone(),
-                ModelLoadingErrorKind::WorkflowExecutionError,
-            ))?;
-        if !asset_changed {
-            return Err(ModelLoadingError::new(request, None));
-        }
         let sources = get_all_for_source(&request.source);
 
         let load_asset_source = load_asset_source.into_async_callback();
@@ -253,7 +245,7 @@ fn handle_model_loading(
         let res = channel
             .query(
                 (request.parent, handle, request.source.clone()),
-                spawn_scene,
+                spawn_scene_for_loaded_model.into_blocking_callback(),
             )
             .await
             .available()
@@ -301,7 +293,7 @@ fn handle_model_loading_errors(
     mut commands: Commands,
 ) -> ModelLoadingResult {
     let parent = match result {
-        Ok(ref req) => req.parent,
+        Ok(ref success) => success.request.parent,
         Err(ref err) => {
             let parent = err.request.parent;
             if err.kind.is_some() {
@@ -389,7 +381,7 @@ fn load_model_dependencies(
     children_q: Query<&Children>,
     models: Query<&AssetSource, With<ModelMarker>>,
     model_loading: Res<ModelLoadingServices>,
-) -> impl Future<Output = ModelLoadingResult> {
+) -> impl Future<Output = Result<ModelLoadingRequest, ModelLoadingError>> {
     let models = DescendantIter::new(&children_q, request.parent)
         .filter_map(|c| models.get(c).ok().map(|source| (c, source.clone())))
         .collect::<Vec<_>>();
@@ -445,6 +437,7 @@ impl ModelLoadingServices {
                 config.in_set(ModelLoadingSet::CheckSceneSystem)
             }),
         );
+        let skip_if_unchanged = cleanup_if_asset_source_changed.into_blocking_callback();
         let load_model_dependencies = app.world.spawn_service(load_model_dependencies);
         let model_loading_service = app.world.spawn_service(handle_model_loading);
         // This workflow tries to load the model without doing any error handling
@@ -453,6 +446,15 @@ impl ModelLoadingServices {
                 scope
                     .input
                     .chain(builder)
+                    .then(skip_if_unchanged)
+                    .map_block(|success| {
+                        if success.unchanged {
+                            Err(success)
+                        } else {
+                            Ok(success.request)
+                        }
+                    })
+                    .branch_for_err(|success| success.map(|s| Ok(s)).connect(scope.terminate))
                     .then(model_loading_service)
                     .connect_on_err(scope.terminate)
                     .then(load_model_dependencies)
@@ -461,7 +463,12 @@ impl ModelLoadingServices {
                     // render layers
                     .then(propagate_model_properties.into_blocking_callback())
                     .then(make_models_selectable.into_blocking_callback())
-                    .map_block(|req| Ok(req))
+                    .map_block(|req| {
+                        Ok(ModelLoadingSuccess {
+                            request: req,
+                            unchanged: false,
+                        })
+                    })
                     .connect(scope.terminate)
             });
 
@@ -495,6 +502,12 @@ impl ModelLoadingRequest {
     pub fn new(parent: Entity, source: AssetSource) -> Self {
         Self { parent, source }
     }
+}
+
+#[derive(Clone, Debug)]
+pub struct ModelLoadingSuccess {
+    pub request: ModelLoadingRequest,
+    pub unchanged: bool,
 }
 
 #[derive(Clone, Debug)]

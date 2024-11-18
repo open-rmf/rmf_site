@@ -41,7 +41,10 @@ pub fn flatten_loaded_model_hierarchy(
     let Ok(res) = result else {
         return;
     };
-    let old_parent = res.parent;
+    if res.unchanged {
+        return;
+    }
+    let old_parent = res.request.parent;
     let Ok(new_parent) = parents.get(old_parent) else {
         warn!(
             "Failed flattening model hierarchy, model {:?} has no parent",
