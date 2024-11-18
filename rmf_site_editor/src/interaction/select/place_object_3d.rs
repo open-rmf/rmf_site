@@ -18,8 +18,8 @@
 use crate::{
     interaction::select::*,
     site::{
-        Anchor, AnchorBundle, Dependents, FrameMarker, Model, ModelLoadingRequest,
-        ModelSpawningExt, NameInWorkcell, Pending, SiteID,
+        Anchor, AnchorBundle, Dependents, FrameMarker, Model, ModelLoader, NameInWorkcell, Pending,
+        SiteID,
     },
     widgets::canvas_tooltips::CanvasTooltips,
     workcell::flatten_loaded_model_hierarchy,
@@ -167,6 +167,7 @@ pub fn place_object_3d_setup(
     mut highlight: ResMut<HighlightAnchors>,
     mut filter: PlaceObject3dFilter,
     mut gizmo_blockers: ResMut<GizmoBlockers>,
+    mut model_loader: ModelLoader,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&srv.request).or_broken_buffer()?;
     let state = access.newest_mut().or_broken_buffer()?;
@@ -182,7 +183,7 @@ pub fn place_object_3d_setup(
         | PlaceableObject::VisualMesh(m)
         | PlaceableObject::CollisionMesh(m) => {
             // Spawn the model as a child of the cursor
-            cursor.set_model_preview(&mut commands, Some(m.clone()));
+            cursor.set_model_preview(&mut commands, &mut model_loader, Some(m.clone()));
             set_visibility(cursor.dagger, &mut visibility, false);
             set_visibility(cursor.halo, &mut visibility, false);
         }
@@ -436,6 +437,7 @@ pub fn on_placement_chosen_3d(
     global_tfs: Query<&GlobalTransform>,
     parents: Query<&Parent>,
     frames: Query<(), With<FrameMarker>>,
+    mut model_loader: ModelLoader,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.pull().or_broken_state()?;
@@ -474,8 +476,10 @@ pub fn on_placement_chosen_3d(
             let model_id = commands.spawn(VisualCue::outline()).id();
             let source = object.source.clone();
             add_model_components(object, commands.entity(model_id));
-            let req = ModelLoadingRequest::new(model_id, source).then(flatten_models);
-            commands.spawn_model(req);
+            model_loader
+                .update_asset_source_impulse(model_id, source)
+                .then(flatten_models)
+                .detach();
             // Create a parent anchor to contain the new model in
             commands
                 .spawn((
@@ -492,8 +496,10 @@ pub fn on_placement_chosen_3d(
             object.pose = pose;
             let source = object.source.clone();
             add_model_components(object, commands.entity(id));
-            let req = ModelLoadingRequest::new(id, source).then(flatten_models);
-            commands.spawn_model(req);
+            model_loader
+                .update_asset_source_impulse(id, source)
+                .then(flatten_models)
+                .detach();
             id
         }
         PlaceableObject::CollisionMesh(mut object) => {
@@ -503,8 +509,10 @@ pub fn on_placement_chosen_3d(
             object.pose = pose;
             let source = object.source.clone();
             add_model_components(object, commands.entity(id));
-            let req = ModelLoadingRequest::new(id, source).then(flatten_models);
-            commands.spawn_model(req);
+            model_loader
+                .update_asset_source_impulse(id, source)
+                .then(flatten_models)
+                .detach();
             id
         }
     };

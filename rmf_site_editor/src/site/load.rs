@@ -73,6 +73,7 @@ impl<T> LoadResult<T> for Result<T, u32> {
 
 fn generate_site_entities(
     commands: &mut Commands,
+    model_loader: &mut ModelLoader,
     site_data: &rmf_site_format::Site,
 ) -> Result<Entity, LoadSiteError> {
     let mut id_to_entity = HashMap::new();
@@ -226,12 +227,9 @@ fn generate_site_entities(
             });
 
         for (model_id, model) in &level_data.models {
-            let source = model.source.clone();
-            let model_entity = commands
-                .spawn((Category::Model, model.clone(), SiteID(*model_id)))
-                .set_parent(level_entity)
-                .id();
-            commands.spawn_model((model_entity, source).into());
+            model_loader
+                .spawn_model(level_entity, model.clone())
+                .insert((Category::Model, SiteID(*model_id)));
             consider_id(*model_id);
         }
 
@@ -380,11 +378,12 @@ fn generate_site_entities(
 
 pub fn load_site(
     mut commands: Commands,
+    mut model_loader: ModelLoader,
     mut load_sites: EventReader<LoadSite>,
     mut change_current_site: EventWriter<ChangeCurrentSite>,
 ) {
     for cmd in load_sites.read() {
-        let site = match generate_site_entities(&mut commands, &cmd.site) {
+        let site = match generate_site_entities(&mut commands, &mut model_loader, &cmd.site) {
             Ok(site) => site,
             Err(err) => {
                 commands.entity(err.site).despawn_recursive();

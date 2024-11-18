@@ -21,13 +21,17 @@ use crate::{
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
 };
 use bevy::{
-    ecs::system::Command, gltf::Gltf, prelude::*, render::view::RenderLayers, scene::SceneInstance,
+    ecs::system::{EntityCommands, SystemParam},
+    gltf::Gltf,
+    prelude::*,
+    render::view::RenderLayers,
+    scene::SceneInstance,
 };
 use bevy_impulse::*;
 use bevy_mod_outline::OutlineMeshExt;
-use rmf_site_format::{AssetSource, ModelMarker, Pending, Scale};
+use rmf_site_format::{AssetSource, Model, ModelMarker, Pending, Scale};
 use smallvec::SmallVec;
-use std::{any::TypeId, future::Future};
+use std::{any::TypeId, fmt, future::Future};
 use thiserror::Error;
 
 /// Denotes the properties of the current spawned scene for the model, to despawn when updating AssetSource
@@ -60,16 +64,17 @@ pub fn get_all_for_source(source: &AssetSource) -> SmallVec<[AssetSource; 6]> {
     }
 }
 
-pub type ModelLoadingResult = Result<ModelLoadingRequest, Option<ModelLoadingError>>;
+pub type ModelLoadingResult = Result<ModelLoadingRequest, ModelLoadingError>;
 
 #[derive(Resource)]
-/// Services that deal with workspace loading
-pub struct ModelLoadingServices {
-    /// Service that loads the requested model
-    pub load_model: Service<ModelLoadingRequest, ModelLoadingResult>,
+/// Services that deal with model loading
+// TODO(luca) revisit pub / private-ness of struct and fields
+struct ModelLoadingServices {
     /// Continuous service that sends a response when the scene at the requested entity finished
     /// spawning.
-    pub check_scene_is_spawned: Service<Entity, Entity>,
+    check_scene_is_spawned: Service<Entity, Entity>,
+    /// System that tries to load a model and returns a result.
+    pub load_model: Service<ModelLoadingRequest, ModelLoadingResult>,
 }
 
 #[derive(Default)]
@@ -108,22 +113,19 @@ fn check_scenes_are_spawned(
 fn load_asset_source(
     In(source): In<AssetSource>,
     asset_server: Res<AssetServer>,
-) -> impl Future<Output = Result<UntypedHandle, ModelLoadingError>> {
+) -> impl Future<Output = Result<UntypedHandle, ModelLoadingErrorKind>> {
     let asset_server = asset_server.clone();
     async move {
         let asset_path = match String::try_from(&source) {
             Ok(asset_path) => asset_path,
             Err(err) => {
-                return Err(ModelLoadingError::InvalidAssetSource(
-                    source,
-                    err.to_string(),
-                ));
+                return Err(ModelLoadingErrorKind::InvalidAssetSource(err.to_string()));
             }
         };
         asset_server
             .load_untyped_async(&asset_path)
             .await
-            .map_err(|e| ModelLoadingError::AssetServerError(source, e.to_string()))
+            .map_err(|e| ModelLoadingErrorKind::AssetServerError(e.to_string()))
     }
 }
 
@@ -216,9 +218,12 @@ fn handle_model_loading(
             )
             .await
             .available()
-            .ok_or(ModelLoadingError::WorkflowExecutionError)?;
+            .ok_or((
+                request.clone(),
+                ModelLoadingErrorKind::WorkflowExecutionError,
+            ))?;
         if !asset_changed {
-            return Err(None);
+            return Err(ModelLoadingError::new(request, None));
         }
         let sources = get_all_for_source(&request.source);
 
@@ -229,14 +234,20 @@ fn handle_model_loading(
                 .query(source, load_asset_source.clone())
                 .await
                 .available()
-                .ok_or(ModelLoadingError::WorkflowExecutionError)?;
+                .ok_or(ModelLoadingError::new(
+                    request.clone(),
+                    Some(ModelLoadingErrorKind::WorkflowExecutionError),
+                ))?;
             if let Ok(h) = res {
                 handle = Some(h);
                 break;
             }
         }
         let Some(handle) = handle else {
-            return Err(Some(ModelLoadingError::FailedLoadingAsset(request.source)));
+            return Err(ModelLoadingError::new(
+                request.clone(),
+                Some(ModelLoadingErrorKind::FailedLoadingAsset),
+            ));
         };
         // Now we have a handle and a parent entity, call the spawn scene service
         let res = channel
@@ -246,9 +257,15 @@ fn handle_model_loading(
             )
             .await
             .available()
-            .ok_or(Some(ModelLoadingError::WorkflowExecutionError))?;
+            .ok_or(ModelLoadingError::new(
+                request.clone(),
+                Some(ModelLoadingErrorKind::WorkflowExecutionError),
+            ))?;
         let Some((scene_entity, is_scene)) = res else {
-            return Err(Some(ModelLoadingError::NonModelAsset(request.source)));
+            return Err(ModelLoadingError::new(
+                request.clone(),
+                Some(ModelLoadingErrorKind::NonModelAsset),
+            ));
         };
         if is_scene {
             // Wait for the scene to be spawned, if there is one
@@ -256,7 +273,10 @@ fn handle_model_loading(
                 .query(scene_entity, check_scene_is_spawned)
                 .await
                 .available()
-                .ok_or(Some(ModelLoadingError::WorkflowExecutionError))?;
+                .ok_or(ModelLoadingError::new(
+                    request.clone(),
+                    Some(ModelLoadingErrorKind::WorkflowExecutionError),
+                ))?;
         }
         Ok(request)
     }
@@ -264,21 +284,6 @@ fn handle_model_loading(
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, DeliveryLabel)]
 struct SpawnModelLabel(Entity);
-
-impl Command for ModelLoadingRequest {
-    fn apply(self, world: &mut World) {
-        let services = world.get_resource::<ModelLoadingServices>()
-            .expect("Model loading services not found, make sure the `ModelLoadingServices` Resource has been added to your world");
-        let load_model = services.load_model.clone();
-        world.command(|commands| {
-            let e = self.parent;
-            let promise = commands
-                .request(self, load_model.instruct(SpawnModelLabel(e).preempt()))
-                .take_response();
-            commands.entity(e).insert(ModelLoadingState(promise));
-        });
-    }
-}
 
 /// Component added to models that are being loaded
 #[derive(Component, Deref, DerefMut)]
@@ -290,34 +295,90 @@ pub struct ModelFailedLoading(ModelLoadingError);
 
 /// Polling system that checks the state of promises and prints errors / adds marker components if
 /// models failed loading
-pub fn maintain_model_loading_states(
-    mut loading_states: Query<(Entity, &mut ModelLoadingState, Option<&ModelScene>)>,
+fn handle_model_loading_errors(
+    In(result): In<ModelLoadingResult>,
+    model_scenes: Query<&ModelScene>,
     mut commands: Commands,
-) {
-    for (e, mut state, scene_opt) in &mut loading_states {
-        if (**state).peek().is_available() {
-            let result = state.take().available().unwrap();
-            if let Some(err) = result.err().flatten() {
-                // Cleanup the scene
-                if let Some(scene) = scene_opt {
+) -> ModelLoadingResult {
+    let parent = match result {
+        Ok(ref req) => req.parent,
+        Err(ref err) => {
+            let parent = err.request.parent;
+            if err.kind.is_some() {
+                // There was an actual error, cleanup the scene
+                if let Ok(scene) = model_scenes.get(parent) {
                     commands.entity(scene.scene_root).despawn_recursive();
-                    commands.entity(e).remove::<ModelScene>();
+                    commands.entity(parent).remove::<ModelScene>();
                 }
                 error!("{err}");
-                commands.entity(e).insert(ModelFailedLoading(err));
+                commands
+                    .entity(parent)
+                    .insert(ModelFailedLoading(err.clone()));
             }
-            commands.entity(e).remove::<ModelLoadingState>();
+            parent
         }
+    };
+    commands.entity(parent).remove::<ModelLoadingState>();
+    result
+}
+
+/// `SystemParam` used to request for model loading operations
+#[derive(SystemParam)]
+pub struct ModelLoader<'w, 's> {
+    services: Res<'w, ModelLoadingServices>,
+    commands: Commands<'w, 's>,
+}
+
+impl<'w, 's> ModelLoader<'w, 's> {
+    /// Spawn a new model and begin a workflow to load its asset source.
+    /// This is only for brand new models does not support reacting to the load finishing.
+    pub fn spawn_model(&mut self, parent: Entity, model: Model) -> EntityCommands<'w, 's, '_> {
+        self.spawn_model_impulse(parent, model, move |impulse| {
+            impulse.detach();
+        })
     }
-}
 
-pub trait ModelSpawningExt<'w, 's> {
-    fn spawn_model(&mut self, request: ModelLoadingRequest);
-}
+    /// Spawn a new model and begin a workflow to load its asset source.
+    /// Additionally build on the impulse chain of the asset source loading workflow.
+    pub fn spawn_model_impulse(
+        &mut self,
+        parent: Entity,
+        model: Model,
+        impulse: impl FnOnce(Impulse<'_, '_, '_, ModelLoadingResult, ()>),
+    ) -> EntityCommands<'w, 's, '_> {
+        let source = model.source.clone();
+        let id = self.commands.spawn(model).set_parent(parent).id();
+        let loading_impulse = self.commands.request(
+            ModelLoadingRequest::new(id, source),
+            self.services
+                .load_model
+                .clone()
+                .instruct(SpawnModelLabel(id).preempt()),
+        );
+        (impulse)(loading_impulse);
+        self.commands.entity(id)
+    }
 
-impl<'w, 's> ModelSpawningExt<'w, 's> for Commands<'w, 's> {
-    fn spawn_model(&mut self, request: ModelLoadingRequest) {
-        self.add(request);
+    /// Run a basic workflow to update the asset source of an existing entity
+    pub fn update_asset_source(&mut self, entity: Entity, source: AssetSource) {
+        self.update_asset_source_impulse(entity, source).detach();
+    }
+
+    /// Update an asset source and then keep attaching impulses to its outcome.
+    /// Remember to call `.detach()` when finished or else the whole chain will be
+    /// dropped right away.
+    pub fn update_asset_source_impulse(
+        &mut self,
+        entity: Entity,
+        source: AssetSource,
+    ) -> Impulse<'w, 's, '_, ModelLoadingResult, ()> {
+        self.commands.request(
+            ModelLoadingRequest::new(entity, source),
+            self.services
+                .load_model
+                .clone()
+                .instruct(SpawnModelLabel(entity).preempt()),
+        )
     }
 }
 
@@ -333,19 +394,23 @@ fn load_model_dependencies(
         .filter_map(|c| models.get(c).ok().map(|source| (c, source.clone())))
         .collect::<Vec<_>>();
     let load_model = model_loading.load_model.clone();
-    let root_source = request.source.clone();
     async move {
         for (model_entity, source) in models {
             channel
-                .query((model_entity, source).into(), load_model)
+                .query(ModelLoadingRequest::new(model_entity, source), load_model)
                 .await
                 .available()
-                .ok_or(Some(ModelLoadingError::WorkflowExecutionError))?
+                .ok_or(ModelLoadingError::new(
+                    request.clone(),
+                    Some(ModelLoadingErrorKind::WorkflowExecutionError),
+                ))?
                 .map_err(|err| {
-                    Some(ModelLoadingError::FailedLoadingDependency(
-                        root_source.clone(),
-                        err.map(|e| e.to_string()).unwrap_or("No error".to_string()),
-                    ))
+                    ModelLoadingError::new(
+                        request.clone(),
+                        Some(ModelLoadingErrorKind::FailedLoadingDependency(
+                            err.to_string(),
+                        )),
+                    )
                 })?;
         }
         Ok(request)
@@ -360,16 +425,6 @@ pub enum ModelLoadingSet {
     CheckSceneFlush,
 }
 
-fn finalize_model(In(request): In<ModelLoadingRequest>, world: &mut World) -> ModelLoadingResult {
-    let parent = request.parent.clone();
-    if let Some(then) = request.then.clone() {
-        world.command(|cmd: &mut Commands| {
-            cmd.request(parent, then).detach();
-        });
-    }
-    Ok(request)
-}
-
 impl ModelLoadingServices {
     pub fn from_app(app: &mut App) -> Self {
         app.configure_sets(
@@ -380,7 +435,6 @@ impl ModelLoadingServices {
             )
                 .chain(),
         )
-        .add_systems(Update, maintain_model_loading_states)
         .add_systems(
             PostUpdate,
             (apply_deferred, flush_impulses()).in_set(ModelLoadingSet::CheckSceneFlush),
@@ -393,19 +447,32 @@ impl ModelLoadingServices {
         );
         let load_model_dependencies = app.world.spawn_service(load_model_dependencies);
         let model_loading_service = app.world.spawn_service(handle_model_loading);
+        // This workflow tries to load the model without doing any error handling
+        let try_load_model: Service<ModelLoadingRequest, ModelLoadingResult, ()> =
+            app.world.spawn_workflow(|scope, builder| {
+                scope
+                    .input
+                    .chain(builder)
+                    .then(model_loading_service)
+                    .connect_on_err(scope.terminate)
+                    .then(load_model_dependencies)
+                    .connect_on_err(scope.terminate)
+                    // The model and its dependencies are spawned, make them selectable / propagate
+                    // render layers
+                    .then(propagate_model_properties.into_blocking_callback())
+                    .then(make_models_selectable.into_blocking_callback())
+                    .map_block(|req| Ok(req))
+                    .connect(scope.terminate)
+            });
+
+        // Complete model loading with error handling, by having it as a separate
+        // workflow we can easily capture all the early returns on error
         let load_model = app.world.spawn_workflow(|scope, builder| {
             scope
                 .input
                 .chain(builder)
-                .then(model_loading_service)
-                .connect_on_err(scope.terminate)
-                .then(load_model_dependencies)
-                .connect_on_err(scope.terminate)
-                // The model and its dependencies are spawned, make them selectable / propagate
-                // render layers
-                .then(propagate_model_properties.into_blocking_callback())
-                .then(make_models_selectable.into_blocking_callback())
-                .then(finalize_model.into_blocking_callback())
+                .then(try_load_model)
+                .then(handle_model_loading_errors.into_blocking_callback())
                 .connect(scope.terminate)
         });
 
@@ -416,61 +483,75 @@ impl ModelLoadingServices {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct ModelLoadingRequest {
     /// The entity to spawn the model for
-    // TODO(luca) consider making this an option to avoid users having to do spawn_empty if they
-    // don't need to pass an entity
     pub parent: Entity,
     /// AssetSource pointing to which asset we want to load
     pub source: AssetSource,
-    /// A callback to be executed on the spawned model. This can be used for complex operations
-    /// that require querying / interactions with the ECS
-    pub then: Option<Callback<Entity, ()>>,
-}
-
-impl From<(Entity, AssetSource)> for ModelLoadingRequest {
-    fn from(t: (Entity, AssetSource)) -> Self {
-        ModelLoadingRequest::new(t.0, t.1)
-    }
 }
 
 impl ModelLoadingRequest {
     pub fn new(parent: Entity, source: AssetSource) -> Self {
-        Self {
-            parent,
-            source,
-            then: None,
-        }
-    }
-
-    pub fn then(mut self, then: Callback<Entity, ()>) -> Self {
-        self.then = Some(then);
-        self
+        Self { parent, source }
     }
 }
 
-#[derive(Debug, Error)]
-pub enum ModelLoadingError {
+#[derive(Clone, Debug)]
+pub struct ModelLoadingError {
+    pub request: ModelLoadingRequest,
+    pub kind: Option<ModelLoadingErrorKind>,
+}
+
+impl From<(ModelLoadingRequest, ModelLoadingErrorKind)> for ModelLoadingError {
+    fn from(t: (ModelLoadingRequest, ModelLoadingErrorKind)) -> Self {
+        Self {
+            request: t.0,
+            kind: Some(t.1),
+        }
+    }
+}
+
+impl ModelLoadingError {
+    pub fn new(request: ModelLoadingRequest, kind: Option<ModelLoadingErrorKind>) -> Self {
+        Self { request, kind }
+    }
+}
+
+impl fmt::Display for ModelLoadingError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "Failed to execute model loading request for entity {0:?} and source {1:?} ",
+            self.request.parent, self.request.source
+        )?;
+        // TODO(luca) change error to not be an option
+        write!(f, "Reason: {:?}", self.kind)
+    }
+}
+
+#[derive(Clone, Debug, Error)]
+pub enum ModelLoadingErrorKind {
     #[error("Error executing the model loading workflow")]
     WorkflowExecutionError,
-    #[error("Asset server error while loading [{0:?}]: {1}")]
-    AssetServerError(AssetSource, String),
+    #[error("Asset server error: {0}")]
+    AssetServerError(String),
     #[error(
-        "Invalid syntax while creating asset path for a model: {1}. \
+        "Invalid syntax while creating asset path for model. \
         Check that your asset information was input correctly. \
         Current value:\n{0:?}"
     )]
-    InvalidAssetSource(AssetSource, String),
+    InvalidAssetSource(String),
     #[error(
-        "Failed loading asset [{0:?}], make sure it is in a supported format (.dae is not supported),\
+        "Failed loading asset, make sure it is in a supported format (.dae is not supported),\
         try using an API key if it belongs to a private organization \
         or add its path to the {MODEL_ENVIRONMENT_VARIABLE} environment variable."
     )]
-    FailedLoadingAsset(AssetSource),
-    #[error("Asset at source [{0:?}] did not contain a model")]
-    NonModelAsset(AssetSource),
-    #[error("Failed loading dependency for model with source [{0:?}]: {1}")]
-    FailedLoadingDependency(AssetSource, String),
+    FailedLoadingAsset,
+    #[error("Asset did not contain a model")]
+    NonModelAsset,
+    #[error("Failed loading dependency for model, error: {0}")]
+    FailedLoadingDependency(String),
 }
 
 pub fn update_model_scales(

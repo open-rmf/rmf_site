@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::{Preview, Selectable, VisualCue},
-    site::Dependents,
+    site::{Dependents, ModelLoadingResult},
 };
 use bevy::prelude::*;
 use rmf_site_format::{ModelMarker, NameInSite, NameInWorkcell, Pose, PrimitiveShape};
@@ -26,7 +26,7 @@ use rmf_site_format::{ModelMarker, NameInSite, NameInWorkcell, Pose, PrimitiveSh
 /// This doesn't quite work for URDF / workcells since we need to export and edit single visuals
 /// and collisions, hence we process the loaded models to flatten them here
 pub fn flatten_loaded_model_hierarchy(
-    In(old_parent): In<Entity>,
+    In(result): In<ModelLoadingResult>,
     mut commands: Commands,
     cues: Query<&VisualCue>,
     previews: Query<&Preview>,
@@ -38,6 +38,10 @@ pub fn flatten_loaded_model_hierarchy(
     models: Query<(), Or<(With<ModelMarker>, With<PrimitiveShape>)>>,
     site_names: Query<&NameInSite>,
 ) {
+    let Ok(res) = result else {
+        return;
+    };
+    let old_parent = res.parent;
     let Ok(new_parent) = parents.get(old_parent) else {
         warn!(
             "Failed flattening model hierarchy, model {:?} has no parent",
