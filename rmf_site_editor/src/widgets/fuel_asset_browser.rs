@@ -263,13 +263,10 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                     if let Some(selected) = new_selected {
                         // Set the model preview source to what is selected
                         let model_entity = self.model_preview_camera.model_entity;
-                        let model = Model {
-                            source: AssetSource::Remote(
-                                selected.owner.clone() + "/" + &selected.name + "/model.sdf",
-                            ),
-                            ..default()
-                        };
-                        self.model_loader.spawn_model(model_entity, model);
+                        let source = AssetSource::Remote(
+                            selected.owner.clone() + "/" + &selected.name + "/model.sdf",
+                        );
+                        self.model_loader.update_asset_source(model_entity, source);
                         gallery_status.selected = Some(selected.clone());
                     }
                 }
