@@ -188,25 +188,23 @@ pub fn cleanup_if_asset_source_changed(
     In(request): In<ModelLoadingRequest>,
     mut commands: Commands,
     model_scenes: Query<&ModelScene>,
-) -> ModelLoadingSuccess {
-    let mut success = ModelLoadingSuccess {
-        request: request.clone(),
-        unchanged: false,
-    };
+) -> Result<ModelLoadingRequest, ModelLoadingResult> {
     commands
         .entity(request.parent)
         .insert(request.source.clone());
     let Ok(scene) = model_scenes.get(request.parent) else {
-        return success;
+        return Ok(request);
     };
 
     if scene.source == request.source {
-        success.unchanged = true;
-        return success;
+        return Err(Ok(ModelLoadingSuccess {
+            request,
+            unchanged: true,
+        }));
     }
     commands.entity(scene.scene_root).despawn_recursive();
     commands.entity(request.parent).remove::<ModelScene>();
-    success
+    Ok(request)
 }
 
 fn handle_model_loading(
@@ -451,14 +449,7 @@ impl ModelLoadingServices {
                     .input
                     .chain(builder)
                     .then(skip_if_unchanged)
-                    .map_block(|success| {
-                        if success.unchanged {
-                            Err(success)
-                        } else {
-                            Ok(success.request)
-                        }
-                    })
-                    .branch_for_err(|success| success.map_block(|s| Ok(s)).connect(scope.terminate))
+                    .branch_for_err(|res| res.connect(scope.terminate))
                     .then(model_loading_service)
                     .connect_on_err(scope.terminate)
                     .then(load_model_dependencies)
