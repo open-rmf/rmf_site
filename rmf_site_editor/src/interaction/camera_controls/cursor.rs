@@ -20,7 +20,7 @@ use super::{
     CameraCommandType, CameraControls, ProjectionMode, MAX_FOV, MAX_SCALE, MIN_FOV, MIN_SCALE,
 };
 use crate::interaction::SiteRaycastSet;
-use bevy::input::mouse::MouseWheel;
+use bevy::input::mouse::{MouseScrollUnit, MouseWheel};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy_mod_raycast::deferred::RaycastSource;
@@ -92,15 +92,10 @@ pub fn update_cursor_command(
         // Scroll input
         let mut scroll_motion = 0.0;
         for ev in mouse_wheel.read() {
-            #[cfg(not(target_arch = "wasm32"))]
-            {
-                scroll_motion += ev.y;
-            }
-            #[cfg(target_arch = "wasm32")]
-            {
-                // scrolling in wasm is a different beast
-                scroll_motion += 0.4 * ev.y / ev.y.abs();
-            }
+            scroll_motion += match ev.unit {
+                MouseScrollUnit::Line => ev.y,
+                MouseScrollUnit::Pixel => ev.y / 100.0,
+            };
         }
 
         // Command type, return if inactive

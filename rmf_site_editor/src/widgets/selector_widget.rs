@@ -59,7 +59,7 @@ impl<'w, 's> SelectorWidget<'w, 's> {
         let response = ui.add(Button::image_and_text(icon, text));
 
         if response.clicked() {
-            self.select.send(Select(Some(entity)));
+            self.select.send(Select::new(Some(entity)));
         } else if response.hovered() {
             self.hover.send(Hover(Some(entity)));
         }

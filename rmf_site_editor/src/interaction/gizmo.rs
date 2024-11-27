@@ -34,6 +34,23 @@ pub struct GizmoMaterialSet {
     pub drag: Handle<StandardMaterial>,
 }
 
+#[derive(Resource)]
+pub struct GizmoBlockers {
+    pub selecting: bool,
+}
+
+impl GizmoBlockers {
+    pub fn blocking(&self) -> bool {
+        self.selecting
+    }
+}
+
+impl Default for GizmoBlockers {
+    fn default() -> Self {
+        Self { selecting: false }
+    }
+}
+
 impl GizmoMaterialSet {
     pub fn make_x_axis(materials: &mut Mut<Assets<StandardMaterial>>) -> Self {
         Self {
@@ -134,6 +151,7 @@ pub struct DragAxisBundle {
     pub gizmo: Gizmo,
     pub draggable: Draggable,
     pub axis: DragAxis,
+    pub selectable: Selectable,
 }
 
 impl DragAxisBundle {
@@ -144,6 +162,10 @@ impl DragAxisBundle {
             axis: DragAxis {
                 along,
                 frame: FrameOfReference::Local,
+            },
+            selectable: Selectable {
+                is_selectable: true,
+                element: for_entity,
             },
         }
     }
@@ -172,6 +194,7 @@ pub struct DragPlaneBundle {
     pub gizmo: Gizmo,
     pub draggable: Draggable,
     pub plane: DragPlane,
+    pub selectable: Selectable,
 }
 
 impl DragPlaneBundle {
@@ -182,6 +205,10 @@ impl DragPlaneBundle {
             plane: DragPlane {
                 in_plane,
                 frame: FrameOfReference::Local,
+            },
+            selectable: Selectable {
+                is_selectable: true,
+                element: for_entity,
             },
         }
     }
@@ -240,6 +267,7 @@ pub fn update_gizmo_click_start(
         &mut Handle<StandardMaterial>,
     )>,
     mut selection_blocker: ResMut<SelectionBlockers>,
+    gizmo_blocker: Res<GizmoBlockers>,
     mut visibility: Query<&mut Visibility>,
     mouse_button_input: Res<Input<MouseButton>>,
     transforms: Query<(&Transform, &GlobalTransform)>,
@@ -250,6 +278,16 @@ pub fn update_gizmo_click_start(
     mut click: EventWriter<GizmoClicked>,
     mut removed_gizmos: RemovedComponents<Gizmo>,
 ) {
+    if gizmo_blocker.blocking() {
+        if gizmo_blocker.is_changed() {
+            // This has started being blocked since the last cycle
+            cursor.clear_blockers(&mut visibility);
+        }
+
+        // Don't start any gizmos
+        return;
+    }
+
     for e in removed_gizmos.read() {
         cursor.remove_blocker(e, &mut visibility);
     }
@@ -325,12 +363,14 @@ pub fn update_gizmo_click_start(
 pub fn update_gizmo_release(
     mut draggables: Query<(&Gizmo, &mut Draggable, &mut Handle<StandardMaterial>)>,
     mut selection_blockers: ResMut<SelectionBlockers>,
+    gizmo_blockers: Res<GizmoBlockers>,
     mut gizmo_state: ResMut<GizmoState>,
     mouse_button_input: Res<Input<MouseButton>>,
-    picked: Res<Picked>,
-    mut change_pick: EventWriter<ChangePick>,
+    mut picked: ResMut<Picked>,
 ) {
-    if mouse_button_input.just_released(MouseButton::Left) {
+    let mouse_released = mouse_button_input.just_released(MouseButton::Left);
+    let gizmos_blocked = gizmo_blockers.blocking();
+    if mouse_released || gizmos_blocked {
         if let GizmoState::Dragging(e) = *gizmo_state {
             if let Ok((gizmo, mut draggable, mut material)) = draggables.get_mut(e) {
                 draggable.drag = None;
@@ -346,10 +386,7 @@ pub fn update_gizmo_release(
             // to move the cursor off of whatever object it happens to be
             // hovering over after the drag is finished before interactions like
             // selecting or dragging can resume.
-            change_pick.send(ChangePick {
-                from: None,
-                to: picked.0,
-            });
+            picked.refresh = true;
         }
     }
 }

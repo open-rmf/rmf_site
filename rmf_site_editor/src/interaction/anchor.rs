@@ -23,6 +23,12 @@ use crate::{
 };
 use bevy::prelude::*;
 
+/// Use this resource to indicate whether anchors should be constantly highlighted.
+/// This is used during anchor selection modes to make it easier for users to know
+/// where selectable anchors are.
+#[derive(Clone, Copy, Debug, Resource)]
+pub struct HighlightAnchors(pub bool);
+
 #[derive(Component, Debug, Clone, Copy)]
 pub struct AnchorVisualization {
     pub body: Entity,
@@ -37,6 +43,7 @@ pub fn add_anchor_visual_cues(
     >,
     categories: Query<&Category>,
     site_assets: Res<SiteAssets>,
+    highlight: Res<HighlightAnchors>,
 ) {
     for (e, parent, subordinate, anchor) in &new_anchors {
         let body_mesh = match categories.get(parent.get()).unwrap() {
@@ -65,12 +72,29 @@ pub fn add_anchor_visual_cues(
             .insert(OutlineVisualization::Anchor { body })
             .add_child(body);
 
-        // 3D anchors should always be visible with arrow cue meshes
-        if anchor.is_3D() {
-            entity_commands.insert(VisualCue::outline());
+        let cue = if anchor.is_3D() {
+            // 3D anchors should always be visible with arrow cue meshes
+            VisualCue::outline()
         } else {
-            entity_commands.insert(VisualCue::outline().irregular());
-        }
+            let mut cue = VisualCue::outline().irregular();
+            cue.xray.set_always(highlight.0);
+            cue
+        };
+
+        entity_commands.insert(cue);
+    }
+}
+
+pub fn on_highlight_anchors_change(
+    highlight: Res<HighlightAnchors>,
+    mut anchor_visual_cues: Query<&mut VisualCue, With<Anchor>>,
+) {
+    if !highlight.is_changed() {
+        return;
+    }
+
+    for mut cue in &mut anchor_visual_cues {
+        cue.xray.set_always(highlight.0);
     }
 }
 
@@ -110,12 +134,12 @@ pub fn update_anchor_proximity_xray(
     }
 
     let p_c = match intersect_ground_params.ground_plane_intersection() {
-        Some(p) => p,
+        Some(p) => p.translation,
         None => return,
     };
 
     for (anchor_tf, mut cue) in &mut anchors {
-        // TODO(MXG): Make the proximity range configurable
+        // TODO(@mxgrey): Make the proximity range configurable
         let proximity = {
             // We make the xray effect a little "sticky" so that there isn't an
             // ugly flicker for anchors that are right at the edge of the
@@ -156,22 +180,6 @@ pub fn update_unassigned_anchor_cues(
     }
 }
 
-pub fn update_anchor_cues_for_mode(
-    mode: Res<InteractionMode>,
-    mut anchors: Query<&mut VisualCue, With<Anchor>>,
-) {
-    if !mode.is_changed() {
-        return;
-    }
-
-    let anchor_always_visible = mode.is_selecting_anchor();
-    for mut cue in &mut anchors {
-        if cue.xray.always() != anchor_always_visible {
-            cue.xray.set_always(anchor_always_visible);
-        }
-    }
-}
-
 pub fn update_anchor_visual_cues(
     mut commands: Commands,
     mut anchors: Query<
@@ -191,10 +199,11 @@ pub fn update_anchor_visual_cues(
     mut visibility: Query<&mut Visibility>,
     mut materials: Query<&mut Handle<StandardMaterial>>,
     deps: Query<&Dependents>,
-    cursor: Res<Cursor>,
+    mut cursor: ResMut<Cursor>,
     site_assets: Res<SiteAssets>,
     interaction_assets: Res<InteractionAssets>,
     debug_mode: Option<Res<DebugMode>>,
+    gizmo_blockers: Res<GizmoBlockers>,
 ) {
     for (
         a,
@@ -235,8 +244,10 @@ pub fn update_anchor_visual_cues(
                 .set_support_hovered(!hovered.support_hovering.is_empty());
         }
 
-        if hovered.is_hovered {
-            set_visibility(cursor.frame, &mut visibility, false);
+        if hovered.is_hovered && !gizmo_blockers.blocking() {
+            cursor.add_blocker(a, &mut visibility);
+        } else {
+            cursor.remove_blocker(a, &mut visibility);
         }
 
         if hovered.cue() && selected.cue() {
@@ -303,7 +314,7 @@ pub fn update_anchor_visual_cues(
 }
 
 // NOTE(MXG): Currently only anchors ever have support cues, so we filter down
-// to entities with AnchorVisualCues. We will need to broaden that if any other
+// to entities with AnchorVisualization. We will need to broaden that if any other
 // visual cue types ever have a supporting role.
 pub fn remove_deleted_supports_from_visual_cues(
     mut hovered: Query<&mut Hovered, With<AnchorVisualization>>,

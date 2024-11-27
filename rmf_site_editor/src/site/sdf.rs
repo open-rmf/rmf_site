@@ -81,14 +81,13 @@ pub fn handle_new_primitive_shapes(
                     .filter_map(|p| selectables.get(p).ok())
                     .last()
                 {
-                    selectable.clone()
+                    selectable.element
                 } else {
-                    Selectable::new(e)
+                    e
                 };
-                commands.entity(id).insert((
-                    selectable,
-                    DragPlaneBundle::new(selectable.element, Vec3::Z),
-                ));
+                commands
+                    .entity(id)
+                    .insert(DragPlaneBundle::new(selectable, Vec3::Z));
             }
         }
     }

@@ -86,7 +86,6 @@ impl TryFrom<PathBuf> for OSMTile {
                 "Invalid path when converting to OSMTile, three elements are required".to_owned(),
             )?;
         let ytile = ytile.strip_suffix(".png").ok_or("Suffix not found")?;
-        dbg!(&zoom, &xtile, &ytile);
         Ok(OSMTile {
             xtile: xtile.parse::<i32>().map_err(|e| e.to_string())?,
             ytile: ytile.parse::<i32>().map_err(|e| e.to_string())?,
