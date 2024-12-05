@@ -338,7 +338,7 @@ impl<'w, 's> ModelLoader<'w, 's> {
         &mut self,
         parent: Entity,
         model: Model,
-        impulse: impl FnOnce(Impulse<'_, '_, '_, ModelLoadingResult, ()>),
+        impulse: impl FnOnce(Impulse<ModelLoadingResult, ()>),
     ) -> EntityCommands<'w, 's, '_> {
         let source = model.source.clone();
         let id = self.commands.spawn(model).set_parent(parent).id();
