@@ -18,6 +18,7 @@
 use crate::{log::*, widgets::prelude::*};
 use bevy::prelude::*;
 use bevy_egui::egui::{self, CollapsingHeader, Color32, RichText};
+use bevy_impulse::UnhandledErrors;
 
 /// This widget provides a console that displays information, warning, and error
 /// messages.
@@ -29,6 +30,7 @@ impl Plugin for ConsoleWidgetPlugin {
         app.init_resource::<LogHistory>();
         let widget = PanelWidget::new(console_widget, &mut app.world);
         app.world.spawn(widget);
+        app.add_systems(Update, drain_unhandled_errors);
     }
 }
 
@@ -156,4 +158,50 @@ fn print_log(ui: &mut egui::Ui, element: &LogHistoryElement) {
             );
         }
     });
+}
+
+fn drain_unhandled_errors(
+    unhandled: Option<ResMut<UnhandledErrors>>,
+) {
+    let Some(mut unhandled) = unhandled else {
+        return;
+    };
+
+    if unhandled.is_changed() {
+        for e in unhandled.setup.drain(..) {
+            error!("{e:?}");
+        }
+
+        for e in unhandled.cancellations.drain(..) {
+            error!("{e:?}");
+        }
+
+        for e in unhandled.operations.drain(..) {
+            error!("{e:?}");
+        }
+
+        for e in unhandled.disposals.drain(..) {
+            error!("{e:?}");
+        }
+
+        for e in unhandled.stop_tasks.drain(..) {
+            error!("{e:?}");
+        }
+
+        for e in unhandled.broken.drain(..) {
+            error!("{e:?}");
+        }
+
+        for e in unhandled.unused_targets.drain(..) {
+            error!("{e:?}");
+        }
+
+        for e in unhandled.connections.drain(..) {
+            error!("{e:?}");
+        }
+
+        for e in unhandled.miscellaneous.drain(..) {
+            error!("{e:?}");
+        }
+    }
 }
