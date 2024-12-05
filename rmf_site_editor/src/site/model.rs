@@ -182,8 +182,8 @@ pub fn spawn_scene_for_loaded_model(
     Some((model_id, is_scene))
 }
 
-/// Return Some(request) if the source changed and we might need to continue downstream operations.
-/// Err(request) if there was no change and we can dispose downstream operations.
+/// Return Ok(request) if the source changed and we might need to continue downstream operations.
+/// Err(Ok(success)) if there was no change and we can skip downstream operations.
 pub fn cleanup_if_asset_source_changed(
     In(request): In<ModelLoadingRequest>,
     mut commands: Commands,
