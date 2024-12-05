@@ -146,8 +146,8 @@ pub fn spawn_scene_for_loaded_model(
         let scene = gltf
             .default_scene
             .as_ref()
-            .map(|s| s.clone())
-            .unwrap_or(gltf.scenes.get(0).unwrap().clone());
+            .or_else(|| gltf.scenes.get(0))
+            .cloned()?;
         Some((world.spawn(SceneBundle { scene, ..default() }).id(), true))
     } else if type_id == TypeId::of::<Scene>() {
         let scene = h.typed::<Scene>();
