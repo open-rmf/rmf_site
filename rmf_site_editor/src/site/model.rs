@@ -342,13 +342,7 @@ impl<'w, 's> ModelLoader<'w, 's> {
     ) -> EntityCommands<'w, 's, '_> {
         let source = model.source.clone();
         let id = self.commands.spawn(model).set_parent(parent).id();
-        let loading_impulse = self.commands.request(
-            ModelLoadingRequest::new(id, source),
-            self.services
-                .load_model
-                .clone()
-                .instruct(SpawnModelLabel(id).preempt()),
-        );
+        let loading_impulse = self.update_asset_source_impulse(id, source);
         (impulse)(loading_impulse);
         self.commands.entity(id)
     }
