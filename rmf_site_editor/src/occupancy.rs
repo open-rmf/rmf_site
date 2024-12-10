@@ -18,10 +18,7 @@
 use crate::{
     interaction::ComputedVisualCue,
     shapes::*,
-    site::{
-        Category, Group as SiteGroup, LevelElevation, MobileRobotMarker, NameOfSite, SiteAssets,
-        LANE_LAYER_START,
-    },
+    site::{Category, LevelElevation, NameOfSite, SiteAssets, LANE_LAYER_START},
 };
 use bevy::{
     math::{swizzles::*, Affine3A, Mat3A, Vec2, Vec3A},
