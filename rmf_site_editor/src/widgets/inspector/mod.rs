@@ -225,7 +225,7 @@ impl Plugin for StandardInspectorPlugin {
                     "Source".to_string(),
                 ),
                 InspectModelPropertyPlugin::<InspectModelDifferentialDrive, DifferentialDrive>::new(
-                    "Differential Drve".to_string(),
+                    "Differential Drive".to_string(),
                 ),
             ));
     }

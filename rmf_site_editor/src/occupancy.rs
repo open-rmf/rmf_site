@@ -18,7 +18,10 @@
 use crate::{
     interaction::ComputedVisualCue,
     shapes::*,
-    site::{Category, LevelElevation, NameOfSite, SiteAssets, LANE_LAYER_START},
+    site::{
+        Category, Group as SiteGroup, LevelElevation, MobileRobotMarker, NameOfSite, SiteAssets,
+        LANE_LAYER_START,
+    },
 };
 use bevy::{
     math::{swizzles::*, Affine3A, Mat3A, Vec2, Vec3A},
@@ -188,6 +191,24 @@ fn calculate_grid(
                 .is_some_and(|ignored_set| ignored_set.contains(e))
             {
                 continue;
+            } else if request.ignore.as_ref().is_some() {
+                let mut ignore: bool = false;
+                let mut queue = vec![*e];
+                // Some of these physical entities may be meshes of ignored entities.
+                // Here we check if their parent entities have been indicated to be
+                // ignored, and handle them accordingly.
+                while let Some(entity) = queue.pop() {
+                    if let Ok(parent) = parents.get(entity) {
+                        if request.ignore.as_ref().unwrap().contains(&parent.get()) {
+                            ignore = true;
+                            break;
+                        }
+                        queue.push(parent.get());
+                    }
+                }
+                if ignore {
+                    continue;
+                }
             }
 
             let (_, mesh, aabb, tf) = match bodies.get(*e) {
