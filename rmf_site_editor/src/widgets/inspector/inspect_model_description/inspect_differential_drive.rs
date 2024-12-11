@@ -66,7 +66,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelDifferentialDrive<'w, 's> {
             Grid::new("inspect_diferential_drive")
                 .num_columns(3)
                 .show(ui, |ui| {
-                    ui.label("max velocity");
+                    ui.label("Max Velocity");
                     ui.add(
                         DragValue::new(&mut new_differential_drive.translational_speed)
                             .clamp_range(0_f32..=std::f32::INFINITY)
@@ -75,7 +75,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelDifferentialDrive<'w, 's> {
                     ui.label("m/s");
                     ui.end_row();
 
-                    ui.label("max angular");
+                    ui.label("Max Angular");
                     ui.add(
                         DragValue::new(&mut new_differential_drive.rotational_speed)
                             .clamp_range(0_f32..=std::f32::INFINITY)
@@ -84,7 +84,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelDifferentialDrive<'w, 's> {
                     ui.label("rad/s");
                     ui.end_row();
 
-                    ui.label("collision radius");
+                    ui.label("Collision Radius");
                     if ui
                         .add(
                             DragValue::new(&mut new_differential_drive.collision_radius)
@@ -103,8 +103,9 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelDifferentialDrive<'w, 's> {
                         }
                     };
                     ui.label("m");
+                    ui.end_row();
 
-                    ui.label("center offset");
+                    ui.label("Center Offset");
                     ui.label("x");
                     ui.label("y");
                     ui.end_row();
@@ -120,12 +121,10 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelDifferentialDrive<'w, 's> {
                             .clamp_range(std::f32::NEG_INFINITY..=std::f32::INFINITY)
                             .speed(0.01),
                     );
+                    ui.end_row();
+                    ui.label("Bidirectional");
+                    ui.checkbox(&mut new_differential_drive.bidirectional, "");
                 });
-
-            ui.horizontal(|ui| {
-                ui.label("bidirectional");
-                ui.checkbox(&mut new_differential_drive.bidirectional, "");
-            });
         });
 
         if new_differential_drive != *differential_drive {
