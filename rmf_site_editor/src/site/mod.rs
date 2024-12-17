@@ -191,7 +191,6 @@ impl Plugin for SitePlugin {
         .init_resource::<PhysicalLightToggle>()
         .init_resource::<FuelCacheUpdateChannel>()
         .init_resource::<FuelCacheProgressChannel>()
-        .init_resource::<ModelTrashcan>()
         .register_type::<NameInSite>()
         .register_type::<AssetSource>()
         .register_type::<Pose>()
@@ -263,6 +262,7 @@ impl Plugin for SitePlugin {
             DeletionPlugin,
             DrawingEditorPlugin,
             SiteVisualizerPlugin,
+            ModelLoadingPlugin::default(),
         ))
         .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
         .add_issue_type(&DUPLICATED_LIFT_NAME_ISSUE_UUID, "Duplicate lift name")
@@ -278,7 +278,6 @@ impl Plugin for SitePlugin {
             (
                 update_lift_cabin,
                 update_lift_edge,
-                update_model_tentative_formats,
                 update_drawing_pixels_per_meter,
                 update_drawing_children_to_pixel_coordinates,
                 check_for_duplicated_door_names,
@@ -320,7 +319,6 @@ impl Plugin for SitePlugin {
                 add_category_to_graphs,
                 add_tags_to_lift,
                 add_material_for_display_colors,
-                clear_model_trashcan,
                 add_physical_lights,
             )
                 .run_if(AppState::in_site_mode())
@@ -392,22 +390,9 @@ impl Plugin for SitePlugin {
         .add_systems(
             PostUpdate,
             (
-                (
-                    propagate_model_properties,
-                    make_models_selectable,
-                    // Counter-intuitively, we want to expand the model scenes
-                    // after propagating the model properties through the scene.
-                    // The reason is that the entities for the scene won't be
-                    // available until the next cycle is finished, so we want to
-                    // wait until the next cycle before propagating the properties
-                    // of any newly added scenes.
-                    handle_model_loaded_events,
-                )
-                    .chain(),
                 add_measurement_visuals,
                 update_changed_measurement,
                 update_measurement_for_moved_anchors,
-                update_model_scenes,
                 update_affiliations,
                 update_members_of_groups.after(update_affiliations),
                 update_model_scales,

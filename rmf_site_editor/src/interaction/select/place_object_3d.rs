@@ -18,12 +18,16 @@
 use crate::{
     interaction::select::*,
     site::{
-        Anchor, AnchorBundle, Dependents, FrameMarker, Model, NameInSite, NameInWorkcell, Pending,
-        SiteID, WorkcellModel,
+        Anchor, AnchorBundle, Dependents, FrameMarker, Model, ModelLoader, NameInWorkcell, Pending,
+        SiteID,
     },
     widgets::canvas_tooltips::CanvasTooltips,
+    workcell::flatten_loaded_model_hierarchy,
 };
-use bevy::{ecs::system::SystemParam, prelude::Input as UserInput};
+use bevy::{
+    ecs::system::{EntityCommands, SystemParam},
+    prelude::Input as UserInput,
+};
 use bevy_mod_raycast::deferred::RaycastSource;
 use std::borrow::Cow;
 
@@ -150,8 +154,8 @@ pub struct PlaceObject3d {
 pub enum PlaceableObject {
     Model(Model),
     Anchor,
-    VisualMesh(WorkcellModel),
-    CollisionMesh(WorkcellModel),
+    VisualMesh(Model),
+    CollisionMesh(Model),
 }
 
 pub fn place_object_3d_setup(
@@ -163,6 +167,7 @@ pub fn place_object_3d_setup(
     mut highlight: ResMut<HighlightAnchors>,
     mut filter: PlaceObject3dFilter,
     mut gizmo_blockers: ResMut<GizmoBlockers>,
+    mut model_loader: ModelLoader,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&srv.request).or_broken_buffer()?;
     let state = access.newest_mut().or_broken_buffer()?;
@@ -174,15 +179,11 @@ pub fn place_object_3d_setup(
             set_visibility(cursor.dagger, &mut visibility, true);
             set_visibility(cursor.halo, &mut visibility, true);
         }
-        PlaceableObject::Model(m) => {
+        PlaceableObject::Model(m)
+        | PlaceableObject::VisualMesh(m)
+        | PlaceableObject::CollisionMesh(m) => {
             // Spawn the model as a child of the cursor
-            cursor.set_model_preview(&mut commands, Some(m.clone()));
-            set_visibility(cursor.dagger, &mut visibility, false);
-            set_visibility(cursor.halo, &mut visibility, false);
-        }
-        PlaceableObject::VisualMesh(m) | PlaceableObject::CollisionMesh(m) => {
-            // Spawn the model as a child of the cursor
-            cursor.set_workcell_model_preview(&mut commands, Some(m.clone()));
+            cursor.set_model_preview(&mut commands, &mut model_loader, Some(m.clone()));
             set_visibility(cursor.dagger, &mut visibility, false);
             set_visibility(cursor.halo, &mut visibility, false);
         }
@@ -238,7 +239,7 @@ pub fn place_object_3d_find_placement(
     hovering: Res<Hovering>,
     mouse_button_input: Res<UserInput<MouseButton>>,
     blockers: Option<Res<PickingBlockers>>,
-    meta: Query<(Option<&'static NameInSite>, Option<&'static SiteID>)>,
+    meta: Query<(Option<&'static NameInWorkcell>, Option<&'static SiteID>)>,
     mut filter: PlaceObject3dFilter,
 ) {
     let Some(mut orders) = orders.get_mut(&srv_key) else {
@@ -436,6 +437,7 @@ pub fn on_placement_chosen_3d(
     global_tfs: Query<&GlobalTransform>,
     parents: Query<&Parent>,
     frames: Query<(), With<FrameMarker>>,
+    mut model_loader: ModelLoader,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.pull().or_broken_state()?;
@@ -458,6 +460,10 @@ pub fn on_placement_chosen_3d(
     let placement_tf = placement.compute_affine();
     let pose = Transform::from_matrix((inv_tf * placement_tf).into()).into();
 
+    let flatten_models = flatten_loaded_model_hierarchy.into_blocking_callback();
+    let add_model_components = |object: Model, mut cmd: EntityCommands| {
+        cmd.insert((NameInWorkcell(object.name.0), object.pose, object.scale));
+    };
     let id = match state.object {
         PlaceableObject::Anchor => commands
             .spawn((
@@ -467,7 +473,13 @@ pub fn on_placement_chosen_3d(
             ))
             .id(),
         PlaceableObject::Model(object) => {
-            let model_id = commands.spawn((object, VisualCue::outline())).id();
+            let model_id = commands.spawn(VisualCue::outline()).id();
+            let source = object.source.clone();
+            add_model_components(object, commands.entity(model_id));
+            model_loader
+                .update_asset_source_impulse(model_id, source)
+                .then(flatten_models)
+                .detach();
             // Create a parent anchor to contain the new model in
             commands
                 .spawn((
@@ -480,16 +492,28 @@ pub fn on_placement_chosen_3d(
                 .id()
         }
         PlaceableObject::VisualMesh(mut object) => {
+            let id = commands.spawn((VisualMeshMarker, Category::Visual)).id();
             object.pose = pose;
-            let mut cmd = commands.spawn(VisualMeshMarker);
-            object.add_bevy_components(&mut cmd);
-            cmd.id()
+            let source = object.source.clone();
+            add_model_components(object, commands.entity(id));
+            model_loader
+                .update_asset_source_impulse(id, source)
+                .then(flatten_models)
+                .detach();
+            id
         }
         PlaceableObject::CollisionMesh(mut object) => {
+            let id = commands
+                .spawn((CollisionMeshMarker, Category::Collision))
+                .id();
             object.pose = pose;
-            let mut cmd = commands.spawn(CollisionMeshMarker);
-            object.add_bevy_components(&mut cmd);
-            cmd.id()
+            let source = object.source.clone();
+            add_model_components(object, commands.entity(id));
+            model_loader
+                .update_asset_source_impulse(id, source)
+                .then(flatten_models)
+                .detach();
+            id
         }
     };
 

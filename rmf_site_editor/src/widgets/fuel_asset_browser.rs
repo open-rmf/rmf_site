@@ -17,7 +17,9 @@
 
 use crate::{
     interaction::{ModelPreviewCamera, ObjectPlacement, PlaceableObject, Selection},
-    site::{AssetSource, CurrentLevel, FuelClient, Model, SetFuelApiKey, UpdateFuelCache},
+    site::{
+        AssetSource, CurrentLevel, FuelClient, Model, ModelLoader, SetFuelApiKey, UpdateFuelCache,
+    },
     widgets::prelude::*,
     AppState, CurrentWorkspace,
 };
@@ -77,12 +79,12 @@ pub struct FuelAssetBrowser<'w, 's> {
     model_preview_camera: Res<'w, ModelPreviewCamera>,
     update_cache: EventWriter<'w, UpdateFuelCache>,
     set_api_key: EventWriter<'w, SetFuelApiKey>,
-    commands: Commands<'w, 's>,
     place_object: ObjectPlacement<'w, 's>,
     current_workspace: Res<'w, CurrentWorkspace>,
     current_selection: Res<'w, Selection>,
     current_level: Res<'w, CurrentLevel>,
     app_state: Res<'w, State<AppState>>,
+    model_loader: ModelLoader<'w, 's>,
 }
 
 fn fuel_asset_browser_panel(In(input): In<PanelWidgetInput>, world: &mut World) {
@@ -261,13 +263,10 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                     if let Some(selected) = new_selected {
                         // Set the model preview source to what is selected
                         let model_entity = self.model_preview_camera.model_entity;
-                        let model = Model {
-                            source: AssetSource::Remote(
-                                selected.owner.clone() + "/" + &selected.name + "/model.sdf",
-                            ),
-                            ..default()
-                        };
-                        self.commands.entity(model_entity).insert(model);
+                        let source = AssetSource::Remote(
+                            selected.owner.clone() + "/" + &selected.name + "/model.sdf",
+                        );
+                        self.model_loader.update_asset_source(model_entity, source);
                         gallery_status.selected = Some(selected.clone());
                     }
                 }

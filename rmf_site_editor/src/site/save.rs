@@ -25,7 +25,7 @@ use std::{
 };
 use thiserror::Error as ThisError;
 
-use crate::{recency::RecencyRanking, site::*, ExportFormat};
+use crate::{interaction::Preview, recency::RecencyRanking, site::*, ExportFormat};
 use rmf_site_format::*;
 
 #[derive(Event)]
@@ -338,7 +338,7 @@ fn generate_levels(
         >,
         Query<
             (&NameInSite, &AssetSource, &Pose, &IsStatic, &Scale, &SiteID),
-            (With<ModelMarker>, Without<Pending>),
+            (With<ModelMarker>, Without<Pending>, Without<Preview>),
         >,
         Query<(&NameInSite, &Pose, &PhysicalCameraProperties, &SiteID), Without<Pending>>,
         Query<

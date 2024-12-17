@@ -27,7 +27,7 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, Ui};
 
-use rmf_site_format::{DrawingProperties, Geometry, Model, WorkcellModel};
+use rmf_site_format::{DrawingProperties, Model};
 
 /// This widget provides a widget with buttons for creating new site elements.
 #[derive(Default)]
@@ -202,27 +202,21 @@ impl<'w, 's> Creation<'w, 's> {
                                             asset_gallery.show = true;
                                         }
                                         if ui.button("Spawn visual").clicked() {
-                                            let workcell_model = WorkcellModel {
-                                                geometry: Geometry::Mesh {
-                                                    source: self.pending_model.source.clone(),
-                                                    scale: Some(*self.pending_model.scale),
-                                                },
+                                            let model = Model {
+                                                source: self.pending_model.source.clone(),
+                                                scale: Scale(*self.pending_model.scale),
                                                 ..default()
                                             };
-                                            self.place_object(PlaceableObject::VisualMesh(
-                                                workcell_model,
-                                            ));
+                                            self.place_object(PlaceableObject::VisualMesh(model));
                                         }
                                         if ui.button("Spawn collision").clicked() {
-                                            let workcell_model = WorkcellModel {
-                                                geometry: Geometry::Mesh {
-                                                    source: self.pending_model.source.clone(),
-                                                    scale: Some(*self.pending_model.scale),
-                                                },
+                                            let model = Model {
+                                                source: self.pending_model.source.clone(),
+                                                scale: Scale(*self.pending_model.scale),
                                                 ..default()
                                             };
                                             self.place_object(PlaceableObject::CollisionMesh(
-                                                workcell_model,
+                                                model,
                                             ));
                                         }
                                         ui.add_space(10.0);
