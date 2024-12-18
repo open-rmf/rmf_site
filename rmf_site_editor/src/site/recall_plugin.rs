@@ -16,7 +16,6 @@
 */
 
 use crate::site::SiteUpdateSet;
-use crate::AppState;
 use bevy::prelude::*;
 use rmf_site_format::Recall;
 
@@ -38,8 +37,7 @@ where
             (
                 add_recaller::<T>.after(SiteUpdateSet::ProcessChanges),
                 update_recaller::<T>.after(SiteUpdateSet::ProcessChanges),
-            )
-                .run_if(AppState::in_displaying_mode()),
+            ),
         );
     }
 }

@@ -32,9 +32,6 @@ pub use category::*;
 pub mod camera_poses;
 pub use camera_poses::*;
 
-pub mod constraint;
-pub use constraint::*;
-
 pub mod dock;
 pub use dock::*;
 
@@ -98,6 +95,9 @@ pub use physical_camera::*;
 pub mod point;
 pub use point::*;
 
+pub mod primitive_shape;
+pub use primitive_shape::*;
+
 pub mod recall;
 pub use recall::*;
 
@@ -115,9 +115,6 @@ pub use texture::*;
 
 pub mod wall;
 pub use wall::*;
-
-pub mod workcell;
-pub use workcell::*;
 
 pub mod georeference;
 pub use georeference::*;

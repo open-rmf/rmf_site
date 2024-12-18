@@ -67,21 +67,6 @@ fn egui_ui(
                 if ui.button("Create new file").clicked() {
                     workspace_loader.create_empty_from_dialog();
                 }
-
-                // TODO(@mxgrey): Bring this back when we have finished developing
-                // the key features for workcell editing.
-                // if ui.button("Workcell Editor").clicked() {
-                //     workspace_loader.send(LoadWorkspace::Data(WorkspaceData::Workcell(
-                //         demo_workcell(),
-                //     )));
-                // }
-
-                // TODO(@mxgrey): Bring this back when we have time to fix the
-                // warehouse generator.
-                // if ui.button("Warehouse generator").clicked() {
-                //     info!("Entering warehouse generator");
-                //     _app_state.overwrite_set(AppState::WarehouseGenerator).unwrap();
-                // }
             });
 
             #[cfg(not(target_arch = "wasm32"))]

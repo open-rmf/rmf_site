@@ -15,10 +15,9 @@
  *
 */
 
-use crate::menu_bar::{FileMenu, MenuEvent, MenuItem, MenuVisualizationStates};
-use crate::{AppState, ExportFormat, SaveWorkspace, SaveWorkspaceDestination};
+use crate::menu_bar::{FileMenu, MenuEvent, MenuItem, TextMenuItem};
+use crate::{AppState, WorkspaceSaver};
 use bevy::prelude::*;
-use std::collections::HashSet;
 
 /// Keeps track of which entity is associated to the export sdf button.
 #[derive(Resource)]
@@ -34,16 +33,10 @@ impl SdfExportMenu {
 
 impl FromWorld for SdfExportMenu {
     fn from_world(world: &mut World) -> Self {
-        let site_states = HashSet::from([
-            AppState::SiteEditor,
-            AppState::SiteVisualizer,
-            AppState::SiteDrawingEditor,
-        ]);
         let file_header = world.resource::<FileMenu>().get();
         let export_sdf = world
-            .spawn((
-                MenuItem::Text("Export Sdf".to_string()),
-                MenuVisualizationStates(site_states),
+            .spawn(MenuItem::Text(
+                TextMenuItem::new("Export Sdf").shortcut("Ctrl-E"),
             ))
             .set_parent(file_header)
             .id();
@@ -55,14 +48,11 @@ impl FromWorld for SdfExportMenu {
 fn handle_export_sdf_menu_events(
     mut menu_events: EventReader<MenuEvent>,
     sdf_menu: Res<SdfExportMenu>,
-    mut save_events: EventWriter<SaveWorkspace>,
+    mut workspace_saver: WorkspaceSaver,
 ) {
     for event in menu_events.read() {
         if event.clicked() && event.source() == sdf_menu.get() {
-            save_events.send(SaveWorkspace {
-                destination: SaveWorkspaceDestination::Dialog,
-                format: ExportFormat::Sdf,
-            });
+            workspace_saver.export_sdf_to_dialog();
         }
     }
 }
@@ -74,7 +64,7 @@ impl Plugin for SdfExportMenuPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SdfExportMenu>().add_systems(
             Update,
-            handle_export_sdf_menu_events.run_if(AppState::in_site_mode()),
+            handle_export_sdf_menu_events.run_if(AppState::in_displaying_mode()),
         );
     }
 }
