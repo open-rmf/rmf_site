@@ -15,8 +15,8 @@
  *
 */
 
-use crate::{interaction::select::*, site::Model};
-use bevy::ecs::system::SystemParam;
+use crate::{interaction::select::*, site::{CurrentLevel, Model}};
+use bevy::ecs::system::{Command, SystemState, SystemParam};
 
 #[derive(Default)]
 pub struct ObjectPlacementPlugin {}
@@ -44,10 +44,15 @@ impl ObjectPlacementServices {
 pub struct ObjectPlacement<'w, 's> {
     pub services: Res<'w, ObjectPlacementServices>,
     pub commands: Commands<'w, 's>,
+    current_level: Res<'w, CurrentLevel>,
 }
 
 impl<'w, 's> ObjectPlacement<'w, 's> {
-    pub fn place_object_2d(&mut self, object: Model, level: Entity) {
+    pub fn place_object_2d(&mut self, object: Model) {
+        let Some(level) = self.current_level.0 else {
+            warn!("Unble to create [object:?] outside a level");
+            return;
+        };
         let state = self
             .commands
             .spawn(SelectorInput(PlaceObject2d { object, level }))
@@ -62,5 +67,28 @@ impl<'w, 's> ObjectPlacement<'w, 's> {
         self.commands.add(move |world: &mut World| {
             world.send_event(run);
         });
+    }
+}
+
+/// Trait to be implemented to allow placing models with commands
+pub trait ObjectPlacementExt<'w, 's> {
+    fn place_object_2d(&mut self, object: Model);
+}
+
+impl<'w, 's> ObjectPlacementExt<'w, 's> for Commands<'w, 's> {
+    fn place_object_2d(&mut self, object: Model) {
+        self.add(ObjectPlaceCommand(object));
+    }
+}
+
+#[derive(Deref, DerefMut)]
+pub struct ObjectPlaceCommand(Model);
+
+impl Command for ObjectPlaceCommand {
+    fn apply(self, world: &mut World) {
+        let mut system_state: SystemState<ObjectPlacement> = SystemState::new(world);
+        let mut placement = system_state.get_mut(world);
+        placement.place_object_2d(self.0);
+        system_state.apply(world);
     }
 }
