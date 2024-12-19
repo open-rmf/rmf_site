@@ -76,6 +76,7 @@ impl<T> LoadResult<T> for Result<T, u32> {
 
 fn generate_site_entities(
     commands: &mut Commands,
+    model_loader: &mut ModelLoader,
     site_data: &rmf_site_format::Site,
 ) -> Result<Entity, LoadSiteError> {
     let mut id_to_entity = HashMap::new();
@@ -247,6 +248,7 @@ fn generate_site_entities(
     }
 
     let mut model_description_dependents = HashMap::<Entity, HashSet<Entity>>::new();
+    let mut model_description_to_source = HashMap::<Entity, AssetSource>::new();
     for (model_description_id, model_description) in &site_data.model_descriptions {
         let model_description_entity = commands
             .spawn(model_description.clone())
@@ -257,6 +259,8 @@ fn generate_site_entities(
         id_to_entity.insert(*model_description_id, model_description_entity);
         consider_id(*model_description_id);
         model_description_dependents.insert(model_description_entity, HashSet::new());
+        model_description_to_source
+            .insert(model_description_entity, model_description.source.0.clone());
         // Insert optional model properties
         for optional_property in &model_description.optional_properties.0 {
             match optional_property {
@@ -275,29 +279,46 @@ fn generate_site_entities(
         let model_instance = model_instance_data
             .convert(&id_to_entity)
             .for_site(site_id)?;
-        let model_instance_entity = commands
-            .spawn(model_instance.clone())
-            .insert(SiteID(*model_instance_id))
-            .set_parent(site_id)
-            .id();
-        id_to_entity.insert(*model_instance_id, model_instance_entity);
-        consider_id(*model_instance_id);
 
         if let Some(model_description) = model_instance.description.0 {
-            model_description_dependents
-                .entry(model_description)
-                .and_modify(|hset| {
-                    hset.insert(model_instance_entity);
-                });
-        }
-        // Insert optional model properties
-        for optional_property in &model_instance.optional_properties.0 {
-            match optional_property {
-                OptionalModelProperty::Tasks(tasks) => {
-                    commands.entity(model_instance_entity).insert(tasks.clone())
+            let source = model_description_to_source.get(&model_description);
+            if let Some(mut loaded_instance) =
+                model_loader.spawn_model_instance(site_id, model_instance.clone(), source)
+            {
+                let model_instance_entity = loaded_instance
+                    .insert((Category::Model, SiteID(*model_instance_id)))
+                    .id();
+                id_to_entity.insert(*model_instance_id, model_instance_entity);
+                consider_id(*model_instance_id);
+
+                model_description_dependents
+                    .entry(model_description)
+                    .and_modify(|hset| {
+                        hset.insert(model_instance_entity);
+                    });
+
+                // Insert optional model properties
+                for optional_property in &model_instance.optional_properties.0 {
+                    match optional_property {
+                        OptionalModelProperty::Tasks(tasks) => {
+                            commands.entity(model_instance_entity).insert(tasks.clone())
+                        }
+                        _ => continue,
+                    };
                 }
-                _ => continue,
-            };
+            } else {
+                error!(
+                    "Unable to access the asset source for model instance [{}]! \
+                    Failed to load model instance.",
+                    model_instance_id
+                );
+            }
+        } else {
+            error!(
+                "Model instance [{}] is not affiliated with any model description! \
+                Failed to load model instance.",
+                model_instance_id
+            );
         }
     }
 
@@ -451,11 +472,12 @@ fn generate_site_entities(
 
 pub fn load_site(
     mut commands: Commands,
+    mut model_loader: ModelLoader,
     mut load_sites: EventReader<LoadSite>,
     mut change_current_site: EventWriter<ChangeCurrentSite>,
 ) {
     for cmd in load_sites.read() {
-        let site = match generate_site_entities(&mut commands, &cmd.site) {
+        let site = match generate_site_entities(&mut commands, &mut model_loader, &cmd.site) {
             Ok(site) => site,
             Err(err) => {
                 commands.entity(err.site).despawn_recursive();

@@ -25,7 +25,7 @@ use std::{
 };
 use thiserror::Error as ThisError;
 
-use crate::{recency::RecencyRanking, site::*, ExportFormat};
+use crate::{interaction::Preview, recency::RecencyRanking, site::*, ExportFormat};
 use rmf_site_format::*;
 
 #[derive(Event)]
@@ -116,7 +116,7 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
             ),
         >,
         Query<Entity, (With<ModelMarker>, With<Group>)>,
-        Query<Entity, (With<ModelMarker>, Without<Group>)>,
+        Query<Entity, (With<ModelMarker>, Without<Group>, Without<Preview>)>,
         Query<Entity, With<ScenarioMarker>>,
         Query<
             Entity,

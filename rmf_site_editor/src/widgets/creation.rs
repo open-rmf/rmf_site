@@ -29,8 +29,8 @@ use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, ComboBox, Grid, Ui};
 
 use rmf_site_format::{
-    Affiliation, DrawingProperties, Geometry, Group, IsStatic, ModelDescriptionBundle,
-    ModelInstance, ModelMarker, ModelProperty, NameInSite, WorkcellModel,
+    Affiliation, DrawingProperties, Group, IsStatic, ModelDescriptionBundle, ModelInstance,
+    ModelMarker, ModelProperty, NameInSite,
 };
 
 /// This widget provides a widget with buttons for creating new site elements.
@@ -248,7 +248,7 @@ impl<'w, 's> Creation<'w, 's> {
                         AppState::MainMenu
                         | AppState::SiteDrawingEditor
                         | AppState::SiteVisualizer => {}
-                        AppState::SiteEditor => {
+                        AppState::SiteEditor | AppState::WorkcellEditor => {
                             ui.add_space(5.0);
 
                             ui.horizontal(|ui| {
@@ -329,46 +329,6 @@ impl<'w, 's> Creation<'w, 's> {
                             {
                                 asset_gallery.show = !asset_gallery.show;
                             }
-                        }
-                        AppState::WorkcellEditor => {
-                            if ui
-                                .selectable_label(asset_gallery.show, "Browse Fuel")
-                                .clicked()
-                            {
-                                asset_gallery.show = !asset_gallery.show;
-                            }
-                            // TODO(@xiyuoh) Review this block again after PR 239 has been merged.
-                            // Use self.place_object instead without double borrowing mut
-                            if ui.button("Spawn visual").clicked() {
-                                let workcell_model = WorkcellModel {
-                                    geometry: Geometry::Mesh {
-                                        source: pending_model.source.clone(),
-                                        scale: Some(*pending_model.scale),
-                                    },
-                                    ..default()
-                                };
-                                let object = PlaceableObject::VisualMesh(workcell_model);
-                                if let Some(workspace) = self.current_workspace.root {
-                                    self.object_placement.place_object_3d(
-                                        object,
-                                        self.selection.0,
-                                        workspace,
-                                    );
-                                } else {
-                                    warn!("Unable to create [{object:?}] outside of a workspace");
-                                }
-                            }
-                            if ui.button("Spawn collision").clicked() {
-                                let workcell_model = WorkcellModel {
-                                    geometry: Geometry::Mesh {
-                                        source: pending_model.source.clone(),
-                                        scale: Some(*pending_model.scale),
-                                    },
-                                    ..default()
-                                };
-                                self.place_object(PlaceableObject::CollisionMesh(workcell_model));
-                            }
-                            ui.add_space(10.0);
                         }
                     }
                 }

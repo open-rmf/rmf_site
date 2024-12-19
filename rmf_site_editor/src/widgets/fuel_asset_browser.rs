@@ -18,8 +18,8 @@
 use crate::{
     interaction::ModelPreviewCamera,
     site::{
-        AssetSource, Category, CurrentLevel, FuelClient, ModelDescriptionBundle, ModelProperty,
-        NameInSite, SetFuelApiKey, UpdateFuelCache,
+        AssetSource, Category, CurrentLevel, FuelClient, ModelDescriptionBundle, ModelLoader,
+        ModelProperty, NameInSite, SetFuelApiKey, UpdateFuelCache,
     },
     widgets::prelude::*,
     AppState, CurrentWorkspace,
@@ -27,7 +27,7 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{self, Button, ComboBox, ImageSource, RichText, ScrollArea, Ui, Window};
 use gz_fuel::FuelModel;
-use rmf_site_format::{Group, Model, ModelMarker};
+use rmf_site_format::{Group, ModelMarker};
 
 /// Add a [`FuelAssetBrowser`] widget to your application.
 #[derive(Default)]
@@ -85,6 +85,7 @@ pub struct FuelAssetBrowser<'w, 's> {
     current_workspace: Res<'w, CurrentWorkspace>,
     current_level: Res<'w, CurrentLevel>,
     app_state: Res<'w, State<AppState>>,
+    model_loader: ModelLoader<'w, 's>,
 }
 
 fn fuel_asset_browser_panel(In(input): In<PanelWidgetInput>, world: &mut World) {
@@ -263,13 +264,10 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                     if let Some(selected) = new_selected {
                         // Set the model preview source to what is selected
                         let model_entity = self.model_preview_camera.model_entity;
-                        let model = Model {
-                            source: AssetSource::Remote(
-                                selected.owner.clone() + "/" + &selected.name + "/model.sdf",
-                            ),
-                            ..default()
-                        };
-                        self.commands.entity(model_entity).insert(model);
+                        let source = AssetSource::Remote(
+                            selected.owner.clone() + "/" + &selected.name + "/model.sdf",
+                        );
+                        self.model_loader.update_asset_source(model_entity, source);
                         gallery_status.selected = Some(selected.clone());
                     }
                 }
