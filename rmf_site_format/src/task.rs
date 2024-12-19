@@ -58,9 +58,7 @@ impl Default for WaitFor {
 pub enum Task<T: RefTrait> {
     GoToPlace(GoToPlace<T>),
     WaitFor(WaitFor),
-    // TODO(@xiyuoh) create structs for these
-    // PickUp { payload: Affiliation<T>, location: Point<T>},
-    // DropOff { payload: Affiliation<T>, location: Point<T>},
+    // TODO(@xiyuoh) create pickup and dropoff tasks
 }
 
 impl<T: RefTrait> Default for Task<T> {

@@ -278,7 +278,6 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelDescription<'w, 's> {
                                     );
                             });
                         }
-                        // TODO(@xiyuoh) Enable saving property types
                         // Enabled
                         for type_id in enabled_property_types {
                             let (property_name, _, remove_fn) =
