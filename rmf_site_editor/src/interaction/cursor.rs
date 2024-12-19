@@ -23,7 +23,7 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*, window::PrimaryWindow};
 use bevy_mod_raycast::primitives::{rays::Ray3d, Primitive3d};
 
-use rmf_site_format::{FloorMarker, Model, WallMarker};
+use rmf_site_format::{FloorMarker, Model, ModelInstance, WallMarker};
 use std::collections::HashSet;
 
 /// A resource that keeps track of the unique entities that play a role in
@@ -118,6 +118,27 @@ impl Cursor {
         if let Some(current_preview) = self.preview_model.take() {
             commands.entity(current_preview).despawn_recursive();
         }
+    }
+
+    // TODO(luca) reduce duplication here
+    pub fn set_model_instance_preview(
+        &mut self,
+        commands: &mut Commands,
+        model_loader: &mut ModelLoader,
+        model_instance: Option<ModelInstance<Entity>>,
+    ) {
+        self.remove_preview(commands);
+        self.preview_model = if let Some(model_instance) = model_instance {
+            if let Some(mut spawn_instance) =
+                model_loader.spawn_model_instance(self.frame, model_instance.clone(), None)
+            {
+                Some(spawn_instance.insert(Pending).id())
+            } else {
+                None
+            }
+        } else {
+            None
+        };
     }
 
     pub fn set_model_preview(

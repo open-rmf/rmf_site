@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{interaction::select::*, site::Model};
+use crate::{interaction::select::*, site::ModelInstance};
 use bevy::ecs::system::SystemParam;
 
 #[derive(Default)]
@@ -62,7 +62,7 @@ pub struct ObjectPlacement<'w, 's> {
 }
 
 impl<'w, 's> ObjectPlacement<'w, 's> {
-    pub fn place_object_2d(&mut self, object: Model, level: Entity) {
+    pub fn place_object_2d(&mut self, object: ModelInstance<Entity>, level: Entity) {
         let state = self
             .commands
             .spawn(SelectorInput(PlaceObject2d { object, level }))

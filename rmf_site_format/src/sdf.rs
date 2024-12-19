@@ -434,6 +434,11 @@ impl Site {
             filename: "toggle_floors".into(),
             ..Default::default()
         };
+        // Only export default scenario into SDF for now
+        let (_, default_scenario) = self
+            .scenarios
+            .first_key_value()
+            .expect("No scenarios found");
         for (level_id, level) in &self.levels {
             let mut level_model_names = vec![];
             let mut model_element_map = ElementMap::default();
@@ -485,24 +490,46 @@ impl Site {
             });
             // TODO(luca) We need this because there is no concept of ingestor or dispenser in
             // rmf_site yet. Remove when there is
-            for (model_id, model) in &level.models {
+            for (model_instance_id, _) in &default_scenario.scenario.added_instances {
+                let model_instance = self
+                    .model_instances
+                    .get(model_instance_id)
+                    .expect("Model instance not found");
+                let (model_description_id, model_description_bundle) =
+                    if let Some(model_description_id) = model_instance.description.0 {
+                        (
+                            model_description_id,
+                            self.model_descriptions
+                                .get(&model_description_id)
+                                .expect("Model description not found"),
+                        )
+                    } else {
+                        continue;
+                    };
+
+                if model_instance.parent.0.is_none()
+                    || model_instance.parent.0.is_some_and(|x| x != *level_id)
+                {
+                    continue;
+                }
                 let mut added = false;
-                if model.source == AssetSource::Search("OpenRobotics/TeleportIngestor".to_string())
+                if model_description_bundle.source.0
+                    == AssetSource::Search("OpenRobotics/TeleportIngestor".to_string())
                 {
                     world.include.push(SdfWorldInclude {
                         uri: "model://TeleportIngestor".to_string(),
-                        name: Some(model.name.0.clone()),
-                        pose: Some(model.pose.to_sdf()),
+                        name: Some(model_instance.name.0.clone()),
+                        pose: Some(model_instance.pose.to_sdf()),
                         ..Default::default()
                     });
                     added = true;
-                } else if model.source
+                } else if model_description_bundle.source.0
                     == AssetSource::Search("OpenRobotics/TeleportDispenser".to_string())
                 {
                     world.include.push(SdfWorldInclude {
                         uri: "model://TeleportDispenser".to_string(),
-                        name: Some(model.name.0.clone()),
-                        pose: Some(model.pose.to_sdf()),
+                        name: Some(model_instance.name.0.clone()),
+                        pose: Some(model_instance.pose.to_sdf()),
                         ..Default::default()
                     });
                     added = true;
@@ -510,17 +537,20 @@ impl Site {
                 // Non static models are included separately and are not part of the static world
                 // TODO(luca) this will duplicate multiple instances of the model since it uses
                 // NameInSite instead of AssetSource for the URI, fix
-                else if !model.is_static.0 {
+                else if !model_description_bundle.is_static.0 .0 {
                     world.model.push(SdfModel {
-                        name: model.name.0.clone(),
-                        r#static: Some(model.is_static.0),
-                        pose: Some(model.pose.to_sdf()),
+                        name: model_instance.name.0.clone(),
+                        r#static: Some(model_description_bundle.is_static.0 .0),
+                        pose: Some(model_instance.pose.to_sdf()),
                         link: vec![SdfLink {
                             name: "link".into(),
                             collision: vec![SdfCollision {
                                 name: "collision".into(),
                                 geometry: SdfGeometry::Mesh(SdfMeshShape {
-                                    uri: format!("meshes/model_{}_collision.glb", model_id),
+                                    uri: format!(
+                                        "meshes/model_{}_collision.glb",
+                                        model_description_id
+                                    ),
                                     ..Default::default()
                                 }),
                                 ..Default::default()
@@ -528,7 +558,10 @@ impl Site {
                             visual: vec![SdfVisual {
                                 name: "visual".into(),
                                 geometry: SdfGeometry::Mesh(SdfMeshShape {
-                                    uri: format!("meshes/model_{}_visual.glb", model_id),
+                                    uri: format!(
+                                        "meshes/model_{}_visual.glb",
+                                        model_description_id
+                                    ),
                                     ..Default::default()
                                 }),
                                 ..Default::default()
@@ -540,7 +573,7 @@ impl Site {
                     added = true;
                 }
                 if added {
-                    level_model_names.push(model.name.0.clone());
+                    level_model_names.push(model_description_bundle.name.0.clone());
                 }
             }
             // Now add all the doors
@@ -858,7 +891,7 @@ impl Site {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+
     use crate::legacy::building_map::BuildingMap;
 
     #[test]

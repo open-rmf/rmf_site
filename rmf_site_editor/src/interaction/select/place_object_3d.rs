@@ -18,8 +18,8 @@
 use crate::{
     interaction::select::*,
     site::{
-        Anchor, AnchorBundle, Dependents, FrameMarker, Model, ModelLoader, NameInWorkcell, Pending,
-        SiteID,
+        Anchor, AnchorBundle, AssetSource, Dependents, FrameMarker, Group, Model, ModelInstance,
+        ModelLoader, ModelMarker, NameInWorkcell, Pending, SiteID,
     },
     widgets::canvas_tooltips::CanvasTooltips,
     workcell::flatten_loaded_model_hierarchy,
@@ -152,7 +152,7 @@ pub struct PlaceObject3d {
 
 #[derive(Clone, Debug)]
 pub enum PlaceableObject {
-    Model(Model),
+    ModelInstance(ModelInstance<Entity>),
     Anchor,
     VisualMesh(Model),
     CollisionMesh(Model),
@@ -179,9 +179,13 @@ pub fn place_object_3d_setup(
             set_visibility(cursor.dagger, &mut visibility, true);
             set_visibility(cursor.halo, &mut visibility, true);
         }
-        PlaceableObject::Model(m)
-        | PlaceableObject::VisualMesh(m)
-        | PlaceableObject::CollisionMesh(m) => {
+        PlaceableObject::ModelInstance(m) => {
+            // Spawn the model as a child of the cursor
+            cursor.set_model_instance_preview(&mut commands, &mut model_loader, Some(m.clone()));
+            set_visibility(cursor.dagger, &mut visibility, false);
+            set_visibility(cursor.halo, &mut visibility, false);
+        }
+        PlaceableObject::VisualMesh(m) | PlaceableObject::CollisionMesh(m) => {
             // Spawn the model as a child of the cursor
             cursor.set_model_preview(&mut commands, &mut model_loader, Some(m.clone()));
             set_visibility(cursor.dagger, &mut visibility, false);
@@ -438,6 +442,7 @@ pub fn on_placement_chosen_3d(
     parents: Query<&Parent>,
     frames: Query<(), With<FrameMarker>>,
     mut model_loader: ModelLoader,
+    model_descriptions: Query<&AssetSource, (With<ModelMarker>, With<Group>)>,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.pull().or_broken_state()?;
@@ -472,12 +477,25 @@ pub fn on_placement_chosen_3d(
                 NameInWorkcell("Unnamed".to_string()),
             ))
             .id(),
-        PlaceableObject::Model(object) => {
+        PlaceableObject::ModelInstance(object) => {
             let model_id = commands.spawn(VisualCue::outline()).id();
-            let source = object.source.clone();
-            add_model_components(object, commands.entity(model_id));
+            let source = object
+                .description
+                .0
+                .map(|e| {
+                    model_descriptions
+                        .get(e)
+                        .ok()
+                        .map(|property| property.clone())
+                })
+                .flatten()
+                .unwrap();
+            commands
+                .entity(model_id)
+                .insert(NameInWorkcell(object.name.0))
+                .insert(object.pose);
             model_loader
-                .update_asset_source_impulse(model_id, source)
+                .update_asset_source_impulse(model_id, source.clone())
                 .then(flatten_models)
                 .detach();
             // Create a parent anchor to contain the new model in

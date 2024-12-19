@@ -99,6 +99,9 @@ pub use sdf::*;
 pub mod save;
 pub use save::*;
 
+pub mod scenario;
+pub use scenario::*;
+
 pub mod sdf_exporter;
 pub use sdf_exporter::*;
 
@@ -160,6 +163,7 @@ impl Plugin for SitePlugin {
             )
                 .chain(),
         )
+        .add_systems(Startup, setup_instance_deletion_filter)
         .add_systems(
             PreUpdate,
             apply_deferred.in_set(SiteUpdateSet::ProcessChangesFlush),
@@ -188,6 +192,7 @@ impl Plugin for SitePlugin {
         .init_resource::<FuelClient>()
         .init_resource::<SiteAssets>()
         .init_resource::<CurrentLevel>()
+        .init_resource::<CurrentScenario>()
         .init_resource::<PhysicalLightToggle>()
         .init_resource::<FuelCacheUpdateChannel>()
         .init_resource::<FuelCacheProgressChannel>()
@@ -204,6 +209,8 @@ impl Plugin for SitePlugin {
         .add_event::<LoadSite>()
         .add_event::<ImportNavGraphs>()
         .add_event::<ChangeCurrentSite>()
+        .add_event::<ChangeCurrentScenario>()
+        .add_event::<RemoveScenario>()
         .add_event::<SaveSite>()
         .add_event::<SaveNavGraphs>()
         .add_event::<ToggleLiftDoorAvailability>()
@@ -264,6 +271,11 @@ impl Plugin for SitePlugin {
             SiteVisualizerPlugin,
             ModelLoadingPlugin::default(),
         ))
+        .add_plugins((
+            ChangePlugin::<ModelProperty<AssetSource>>::default(),
+            ChangePlugin::<ModelProperty<Scale>>::default(),
+            ChangePlugin::<ModelProperty<IsStatic>>::default(),
+        ))
         .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
         .add_issue_type(&DUPLICATED_LIFT_NAME_ISSUE_UUID, "Duplicate lift name")
         .add_issue_type(
@@ -309,6 +321,7 @@ impl Plugin for SitePlugin {
                 assign_orphan_levels_to_site,
                 assign_orphan_nav_elements_to_site,
                 assign_orphan_fiducials_to_parent,
+                assign_orphan_model_instances_to_level,
                 assign_orphan_elements_to_level::<DoorMarker>,
                 assign_orphan_elements_to_level::<DrawingMarker>,
                 assign_orphan_elements_to_level::<FloorMarker>,
@@ -358,6 +371,9 @@ impl Plugin for SitePlugin {
                 add_location_visuals,
                 add_fiducial_visuals,
                 update_level_visibility,
+                update_scenario_properties,
+                handle_remove_scenarios.before(update_current_scenario),
+                update_current_scenario.before(update_scenario_properties),
                 update_changed_lane,
                 update_lane_for_moved_anchor,
             )
@@ -393,6 +409,9 @@ impl Plugin for SitePlugin {
                 add_measurement_visuals,
                 update_changed_measurement,
                 update_measurement_for_moved_anchors,
+                update_model_instances::<AssetSource>,
+                update_model_instances::<Scale>,
+                update_model_instances::<IsStatic>,
                 update_affiliations,
                 update_members_of_groups.after(update_affiliations),
                 update_model_scales,
