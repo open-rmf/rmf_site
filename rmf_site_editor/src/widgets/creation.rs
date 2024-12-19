@@ -265,6 +265,7 @@ impl<'w, 's> Creation<'w, 's> {
                                             scale: ModelProperty(pending_model.scale.clone()),
                                             group: Group,
                                             marker: ModelMarker,
+                                            ..Default::default()
                                         };
                                         let description_entity = self
                                             .commands

@@ -1213,23 +1213,34 @@ fn generate_model_descriptions(
             (With<ModelMarker>, With<Group>, Without<Pending>),
         >,
         Query<&Children>,
+        // Optional model properties
+        Query<&ModelProperty<DifferentialDrive>>,
+        Query<&ModelProperty<MobileRobotMarker>>,
     )> = SystemState::new(world);
-    let (model_descriptions, children) = state.get(world);
+    let (model_descriptions, children, differential_drive, robot_marker) = state.get(world);
 
     let mut res = BTreeMap::<u32, ModelDescriptionBundle>::new();
     if let Ok(children) = children.get(site) {
         for child in children.iter() {
             if let Ok((site_id, name, source, is_static, scale)) = model_descriptions.get(*child) {
-                res.insert(
-                    site_id.0,
-                    ModelDescriptionBundle {
-                        name: name.clone(),
-                        source: source.clone(),
-                        is_static: is_static.clone(),
-                        scale: scale.clone(),
-                        ..Default::default()
-                    },
-                );
+                let mut desc_bundle = ModelDescriptionBundle {
+                    name: name.clone(),
+                    source: source.clone(),
+                    is_static: is_static.clone(),
+                    scale: scale.clone(),
+                    ..Default::default()
+                };
+                if let Ok(diff_drive) = differential_drive.get(*child) {
+                    desc_bundle.optional_properties.0.push(
+                        OptionalModelProperty::DifferentialDrive(diff_drive.0.clone()),
+                    );
+                };
+                if let Ok(mobile_robot) = robot_marker.get(*child) {
+                    desc_bundle.optional_properties.0.push(
+                        OptionalModelProperty::MobileRobotMarker(mobile_robot.0.clone()),
+                    );
+                };
+                res.insert(site_id.0, desc_bundle);
             }
         }
     }

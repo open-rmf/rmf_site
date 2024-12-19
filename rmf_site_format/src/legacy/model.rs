@@ -50,6 +50,7 @@ impl Model {
                         scale: ModelProperty(Scale::default()),
                         group: Group::default(),
                         marker: ModelMarker,
+                        ..Default::default()
                     },
                 );
                 id

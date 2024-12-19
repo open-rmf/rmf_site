@@ -257,6 +257,17 @@ fn generate_site_entities(
         id_to_entity.insert(*model_description_id, model_description_entity);
         consider_id(*model_description_id);
         model_description_dependents.insert(model_description_entity, HashSet::new());
+        // Insert optional model properties
+        for optional_property in &model_description.optional_properties.0 {
+            match optional_property {
+                OptionalModelProperty::DifferentialDrive(diff_drive) => commands
+                    .entity(model_description_entity)
+                    .insert(ModelProperty(diff_drive.clone())),
+                OptionalModelProperty::MobileRobotMarker(robot_marker) => commands
+                    .entity(model_description_entity)
+                    .insert(ModelProperty(robot_marker.clone())),
+            };
+        }
     }
 
     for (model_instance_id, model_instance_data) in &site_data.model_instances {

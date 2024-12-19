@@ -64,6 +64,23 @@ impl Default for Model {
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
 pub struct ModelProperty<T: Default + Clone>(pub T);
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum OptionalModelProperty {
+    DifferentialDrive(DifferentialDrive),
+    MobileRobotMarker(MobileRobotMarker),
+}
+
+impl Default for OptionalModelProperty {
+    fn default() -> Self {
+        OptionalModelProperty::DifferentialDrive(DifferentialDrive::default())
+    }
+}
+
+/// Defines a property in a model description, that will be added to all instances
+#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct OptionalModelProperties(pub Vec<OptionalModelProperty>);
+
 /// Bundle with all required components for a valid model description
 #[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
@@ -78,6 +95,7 @@ pub struct ModelDescriptionBundle {
     pub group: Group,
     #[serde(skip)]
     pub marker: ModelMarker,
+    pub optional_properties: OptionalModelProperties, // purely for saving to file
 }
 
 /// Bundle with all required components for a valid model instance
