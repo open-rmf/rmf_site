@@ -1267,8 +1267,9 @@ fn generate_model_instances(
         Query<(Entity, &SiteID), With<LevelElevation>>,
         Query<&Children>,
         Query<&Parent>,
+        Query<&Tasks<Entity>, (With<MobileRobotMarker>, Without<Group>)>,
     )> = SystemState::new(world);
-    let (model_descriptions, model_instances, levels, _, parents) = state.get(world);
+    let (model_descriptions, model_instances, levels, _, parents, tasks) = state.get(world);
 
     let mut site_levels_ids = std::collections::HashMap::<Entity, u32>::new();
     for (level_entity, site_id) in levels.iter() {
@@ -1292,21 +1293,25 @@ fn generate_model_instances(
         {
             continue;
         }
-        res.insert(
-            instance_id.0,
-            ModelInstance::<u32> {
-                name: instance_name.clone(),
-                pose: instance_pose.clone(),
-                parent: SiteParent(instance_parent.0.map(|p| site_levels_ids[&p])),
-                description: Affiliation(
-                    instance_affiliation
-                        .0
-                        .map(|e| model_descriptions.get(e).ok().map(|d| d.0))
-                        .flatten(),
-                ),
-                ..Default::default()
-            },
-        );
+        let mut model_instance = ModelInstance::<u32> {
+            name: instance_name.clone(),
+            pose: instance_pose.clone(),
+            parent: SiteParent(instance_parent.0.map(|p| site_levels_ids[&p])),
+            description: Affiliation(
+                instance_affiliation
+                    .0
+                    .map(|e| model_descriptions.get(e).ok().map(|d| d.0))
+                    .flatten(),
+            ),
+            ..Default::default()
+        };
+        if let Ok(robot_tasks) = tasks.get(_instance_entity) {
+            model_instance
+                .optional_properties
+                .0
+                .push(OptionalModelProperty::Tasks(robot_tasks.clone()));
+        }
+        res.insert(instance_id.0, model_instance);
     }
     Ok(res)
 }

@@ -266,6 +266,7 @@ fn generate_site_entities(
                 OptionalModelProperty::MobileRobotMarker(robot_marker) => commands
                     .entity(model_description_entity)
                     .insert(ModelProperty(robot_marker.clone())),
+                _ => continue,
             };
         }
     }
@@ -288,6 +289,15 @@ fn generate_site_entities(
                 .and_modify(|hset| {
                     hset.insert(model_instance_entity);
                 });
+        }
+        // Insert optional model properties
+        for optional_property in &model_instance.optional_properties.0 {
+            match optional_property {
+                OptionalModelProperty::Tasks(tasks) => {
+                    commands.entity(model_instance_entity).insert(tasks.clone())
+                }
+                _ => continue,
+            };
         }
     }
 

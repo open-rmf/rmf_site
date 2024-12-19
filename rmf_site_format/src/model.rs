@@ -17,7 +17,7 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Reflect, ReflectComponent};
+use bevy::prelude::{Bundle, Component, Entity, Reflect, ReflectComponent};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -68,6 +68,7 @@ pub struct ModelProperty<T: Default + Clone>(pub T);
 pub enum OptionalModelProperty {
     DifferentialDrive(DifferentialDrive),
     MobileRobotMarker(MobileRobotMarker),
+    Tasks(Tasks<Entity>),
 }
 
 impl Default for OptionalModelProperty {
@@ -95,7 +96,7 @@ pub struct ModelDescriptionBundle {
     pub group: Group,
     #[serde(skip)]
     pub marker: ModelMarker,
-    pub optional_properties: OptionalModelProperties, // purely for saving to file
+    pub optional_properties: OptionalModelProperties, // for saving to file
 }
 
 /// Bundle with all required components for a valid model instance
@@ -110,6 +111,7 @@ pub struct ModelInstance<T: RefTrait> {
     pub marker: ModelMarker,
     #[serde(skip)]
     pub instance_marker: InstanceMarker,
+    pub optional_properties: OptionalModelProperties, // for saving to file
 }
 
 impl<T: RefTrait> Default for ModelInstance<T> {
@@ -121,6 +123,7 @@ impl<T: RefTrait> Default for ModelInstance<T> {
             description: Affiliation::default(),
             marker: ModelMarker,
             instance_marker: InstanceMarker,
+            optional_properties: OptionalModelProperties::default(),
         }
     }
 }
@@ -132,6 +135,7 @@ impl<T: RefTrait> ModelInstance<T> {
             pose: self.pose.clone(),
             parent: self.parent.convert(id_map)?,
             description: self.description.convert(id_map)?,
+            optional_properties: self.optional_properties.clone(),
             ..Default::default()
         })
     }

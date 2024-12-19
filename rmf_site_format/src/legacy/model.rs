@@ -69,6 +69,7 @@ impl Model {
             description: Affiliation(Some(model_description_id)),
             marker: ModelMarker,
             instance_marker: InstanceMarker,
+            ..Default::default()
         };
         model_instances.insert(model_instance_id, model_instance);
         (model_instance_id, pose)

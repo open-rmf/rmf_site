@@ -235,6 +235,7 @@ impl FromWorld for PendingTask {
 fn add_remove_mobile_robot_tasks(
     mut commands: Commands,
     instances: Query<(Entity, Ref<MobileRobotMarker>), Without<Group>>,
+    tasks: Query<&Tasks<Entity>, (With<MobileRobotMarker>, Without<Group>)>,
     mut removals: RemovedComponents<ModelProperty<MobileRobotMarker>>,
 ) {
     for removal in removals.read() {
@@ -245,6 +246,9 @@ fn add_remove_mobile_robot_tasks(
 
     for (e, marker) in instances.iter() {
         if marker.is_added() {
+            if let Ok(_) = tasks.get(e) {
+                continue;
+            }
             commands.entity(e).insert(Tasks::<Entity>::default());
         }
     }
