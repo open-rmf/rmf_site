@@ -16,12 +16,17 @@
 */
 
 use crate::{
-    site::{Change, FiducialMarker, MergeGroups, NameInSite, SiteID, Texture},
+    interaction::ObjectPlacement,
+    site::{
+        Affiliation, Change, CurrentLevel, Delete, FiducialMarker, Group, MergeGroups,
+        ModelInstance, ModelMarker, NameInSite, SiteID, Texture,
+    },
     widgets::{prelude::*, SelectorWidget},
     AppState, CurrentWorkspace, Icons,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Button, CollapsingHeader, Ui};
+use std::any::TypeId;
 
 /// Add a widget for viewing different kinds of groups.
 #[derive(Default)]
@@ -37,8 +42,20 @@ impl Plugin for ViewGroupsPlugin {
 #[derive(SystemParam)]
 pub struct ViewGroups<'w, 's> {
     children: Query<'w, 's, &'static Children>,
-    textures: Query<'w, 's, (&'static NameInSite, Option<&'static SiteID>), With<Texture>>,
-    fiducials: Query<'w, 's, (&'static NameInSite, Option<&'static SiteID>), With<FiducialMarker>>,
+    textures:
+        Query<'w, 's, (&'static NameInSite, Option<&'static SiteID>), (With<Texture>, With<Group>)>,
+    fiducials: Query<
+        'w,
+        's,
+        (&'static NameInSite, Option<&'static SiteID>),
+        (With<FiducialMarker>, With<Group>),
+    >,
+    model_descriptions: Query<
+        'w,
+        's,
+        (&'static NameInSite, Option<&'static SiteID>),
+        (With<ModelMarker>, With<Group>),
+    >,
     icons: Res<'w, Icons>,
     group_view_modes: ResMut<'w, GroupViewModes>,
     app_state: Res<'w, State<AppState>>,
@@ -48,10 +65,13 @@ pub struct ViewGroups<'w, 's> {
 #[derive(SystemParam)]
 pub struct ViewGroupsEvents<'w, 's> {
     current_workspace: ResMut<'w, CurrentWorkspace>,
+    current_level: Res<'w, CurrentLevel>,
     selector: SelectorWidget<'w, 's>,
     merge_groups: EventWriter<'w, MergeGroups>,
+    delete: EventWriter<'w, Delete>,
     name: EventWriter<'w, Change<NameInSite>>,
     commands: Commands<'w, 's>,
+    object_placement: ObjectPlacement<'w, 's>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for ViewGroups<'w, 's> {
@@ -80,6 +100,16 @@ impl<'w, 's> ViewGroups<'w, 's> {
         let Ok(children) = self.children.get(site) else {
             return;
         };
+        CollapsingHeader::new("Model Descriptions").show(ui, |ui| {
+            Self::show_groups(
+                children,
+                &self.model_descriptions,
+                &mut modes.model_descriptions,
+                &self.icons,
+                &mut self.events,
+                ui,
+            );
+        });
         CollapsingHeader::new("Textures").show(ui, |ui| {
             Self::show_groups(
                 children,
@@ -104,7 +134,7 @@ impl<'w, 's> ViewGroups<'w, 's> {
 
     fn show_groups<'b, T: Component>(
         children: impl IntoIterator<Item = &'b Entity>,
-        q_groups: &Query<(&NameInSite, Option<&SiteID>), With<T>>,
+        q_groups: &Query<(&NameInSite, Option<&SiteID>), (With<T>, With<Group>)>,
         mode: &mut GroupViewMode,
         icons: &Res<Icons>,
         events: &mut ViewGroupsEvents,
@@ -159,6 +189,27 @@ impl<'w, 's> ViewGroups<'w, 's> {
             ui.horizontal(|ui| {
                 match mode.clone() {
                     GroupViewMode::View => {
+                        if TypeId::of::<T>() == TypeId::of::<ModelMarker>() {
+                            if ui
+                                .add(Button::image(icons.add.egui()))
+                                .on_hover_text("Add a new model instance of this group")
+                                .clicked()
+                            {
+                                let model_instance: ModelInstance<Entity> = ModelInstance {
+                                    description: Affiliation(Some(child.clone())),
+                                    ..Default::default()
+                                };
+                                if let Some(level) = events.current_level.0 {
+                                    events
+                                        .object_placement
+                                        .place_object_2d(model_instance, level);
+                                } else {
+                                    warn!(
+                                        "Unable to create [{model_instance:?}] outside of a level"
+                                    );
+                                }
+                            };
+                        };
                         events.selector.show_widget(*child, ui);
                     }
                     GroupViewMode::SelectMergeFrom => {
@@ -199,8 +250,12 @@ impl<'w, 's> ViewGroups<'w, 's> {
                             .on_hover_text("Delete this group")
                             .clicked()
                         {
-                            events.commands.entity(*child).despawn_recursive();
-                            *mode = GroupViewMode::View;
+                            if TypeId::of::<T>() == TypeId::of::<ModelMarker>() {
+                                events.delete.send(Delete::new(*child).and_dependents());
+                            } else {
+                                events.commands.entity(*child).despawn_recursive();
+                                *mode = GroupViewMode::View;
+                            }
                         }
                     }
                 }
@@ -228,6 +283,7 @@ pub struct GroupViewModes {
     site: Option<Entity>,
     textures: GroupViewMode,
     fiducials: GroupViewMode,
+    model_descriptions: GroupViewMode,
 }
 
 impl GroupViewModes {

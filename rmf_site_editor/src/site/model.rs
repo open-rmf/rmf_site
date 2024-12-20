@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::{DragPlaneBundle, Preview, MODEL_PREVIEW_LAYER},
-    site::SiteAssets,
+    site::{CurrentLevel, SiteAssets, SiteParent},
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
 };
 use bevy::{
@@ -29,7 +29,10 @@ use bevy::{
 };
 use bevy_impulse::*;
 use bevy_mod_outline::OutlineMeshExt;
-use rmf_site_format::{AssetSource, Model, ModelMarker, Pending, Scale};
+use rmf_site_format::{
+    Affiliation, AssetSource, Group, Model, ModelInstance, ModelMarker, ModelProperty, NameInSite,
+    Pending, Scale,
+};
 use smallvec::SmallVec;
 use std::{any::TypeId, fmt, future::Future};
 use thiserror::Error;
@@ -321,6 +324,8 @@ fn handle_model_loading_errors(
 pub struct ModelLoader<'w, 's> {
     services: Res<'w, ModelLoadingServices>,
     commands: Commands<'w, 's>,
+    model_descriptions:
+        Query<'w, 's, &'static ModelProperty<AssetSource>, (With<ModelMarker>, With<Group>)>,
 }
 
 impl<'w, 's> ModelLoader<'w, 's> {
@@ -329,6 +334,32 @@ impl<'w, 's> ModelLoader<'w, 's> {
     pub fn spawn_model(&mut self, parent: Entity, model: Model) -> EntityCommands<'w, 's, '_> {
         self.spawn_model_impulse(parent, model, move |impulse| {
             impulse.detach();
+        })
+    }
+
+    /// Spawn a new model instance and begin a workflow to load its asset source.
+    /// This is only for brand new models does not support reacting to the load finishing.
+    pub fn spawn_model_instance(
+        &mut self,
+        parent: Entity,
+        model_instance: ModelInstance<Entity>,
+        source: Option<&AssetSource>,
+    ) -> Option<EntityCommands<'w, 's, '_>> {
+        let model_description_source = model_instance
+            .description
+            .0
+            .map(|e| {
+                self.model_descriptions
+                    .get(e)
+                    .ok()
+                    .map(|property| property.0.clone())
+            })
+            .flatten();
+
+        source.or(model_description_source.as_ref()).map(|s| {
+            self.spawn_model_instance_impulse(parent, model_instance, s.clone(), move |impulse| {
+                impulse.detach();
+            })
         })
     }
 
@@ -341,6 +372,21 @@ impl<'w, 's> ModelLoader<'w, 's> {
         impulse: impl FnOnce(Impulse<ModelLoadingResult, ()>),
     ) -> EntityCommands<'w, 's, '_> {
         let source = model.source.clone();
+        let id = self.commands.spawn(model).set_parent(parent).id();
+        let loading_impulse = self.update_asset_source_impulse(id, source);
+        (impulse)(loading_impulse);
+        self.commands.entity(id)
+    }
+
+    /// Spawn a new model instance and begin a workflow to load its asset source.
+    /// Additionally build on the impulse chain of the asset source loading workflow.
+    pub fn spawn_model_instance_impulse(
+        &mut self,
+        parent: Entity,
+        model: ModelInstance<Entity>,
+        source: AssetSource,
+        impulse: impl FnOnce(Impulse<ModelLoadingResult, ()>),
+    ) -> EntityCommands<'w, 's, '_> {
         let id = self.commands.spawn(model).set_parent(parent).id();
         let loading_impulse = self.update_asset_source_impulse(id, source);
         (impulse)(loading_impulse);
@@ -656,6 +702,64 @@ pub fn propagate_model_property<Property: Component + Clone + std::fmt::Debug>(
     for c in DescendantIter::new(children, root) {
         if mesh_entities.contains(c) {
             commands.entity(c).insert(property.clone());
+        }
+    }
+}
+
+/// This system keeps model instances up to date with the properties of their affiliated descriptions
+pub fn update_model_instances<T: Component + Default + Clone>(
+    mut commands: Commands,
+    model_properties: Query<
+        (Entity, &NameInSite, Ref<ModelProperty<T>>),
+        (With<ModelMarker>, With<Group>),
+    >,
+    model_instances: Query<(Entity, Ref<Affiliation<Entity>>), (With<ModelMarker>, Without<Group>)>,
+    mut removals: RemovedComponents<ModelProperty<T>>,
+) {
+    // Removals
+    if !removals.is_empty() {
+        for description_entity in removals.read() {
+            for (instance_entity, affiliation) in model_instances.iter() {
+                if affiliation.0 == Some(description_entity) {
+                    commands.entity(instance_entity).remove::<T>();
+                }
+            }
+        }
+    }
+
+    // Changes
+    for (instance_entity, affiliation) in model_instances.iter() {
+        if let Some(description_entity) = affiliation.0 {
+            if let Ok((_, _, property)) = model_properties.get(description_entity) {
+                if property.is_changed() || affiliation.is_changed() {
+                    let mut cmd = commands.entity(instance_entity);
+                    cmd.remove::<ModelProperty<T>>();
+                    cmd.insert(property.0.clone());
+                }
+            }
+        }
+    }
+}
+
+pub fn assign_orphan_model_instances_to_level(
+    mut commands: Commands,
+    mut orphan_instances: Query<
+        (Entity, Option<&Parent>, &mut SiteParent<Entity>),
+        (With<ModelMarker>, Without<Group>),
+    >,
+    current_level: Res<CurrentLevel>,
+) {
+    let current_level = match current_level.0 {
+        Some(c) => c,
+        None => return,
+    };
+
+    for (instance_entity, parent, mut site_parent) in orphan_instances.iter_mut() {
+        if parent.is_none() {
+            commands.entity(current_level).add_child(instance_entity);
+        }
+        if site_parent.0.is_none() {
+            site_parent.0 = Some(current_level);
         }
     }
 }
