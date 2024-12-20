@@ -15,7 +15,8 @@
  *
 */
 
-use crate::{widgets::RenderUiSet, AppState};
+use crate::interaction::InteractionState;
+use crate::widgets::RenderUiSet;
 use bevy::prelude::*;
 use bevy_egui::EguiContexts;
 
@@ -38,7 +39,7 @@ impl Plugin for UserCameraDisplayPlugin {
             update_user_camera_display
                 .in_set(UserCameraDisplaySet)
                 .after(RenderUiSet)
-                .run_if(AppState::in_site_mode()),
+                .run_if(in_state(InteractionState::Enable)),
         );
     }
 }
