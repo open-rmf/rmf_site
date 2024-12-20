@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    site::{Change, DefaultFile, Pending},
+    site::{DefaultFile, ModelLoader, Pending},
     widgets::{prelude::*, Inspect},
     CurrentWorkspace,
 };
@@ -32,9 +32,9 @@ use rfd::FileDialog;
 pub struct InspectAssetSource<'w, 's> {
     asset_sources:
         Query<'w, 's, (&'static AssetSource, &'static RecallAssetSource), Without<Pending>>,
-    change_asset_source: EventWriter<'w, Change<AssetSource>>,
     current_workspace: Res<'w, CurrentWorkspace>,
     default_file: Query<'w, 's, &'static DefaultFile>,
+    model_loader: ModelLoader<'w, 's>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectAssetSource<'w, 's> {
@@ -59,8 +59,8 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectAssetSource<'w, 's> {
             InspectAssetSourceComponent::new(source, recall, default_file).show(ui)
         {
             params
-                .change_asset_source
-                .send(Change::new(new_source, selection));
+                .model_loader
+                .update_asset_source(selection, new_source);
         }
         ui.add_space(10.0);
     }

@@ -56,7 +56,7 @@ impl AssetLoader for SdfLoader {
             let mut bytes = Vec::new();
             // TODO(luca) remove unwrap
             reader.read_to_end(&mut bytes).await.unwrap();
-            Ok(load_model(bytes, load_context).await?)
+            Ok(load_model(bytes, load_context)?)
         })
     }
 
@@ -131,8 +131,12 @@ fn compute_model_source<'a, 'b>(
         Ok(asset_source)
     } else {
         // It's a path relative to this model, concatenate it to the current context path.
+        // Note that since the current path is the file (i.e. path/subfolder/model.sdf) we need to
+        // concatenate to its parent
         let path = load_context
             .asset_path()
+            .parent()
+            .unwrap()
             .resolve(subasset_uri)
             .or_else(|e| Err(SdfError::UnsupportedAssetSource(e.to_string())))?;
         AssetSource::try_from(path.to_string().as_str()).map_err(SdfError::UnsupportedAssetSource)
@@ -239,7 +243,7 @@ fn spawn_geometry<'a, 'b>(
     Ok(geometry)
 }
 
-async fn load_model<'a, 'b>(
+fn load_model<'a, 'b>(
     bytes: Vec<u8>,
     load_context: &'a mut LoadContext<'b>,
 ) -> Result<bevy::scene::Scene, SdfError> {

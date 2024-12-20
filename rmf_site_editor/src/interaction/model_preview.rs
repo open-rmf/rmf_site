@@ -26,6 +26,7 @@ use bevy::{
     render::{camera::RenderTarget, view::RenderLayers},
 };
 use bevy_egui::{egui::TextureId, EguiContexts};
+use rmf_site_format::Model;
 
 #[derive(Resource)]
 pub struct ModelPreviewCamera {
@@ -79,7 +80,11 @@ impl FromWorld for ModelPreviewCamera {
             .insert(RenderLayers::from_layers(&[MODEL_PREVIEW_LAYER]))
             .id();
         let model_entity = world
-            .spawn((RenderLayers::from_layers(&[MODEL_PREVIEW_LAYER]), Preview))
+            .spawn((
+                RenderLayers::from_layers(&[MODEL_PREVIEW_LAYER]),
+                Preview,
+                Model::default(),
+            ))
             .id();
 
         Self {

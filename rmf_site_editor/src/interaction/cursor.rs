@@ -18,12 +18,12 @@
 use crate::{
     animate::*,
     interaction::*,
-    site::{AnchorBundle, Pending, SiteAssets, Trashcan},
+    site::{AnchorBundle, ModelLoader, Pending, SiteAssets},
 };
 use bevy::{ecs::system::SystemParam, prelude::*, window::PrimaryWindow};
 use bevy_mod_raycast::primitives::{rays::Ray3d, Primitive3d};
 
-use rmf_site_format::{FloorMarker, Model, WallMarker, WorkcellModel};
+use rmf_site_format::{FloorMarker, Model, WallMarker};
 use std::collections::HashSet;
 
 /// A resource that keeps track of the unique entities that play a role in
@@ -37,7 +37,6 @@ pub struct Cursor {
     pub level_anchor_placement: Entity,
     pub site_anchor_placement: Entity,
     pub frame_placement: Entity,
-    pub trashcan: Entity,
     pub preview_model: Option<Entity>,
     dependents: HashSet<Entity>,
     /// Use a &str to label each mode that might want to turn the cursor on
@@ -116,41 +115,28 @@ impl Cursor {
     }
 
     pub fn remove_preview(&mut self, commands: &mut Commands) {
-        if let Some(current_preview) = self.preview_model {
-            commands.get_entity(current_preview).map(|mut e_mut| {
-                e_mut.set_parent(self.trashcan);
-            });
-            self.preview_model = None;
+        if let Some(current_preview) = self.preview_model.take() {
+            commands.entity(current_preview).despawn_recursive();
         }
     }
 
-    // TODO(luca) reduce duplication here
-    pub fn set_model_preview(&mut self, commands: &mut Commands, model: Option<Model>) {
-        self.remove_preview(commands);
-        self.preview_model = if let Some(model) = model {
-            let e = commands.spawn(model).insert(Pending).id();
-            commands.entity(self.frame).push_children(&[e]);
-            Some(e)
-        } else {
-            None
-        }
-    }
-
-    pub fn set_workcell_model_preview(
+    pub fn set_model_preview(
         &mut self,
         commands: &mut Commands,
-        model: Option<WorkcellModel>,
+        model_loader: &mut ModelLoader,
+        model: Option<Model>,
     ) {
         self.remove_preview(commands);
         self.preview_model = if let Some(model) = model {
-            let mut cmd = commands.spawn(Pending);
-            let e = cmd.id();
-            model.add_bevy_components(&mut cmd);
-            commands.entity(self.frame).push_children(&[e]);
-            Some(e)
+            Some(
+                model_loader
+                    .spawn_model(self.frame, model.clone())
+                    .insert(Pending)
+                    .id(),
+            )
         } else {
             None
-        }
+        };
     }
 
     pub fn should_be_visible(&self) -> bool {
@@ -261,8 +247,6 @@ impl FromWorld for Cursor {
             })
             .id();
 
-        let trashcan = world.spawn(Trashcan).id();
-
         Self {
             frame: cursor,
             halo,
@@ -270,7 +254,6 @@ impl FromWorld for Cursor {
             level_anchor_placement,
             site_anchor_placement,
             frame_placement,
-            trashcan,
             preview_model: None,
             dependents: Default::default(),
             modes: Default::default(),

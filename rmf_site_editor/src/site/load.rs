@@ -73,6 +73,7 @@ impl<T> LoadResult<T> for Result<T, u32> {
 
 fn generate_site_entities(
     commands: &mut Commands,
+    model_loader: &mut ModelLoader,
     site_data: &rmf_site_format::Site,
 ) -> Result<Entity, LoadSiteError> {
     let mut id_to_entity = HashMap::new();
@@ -210,11 +211,6 @@ fn generate_site_entities(
                     consider_id(*light_id);
                 }
 
-                for (model_id, model) in &level_data.models {
-                    level.spawn(model.clone()).insert(SiteID(*model_id));
-                    consider_id(*model_id);
-                }
-
                 for (physical_camera_id, physical_camera) in &level_data.physical_cameras {
                     level
                         .spawn(physical_camera.clone())
@@ -229,6 +225,13 @@ fn generate_site_entities(
                     consider_id(*camera_pose_id);
                 }
             });
+
+        for (model_id, model) in &level_data.models {
+            model_loader
+                .spawn_model(level_entity, model.clone())
+                .insert((Category::Model, SiteID(*model_id)));
+            consider_id(*model_id);
+        }
 
         // TODO(MXG): Log when a RecencyRanking fails to load correctly.
         commands
@@ -375,11 +378,12 @@ fn generate_site_entities(
 
 pub fn load_site(
     mut commands: Commands,
+    mut model_loader: ModelLoader,
     mut load_sites: EventReader<LoadSite>,
     mut change_current_site: EventWriter<ChangeCurrentSite>,
 ) {
     for cmd in load_sites.read() {
-        let site = match generate_site_entities(&mut commands, &cmd.site) {
+        let site = match generate_site_entities(&mut commands, &mut model_loader, &cmd.site) {
             Ok(site) => site,
             Err(err) => {
                 commands.entity(err.site).despawn_recursive();
