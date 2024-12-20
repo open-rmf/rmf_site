@@ -17,7 +17,7 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Entity, Reflect, ReflectComponent};
+use bevy::prelude::{Bundle, Component, Reflect, ReflectComponent};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -65,27 +65,66 @@ impl Default for Model {
 pub struct ModelProperty<T: Default + Clone>(pub T);
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub enum OptionalModelProperty {
+pub enum OptionalModelProperty<T: RefTrait> {
     DifferentialDrive(DifferentialDrive),
     MobileRobotMarker(MobileRobotMarker),
-    Tasks(Tasks<Entity>),
+    Tasks(Tasks<T>),
 }
 
-impl Default for OptionalModelProperty {
+impl<T: RefTrait> Default for OptionalModelProperty<T> {
     fn default() -> Self {
         OptionalModelProperty::DifferentialDrive(DifferentialDrive::default())
     }
 }
 
+impl<T: RefTrait> OptionalModelProperty<T> {
+    pub fn convert<U: RefTrait>(
+        &self,
+        id_map: &HashMap<T, U>,
+    ) -> Result<OptionalModelProperty<U>, T> {
+        let result = match self {
+            Self::DifferentialDrive(diff_drive) => {
+                OptionalModelProperty::DifferentialDrive(diff_drive.clone())
+            }
+            Self::MobileRobotMarker(mobile_marker) => {
+                OptionalModelProperty::MobileRobotMarker(mobile_marker.clone())
+            }
+            Self::Tasks(tasks) => OptionalModelProperty::Tasks(tasks.convert(id_map)?),
+        };
+        Ok(result)
+    }
+}
+
 /// Defines a property in a model description, that will be added to all instances
-#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
-pub struct OptionalModelProperties(pub Vec<OptionalModelProperty>);
+pub struct OptionalModelProperties<T: RefTrait>(pub Vec<OptionalModelProperty<T>>);
+
+impl<T: RefTrait> Default for OptionalModelProperties<T> {
+    fn default() -> Self {
+        Self(Vec::new())
+    }
+}
+
+impl<T: RefTrait> OptionalModelProperties<T> {
+    pub fn convert<U: RefTrait>(
+        &self,
+        id_map: &HashMap<T, U>,
+    ) -> Result<OptionalModelProperties<U>, T> {
+        self.0.iter().try_fold(
+            OptionalModelProperties::default(),
+            |mut optional_properties, property| {
+                optional_properties.0.push(property.convert(id_map)?);
+                Ok(optional_properties)
+            },
+        )
+    }
+}
 
 /// Bundle with all required components for a valid model description
-#[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
-pub struct ModelDescriptionBundle {
+pub struct ModelDescriptionBundle<T: RefTrait> {
     pub name: NameInSite,
     pub source: ModelProperty<AssetSource>,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -96,7 +135,21 @@ pub struct ModelDescriptionBundle {
     pub group: Group,
     #[serde(skip)]
     pub marker: ModelMarker,
-    pub optional_properties: OptionalModelProperties, // for saving to file
+    pub optional_properties: OptionalModelProperties<T>,
+}
+
+impl<T: RefTrait> Default for ModelDescriptionBundle<T> {
+    fn default() -> Self {
+        Self {
+            name: NameInSite("<Unnamed>".to_string()),
+            source: ModelProperty(AssetSource::default()),
+            is_static: ModelProperty(IsStatic::default()),
+            scale: ModelProperty(Scale::default()),
+            group: Group,
+            marker: ModelMarker,
+            optional_properties: OptionalModelProperties::default(),
+        }
+    }
 }
 
 /// Bundle with all required components for a valid model instance
@@ -111,7 +164,7 @@ pub struct ModelInstance<T: RefTrait> {
     pub marker: ModelMarker,
     #[serde(skip)]
     pub instance_marker: InstanceMarker,
-    pub optional_properties: OptionalModelProperties, // for saving to file
+    pub optional_properties: OptionalModelProperties<T>,
 }
 
 impl<T: RefTrait> Default for ModelInstance<T> {
@@ -135,7 +188,7 @@ impl<T: RefTrait> ModelInstance<T> {
             pose: self.pose.clone(),
             parent: self.parent.convert(id_map)?,
             description: self.description.convert(id_map)?,
-            optional_properties: self.optional_properties.clone(),
+            optional_properties: self.optional_properties.convert(id_map)?,
             ..Default::default()
         })
     }

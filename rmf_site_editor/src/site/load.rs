@@ -247,6 +247,93 @@ fn generate_site_entities(
         consider_id(*level_id);
     }
 
+    for (lift_id, lift_data) in &site_data.lifts {
+        let lift_entity = commands.spawn(SiteID(*lift_id)).set_parent(site_id).id();
+
+        commands.entity(lift_entity).with_children(|lift| {
+            lift.spawn(SpatialBundle::default())
+                .insert(CabinAnchorGroupBundle::default())
+                .with_children(|anchor_group| {
+                    for (anchor_id, anchor) in &lift_data.cabin_anchors {
+                        let anchor_entity = anchor_group
+                            .spawn(AnchorBundle::new(anchor.clone()))
+                            .insert(SiteID(*anchor_id))
+                            .id();
+                        id_to_entity.insert(*anchor_id, anchor_entity);
+                        consider_id(*anchor_id);
+                    }
+                });
+        });
+
+        for (door_id, door) in &lift_data.cabin_doors {
+            let door_entity = commands
+                .spawn(door.convert(&id_to_entity).for_site(site_id)?)
+                .insert(Dependents::single(lift_entity))
+                .set_parent(lift_entity)
+                .id();
+            id_to_entity.insert(*door_id, door_entity);
+            consider_id(*door_id);
+        }
+
+        commands.entity(lift_entity).insert(Category::Lift).insert(
+            lift_data
+                .properties
+                .convert(&id_to_entity)
+                .for_site(site_id)?,
+        );
+
+        id_to_entity.insert(*lift_id, lift_entity);
+        consider_id(*lift_id);
+    }
+
+    for (fiducial_id, fiducial) in &site_data.fiducials {
+        let fiducial_entity = commands
+            .spawn(fiducial.convert(&id_to_entity).for_site(site_id)?)
+            .insert(SiteID(*fiducial_id))
+            .set_parent(site_id)
+            .id();
+        id_to_entity.insert(*fiducial_id, fiducial_entity);
+        consider_id(*fiducial_id);
+    }
+
+    for (nav_graph_id, nav_graph_data) in &site_data.navigation.guided.graphs {
+        let nav_graph = commands
+            .spawn(SpatialBundle::default())
+            .insert(nav_graph_data.clone())
+            .insert(SiteID(*nav_graph_id))
+            .set_parent(site_id)
+            .id();
+        id_to_entity.insert(*nav_graph_id, nav_graph);
+        consider_id(*nav_graph_id);
+    }
+
+    for (lane_id, lane_data) in &site_data.navigation.guided.lanes {
+        let lane = commands
+            .spawn(lane_data.convert(&id_to_entity).for_site(site_id)?)
+            .insert(SiteID(*lane_id))
+            .set_parent(site_id)
+            .id();
+        id_to_entity.insert(*lane_id, lane);
+        consider_id(*lane_id);
+    }
+
+    for (location_id, location_data) in &site_data.navigation.guided.locations {
+        let location = commands
+            .spawn(location_data.convert(&id_to_entity).for_site(site_id)?)
+            .insert(SiteID(*location_id))
+            .set_parent(site_id)
+            .id();
+        id_to_entity.insert(*location_id, location);
+        consider_id(*location_id);
+    }
+    // Properties require the id_to_entity map to be fully populated to load suppressed issues
+    commands.entity(site_id).insert(
+        site_data
+            .properties
+            .convert(&id_to_entity)
+            .for_site(site_id)?,
+    );
+
     let mut model_description_dependents = HashMap::<Entity, HashSet<Entity>>::new();
     let mut model_description_to_source = HashMap::<Entity, AssetSource>::new();
     for (model_description_id, model_description) in &site_data.model_descriptions {
@@ -344,93 +431,6 @@ fn generate_site_entities(
         id_to_entity.insert(*scenario_id, scenario_entity);
         consider_id(*scenario_id);
     }
-
-    for (lift_id, lift_data) in &site_data.lifts {
-        let lift_entity = commands.spawn(SiteID(*lift_id)).set_parent(site_id).id();
-
-        commands.entity(lift_entity).with_children(|lift| {
-            lift.spawn(SpatialBundle::default())
-                .insert(CabinAnchorGroupBundle::default())
-                .with_children(|anchor_group| {
-                    for (anchor_id, anchor) in &lift_data.cabin_anchors {
-                        let anchor_entity = anchor_group
-                            .spawn(AnchorBundle::new(anchor.clone()))
-                            .insert(SiteID(*anchor_id))
-                            .id();
-                        id_to_entity.insert(*anchor_id, anchor_entity);
-                        consider_id(*anchor_id);
-                    }
-                });
-        });
-
-        for (door_id, door) in &lift_data.cabin_doors {
-            let door_entity = commands
-                .spawn(door.convert(&id_to_entity).for_site(site_id)?)
-                .insert(Dependents::single(lift_entity))
-                .set_parent(lift_entity)
-                .id();
-            id_to_entity.insert(*door_id, door_entity);
-            consider_id(*door_id);
-        }
-
-        commands.entity(lift_entity).insert(Category::Lift).insert(
-            lift_data
-                .properties
-                .convert(&id_to_entity)
-                .for_site(site_id)?,
-        );
-
-        id_to_entity.insert(*lift_id, lift_entity);
-        consider_id(*lift_id);
-    }
-
-    for (fiducial_id, fiducial) in &site_data.fiducials {
-        let fiducial_entity = commands
-            .spawn(fiducial.convert(&id_to_entity).for_site(site_id)?)
-            .insert(SiteID(*fiducial_id))
-            .set_parent(site_id)
-            .id();
-        id_to_entity.insert(*fiducial_id, fiducial_entity);
-        consider_id(*fiducial_id);
-    }
-
-    for (nav_graph_id, nav_graph_data) in &site_data.navigation.guided.graphs {
-        let nav_graph = commands
-            .spawn(SpatialBundle::default())
-            .insert(nav_graph_data.clone())
-            .insert(SiteID(*nav_graph_id))
-            .set_parent(site_id)
-            .id();
-        id_to_entity.insert(*nav_graph_id, nav_graph);
-        consider_id(*nav_graph_id);
-    }
-
-    for (lane_id, lane_data) in &site_data.navigation.guided.lanes {
-        let lane = commands
-            .spawn(lane_data.convert(&id_to_entity).for_site(site_id)?)
-            .insert(SiteID(*lane_id))
-            .set_parent(site_id)
-            .id();
-        id_to_entity.insert(*lane_id, lane);
-        consider_id(*lane_id);
-    }
-
-    for (location_id, location_data) in &site_data.navigation.guided.locations {
-        let location = commands
-            .spawn(location_data.convert(&id_to_entity).for_site(site_id)?)
-            .insert(SiteID(*location_id))
-            .set_parent(site_id)
-            .id();
-        id_to_entity.insert(*location_id, location);
-        consider_id(*location_id);
-    }
-    // Properties require the id_to_entity map to be fully populated to load suppressed issues
-    commands.entity(site_id).insert(
-        site_data
-            .properties
-            .convert(&id_to_entity)
-            .for_site(site_id)?,
-    );
 
     let nav_graph_rankings = match RecencyRanking::<NavGraphMarker>::from_u32(
         &site_data.navigation.guided.ranking,

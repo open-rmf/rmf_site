@@ -29,8 +29,8 @@ use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, ComboBox, Grid, Ui};
 
 use rmf_site_format::{
-    Affiliation, DrawingProperties, Group, IsStatic, ModelDescriptionBundle, ModelInstance,
-    ModelMarker, ModelProperty, NameInSite,
+    Affiliation, DrawingProperties, IsStatic, ModelDescriptionBundle, ModelInstance, ModelProperty,
+    NameInSite,
 };
 
 /// This widget provides a widget with buttons for creating new site elements.
@@ -258,13 +258,11 @@ impl<'w, 's> Creation<'w, 's> {
                                 };
                                 if ui.button(add_icon).clicked() {
                                     if let Some(site_entity) = self.current_workspace.root {
-                                        let model_description_bundle = ModelDescriptionBundle {
+                                        let model_description_bundle: ModelDescriptionBundle<Entity> = ModelDescriptionBundle {
                                             name: NameInSite(pending_model.name.clone()),
                                             source: ModelProperty(pending_model.source.clone()),
                                             is_static: ModelProperty(IsStatic::default()),
                                             scale: ModelProperty(pending_model.scale.clone()),
-                                            group: Group,
-                                            marker: ModelMarker,
                                             ..Default::default()
                                         };
                                         let description_entity = self

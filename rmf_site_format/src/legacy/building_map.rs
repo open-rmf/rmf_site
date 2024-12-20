@@ -202,7 +202,7 @@ impl BuildingMap {
         let mut fiducial_groups: BTreeMap<u32, FiducialGroup> = BTreeMap::new();
         let mut cartesian_fiducials: HashMap<u32, Vec<DVec2>> = HashMap::new();
 
-        let mut model_descriptions: BTreeMap<u32, ModelDescriptionBundle> = BTreeMap::new();
+        let mut model_descriptions: BTreeMap<u32, ModelDescriptionBundle<u32>> = BTreeMap::new();
         let mut model_instances: BTreeMap<u32, ModelInstance<u32>> = BTreeMap::new();
         let mut model_description_name_map = HashMap::<String, u32>::new();
         let mut scenarios: BTreeMap<u32, ScenarioBundle<u32>> = BTreeMap::new();

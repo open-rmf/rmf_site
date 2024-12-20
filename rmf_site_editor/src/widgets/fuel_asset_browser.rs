@@ -27,7 +27,6 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{self, Button, ComboBox, ImageSource, RichText, ScrollArea, Ui, Window};
 use gz_fuel::FuelModel;
-use rmf_site_format::{Group, ModelMarker};
 
 /// Add a [`FuelAssetBrowser`] widget to your application.
 #[derive(Default)]
@@ -274,15 +273,14 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
 
                 if let Some(selected) = &gallery_status.selected {
                     if ui.button("Load as Description").clicked() {
-                        let model_description = ModelDescriptionBundle {
-                            name: NameInSite(selected.owner.clone() + "/" + &selected.name),
-                            source: ModelProperty(AssetSource::Remote(
-                                selected.owner.clone() + "/" + &selected.name + "/model.sdf",
-                            )),
-                            group: Group,
-                            marker: ModelMarker,
-                            ..Default::default()
-                        };
+                        let model_description: ModelDescriptionBundle<Entity> =
+                            ModelDescriptionBundle {
+                                name: NameInSite(selected.owner.clone() + "/" + &selected.name),
+                                source: ModelProperty(AssetSource::Remote(
+                                    selected.owner.clone() + "/" + &selected.name + "/model.sdf",
+                                )),
+                                ..Default::default()
+                            };
 
                         match self.app_state.get() {
                             AppState::SiteEditor => {

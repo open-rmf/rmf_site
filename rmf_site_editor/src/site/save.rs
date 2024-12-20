@@ -1200,7 +1200,7 @@ fn migrate_relative_paths(
 fn generate_model_descriptions(
     site: Entity,
     world: &mut World,
-) -> Result<BTreeMap<u32, ModelDescriptionBundle>, SiteGenerationError> {
+) -> Result<BTreeMap<u32, ModelDescriptionBundle<u32>>, SiteGenerationError> {
     let mut state: SystemState<(
         Query<
             (
@@ -1219,7 +1219,7 @@ fn generate_model_descriptions(
     )> = SystemState::new(world);
     let (model_descriptions, children, differential_drive, robot_marker) = state.get(world);
 
-    let mut res = BTreeMap::<u32, ModelDescriptionBundle>::new();
+    let mut res = BTreeMap::<u32, ModelDescriptionBundle<u32>>::new();
     if let Ok(children) = children.get(site) {
         for child in children.iter() {
             if let Ok((site_id, name, source, is_static, scale)) = model_descriptions.get(*child) {
@@ -1265,11 +1265,13 @@ fn generate_model_instances(
             (With<ModelMarker>, Without<Group>, Without<Pending>),
         >,
         Query<(Entity, &SiteID), With<LevelElevation>>,
+        Query<(&Point<Entity>, &SiteID), (With<LocationTags>, Without<Pending>)>,
         Query<&Children>,
         Query<&Parent>,
         Query<&Tasks<Entity>, (With<MobileRobotMarker>, Without<Group>)>,
     )> = SystemState::new(world);
-    let (model_descriptions, model_instances, levels, _, parents, tasks) = state.get(world);
+    let (model_descriptions, model_instances, levels, locations, _, parents, tasks) =
+        state.get(world);
 
     let mut site_levels_ids = std::collections::HashMap::<Entity, u32>::new();
     for (level_entity, site_id) in levels.iter() {
@@ -1306,10 +1308,28 @@ fn generate_model_instances(
             ..Default::default()
         };
         if let Ok(robot_tasks) = tasks.get(_instance_entity) {
+            let tasks: Vec<Task<u32>> = robot_tasks
+                .0
+                .clone()
+                .iter()
+                .map(|task| match task {
+                    Task::GoToPlace(go_to_place) => locations
+                        .get(go_to_place.location.unwrap().0)
+                        .map(|(_, location_id)| {
+                            Task::GoToPlace(GoToPlace {
+                                location: Some(Point(location_id.0)),
+                            })
+                        })
+                        .unwrap(),
+                    Task::WaitFor(wait_for) => Task::WaitFor(WaitFor {
+                        duration: wait_for.duration.clone(),
+                    }),
+                })
+                .collect::<Vec<Task<u32>>>();
             model_instance
                 .optional_properties
                 .0
-                .push(OptionalModelProperty::Tasks(robot_tasks.clone()));
+                .push(OptionalModelProperty::Tasks(Tasks(tasks.clone())));
         }
         res.insert(instance_id.0, model_instance);
     }

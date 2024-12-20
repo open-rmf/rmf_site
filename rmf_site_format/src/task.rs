@@ -79,9 +79,15 @@ impl<T: RefTrait> fmt::Display for Task<T> {
 impl<T: RefTrait> Task<T> {
     pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Task<U>, T> {
         Ok(match self {
-            Task::GoToPlace(go_to_place) => Task::GoToPlace(GoToPlace {
-                location: Some(go_to_place.location.unwrap().convert(id_map)?),
-            }),
+            Task::GoToPlace(go_to_place) => {
+                if let Some(loc) = go_to_place.location {
+                    Task::GoToPlace(GoToPlace {
+                        location: Some(loc.convert(id_map)?),
+                    })
+                } else {
+                    Task::GoToPlace(GoToPlace { location: None })
+                }
+            }
             Task::WaitFor(wait_for) => Task::WaitFor(WaitFor {
                 duration: wait_for.duration,
             }),

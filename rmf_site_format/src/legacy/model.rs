@@ -1,5 +1,5 @@
 use crate::{
-    Affiliation, Angle, AssetSource, Group, InstanceMarker, IsStatic, ModelDescriptionBundle,
+    Affiliation, Angle, AssetSource, InstanceMarker, IsStatic, ModelDescriptionBundle,
     ModelInstance, ModelMarker, ModelProperty, NameInSite, Pose, Rotation, Scale, SiteParent,
 };
 use glam::DVec2;
@@ -31,7 +31,7 @@ impl Model {
     pub fn to_site(
         &self,
         model_description_name_map: &mut HashMap<String, u32>,
-        model_descriptions: &mut BTreeMap<u32, ModelDescriptionBundle>,
+        model_descriptions: &mut BTreeMap<u32, ModelDescriptionBundle<u32>>,
         model_instances: &mut BTreeMap<u32, ModelInstance<u32>>,
         site_id: &mut RangeFrom<u32>,
         level_id: u32,
@@ -48,8 +48,6 @@ impl Model {
                         source: ModelProperty(AssetSource::Search(self.model_name.clone())),
                         is_static: ModelProperty(IsStatic(self.static_)),
                         scale: ModelProperty(Scale::default()),
-                        group: Group::default(),
-                        marker: ModelMarker,
                         ..Default::default()
                     },
                 );
