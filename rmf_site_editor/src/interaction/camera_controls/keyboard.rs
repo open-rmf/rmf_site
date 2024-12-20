@@ -85,7 +85,7 @@ pub fn update_keyboard_command(
     immediate_raycast: Raycast,
     time: Res<Time>,
     primary_windows: Query<&Window, With<PrimaryWindow>>,
-    uncovered_window_area: Res<UserCameraDisplay>,
+    uncovered_window_area: Option<Res<UserCameraDisplay>>,
 ) {
     if let Ok(_) = primary_windows.get_single() {
         // User inputs

@@ -162,6 +162,7 @@ impl Plugin for StandardUiPlugin {
                 DiagnosticsPlugin::default(),
                 ConsoleWidgetPlugin::default(),
                 WorkspaceMenuPlugin::default(),
+                UserCameraDisplayPlugin::default(),
                 #[cfg(not(target_arch = "wasm32"))]
                 SdfExportMenuPlugin::default(),
             ))

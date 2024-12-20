@@ -20,7 +20,6 @@ use crate::site::{
     FiducialMarker, FloorMarker, LaneMarker, LiftCabin, LiftCabinDoorMarker, LocationTags,
     MeasurementMarker, SiteUpdateSet, ToggleLiftDoorAvailability, VisualMeshMarker, WallMarker,
 };
-use crate::widgets::UserCameraDisplayPlugin;
 
 pub mod anchor;
 pub use anchor::*;
@@ -173,11 +172,7 @@ impl Plugin for InteractionPlugin {
                 CategoryVisibilityPlugin::<MeasurementMarker>::visible(true),
                 CategoryVisibilityPlugin::<WallMarker>::visible(true),
             ))
-            .add_plugins((
-                CameraControlsPlugin,
-                ModelPreviewPlugin,
-                UserCameraDisplayPlugin::default(),
-            ));
+            .add_plugins((CameraControlsPlugin, ModelPreviewPlugin));
 
         if !self.headless {
             app.add_plugins(SelectionPlugin::default())
