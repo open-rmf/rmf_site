@@ -30,3 +30,4 @@ float_eq = "1.0"
 
 [features]
 urdf = ["dep:urdf-rs"]
+default = ["urdf"]
