@@ -209,7 +209,7 @@ impl BuildingMap {
         let default_scenario_id = site_id.next().unwrap();
         scenarios.insert(default_scenario_id, ScenarioBundle::default());
 
-        let mut legacy_robot_to_location = Vec::<Model>::new();
+        let mut legacy_robots = Vec::<Model>::new();
 
         for (level_name, level) in &self.levels {
             let level_id = site_id.next().unwrap();
@@ -249,7 +249,7 @@ impl BuildingMap {
                 if let Some(location) = v.make_location(anchor_id) {
                     let id = site_id.next().unwrap();
                     if let Some(robot_data) = v.spawn_robot(id.clone()) {
-                        legacy_robot_to_location.push(robot_data);
+                        legacy_robots.push(robot_data);
                     }
                     locations.insert(id, location);
                 }
@@ -533,7 +533,7 @@ impl BuildingMap {
                     .push((model_instance_id, model_pose));
             }
             // Spawn robots (for legacy imports)
-            for model in legacy_robot_to_location.iter() {
+            for model in legacy_robots.iter() {
                 let (model_instance_id, model_pose) = model.to_site(
                     &mut model_description_name_map,
                     &mut model_descriptions,
