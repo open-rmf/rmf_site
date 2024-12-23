@@ -814,40 +814,6 @@ impl Site {
             // from full joint with wheel torques to just kinematic simulation for whole robots.
         }
 
-        // Spawn the robots now
-        // TODO(luca) use robot properties and export this like other meshes
-        // instead of including a tag
-        for location in self.navigation.guided.locations.values() {
-            let Some(robot) = location.tags.0.iter().find_map(|l| l.spawn_robot()) else {
-                continue;
-            };
-            // For now all robots are just Search type
-            let AssetSource::Search(ref robot_type) = robot.source else {
-                continue;
-            };
-            let Some(level) = self
-                .levels
-                .values()
-                .find(|l| l.anchors.get(&location.anchor.0).is_some())
-            else {
-                // TODO(luca) this would fail if the robot was on a site anchor
-                continue;
-            };
-            // Get the location
-            let anchor = get_anchor(location.anchor.0)?;
-            let tf = anchor.translation_for_category(Category::Level);
-            let pose = Pose {
-                trans: [tf[0], tf[1], level.properties.elevation.0],
-                ..Default::default()
-            };
-            world.include.push(SdfWorldInclude {
-                uri: "model://".to_string() + robot_type,
-                name: Some(robot.name.0.clone()),
-                pose: Some(pose.to_sdf()),
-                r#static: Some(robot.is_static.0),
-                ..Default::default()
-            });
-        }
         world.name = self.properties.name.0.clone();
         if let Some(gui) = world.gui.as_mut() {
             gui.plugin.push(toggle_floors_plugin);

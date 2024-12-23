@@ -21,6 +21,7 @@ pub struct Model {
     #[serde(rename = "z")]
     pub z_offset: f64,
     pub yaw: f64,
+    pub location: Option<u32>,
 }
 
 impl Model {
