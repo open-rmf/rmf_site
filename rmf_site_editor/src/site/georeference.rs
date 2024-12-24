@@ -9,11 +9,9 @@ use utm::*;
 use crate::{
     generate_map_tiles,
     interaction::camera_controls,
-    widgets::menu_bar::{
-        Menu, MenuDisabled, MenuEvent, MenuItem, MenuVisualizationStates, ToolMenu, ViewMenu,
-    },
+    widgets::menu_bar::{Menu, MenuDisabled, MenuEvent, MenuItem, ToolMenu, ViewMenu},
     workspace::CurrentWorkspace,
-    AppState, OSMTile,
+    OSMTile,
 };
 
 const MAX_ZOOM: i32 = 19;
@@ -552,29 +550,13 @@ pub struct OSMMenu {
 
 impl FromWorld for OSMMenu {
     fn from_world(world: &mut World) -> Self {
-        // Only show the menu in site editor modes
-        let target_states = MenuVisualizationStates(HashSet::from([
-            AppState::SiteEditor,
-            AppState::SiteDrawingEditor,
-            AppState::SiteVisualizer,
-        ]));
         // Tools menu
-        let set_reference = world
-            .spawn(MenuItem::Text("Set Reference".to_string()))
-            .insert(target_states.clone())
-            .id();
-        let view_reference = world
-            .spawn(MenuItem::Text("View Reference".to_string()))
-            .insert(target_states.clone())
-            .id();
-        let settings_reference = world
-            .spawn(MenuItem::Text("Settings".to_string()))
-            .insert(target_states.clone())
-            .id();
+        let set_reference = world.spawn(MenuItem::Text("Set Reference".into())).id();
+        let view_reference = world.spawn(MenuItem::Text("View Reference".into())).id();
+        let settings_reference = world.spawn(MenuItem::Text("Settings".into())).id();
 
         let sub_menu = world
             .spawn(Menu::from_title("Geographic Offset".to_string()))
-            .insert(target_states.clone())
             .id();
         world.entity_mut(sub_menu).push_children(&[
             set_reference,
@@ -589,7 +571,6 @@ impl FromWorld for OSMMenu {
         let view_header = world.resource::<ViewMenu>().get();
         let satellite_map_check_button = world
             .spawn(MenuItem::CheckBox("Satellite Map".to_string(), false))
-            .insert(target_states.clone())
             .id();
         world
             .entity_mut(view_header)

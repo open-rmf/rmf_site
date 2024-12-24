@@ -15,8 +15,11 @@
  *
 */
 
-use crate::{interaction::select::*, site::Model};
-use bevy::ecs::system::SystemParam;
+use crate::{
+    interaction::select::*,
+    site::{CurrentLevel, Model},
+};
+use bevy::ecs::system::{Command, SystemParam, SystemState};
 
 #[derive(Default)]
 pub struct ObjectPlacementPlugin {}
@@ -31,27 +34,12 @@ impl Plugin for ObjectPlacementPlugin {
 #[derive(Resource, Clone, Copy)]
 pub struct ObjectPlacementServices {
     pub place_object_2d: Service<Option<Entity>, ()>,
-    pub place_object_3d: Service<Option<Entity>, ()>,
-    pub replace_parent_3d: Service<Option<Entity>, ()>,
-    pub hover_service_object_3d: Service<(), (), Hover>,
 }
 
 impl ObjectPlacementServices {
     pub fn from_app(app: &mut App) -> Self {
-        let hover_service_object_3d = app.spawn_continuous_service(
-            Update,
-            hover_service::<PlaceObject3dFilter>
-                .configure(|config: SystemConfigs| config.in_set(SelectionServiceStages::Hover)),
-        );
         let place_object_2d = spawn_place_object_2d_workflow(app);
-        let place_object_3d = spawn_place_object_3d_workflow(hover_service_object_3d, app);
-        let replace_parent_3d = spawn_replace_parent_3d_workflow(hover_service_object_3d, app);
-        Self {
-            place_object_2d,
-            place_object_3d,
-            replace_parent_3d,
-            hover_service_object_3d,
-        }
+        Self { place_object_2d }
     }
 }
 
@@ -59,10 +47,15 @@ impl ObjectPlacementServices {
 pub struct ObjectPlacement<'w, 's> {
     pub services: Res<'w, ObjectPlacementServices>,
     pub commands: Commands<'w, 's>,
+    current_level: Res<'w, CurrentLevel>,
 }
 
 impl<'w, 's> ObjectPlacement<'w, 's> {
-    pub fn place_object_2d(&mut self, object: Model, level: Entity) {
+    pub fn place_object_2d(&mut self, object: Model) {
+        let Some(level) = self.current_level.0 else {
+            warn!("Unble to create [object:?] outside a level");
+            return;
+        };
         let state = self
             .commands
             .spawn(SelectorInput(PlaceObject2d { object, level }))
@@ -73,40 +66,32 @@ impl<'w, 's> ObjectPlacement<'w, 's> {
         });
     }
 
-    pub fn place_object_3d(
-        &mut self,
-        object: PlaceableObject,
-        parent: Option<Entity>,
-        workspace: Entity,
-    ) {
-        let state = self
-            .commands
-            .spawn(SelectorInput(PlaceObject3d {
-                object,
-                parent,
-                workspace,
-            }))
-            .id();
-        self.send(RunSelector {
-            selector: self.services.place_object_3d,
-            input: Some(state),
-        });
-    }
-
-    pub fn replace_parent_3d(&mut self, object: Entity, workspace: Entity) {
-        let state = self
-            .commands
-            .spawn(SelectorInput(ReplaceParent3d { object, workspace }))
-            .id();
-        self.send(RunSelector {
-            selector: self.services.replace_parent_3d,
-            input: Some(state),
-        });
-    }
-
     fn send(&mut self, run: RunSelector) {
         self.commands.add(move |world: &mut World| {
             world.send_event(run);
         });
+    }
+}
+
+/// Trait to be implemented to allow placing models with commands
+pub trait ObjectPlacementExt<'w, 's> {
+    fn place_object_2d(&mut self, object: Model);
+}
+
+impl<'w, 's> ObjectPlacementExt<'w, 's> for Commands<'w, 's> {
+    fn place_object_2d(&mut self, object: Model) {
+        self.add(ObjectPlaceCommand(object));
+    }
+}
+
+#[derive(Deref, DerefMut)]
+pub struct ObjectPlaceCommand(Model);
+
+impl Command for ObjectPlaceCommand {
+    fn apply(self, world: &mut World) {
+        let mut system_state: SystemState<ObjectPlacement> = SystemState::new(world);
+        let mut placement = system_state.get_mut(world);
+        placement.place_object_2d(self.0);
+        system_state.apply(world);
     }
 }

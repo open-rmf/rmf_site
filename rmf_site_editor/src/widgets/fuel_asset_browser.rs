@@ -16,24 +16,37 @@
 */
 
 use crate::{
-    interaction::{ModelPreviewCamera, ObjectPlacement, PlaceableObject, Selection},
-    site::{
-        AssetSource, CurrentLevel, FuelClient, Model, ModelLoader, SetFuelApiKey, UpdateFuelCache,
-    },
+    interaction::{ModelPreviewCamera, ObjectPlacementExt},
+    site::{AssetSource, FuelClient, Model, ModelLoader, SetFuelApiKey, UpdateFuelCache},
     widgets::prelude::*,
-    AppState, CurrentWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{self, Button, ComboBox, ImageSource, RichText, ScrollArea, Ui, Window};
 use gz_fuel::FuelModel;
 
 /// Add a [`FuelAssetBrowser`] widget to your application.
-#[derive(Default)]
-pub struct FuelAssetBrowserPlugin {}
+pub struct FuelAssetBrowserPlugin {
+    pub model_spawner: fn(&mut Commands, Model),
+}
+
+impl Default for FuelAssetBrowserPlugin {
+    fn default() -> Self {
+        Self {
+            model_spawner: |commands: &mut Commands, model: Model| {
+                commands.place_object_2d(model);
+            },
+        }
+    }
+}
+
+/// Stores the function that uses commands to place models for this application
+#[derive(Resource, Deref, DerefMut)]
+struct ModelPlacer(fn(&mut Commands, Model));
 
 impl Plugin for FuelAssetBrowserPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<AssetGalleryStatus>();
+        app.init_resource::<AssetGalleryStatus>()
+            .insert_resource(ModelPlacer(self.model_spawner));
         let panel = PanelWidget::new(fuel_asset_browser_panel, &mut app.world);
         let widget = Widget::new::<FuelAssetBrowser>(&mut app.world);
         app.world.spawn((panel, widget));
@@ -79,12 +92,9 @@ pub struct FuelAssetBrowser<'w, 's> {
     model_preview_camera: Res<'w, ModelPreviewCamera>,
     update_cache: EventWriter<'w, UpdateFuelCache>,
     set_api_key: EventWriter<'w, SetFuelApiKey>,
-    place_object: ObjectPlacement<'w, 's>,
-    current_workspace: Res<'w, CurrentWorkspace>,
-    current_selection: Res<'w, Selection>,
-    current_level: Res<'w, CurrentLevel>,
-    app_state: Res<'w, State<AppState>>,
     model_loader: ModelLoader<'w, 's>,
+    commands: Commands<'w, 's>,
+    model_placer: Res<'w, ModelPlacer>,
 }
 
 fn fuel_asset_browser_panel(In(input): In<PanelWidgetInput>, world: &mut World) {
@@ -279,30 +289,7 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                             ),
                             ..default()
                         };
-
-                        match self.app_state.get() {
-                            AppState::SiteEditor => {
-                                if let Some(level) = self.current_level.0 {
-                                    self.place_object.place_object_2d(model, level);
-                                } else {
-                                    warn!("Cannot spawn a model outside of a workspace");
-                                }
-                            }
-                            AppState::WorkcellEditor => {
-                                if let Some(workspace) = self.current_workspace.root {
-                                    self.place_object.place_object_3d(
-                                        PlaceableObject::Model(model),
-                                        self.current_selection.0,
-                                        workspace,
-                                    );
-                                } else {
-                                    warn!("Cannot spawn a model outside of a workspace");
-                                }
-                            }
-                            _ => {
-                                warn!("Invalid mode for spawning a model: {:?}", &self.app_state);
-                            }
-                        }
+                        (self.model_placer)(&mut self.commands, model);
                     }
                 }
             }

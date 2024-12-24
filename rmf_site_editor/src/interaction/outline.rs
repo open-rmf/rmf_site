@@ -19,8 +19,8 @@ use crate::{interaction::*, site::DrawingMarker};
 use bevy::render::view::RenderLayers;
 use bevy_mod_outline::{OutlineBundle, OutlineMode, OutlineRenderLayers, OutlineVolume};
 use rmf_site_format::{
-    ConstraintMarker, DoorType, FiducialMarker, FloorMarker, LiftCabin, LightKind, LocationTags,
-    MeasurementMarker, ModelMarker, PhysicalCameraProperties, PrimitiveShape, WallMarker,
+    DoorType, FiducialMarker, FloorMarker, LiftCabin, LightKind, LocationTags, MeasurementMarker,
+    ModelMarker, PhysicalCameraProperties, PrimitiveShape, WallMarker,
 };
 use smallvec::SmallVec;
 
@@ -110,7 +110,6 @@ pub fn add_outline_visualization(
             Added<DoorType>,
             Added<LiftCabin<Entity>>,
             Added<MeasurementMarker>,
-            Added<ConstraintMarker>,
             Added<FiducialMarker>,
             Added<FloorMarker>,
             Added<DrawingMarker>,

@@ -35,7 +35,20 @@ pub struct SdfPlugin;
 
 impl Plugin for SdfPlugin {
     fn build(&self, app: &mut App) {
-        app.init_asset_loader::<SdfLoader>();
+        // Type registration is necessary to allow serializing the Scene that is loaded by this
+        // plugin. Note that adding a new component to the Scene but not registering its type will
+        // trigger a panic so it is mandatory to keep the registration and implementation in sync.
+        app.init_asset_loader::<SdfLoader>()
+            .register_type::<NameInSite>()
+            .register_type::<AssetSource>()
+            .register_type::<Pose>()
+            .register_type::<IsStatic>()
+            .register_type::<Scale>()
+            .register_type::<ModelMarker>()
+            .register_type::<VisualMeshMarker>()
+            .register_type::<CollisionMeshMarker>()
+            .register_type::<Category>()
+            .register_type::<PrimitiveShape>();
     }
 }
 

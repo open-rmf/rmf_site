@@ -1,9 +1,8 @@
 use bevy::{app::ScheduleRunnerPlugin, log::LogPlugin, pbr::DirectionalLightShadowMap, prelude::*};
 use bevy_egui::EguiPlugin;
-use main_menu::MainMenuPlugin;
-// use warehouse_generator::WarehouseGeneratorPlugin;
 #[cfg(not(target_arch = "wasm32"))]
 use clap::Parser;
+use main_menu::MainMenuPlugin;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
@@ -14,6 +13,10 @@ pub use autoload::*;
 
 pub mod asset_loaders;
 use asset_loaders::*;
+
+// Bevy plugins that are public dependencies, mixing versions won't work for downstream users
+pub use bevy_egui;
+pub use bevy_mod_raycast;
 
 pub mod keyboard;
 use keyboard::*;
@@ -32,12 +35,9 @@ use recency::*;
 mod shapes;
 use log::LogHistoryPlugin;
 
+pub mod interaction;
 pub mod main_menu;
 pub mod site;
-// mod warehouse_generator;
-pub mod workcell;
-use workcell::WorkcellEditorPlugin;
-pub mod interaction;
 
 pub mod workspace;
 use workspace::*;
@@ -45,11 +45,7 @@ use workspace::*;
 pub mod sdf_loader;
 
 pub mod site_asset_io;
-//pub mod urdf_loader;
 use sdf_loader::*;
-
-pub mod view_menu;
-use view_menu::*;
 
 pub mod wireframe;
 use wireframe::*;
@@ -87,26 +83,14 @@ pub enum AppState {
     MainMenu,
     SiteEditor,
     SiteVisualizer,
-    //WarehouseGenerator,
-    WorkcellEditor,
     SiteDrawingEditor,
 }
 
 impl AppState {
-    pub fn in_site_mode() -> impl Condition<()> {
-        IntoSystem::into_system(|state: Res<State<AppState>>| match state.get() {
-            AppState::SiteEditor | AppState::SiteVisualizer | AppState::SiteDrawingEditor => true,
-            AppState::MainMenu | AppState::WorkcellEditor => false,
-        })
-    }
-
     pub fn in_displaying_mode() -> impl Condition<()> {
         IntoSystem::into_system(|state: Res<State<AppState>>| match state.get() {
             AppState::MainMenu => false,
-            AppState::SiteEditor
-            | AppState::SiteVisualizer
-            | AppState::WorkcellEditor
-            | AppState::SiteDrawingEditor => true,
+            AppState::SiteEditor | AppState::SiteVisualizer | AppState::SiteDrawingEditor => true,
         })
     }
 }
@@ -234,13 +218,9 @@ impl Plugin for SiteEditor {
             ));
 
         if self.headless_export.is_none() {
-            app.add_plugins((
-                StandardUiPlugin::default(),
-                MainMenuPlugin,
-                WorkcellEditorPlugin,
-            ))
-            // Note order matters, plugins that edit the menus must be initialized after the UI
-            .add_plugins((ViewMenuPlugin, OSMViewPlugin, SiteWireframePlugin));
+            app.add_plugins((StandardUiPlugin::default(), MainMenuPlugin))
+                // Note order matters, plugins that edit the menus must be initialized after the UI
+                .add_plugins((site::ViewMenuPlugin, OSMViewPlugin, SiteWireframePlugin));
         }
 
         // Ref https://github.com/bevyengine/bevy/issues/10877. The default behavior causes issues

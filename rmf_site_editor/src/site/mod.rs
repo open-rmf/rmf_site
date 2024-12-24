@@ -90,11 +90,11 @@ pub use physical_camera::*;
 pub mod pose;
 pub use pose::*;
 
+pub mod primitive_shape;
+pub use primitive_shape::*;
+
 pub mod recall_plugin;
 pub use recall_plugin::RecallPlugin;
-
-pub mod sdf;
-pub use sdf::*;
 
 pub mod save;
 pub use save::*;
@@ -113,6 +113,9 @@ pub use texture::*;
 
 pub mod util;
 pub use util::*;
+
+pub mod view_menu;
+pub use view_menu::*;
 
 pub mod wall;
 pub use wall::*;
@@ -185,33 +188,16 @@ impl Plugin for SitePlugin {
             apply_deferred.in_set(SiteUpdateSet::AssignOrphansFlush),
         )
         .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
-        .init_resource::<FuelClient>()
         .init_resource::<SiteAssets>()
-        .init_resource::<CurrentLevel>()
         .init_resource::<PhysicalLightToggle>()
-        .init_resource::<FuelCacheUpdateChannel>()
-        .init_resource::<FuelCacheProgressChannel>()
-        .register_type::<NameInSite>()
-        .register_type::<AssetSource>()
-        .register_type::<Pose>()
-        .register_type::<IsStatic>()
-        .register_type::<Scale>()
-        .register_type::<ModelMarker>()
-        .register_type::<VisualMeshMarker>()
-        .register_type::<CollisionMeshMarker>()
-        .register_type::<Category>()
-        .register_type::<PrimitiveShape>()
         .add_event::<LoadSite>()
         .add_event::<ImportNavGraphs>()
         .add_event::<ChangeCurrentSite>()
         .add_event::<SaveSite>()
         .add_event::<SaveNavGraphs>()
-        .add_event::<ToggleLiftDoorAvailability>()
         .add_event::<ExportLights>()
         .add_event::<ConsiderAssociatedGraph>()
         .add_event::<ConsiderLocationTag>()
-        .add_event::<UpdateFuelCache>()
-        .add_event::<SetFuelApiKey>()
         .add_event::<MergeGroups>()
         .add_plugins((
             ChangePlugin::<AssociatedGraphs<Entity>>::default(),
@@ -222,11 +208,8 @@ impl Plugin for SitePlugin {
             RecallPlugin::<RecallReverseLane>::default(),
             ChangePlugin::<NameOfSite>::default(),
             ChangePlugin::<NameInSite>::default(),
-            ChangePlugin::<NameInWorkcell>::default(),
-            ChangePlugin::<NameOfWorkcell>::default(),
             ChangePlugin::<Pose>::default(),
             ChangePlugin::<Scale>::default(),
-            ChangePlugin::<MeshConstraint<Entity>>::default(),
             ChangePlugin::<Distance>::default(),
             ChangePlugin::<Texture>::default(),
         ))
@@ -255,7 +238,6 @@ impl Plugin for SitePlugin {
             ChangePlugin::<GlobalDrawingVisibility>::default(),
             ChangePlugin::<PreferredSemiTransparency>::default(),
             ChangePlugin::<Affiliation<Entity>>::default(),
-            ChangePlugin::<JointProperties>::default(),
             RecencyRankingPlugin::<NavGraphMarker>::default(),
             RecencyRankingPlugin::<FloorMarker>::default(),
             RecencyRankingPlugin::<DrawingMarker>::default(),
@@ -263,6 +245,7 @@ impl Plugin for SitePlugin {
             DrawingEditorPlugin,
             SiteVisualizerPlugin,
             ModelLoadingPlugin::default(),
+            FuelPlugin::default(),
         ))
         .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
         .add_issue_type(&DUPLICATED_LIFT_NAME_ISSUE_UUID, "Duplicate lift name")
@@ -295,12 +278,12 @@ impl Plugin for SitePlugin {
                 update_material_for_display_color,
             )
                 .after(SiteUpdateSet::ProcessChangesFlush)
-                .run_if(AppState::in_site_mode()),
+                .run_if(AppState::in_displaying_mode()),
         )
         .add_systems(
             Update,
             (save_site, save_nav_graphs, change_site.before(load_site))
-                .run_if(AppState::in_site_mode()),
+                .run_if(AppState::in_displaying_mode()),
         )
         .add_systems(
             PostUpdate,
@@ -321,16 +304,13 @@ impl Plugin for SitePlugin {
                 add_material_for_display_colors,
                 add_physical_lights,
             )
-                .run_if(AppState::in_site_mode())
+                .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::AssignOrphans),
         )
         .add_systems(
             PostUpdate,
             (
                 add_wall_visual,
-                handle_update_fuel_cache_requests,
-                read_update_fuel_cache_results,
-                reload_failed_models_with_new_api_key,
                 update_walls_for_moved_anchors,
                 update_walls,
                 update_transforms_for_changed_poses,
@@ -338,7 +318,7 @@ impl Plugin for SitePlugin {
                 export_lights,
                 set_camera_transform_for_changed_site,
             )
-                .run_if(AppState::in_site_mode())
+                .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenVisibilityAndTransform),
         )
         .add_systems(
@@ -361,7 +341,7 @@ impl Plugin for SitePlugin {
                 update_changed_lane,
                 update_lane_for_moved_anchor,
             )
-                .run_if(AppState::in_site_mode())
+                .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenVisibilityAndTransform),
         )
         .add_systems(
@@ -384,7 +364,7 @@ impl Plugin for SitePlugin {
                 update_physical_lights,
                 toggle_physical_lights,
             )
-                .run_if(AppState::in_site_mode())
+                .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenVisibilityAndTransform),
         )
         .add_systems(
@@ -402,7 +382,7 @@ impl Plugin for SitePlugin {
                 update_drawing_rank,
                 add_physical_camera_visuals,
             )
-                .run_if(AppState::in_site_mode())
+                .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenVisibilityAndTransform),
         );
     }
