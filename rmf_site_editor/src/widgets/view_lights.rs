@@ -109,6 +109,7 @@ impl<'w, 's> ViewLights<'w, 's> {
                         None => {
                             let future = AsyncComputeTaskPool::get().spawn(async move {
                                 // TODO(luca) change this to use FileDialogServices
+                                // https://github.com/open-rmf/rmf_site/issues/248
                                 let file = match AsyncFileDialog::new().save_file().await {
                                     Some(file) => file,
                                     None => return None,

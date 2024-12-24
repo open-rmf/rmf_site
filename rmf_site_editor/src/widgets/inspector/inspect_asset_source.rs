@@ -145,6 +145,7 @@ impl<'a> InspectAssetSourceComponent<'a> {
                     #[cfg(not(target_arch = "wasm32"))]
                     if ui.button("Browse").clicked() {
                         // TODO(luca) change this to use FileDialogServices and be async
+                        // https://github.com/open-rmf/rmf_site/issues/248
                         if let Some(file) = FileDialog::new().pick_file() {
                             if let Some(src) = file.to_str() {
                                 if let (Some(default_file), true) = (self.default_file, is_relative)

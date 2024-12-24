@@ -216,6 +216,7 @@ impl<'w, 's> ViewNavGraphs<'w, 's> {
                         None => {
                             let future = AsyncComputeTaskPool::get().spawn(async move {
                                 // TODO(luca) change this to use FileDialogServices
+                                // https://github.com/open-rmf/rmf_site/issues/248
                                 let file = match AsyncFileDialog::new().pick_file().await {
                                     Some(file) => file,
                                     None => return None,
