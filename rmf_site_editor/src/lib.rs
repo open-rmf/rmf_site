@@ -95,6 +95,7 @@ impl AppState {
     }
 }
 
+#[cfg(feature = "include-run-js")]
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn run_js() {

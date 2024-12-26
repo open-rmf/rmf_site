@@ -51,6 +51,10 @@ ehttp = { version = "0.4", features = ["native-async"] }
 nalgebra = "0.32.5"
 anyhow = "*"
 
+[features]
+include-run-js = []
+default = ["include-run-js"]
+
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 clap = { version = "4.0.10", features = ["color", "derive", "help", "usage", "suggestions"] }
 bevy_impulse = { git = "https://github.com/open-rmf/bevy_impulse", branch = "main" }
