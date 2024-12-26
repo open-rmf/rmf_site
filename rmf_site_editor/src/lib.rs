@@ -95,6 +95,14 @@ impl AppState {
     }
 }
 
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn run_js() {
+    extern crate console_error_panic_hook;
+    std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+    run(vec!["web".to_owned()]);
+}
+
 pub fn run(command_line_args: Vec<String>) {
     let mut app = App::new();
     let mut _headless_export = None;
