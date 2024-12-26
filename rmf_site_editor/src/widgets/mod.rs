@@ -131,6 +131,9 @@ use view_occupancy::*;
 pub mod view_tasks;
 use view_tasks::*;
 
+pub mod workspace;
+use workspace::*;
+
 pub mod prelude {
     //! This module gives easy access to the traits, structs, and plugins that
     //! we expect downstream users are likely to want easy access to if they are
@@ -160,12 +163,14 @@ impl Plugin for StandardUiPlugin {
             .add_plugins((
                 IconsPlugin::default(),
                 MenuBarPlugin::default(),
-                SdfExportMenuPlugin::default(),
                 StandardPropertiesPanelPlugin::default(),
-                FuelAssetBrowserPlugin::default(),
+                FuelAssetBrowserPlugin,
                 DiagnosticsPlugin::default(),
                 ConsoleWidgetPlugin::default(),
+                WorkspaceMenuPlugin::default(),
                 UserCameraDisplayPlugin::default(),
+                #[cfg(not(target_arch = "wasm32"))]
+                SdfExportMenuPlugin::default(),
             ))
             .add_systems(Startup, init_ui_style)
             .add_systems(
@@ -180,7 +185,7 @@ impl Plugin for StandardUiPlugin {
                     resolve_light_export_file,
                     resolve_nav_graph_import_export_files,
                 )
-                    .run_if(AppState::in_site_mode()),
+                    .run_if(AppState::in_displaying_mode()),
             );
     }
 }

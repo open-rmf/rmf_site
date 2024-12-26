@@ -18,8 +18,8 @@
 use crate::{
     interaction::ObjectPlacement,
     site::{
-        Affiliation, Change, CurrentLevel, Delete, FiducialMarker, Group, MergeGroups,
-        ModelInstance, ModelMarker, NameInSite, SiteID, Texture,
+        Affiliation, Change, Delete, FiducialMarker, Group, MergeGroups, ModelInstance,
+        ModelMarker, NameInSite, SiteID, Texture,
     },
     widgets::{prelude::*, SelectorWidget},
     AppState, CurrentWorkspace, Icons,
@@ -65,7 +65,6 @@ pub struct ViewGroups<'w, 's> {
 #[derive(SystemParam)]
 pub struct ViewGroupsEvents<'w, 's> {
     current_workspace: ResMut<'w, CurrentWorkspace>,
-    current_level: Res<'w, CurrentLevel>,
     selector: SelectorWidget<'w, 's>,
     merge_groups: EventWriter<'w, MergeGroups>,
     delete: EventWriter<'w, Delete>,
@@ -199,16 +198,8 @@ impl<'w, 's> ViewGroups<'w, 's> {
                                     description: Affiliation(Some(child.clone())),
                                     ..Default::default()
                                 };
-                                if let Some(level) = events.current_level.0 {
-                                    events
-                                        .object_placement
-                                        .place_object_2d(model_instance, level);
-                                } else {
-                                    warn!(
-                                        "Unable to create [{model_instance:?}] outside of a level"
-                                    );
-                                }
-                            };
+                                events.object_placement.place_object_2d(model_instance);
+                            }
                         };
                         events.selector.show_widget(*child, ui);
                     }

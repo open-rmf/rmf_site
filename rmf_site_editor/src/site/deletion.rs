@@ -22,13 +22,13 @@ use crate::{
         Category, CurrentLevel, Dependents, LevelElevation, LevelProperties, NameInSite,
         SiteUpdateSet,
     },
-    AppState, Issue,
+    Issue,
 };
 use bevy::{
     ecs::system::{BoxedSystem, SystemParam, SystemState},
     prelude::*,
 };
-use rmf_site_format::{ConstraintDependents, Edge, MeshConstraint, Path, Point};
+use rmf_site_format::{Edge, Path, Point};
 use std::collections::HashSet;
 
 // TODO(MXG): Use this module to implement the deletion buffer. The role of the
@@ -87,8 +87,6 @@ struct DeletionParams<'w, 's> {
     paths: Query<'w, 's, &'static Path<Entity>>,
     parents: Query<'w, 's, &'static mut Parent>,
     dependents: Query<'w, 's, &'static mut Dependents>,
-    constraint_dependents: Query<'w, 's, &'static mut ConstraintDependents>,
-    mesh_constraints: Query<'w, 's, &'static mut MeshConstraint<Entity>>,
     children: Query<'w, 's, &'static Children>,
     selection: Res<'w, Selection>,
     current_level: ResMut<'w, CurrentLevel>,
@@ -111,9 +109,7 @@ impl Plugin for DeletionPlugin {
         .init_resource::<DeletionFilters>()
         .add_systems(
             First,
-            handle_deletion_requests
-                .in_set(SiteUpdateSet::Deletion)
-                .run_if(AppState::in_displaying_mode()),
+            handle_deletion_requests.in_set(SiteUpdateSet::Deletion),
         );
     }
 }
@@ -267,22 +263,6 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
                 if let Ok(mut deps) = params.dependents.get_mut(*anchor) {
                     deps.remove(&e);
                 }
-            }
-        }
-
-        if let Ok(dependents) = params.constraint_dependents.get(e) {
-            for dep in dependents.iter() {
-                // Remove MeshConstraint component from dependent
-                params
-                    .commands
-                    .entity(*dep)
-                    .remove::<MeshConstraint<Entity>>();
-            }
-        }
-
-        if let Ok(constraint) = params.mesh_constraints.get(e) {
-            if let Ok(mut parent) = params.constraint_dependents.get_mut(constraint.entity) {
-                parent.remove(&e);
             }
         }
 

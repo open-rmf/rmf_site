@@ -1539,25 +1539,29 @@ pub fn save_site(world: &mut World) {
                 };
 
                 info!("Saving to {}", new_path.display());
-                let Some(parent_folder) = new_path.parent() else {
-                    error!("Unable to save SDF. Please select a save path that has a parent directory.");
-                    continue;
-                };
-                if !parent_folder.exists() {
-                    if let Err(e) = std::fs::create_dir_all(parent_folder) {
-                        error!("Unable to create folder {}: {e}", parent_folder.display());
+                if !new_path.exists() {
+                    if let Err(e) = std::fs::create_dir_all(&new_path) {
+                        error!("Unable to create folder {}: {e}", new_path.display());
+                        continue;
+                    }
+                } else {
+                    if !new_path.is_dir() {
+                        error!("SDF can only be exported to a folder");
                         continue;
                     }
                 }
-                let f = match std::fs::File::create(&new_path) {
+                let mut sdf_path = new_path.clone();
+                sdf_path.push(&site.properties.name.0);
+                sdf_path.set_extension("world");
+                let f = match std::fs::File::create(&sdf_path) {
                     Ok(f) => f,
                     Err(err) => {
-                        error!("Unable to save file {}: {err}", new_path.display());
+                        error!("Unable to save file {}: {err}", sdf_path.display());
                         continue;
                     }
                 };
 
-                let mut meshes_dir = PathBuf::from(parent_folder);
+                let mut meshes_dir = new_path.clone();
                 meshes_dir.push("meshes");
                 if let Err(e) = std::fs::create_dir_all(&meshes_dir) {
                     error!("Unable to create folder {}: {e}", meshes_dir.display());
@@ -1568,7 +1572,7 @@ pub fn save_site(world: &mut World) {
                     continue;
                 }
 
-                migrate_relative_paths(save_event.site, &new_path, world);
+                migrate_relative_paths(save_event.site, &sdf_path, world);
                 let graphs = legacy::nav_graph::NavGraph::from_site(&site);
                 let sdf = match site.to_sdf() {
                     Ok(sdf) => sdf,
@@ -1586,7 +1590,7 @@ pub fn save_site(world: &mut World) {
                     error!("Failed serializing site to sdf: {e}");
                     continue;
                 }
-                let mut navgraph_dir = PathBuf::from(parent_folder);
+                let mut navgraph_dir = new_path.clone();
                 navgraph_dir.push("nav_graphs");
                 if let Err(e) = std::fs::create_dir_all(&navgraph_dir) {
                     error!("Unable to create folder {}: {e}", navgraph_dir.display());
@@ -1610,10 +1614,6 @@ pub fn save_site(world: &mut World) {
                         error!("Failed to save nav graph: {err}");
                     }
                 }
-            }
-            ExportFormat::Urdf => {
-                warn!("Site exporting to Urdf is not supported.");
-                continue;
             }
         }
     }

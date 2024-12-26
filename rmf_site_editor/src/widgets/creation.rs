@@ -17,11 +17,8 @@
 
 use crate::{
     inspector::{InspectAssetSourceComponent, InspectScaleComponent},
-    interaction::{AnchorSelection, ObjectPlacement, PlaceableObject, Selection},
-    site::{
-        AssetSource, Category, CurrentLevel, DefaultFile, DrawingBundle, Recall, RecallAssetSource,
-        Scale,
-    },
+    interaction::{AnchorSelection, ObjectPlacement},
+    site::{AssetSource, Category, DefaultFile, DrawingBundle, Recall, RecallAssetSource, Scale},
     widgets::{prelude::*, AssetGalleryStatus},
     AppState, CurrentWorkspace,
 };
@@ -50,19 +47,17 @@ struct Creation<'w, 's> {
     app_state: Res<'w, State<AppState>>,
     current_workspace: Res<'w, CurrentWorkspace>,
     creation_data: ResMut<'w, CreationData>,
-    current_level: Res<'w, CurrentLevel>,
     asset_gallery: Option<ResMut<'w, AssetGalleryStatus>>,
     commands: Commands<'w, 's>,
     anchor_selection: AnchorSelection<'w, 's>,
     object_placement: ObjectPlacement<'w, 's>,
-    selection: Res<'w, Selection>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for Creation<'w, 's> {
     fn show(_: Tile, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) -> () {
         let mut params = state.get_mut(world);
         match params.app_state.get() {
-            AppState::SiteEditor | AppState::SiteDrawingEditor | AppState::WorkcellEditor => {}
+            AppState::SiteEditor | AppState::SiteDrawingEditor => {}
             AppState::MainMenu | AppState::SiteVisualizer => return,
         }
         CollapsingHeader::new("Create")
@@ -156,11 +151,6 @@ impl<'w, 's> Creation<'w, 's> {
                     self.anchor_selection.create_measurements();
                 }
             }
-            AppState::WorkcellEditor => {
-                if ui.button("Frame").clicked() {
-                    self.place_object(PlaceableObject::Anchor);
-                }
-            }
             _ => {
                 return;
             }
@@ -207,7 +197,7 @@ impl<'w, 's> Creation<'w, 's> {
     pub fn show_create_model_description(&mut self, ui: &mut Ui) {
         match self.app_state.get() {
             AppState::MainMenu | AppState::SiteDrawingEditor | AppState::SiteVisualizer => {}
-            AppState::SiteEditor | AppState::WorkcellEditor => {
+            AppState::SiteEditor => {
                 let pending_model = match *self.creation_data {
                     CreationData::ModelDescription(ref mut pending_model) => pending_model,
                     _ => return,
@@ -248,7 +238,7 @@ impl<'w, 's> Creation<'w, 's> {
                         AppState::MainMenu
                         | AppState::SiteDrawingEditor
                         | AppState::SiteVisualizer => {}
-                        AppState::SiteEditor | AppState::WorkcellEditor => {
+                        AppState::SiteEditor => {
                             ui.add_space(5.0);
 
                             ui.horizontal(|ui| {
@@ -258,7 +248,9 @@ impl<'w, 's> Creation<'w, 's> {
                                 };
                                 if ui.button(add_icon).clicked() {
                                     if let Some(site_entity) = self.current_workspace.root {
-                                        let model_description_bundle: ModelDescriptionBundle<Entity> = ModelDescriptionBundle {
+                                        let model_description_bundle: ModelDescriptionBundle<
+                                            Entity,
+                                        > = ModelDescriptionBundle {
                                             name: NameInSite(pending_model.name.clone()),
                                             source: ModelProperty(pending_model.source.clone()),
                                             is_static: ModelProperty(IsStatic::default()),
@@ -282,11 +274,7 @@ impl<'w, 's> Creation<'w, 's> {
                                                     )),
                                                     ..Default::default()
                                                 };
-                                            if let Some(level) = self.current_level.0 {
-                                                self.object_placement.place_object_2d(model_instance, level);
-                                            } else {
-                                                warn!("Unable to create [{model_instance:?}] outside of a level");
-                                            }
+                                            self.object_placement.place_object_2d(model_instance);
                                         }
                                     }
                                 }
@@ -331,15 +319,6 @@ impl<'w, 's> Creation<'w, 's> {
                     }
                 }
             }
-        }
-    }
-
-    pub fn place_object(&mut self, object: PlaceableObject) {
-        if let Some(workspace) = self.current_workspace.root {
-            self.object_placement
-                .place_object_3d(object, self.selection.0, workspace);
-        } else {
-            warn!("Unable to create [{object:?}] outside of a workspace");
         }
     }
 }
