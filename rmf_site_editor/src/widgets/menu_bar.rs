@@ -183,6 +183,29 @@ impl FromWorld for ViewMenu {
     }
 }
 
+#[derive(Resource)]
+pub struct EditMenu {
+    /// Map of menu items
+    menu_item: Entity,
+}
+
+impl EditMenu {
+    pub fn get(&self) -> Entity {
+        return self.menu_item;
+    }
+}
+
+impl FromWorld for EditMenu {
+    fn from_world(world: &mut World) -> Self {
+        let menu_item = world
+            .spawn(Menu {
+                text: "Edit".to_string(),
+            })
+            .id();
+        Self { menu_item }
+    }
+}
+
 #[non_exhaustive]
 #[derive(Event)]
 pub enum MenuEvent {
@@ -304,6 +327,7 @@ fn top_menu_bar(
                     true,
                 );
             });
+
             ui.menu_button("View", |ui| {
                 render_sub_menu(
                     ui,

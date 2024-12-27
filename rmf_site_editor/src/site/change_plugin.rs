@@ -17,7 +17,9 @@
 
 use crate::site::SiteUpdateSet;
 use bevy::prelude::*;
-use std::fmt::Debug;
+use std::{fmt::Debug, sync::Arc};
+
+use super::{UndoBuffer, UndoEvent};
 
 /// The Change component is used as an event to indicate that the value of a
 /// component should change for some entity. Using these events instead of
@@ -58,12 +60,63 @@ impl<T: Component + Clone + Debug> Default for ChangePlugin<T> {
     }
 }
 
+/// This is a changelog used for the undo/redo system
+struct ChangeLog<T: Component + Clone + Debug>
+{
+    entity: Entity,
+    from: Option<T>,
+    to: T
+}
+
+#[derive(Resource)]
+struct ChangeHistory<T: Component + Clone + Debug> {
+    pub(crate) revisions: std::collections::HashMap<usize, ChangeLog<T>>
+}
+
+impl<T: Component + Clone + Debug> Default for ChangeHistory<T> {
+    fn default() -> Self {
+        Self {
+            revisions: Default::default(),
+        }
+    }
+}
+
+
 impl<T: Component + Clone + Debug> Plugin for ChangePlugin<T> {
     fn build(&self, app: &mut App) {
-        app.add_event::<Change<T>>().add_systems(
+        app.add_event::<Change<T>>()
+        .init_resource::<ChangeHistory<T>>()
+        .add_systems(
             PreUpdate,
-            update_changed_values::<T>.in_set(SiteUpdateSet::ProcessChanges),
+            (update_changed_values::<T>.in_set(SiteUpdateSet::ProcessChanges),
+            undo_change::<T>.in_set(SiteUpdateSet::ProcessChanges)) // TODO do this on another stage
+
         );
+    }
+}
+
+fn undo_change<T: Component + Clone + Debug>(
+    mut commands: Commands,
+    mut values: Query<&mut T>,
+    change_history: ResMut<ChangeHistory<T>>,
+    mut undo_cmds: EventReader<UndoEvent>,
+) {
+    for undo in undo_cmds.read() {
+        let Some(change) = change_history.revisions.get(&undo.action_id) else {
+            continue;
+        };
+
+        if let Ok(mut component_to_change) = values.get_mut(change.entity) {
+            if let Some(old_value) = &change.from {
+                *component_to_change = old_value.clone();
+            }
+            else {
+                commands.entity(change.entity).remove::<T>();
+            }
+        }
+        else {
+            error!("Undo history corrupted.");
+        }
     }
 }
 
@@ -71,15 +124,34 @@ fn update_changed_values<T: Component + Clone + Debug>(
     mut commands: Commands,
     mut values: Query<&mut T>,
     mut changes: EventReader<Change<T>>,
+    mut undo_buffer: ResMut<UndoBuffer>,
+    mut change_history: ResMut<ChangeHistory<T>>
 ) {
     for change in changes.read() {
-        if let Ok(mut new_value) = values.get_mut(change.for_element) {
-            *new_value = change.to_value.clone();
+        if let Ok(mut component_to_change) = values.get_mut(change.for_element) {
+            change_history.revisions.insert(
+                undo_buffer.get_next_revision(),
+                ChangeLog {
+                    entity: change.for_element,
+                    to: change.to_value.clone(),
+                    from: Some(component_to_change.clone())
+                  }
+
+            );
+            *component_to_change = change.to_value.clone();
         } else {
             if change.allow_insert {
                 commands
                     .entity(change.for_element)
                     .insert(change.to_value.clone());
+                change_history.revisions.insert(
+                    undo_buffer.get_next_revision(),
+                    ChangeLog {
+                        entity: change.for_element,
+                        to: change.to_value.clone(),
+                        from: None
+                      }
+                );
             } else {
                 error!(
                     "Unable to change {} data to {:?} for entity {:?} \
