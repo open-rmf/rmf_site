@@ -30,7 +30,7 @@ use std::{any::TypeId, collections::HashMap, fmt::Debug};
 use crate::{
     site::{
         update_model_instances, Affiliation, AssetSource, Change, ChangePlugin, Group, IsStatic,
-        ModelMarker, ModelProperty, NameInSite, Scale,
+        ModelLoader, ModelMarker, ModelProperty, NameInSite, Scale,
     },
     widgets::{prelude::*, Inspect},
     MainInspector,
@@ -343,8 +343,17 @@ pub struct InspectSelectedModelDescription<'w, 's> {
         &'static Affiliation<Entity>,
         (With<ModelMarker>, Without<Group>, With<NameInSite>),
     >,
-    model_descriptions:
-        Query<'w, 's, (Entity, &'static NameInSite), (With<ModelMarker>, With<Group>)>,
+    model_descriptions: Query<
+        'w,
+        's,
+        (
+            Entity,
+            &'static NameInSite,
+            &'static ModelProperty<AssetSource>,
+        ),
+        (With<ModelMarker>, With<Group>),
+    >,
+    model_loader: ModelLoader<'w, 's>,
     change_affiliation: EventWriter<'w, Change<Affiliation<Entity>>>,
 }
 
@@ -367,7 +376,7 @@ impl<'w, 's> InspectSelectedModelDescription<'w, 's> {
         else {
             return;
         };
-        let (current_description_entity, current_description_name) = self
+        let (current_description_entity, current_description_name, _) = self
             .model_descriptions
             .get(current_description_entity)
             .unwrap();
@@ -390,6 +399,9 @@ impl<'w, 's> InspectSelectedModelDescription<'w, 's> {
         if new_description_entity != current_description_entity {
             self.change_affiliation
                 .send(Change::new(Affiliation(Some(new_description_entity)), id));
+            let (_, _, new_source) = self.model_descriptions.get(new_description_entity).unwrap();
+            self.model_loader
+                .update_asset_source(id, new_source.0.clone());
         }
     }
 }

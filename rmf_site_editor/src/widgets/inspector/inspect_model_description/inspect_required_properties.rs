@@ -18,8 +18,8 @@
 use super::get_selected_description_entity;
 use crate::{
     site::{
-        Affiliation, AssetSource, Change, DefaultFile, Group, ModelMarker, ModelProperty,
-        RecallAssetSource, Scale,
+        Affiliation, AssetSource, Change, DefaultFile, Group, ModelLoader, ModelMarker,
+        ModelProperty, RecallAssetSource, Scale,
     },
     widgets::{prelude::*, Inspect, InspectAssetSourceComponent, InspectScaleComponent},
     CurrentWorkspace,
@@ -79,6 +79,7 @@ pub struct InspectModelAssetSource<'w, 's> {
     change_asset_source: EventWriter<'w, Change<ModelProperty<AssetSource>>>,
     current_workspace: Res<'w, CurrentWorkspace>,
     default_file: Query<'w, 's, &'static DefaultFile>,
+    model_loader: ModelLoader<'w, 's>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectModelAssetSource<'w, 's> {
@@ -111,9 +112,14 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelAssetSource<'w, 's> {
             InspectAssetSourceComponent::new(source, &RecallAssetSource::default(), default_file)
                 .show(ui)
         {
+            // TODO(@xiyuoh) look into removing Change for description asset source updates
+            params.change_asset_source.send(Change::new(
+                ModelProperty(new_source.clone()),
+                description_entity,
+            ));
             params
-                .change_asset_source
-                .send(Change::new(ModelProperty(new_source), description_entity));
+                .model_loader
+                .update_description_asset_source(description_entity, new_source);
         }
     }
 }

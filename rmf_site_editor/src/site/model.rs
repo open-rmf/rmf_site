@@ -34,7 +34,7 @@ use rmf_site_format::{
     Pending, Scale,
 };
 use smallvec::SmallVec;
-use std::{any::TypeId, fmt, future::Future};
+use std::{any::TypeId, collections::HashSet, fmt, future::Future};
 use thiserror::Error;
 
 /// Denotes the properties of the current spawned scene for the model, to despawn when updating AssetSource
@@ -326,6 +326,12 @@ pub struct ModelLoader<'w, 's> {
     commands: Commands<'w, 's>,
     model_descriptions:
         Query<'w, 's, &'static ModelProperty<AssetSource>, (With<ModelMarker>, With<Group>)>,
+    model_instances: Query<
+        'w,
+        's,
+        (Entity, &'static Affiliation<Entity>),
+        (With<ModelMarker>, Without<Group>, With<AssetSource>),
+    >,
 }
 
 impl<'w, 's> ModelLoader<'w, 's> {
@@ -413,6 +419,23 @@ impl<'w, 's> ModelLoader<'w, 's> {
                 .clone()
                 .instruct(SpawnModelLabel(entity).preempt()),
         )
+    }
+
+    /// Update the asset source of all model instances affiliated with the provided
+    /// model description
+    pub fn update_description_asset_source(&mut self, entity: Entity, source: AssetSource) {
+        let mut instance_entities = HashSet::new();
+        for (e, affiliation) in self.model_instances.iter() {
+            if let Some(description_entity) = affiliation.0 {
+                if entity == description_entity {
+                    instance_entities.insert(e);
+                }
+            }
+        }
+        for e in instance_entities.iter() {
+            self.update_asset_source_impulse(*e, source.clone())
+                .detach();
+        }
     }
 }
 
