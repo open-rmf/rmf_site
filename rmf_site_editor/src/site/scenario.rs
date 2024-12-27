@@ -42,7 +42,7 @@ pub fn update_current_scenario(
         With<InstanceMarker>,
     >,
 ) {
-    for ChangeCurrentScenario(scenario_entity) in change_current_scenario.read() {
+    if let Some(ChangeCurrentScenario(scenario_entity)) = change_current_scenario.read().last() {
         // Used to build a scenario from root
         let mut scenario_stack = Vec::<&Scenario<Entity>>::new();
         let mut scenario = scenarios
