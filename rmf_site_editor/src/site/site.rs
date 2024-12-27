@@ -17,7 +17,6 @@
 
 use crate::{interaction::CameraControls, CurrentWorkspace};
 use bevy::prelude::*;
-use itertools::Itertools;
 use rmf_site_format::{
     LevelElevation, LevelProperties, NameInSite, NameOfSite, Pose, ScenarioBundle, ScenarioMarker,
     UserCameraPoseMarker,
@@ -160,7 +159,7 @@ pub fn change_site(
                 let any_scenario = children
                     .iter()
                     .filter(|child| scenarios.get(**child).is_ok())
-                    .find_or_first(|_| true);
+                    .next();
                 if let Some(new_scenario) = any_scenario {
                     change_current_scenario.send(ChangeCurrentScenario(*new_scenario));
                 } else {

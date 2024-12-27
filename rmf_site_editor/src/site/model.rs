@@ -756,7 +756,6 @@ pub fn update_model_instances<T: Component + Default + Clone>(
             if let Ok((_, _, property)) = model_properties.get(description_entity) {
                 if property.is_changed() || affiliation.is_changed() {
                     let mut cmd = commands.entity(instance_entity);
-                    cmd.remove::<ModelProperty<T>>();
                     cmd.insert(property.0.clone());
                 }
             }

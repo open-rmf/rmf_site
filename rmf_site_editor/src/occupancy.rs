@@ -141,7 +141,7 @@ pub struct CalculateGrid {
     /// Ignore meshes above this height
     pub ceiling: f32,
     // Ignore these entities
-    pub ignore: Option<HashSet<Entity>>,
+    pub ignore: HashSet<Entity>,
 }
 
 enum Group {
@@ -182,28 +182,8 @@ fn calculate_grid(
         let physical_entities = collect_physical_entities(&bodies, &meta);
         info!("Checking {:?} physical entities", physical_entities.len());
         for e in &physical_entities {
-            if request
-                .ignore
-                .as_ref()
-                .is_some_and(|ignored_set| ignored_set.contains(e))
-            {
-                continue;
-            } else if request.ignore.as_ref().is_some() {
-                let mut ignore: bool = false;
-                let mut queue = vec![*e];
-                // Some of these physical entities may be meshes of ignored entities.
-                // Here we check if their parent entities have been indicated to be
-                // ignored, and handle them accordingly.
-                while let Some(entity) = queue.pop() {
-                    if let Ok(parent) = parents.get(entity) {
-                        if request.ignore.as_ref().unwrap().contains(&parent.get()) {
-                            ignore = true;
-                            break;
-                        }
-                        queue.push(parent.get());
-                    }
-                }
-                if ignore {
+            if !request.ignore.is_empty() {
+                if AncestorIter::new(&parents, *e).any(|p| request.ignore.contains(&p)) {
                     continue;
                 }
             }

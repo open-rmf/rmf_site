@@ -201,6 +201,7 @@ impl Plugin for StandardInspectorPlugin {
                 InspectionPlugin::<InspectPrimitiveShape>::new(),
                 InspectionPlugin::<InspectMeasurement>::new(),
                 InspectionPlugin::<InspectPhysicalCameraProperties>::new(),
+                InspectionPlugin::<InspectPreview>::new(),
                 InspectionPlugin::<InspectGroup>::new(),
                 InspectModelDescriptionPlugin::default(),
                 InspectLiftPlugin::default(),
