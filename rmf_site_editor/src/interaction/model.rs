@@ -37,7 +37,7 @@ pub fn update_model_instance_visual_cues(
         ),
         (With<ModelMarker>, Without<Group>),
     >,
-    mut locations: Query<&mut Selected, (With<LocationTags>, Without<ModelMarker>)>,
+    mut locations: Query<(&mut Selected, &mut Hovered), (With<LocationTags>, Without<ModelMarker>)>,
     mut removed_components: RemovedComponents<Tasks<Entity>>,
 ) {
     for (instance_entity, mut instance_selected, mut instance_hovered, affiliation, tasks) in
@@ -72,17 +72,25 @@ pub fn update_model_instance_visual_cues(
         if let Some(tasks) = tasks {
             // When tasks for an instance have changed, reset all locations from supporting this instance
             if tasks.is_changed() {
-                for mut location_selected in locations.iter_mut() {
+                for (mut location_selected, mut location_hovered) in locations.iter_mut() {
                     location_selected.support_selected.remove(&instance_entity);
+                    location_hovered.support_hovering.remove(&instance_entity);
                 }
             }
 
             if let Some(task_location) = tasks.0.first().and_then(|t| t.location()) {
-                if let Ok(mut location_selected) = locations.get_mut(task_location.0) {
+                if let Ok((mut location_selected, mut location_hovered)) =
+                    locations.get_mut(task_location.0)
+                {
                     if instance_selected.cue() && !is_description_selected {
                         location_selected.support_selected.insert(instance_entity);
                     } else {
                         location_selected.support_selected.remove(&instance_entity);
+                    }
+                    if instance_hovered.cue() {
+                        location_hovered.support_hovering.insert(instance_entity);
+                    } else {
+                        location_hovered.support_hovering.remove(&instance_entity);
                     }
                 }
             }
@@ -91,8 +99,9 @@ pub fn update_model_instance_visual_cues(
 
     // When instances are removed, prevent any location from supporting them
     for removed in removed_components.read() {
-        for mut location_selected in locations.iter_mut() {
+        for (mut location_selected, mut location_hovered) in locations.iter_mut() {
             location_selected.support_selected.remove(&removed);
+            location_hovered.support_hovering.remove(&removed);
         }
     }
 }
