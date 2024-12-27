@@ -43,6 +43,12 @@ pub enum SdfConversionError {
     LiftParsingError(String),
     #[error("Lift [{0}] had no initial level where it could be spawned")]
     MissingInitialLevel(String),
+    #[error("Unable to find any scenarios")]
+    UnableToFindScenario,
+    #[error("Entity [{0}] referenced a non existing model instance")]
+    BrokenModelInstanceReference(u32),
+    #[error("Entity [{0}] referenced a non existing model description")]
+    BrokenModelDescriptionReference(u32),
 }
 
 impl Pose {
@@ -438,7 +444,7 @@ impl Site {
         let (_, default_scenario) = self
             .scenarios
             .first_key_value()
-            .expect("No scenarios found");
+            .ok_or(SdfConversionError::UnableToFindScenario)?;
         for (level_id, level) in &self.levels {
             let mut level_model_names = vec![];
             let mut model_element_map = ElementMap::default();
@@ -491,17 +497,18 @@ impl Site {
             // TODO(luca) We need this because there is no concept of ingestor or dispenser in
             // rmf_site yet. Remove when there is
             for (model_instance_id, _) in &default_scenario.scenario.added_instances {
-                let model_instance = self
-                    .model_instances
-                    .get(model_instance_id)
-                    .expect("Model instance not found");
+                let model_instance = self.model_instances.get(model_instance_id).ok_or(
+                    SdfConversionError::BrokenModelInstanceReference(*model_instance_id),
+                )?;
                 let (model_description_id, model_description_bundle) =
                     if let Some(model_description_id) = model_instance.description.0 {
                         (
                             model_description_id,
-                            self.model_descriptions
-                                .get(&model_description_id)
-                                .expect("Model description not found"),
+                            self.model_descriptions.get(&model_description_id).ok_or(
+                                SdfConversionError::BrokenModelDescriptionReference(
+                                    *model_instance_id,
+                                ),
+                            )?,
                         )
                     } else {
                         continue;
