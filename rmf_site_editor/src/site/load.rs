@@ -367,50 +367,37 @@ fn generate_site_entities(
             .convert(&id_to_entity)
             .for_site(site_id)?;
 
-        if let Some(model_description) = model_instance.description.0 {
-            let source = model_description_to_source.get(&model_description);
-            if let Some(mut loaded_instance) =
-                model_loader.spawn_model_instance(site_id, model_instance.clone(), source)
-            {
-                let model_instance_entity = loaded_instance
-                    .insert((Category::Model, SiteID(*model_instance_id)))
-                    .id();
-                id_to_entity.insert(*model_instance_id, model_instance_entity);
-                consider_id(*model_instance_id);
+        let model_instance_entity = model_loader
+            .spawn_model_instance(site_id, model_instance.clone())
+            .insert((Category::Model, SiteID(*model_instance_id)))
+            .id();
+        id_to_entity.insert(*model_instance_id, model_instance_entity);
+        consider_id(*model_instance_id);
 
-                if let Some(instances) = model_description_dependents.get_mut(&model_description) {
-                    instances.insert(model_instance_entity);
-                } else {
-                    error!(
-                        "Model description missing for instance {}. This should \
-                        not happen, please report this bug to the maintainers of \
-                        rmf_site_editor.",
-                        model_instance.name.0,
-                    );
-                }
-
-                // Insert optional model properties
-                for optional_property in &model_instance.optional_properties.0 {
-                    match optional_property {
-                        OptionalModelProperty::Tasks(tasks) => {
-                            commands.entity(model_instance_entity).insert(tasks.clone())
-                        }
-                        _ => continue,
-                    };
-                }
-            } else {
-                error!(
-                    "Unable to access the asset source for model instance [{}]! \
-                    Failed to load model instance.",
-                    model_instance_id
-                );
-            }
+        if let Some(instances) = model_instance
+            .description
+            .0
+            .map(|e| model_description_dependents.get_mut(&e))
+            .flatten()
+        {
+            instances.insert(model_instance_entity);
         } else {
             error!(
-                "Model instance [{}] is not affiliated with any model description! \
-                Failed to load model instance.",
-                model_instance_id
+                "Model description missing for instance {}. This should \
+                        not happen, please report this bug to the maintainers of \
+                        rmf_site_editor.",
+                model_instance.name.0,
             );
+        }
+
+        // Insert optional model properties
+        for optional_property in &model_instance.optional_properties.0 {
+            match optional_property {
+                OptionalModelProperty::Tasks(tasks) => {
+                    commands.entity(model_instance_entity).insert(tasks.clone())
+                }
+                _ => continue,
+            };
         }
     }
 

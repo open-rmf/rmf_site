@@ -69,6 +69,8 @@ pub fn get_all_for_source(source: &AssetSource) -> SmallVec<[AssetSource; 6]> {
 
 pub type ModelLoadingResult = Result<ModelLoadingSuccess, ModelLoadingError>;
 
+pub type InstanceSpawningResult = Result<ModelLoadingSuccess, InstanceSpawningError>;
+
 #[derive(Resource)]
 /// Services that deal with model loading
 // TODO(luca) revisit pub / private-ness of struct and fields
@@ -78,6 +80,7 @@ struct ModelLoadingServices {
     check_scene_is_spawned: Service<Entity, Entity>,
     /// System that tries to load a model and returns a result.
     pub load_model: Service<ModelLoadingRequest, ModelLoadingResult>,
+    pub spawn_instance: Service<InstanceSpawningRequest, InstanceSpawningResult>,
 }
 
 #[derive(Default)]
@@ -319,13 +322,29 @@ fn handle_model_loading_errors(
     result
 }
 
+fn instance_spawn_request_into_model_load_request(
+    In(request): In<InstanceSpawningRequest>,
+    descriptions: Query<&ModelProperty<AssetSource>>,
+) -> Result<ModelLoadingRequest, InstanceSpawningError> {
+    let Some(affiliation) = request.affiliation.0 else {
+        return Err(InstanceSpawningError::NoAffiliation);
+    };
+
+    let Ok(source) = descriptions.get(affiliation) else {
+        return Err(InstanceSpawningError::AffiliationMissing);
+    };
+
+    Ok(ModelLoadingRequest {
+        parent: request.parent,
+        source: source.0.clone(),
+    })
+}
+
 /// `SystemParam` used to request for model loading operations
 #[derive(SystemParam)]
 pub struct ModelLoader<'w, 's> {
     services: Res<'w, ModelLoadingServices>,
     commands: Commands<'w, 's>,
-    model_descriptions:
-        Query<'w, 's, &'static ModelProperty<AssetSource>, (With<ModelMarker>, With<Group>)>,
     model_instances: Query<
         'w,
         's,
@@ -343,29 +362,16 @@ impl<'w, 's> ModelLoader<'w, 's> {
         })
     }
 
-    /// Spawn a new model instance and begin a workflow to load its asset source.
+    /// Spawn a new model instance and begin a workflow to load its asset source
+    /// from the affiliated model description.
     /// This is only for brand new models does not support reacting to the load finishing.
     pub fn spawn_model_instance(
         &mut self,
         parent: Entity,
-        model_instance: ModelInstance<Entity>,
-        source: Option<&AssetSource>,
-    ) -> Option<EntityCommands<'w, 's, '_>> {
-        let model_description_source = model_instance
-            .description
-            .0
-            .map(|e| {
-                self.model_descriptions
-                    .get(e)
-                    .ok()
-                    .map(|property| property.0.clone())
-            })
-            .flatten();
-
-        source.or(model_description_source.as_ref()).map(|s| {
-            self.spawn_model_instance_impulse(parent, model_instance, s.clone(), move |impulse| {
-                impulse.detach();
-            })
+        instance: ModelInstance<Entity>,
+    ) -> EntityCommands<'w, 's, '_> {
+        self.spawn_model_instance_impulse(parent, instance, move |impulse| {
+            impulse.detach();
         })
     }
 
@@ -389,13 +395,19 @@ impl<'w, 's> ModelLoader<'w, 's> {
     pub fn spawn_model_instance_impulse(
         &mut self,
         parent: Entity,
-        model: ModelInstance<Entity>,
-        source: AssetSource,
-        impulse: impl FnOnce(Impulse<ModelLoadingResult, ()>),
+        instance: ModelInstance<Entity>,
+        impulse: impl FnOnce(Impulse<InstanceSpawningResult, ()>),
     ) -> EntityCommands<'w, 's, '_> {
-        let id = self.commands.spawn(model).set_parent(parent).id();
-        let loading_impulse = self.update_asset_source_impulse(id, source);
-        (impulse)(loading_impulse);
+        let affiliation = instance.description.clone();
+        let id = self.commands.spawn(instance).set_parent(parent).id();
+        let spawning_impulse = self.commands.request(
+            InstanceSpawningRequest::new(id, affiliation),
+            self.services
+                .spawn_instance
+                .clone()
+                .instruct(SpawnModelLabel(id).preempt()),
+        );
+        (impulse)(spawning_impulse);
         self.commands.entity(id)
     }
 
@@ -541,9 +553,25 @@ impl ModelLoadingServices {
                 .connect(scope.terminate)
         });
 
+        // Model instance spawning workflow
+        let spawn_instance = app.world.spawn_workflow(|scope, builder| {
+            scope
+                .input
+                .chain(builder)
+                .then(instance_spawn_request_into_model_load_request.into_blocking_callback())
+                .connect_on_err(scope.terminate)
+                .then(load_model)
+                .map_block(|res| match res {
+                    Ok(success) => Ok(success),
+                    Err(err) => Err(InstanceSpawningError::ModelError(err)),
+                })
+                .connect(scope.terminate)
+        });
+
         Self {
             load_model,
             check_scene_is_spawned,
+            spawn_instance,
         }
     }
 }
@@ -613,6 +641,28 @@ pub enum ModelLoadingErrorKind {
     NonModelAsset,
     #[error("Failed loading dependency for model, error: {0}")]
     FailedLoadingDependency(String),
+}
+
+#[derive(Clone, Debug)]
+pub struct InstanceSpawningRequest {
+    pub parent: Entity,
+    pub affiliation: Affiliation<Entity>,
+}
+
+impl InstanceSpawningRequest {
+    pub fn new(parent: Entity, affiliation: Affiliation<Entity>) -> Self {
+        Self {
+            parent,
+            affiliation,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum InstanceSpawningError {
+    NoAffiliation,
+    AffiliationMissing,
+    ModelError(ModelLoadingError),
 }
 
 pub fn update_model_scales(

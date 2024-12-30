@@ -129,13 +129,12 @@ impl Cursor {
     ) {
         self.remove_preview(commands);
         self.preview_model = if let Some(model_instance) = model_instance {
-            if let Some(mut spawn_instance) =
-                model_loader.spawn_model_instance(self.frame, model_instance.clone(), None)
-            {
-                Some(spawn_instance.insert(Pending).id())
-            } else {
-                None
-            }
+            Some(
+                model_loader
+                    .spawn_model_instance(self.frame, model_instance.clone())
+                    .insert(Pending)
+                    .id(),
+            )
         } else {
             None
         };

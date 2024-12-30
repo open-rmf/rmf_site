@@ -205,11 +205,9 @@ pub fn on_placement_chosen_2d(
     let mut state = access.pull().or_broken_state()?;
 
     state.object.pose = placement.into();
-    if let Some(mut model_instance) =
-        model_loader.spawn_model_instance(state.level, state.object, None)
-    {
-        model_instance.insert(Category::Model);
-    }
+    model_loader
+        .spawn_model_instance(state.level, state.object)
+        .insert(Category::Model);
 
     Ok(())
 }
