@@ -1289,16 +1289,18 @@ fn generate_model_instances(
         instance_affiliation,
     ) in model_instances.iter()
     {
-        if instance_parent
+        let Ok(parent) = instance_parent
             .0
-            .is_some_and(|p| !site_levels_ids.contains_key(&p))
-        {
+            .map(|p| site_levels_ids.get(&p).copied().ok_or(()))
+            .transpose()
+        else {
+            error!("Unable to find parent for instance [{}]", instance_name.0);
             continue;
-        }
+        };
         let mut model_instance = ModelInstance::<u32> {
             name: instance_name.clone(),
             pose: instance_pose.clone(),
-            parent: SiteParent(instance_parent.0.map(|p| site_levels_ids[&p])),
+            parent: SiteParent(parent),
             description: Affiliation(
                 instance_affiliation
                     .0
