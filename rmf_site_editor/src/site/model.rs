@@ -30,8 +30,8 @@ use bevy::{
 use bevy_impulse::*;
 use bevy_mod_outline::OutlineMeshExt;
 use rmf_site_format::{
-    Affiliation, AssetSource, Group, Model, ModelInstance, ModelMarker, ModelProperty, NameInSite,
-    Pending, Scale,
+    Affiliation, AssetSource, Group, Model, ModelInstance, ModelMarker, ModelProperty, Pending,
+    Scale,
 };
 use smallvec::SmallVec;
 use std::{any::TypeId, collections::HashSet, fmt, future::Future};
@@ -782,10 +782,7 @@ pub fn propagate_model_property<Property: Component + Clone + std::fmt::Debug>(
 /// This system keeps model instances up to date with the properties of their affiliated descriptions
 pub fn update_model_instances<T: Component + Default + Clone>(
     mut commands: Commands,
-    model_properties: Query<
-        (Entity, &NameInSite, Ref<ModelProperty<T>>),
-        (With<ModelMarker>, With<Group>),
-    >,
+    model_properties: Query<Ref<ModelProperty<T>>, (With<ModelMarker>, With<Group>)>,
     model_instances: Query<(Entity, Ref<Affiliation<Entity>>), (With<ModelMarker>, Without<Group>)>,
     mut removals: RemovedComponents<ModelProperty<T>>,
 ) {
@@ -803,7 +800,7 @@ pub fn update_model_instances<T: Component + Default + Clone>(
     // Changes
     for (instance_entity, affiliation) in model_instances.iter() {
         if let Some(description_entity) = affiliation.0 {
-            if let Ok((_, _, property)) = model_properties.get(description_entity) {
+            if let Ok(property) = model_properties.get(description_entity) {
                 if property.is_changed() || affiliation.is_changed() {
                     let mut cmd = commands.entity(instance_entity);
                     cmd.insert(property.0.clone());

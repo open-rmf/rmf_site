@@ -17,8 +17,8 @@
 
 use crate::{
     site::{
-        Category, Change, ChangeCurrentScenario, CurrentLevel, CurrentScenario, Delete,
-        DrawingMarker, FloorMarker, LevelElevation, LevelProperties, NameInSite,
+        Category, Change, CurrentLevel, Delete, DrawingMarker, FloorMarker, LevelElevation,
+        LevelProperties, NameInSite,
     },
     widgets::{prelude::*, Icons},
     AppState, CurrentWorkspace, RecencyRanking,
@@ -51,8 +51,6 @@ pub struct ViewLevels<'w, 's> {
     delete: EventWriter<'w, Delete>,
     commands: Commands<'w, 's>,
     app_state: Res<'w, State<AppState>>,
-    current_scenario: ResMut<'w, CurrentScenario>,
-    change_current_scenario: EventWriter<'w, ChangeCurrentScenario>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for ViewLevels<'w, 's> {
