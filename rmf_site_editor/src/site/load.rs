@@ -368,7 +368,10 @@ fn generate_site_entities(
             .for_site(site_id)?;
 
         let model_instance_entity = model_loader
-            .spawn_model_instance(site_id, model_instance.clone())
+            .spawn_model_instance(
+                model_instance.parent.0.unwrap_or(site_id),
+                model_instance.clone(),
+            )
             .insert((Category::Model, SiteID(*model_instance_id)))
             .id();
         id_to_entity.insert(*model_instance_id, model_instance_entity);

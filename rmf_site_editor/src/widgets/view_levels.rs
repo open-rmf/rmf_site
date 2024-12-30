@@ -105,12 +105,6 @@ impl<'w, 's> ViewLevels<'w, 's> {
                         ))
                         .id();
                     self.current_level.0 = Some(new_level);
-                    // We trigger a ChangeCurrentScenario despite staying in the
-                    // same scenario to trigger visibility updates on all model instances
-                    if let Some(current_scenario) = self.current_scenario.0 {
-                        self.change_current_scenario
-                            .send(ChangeCurrentScenario(current_scenario));
-                    }
                 }
 
                 self.display_levels.new_elevation = show_elevation;
