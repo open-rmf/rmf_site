@@ -354,14 +354,6 @@ pub struct ModelLoader<'w, 's> {
 }
 
 impl<'w, 's> ModelLoader<'w, 's> {
-    /// Spawn a new model and begin a workflow to load its asset source.
-    /// This is only for brand new models does not support reacting to the load finishing.
-    pub fn spawn_model(&mut self, parent: Entity, model: Model) -> EntityCommands<'w, 's, '_> {
-        self.spawn_model_impulse(parent, model, move |impulse| {
-            impulse.detach();
-        })
-    }
-
     /// Spawn a new model instance and begin a workflow to load its asset source
     /// from the affiliated model description.
     /// This is only for brand new models does not support reacting to the load finishing.
@@ -373,21 +365,6 @@ impl<'w, 's> ModelLoader<'w, 's> {
         self.spawn_model_instance_impulse(parent, instance, move |impulse| {
             impulse.detach();
         })
-    }
-
-    /// Spawn a new model and begin a workflow to load its asset source.
-    /// Additionally build on the impulse chain of the asset source loading workflow.
-    pub fn spawn_model_impulse(
-        &mut self,
-        parent: Entity,
-        model: Model,
-        impulse: impl FnOnce(Impulse<ModelLoadingResult, ()>),
-    ) -> EntityCommands<'w, 's, '_> {
-        let source = model.source.clone();
-        let id = self.commands.spawn(model).set_parent(parent).id();
-        let loading_impulse = self.update_asset_source_impulse(id, source);
-        (impulse)(loading_impulse);
-        self.commands.entity(id)
     }
 
     /// Spawn a new model instance and begin a workflow to load its asset source.

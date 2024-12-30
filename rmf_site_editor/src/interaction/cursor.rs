@@ -120,7 +120,6 @@ impl Cursor {
         }
     }
 
-    // TODO(luca) reduce duplication here
     pub fn set_model_instance_preview(
         &mut self,
         commands: &mut Commands,
@@ -132,25 +131,6 @@ impl Cursor {
             Some(
                 model_loader
                     .spawn_model_instance(self.frame, model_instance.clone())
-                    .insert(Pending)
-                    .id(),
-            )
-        } else {
-            None
-        };
-    }
-
-    pub fn set_model_preview(
-        &mut self,
-        commands: &mut Commands,
-        model_loader: &mut ModelLoader,
-        model: Option<Model>,
-    ) {
-        self.remove_preview(commands);
-        self.preview_model = if let Some(model) = model {
-            Some(
-                model_loader
-                    .spawn_model(self.frame, model.clone())
                     .insert(Pending)
                     .id(),
             )
