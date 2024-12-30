@@ -72,40 +72,25 @@ impl<T: RefTrait> Scenario<T> {
                 .clone()
                 .into_iter()
                 .map(|(id, pose)| {
-                    (
-                        id_map
-                            .get(&id)
-                            .expect("Scenario contains non existent added instance")
-                            .clone(),
-                        pose,
-                    )
+                    let converted_id = id_map.get(&id).cloned().ok_or(id)?;
+                    Ok((converted_id, pose))
                 })
-                .collect(),
+                .collect::<Result<_, _>>()?,
             removed_instances: self
                 .removed_instances
                 .clone()
                 .into_iter()
-                .map(|id| {
-                    id_map
-                        .get(&id)
-                        .expect("Scenario contains non existent removed instance")
-                        .clone()
-                })
-                .collect(),
+                .map(|id| id_map.get(&id).cloned().ok_or(id))
+                .collect::<Result<_, _>>()?,
             moved_instances: self
                 .moved_instances
                 .clone()
                 .into_iter()
                 .map(|(id, pose)| {
-                    (
-                        id_map
-                            .get(&id)
-                            .expect("Scenario contains non existent moved instance")
-                            .clone(),
-                        pose,
-                    )
+                    let converted_id = id_map.get(&id).cloned().ok_or(id)?;
+                    Ok((converted_id, pose))
                 })
-                .collect(),
+                .collect::<Result<_, _>>()?,
         })
     }
 }
