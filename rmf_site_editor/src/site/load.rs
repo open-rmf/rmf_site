@@ -378,11 +378,16 @@ fn generate_site_entities(
                 id_to_entity.insert(*model_instance_id, model_instance_entity);
                 consider_id(*model_instance_id);
 
-                model_description_dependents
-                    .entry(model_description)
-                    .and_modify(|hset| {
-                        hset.insert(model_instance_entity);
-                    });
+                if let Some(instances) = model_description_dependents.get_mut(&model_description) {
+                    instances.insert(model_instance_entity);
+                } else {
+                    error!(
+                        "Model description missing for instance {}. This should \
+                        not happen, please report this bug to the maintainers of \
+                        rmf_site_editor.",
+                        model_instance.name.0,
+                    );
+                }
 
                 // Insert optional model properties
                 for optional_property in &model_instance.optional_properties.0 {
