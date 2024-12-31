@@ -122,7 +122,7 @@ impl<T: RefTrait> OptionalModelProperties<T> {
 }
 
 /// Bundle with all required components for a valid model description
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct ModelDescriptionBundle<T: RefTrait> {
     pub name: NameInSite,

@@ -30,8 +30,7 @@ use bevy::{
 use bevy_impulse::*;
 use bevy_mod_outline::OutlineMeshExt;
 use rmf_site_format::{
-    Affiliation, AssetSource, Group, Model, ModelInstance, ModelMarker, ModelProperty, Pending,
-    Scale,
+    Affiliation, AssetSource, Group, ModelInstance, ModelMarker, ModelProperty, Pending, Scale,
 };
 use smallvec::SmallVec;
 use std::{any::TypeId, collections::HashSet, fmt, future::Future};

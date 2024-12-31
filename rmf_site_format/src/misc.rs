@@ -522,7 +522,7 @@ pub struct Pending;
 pub struct Original<T>(pub T);
 
 /// Marks that an entity represents a group
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct Group;
 

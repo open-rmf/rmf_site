@@ -23,7 +23,7 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*, window::PrimaryWindow};
 use bevy_mod_raycast::primitives::{rays::Ray3d, Primitive3d};
 
-use rmf_site_format::{FloorMarker, Model, ModelInstance, WallMarker};
+use rmf_site_format::{FloorMarker, ModelInstance, WallMarker};
 use std::collections::HashSet;
 
 /// A resource that keeps track of the unique entities that play a role in
