@@ -4017,7 +4017,6 @@ dependencies = [
  "bevy_stl",
  "bitfield",
  "clap",
- "console_error_panic_hook",
  "crossbeam-channel",
  "dirs",
  "ehttp",
@@ -4040,8 +4039,16 @@ dependencies = [
  "tracing-subscriber",
  "urdf-rs",
  "utm",
- "wasm-bindgen",
  "yaserde",
+]
+
+[[package]]
+name = "rmf_site_editor_web"
+version = "0.0.1"
+dependencies = [
+ "console_error_panic_hook",
+ "rmf_site_editor",
+ "wasm-bindgen",
 ]
 
 [[package]]

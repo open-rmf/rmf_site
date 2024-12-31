@@ -3,8 +3,6 @@ use bevy_egui::EguiPlugin;
 #[cfg(not(target_arch = "wasm32"))]
 use clap::Parser;
 use main_menu::MainMenuPlugin;
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
 
 pub mod aabb;
 pub mod animate;
@@ -93,15 +91,6 @@ impl AppState {
             AppState::SiteEditor | AppState::SiteVisualizer | AppState::SiteDrawingEditor => true,
         })
     }
-}
-
-#[cfg(feature = "include-run-js")]
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen]
-pub fn run_js() {
-    extern crate console_error_panic_hook;
-    std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-    run(vec!["web".to_owned()]);
 }
 
 pub fn run(command_line_args: Vec<String>) {
