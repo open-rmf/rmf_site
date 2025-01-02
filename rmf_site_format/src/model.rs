@@ -66,13 +66,19 @@ pub struct ModelProperty<T: Default + Clone>(pub T);
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum OptionalModelProperty<T: RefTrait> {
-    DifferentialDrive(DifferentialDrive),
+    Mobility {
+        kind: String,
+        config: serde_json::Value,
+    },
     Tasks(Tasks<T>),
 }
 
 impl<T: RefTrait> Default for OptionalModelProperty<T> {
     fn default() -> Self {
-        OptionalModelProperty::DifferentialDrive(DifferentialDrive::default())
+        OptionalModelProperty::Mobility {
+            kind: "".to_string(),
+            config: serde_json::Value::Null,
+        }
     }
 }
 
@@ -82,9 +88,10 @@ impl<T: RefTrait> OptionalModelProperty<T> {
         id_map: &HashMap<T, U>,
     ) -> Result<OptionalModelProperty<U>, T> {
         let result = match self {
-            Self::DifferentialDrive(diff_drive) => {
-                OptionalModelProperty::DifferentialDrive(diff_drive.clone())
-            }
+            Self::Mobility { kind, config } => OptionalModelProperty::Mobility {
+                kind: kind.clone(),
+                config: config.clone(),
+            },
             Self::Tasks(tasks) => OptionalModelProperty::Tasks(tasks.convert(id_map)?),
         };
         Ok(result)
