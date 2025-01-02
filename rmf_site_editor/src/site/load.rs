@@ -362,10 +362,12 @@ fn generate_site_entities(
                             model description [{}]",
                             model_description.name.0
                         );
+                        continue;
                     };
                     commands
                         .entity(model_description_entity)
                         .insert(ModelProperty(diff_drive))
+                        .insert(ModelProperty(MobileRobotMarker))
                 }
                 _ => continue,
             };
@@ -404,13 +406,24 @@ fn generate_site_entities(
         }
 
         // Insert optional model properties
+        let mut tasks = Vec::new();
         for optional_property in &model_instance.optional_properties.0 {
             match optional_property {
-                OptionalModelProperty::Tasks(tasks) => {
-                    commands.entity(model_instance_entity).insert(tasks.clone())
+                OptionalModelProperty::Task { kind: _, config } => {
+                    let Ok(task) = serde_json::from_value::<Task<u32>>(config.clone()) else {
+                        error!(
+                            "Failed to deserialize Tasks for model instance [{}]",
+                            model_instance.name.0
+                        );
+                        continue;
+                    };
+                    tasks.push(task.convert(&id_to_entity).for_site(site_id)?);
                 }
                 _ => continue,
             };
+        }
+        if !tasks.is_empty() {
+            commands.entity(model_instance_entity).insert(Tasks(tasks));
         }
     }
 
