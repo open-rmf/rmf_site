@@ -271,7 +271,7 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                 if let Some(selected) = &gallery_status.selected {
                     if ui.button("Load as Description").clicked() {
                         if let Some(site_entity) = self.current_workspace.root {
-                            let model_description: ModelDescriptionBundle<Entity> =
+                            let model_description: ModelDescriptionBundle =
                                 ModelDescriptionBundle {
                                     name: NameInSite(selected.owner.clone() + "/" + &selected.name),
                                     source: ModelProperty(AssetSource::Remote(

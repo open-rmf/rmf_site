@@ -65,15 +65,18 @@ impl Default for Model {
 pub struct ModelProperty<T: Default + Clone>(pub T);
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub enum OptionalModelProperty<T: RefTrait> {
+pub enum OptionalModelProperty {
     Mobility {
         kind: String,
         config: serde_json::Value,
     },
-    Tasks(Tasks<T>),
+    Task {
+        kind: String,
+        config: serde_json::Value,
+    },
 }
 
-impl<T: RefTrait> Default for OptionalModelProperty<T> {
+impl Default for OptionalModelProperty {
     fn default() -> Self {
         OptionalModelProperty::Mobility {
             kind: "".to_string(),
@@ -82,52 +85,21 @@ impl<T: RefTrait> Default for OptionalModelProperty<T> {
     }
 }
 
-impl<T: RefTrait> OptionalModelProperty<T> {
-    pub fn convert<U: RefTrait>(
-        &self,
-        id_map: &HashMap<T, U>,
-    ) -> Result<OptionalModelProperty<U>, T> {
-        let result = match self {
-            Self::Mobility { kind, config } => OptionalModelProperty::Mobility {
-                kind: kind.clone(),
-                config: config.clone(),
-            },
-            Self::Tasks(tasks) => OptionalModelProperty::Tasks(tasks.convert(id_map)?),
-        };
-        Ok(result)
-    }
-}
-
 /// Defines a property in a model description, that will be added to all instances
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
-pub struct OptionalModelProperties<T: RefTrait>(pub Vec<OptionalModelProperty<T>>);
+pub struct OptionalModelProperties(pub Vec<OptionalModelProperty>);
 
-impl<T: RefTrait> Default for OptionalModelProperties<T> {
+impl Default for OptionalModelProperties {
     fn default() -> Self {
         Self(Vec::new())
-    }
-}
-
-impl<T: RefTrait> OptionalModelProperties<T> {
-    pub fn convert<U: RefTrait>(
-        &self,
-        id_map: &HashMap<T, U>,
-    ) -> Result<OptionalModelProperties<U>, T> {
-        self.0.iter().try_fold(
-            OptionalModelProperties::default(),
-            |mut optional_properties, property| {
-                optional_properties.0.push(property.convert(id_map)?);
-                Ok(optional_properties)
-            },
-        )
     }
 }
 
 /// Bundle with all required components for a valid model description
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
-pub struct ModelDescriptionBundle<T: RefTrait> {
+pub struct ModelDescriptionBundle {
     pub name: NameInSite,
     pub source: ModelProperty<AssetSource>,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -138,10 +110,10 @@ pub struct ModelDescriptionBundle<T: RefTrait> {
     pub group: Group,
     #[serde(skip)]
     pub marker: ModelMarker,
-    pub optional_properties: OptionalModelProperties<T>,
+    pub optional_properties: OptionalModelProperties,
 }
 
-impl<T: RefTrait> Default for ModelDescriptionBundle<T> {
+impl Default for ModelDescriptionBundle {
     fn default() -> Self {
         Self {
             name: NameInSite("<Unnamed>".to_string()),
@@ -167,7 +139,7 @@ pub struct ModelInstance<T: RefTrait> {
     pub marker: ModelMarker,
     #[serde(skip)]
     pub instance_marker: InstanceMarker,
-    pub optional_properties: OptionalModelProperties<T>,
+    pub optional_properties: OptionalModelProperties,
 }
 
 impl<T: RefTrait> Default for ModelInstance<T> {
@@ -191,7 +163,7 @@ impl<T: RefTrait> ModelInstance<T> {
             pose: self.pose.clone(),
             parent: self.parent.convert(id_map)?,
             description: self.description.convert(id_map)?,
-            optional_properties: self.optional_properties.convert(id_map)?,
+            optional_properties: self.optional_properties.clone(),
             ..Default::default()
         })
     }

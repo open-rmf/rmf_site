@@ -32,7 +32,7 @@ impl Model {
     pub fn to_site(
         &self,
         model_description_name_map: &mut HashMap<String, u32>,
-        model_descriptions: &mut BTreeMap<u32, ModelDescriptionBundle<u32>>,
+        model_descriptions: &mut BTreeMap<u32, ModelDescriptionBundle>,
         model_instances: &mut BTreeMap<u32, ModelInstance<u32>>,
         site_id: &mut RangeFrom<u32>,
         level_id: u32,

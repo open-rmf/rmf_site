@@ -1200,7 +1200,7 @@ fn migrate_relative_paths(
 fn generate_model_descriptions(
     site: Entity,
     world: &mut World,
-) -> Result<BTreeMap<u32, ModelDescriptionBundle<u32>>, SiteGenerationError> {
+) -> Result<BTreeMap<u32, ModelDescriptionBundle>, SiteGenerationError> {
     let mut state: SystemState<(
         Query<
             (
@@ -1218,7 +1218,7 @@ fn generate_model_descriptions(
     )> = SystemState::new(world);
     let (model_descriptions, children, differential_drive) = state.get(world);
 
-    let mut res = BTreeMap::<u32, ModelDescriptionBundle<u32>>::new();
+    let mut res = BTreeMap::<u32, ModelDescriptionBundle>::new();
     if let Ok(children) = children.get(site) {
         for child in children.iter() {
             if let Ok((site_id, name, source, is_static, scale)) = model_descriptions.get(*child) {
@@ -1308,7 +1308,7 @@ fn generate_model_instances(
             ..Default::default()
         };
         if let Ok(robot_tasks) = tasks.get(_instance_entity) {
-            let tasks: Vec<Task<u32>> = robot_tasks
+            let mut tasks: Vec<OptionalModelProperty> = robot_tasks
                 .0
                 .clone()
                 .iter()
@@ -1325,11 +1325,12 @@ fn generate_model_instances(
                         duration: wait_for.duration.clone(),
                     }),
                 })
-                .collect::<Vec<Task<u32>>>();
-            model_instance
-                .optional_properties
-                .0
-                .push(OptionalModelProperty::Tasks(Tasks(tasks.clone())));
+                .map(|task| OptionalModelProperty::Task {
+                    kind: task.label(),
+                    config: serde_json::to_value(task.clone()).unwrap(),
+                })
+                .collect::<Vec<OptionalModelProperty>>();
+            model_instance.optional_properties.0.append(&mut tasks);
         }
         res.insert(instance_id.0, model_instance);
     }
