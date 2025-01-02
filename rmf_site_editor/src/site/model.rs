@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::{DragPlaneBundle, Preview, MODEL_PREVIEW_LAYER},
-    site::{CurrentLevel, SiteAssets, SiteParent},
+    site::{CurrentLevel, SiteAssets},
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
 };
 use bevy::{
@@ -785,10 +785,7 @@ pub fn update_model_instances<T: Component + Default + Clone>(
 
 pub fn assign_orphan_model_instances_to_level(
     mut commands: Commands,
-    mut orphan_instances: Query<
-        (Entity, Option<&Parent>, &mut SiteParent<Entity>),
-        (With<ModelMarker>, Without<Group>),
-    >,
+    mut orphan_instances: Query<Entity, (With<ModelMarker>, Without<Group>, Without<Parent>)>,
     current_level: Res<CurrentLevel>,
 ) {
     let current_level = match current_level.0 {
@@ -796,12 +793,7 @@ pub fn assign_orphan_model_instances_to_level(
         None => return,
     };
 
-    for (instance_entity, parent, mut site_parent) in orphan_instances.iter_mut() {
-        if parent.is_none() {
-            commands.entity(current_level).add_child(instance_entity);
-        }
-        if site_parent.0.is_none() {
-            site_parent.0 = Some(current_level);
-        }
+    for instance_entity in orphan_instances.iter_mut() {
+        commands.entity(current_level).add_child(instance_entity);
     }
 }

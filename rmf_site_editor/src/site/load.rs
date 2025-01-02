@@ -367,11 +367,20 @@ fn generate_site_entities(
             .convert(&id_to_entity)
             .for_site(site_id)?;
 
+        // If there is no site parent, we do not spawn this model instance and generate
+        // an error instead
+        let Some(parent) = model_instance.parent.0 else {
+            error!(
+                "Site parent missing for instance {}. Unable to determine which \
+                        level the instance should be spawned on. Please check the \
+                        building or site file to ensure that every model instance's \
+                        site parent is accounted for. Unable to load file.",
+                model_instance.name.0,
+            );
+            continue;
+        };
         let model_instance_entity = model_loader
-            .spawn_model_instance(
-                model_instance.parent.0.unwrap_or(site_id),
-                model_instance.clone(),
-            )
+            .spawn_model_instance(parent, model_instance.clone())
             .insert((Category::Model, SiteID(*model_instance_id)))
             .id();
         id_to_entity.insert(*model_instance_id, model_instance_entity);
