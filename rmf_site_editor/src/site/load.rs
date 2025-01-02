@@ -354,9 +354,6 @@ fn generate_site_entities(
                 OptionalModelProperty::DifferentialDrive(diff_drive) => commands
                     .entity(model_description_entity)
                     .insert(ModelProperty(diff_drive.clone())),
-                OptionalModelProperty::MobileRobotMarker(robot_marker) => commands
-                    .entity(model_description_entity)
-                    .insert(ModelProperty(robot_marker.clone())),
                 _ => continue,
             };
         }
