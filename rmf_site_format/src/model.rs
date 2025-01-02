@@ -67,7 +67,6 @@ pub struct ModelProperty<T: Default + Clone>(pub T);
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum OptionalModelProperty<T: RefTrait> {
     DifferentialDrive(DifferentialDrive),
-    MobileRobotMarker(MobileRobotMarker),
     Tasks(Tasks<T>),
 }
 
@@ -85,9 +84,6 @@ impl<T: RefTrait> OptionalModelProperty<T> {
         let result = match self {
             Self::DifferentialDrive(diff_drive) => {
                 OptionalModelProperty::DifferentialDrive(diff_drive.clone())
-            }
-            Self::MobileRobotMarker(mobile_marker) => {
-                OptionalModelProperty::MobileRobotMarker(mobile_marker.clone())
             }
             Self::Tasks(tasks) => OptionalModelProperty::Tasks(tasks.convert(id_map)?),
         };

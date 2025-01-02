@@ -1215,9 +1215,8 @@ fn generate_model_descriptions(
         Query<&Children>,
         // Optional model properties
         Query<&ModelProperty<DifferentialDrive>>,
-        Query<&ModelProperty<MobileRobotMarker>>,
     )> = SystemState::new(world);
-    let (model_descriptions, children, differential_drive, robot_marker) = state.get(world);
+    let (model_descriptions, children, differential_drive) = state.get(world);
 
     let mut res = BTreeMap::<u32, ModelDescriptionBundle<u32>>::new();
     if let Ok(children) = children.get(site) {
@@ -1233,11 +1232,6 @@ fn generate_model_descriptions(
                 if let Ok(diff_drive) = differential_drive.get(*child) {
                     desc_bundle.optional_properties.0.push(
                         OptionalModelProperty::DifferentialDrive(diff_drive.0.clone()),
-                    );
-                };
-                if let Ok(mobile_robot) = robot_marker.get(*child) {
-                    desc_bundle.optional_properties.0.push(
-                        OptionalModelProperty::MobileRobotMarker(mobile_robot.0.clone()),
                     );
                 };
                 res.insert(site_id.0, desc_bundle);
