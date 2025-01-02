@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "rmf_site_editor",
+    "rmf_site_editor_web",
     "rmf_site_format",
 ]
 
