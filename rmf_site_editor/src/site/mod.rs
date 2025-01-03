@@ -114,6 +114,9 @@ pub use site_visualizer::*;
 pub mod texture;
 pub use texture::*;
 
+pub mod undo_plugin;
+pub use undo_plugin::*;
+
 pub mod util;
 pub use util::*;
 
@@ -220,6 +223,7 @@ impl Plugin for SitePlugin {
             ChangePlugin::<Scale>::default(),
             ChangePlugin::<Distance>::default(),
             ChangePlugin::<Texture>::default(),
+            UndoPlugin::default()
         ))
         .add_plugins((
             ChangePlugin::<DoorType>::default(),
