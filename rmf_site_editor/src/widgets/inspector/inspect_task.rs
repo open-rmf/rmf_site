@@ -17,8 +17,8 @@
 
 use crate::{
     site::{
-        update_model_instances, ChangePlugin, GoToPlace, Group, LocationTags, MobileRobotMarker,
-        ModelProperty, NameInSite, Point, Task, Tasks,
+        update_model_instances, ChangePlugin, GoToPlace, Group, LocationTags, ModelProperty,
+        NameInSite, Point, RobotMarker, Task, Tasks,
     },
     widgets::{prelude::*, Inspect, InspectionPlugin},
     Icons, ModelPropertyData,
@@ -33,15 +33,15 @@ pub struct InspectTaskPlugin {}
 
 impl Plugin for InspectTaskPlugin {
     fn build(&self, app: &mut App) {
-        // Allows us to toggle MobileRobotMarker as a configurable property
+        // Allows us to toggle RobotMarker as a configurable property
         // from the model description inspector
-        app.register_type::<ModelProperty<MobileRobotMarker>>()
-            .add_plugins(ChangePlugin::<ModelProperty<MobileRobotMarker>>::default())
+        app.register_type::<ModelProperty<RobotMarker>>()
+            .add_plugins(ChangePlugin::<ModelProperty<RobotMarker>>::default())
             .add_systems(
                 PreUpdate,
                 (
-                    add_remove_mobile_robot_tasks,
-                    update_model_instances::<MobileRobotMarker>,
+                    add_remove_robot_tasks,
+                    update_model_instances::<RobotMarker>,
                 ),
             )
             .init_resource::<ModelPropertyData>()
@@ -49,14 +49,14 @@ impl Plugin for InspectTaskPlugin {
             .resource_mut::<ModelPropertyData>()
             .optional
             .insert(
-                TypeId::of::<ModelProperty<MobileRobotMarker>>(),
+                TypeId::of::<ModelProperty<RobotMarker>>(),
                 (
-                    "Mobile Robot".to_string(),
+                    "Robot".to_string(),
                     |mut e_cmd| {
-                        e_cmd.insert(ModelProperty::<MobileRobotMarker>::default());
+                        e_cmd.insert(ModelProperty::<RobotMarker>::default());
                     },
                     |mut e_cmd| {
-                        e_cmd.remove::<ModelProperty<MobileRobotMarker>>();
+                        e_cmd.remove::<ModelProperty<RobotMarker>>();
                     },
                 ),
             );
@@ -71,8 +71,7 @@ impl Plugin for InspectTaskPlugin {
 
 #[derive(SystemParam)]
 pub struct InspectTasks<'w, 's> {
-    mobile_robots:
-        Query<'w, 's, &'static mut Tasks<Entity>, (With<MobileRobotMarker>, Without<Group>)>,
+    robots: Query<'w, 's, &'static mut Tasks<Entity>, (With<RobotMarker>, Without<Group>)>,
     locations: Query<'w, 's, (Entity, &'static NameInSite, &'static LocationTags)>,
     pending_task: ResMut<'w, PendingTask>,
     icons: Res<'w, Icons>,
@@ -86,7 +85,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectTasks<'w, 's> {
         world: &mut World,
     ) {
         let mut params = state.get_mut(world);
-        let Ok(mut tasks) = params.mobile_robots.get_mut(selection) else {
+        let Ok(mut tasks) = params.robots.get_mut(selection) else {
             return;
         };
 
@@ -231,13 +230,15 @@ impl FromWorld for PendingTask {
     }
 }
 
-/// When the MobileRobotMarker is added or removed, add or remove the Tasks<Entity> component
-fn add_remove_mobile_robot_tasks(
+/// When the RobotMarker is added or removed, add or remove the Tasks<Entity> component
+fn add_remove_robot_tasks(
     mut commands: Commands,
-    instances: Query<(Entity, Ref<MobileRobotMarker>), Without<Group>>,
-    tasks: Query<&Tasks<Entity>, (With<MobileRobotMarker>, Without<Group>)>,
-    mut removals: RemovedComponents<ModelProperty<MobileRobotMarker>>,
+    instances: Query<(Entity, Ref<RobotMarker>), Without<Group>>,
+    tasks: Query<&Tasks<Entity>, (With<RobotMarker>, Without<Group>)>,
+    mut removals: RemovedComponents<ModelProperty<RobotMarker>>,
 ) {
+    // all instances with this description - add/remove Tasks<Entity> component
+
     for removal in removals.read() {
         if instances.get(removal).is_ok() {
             commands.entity(removal).remove::<Tasks<Entity>>();

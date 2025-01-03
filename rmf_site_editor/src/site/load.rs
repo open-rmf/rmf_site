@@ -367,7 +367,7 @@ fn generate_site_entities(
                     commands
                         .entity(model_description_entity)
                         .insert(ModelProperty(diff_drive))
-                        .insert(ModelProperty(MobileRobotMarker))
+                        .insert(ModelProperty(RobotMarker))
                 }
                 _ => continue,
             };

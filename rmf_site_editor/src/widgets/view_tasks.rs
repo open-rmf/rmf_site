@@ -28,7 +28,7 @@ use bevy_egui::egui::{CollapsingHeader, Color32, Frame, Stroke, Ui};
 
 #[derive(SystemParam)]
 pub struct ViewTasks<'w, 's> {
-    mobile_robots: Query<
+    robots: Query<
         'w,
         's,
         (
@@ -37,7 +37,7 @@ pub struct ViewTasks<'w, 's> {
             Option<&'static SiteID>,
             &'static mut Tasks<Entity>,
         ),
-        (With<MobileRobotMarker>, Without<Group>),
+        (With<RobotMarker>, Without<Group>),
     >,
     site_entities: Query<
         'w,
@@ -75,9 +75,7 @@ impl<'w, 's> ViewTasks<'w, 's> {
                 ui.set_min_width(ui.available_width());
 
                 let mut total_task_count: u32 = 0;
-                for (robot_entity, robot_name, robot_site_id, robot_tasks) in
-                    self.mobile_robots.iter()
-                {
+                for (robot_entity, robot_name, robot_site_id, robot_tasks) in self.robots.iter() {
                     for task in robot_tasks.0.iter() {
                         show_task(
                             ui,
@@ -117,7 +115,7 @@ fn show_task(
         .show(ui, |ui| {
             ui.set_min_width(ui.available_width());
 
-            // Mobile Robot
+            // Robot
             ui.horizontal(|ui| {
                 ui.label("Robot");
                 if ui

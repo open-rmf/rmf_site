@@ -1266,7 +1266,7 @@ fn generate_model_instances(
         Query<(&Point<Entity>, &SiteID), (With<LocationTags>, Without<Pending>)>,
         Query<&Children>,
         Query<&Parent>,
-        Query<&Tasks<Entity>, (With<MobileRobotMarker>, Without<Group>)>,
+        Query<&Tasks<Entity>, (With<RobotMarker>, Without<Group>)>,
     )> = SystemState::new(world);
     let (model_descriptions, model_instances, levels, locations, _, parents, tasks) =
         state.get(world);
