@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::select::*,
-    site::{CurrentLevel, Model},
+    site::{CurrentLevel, ModelInstance},
 };
 use bevy::ecs::system::{Command, SystemParam, SystemState};
 
@@ -51,7 +51,7 @@ pub struct ObjectPlacement<'w, 's> {
 }
 
 impl<'w, 's> ObjectPlacement<'w, 's> {
-    pub fn place_object_2d(&mut self, object: Model) {
+    pub fn place_object_2d(&mut self, object: ModelInstance<Entity>) {
         let Some(level) = self.current_level.0 else {
             warn!("Unble to create [object:?] outside a level");
             return;
@@ -75,17 +75,17 @@ impl<'w, 's> ObjectPlacement<'w, 's> {
 
 /// Trait to be implemented to allow placing models with commands
 pub trait ObjectPlacementExt<'w, 's> {
-    fn place_object_2d(&mut self, object: Model);
+    fn place_object_2d(&mut self, object: ModelInstance<Entity>);
 }
 
 impl<'w, 's> ObjectPlacementExt<'w, 's> for Commands<'w, 's> {
-    fn place_object_2d(&mut self, object: Model) {
+    fn place_object_2d(&mut self, object: ModelInstance<Entity>) {
         self.add(ObjectPlaceCommand(object));
     }
 }
 
 #[derive(Deref, DerefMut)]
-pub struct ObjectPlaceCommand(Model);
+pub struct ObjectPlaceCommand(ModelInstance<Entity>);
 
 impl Command for ObjectPlaceCommand {
     fn apply(self, world: &mut World) {

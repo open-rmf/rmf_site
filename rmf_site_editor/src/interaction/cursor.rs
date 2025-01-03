@@ -23,7 +23,7 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*, window::PrimaryWindow};
 use bevy_mod_raycast::primitives::{rays::Ray3d, Primitive3d};
 
-use rmf_site_format::{FloorMarker, Model, WallMarker};
+use rmf_site_format::{FloorMarker, ModelInstance, WallMarker};
 use std::collections::HashSet;
 
 /// A resource that keeps track of the unique entities that play a role in
@@ -120,23 +120,21 @@ impl Cursor {
         }
     }
 
-    pub fn set_model_preview(
+    pub fn set_model_instance_preview(
         &mut self,
         commands: &mut Commands,
         model_loader: &mut ModelLoader,
-        model: Option<Model>,
+        model_instance: Option<ModelInstance<Entity>>,
     ) {
         self.remove_preview(commands);
-        self.preview_model = if let Some(model) = model {
+        self.preview_model = model_instance.and_then(|model_instance| {
             Some(
                 model_loader
-                    .spawn_model(self.frame, model.clone())
+                    .spawn_model_instance(self.frame, model_instance)
                     .insert(Pending)
                     .id(),
             )
-        } else {
-            None
-        };
+        });
     }
 
     pub fn should_be_visible(&self) -> bool {
