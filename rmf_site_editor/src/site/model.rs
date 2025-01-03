@@ -19,6 +19,7 @@ use crate::{
     interaction::{DragPlaneBundle, Preview, MODEL_PREVIEW_LAYER},
     site::{CurrentLevel, SiteAssets},
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
+    Issue, ValidateWorkspace,
 };
 use bevy::{
     ecs::system::{EntityCommands, SystemParam},
@@ -26,11 +27,13 @@ use bevy::{
     prelude::*,
     render::view::RenderLayers,
     scene::SceneInstance,
+    utils::Uuid,
 };
 use bevy_impulse::*;
 use bevy_mod_outline::OutlineMeshExt;
 use rmf_site_format::{
-    Affiliation, AssetSource, Group, ModelInstance, ModelMarker, ModelProperty, Pending, Scale,
+    Affiliation, AssetSource, Group, IssueKey, ModelInstance, ModelMarker, ModelProperty,
+    NameInSite, Pending, Scale,
 };
 use smallvec::SmallVec;
 use std::{any::TypeId, collections::HashSet, fmt, future::Future};
@@ -783,17 +786,42 @@ pub fn update_model_instances<T: Component + Default + Clone>(
     }
 }
 
+/// Unique UUID to identify issue of duplicated lift names
+pub const ORPHAN_MODEL_INSTANCE_ISSUE_UUID: Uuid =
+    Uuid::from_u128(0x4e98ce0bc28e4fe528cb0a028f4d5c08u128);
+
 pub fn assign_orphan_model_instances_to_level(
     mut commands: Commands,
-    mut orphan_instances: Query<Entity, (With<ModelMarker>, Without<Group>, Without<Parent>)>,
+    mut validate_events: EventReader<ValidateWorkspace>,
+    mut orphan_instances: Query<
+        (Entity, &NameInSite),
+        (With<ModelMarker>, Without<Group>, Without<Parent>),
+    >,
     current_level: Res<CurrentLevel>,
 ) {
-    let current_level = match current_level.0 {
-        Some(c) => c,
-        None => return,
-    };
-
-    for instance_entity in orphan_instances.iter_mut() {
-        commands.entity(current_level).add_child(instance_entity);
+    if let Some(current_level) = current_level.0 {
+        for (instance_entity, _) in orphan_instances.iter_mut() {
+            commands.entity(current_level).add_child(instance_entity);
+        }
+    } else {
+        for root in validate_events.read() {
+            for (instance_entity, instance_name) in orphan_instances.iter_mut() {
+                let issue = Issue {
+                    key: IssueKey {
+                        entities: [instance_entity].into(),
+                        kind: ORPHAN_MODEL_INSTANCE_ISSUE_UUID,
+                    },
+                    brief: format!(
+                        "Parent level entity not found for model instance {:?} when saving",
+                        instance_name,
+                    ),
+                    hint: "Model instances need to be assigned to a parent level entity. \
+                        Respawn the orphan model instance"
+                        .to_string(),
+                };
+                let issue_id = commands.spawn(issue).id();
+                commands.entity(**root).add_child(issue_id);
+            }
+        }
     }
 }
