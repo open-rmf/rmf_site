@@ -387,8 +387,8 @@ fn generate_site_entities(
         } else {
             error!(
                 "Model description missing for instance {}. This should \
-                        not happen, please report this bug to the maintainers of \
-                        rmf_site_editor.",
+                not happen, please report this bug to the maintainers of \
+                rmf_site_editor.",
                 model_instance.name.0,
             );
         }

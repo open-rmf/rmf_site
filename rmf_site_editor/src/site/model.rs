@@ -537,10 +537,7 @@ impl ModelLoadingServices {
                 .then(instance_spawn_request_into_model_load_request.into_blocking_callback())
                 .connect_on_err(scope.terminate)
                 .then(load_model)
-                .map_block(|res| match res {
-                    Ok(success) => Ok(success),
-                    Err(err) => Err(InstanceSpawningError::ModelError(err)),
-                })
+                .map_block(|res| res.map_err(InstanceSpawningError::ModelError))
                 .connect(scope.terminate)
         });
 

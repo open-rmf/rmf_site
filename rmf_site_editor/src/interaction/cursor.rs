@@ -127,16 +127,14 @@ impl Cursor {
         model_instance: Option<ModelInstance<Entity>>,
     ) {
         self.remove_preview(commands);
-        self.preview_model = if let Some(model_instance) = model_instance {
+        self.preview_model = model_instance.and_then(|model_instance| {
             Some(
                 model_loader
-                    .spawn_model_instance(self.frame, model_instance.clone())
+                    .spawn_model_instance(self.frame, model_instance)
                     .insert(Pending)
                     .id(),
             )
-        } else {
-            None
-        };
+        });
     }
 
     pub fn should_be_visible(&self) -> bool {
