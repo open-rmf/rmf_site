@@ -372,9 +372,9 @@ fn generate_site_entities(
         let Some(parent) = model_instance.parent.0 else {
             error!(
                 "Site parent missing for instance {}. Unable to determine which \
-                        level the instance should be spawned on. Please check the \
-                        building or site file to ensure that every model instance's \
-                        site parent is accounted for. Unable to load file.",
+                level the instance should be spawned on. Please check the \
+                building or site file to ensure that every model instance's \
+                site parent is accounted for. Unable to load file.",
                 model_instance.name.0,
             );
             continue;
