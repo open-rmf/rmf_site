@@ -473,6 +473,7 @@ pub struct PreviewableMarker;
 pub struct SiteID(pub u32);
 
 /// This component is applied to an entity as a reference to its parent entity.
+/// This is used purely for saving parent entities to file.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(transparent)]
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
