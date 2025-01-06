@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::select::*,
-    site::{Model, ModelLoader},
+    site::{ModelInstance, ModelLoader},
 };
 use bevy::prelude::Input as UserInput;
 
@@ -104,7 +104,7 @@ pub fn build_place_object_2d_workflow(
 }
 
 pub struct PlaceObject2d {
-    pub object: Model,
+    pub object: ModelInstance<Entity>,
     pub level: Entity,
 }
 
@@ -121,7 +121,7 @@ pub fn place_object_2d_setup(
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.newest_mut().or_broken_buffer()?;
 
-    cursor.set_model_preview(&mut commands, &mut model_loader, Some(state.object.clone()));
+    cursor.set_model_instance_preview(&mut commands, &mut model_loader, Some(state.object.clone()));
     set_visibility(cursor.dagger, &mut visibility, false);
     set_visibility(cursor.halo, &mut visibility, false);
 
@@ -206,7 +206,7 @@ pub fn on_placement_chosen_2d(
 
     state.object.pose = placement.into();
     model_loader
-        .spawn_model(state.level, state.object)
+        .spawn_model_instance(state.level, state.object)
         .insert(Category::Model);
 
     Ok(())

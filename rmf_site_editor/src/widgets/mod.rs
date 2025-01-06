@@ -116,6 +116,9 @@ use view_layers::*;
 pub mod view_levels;
 use view_levels::*;
 
+pub mod view_scenarios;
+use view_scenarios::*;
+
 pub mod view_lights;
 use view_lights::*;
 
@@ -124,6 +127,9 @@ use view_nav_graphs::*;
 
 pub mod view_occupancy;
 use view_occupancy::*;
+
+pub mod view_tasks;
+use view_tasks::*;
 
 pub mod workspace;
 use workspace::*;
@@ -158,7 +164,7 @@ impl Plugin for StandardUiPlugin {
                 IconsPlugin::default(),
                 MenuBarPlugin::default(),
                 StandardPropertiesPanelPlugin::default(),
-                FuelAssetBrowserPlugin::default(),
+                FuelAssetBrowserPlugin,
                 DiagnosticsPlugin::default(),
                 ConsoleWidgetPlugin::default(),
                 WorkspaceMenuPlugin::default(),

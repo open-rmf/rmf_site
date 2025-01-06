@@ -16,37 +16,24 @@
 */
 
 use crate::{
-    interaction::{ModelPreviewCamera, ObjectPlacementExt},
-    site::{AssetSource, FuelClient, Model, ModelLoader, SetFuelApiKey, UpdateFuelCache},
+    interaction::ModelPreviewCamera,
+    site::{
+        AssetSource, Category, FuelClient, ModelDescriptionBundle, ModelLoader, ModelProperty,
+        NameInSite, SetFuelApiKey, UpdateFuelCache,
+    },
     widgets::prelude::*,
+    CurrentWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{self, Button, ComboBox, ImageSource, RichText, ScrollArea, Ui, Window};
 use gz_fuel::FuelModel;
 
 /// Add a [`FuelAssetBrowser`] widget to your application.
-pub struct FuelAssetBrowserPlugin {
-    pub model_spawner: fn(&mut Commands, Model),
-}
-
-impl Default for FuelAssetBrowserPlugin {
-    fn default() -> Self {
-        Self {
-            model_spawner: |commands: &mut Commands, model: Model| {
-                commands.place_object_2d(model);
-            },
-        }
-    }
-}
-
-/// Stores the function that uses commands to place models for this application
-#[derive(Resource, Deref, DerefMut)]
-struct ModelPlacer(fn(&mut Commands, Model));
+pub struct FuelAssetBrowserPlugin;
 
 impl Plugin for FuelAssetBrowserPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<AssetGalleryStatus>()
-            .insert_resource(ModelPlacer(self.model_spawner));
+        app.init_resource::<AssetGalleryStatus>();
         let panel = PanelWidget::new(fuel_asset_browser_panel, &mut app.world);
         let widget = Widget::new::<FuelAssetBrowser>(&mut app.world);
         app.world.spawn((panel, widget));
@@ -92,9 +79,9 @@ pub struct FuelAssetBrowser<'w, 's> {
     model_preview_camera: Res<'w, ModelPreviewCamera>,
     update_cache: EventWriter<'w, UpdateFuelCache>,
     set_api_key: EventWriter<'w, SetFuelApiKey>,
-    model_loader: ModelLoader<'w, 's>,
     commands: Commands<'w, 's>,
-    model_placer: Res<'w, ModelPlacer>,
+    current_workspace: Res<'w, CurrentWorkspace>,
+    model_loader: ModelLoader<'w, 's>,
 }
 
 fn fuel_asset_browser_panel(In(input): In<PanelWidgetInput>, world: &mut World) {
@@ -282,14 +269,24 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                 }
 
                 if let Some(selected) = &gallery_status.selected {
-                    if ui.button("Spawn model").clicked() {
-                        let model = Model {
-                            source: AssetSource::Remote(
-                                selected.owner.clone() + "/" + &selected.name + "/model.sdf",
-                            ),
-                            ..default()
-                        };
-                        (self.model_placer)(&mut self.commands, model);
+                    if ui.button("Load as Description").clicked() {
+                        if let Some(site_entity) = self.current_workspace.root {
+                            let model_description: ModelDescriptionBundle<Entity> =
+                                ModelDescriptionBundle {
+                                    name: NameInSite(selected.owner.clone() + "/" + &selected.name),
+                                    source: ModelProperty(AssetSource::Remote(
+                                        selected.owner.clone()
+                                            + "/"
+                                            + &selected.name
+                                            + "/model.sdf",
+                                    )),
+                                    ..Default::default()
+                                };
+                            self.commands
+                                .spawn(model_description)
+                                .insert(Category::ModelDescription)
+                                .set_parent(site_entity);
+                        }
                     }
                 }
             }

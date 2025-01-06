@@ -77,6 +77,9 @@ pub use measurement::*;
 pub mod misc;
 pub use misc::*;
 
+pub mod mobile_robot;
+pub use mobile_robot::*;
+
 pub mod model;
 pub use model::*;
 
@@ -101,6 +104,9 @@ pub use primitive_shape::*;
 pub mod recall;
 pub use recall::*;
 
+pub mod scenario;
+pub use scenario::*;
+
 pub mod sdf;
 pub use sdf::*;
 
@@ -109,6 +115,9 @@ pub use semver::*;
 
 pub mod site;
 pub use site::*;
+
+pub mod task;
+pub use task::*;
 
 pub mod texture;
 pub use texture::*;

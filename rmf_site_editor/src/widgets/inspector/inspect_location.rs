@@ -79,7 +79,6 @@ impl<'w, 's> InspectLocation<'w, 's> {
                         if tags.iter().find(|t| t.is_holding_point()).is_none() {
                             variants.push(LocationTag::HoldingPoint);
                         }
-                        variants.push(recall.assume_spawn_robot());
                         variants.push(recall.assume_workcell());
 
                         ComboBox::from_id_source("Add Location Tag")

@@ -54,6 +54,9 @@ pub use lift::*;
 pub mod light;
 pub use light::*;
 
+pub mod model;
+pub use model::*;
+
 pub mod model_preview;
 pub use model_preview::*;
 
@@ -197,6 +200,7 @@ impl Plugin for InteractionPlugin {
                 .add_systems(
                     Update,
                     (
+                        update_model_instance_visual_cues.after(SelectionServiceStages::Select),
                         update_lane_visual_cues.after(SelectionServiceStages::Select),
                         update_edge_visual_cues.after(SelectionServiceStages::Select),
                         update_point_visual_cues.after(SelectionServiceStages::Select),
