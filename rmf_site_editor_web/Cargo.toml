@@ -8,6 +8,6 @@ crate-type = ["cdylib", "rlib"]
 name = "librmf_site_editor_web"
 
 [dependencies]
-wasm-bindgen = "=0.2.93"
+wasm-bindgen = "=0.2.93" # Remember to update the README if we change this version number
 rmf_site_editor = { path = "../rmf_site_editor" }
 console_error_panic_hook = "0.1.7"
