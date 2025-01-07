@@ -1250,7 +1250,7 @@ fn generate_model_descriptions(
 fn generate_model_instances(
     site: Entity,
     world: &mut World,
-) -> Result<BTreeMap<u32, ModelInstance<u32>>, SiteGenerationError> {
+) -> Result<BTreeMap<u32, Parented<u32, ModelInstance<u32>>>, SiteGenerationError> {
     let mut state: SystemState<(
         Query<&SiteID, (With<ModelMarker>, With<Group>, Without<Pending>)>,
         Query<
@@ -1272,15 +1272,15 @@ fn generate_model_instances(
             site_levels_ids.insert(level_entity, site_id.0);
         }
     }
-    let mut res = BTreeMap::<u32, ModelInstance<u32>>::new();
+    let mut res = BTreeMap::<u32, Parented<u32, ModelInstance<u32>>>::new();
     for (instance_entity, instance_id, instance_name, instance_pose, instance_affiliation) in
         model_instances.iter()
     {
-        let Ok(level_id) = parents
+        let Some(level_id) = parents
             .get(instance_entity)
             .ok()
-            .map(|p| site_levels_ids.get(&p.get()).copied().ok_or(()))
-            .transpose()
+            .map(|p| site_levels_ids.get(&p.get()).copied())
+            .flatten()
         else {
             error!("Unable to find parent for instance [{}]", instance_name.0);
             continue;
@@ -1288,7 +1288,6 @@ fn generate_model_instances(
         let mut model_instance = ModelInstance::<u32> {
             name: instance_name.clone(),
             pose: instance_pose.clone(),
-            parent: SiteParent(level_id),
             description: Affiliation(
                 instance_affiliation
                     .0
@@ -1321,7 +1320,13 @@ fn generate_model_instances(
                 .0
                 .push(OptionalModelProperty::Tasks(Tasks(tasks.clone())));
         }
-        res.insert(instance_id.0, model_instance);
+        res.insert(
+            instance_id.0,
+            Parented {
+                parent: level_id,
+                bundle: model_instance,
+            },
+        );
     }
     Ok(res)
 }

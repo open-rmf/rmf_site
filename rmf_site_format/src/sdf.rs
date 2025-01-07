@@ -497,36 +497,32 @@ impl Site {
             // TODO(luca) We need this because there is no concept of ingestor or dispenser in
             // rmf_site yet. Remove when there is
             for (model_instance_id, _) in &default_scenario.scenario.added_instances {
-                let model_instance = self.model_instances.get(model_instance_id).ok_or(
+                let parented_model_instance = self.model_instances.get(model_instance_id).ok_or(
                     SdfConversionError::BrokenModelInstanceReference(*model_instance_id),
                 )?;
-                let (model_description_id, model_description_bundle) =
-                    if let Some(model_description_id) = model_instance.description.0 {
-                        (
-                            model_description_id,
-                            self.model_descriptions.get(&model_description_id).ok_or(
-                                SdfConversionError::BrokenModelDescriptionReference(
-                                    *model_instance_id,
-                                ),
-                            )?,
-                        )
-                    } else {
-                        continue;
-                    };
-
-                if model_instance.parent.0.is_none()
-                    || model_instance.parent.0.is_some_and(|x| x != *level_id)
+                let (model_description_id, model_description_bundle) = if let Some(
+                    model_description_id,
+                ) =
+                    parented_model_instance.bundle.description.0
                 {
+                    (
+                        model_description_id,
+                        self.model_descriptions.get(&model_description_id).ok_or(
+                            SdfConversionError::BrokenModelDescriptionReference(*model_instance_id),
+                        )?,
+                    )
+                } else {
                     continue;
-                }
+                };
+
                 let mut added = false;
                 if model_description_bundle.source.0
                     == AssetSource::Search("OpenRobotics/TeleportIngestor".to_string())
                 {
                     world.include.push(SdfWorldInclude {
                         uri: "model://TeleportIngestor".to_string(),
-                        name: Some(model_instance.name.0.clone()),
-                        pose: Some(model_instance.pose.to_sdf()),
+                        name: Some(parented_model_instance.bundle.name.0.clone()),
+                        pose: Some(parented_model_instance.bundle.pose.to_sdf()),
                         ..Default::default()
                     });
                     added = true;
@@ -535,8 +531,8 @@ impl Site {
                 {
                     world.include.push(SdfWorldInclude {
                         uri: "model://TeleportDispenser".to_string(),
-                        name: Some(model_instance.name.0.clone()),
-                        pose: Some(model_instance.pose.to_sdf()),
+                        name: Some(parented_model_instance.bundle.name.0.clone()),
+                        pose: Some(parented_model_instance.bundle.pose.to_sdf()),
                         ..Default::default()
                     });
                     added = true;
@@ -546,9 +542,9 @@ impl Site {
                 // NameInSite instead of AssetSource for the URI, fix
                 else if !model_description_bundle.is_static.0 .0 {
                     world.model.push(SdfModel {
-                        name: model_instance.name.0.clone(),
+                        name: parented_model_instance.bundle.name.0.clone(),
                         r#static: Some(model_description_bundle.is_static.0 .0),
-                        pose: Some(model_instance.pose.to_sdf()),
+                        pose: Some(parented_model_instance.bundle.pose.to_sdf()),
                         link: vec![SdfLink {
                             name: "link".into(),
                             collision: vec![SdfCollision {
