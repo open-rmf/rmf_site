@@ -500,20 +500,14 @@ impl Site {
                 let parented_model_instance = self.model_instances.get(model_instance_id).ok_or(
                     SdfConversionError::BrokenModelInstanceReference(*model_instance_id),
                 )?;
-                let (model_description_id, model_description_bundle) = if let Some(
-                    model_description_id,
-                ) =
-                    parented_model_instance.bundle.description.0
-                {
-                    (
-                        model_description_id,
-                        self.model_descriptions.get(&model_description_id).ok_or(
-                            SdfConversionError::BrokenModelDescriptionReference(*model_instance_id),
-                        )?,
-                    )
-                } else {
+                let Some(model_description_id) = parented_model_instance.bundle.description.0
+                else {
                     continue;
                 };
+                let model_description_bundle =
+                    self.model_descriptions.get(&model_description_id).ok_or(
+                        SdfConversionError::BrokenModelDescriptionReference(*model_instance_id),
+                    )?;
 
                 let mut added = false;
                 if model_description_bundle.source.0

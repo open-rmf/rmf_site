@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::{DragPlaneBundle, Preview, MODEL_PREVIEW_LAYER},
-    site::{CurrentLevel, SiteAssets},
+    site::SiteAssets,
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
     Issue, ValidateWorkspace,
 };
@@ -786,42 +786,48 @@ pub fn update_model_instances<T: Component + Default + Clone>(
     }
 }
 
-/// Unique UUID to identify issue of duplicated lift names
+/// Unique UUID to identify issue of orphan model instance
 pub const ORPHAN_MODEL_INSTANCE_ISSUE_UUID: Uuid =
     Uuid::from_u128(0x4e98ce0bc28e4fe528cb0a028f4d5c08u128);
 
-pub fn assign_orphan_model_instances_to_level(
+pub fn check_for_orphan_model_instances(
     mut commands: Commands,
     mut validate_events: EventReader<ValidateWorkspace>,
     mut orphan_instances: Query<
-        (Entity, &NameInSite),
+        (Entity, &NameInSite, &Affiliation<Entity>),
         (With<ModelMarker>, Without<Group>, Without<Parent>),
     >,
-    current_level: Res<CurrentLevel>,
+    model_descriptions: Query<&NameInSite, (With<ModelMarker>, With<Group>)>,
 ) {
-    if let Some(current_level) = current_level.0 {
-        for (instance_entity, _) in orphan_instances.iter_mut() {
-            commands.entity(current_level).add_child(instance_entity);
-        }
-    } else {
-        for root in validate_events.read() {
-            for (instance_entity, instance_name) in orphan_instances.iter_mut() {
-                let issue = Issue {
-                    key: IssueKey {
-                        entities: [instance_entity].into(),
-                        kind: ORPHAN_MODEL_INSTANCE_ISSUE_UUID,
-                    },
-                    brief: format!(
-                        "Parent level entity not found for model instance {:?} when saving",
-                        instance_name,
-                    ),
-                    hint: "Model instances need to be assigned to a parent level entity. \
-                        Respawn the orphan model instance"
-                        .to_string(),
-                };
-                let issue_id = commands.spawn(issue).id();
-                commands.entity(**root).add_child(issue_id);
-            }
+    for root in validate_events.read() {
+        for (instance_entity, instance_name, affiliation) in orphan_instances.iter_mut() {
+            let brief = match affiliation
+                .0
+                .map(|e| model_descriptions.get(e).ok())
+                .flatten()
+            {
+                Some(description_name) => format!(
+                    "Parent level entity not found for model instance {:?} with \
+                    affiliated model description {:?}",
+                    instance_name, description_name
+                ),
+                None => format!(
+                    "Parent level entity not found for model instance {:?} when saving",
+                    instance_name,
+                ),
+            };
+            let issue = Issue {
+                key: IssueKey {
+                    entities: [instance_entity].into(),
+                    kind: ORPHAN_MODEL_INSTANCE_ISSUE_UUID,
+                },
+                brief,
+                hint: "Model instances need to be assigned to a parent level entity. \
+                      Respawn the orphan model instance"
+                    .to_string(),
+            };
+            let issue_id = commands.spawn(issue).id();
+            commands.entity(**root).add_child(issue_id);
         }
     }
 }

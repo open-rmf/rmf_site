@@ -370,16 +370,10 @@ fn generate_site_entities(
 
         // The parent id is invalid, we do not spawn this model instance and generate
         // an error instead
-        let Some(parent) = id_to_entity.get(&parented_model_instance.parent) else {
-            error!(
-                "Parent id is invalid for instance {}. Unable to determine which \
-                level the instance should be spawned on. Please check the \
-                building or site file to ensure that every model instance's \
-                parent id is valid. Unable to load file.",
-                model_instance.name.0,
-            );
-            continue;
-        };
+        let parent = id_to_entity
+            .get(&parented_model_instance.parent)
+            .ok_or_else(|| LoadSiteError::new(site_id, parented_model_instance.parent))?;
+
         let model_instance_entity = model_loader
             .spawn_model_instance(*parent, model_instance.clone())
             .insert((Category::Model, SiteID(*model_instance_id)))
