@@ -753,7 +753,6 @@ impl BuildingMap {
                     locations,
                 },
             },
-            agents: Default::default(),
             scenarios,
             model_instances,
             model_descriptions,

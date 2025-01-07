@@ -1449,8 +1449,6 @@ pub fn generate_site(
                 locations,
             },
         },
-        // TODO(MXG): Parse agent information once the spec is figured out
-        agents: Default::default(),
         model_descriptions,
         model_instances,
         scenarios,
