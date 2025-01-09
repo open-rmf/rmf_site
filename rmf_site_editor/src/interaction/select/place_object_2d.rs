@@ -15,7 +15,10 @@
  *
 */
 
-use crate::{interaction::select::*, site::Model};
+use crate::{
+    interaction::select::*,
+    site::{ModelInstance, ModelLoader},
+};
 use bevy::prelude::ButtonInput;
 
 pub const PLACE_OBJECT_2D_MODE_LABEL: &'static str = "place_object_2d";
@@ -101,7 +104,7 @@ pub fn build_place_object_2d_workflow(
 }
 
 pub struct PlaceObject2d {
-    pub object: Model,
+    pub object: ModelInstance<Entity>,
     pub level: Entity,
 }
 
@@ -113,11 +116,12 @@ pub fn place_object_2d_setup(
     mut commands: Commands,
     mut gizmo_blockers: ResMut<GizmoBlockers>,
     mut highlight: ResMut<HighlightAnchors>,
+    mut model_loader: ModelLoader,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.newest_mut().or_broken_buffer()?;
 
-    cursor.set_model_preview(&mut commands, Some(state.object.clone()));
+    cursor.set_model_instance_preview(&mut commands, &mut model_loader, Some(state.object.clone()));
     set_visibility(cursor.dagger, &mut visibility, false);
     set_visibility(cursor.halo, &mut visibility, false);
 
@@ -195,13 +199,15 @@ pub fn on_keyboard_for_place_object_2d(In(key): In<KeyCode>) -> SelectionNodeRes
 pub fn on_placement_chosen_2d(
     In((placement, key)): In<(Transform, BufferKey<PlaceObject2d>)>,
     mut access: BufferAccessMut<PlaceObject2d>,
-    mut commands: Commands,
+    mut model_loader: ModelLoader,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let mut state = access.pull().or_broken_state()?;
 
     state.object.pose = placement.into();
-    commands.spawn(state.object).set_parent(state.level);
+    model_loader
+        .spawn_model_instance(state.level, state.object)
+        .insert(Category::Model);
 
     Ok(())
 }

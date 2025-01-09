@@ -45,9 +45,6 @@ pub use inspect_geography::*;
 pub mod inspect_group;
 pub use inspect_group::*;
 
-pub mod inspect_joint;
-pub use inspect_joint::*;
-
 pub mod inspect_is_static;
 pub use inspect_is_static::*;
 
@@ -66,9 +63,6 @@ pub use inspect_light::*;
 pub mod inspect_location;
 pub use inspect_location::*;
 
-pub mod inspect_mesh_constraint;
-pub use inspect_mesh_constraint::*;
-
 pub mod inspect_point;
 pub use inspect_point::*;
 
@@ -77,6 +71,9 @@ pub use inspect_primitive_shape::*;
 
 pub mod inspect_measurement;
 pub use inspect_measurement::*;
+
+pub mod inspect_model_description;
+pub use inspect_model_description::*;
 
 pub mod inspect_motion;
 pub use inspect_motion::*;
@@ -102,20 +99,19 @@ pub use inspect_scale::*;
 pub mod inspect_side;
 pub use inspect_side::*;
 
+pub mod inspect_task;
+pub use inspect_task::*;
+
 pub mod inspect_texture;
 pub use inspect_texture::*;
 
 pub mod inspect_value;
 pub use inspect_value::*;
 
-pub mod inspect_workcell_parent;
-pub use inspect_workcell_parent::*;
-
 use crate::{
     interaction::Selection,
     site::{Category, SiteID},
     widgets::prelude::*,
-    AppState,
 };
 use bevy::{
     ecs::system::{SystemParam, SystemState},
@@ -181,6 +177,7 @@ impl Plugin for StandardInspectorPlugin {
         app.add_plugins(MinimalInspectorPlugin::default())
             .add_plugins((
                 InspectionPlugin::<InspectName>::new(),
+                InspectionPlugin::<InspectSelectedModelDescription>::new(),
                 InspectionPlugin::<InspectAnchor>::new(),
                 InspectionPlugin::<InspectAnchorDependents>::new(),
                 InspectionPlugin::<InspectEdge>::new(),
@@ -194,22 +191,29 @@ impl Plugin for StandardInspectorPlugin {
                 InspectTexturePlugin::default(),
                 InspectionPlugin::<InspectMotion>::new(),
                 InspectionPlugin::<InspectPose>::new(),
-                InspectionPlugin::<InspectScale>::new(),
                 // Reached the tuple limit
             ))
             .add_plugins((
+                InspectionPlugin::<InspectScale>::new(),
+                InspectTaskPlugin::default(),
                 InspectionPlugin::<InspectLight>::new(),
                 InspectionPlugin::<InspectDoor>::new(),
-                InspectionPlugin::<InspectAssetSource>::new(),
                 InspectionPlugin::<InspectPrimitiveShape>::new(),
-                InspectionPlugin::<InspectModelDependents>::new(),
-                InspectionPlugin::<InspectWorkcellParent>::new(),
-                InspectionPlugin::<InspectJoint>::new(),
                 InspectionPlugin::<InspectMeasurement>::new(),
                 InspectionPlugin::<InspectPhysicalCameraProperties>::new(),
-                InspectLiftPlugin::default(),
                 InspectionPlugin::<InspectPreview>::new(),
                 InspectionPlugin::<InspectGroup>::new(),
+                InspectModelDescriptionPlugin::default(),
+                InspectLiftPlugin::default(),
+            ))
+            .add_plugins((
+                InspectModelPropertyPlugin::<InspectModelScale, Scale>::new("Scale".to_string()),
+                InspectModelPropertyPlugin::<InspectModelAssetSource, AssetSource>::new(
+                    "Source".to_string(),
+                ),
+                InspectModelPropertyPlugin::<InspectModelDifferentialDrive, DifferentialDrive>::new(
+                    "Differential Drive".to_string(),
+                ),
             ));
     }
 }
@@ -294,10 +298,13 @@ impl<'w, 's> WidgetSystem<Tile> for Inspector<'w, 's> {
         state: &mut SystemState<Self>,
         world: &mut World,
     ) {
+        // TODO(luca) make sure this doesn't show in building preview mode
+        /*
         match world.resource::<State<AppState>>().get() {
             AppState::SiteEditor | AppState::SiteDrawingEditor | AppState::WorkcellEditor => {}
             _ => return,
         }
+        */
 
         CollapsingHeader::new("Inspect")
             .default_open(true)

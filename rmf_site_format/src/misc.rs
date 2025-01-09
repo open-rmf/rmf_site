@@ -353,6 +353,33 @@ impl Default for Pose {
     }
 }
 
+#[cfg(feature = "urdf")]
+impl From<Pose> for urdf_rs::Pose {
+    fn from(pose: Pose) -> Self {
+        urdf_rs::Pose {
+            rpy: match pose.rot {
+                Rotation::EulerExtrinsicXYZ(arr) => urdf_rs::Vec3(arr.map(|v| v.radians().into())),
+                Rotation::Yaw(v) => urdf_rs::Vec3([0.0, 0.0, v.radians().into()]),
+                Rotation::Quat([x, y, z, w]) => {
+                    let (z, y, x) = glam::quat(x, y, z, w).to_euler(glam::EulerRot::ZYX);
+                    urdf_rs::Vec3([x as f64, y as f64, z as f64])
+                }
+            },
+            xyz: urdf_rs::Vec3(pose.trans.map(|v| v as f64)),
+        }
+    }
+}
+
+#[cfg(feature = "urdf")]
+impl From<&urdf_rs::Pose> for Pose {
+    fn from(pose: &urdf_rs::Pose) -> Self {
+        Pose {
+            trans: pose.xyz.map(|t| t as f32),
+            rot: Rotation::EulerExtrinsicXYZ(pose.rpy.map(|t| Angle::Rad(t as f32))),
+        }
+    }
+}
+
 #[cfg(feature = "bevy")]
 impl Pose {
     pub fn transform(&self) -> Transform {
@@ -441,9 +468,16 @@ pub struct PreviewableMarker;
 
 /// This component is applied to each site element that gets loaded in order to
 /// remember what its original ID within the Site file was.
-#[derive(Clone, Copy, Debug)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
 #[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
 pub struct SiteID(pub u32);
+
+/// Helper structure to serialize / deserialize entities with parents
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Parented<P: RefTrait, T> {
+    pub parent: P,
+    pub bundle: T,
+}
 
 /// The Pending component indicates that an element is not yet ready to be
 /// saved to file. We will filter out these elements while assigning SiteIDs,
@@ -468,7 +502,7 @@ pub struct Group;
 /// Affiliates an entity with a group.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(transparent)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
 pub struct Affiliation<T: RefTrait>(pub Option<T>);
 
 impl<T: RefTrait> From<T> for Affiliation<T> {

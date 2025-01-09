@@ -26,7 +26,6 @@ pub enum LocationTag {
     Charger,
     ParkingSpot,
     HoldingPoint,
-    SpawnRobot(Model),
     Workcell(Model),
 }
 
@@ -36,7 +35,6 @@ impl LocationTag {
             Self::Charger => "Charger",
             Self::ParkingSpot => "Parking Spot",
             Self::HoldingPoint => "Holding Point",
-            Self::SpawnRobot(_) => "Spawn Robot",
             Self::Workcell(_) => "Workcell",
         }
     }
@@ -49,12 +47,6 @@ impl LocationTag {
     }
     pub fn is_holding_point(&self) -> bool {
         matches!(self, Self::HoldingPoint)
-    }
-    pub fn spawn_robot(&self) -> Option<&Model> {
-        match self {
-            Self::SpawnRobot(model) => Some(model),
-            _ => None,
-        }
     }
     pub fn workcell(&self) -> Option<&Model> {
         match self {
@@ -140,34 +132,14 @@ impl RecallLocationTags {
         if current.0.iter().find(|t| t.is_parking_spot()).is_none() {
             return LocationTag::ParkingSpot;
         }
-        self.assume_spawn_robot()
-    }
-    pub fn assume_spawn_robot(&self) -> LocationTag {
-        let model = self
-            .consider_tag
-            .as_ref()
-            .map(|t| t.spawn_robot())
-            .flatten()
-            .cloned()
-            .unwrap_or_else(|| Model {
-                name: self.robot_name.clone().unwrap_or_default(),
-                source: self.robot_asset_source.clone().unwrap_or_default(),
-                ..Default::default()
-            });
-        LocationTag::SpawnRobot(model)
+        self.assume_workcell()
     }
     pub fn assume_workcell(&self) -> LocationTag {
-        let model = self
-            .consider_tag
-            .as_ref()
-            .map(|t| t.spawn_robot())
-            .flatten()
-            .cloned()
-            .unwrap_or_else(|| Model {
-                name: self.workcell_name.clone().unwrap_or_default(),
-                source: self.workcell_asset_source.clone().unwrap_or_default(),
-                ..Default::default()
-            });
+        let model = Model {
+            name: self.workcell_name.clone().unwrap_or_default(),
+            source: self.workcell_asset_source.clone().unwrap_or_default(),
+            ..Default::default()
+        };
         LocationTag::Workcell(model)
     }
 }
@@ -179,11 +151,6 @@ impl Recall for RecallLocationTags {
         for tag in &source.0 {
             // TODO(MXG): Consider isolating this memory per element
             match tag {
-                LocationTag::SpawnRobot(robot) => {
-                    self.robot_asset_source_recall.remember(&robot.source);
-                    self.robot_asset_source = Some(robot.source.clone());
-                    self.robot_name = Some(robot.name.clone());
-                }
                 LocationTag::Workcell(cell) => {
                     self.workcell_asset_source_recall.remember(&cell.source);
                     self.workcell_asset_source = Some(cell.source.clone());

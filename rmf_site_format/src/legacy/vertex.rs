@@ -1,7 +1,7 @@
 use super::rbmf::*;
 use crate::{
-    is_default, AssetSource, AssociatedGraphs, IsStatic, Location, LocationTag, LocationTags,
-    Model, ModelMarker, NameInSite, Pose, Scale,
+    is_default, legacy::model::Model, AssociatedGraphs, Location, LocationTag, LocationTags,
+    NameInSite,
 };
 use glam::DVec2;
 use serde::{Deserialize, Serialize};
@@ -57,17 +57,6 @@ impl Vertex {
             tags.push(LocationTag::HoldingPoint);
         }
 
-        if !me.spawn_robot_name.is_empty() && !me.spawn_robot_type.is_empty() {
-            tags.push(LocationTag::SpawnRobot(Model {
-                name: NameInSite(me.spawn_robot_name.1.clone()),
-                source: AssetSource::Search(me.spawn_robot_type.1.clone()),
-                pose: Pose::default(),
-                is_static: IsStatic(false),
-                scale: Scale::default(),
-                marker: ModelMarker,
-            }))
-        }
-
         let name = if self.3.is_empty() {
             None
         } else {
@@ -84,5 +73,22 @@ impl Vertex {
                 graphs: AssociatedGraphs::All,
             });
         }
+    }
+
+    pub fn spawn_robot(&self, anchor: u32) -> Option<Model> {
+        let me = &self.4;
+        if !me.spawn_robot_name.is_empty() && !me.spawn_robot_type.is_empty() {
+            return Some(Model {
+                model_name: me.spawn_robot_type.1.clone(),
+                instance_name: me.spawn_robot_name.1.clone(),
+                static_: false,
+                x: self.0,
+                y: self.1,
+                yaw: self.2,
+                location: Some(anchor),
+                ..Default::default()
+            });
+        }
+        None
     }
 }

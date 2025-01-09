@@ -69,11 +69,16 @@ pub fn zoom_distance_factor(camera_translation: Vec3, target_translation: Vec3) 
 pub fn get_camera_selected_point(
     camera: &Camera,
     camera_global_transform: &GlobalTransform,
-    user_camera_display: Res<UserCameraDisplay>,
+    user_camera_display: Option<Res<UserCameraDisplay>>,
     mut immediate_raycast: Raycast,
 ) -> Option<Vec3> {
-    // Assume that the camera spans the full window, covered by egui panels
-    let available_viewport_center = user_camera_display.region.center();
+    let available_viewport_center = user_camera_display
+        // Assume that the camera spans the full window, covered by egui panels
+        .map(|display| display.region)
+        // If egui panels aren't being used, then use the center of the whole camera
+        .or_else(|| camera.logical_viewport_rect())?
+        .center();
+
     let camera_ray =
         camera.viewport_to_world(camera_global_transform, available_viewport_center)?;
     let camera_ray = Ray3d::new(camera_ray.origin, *camera_ray.direction);

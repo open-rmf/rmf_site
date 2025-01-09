@@ -22,10 +22,13 @@ use crate::{
         Category, CurrentLevel, Dependents, LevelElevation, LevelProperties, NameInSite,
         SiteUpdateSet,
     },
-    AppState, Issue,
+    Issue,
 };
-use bevy::{ecs::system::SystemParam, prelude::*};
-use rmf_site_format::{ConstraintDependents, Edge, MeshConstraint, Path, Point};
+use bevy::{
+    ecs::system::{BoxedSystem, SystemParam, SystemState},
+    prelude::*,
+};
+use rmf_site_format::{Edge, Path, Point};
 use std::collections::HashSet;
 
 // TODO(MXG): Use this module to implement the deletion buffer. The role of the
@@ -48,7 +51,7 @@ impl PreventDeletion {
 
 /// This is an event used to delete site elements. Deleting the element is
 /// recursive, so all its children will be deleted along with it.
-#[derive(Debug, Clone, Copy, Event)]
+#[derive(Debug, Clone, Copy, Eq, Event, Hash, PartialEq)]
 pub struct Delete {
     pub element: Entity,
     /// If this is true, all dependents of the element or any of its children
@@ -84,8 +87,6 @@ struct DeletionParams<'w, 's> {
     paths: Query<'w, 's, &'static Path<Entity>>,
     parents: Query<'w, 's, &'static mut Parent>,
     dependents: Query<'w, 's, &'static mut Dependents>,
-    constraint_dependents: Query<'w, 's, &'static mut ConstraintDependents>,
-    mesh_constraints: Query<'w, 's, &'static mut MeshConstraint<Entity>>,
     children: Query<'w, 's, &'static Children>,
     selection: Res<'w, Selection>,
     current_level: ResMut<'w, CurrentLevel>,
@@ -105,23 +106,77 @@ impl Plugin for DeletionPlugin {
         )
         .add_systems(First, apply_deferred.in_set(SiteUpdateSet::DeletionFlush))
         .add_event::<Delete>()
+        .init_resource::<DeletionFilters>()
         .add_systems(
             First,
-            handle_deletion_requests
-                .in_set(SiteUpdateSet::Deletion)
-                .run_if(AppState::in_displaying_mode()),
+            handle_deletion_requests.in_set(SiteUpdateSet::Deletion),
         );
     }
 }
 
-fn handle_deletion_requests(mut deletions: EventReader<Delete>, mut params: DeletionParams) {
+#[derive(Deref, DerefMut)]
+pub struct DeletionBox(pub BoxedSystem<HashSet<Delete>, HashSet<Delete>>);
+
+#[derive(Default, Resource)]
+pub struct DeletionFilters {
+    boxed_systems: Vec<DeletionBox>,
+    pending_insertion: Vec<DeletionBox>,
+}
+
+impl DeletionFilters {
+    pub fn insert(&mut self, filter: DeletionBox) {
+        self.pending_insertion.push(filter);
+    }
+
+    fn insert_boxes(&mut self, world: &mut World) {
+        for mut inserted in self.pending_insertion.drain(..) {
+            inserted.initialize(world);
+            self.boxed_systems.push(inserted);
+        }
+    }
+
+    fn run_boxes(
+        &mut self,
+        mut pending_delete: HashSet<Delete>,
+        world: &mut World,
+    ) -> HashSet<Delete> {
+        for boxed_system in self.boxed_systems.iter_mut() {
+            pending_delete = boxed_system.0.run(pending_delete, world);
+        }
+        pending_delete
+    }
+}
+
+fn handle_deletion_requests(
+    world: &mut World,
+    state: &mut SystemState<(EventReader<Delete>, DeletionParams)>,
+) {
+    let (mut deletions, _) = state.get_mut(world);
+    if deletions.is_empty() {
+        return;
+    }
+    let mut pending_delete: HashSet<Delete> = HashSet::new();
     for delete in deletions.read() {
+        pending_delete.insert(*delete);
+    }
+
+    pending_delete =
+        world.resource_scope::<DeletionFilters, _>(move |world, mut deletion_filters| {
+            deletion_filters.insert_boxes(world);
+            // Run through all boxed systems to filter out entities that should not
+            // be sent to delete
+            deletion_filters.run_boxes(pending_delete, world)
+        });
+
+    let (_, mut params) = state.get_mut(world);
+    for delete in pending_delete.iter() {
         if delete.and_dependents {
             recursive_dependent_delete(delete.element, &mut params);
         } else {
             cautious_delete(delete.element, &mut params);
         }
     }
+    state.apply(world);
 }
 
 fn cautious_delete(element: Entity, params: &mut DeletionParams) {
@@ -208,22 +263,6 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
                 if let Ok(mut deps) = params.dependents.get_mut(*anchor) {
                     deps.remove(&e);
                 }
-            }
-        }
-
-        if let Ok(dependents) = params.constraint_dependents.get(e) {
-            for dep in dependents.iter() {
-                // Remove MeshConstraint component from dependent
-                params
-                    .commands
-                    .entity(*dep)
-                    .remove::<MeshConstraint<Entity>>();
-            }
-        }
-
-        if let Ok(constraint) = params.mesh_constraints.get(e) {
-            if let Ok(mut parent) = params.constraint_dependents.get_mut(constraint.entity) {
-                parent.remove(&e);
             }
         }
 

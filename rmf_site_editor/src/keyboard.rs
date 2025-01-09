@@ -18,7 +18,7 @@
 use crate::{
     interaction::{ChangeProjectionMode, Selection},
     site::{AlignSiteDrawings, Delete},
-    CreateNewWorkspace, CurrentWorkspace, SaveWorkspace, WorkspaceLoader,
+    CreateNewWorkspace, CurrentWorkspace, WorkspaceLoader, WorkspaceSaver,
 };
 use bevy::{prelude::*, window::PrimaryWindow};
 use bevy_egui::EguiContexts;
@@ -54,7 +54,6 @@ fn handle_keyboard_input(
     selection: Res<Selection>,
     mut egui_context: EguiContexts,
     mut delete: EventWriter<Delete>,
-    mut save_workspace: EventWriter<SaveWorkspace>,
     mut new_workspace: EventWriter<CreateNewWorkspace>,
     mut change_camera_mode: EventWriter<ChangeProjectionMode>,
     mut debug_mode: ResMut<DebugMode>,
@@ -62,6 +61,7 @@ fn handle_keyboard_input(
     current_workspace: Res<CurrentWorkspace>,
     primary_windows: Query<Entity, With<PrimaryWindow>>,
     mut workspace_loader: WorkspaceLoader,
+    mut workspace_saver: WorkspaceSaver,
 ) {
     let Some(egui_context) = primary_windows
         .get_single()
@@ -105,9 +105,9 @@ fn handle_keyboard_input(
     if keyboard_input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) {
         if keyboard_input.just_pressed(KeyCode::KeyS) {
             if keyboard_input.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]) {
-                save_workspace.send(SaveWorkspace::new().to_dialog());
+                workspace_saver.save_to_dialog();
             } else {
-                save_workspace.send(SaveWorkspace::new().to_default_file());
+                workspace_saver.save_to_default_file();
             }
         }
 
@@ -115,6 +115,10 @@ fn handle_keyboard_input(
             if let Some(site) = current_workspace.root {
                 align_site.send(AlignSiteDrawings(site));
             }
+        }
+
+        if keyboard_input.just_pressed(KeyCode::E) {
+            workspace_saver.export_sdf_to_dialog();
         }
 
         // TODO(luca) pop up a confirmation prompt if the current file is not saved, or create a

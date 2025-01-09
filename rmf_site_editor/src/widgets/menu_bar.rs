@@ -15,13 +15,11 @@
  *
 */
 
-use crate::{widgets::prelude::*, AppState, CreateNewWorkspace, SaveWorkspace, WorkspaceLoader};
+use crate::widgets::prelude::*;
 
 use bevy::ecs::query::Has;
 use bevy::prelude::*;
 use bevy_egui::egui::{self, Button, Ui};
-
-use std::collections::HashSet;
 
 /// Add the standard menu bar to the application.
 #[derive(Default)]
@@ -67,7 +65,8 @@ impl Menu {
 #[derive(Component)]
 #[non_exhaustive]
 pub enum MenuItem {
-    Text(String),
+    /// Text + Shortcut hint if available
+    Text(TextMenuItem),
     CheckBox(String, bool),
 }
 
@@ -87,9 +86,30 @@ impl MenuItem {
     }
 }
 
-/// Contains the states that the menu should be visualized in.
-#[derive(Debug, Clone, Component, Deref, DerefMut)]
-pub struct MenuVisualizationStates(pub HashSet<AppState>);
+pub struct TextMenuItem {
+    pub text: String,
+    pub shortcut: Option<String>,
+}
+
+impl From<&str> for TextMenuItem {
+    fn from(text: &str) -> Self {
+        Self {
+            text: text.into(),
+            shortcut: None,
+        }
+    }
+}
+
+impl TextMenuItem {
+    pub fn new(text: &str) -> Self {
+        text.into()
+    }
+
+    pub fn shortcut(mut self, shortcut: &str) -> Self {
+        self.shortcut = Some(shortcut.into());
+        self
+    }
+}
 
 /// This resource provides the root entity for the file menu
 #[derive(Resource)]
@@ -182,27 +202,24 @@ impl MenuEvent {
 }
 
 /// Helper function to render a submenu starting at the entity.
-fn render_sub_menu(
-    state: &State<AppState>,
+pub fn render_sub_menu(
     ui: &mut Ui,
     entity: &Entity,
     children: &Query<&Children>,
     menus: &Query<(&Menu, Entity)>,
     menu_items: &Query<(&mut MenuItem, Has<MenuDisabled>)>,
-    menu_states: &Query<Option<&MenuVisualizationStates>>,
     extension_events: &mut EventWriter<MenuEvent>,
     skip_top_label: bool,
 ) {
-    if let Some(states) = menu_states.get(*entity).ok().flatten() {
-        if !states.contains(state.get()) {
-            return;
-        }
-    }
     if let Ok((e, disabled)) = menu_items.get(*entity) {
         // Draw ui
         match e {
-            MenuItem::Text(title) => {
-                if ui.add_enabled(!disabled, Button::new(title)).clicked() {
+            MenuItem::Text(item) => {
+                let mut button = Button::new(&item.text);
+                if let Some(ref shortcut) = &item.shortcut {
+                    button = button.shortcut_text(shortcut);
+                }
+                if ui.add_enabled(!disabled, button).clicked() {
                     extension_events.send(MenuEvent::MenuClickEvent(*entity));
                 }
             }
@@ -230,13 +247,11 @@ fn render_sub_menu(
 
             for child in child_items.iter() {
                 render_sub_menu(
-                    state,
                     ui,
                     child,
                     children,
                     menus,
                     menu_items,
-                    menu_states,
                     extension_events,
                     false,
                 );
@@ -249,13 +264,11 @@ fn render_sub_menu(
 
         for child in child_items.iter() {
             render_sub_menu(
-                state,
                 ui,
                 child,
                 children,
                 menus,
                 menu_items,
-                menu_states,
                 extension_events,
                 false,
             );
@@ -265,19 +278,14 @@ fn render_sub_menu(
 
 #[derive(SystemParam)]
 struct MenuParams<'w, 's> {
-    state: Res<'w, State<AppState>>,
     menus: Query<'w, 's, (&'static Menu, Entity)>,
     menu_items: Query<'w, 's, (&'static mut MenuItem, Has<MenuDisabled>)>,
-    menu_states: Query<'w, 's, Option<&'static MenuVisualizationStates>>,
     extension_events: EventWriter<'w, MenuEvent>,
     view_menu: Res<'w, ViewMenu>,
 }
 
 fn top_menu_bar(
     In(input): In<PanelWidgetInput>,
-    mut new_workspace: EventWriter<CreateNewWorkspace>,
-    mut save: EventWriter<SaveWorkspace>,
-    mut workspace_loader: WorkspaceLoader,
     file_menu: Res<FileMenu>,
     top_level_components: Query<(), Without<Parent>>,
     children: Query<&Children>,
@@ -286,52 +294,23 @@ fn top_menu_bar(
     egui::TopBottomPanel::top("top_panel").show(&input.context, |ui| {
         egui::menu::bar(ui, |ui| {
             ui.menu_button("File", |ui| {
-                if ui.add(Button::new("New").shortcut_text("Ctrl+N")).clicked() {
-                    new_workspace.send(CreateNewWorkspace);
-                }
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    if ui
-                        .add(Button::new("Save").shortcut_text("Ctrl+S"))
-                        .clicked()
-                    {
-                        save.send(SaveWorkspace::new().to_default_file());
-                    }
-                    if ui
-                        .add(Button::new("Save As").shortcut_text("Ctrl+Shift+S"))
-                        .clicked()
-                    {
-                        save.send(SaveWorkspace::new().to_dialog());
-                    }
-                }
-                if ui
-                    .add(Button::new("Open").shortcut_text("Ctrl+O"))
-                    .clicked()
-                {
-                    workspace_loader.load_from_dialog();
-                }
-
                 render_sub_menu(
-                    &menu_params.state,
                     ui,
                     &file_menu.get(),
                     &children,
                     &menu_params.menus,
                     &menu_params.menu_items,
-                    &menu_params.menu_states,
                     &mut menu_params.extension_events,
                     true,
                 );
             });
             ui.menu_button("View", |ui| {
                 render_sub_menu(
-                    &menu_params.state,
                     ui,
                     &menu_params.view_menu.get(),
                     &children,
                     &menu_params.menus,
                     &menu_params.menu_items,
-                    &menu_params.menu_states,
                     &mut menu_params.extension_events,
                     true,
                 );
@@ -342,13 +321,11 @@ fn top_menu_bar(
                     && (*entity != file_menu.get() && *entity != menu_params.view_menu.get())
             }) {
                 render_sub_menu(
-                    &menu_params.state,
                     ui,
                     &entity,
                     &children,
                     &menu_params.menus,
                     &menu_params.menu_items,
-                    &menu_params.menu_states,
                     &mut menu_params.extension_events,
                     false,
                 );

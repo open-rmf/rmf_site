@@ -34,8 +34,7 @@ fn location_halo_tf(tag: &LocationTag) -> Transform {
         LocationTag::Charger => 0,
         LocationTag::ParkingSpot => 1,
         LocationTag::HoldingPoint => 2,
-        LocationTag::SpawnRobot(_) => 3,
-        LocationTag::Workcell(_) => 4,
+        LocationTag::Workcell(_) => 3,
     };
     Transform {
         translation: Vec3::new(0., 0., 0.01),
@@ -121,8 +120,8 @@ pub fn add_location_visuals(
                     tag_meshes.holding_point = Some(id);
                     assets.holding_point_material.clone()
                 }
-                // Workcells and robots are not visualized
-                LocationTag::SpawnRobot(_) | LocationTag::Workcell(_) => continue,
+                // Workcells are not visualized
+                LocationTag::Workcell(_) => continue,
             };
             commands.entity(id).insert(PbrBundle {
                 mesh: assets.location_tag_mesh.clone(),
@@ -271,8 +270,8 @@ pub fn update_location_for_changed_location_tags(
                         continue;
                     }
                 }
-                // Workcells and robots are not visualized
-                LocationTag::SpawnRobot(_) | LocationTag::Workcell(_) => continue,
+                // Workcells are not visualized
+                LocationTag::Workcell(_) => continue,
             };
             commands.entity(id).insert(PbrBundle {
                 mesh: assets.location_tag_mesh.clone(),
@@ -389,9 +388,7 @@ pub fn handle_consider_location_tag(
         if let Ok(mut recall) = recalls.get_mut(consider.for_element) {
             recall.consider_tag = consider.tag.clone();
             let r = recall.as_mut();
-            if let Some(LocationTag::SpawnRobot(model)) | Some(LocationTag::Workcell(model)) =
-                &r.consider_tag
-            {
+            if let Some(LocationTag::Workcell(model)) = &r.consider_tag {
                 r.consider_tag_asset_source_recall.remember(&model.source);
             }
         }

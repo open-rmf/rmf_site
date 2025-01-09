@@ -35,7 +35,20 @@ pub struct SdfPlugin;
 
 impl Plugin for SdfPlugin {
     fn build(&self, app: &mut App) {
-        app.init_asset_loader::<SdfLoader>();
+        // Type registration is necessary to allow serializing the Scene that is loaded by this
+        // plugin. Note that adding a new component to the Scene but not registering its type will
+        // trigger a panic so it is mandatory to keep the registration and implementation in sync.
+        app.init_asset_loader::<SdfLoader>()
+            .register_type::<NameInSite>()
+            .register_type::<AssetSource>()
+            .register_type::<Pose>()
+            .register_type::<IsStatic>()
+            .register_type::<Scale>()
+            .register_type::<ModelMarker>()
+            .register_type::<VisualMeshMarker>()
+            .register_type::<CollisionMeshMarker>()
+            .register_type::<Category>()
+            .register_type::<PrimitiveShape>();
     }
 }
 
@@ -56,7 +69,7 @@ impl AssetLoader for SdfLoader {
             let mut bytes = Vec::new();
             // TODO(luca) remove unwrap
             reader.read_to_end(&mut bytes).await.unwrap();
-            Ok(load_model(bytes, load_context).await?)
+            Ok(load_model(bytes, load_context)?)
         })
     }
 
@@ -131,8 +144,12 @@ fn compute_model_source<'a, 'b>(
         Ok(asset_source)
     } else {
         // It's a path relative to this model, concatenate it to the current context path.
+        // Note that since the current path is the file (i.e. path/subfolder/model.sdf) we need to
+        // concatenate to its parent
         let path = load_context
             .asset_path()
+            .parent()
+            .unwrap()
             .resolve(subasset_uri)
             .or_else(|e| Err(SdfError::UnsupportedAssetSource(e.to_string())))?;
         AssetSource::try_from(path.to_string().as_str()).map_err(SdfError::UnsupportedAssetSource)
@@ -239,7 +256,7 @@ fn spawn_geometry<'a, 'b>(
     Ok(geometry)
 }
 
-async fn load_model<'a, 'b>(
+fn load_model<'a, 'b>(
     bytes: Vec<u8>,
     load_context: &'a mut LoadContext<'b>,
 ) -> Result<bevy::scene::Scene, SdfError> {

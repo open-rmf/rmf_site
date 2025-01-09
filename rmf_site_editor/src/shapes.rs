@@ -24,7 +24,6 @@ use bevy::{
         render_asset::RenderAssetUsages,
     },
 };
-use bevy_infinite_grid::{InfiniteGridBundle, InfiniteGridSettings};
 use bevy_mod_outline::ATTRIBUTE_OUTLINE_NORMAL;
 use bevy_mod_outline::{GenerateOutlineNormalsError, OutlineMeshExt};
 use bevy_polyline::{material::PolylineMaterial, polyline::Polyline};
@@ -1253,23 +1252,6 @@ const X_AXIS_COLOR: Color = Color::rgb(1.0, 0.2, 0.2);
 const Y_AXIS_COLOR: Color = Color::rgb(0.2, 1.0, 0.2);
 const NEG_X_AXIS_COLOR: Color = Color::rgb(0.5, 0.0, 0.0);
 const NEG_Y_AXIS_COLOR: Color = Color::rgb(0.0, 0.5, 0.0);
-
-pub(crate) fn make_infinite_grid(scale: f32, fadeout_distance: f32) -> InfiniteGridBundle {
-    let mut settings = InfiniteGridSettings::default();
-    // The upstream bevy_infinite_grid developers use an x-z plane grid but we
-    // use an x-y plane grid, so we need to make some tweaks.
-    settings.x_axis_color = X_AXIS_COLOR;
-    settings.z_axis_color = Y_AXIS_COLOR;
-    settings.fadeout_distance = fadeout_distance;
-    let transform = Transform::from_rotation(Quat::from_rotation_x(90_f32.to_radians()))
-        .with_scale(Vec3::splat(scale));
-
-    InfiniteGridBundle {
-        settings,
-        transform,
-        ..Default::default()
-    }
-}
 
 const POLYLINE_SEPARATOR: Vec3 = Vec3::splat(std::f32::NAN);
 

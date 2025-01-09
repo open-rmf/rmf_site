@@ -138,6 +138,16 @@ pub struct Site {
     /// Properties that describe simulated agents in the site
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub agents: BTreeMap<u32, Agent>,
+
+    /// Scenarios that exist in the site
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub scenarios: BTreeMap<u32, ScenarioBundle<u32>>,
+    /// Model descriptions available in this site
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub model_descriptions: BTreeMap<u32, ModelDescriptionBundle<u32>>,
+    /// Model instances that exist in the site
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub model_instances: BTreeMap<u32, Parented<u32, ModelInstance<u32>>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]

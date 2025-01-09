@@ -15,6 +15,7 @@
  *
 */
 
+use bevy::ecs::system::EntityCommands;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 
@@ -70,24 +71,28 @@ pub fn handle_new_primitive_shapes(
             .set_parent(e)
             .id();
 
+        let spawn_selectable = |mut cmd: EntityCommands| {
+            let selectable = if let Some(selectable) = AncestorIter::new(&parents, e)
+                .filter_map(|p| selectables.get(p).ok())
+                .last()
+            {
+                selectable.element
+            } else {
+                e
+            };
+            cmd.insert(DragPlaneBundle::new(selectable, Vec3::Z));
+        };
+        let mut entity_commands = commands.entity(id);
         if let Some(render_layer) = AncestorIter::new(&parents, e)
             .filter_map(|p| render_layers.get(p).ok())
             .last()
         {
-            commands.entity(id).insert(render_layer.clone());
+            entity_commands.insert(render_layer.clone());
             if !render_layer.iter().all(|l| l == MODEL_PREVIEW_LAYER) {
-                let selectable = if let Some(selectable) = AncestorIter::new(&parents, e)
-                    .filter_map(|p| selectables.get(p).ok())
-                    .last()
-                {
-                    selectable.element
-                } else {
-                    e
-                };
-                commands
-                    .entity(id)
-                    .insert(DragPlaneBundle::new(selectable, Vec3::Z));
+                spawn_selectable(entity_commands);
             }
+        } else {
+            spawn_selectable(entity_commands);
         }
     }
 }

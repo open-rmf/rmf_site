@@ -15,9 +15,7 @@ impl FromWorld for MyMenuHandler {
         // This is all it takes to register a new menu item
         // We need to keep track of the entity in order to make
         // sure that we can check the callback
-        let unique_export = world
-            .spawn(MenuItem::Text("My unique export".to_string()))
-            .id();
+        let unique_export = world.spawn(MenuItem::Text("My unique export".into())).id();
 
         // Make it a child of the "File Menu"
         let file_header = world.resource::<FileMenu>().get();
@@ -37,9 +35,7 @@ impl FromWorld for MyMenuHandler {
         world.entity_mut(menu).push_children(&[sub_menu]);
 
         // Finally we can create a custom action
-        let custom_nested_menu = world
-            .spawn(MenuItem::Text("My Awesome Action".to_string()))
-            .id();
+        let custom_nested_menu = world.spawn(MenuItem::Text("My Awesome Action".into())).id();
         world
             .entity_mut(sub_menu)
             .push_children(&[custom_nested_menu]);

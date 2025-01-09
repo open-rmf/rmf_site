@@ -18,6 +18,7 @@
 use crate::{occupancy::CalculateGrid, widgets::prelude::*, AppState};
 use bevy::prelude::*;
 use bevy_egui::egui::{CollapsingHeader, DragValue, Ui};
+use std::collections::HashSet;
 
 /// Add a widget that provides a button for producing an occupancy grid
 /// visualization.
@@ -60,6 +61,7 @@ impl<'w> ViewOccupancy<'w> {
                     cell_size: self.display_occupancy.cell_size,
                     floor: 0.01,
                     ceiling: 1.5,
+                    ignore: HashSet::new(),
                 });
             }
             if ui
@@ -75,6 +77,7 @@ impl<'w> ViewOccupancy<'w> {
                         cell_size: self.display_occupancy.cell_size,
                         floor: 0.01,
                         ceiling: 1.5,
+                        ignore: HashSet::new(),
                     });
                 }
             }

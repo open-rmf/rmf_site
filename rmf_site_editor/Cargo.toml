@@ -27,7 +27,6 @@ smallvec = "*"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.8.23"
 serde_json = "1.0"
-wasm-bindgen = "0.2.87"
 futures-lite = "1.12.0"
 bevy = { version = "0.13", features = ["pnm", "jpeg", "tga"] }
 dirs = "5.0"
@@ -47,10 +46,10 @@ utm = "0.1.6"
 sdformat_rs = { git = "https://github.com/open-rmf/sdf_rust_experimental", rev = "9fc35f2"}
 gz-fuel = { git = "https://github.com/open-rmf/gz-fuel-rs", branch = "main" }
 pathdiff = "*"
-tera = "1.19.1"
 ehttp = { version = "0.4", features = ["native-async"] }
 nalgebra = "0.32.5"
 anyhow = "*"
+strum = "*"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 clap = { version = "4.0.10", features = ["color", "derive", "help", "usage", "suggestions"] }
@@ -58,7 +57,6 @@ bevy_egui = "0.27"
 bevy_impulse = "0.1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-console_error_panic_hook = "0.1.7"
+bevy_impulse = { version = "0.1", features = ["single_threaded_async"]}
 # Disable the manage_clipboard feature, depends on nightly web features
 bevy_egui = { version = "0.27", default-features = false, features = ["open_url", "default_fonts", "render"] }
-bevy_impulse = { version = "0.1", features = ["single_threaded_async"]}

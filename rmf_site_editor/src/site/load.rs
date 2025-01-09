@@ -17,7 +17,10 @@
 
 use crate::{recency::RecencyRanking, site::*, WorkspaceMarker};
 use bevy::{ecs::system::SystemParam, prelude::*};
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+};
 use thiserror::Error as ThisError;
 
 /// This component is given to the site to keep track of what file it should be
@@ -73,6 +76,7 @@ impl<T> LoadResult<T> for Result<T, u32> {
 
 fn generate_site_entities(
     commands: &mut Commands,
+    model_loader: &mut ModelLoader,
     site_data: &rmf_site_format::Site,
 ) -> Result<Entity, LoadSiteError> {
     let mut id_to_entity = HashMap::new();
@@ -210,11 +214,6 @@ fn generate_site_entities(
                     consider_id(*light_id);
                 }
 
-                for (model_id, model) in &level_data.models {
-                    level.spawn(model.clone()).insert(SiteID(*model_id));
-                    consider_id(*model_id);
-                }
-
                 for (physical_camera_id, physical_camera) in &level_data.physical_cameras {
                     level
                         .spawn(physical_camera.clone())
@@ -335,6 +334,103 @@ fn generate_site_entities(
             .for_site(site_id)?,
     );
 
+    let mut model_description_dependents = HashMap::<Entity, HashSet<Entity>>::new();
+    let mut model_description_to_source = HashMap::<Entity, AssetSource>::new();
+    for (model_description_id, model_description) in &site_data.model_descriptions {
+        let model_description_entity = commands
+            .spawn(model_description.clone())
+            .insert(SiteID(*model_description_id))
+            .insert(Category::ModelDescription)
+            .set_parent(site_id)
+            .id();
+        id_to_entity.insert(*model_description_id, model_description_entity);
+        consider_id(*model_description_id);
+        model_description_dependents.insert(model_description_entity, HashSet::new());
+        model_description_to_source
+            .insert(model_description_entity, model_description.source.0.clone());
+        // Insert optional model properties
+        for optional_property in &model_description.optional_properties.0 {
+            match optional_property {
+                OptionalModelProperty::DifferentialDrive(diff_drive) => commands
+                    .entity(model_description_entity)
+                    .insert(ModelProperty(diff_drive.clone())),
+                OptionalModelProperty::MobileRobotMarker(robot_marker) => commands
+                    .entity(model_description_entity)
+                    .insert(ModelProperty(robot_marker.clone())),
+                _ => continue,
+            };
+        }
+    }
+
+    for (model_instance_id, parented_model_instance) in &site_data.model_instances {
+        let model_instance = parented_model_instance
+            .bundle
+            .convert(&id_to_entity)
+            .for_site(site_id)?;
+
+        // The parent id is invalid, we do not spawn this model instance and generate
+        // an error instead
+        let parent = id_to_entity
+            .get(&parented_model_instance.parent)
+            .ok_or_else(|| LoadSiteError::new(site_id, parented_model_instance.parent))?;
+
+        let model_instance_entity = model_loader
+            .spawn_model_instance(*parent, model_instance.clone())
+            .insert((Category::Model, SiteID(*model_instance_id)))
+            .id();
+        id_to_entity.insert(*model_instance_id, model_instance_entity);
+        consider_id(*model_instance_id);
+
+        if let Some(instances) = model_instance
+            .description
+            .0
+            .map(|e| model_description_dependents.get_mut(&e))
+            .flatten()
+        {
+            instances.insert(model_instance_entity);
+        } else {
+            error!(
+                "Model description missing for instance {}. This should \
+                not happen, please report this bug to the maintainers of \
+                rmf_site_editor.",
+                model_instance.name.0,
+            );
+        }
+
+        // Insert optional model properties
+        for optional_property in &model_instance.optional_properties.0 {
+            match optional_property {
+                OptionalModelProperty::Tasks(tasks) => {
+                    commands.entity(model_instance_entity).insert(tasks.clone())
+                }
+                _ => continue,
+            };
+        }
+    }
+
+    for (model_description_entity, dependents) in model_description_dependents {
+        commands
+            .entity(model_description_entity)
+            .insert(Dependents(dependents));
+    }
+
+    for (scenario_id, scenario_bundle_data) in &site_data.scenarios {
+        let parent = match scenario_bundle_data.scenario.parent_scenario.0 {
+            Some(parent_id) => *id_to_entity.get(&parent_id).unwrap_or(&site_id),
+            None => site_id,
+        };
+        let scenario_bundle = scenario_bundle_data
+            .convert(&id_to_entity)
+            .for_site(site_id)?;
+        let scenario_entity = commands
+            .spawn(scenario_bundle.clone())
+            .insert(SiteID(*scenario_id))
+            .set_parent(parent)
+            .id();
+        id_to_entity.insert(*scenario_id, scenario_entity);
+        consider_id(*scenario_id);
+    }
+
     let nav_graph_rankings = match RecencyRanking::<NavGraphMarker>::from_u32(
         &site_data.navigation.guided.ranking,
         &id_to_entity,
@@ -375,11 +471,12 @@ fn generate_site_entities(
 
 pub fn load_site(
     mut commands: Commands,
+    mut model_loader: ModelLoader,
     mut load_sites: EventReader<LoadSite>,
     mut change_current_site: EventWriter<ChangeCurrentSite>,
 ) {
     for cmd in load_sites.read() {
-        let site = match generate_site_entities(&mut commands, &cmd.site) {
+        let site = match generate_site_entities(&mut commands, &mut model_loader, &cmd.site) {
             Ok(site) => site,
             Err(err) => {
                 commands.entity(err.site).despawn_recursive();
@@ -396,7 +493,11 @@ pub fn load_site(
         }
 
         if cmd.focus {
-            change_current_site.send(ChangeCurrentSite { site, level: None });
+            change_current_site.send(ChangeCurrentSite {
+                site,
+                level: None,
+                scenario: None,
+            });
         }
     }
 }

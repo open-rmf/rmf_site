@@ -21,16 +21,12 @@ use crate::{
 };
 use bevy::prelude::*;
 use bevy_egui::egui::Ui;
-use rmf_site_format::{NameInSite, NameInWorkcell, NameOfWorkcell};
+use rmf_site_format::NameInSite;
 
 #[derive(SystemParam)]
 pub struct InspectName<'w, 's> {
     names_in_site: Query<'w, 's, &'static NameInSite>,
     change_name_in_site: EventWriter<'w, Change<NameInSite>>,
-    names_in_workcell: Query<'w, 's, &'static NameInWorkcell>,
-    change_name_in_workcell: EventWriter<'w, Change<NameInWorkcell>>,
-    names_of_workcells: Query<'w, 's, &'static NameOfWorkcell>,
-    change_name_of_workcell: EventWriter<'w, Change<NameOfWorkcell>>,
 }
 
 impl<'w, 's> ShareableWidget for InspectName<'w, 's> {}
@@ -52,32 +48,6 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectName<'w, 's> {
             if new_name != *name {
                 params
                     .change_name_in_site
-                    .send(Change::new(new_name, selection));
-            }
-        }
-
-        if let Ok(name) = params.names_in_workcell.get(selection) {
-            let mut new_name = name.clone();
-            ui.horizontal(|ui| {
-                ui.label("Name");
-                ui.text_edit_singleline(&mut new_name.0);
-            });
-            if new_name != *name {
-                params
-                    .change_name_in_workcell
-                    .send(Change::new(new_name, selection));
-            }
-        }
-
-        if let Ok(name) = params.names_of_workcells.get(selection) {
-            let mut new_name = name.clone();
-            ui.horizontal(|ui| {
-                ui.label("Name of workcell");
-                ui.text_edit_singleline(&mut new_name.0);
-            });
-            if new_name != *name {
-                params
-                    .change_name_of_workcell
                     .send(Change::new(new_name, selection));
             }
         }

@@ -16,11 +16,10 @@
 */
 
 use crate::site::{
-    update_anchor_transforms, CollisionMeshMarker, ConstraintMarker, DoorMarker, FiducialMarker,
-    FloorMarker, LaneMarker, LiftCabin, LiftCabinDoorMarker, LocationTags, MeasurementMarker,
-    SiteUpdateSet, VisualMeshMarker, WallMarker,
+    update_anchor_transforms, CollisionMeshMarker, CurrentEditDrawing, CurrentLevel, DoorMarker,
+    FiducialMarker, FloorMarker, LaneMarker, LiftCabin, LiftCabinDoorMarker, LocationTags,
+    MeasurementMarker, SiteUpdateSet, ToggleLiftDoorAvailability, VisualMeshMarker, WallMarker,
 };
-use crate::workcell::WorkcellVisualizationMarker;
 
 pub mod anchor;
 pub use anchor::*;
@@ -54,6 +53,9 @@ pub use lift::*;
 
 pub mod light;
 pub use light::*;
+
+pub mod model;
+pub use model::*;
 
 pub mod model_preview;
 pub use model_preview::*;
@@ -151,11 +153,14 @@ impl Plugin for InteractionPlugin {
             .init_resource::<Picked>()
             .init_resource::<PickingBlockers>()
             .init_resource::<GizmoState>()
+            .init_resource::<CurrentEditDrawing>()
+            .init_resource::<CurrentLevel>()
             .insert_resource(HighlightAnchors(false))
             .add_event::<ChangePick>()
             .add_event::<MoveTo>()
             .add_event::<GizmoClicked>()
             .add_event::<SpawnPreview>()
+            .add_event::<ToggleLiftDoorAvailability>()
             .add_plugins((
                 OutlinePlugin,
                 CategoryVisibilityPlugin::<DoorMarker>::visible(true),
@@ -165,12 +170,10 @@ impl Plugin for InteractionPlugin {
                 CategoryVisibilityPlugin::<LiftCabinDoorMarker>::visible(true),
                 CategoryVisibilityPlugin::<LocationTags>::visible(true),
                 CategoryVisibilityPlugin::<FiducialMarker>::visible(true),
-                CategoryVisibilityPlugin::<ConstraintMarker>::visible(true),
                 CategoryVisibilityPlugin::<VisualMeshMarker>::visible(true),
                 CategoryVisibilityPlugin::<CollisionMeshMarker>::visible(false),
                 CategoryVisibilityPlugin::<MeasurementMarker>::visible(true),
                 CategoryVisibilityPlugin::<WallMarker>::visible(true),
-                CategoryVisibilityPlugin::<WorkcellVisualizationMarker>::visible(true),
             ))
             .add_plugins((CameraControlsPlugin, ModelPreviewPlugin));
 
@@ -197,6 +200,7 @@ impl Plugin for InteractionPlugin {
                 .add_systems(
                     Update,
                     (
+                        update_model_instance_visual_cues.after(SelectionServiceStages::Select),
                         update_lane_visual_cues.after(SelectionServiceStages::Select),
                         update_edge_visual_cues.after(SelectionServiceStages::Select),
                         update_point_visual_cues.after(SelectionServiceStages::Select),
