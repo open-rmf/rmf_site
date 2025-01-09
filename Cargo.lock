@@ -765,11 +765,9 @@ dependencies = [
 [[package]]
 name = "bevy_impulse"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51233836b91a5460ea24b9647661229cd87cce03e916ee52fa24e9e232623d18"
+source = "git+https://github.com/open-rmf/bevy_impulse?branch=luca%2Fmain_to_0.1#d0bae1533b2871d873d08d3521b78f698416ae68"
 dependencies = [
  "anyhow",
- "arrayvec",
  "async-task",
  "backtrace",
  "bevy_app",
@@ -790,9 +788,8 @@ dependencies = [
 
 [[package]]
 name = "bevy_impulse_derive"
-version = "0.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8bc0cd7c08a0188545e1126d07f83efcd23d7ab55f5df1ba0fb93e850838c3d2"
+version = "0.0.2"
+source = "git+https://github.com/open-rmf/bevy_impulse?branch=luca%2Fmain_to_0.1#d0bae1533b2871d873d08d3521b78f698416ae68"
 dependencies = [
  "quote",
  "syn 2.0.52",
