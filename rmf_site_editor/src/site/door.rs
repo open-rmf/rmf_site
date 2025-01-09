@@ -25,8 +25,8 @@ use bevy::{
     prelude::*,
     render::mesh::{Indices, PrimitiveTopology},
     render::render_asset::RenderAssetUsages,
-    utils::Uuid,
 };
+use uuid::Uuid;
 use rmf_site_format::{Category, DoorType, Edge, DEFAULT_LEVEL_HEIGHT};
 use std::collections::{BTreeSet, HashMap};
 

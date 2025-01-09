@@ -45,7 +45,7 @@ impl Plugin for InspectTaskPlugin {
                 ),
             )
             .init_resource::<ModelPropertyData>()
-            .world
+            .world_mut()
             .resource_mut::<ModelPropertyData>()
             .optional
             .insert(

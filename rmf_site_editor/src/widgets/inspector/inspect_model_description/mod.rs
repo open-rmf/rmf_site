@@ -47,11 +47,11 @@ pub struct InspectModelDescriptionPlugin {}
 
 impl Plugin for InspectModelDescriptionPlugin {
     fn build(&self, app: &mut App) {
-        let main_inspector = app.world.resource::<MainInspector>().id;
-        let widget = Widget::new::<InspectModelDescription>(&mut app.world);
-        let id = app.world.spawn(widget).set_parent(main_inspector).id();
-        app.world.insert_resource(ModelDescriptionInspector { id });
-        app.world.init_resource::<ModelPropertyData>();
+        let main_inspector = app.world().resource::<MainInspector>().id;
+        let widget = Widget::new::<InspectModelDescription>(app.world_mut());
+        let id = app.world_mut().spawn(widget).set_parent(main_inspector).id();
+        app.world_mut().insert_resource(ModelDescriptionInspector { id });
+        app.world_mut().init_resource::<ModelPropertyData>();
     }
 }
 
@@ -155,7 +155,7 @@ where
     fn build(&self, app: &mut App) {
         let type_id = TypeId::of::<ModelProperty<T>>();
         if !app
-            .world
+            .world()
             .resource::<ModelPropertyData>()
             .required
             .contains_key(&type_id)
@@ -164,7 +164,7 @@ where
             app.add_plugins(ChangePlugin::<ModelProperty<T>>::default());
             app.add_systems(PreUpdate, update_model_instances::<T>);
 
-            app.world
+            app.world_mut()
                 .resource_mut::<ModelPropertyData>()
                 .optional
                 .insert(
@@ -177,9 +177,9 @@ where
                 );
         }
 
-        let inspector = app.world.resource::<ModelDescriptionInspector>().id;
-        let widget = Widget::<Inspect>::new::<W>(&mut app.world);
-        app.world.spawn(widget).set_parent(inspector);
+        let inspector = app.world().resource::<ModelDescriptionInspector>().id;
+        let widget = Widget::<Inspect>::new::<W>(app.world_mut());
+        app.world_mut().spawn(widget).set_parent(inspector);
     }
 }
 

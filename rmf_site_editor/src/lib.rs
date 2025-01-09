@@ -213,11 +213,6 @@ impl Plugin for SiteEditor {
                 .add_plugins((site::ViewMenuPlugin, OSMViewPlugin, SiteWireframePlugin));
         }
 
-        // Ref https://github.com/bevyengine/bevy/issues/10877. The default behavior causes issues
-        // with events being accumulated when not read (i.e. scrolling mouse wheel on a UI widget).
-        app.world
-            .remove_resource::<bevy::ecs::event::EventUpdateSignal>();
-
         if let Some(path) = &self.headless_export {
             // We really don't need a high update rate here since we are IO bound, set a low rate
             // to save CPU.

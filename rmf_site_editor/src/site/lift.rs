@@ -21,8 +21,9 @@ use crate::{
 use bevy::{
     prelude::*,
     render::primitives::Aabb,
-    utils::{HashMap, Uuid},
+    utils::HashMap,
 };
+use uuid::Uuid;
 use rmf_site_format::{Edge, LiftCabin};
 use std::collections::BTreeSet;
 

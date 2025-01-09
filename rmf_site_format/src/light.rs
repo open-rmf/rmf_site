@@ -192,7 +192,7 @@ pub struct PointLight {
 impl PointLight {
     pub fn to_bevy(&self) -> BevyPointLight {
         BevyPointLight {
-            color: Color::rgb_from_array(self.color),
+            color: Color::srgb_from_array(self.color),
             intensity: self.intensity,
             range: self.range,
             radius: self.radius,
@@ -232,7 +232,7 @@ pub struct SpotLight {
 impl SpotLight {
     pub fn to_bevy(&self) -> BevySpotLight {
         BevySpotLight {
-            color: Color::rgb_from_array(self.color),
+            color: Color::srgb_from_array(self.color),
             intensity: self.intensity,
             range: self.range,
             radius: self.radius,
@@ -268,7 +268,7 @@ pub struct DirectionalLight {
 impl DirectionalLight {
     pub fn to_bevy(&self) -> BevyDirectionalLight {
         BevyDirectionalLight {
-            color: Color::rgb_from_array(self.color),
+            color: Color::srgb_from_array(self.color),
             illuminance: self.illuminance,
             shadows_enabled: self.enable_shadows,
             ..Default::default()

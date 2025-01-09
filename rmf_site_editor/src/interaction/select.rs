@@ -106,15 +106,15 @@ impl Plugin for SelectionPlugin {
             ObjectPlacementPlugin::default(),
         ));
 
-        let inspector_service = app.world.resource::<InspectorService>().inspector_service;
+        let inspector_service = app.world().resource::<InspectorService>().inspector_service;
         let new_selector_service = app.spawn_event_streaming_service::<RunSelector>(Update);
-        let selection_workflow = app.world.spawn_io_workflow(build_selection_workflow(
+        let selection_workflow = app.world_mut().spawn_io_workflow(build_selection_workflow(
             inspector_service,
             new_selector_service,
         ));
 
         // Get the selection workflow running
-        app.world.command(|commands| {
+        app.world_mut().command(|commands| {
             commands.request((), selection_workflow).detach();
         });
     }
@@ -445,7 +445,7 @@ impl SpawnSelectionServiceExt for App {
                 .configure(|config: SystemConfigs| config.in_set(SelectionServiceStages::Select)),
         );
 
-        self.world
+        self.world_mut()
             .spawn_workflow::<_, _, (Hover, Select), _>(|scope, builder| {
                 let hover = builder.create_node(hover_service);
                 builder.connect(hover.streams, scope.streams.0);
@@ -518,11 +518,11 @@ impl Plugin for InspectorServicePlugin {
         );
         let selection_update = app.spawn_service(selection_update);
         let keyboard_just_pressed = app
-            .world
+            .world()
             .resource::<KeyboardServices>()
             .keyboard_just_pressed;
 
-        let inspector_service = app.world.spawn_workflow(|scope, builder| {
+        let inspector_service = app.world_mut().spawn_workflow(|scope, builder| {
             let fork_input = scope.input.fork_clone(builder);
             fork_input
                 .clone_chain(builder)
@@ -548,7 +548,7 @@ impl Plugin for InspectorServicePlugin {
             builder.connect(selection.output, scope.terminate);
         });
 
-        app.world.insert_resource(InspectorService {
+        app.world_mut().insert_resource(InspectorService {
             inspector_service,
             inspector_select_service,
             inspector_cursor_transform,

@@ -68,11 +68,11 @@ impl AnchorSelectionHelpers {
                 .configure(|config: SystemConfigs| config.in_set(SelectionServiceStages::Pick)),
         );
         let cleanup_anchor_selection = app
-            .world
+            .world_mut()
             .spawn_service(cleanup_anchor_selection.into_blocking_service());
 
         let keyboard_just_pressed = app
-            .world
+            .world()
             .resource::<KeyboardServices>()
             .keyboard_just_pressed;
 

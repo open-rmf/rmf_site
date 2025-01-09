@@ -27,8 +27,8 @@ pub struct MenuBarPlugin {}
 
 impl Plugin for MenuBarPlugin {
     fn build(&self, app: &mut App) {
-        let widget = PanelWidget::new(top_menu_bar, &mut app.world);
-        app.world.spawn(widget);
+        let widget = PanelWidget::new(top_menu_bar, app.world_mut());
+        app.world_mut().spawn(widget);
 
         app.add_event::<MenuEvent>()
             .init_resource::<FileMenu>()

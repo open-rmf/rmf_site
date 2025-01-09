@@ -36,28 +36,28 @@ use keyboard::{update_keyboard_command, KeyboardCommand};
 /// RenderLayers are used to inform cameras which entities they should render.
 /// The General render layer is for things that should be visible to all
 /// cameras.
-pub const GENERAL_RENDER_LAYER: u8 = 0;
+pub const GENERAL_RENDER_LAYER: usize = 0;
 /// The Physical render layer is for things that should be visible to any camera
 /// that needs to capture the physical world (e.g. the physical camera sensor
 /// simulator) but should not be rendered by the user's view. This allows us to
 /// toggle off complex PBR lights for the user's view (which can severely slow
 /// down performance) while keeping them for camera sensors.
-pub const PHYSICAL_RENDER_LAYER: u8 = 1;
+pub const PHYSICAL_RENDER_LAYER: usize = 1;
 /// The Visual Cue layer is for things that should be shown to the user but
 /// should never appear in a physical camera.
-pub const VISUAL_CUE_RENDER_LAYER: u8 = 2;
+pub const VISUAL_CUE_RENDER_LAYER: usize = 2;
 /// The Selected Outline layer is where the outline of the currently selected
 /// entity is shown.
-pub const SELECTED_OUTLINE_LAYER: u8 = 3;
+pub const SELECTED_OUTLINE_LAYER: usize = 3;
 /// The Hovered Outline layer is where the outline of the currently hovered
 /// entity is shown.
-pub const HOVERED_OUTLINE_LAYER: u8 = 4;
+pub const HOVERED_OUTLINE_LAYER: usize = 4;
 /// The X-Ray layer is used to show visual cues that need to be rendered
 /// above anything that would be obstructing them.
-pub const XRAY_RENDER_LAYER: u8 = 5;
+pub const XRAY_RENDER_LAYER: usize = 5;
 /// The Model Preview layer is used by model previews to spawn and render
 /// models in the engine without having them being visible to general cameras
-pub const MODEL_PREVIEW_LAYER: u8 = 6;
+pub const MODEL_PREVIEW_LAYER: usize = 6;
 
 // Creates all the layers visible in the main camera view (excluding, for example
 // the model preview which is on a separate view). The main lights will affect these.

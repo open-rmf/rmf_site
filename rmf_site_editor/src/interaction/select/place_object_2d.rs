@@ -32,11 +32,11 @@ pub fn spawn_place_object_2d_workflow(app: &mut App) -> Service<Option<Entity>, 
     let cleanup = app.spawn_service(place_object_2d_cleanup.into_blocking_service());
 
     let keyboard_just_pressed = app
-        .world
+        .world()
         .resource::<KeyboardServices>()
         .keyboard_just_pressed;
 
-    app.world.spawn_io_workflow(build_place_object_2d_workflow(
+    app.world_mut().spawn_io_workflow(build_place_object_2d_workflow(
         setup,
         find_position,
         placement_chosen,

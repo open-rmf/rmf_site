@@ -18,8 +18,9 @@
 use crate::site::ChangePlugin;
 use bevy::{
     prelude::*,
-    utils::{HashMap, Uuid},
+    utils::HashMap,
 };
+use uuid::Uuid;
 use rmf_site_format::{FilteredIssueKinds, FilteredIssues, IssueKey};
 
 #[derive(Component, Debug, Clone)]
@@ -38,7 +39,7 @@ pub trait RegisterIssueType {
 impl RegisterIssueType for App {
     fn add_issue_type(&mut self, type_uuid: &Uuid, name: &str) -> &mut Self {
         let mut issue_dictionary = self
-            .world
+            .world_mut()
             .get_resource_or_insert_with::<IssueDictionary>(Default::default);
         issue_dictionary.insert(type_uuid.clone(), name.into());
         self

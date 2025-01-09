@@ -18,7 +18,8 @@
 use crate::interaction::VisualCue;
 use crate::site::*;
 use crate::{Issue, ValidateWorkspace};
-use bevy::{prelude::*, utils::Uuid};
+use bevy::prelude::*;
+use uuid::Uuid;
 use std::collections::HashMap;
 
 #[derive(Component)]

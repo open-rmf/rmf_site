@@ -1,6 +1,6 @@
 use bevy::asset::io::AssetSource as BevyAssetSource;
 use bevy::{
-    asset::io::{AssetReader, AssetReaderError, AssetSourceBuilder, PathStream, Reader, VecReader},
+    asset::io::{AssetReader, AssetReaderError, AssetSourceBuilder, ErasedAssetReader, PathStream, Reader, VecReader},
     prelude::*,
     utils::BoxedFuture,
 };
@@ -166,7 +166,7 @@ pub struct SiteAssetReader<F>
 where
     F: Fn(&Path) -> BoxedFuture<'_, Result<Box<Reader<'_>>, AssetReaderError>> + Sync + 'static,
 {
-    pub default_reader: Box<dyn AssetReader>,
+    pub default_reader: Box<dyn ErasedAssetReader>,
     pub reader: F,
 }
 

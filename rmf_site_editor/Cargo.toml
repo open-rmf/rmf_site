@@ -16,19 +16,19 @@ name = "extending_site_editor"
 path = "examples/extending_menu.rs"
 
 [dependencies]
-bevy_mod_raycast = "0.17"
-bevy_mod_outline = "0.7"
-bevy_infinite_grid = "0.12"
-bevy_gltf_export = { git = "https://github.com/luca-della-vedova/bevy_gltf_export", branch = "bevy_0.13"}
-bevy_polyline = { git = "https://github.com/luca-della-vedova/bevy_polyline", branch = "luca/bevy_0.13_panic" }
-bevy_stl = "0.13"
-bevy_obj = { version = "0.13", features = ["scene"] }
+bevy_mod_raycast = "0.18"
+bevy_mod_outline = "0.8"
+bevy_infinite_grid = "0.13"
+bevy_gltf_export = { git = "https://github.com/luca-della-vedova/bevy_gltf_export", branch = "bevy_0.14"}
+bevy_polyline = "0.10"
+bevy_stl = "0.14"
+bevy_obj = { version = "0.14", features = ["scene"] }
 smallvec = "*"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.8.23"
 serde_json = "1.0"
 futures-lite = "1.12.0"
-bevy = { version = "0.13", features = ["pnm", "jpeg", "tga"] }
+bevy = { version = "0.14.2", features = ["pnm", "jpeg", "tga"] }
 dirs = "5.0"
 thread_local = "*"
 geo = "0.27"
@@ -41,6 +41,7 @@ tracing = "0.1.37"
 tracing-subscriber = "0.3.1"
 rfd = "0.12"
 urdf-rs = "0.7"
+uuid = { version = "1.1", features = ["v4", "serde"] }
 yaserde = "0.7"
 utm = "0.1.6"
 sdformat_rs = { git = "https://github.com/open-rmf/sdf_rust_experimental", rev = "9fc35f2"}
@@ -53,12 +54,12 @@ strum = "*"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 clap = { version = "4.0.10", features = ["color", "derive", "help", "usage", "suggestions"] }
-bevy_egui = "0.27"
-# bevy_impulse = "0.1"
-bevy_impulse = { git = "https://github.com/open-rmf/bevy_impulse", branch = "luca/main_to_0.1"}
+bevy_egui = "0.28"
+# bevy_impulse = "0.2"
+bevy_impulse = { git = "https://github.com/luca-della-vedova/bevy_impulse", branch = "luca/0.1_to_0.2"}
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-# bevy_impulse = { version = "0.1", features = ["single_threaded_async"]}
-bevy_impulse = { git = "https://github.com/open-rmf/bevy_impulse", branch = "luca/main_to_0.1", features = ["single_threaded_async"]}
 # Disable the manage_clipboard feature, depends on nightly web features
-bevy_egui = { version = "0.27", default-features = false, features = ["open_url", "default_fonts", "render"] }
+bevy_egui = { version = "0.28", default-features = false, features = ["open_url", "default_fonts", "render"] }
+# bevy_impulse = { version = "0.2", features = ["single_threaded_async"]}
+bevy_impulse = { git = "https://github.com/luca-della-vedova/bevy_impulse", branch = "luca/0.1_to_0.2", features = ["single_threaded_async"]}

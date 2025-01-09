@@ -27,7 +27,6 @@ use bevy::{
     prelude::*,
     render::view::RenderLayers,
     scene::SceneInstance,
-    utils::Uuid,
 };
 use bevy_impulse::*;
 use bevy_mod_outline::OutlineMeshExt;
@@ -38,6 +37,7 @@ use rmf_site_format::{
 use smallvec::SmallVec;
 use std::{any::TypeId, collections::HashSet, fmt, future::Future};
 use thiserror::Error;
+use uuid::Uuid;
 
 /// Denotes the properties of the current spawned scene for the model, to despawn when updating AssetSource
 /// and avoid spurious reloading if the new `AssetSource` is equal to the old one
@@ -149,7 +149,7 @@ pub fn spawn_scene_for_loaded_model(
         // Note we can't do an `if let Some()` because get(Handle) panics if the type is
         // not the stored type
         let gltfs = world.resource::<Assets<Gltf>>();
-        let gltf = gltfs.get(h.typed::<Gltf>())?;
+        let gltf = gltfs.get(h.typed::<Gltf>().id())?;
         // Get default scene if present, otherwise index 0
         let scene = gltf
             .default_scene
@@ -494,11 +494,11 @@ impl ModelLoadingServices {
             }),
         );
         let skip_if_unchanged = cleanup_if_asset_source_changed.into_blocking_callback();
-        let load_model_dependencies = app.world.spawn_service(load_model_dependencies);
-        let model_loading_service = app.world.spawn_service(handle_model_loading);
+        let load_model_dependencies = app.world_mut().spawn_service(load_model_dependencies);
+        let model_loading_service = app.world_mut().spawn_service(handle_model_loading);
         // This workflow tries to load the model without doing any error handling
         let try_load_model: Service<ModelLoadingRequest, ModelLoadingResult, ()> =
-            app.world.spawn_workflow(|scope, builder| {
+            app.world_mut().spawn_workflow(|scope, builder| {
                 scope
                     .input
                     .chain(builder)
@@ -523,7 +523,7 @@ impl ModelLoadingServices {
 
         // Complete model loading with error handling, by having it as a separate
         // workflow we can easily capture all the early returns on error
-        let load_model = app.world.spawn_workflow(|scope, builder| {
+        let load_model = app.world_mut().spawn_workflow(|scope, builder| {
             scope
                 .input
                 .chain(builder)
@@ -533,7 +533,7 @@ impl ModelLoadingServices {
         });
 
         // Model instance spawning workflow
-        let spawn_instance = app.world.spawn_workflow(|scope, builder| {
+        let spawn_instance = app.world_mut().spawn_workflow(|scope, builder| {
             scope
                 .input
                 .chain(builder)
