@@ -1,6 +1,6 @@
 use crate::{
     Affiliation, Angle, AssetSource, InstanceMarker, IsStatic, ModelDescriptionBundle,
-    ModelInstance, ModelMarker, ModelProperty, NameInSite, Pose, Rotation, Scale, SiteParent,
+    ModelInstance, ModelMarker, ModelProperty, NameInSite, Parented, Pose, Rotation, Scale,
 };
 use glam::DVec2;
 use serde::{Deserialize, Serialize};
@@ -33,7 +33,7 @@ impl Model {
         &self,
         model_description_name_map: &mut HashMap<String, u32>,
         model_descriptions: &mut BTreeMap<u32, ModelDescriptionBundle>,
-        model_instances: &mut BTreeMap<u32, ModelInstance<u32>>,
+        model_instances: &mut BTreeMap<u32, Parented<u32, ModelInstance<u32>>>,
         site_id: &mut RangeFrom<u32>,
         level_id: u32,
     ) -> (u32, Pose) {
@@ -64,13 +64,18 @@ impl Model {
         let model_instance = ModelInstance {
             name: NameInSite(self.instance_name.clone()),
             pose: pose.clone(),
-            parent: SiteParent(Some(level_id)),
             description: Affiliation(Some(model_description_id)),
             marker: ModelMarker,
             instance_marker: InstanceMarker,
             ..Default::default()
         };
-        model_instances.insert(model_instance_id, model_instance);
+        model_instances.insert(
+            model_instance_id,
+            Parented {
+                parent: level_id,
+                bundle: model_instance,
+            },
+        );
         (model_instance_id, pose)
     }
 }

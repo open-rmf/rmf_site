@@ -374,16 +374,20 @@ fn generate_site_entities(
         }
     }
 
-    for (model_instance_id, model_instance_data) in &site_data.model_instances {
-        let model_instance = model_instance_data
+    for (model_instance_id, parented_model_instance) in &site_data.model_instances {
+        let model_instance = parented_model_instance
+            .bundle
             .convert(&id_to_entity)
             .for_site(site_id)?;
 
+        // The parent id is invalid, we do not spawn this model instance and generate
+        // an error instead
+        let parent = id_to_entity
+            .get(&parented_model_instance.parent)
+            .ok_or_else(|| LoadSiteError::new(site_id, parented_model_instance.parent))?;
+
         let model_instance_entity = model_loader
-            .spawn_model_instance(
-                model_instance.parent.0.unwrap_or(site_id),
-                model_instance.clone(),
-            )
+            .spawn_model_instance(*parent, model_instance.clone())
             .insert((Category::Model, SiteID(*model_instance_id)))
             .id();
         id_to_entity.insert(*model_instance_id, model_instance_entity);

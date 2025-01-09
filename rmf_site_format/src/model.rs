@@ -133,7 +133,6 @@ impl Default for ModelDescriptionBundle {
 pub struct ModelInstance<T: RefTrait> {
     pub name: NameInSite,
     pub pose: Pose,
-    pub parent: SiteParent<T>,
     pub description: Affiliation<T>,
     #[serde(skip)]
     pub marker: ModelMarker,
@@ -147,7 +146,6 @@ impl<T: RefTrait> Default for ModelInstance<T> {
         Self {
             name: NameInSite("<Unnamed>".to_string()),
             pose: Pose::default(),
-            parent: SiteParent::default(),
             description: Affiliation::default(),
             marker: ModelMarker,
             instance_marker: InstanceMarker,
@@ -161,7 +159,6 @@ impl<T: RefTrait> ModelInstance<T> {
         Ok(ModelInstance {
             name: self.name.clone(),
             pose: self.pose.clone(),
-            parent: self.parent.convert(id_map)?,
             description: self.description.convert(id_map)?,
             optional_properties: self.optional_properties.clone(),
             ..Default::default()
