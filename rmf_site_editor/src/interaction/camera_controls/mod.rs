@@ -16,6 +16,7 @@
 */
 use crate::interaction::{InteractionAssets, PickingBlockers};
 use bevy::{
+    color::palettes::css as Colors,
     core_pipeline::{core_3d::Camera3dBundle, tonemapping::Tonemapping},
     prelude::*,
     render::{
@@ -553,7 +554,7 @@ fn update_orbit_center_marker(
                 *marker_visibility = Visibility::Visible;
                 *marker_material = interaction_assets.camera_control_orbit_material.clone();
                 marker_transform.translation = orbit_center;
-                gizmo.sphere(orbit_center, Quat::IDENTITY, 0.1, Color::GREEN);
+                gizmo.sphere(orbit_center, Quat::IDENTITY, 0.1, Colors::LIME);
             }
         // Panning
         } else if cursor_command.command_type == CameraCommandType::Pan {
@@ -561,7 +562,7 @@ fn update_orbit_center_marker(
                 *marker_visibility = Visibility::Visible;
                 *marker_material = interaction_assets.camera_control_pan_material.clone();
                 marker_transform.translation = cursor_selection;
-                gizmo.sphere(cursor_selection, Quat::IDENTITY, 0.1, Color::WHITE);
+                gizmo.sphere(cursor_selection, Quat::IDENTITY, 0.1, Colors::WHITE);
             }
         } else {
             *marker_visibility = Visibility::Hidden;

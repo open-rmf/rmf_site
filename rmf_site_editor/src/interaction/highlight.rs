@@ -78,7 +78,7 @@ pub fn update_highlight_visualization(
             } else {
                 Color::WHITE
             };
-            color.set_a(material.base_color.a());
+            color.set_alpha(material.base_color.alpha());
 
             material.base_color = color;
         }

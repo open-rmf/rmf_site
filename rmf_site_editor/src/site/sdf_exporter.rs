@@ -70,7 +70,7 @@ pub fn headless_sdf_export(
             "No site is loaded so we cannot export an SDF file into [{}]",
             export_state.target_path,
         );
-        exit.send(bevy::app::AppExit);
+        exit.send(bevy::app::AppExit::Error(1.try_into().unwrap()));
     }
     if !missing_models.is_empty() {
         // Despawn all drawings, otherwise floors will become transparent.
@@ -89,7 +89,7 @@ pub fn headless_sdf_export(
                 export_state.save_requested = true;
                 export_state.iterations = 0;
             } else if export_state.save_requested && export_state.iterations > 5 {
-                exit.send(bevy::app::AppExit);
+                exit.send(bevy::app::AppExit::Success);
             }
         }
     }

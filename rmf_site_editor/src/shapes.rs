@@ -1293,7 +1293,7 @@ pub(crate) fn make_finite_grid(
                 };
                 let material = PolylineMaterial {
                     width,
-                    color,
+                    color: color.into(),
                     depth_bias,
                     perspective,
                 };
@@ -1325,7 +1325,7 @@ pub(crate) fn make_finite_grid(
         let width = *weights.get(&n).unwrap();
         let material = PolylineMaterial {
             width,
-            color,
+            color: color.into(),
             depth_bias,
             perspective,
         };

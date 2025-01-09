@@ -17,6 +17,7 @@
 
 use crate::{interaction::*, shapes::*};
 use bevy::{math::Affine3A, prelude::*};
+use bevy::color::palettes::css as Colors;
 use bevy_polyline::{
     material::PolylineMaterial,
     polyline::{Polyline, PolylineBundle},
@@ -294,7 +295,7 @@ impl FromWorld for InteractionAssets {
             .get_resource_mut::<Assets<StandardMaterial>>()
             .unwrap();
         let halo_material = materials.add(StandardMaterial {
-            base_color: Color::WHITE,
+            base_color: Colors::WHITE.into(),
             alpha_mode: AlphaMode::Blend,
             unlit: true,
             perceptual_roughness: 0.089,
@@ -302,22 +303,22 @@ impl FromWorld for InteractionAssets {
             ..default()
         });
         let dagger_material = materials.add(StandardMaterial {
-            base_color: Color::WHITE,
-            emissive: Color::WHITE,
+            base_color: Colors::WHITE.into(),
+            emissive: Colors::WHITE.into(),
             perceptual_roughness: 0.089,
             metallic: 0.01,
             ..default()
         });
         let camera_control_orbit_material = materials.add(StandardMaterial {
-            base_color: Color::GREEN,
-            emissive: Color::GREEN,
+            base_color: Colors::LIME.into(),
+            emissive: Colors::LIME.into(),
             depth_bias: f32::MAX,
             unlit: true,
             ..default()
         });
         let camera_control_pan_material = materials.add(StandardMaterial {
-            base_color: Color::WHITE,
-            emissive: Color::WHITE,
+            base_color: Colors::WHITE.into(),
+            emissive: Colors::WHITE.into(),
             unlit: true,
             ..default()
         });
@@ -394,7 +395,7 @@ impl FromWorld for InteractionAssets {
 
         let centimeter_finite_grid = {
             let (polylines, polyline_mats): (Vec<_>, Vec<_>) =
-                make_metric_finite_grid(0.01, 100, Color::WHITE)
+                make_metric_finite_grid(0.01, 100, Colors::WHITE.into())
                     .into_iter()
                     .unzip();
             let mut polyline_assets = world.get_resource_mut::<Assets<Polyline>>().unwrap();

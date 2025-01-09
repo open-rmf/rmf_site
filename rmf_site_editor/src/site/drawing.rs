@@ -164,7 +164,7 @@ pub fn handle_loaded_drawing(
                 let (alpha, alpha_mode) = drawing_alpha(vis, rank, default);
                 let material = materials.add(StandardMaterial {
                     base_color_texture: Some(handle.0.clone()),
-                    base_color: *Color::default().set_a(alpha),
+                    base_color: Color::default().with_alpha(alpha),
                     alpha_mode,
                     perceptual_roughness: 0.089,
                     metallic: 0.01,
@@ -205,8 +205,8 @@ pub fn handle_loaded_drawing(
                     .insert(material)
                     .remove::<LoadingDrawing>();
             }
-            LoadState::Failed => {
-                error!("Failed loading drawing {:?}", source);
+            LoadState::Failed(e) => {
+                error!("Failed loading drawing [{:?}], reason: [{:}]", source, e);
                 commands.entity(entity).remove::<LoadingDrawing>();
             }
             _ => {}
@@ -331,7 +331,7 @@ fn iter_update_drawing_visibility<'a>(
                     .map(|p| default_drawing_vis.get(p.get()).ok())
                     .flatten();
                 let (alpha, alpha_mode) = drawing_alpha(vis, rank, default);
-                mat.base_color = *mat.base_color.set_a(alpha);
+                mat.base_color.set_alpha(alpha);
                 mat.alpha_mode = alpha_mode;
             }
         }

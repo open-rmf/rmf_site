@@ -20,7 +20,7 @@ use crate::{
     site::{Affiliation, Change, DifferentialDrive, Group, ModelMarker, ModelProperty, Pose},
     widgets::{prelude::*, Inspect},
 };
-use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy::{color::palettes::css as Colors, ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{DragValue, Grid};
 
 #[derive(SystemParam)]
@@ -98,7 +98,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelDifferentialDrive<'w, 's> {
                                 Vec3::new(pose.trans[0], pose.trans[1], pose.trans[2] + 0.01),
                                 Dir3::Z,
                                 new_differential_drive.collision_radius,
-                                Color::RED,
+                                Colors::RED,
                             );
                         }
                     };
