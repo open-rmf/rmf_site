@@ -24,6 +24,33 @@ use serde::{Deserialize, Serialize};
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct RobotMarker;
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+// #[cfg_attr(feature = "bevy", reflect(Component))]
+pub struct Mobility {
+    pub kind: String,
+    pub config: serde_json::Value,
+}
+
+impl Default for Mobility {
+    fn default() -> Self {
+        Self {
+            kind: "".to_string(),
+            config: serde_json::Value::Null,
+        }
+    }
+}
+
+impl Mobility {
+    pub fn is_mobile(&self) -> bool {
+        if *self == Mobility::default() {
+            false
+        } else {
+            true
+        }
+    }
+}
+
 // Mobile Robots
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
@@ -44,5 +71,11 @@ impl Default for DifferentialDrive {
             collision_radius: 0.5,
             rotation_center_offset: [0.0, 0.0],
         }
+    }
+}
+
+impl DifferentialDrive {
+    pub fn label() -> String {
+        "Differential Drive".to_string()
     }
 }

@@ -66,10 +66,6 @@ pub struct ModelProperty<T: Default + Clone>(pub T);
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum OptionalModelProperty {
-    Mobility {
-        kind: String,
-        config: serde_json::Value,
-    },
     Task {
         kind: String,
         config: serde_json::Value,
@@ -78,7 +74,7 @@ pub enum OptionalModelProperty {
 
 impl Default for OptionalModelProperty {
     fn default() -> Self {
-        OptionalModelProperty::Mobility {
+        OptionalModelProperty::Task {
             kind: "".to_string(),
             config: serde_json::Value::Null,
         }
@@ -110,7 +106,8 @@ pub struct ModelDescriptionBundle {
     pub group: Group,
     #[serde(skip)]
     pub marker: ModelMarker,
-    pub optional_properties: OptionalModelProperties,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub mobility: Mobility,
 }
 
 impl Default for ModelDescriptionBundle {
@@ -122,7 +119,7 @@ impl Default for ModelDescriptionBundle {
             scale: ModelProperty(Scale::default()),
             group: Group,
             marker: ModelMarker,
-            optional_properties: OptionalModelProperties::default(),
+            mobility: Mobility::default(),
         }
     }
 }

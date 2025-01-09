@@ -349,28 +349,19 @@ fn generate_site_entities(
         model_description_to_source
             .insert(model_description_entity, model_description.source.0.clone());
         // Insert optional model properties
-        for optional_property in &model_description.optional_properties.0 {
-            match optional_property {
-                OptionalModelProperty::Mobility { kind: _, config } => {
-                    // TODO(@xiyuoh) in the future if and when we have more model properties
-                    // for mobility, use match to deserialize different types
-                    let Ok(diff_drive) =
-                        serde_json::from_value::<DifferentialDrive>(config.clone())
-                    else {
-                        error!(
-                            "Failed to deserialize Differential Drive property for \
-                            model description [{}]",
-                            model_description.name.0
-                        );
-                        continue;
-                    };
+        if model_description.mobility.is_mobile() {
+            if model_description.mobility.kind == DifferentialDrive::label() {
+                if let Ok(diff_drive) = serde_json::from_value::<DifferentialDrive>(
+                    model_description.mobility.config.clone(),
+                ) {
                     commands
                         .entity(model_description_entity)
                         .insert(ModelProperty(diff_drive))
-                        .insert(ModelProperty(RobotMarker))
+                        .insert(ModelProperty(RobotMarker));
                 }
-                _ => continue,
-            };
+            } else {
+                continue;
+            }
         }
     }
 

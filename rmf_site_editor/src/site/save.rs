@@ -1230,13 +1230,10 @@ fn generate_model_descriptions(
                     ..Default::default()
                 };
                 if let Ok(diff_drive) = differential_drive.get(*child) {
-                    desc_bundle
-                        .optional_properties
-                        .0
-                        .push(OptionalModelProperty::Mobility {
-                            kind: "Differential Drive".to_string(),
-                            config: serde_json::to_value(diff_drive.0.clone()).unwrap(),
-                        });
+                    desc_bundle.mobility = Mobility {
+                        kind: DifferentialDrive::label(),
+                        config: serde_json::to_value(diff_drive.0.clone()).unwrap(),
+                    };
                 };
                 res.insert(site_id.0, desc_bundle);
             }
