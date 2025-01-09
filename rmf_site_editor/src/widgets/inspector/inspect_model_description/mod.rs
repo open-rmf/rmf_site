@@ -18,7 +18,7 @@
 use bevy::{
     ecs::{
         component::ComponentInfo,
-        query::{ReadOnlyWorldQuery, WorldQuery},
+        query::{QueryFilter, QueryData},
         system::{EntityCommands, SystemParam},
     },
     prelude::*,
@@ -408,7 +408,7 @@ impl<'w, 's> InspectSelectedModelDescription<'w, 's> {
 
 /// Helper function to get the corresponding description entity for a given model instance entity
 /// if it exists.
-fn get_selected_description_entity<'w, 's, S: ReadOnlyWorldQuery, T: WorldQuery>(
+fn get_selected_description_entity<'w, 's, S: QueryFilter, T: QueryData>(
     selection: Entity,
     model_instances: &Query<
         'w,

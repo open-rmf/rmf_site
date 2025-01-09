@@ -35,7 +35,7 @@ pub struct InspectModelDifferentialDrive<'w, 's> {
         Query<'w, 's, &'static ModelProperty<DifferentialDrive>, (With<ModelMarker>, With<Group>)>,
     change_differential_drive: EventWriter<'w, Change<ModelProperty<DifferentialDrive>>>,
     poses: Query<'w, 's, &'static Pose>,
-    gizmos: Gizmos<'s>,
+    gizmos: Gizmos<'w, 's>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectModelDifferentialDrive<'w, 's> {
@@ -96,7 +96,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelDifferentialDrive<'w, 's> {
                         if let Ok(pose) = params.poses.get(selection) {
                             params.gizmos.circle(
                                 Vec3::new(pose.trans[0], pose.trans[1], pose.trans[2] + 0.01),
-                                Vec3::Z,
+                                Direction3d::Z,
                                 new_differential_drive.collision_radius,
                                 Color::RED,
                             );

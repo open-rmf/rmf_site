@@ -117,7 +117,7 @@ fn handle_keyboard_input(
             }
         }
 
-        if keyboard_input.just_pressed(KeyCode::E) {
+        if keyboard_input.just_pressed(KeyCode::KeyE) {
             workspace_saver.export_sdf_to_dialog();
         }
 
