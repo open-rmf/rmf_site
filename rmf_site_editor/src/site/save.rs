@@ -1214,9 +1214,10 @@ fn generate_model_descriptions(
         >,
         Query<&Children>,
         // Optional model properties
-        Query<&ModelProperty<DifferentialDrive>>,
+        // TODO(@xiyuoh) store property data in optional_properties instead of querying on save
+        Query<&ModelProperty<Mobility>>,
     )> = SystemState::new(world);
-    let (model_descriptions, children, differential_drive) = state.get(world);
+    let (model_descriptions, children, mobility) = state.get(world);
 
     let mut res = BTreeMap::<u32, ModelDescriptionBundle>::new();
     if let Ok(children) = children.get(site) {
@@ -1229,12 +1230,15 @@ fn generate_model_descriptions(
                     scale: scale.clone(),
                     ..Default::default()
                 };
-                if let Ok(diff_drive) = differential_drive.get(*child) {
-                    desc_bundle.mobility = Mobility {
-                        kind: DifferentialDrive::label(),
-                        config: serde_json::to_value(diff_drive.0.clone()).unwrap(),
-                    };
-                };
+                let mut optional_properties = serde_json::Map::new();
+                if let Ok(mobility_property) = mobility.get(*child) {
+                    if let Ok(mobility_data) = serde_json::to_value(mobility_property.0.clone()) {
+                        optional_properties.insert("Mobility".to_string(), mobility_data.into());
+                    }
+                }
+                desc_bundle.optional_properties =
+                    OptionalModelProperties(optional_properties.into());
+
                 res.insert(site_id.0, desc_bundle);
             }
         }
@@ -1292,29 +1296,7 @@ fn generate_model_instances(
             ..Default::default()
         };
         if let Ok(robot_tasks) = tasks.get(instance_entity) {
-            let mut tasks: Vec<OptionalModelProperty> = robot_tasks
-                .0
-                .clone()
-                .iter()
-                .map(|task| match task {
-                    Task::GoToPlace(go_to_place) => locations
-                        .get(go_to_place.location.unwrap().0)
-                        .map(|(_, location_id)| {
-                            Task::GoToPlace(GoToPlace {
-                                location: Some(Point(location_id.0)),
-                            })
-                        })
-                        .unwrap(),
-                    Task::WaitFor(wait_for) => Task::WaitFor(WaitFor {
-                        duration: wait_for.duration.clone(),
-                    }),
-                })
-                .map(|task| OptionalModelProperty::Task {
-                    kind: task.label(),
-                    config: serde_json::to_value(task.clone()).unwrap(),
-                })
-                .collect::<Vec<OptionalModelProperty>>();
-            model_instance.optional_properties.0.append(&mut tasks);
+            //TODO(@xiyuoh)
         }
         res.insert(
             instance_id.0,

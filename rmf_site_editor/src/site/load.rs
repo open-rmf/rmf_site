@@ -349,18 +349,18 @@ fn generate_site_entities(
         model_description_to_source
             .insert(model_description_entity, model_description.source.0.clone());
         // Insert optional model properties
-        if model_description.mobility.is_mobile() {
-            if model_description.mobility.kind == DifferentialDrive::label() {
-                if let Ok(diff_drive) = serde_json::from_value::<DifferentialDrive>(
-                    model_description.mobility.config.clone(),
-                ) {
-                    commands
-                        .entity(model_description_entity)
-                        .insert(ModelProperty(diff_drive))
-                        .insert(ModelProperty(RobotMarker));
+        if let serde_json::Value::Object(map) = &model_description.optional_properties.0 {
+            for (k, v) in map.iter() {
+                // TODO(@xiyuoh) check with existing formatted label instead of hardcoding String here
+                if *k == String::from("Mobility") {
+                    if let Ok(mobility) = serde_json::from_value::<Mobility>(v.clone()) {
+                        commands
+                            .entity(model_description_entity)
+                            .insert(ModelProperty(mobility));
+                    }
+                } else {
+                    continue;
                 }
-            } else {
-                continue;
             }
         }
     }
@@ -401,25 +401,7 @@ fn generate_site_entities(
         }
 
         // Insert optional model properties
-        let mut tasks = Vec::new();
-        for optional_property in &model_instance.optional_properties.0 {
-            match optional_property {
-                OptionalModelProperty::Task { kind: _, config } => {
-                    let Ok(task) = serde_json::from_value::<Task<u32>>(config.clone()) else {
-                        error!(
-                            "Failed to deserialize Tasks for model instance [{}]",
-                            model_instance.name.0
-                        );
-                        continue;
-                    };
-                    tasks.push(task.convert(&id_to_entity).for_site(site_id)?);
-                }
-                _ => continue,
-            };
-        }
-        if !tasks.is_empty() {
-            commands.entity(model_instance_entity).insert(Tasks(tasks));
-        }
+        // TODO(@xiyuoh)
     }
 
     for (model_description_entity, dependents) in model_description_dependents {

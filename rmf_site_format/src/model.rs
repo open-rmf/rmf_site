@@ -19,6 +19,7 @@ use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Bundle, Component, Reflect, ReflectComponent};
 use serde::{Deserialize, Serialize};
+use serde_json::Map;
 use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -64,31 +65,14 @@ impl Default for Model {
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
 pub struct ModelProperty<T: Default + Clone>(pub T);
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub enum OptionalModelProperty {
-    Task {
-        kind: String,
-        config: serde_json::Value,
-    },
-}
-
-impl Default for OptionalModelProperty {
-    fn default() -> Self {
-        OptionalModelProperty::Task {
-            kind: "".to_string(),
-            config: serde_json::Value::Null,
-        }
-    }
-}
-
 /// Defines a property in a model description, that will be added to all instances
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
-pub struct OptionalModelProperties(pub Vec<OptionalModelProperty>);
+pub struct OptionalModelProperties(pub serde_json::Value);
 
 impl Default for OptionalModelProperties {
     fn default() -> Self {
-        Self(Vec::new())
+        Self(serde_json::Value::Object(Map::new()))
     }
 }
 
@@ -106,8 +90,7 @@ pub struct ModelDescriptionBundle {
     pub group: Group,
     #[serde(skip)]
     pub marker: ModelMarker,
-    #[serde(default, skip_serializing_if = "is_default")]
-    pub mobility: Mobility,
+    pub optional_properties: OptionalModelProperties,
 }
 
 impl Default for ModelDescriptionBundle {
@@ -119,7 +102,7 @@ impl Default for ModelDescriptionBundle {
             scale: ModelProperty(Scale::default()),
             group: Group,
             marker: ModelMarker,
-            mobility: Mobility::default(),
+            optional_properties: OptionalModelProperties::default(),
         }
     }
 }

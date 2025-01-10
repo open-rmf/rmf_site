@@ -24,42 +24,52 @@ use serde::{Deserialize, Serialize};
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct RobotMarker;
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
-// #[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct Mobility {
     pub kind: String,
     pub config: serde_json::Value,
+    pub bidirectional: bool,
+    pub collision_radius: f32,
+    pub rotation_center_offset: [f32; 2],
 }
 
 impl Default for Mobility {
     fn default() -> Self {
         Self {
-            kind: "".to_string(),
+            kind: String::new(),
             config: serde_json::Value::Null,
+            bidirectional: false,
+            collision_radius: 0.5,
+            rotation_center_offset: [0.0, 0.0],
         }
     }
 }
 
 impl Mobility {
-    pub fn is_mobile(&self) -> bool {
+    pub fn is_default(&self) -> bool {
         if *self == Mobility::default() {
-            false
-        } else {
-            true
+            return true;
         }
+        false
+    }
+
+    pub fn is_empty(&self) -> bool {
+        if self.kind.is_empty() {
+            return true;
+        } else if self.config.is_null() {
+            return true;
+        }
+        false
     }
 }
 
-// Mobile Robots
+// Supported kinds of Mobility
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
 pub struct DifferentialDrive {
     pub translational_speed: f32,
     pub rotational_speed: f32,
-    pub bidirectional: bool,
-    pub collision_radius: f32,
-    pub rotation_center_offset: [f32; 2],
 }
 
 impl Default for DifferentialDrive {
@@ -67,9 +77,6 @@ impl Default for DifferentialDrive {
         Self {
             translational_speed: 0.5,
             rotational_speed: 1.0,
-            bidirectional: false,
-            collision_radius: 0.5,
-            rotation_center_offset: [0.0, 0.0],
         }
     }
 }

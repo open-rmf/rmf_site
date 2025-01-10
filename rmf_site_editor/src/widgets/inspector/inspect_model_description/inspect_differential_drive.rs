@@ -15,53 +15,41 @@
  *
 */
 
-use super::get_selected_description_entity;
-use crate::{
-    site::{Affiliation, Change, DifferentialDrive, Group, ModelMarker, ModelProperty, Pose},
-    widgets::{prelude::*, Inspect},
-};
-use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{DragValue, Grid};
+use super::MobilityKinds;
+use crate::site::{DifferentialDrive, Mobility};
+use bevy::prelude::*;
+use bevy_egui::egui::{DragValue, Grid, Ui};
 
-#[derive(SystemParam)]
-pub struct InspectModelDifferentialDrive<'w, 's> {
-    model_instances: Query<
-        'w,
-        's,
-        &'static Affiliation<Entity>,
-        (With<ModelMarker>, Without<Group>, With<DifferentialDrive>),
-    >,
-    model_descriptions:
-        Query<'w, 's, &'static ModelProperty<DifferentialDrive>, (With<ModelMarker>, With<Group>)>,
-    change_differential_drive: EventWriter<'w, Change<ModelProperty<DifferentialDrive>>>,
-    poses: Query<'w, 's, &'static Pose>,
-    gizmos: Gizmos<'s>,
+#[derive(Default)]
+pub struct InspectDifferentialDrivePlugin {}
+
+impl Plugin for InspectDifferentialDrivePlugin {
+    fn build(&self, app: &mut App) {
+        app.world.resource_mut::<MobilityKinds>().0.insert(
+            DifferentialDrive::label(),
+            |mobility, ui| {
+                InspectDifferentialDrive::new(mobility).show(ui);
+            },
+        );
+    }
 }
 
-impl<'w, 's> WidgetSystem<Inspect> for InspectModelDifferentialDrive<'w, 's> {
-    fn show(
-        Inspect { selection, .. }: Inspect,
-        ui: &mut Ui,
-        state: &mut SystemState<Self>,
-        world: &mut World,
-    ) {
-        let mut params = state.get_mut(world);
-        let Some(description_entity) = get_selected_description_entity(
-            selection,
-            &params.model_instances,
-            &params.model_descriptions,
-        ) else {
-            return;
-        };
-        let Ok(ModelProperty(differential_drive)) =
-            params.model_descriptions.get(description_entity)
-        else {
-            return;
-        };
+pub struct InspectDifferentialDrive<'a> {
+    mobility: &'a mut Mobility,
+}
 
-        let mut new_differential_drive = differential_drive.clone();
+impl<'a> InspectDifferentialDrive<'a> {
+    pub fn new(mobility: &'a mut Mobility) -> Self {
+        Self { mobility }
+    }
 
-        ui.label("Differential Drive");
+    pub fn show(self, ui: &mut Ui) {
+        let mut new_differential_drive =
+            match serde_json::from_value::<DifferentialDrive>(self.mobility.config.clone()) {
+                Ok(diff_drive) => diff_drive,
+                Err(_) => DifferentialDrive::default(),
+            };
+
         ui.indent("inspect_differential_drive_properties", |ui| {
             Grid::new("inspect_diferential_drive")
                 .num_columns(3)
@@ -83,55 +71,11 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelDifferentialDrive<'w, 's> {
                     );
                     ui.label("rad/s");
                     ui.end_row();
-
-                    ui.label("Collision Radius");
-                    if ui
-                        .add(
-                            DragValue::new(&mut new_differential_drive.collision_radius)
-                                .clamp_range(0_f32..=std::f32::INFINITY)
-                                .speed(0.01),
-                        )
-                        .is_pointer_button_down_on()
-                    {
-                        if let Ok(pose) = params.poses.get(selection) {
-                            params.gizmos.circle(
-                                Vec3::new(pose.trans[0], pose.trans[1], pose.trans[2] + 0.01),
-                                Vec3::Z,
-                                new_differential_drive.collision_radius,
-                                Color::RED,
-                            );
-                        }
-                    };
-                    ui.label("m");
-                    ui.end_row();
-
-                    ui.label("Center Offset");
-                    ui.label("x");
-                    ui.label("y");
-                    ui.end_row();
-
-                    ui.label("");
-                    ui.add(
-                        DragValue::new(&mut new_differential_drive.rotation_center_offset[0])
-                            .clamp_range(std::f32::NEG_INFINITY..=std::f32::INFINITY)
-                            .speed(0.01),
-                    );
-                    ui.add(
-                        DragValue::new(&mut new_differential_drive.rotation_center_offset[1])
-                            .clamp_range(std::f32::NEG_INFINITY..=std::f32::INFINITY)
-                            .speed(0.01),
-                    );
-                    ui.end_row();
-                    ui.label("Bidirectional");
-                    ui.checkbox(&mut new_differential_drive.bidirectional, "");
                 });
         });
 
-        if new_differential_drive != *differential_drive {
-            params.change_differential_drive.send(Change::new(
-                ModelProperty(new_differential_drive),
-                description_entity,
-            ));
+        if let Ok(new_value) = serde_json::to_value(new_differential_drive) {
+            self.mobility.config = new_value;
         }
     }
 }

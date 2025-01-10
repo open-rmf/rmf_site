@@ -25,7 +25,6 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Align, Button, Color32, ComboBox, DragValue, Frame, Layout, Stroke, Ui};
-use std::any::TypeId;
 use strum::IntoEnumIterator;
 
 #[derive(Default)]
@@ -35,8 +34,13 @@ impl Plugin for InspectTaskPlugin {
     fn build(&self, app: &mut App) {
         // Allows us to toggle RobotMarker as a configurable property
         // from the model description inspector
-        app.register_type::<ModelProperty<RobotMarker>>()
-            .add_plugins(ChangePlugin::<ModelProperty<RobotMarker>>::default())
+        app.world.init_component::<ModelProperty<RobotMarker>>();
+        let component_id = app
+            .world
+            .components()
+            .component_id::<ModelProperty<RobotMarker>>()
+            .unwrap();
+        app.add_plugins(ChangePlugin::<ModelProperty<RobotMarker>>::default())
             .add_systems(
                 PreUpdate,
                 (
@@ -49,7 +53,7 @@ impl Plugin for InspectTaskPlugin {
             .resource_mut::<ModelPropertyData>()
             .optional
             .insert(
-                TypeId::of::<ModelProperty<RobotMarker>>(),
+                component_id,
                 (
                     "Robot".to_string(),
                     |mut e_cmd| {

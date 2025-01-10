@@ -195,7 +195,6 @@ impl Plugin for StandardInspectorPlugin {
             ))
             .add_plugins((
                 InspectionPlugin::<InspectScale>::new(),
-                InspectTaskPlugin::default(),
                 InspectionPlugin::<InspectLight>::new(),
                 InspectionPlugin::<InspectDoor>::new(),
                 InspectionPlugin::<InspectPrimitiveShape>::new(),
@@ -207,13 +206,15 @@ impl Plugin for StandardInspectorPlugin {
                 InspectLiftPlugin::default(),
             ))
             .add_plugins((
+                // Required model properties
                 InspectModelPropertyPlugin::<InspectModelScale, Scale>::new("Scale".to_string()),
                 InspectModelPropertyPlugin::<InspectModelAssetSource, AssetSource>::new(
-                    "Source".to_string(),
+                    "Asset Source".to_string(),
                 ),
-                InspectModelPropertyPlugin::<InspectModelDifferentialDrive, DifferentialDrive>::new(
-                    "Differential Drive".to_string(),
-                ),
+                // Optional model properties
+                InspectMobilityPlugin::default(),
+                InspectDifferentialDrivePlugin::default(),
+                InspectTaskPlugin::default(),
             ));
     }
 }
