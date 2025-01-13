@@ -18,10 +18,11 @@
 use bevy::{
     ecs::{
         component::ComponentInfo,
-        query::{ReadOnlyWorldQuery, WorldQuery},
+        query::{QueryData, QueryFilter},
         system::{EntityCommands, SystemParam},
     },
     prelude::*,
+    reflect::GetTypeRegistration,
 };
 use bevy_egui::egui::{CollapsingHeader, ComboBox, RichText, Ui};
 use smallvec::SmallVec;
@@ -47,11 +48,16 @@ pub struct InspectModelDescriptionPlugin {}
 
 impl Plugin for InspectModelDescriptionPlugin {
     fn build(&self, app: &mut App) {
-        let main_inspector = app.world.resource::<MainInspector>().id;
-        let widget = Widget::new::<InspectModelDescription>(&mut app.world);
-        let id = app.world.spawn(widget).set_parent(main_inspector).id();
-        app.world.insert_resource(ModelDescriptionInspector { id });
-        app.world.init_resource::<ModelPropertyData>();
+        let main_inspector = app.world().resource::<MainInspector>().id;
+        let widget = Widget::new::<InspectModelDescription>(app.world_mut());
+        let id = app
+            .world_mut()
+            .spawn(widget)
+            .set_parent(main_inspector)
+            .id();
+        app.world_mut()
+            .insert_resource(ModelDescriptionInspector { id });
+        app.world_mut().init_resource::<ModelPropertyData>();
     }
 }
 
@@ -150,12 +156,21 @@ where
 impl<W, T> Plugin for InspectModelPropertyPlugin<W, T>
 where
     W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
-    T: 'static + Send + Sync + Debug + Default + Clone + FromReflect + TypePath + Component,
+    T: 'static
+        + Send
+        + Sync
+        + Debug
+        + Default
+        + Clone
+        + FromReflect
+        + TypePath
+        + Component
+        + GetTypeRegistration,
 {
     fn build(&self, app: &mut App) {
         let type_id = TypeId::of::<ModelProperty<T>>();
         if !app
-            .world
+            .world()
             .resource::<ModelPropertyData>()
             .required
             .contains_key(&type_id)
@@ -164,7 +179,7 @@ where
             app.add_plugins(ChangePlugin::<ModelProperty<T>>::default());
             app.add_systems(PreUpdate, update_model_instances::<T>);
 
-            app.world
+            app.world_mut()
                 .resource_mut::<ModelPropertyData>()
                 .optional
                 .insert(
@@ -177,9 +192,9 @@ where
                 );
         }
 
-        let inspector = app.world.resource::<ModelDescriptionInspector>().id;
-        let widget = Widget::<Inspect>::new::<W>(&mut app.world);
-        app.world.spawn(widget).set_parent(inspector);
+        let inspector = app.world().resource::<ModelDescriptionInspector>().id;
+        let widget = Widget::<Inspect>::new::<W>(app.world_mut());
+        app.world_mut().spawn(widget).set_parent(inspector);
     }
 }
 
@@ -408,7 +423,7 @@ impl<'w, 's> InspectSelectedModelDescription<'w, 's> {
 
 /// Helper function to get the corresponding description entity for a given model instance entity
 /// if it exists.
-fn get_selected_description_entity<'w, 's, S: ReadOnlyWorldQuery, T: WorldQuery>(
+fn get_selected_description_entity<'w, 's, S: QueryFilter, T: QueryData>(
     selection: Entity,
     model_instances: &Query<
         'w,

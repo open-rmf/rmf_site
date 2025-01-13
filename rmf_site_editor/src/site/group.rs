@@ -16,7 +16,7 @@
 */
 
 use bevy::{
-    ecs::system::{Command, EntityCommands},
+    ecs::{system::EntityCommands, world::Command},
     prelude::*,
 };
 use rmf_site_format::{Affiliation, Group};
@@ -112,7 +112,7 @@ pub trait SetMembershipExt {
     fn set_membership(&mut self, group: Option<Entity>) -> &mut Self;
 }
 
-impl<'w, 's, 'a> SetMembershipExt for EntityCommands<'w, 's, 'a> {
+impl<'a> SetMembershipExt for EntityCommands<'a> {
     fn set_membership(&mut self, group: Option<Entity>) -> &mut Self {
         let member = self.id();
         self.commands().add(ChangeMembership { member, group });

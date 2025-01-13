@@ -34,9 +34,9 @@ pub struct FuelAssetBrowserPlugin;
 impl Plugin for FuelAssetBrowserPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<AssetGalleryStatus>();
-        let panel = PanelWidget::new(fuel_asset_browser_panel, &mut app.world);
-        let widget = Widget::new::<FuelAssetBrowser>(&mut app.world);
-        app.world.spawn((panel, widget));
+        let panel = PanelWidget::new(fuel_asset_browser_panel, app.world_mut());
+        let widget = Widget::new::<FuelAssetBrowser>(app.world_mut());
+        app.world_mut().spawn((panel, widget));
     }
 }
 

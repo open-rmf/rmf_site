@@ -181,7 +181,7 @@ pub fn update_outline_visualization(
                             ..default()
                         })
                         .insert(depth.clone())
-                        .insert(layers);
+                        .insert(layers.clone());
                 } else {
                     commands
                         .entity(top)

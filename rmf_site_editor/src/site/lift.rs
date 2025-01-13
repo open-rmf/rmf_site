@@ -18,13 +18,10 @@
 use crate::{
     interaction::Selectable, shapes::*, site::*, CurrentWorkspace, Issue, ValidateWorkspace,
 };
-use bevy::{
-    prelude::*,
-    render::primitives::Aabb,
-    utils::{HashMap, Uuid},
-};
+use bevy::{prelude::*, render::primitives::Aabb, utils::HashMap};
 use rmf_site_format::{Edge, LiftCabin};
 use std::collections::BTreeSet;
+use uuid::Uuid;
 
 #[derive(Clone, Copy, Debug, Component, Deref, DerefMut)]
 pub struct ChildLiftCabinGroup(pub Entity);
@@ -237,7 +234,7 @@ pub fn update_lift_cabin(
                                 let mesh = make_flat_mesh_for_aabb(aabb);
                                 parent
                                     .spawn(PbrBundle {
-                                        mesh: meshes.add(mesh.into()),
+                                        mesh: meshes.add(mesh),
                                         // Doormats are not visible by default.
                                         // Other plugins should make them visible
                                         // if using them as a visual cue.

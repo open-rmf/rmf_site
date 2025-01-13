@@ -246,9 +246,9 @@ where
     W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
 {
     fn build(&self, app: &mut App) {
-        let inspector = app.world.resource::<MainInspector>().id;
-        let widget = Widget::<Inspect>::new::<W>(&mut app.world);
-        app.world.spawn(widget).set_parent(inspector);
+        let inspector = app.world().resource::<MainInspector>().id;
+        let widget = Widget::<Inspect>::new::<W>(app.world_mut());
+        app.world_mut().spawn(widget).set_parent(inspector);
     }
 }
 

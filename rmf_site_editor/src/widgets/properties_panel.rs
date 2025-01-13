@@ -107,9 +107,9 @@ where
     W: WidgetSystem<Tile> + 'static + Send + Sync,
 {
     fn build(&self, app: &mut App) {
-        let widget = Widget::<Tile>::new::<W>(&mut app.world);
-        let properties_panel = app.world.resource::<PropertiesPanel>().id;
-        app.world.spawn(widget).set_parent(properties_panel);
+        let widget = Widget::<Tile>::new::<W>(app.world_mut());
+        let properties_panel = app.world().resource::<PropertiesPanel>().id;
+        app.world_mut().spawn(widget).set_parent(properties_panel);
     }
 }
 
@@ -151,9 +151,9 @@ impl Default for PropertiesPanelPlugin {
 
 impl Plugin for PropertiesPanelPlugin {
     fn build(&self, app: &mut App) {
-        let widget = PanelWidget::new(show_panel_of_tiles, &mut app.world);
-        let id = app.world.spawn((widget, self.side)).id();
-        app.world.insert_resource(PropertiesPanel {
+        let widget = PanelWidget::new(show_panel_of_tiles, app.world_mut());
+        let id = app.world_mut().spawn((widget, self.side)).id();
+        app.world_mut().insert_resource(PropertiesPanel {
             side: self.side,
             id,
         });

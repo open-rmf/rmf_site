@@ -16,12 +16,11 @@
 */
 use crate::interaction::{InteractionAssets, PickingBlockers};
 use bevy::{
-    core_pipeline::{
-        clear_color::ClearColorConfig, core_3d::Camera3dBundle, tonemapping::Tonemapping,
-    },
+    color::palettes::css as Colors,
+    core_pipeline::{core_3d::Camera3dBundle, tonemapping::Tonemapping},
     prelude::*,
     render::{
-        camera::{Camera, Projection, ScalingMode},
+        camera::{Camera, Exposure, Projection, ScalingMode},
         view::RenderLayers,
     },
 };
@@ -38,28 +37,44 @@ use keyboard::{update_keyboard_command, KeyboardCommand};
 /// RenderLayers are used to inform cameras which entities they should render.
 /// The General render layer is for things that should be visible to all
 /// cameras.
-pub const GENERAL_RENDER_LAYER: u8 = 0;
+pub const GENERAL_RENDER_LAYER: usize = 0;
 /// The Physical render layer is for things that should be visible to any camera
 /// that needs to capture the physical world (e.g. the physical camera sensor
 /// simulator) but should not be rendered by the user's view. This allows us to
 /// toggle off complex PBR lights for the user's view (which can severely slow
 /// down performance) while keeping them for camera sensors.
-pub const PHYSICAL_RENDER_LAYER: u8 = 1;
+pub const PHYSICAL_RENDER_LAYER: usize = 1;
 /// The Visual Cue layer is for things that should be shown to the user but
 /// should never appear in a physical camera.
-pub const VISUAL_CUE_RENDER_LAYER: u8 = 2;
+pub const VISUAL_CUE_RENDER_LAYER: usize = 2;
 /// The Selected Outline layer is where the outline of the currently selected
 /// entity is shown.
-pub const SELECTED_OUTLINE_LAYER: u8 = 3;
+pub const SELECTED_OUTLINE_LAYER: usize = 3;
 /// The Hovered Outline layer is where the outline of the currently hovered
 /// entity is shown.
-pub const HOVERED_OUTLINE_LAYER: u8 = 4;
+pub const HOVERED_OUTLINE_LAYER: usize = 4;
 /// The X-Ray layer is used to show visual cues that need to be rendered
 /// above anything that would be obstructing them.
-pub const XRAY_RENDER_LAYER: u8 = 5;
+pub const XRAY_RENDER_LAYER: usize = 5;
 /// The Model Preview layer is used by model previews to spawn and render
 /// models in the engine without having them being visible to general cameras
-pub const MODEL_PREVIEW_LAYER: u8 = 6;
+pub const MODEL_PREVIEW_LAYER: usize = 6;
+
+// Creates all the layers visible in the main camera view (excluding, for example
+// the model preview which is on a separate view). The main lights will affect these.
+pub fn main_view_render_layers() -> RenderLayers {
+    RenderLayers::from_layers(&[
+        GENERAL_RENDER_LAYER,
+        PHYSICAL_RENDER_LAYER,
+        VISUAL_CUE_RENDER_LAYER,
+        SELECTED_OUTLINE_LAYER,
+        HOVERED_OUTLINE_LAYER,
+        XRAY_RENDER_LAYER,
+    ])
+}
+
+/// Camera exposure, adjusted for indoor lighting, in ev100 units
+pub const DEFAULT_CAMERA_EV100: f32 = 3.5;
 
 /// Camera limits
 pub const MIN_FOV: f32 = 5.0;
@@ -257,11 +272,12 @@ impl FromWorld for CameraControls {
             .spawn(DirectionalLightBundle {
                 directional_light: DirectionalLight {
                     shadows_enabled: false,
-                    illuminance: 20000.,
+                    illuminance: 50.,
                     ..default()
                 },
                 ..default()
             })
+            .insert(main_view_render_layers())
             .id();
 
         let perspective_child_cameras = [
@@ -273,12 +289,15 @@ impl FromWorld for CameraControls {
             world
                 .spawn(Camera3dBundle {
                     projection: Projection::Perspective(Default::default()),
-                    camera: Camera { order, ..default() },
-                    camera_3d: Camera3d {
+                    camera: Camera {
+                        order,
                         clear_color: ClearColorConfig::None,
                         ..default()
                     },
                     tonemapping: Tonemapping::ReinhardLuminance,
+                    exposure: Exposure {
+                        ev100: DEFAULT_CAMERA_EV100,
+                    },
                     ..default()
                 })
                 .insert(VisibilityBundle {
@@ -293,6 +312,9 @@ impl FromWorld for CameraControls {
             .spawn(Camera3dBundle {
                 transform: Transform::from_xyz(-10., -10., 10.).looking_at(Vec3::ZERO, Vec3::Z),
                 projection: Projection::Perspective(Default::default()),
+                exposure: Exposure {
+                    ev100: DEFAULT_CAMERA_EV100,
+                },
                 tonemapping: Tonemapping::ReinhardLuminance,
                 ..default()
             })
@@ -316,11 +338,12 @@ impl FromWorld for CameraControls {
                 )),
                 directional_light: DirectionalLight {
                     shadows_enabled: false,
-                    illuminance: 20000.,
+                    illuminance: 50.,
                     ..default()
                 },
                 ..default()
             })
+            .insert(main_view_render_layers())
             .id();
 
         let ortho_projection = OrthographicProjection {
@@ -341,13 +364,13 @@ impl FromWorld for CameraControls {
                     camera: Camera {
                         is_active: false,
                         order,
-                        ..default()
-                    },
-                    camera_3d: Camera3d {
                         clear_color: ClearColorConfig::None,
                         ..default()
                     },
                     projection: Projection::Orthographic(ortho_projection.clone()),
+                    exposure: Exposure {
+                        ev100: DEFAULT_CAMERA_EV100,
+                    },
                     tonemapping: Tonemapping::ReinhardLuminance,
                     ..default()
                 })
@@ -367,6 +390,9 @@ impl FromWorld for CameraControls {
                 },
                 transform: Transform::from_xyz(0., 0., 20.).looking_at(Vec3::ZERO, Vec3::Y),
                 projection: Projection::Orthographic(ortho_projection),
+                exposure: Exposure {
+                    ev100: DEFAULT_CAMERA_EV100,
+                },
                 tonemapping: Tonemapping::ReinhardLuminance,
                 ..default()
             })
@@ -381,6 +407,12 @@ impl FromWorld for CameraControls {
             .push_children(&[orthographic_headlight])
             .push_children(&orthographic_child_cameras)
             .id();
+
+        let mut ambient_light = world
+            .get_resource_mut::<AmbientLight>()
+            .expect("Make sure bevy's PbrPlugin is initialized before the cameras");
+
+        ambient_light.brightness = 2.0;
 
         CameraControls {
             mode: ProjectionMode::Perspective,
@@ -463,7 +495,7 @@ fn camera_controls(
 
             // Ensure upright
             let forward = persp_transform.forward();
-            persp_transform.look_to(forward, Vec3::Z);
+            persp_transform.look_to(*forward, Vec3::Z);
         }
 
         let proj = persp_proj.clone();
@@ -522,7 +554,7 @@ fn update_orbit_center_marker(
                 *marker_visibility = Visibility::Visible;
                 *marker_material = interaction_assets.camera_control_orbit_material.clone();
                 marker_transform.translation = orbit_center;
-                gizmo.sphere(orbit_center, Quat::IDENTITY, 0.1, Color::GREEN);
+                gizmo.sphere(orbit_center, Quat::IDENTITY, 0.1, Colors::LIME);
             }
         // Panning
         } else if cursor_command.command_type == CameraCommandType::Pan {
@@ -530,7 +562,7 @@ fn update_orbit_center_marker(
                 *marker_visibility = Visibility::Visible;
                 *marker_material = interaction_assets.camera_control_pan_material.clone();
                 marker_transform.translation = cursor_selection;
-                gizmo.sphere(cursor_selection, Quat::IDENTITY, 0.1, Color::WHITE);
+                gizmo.sphere(cursor_selection, Quat::IDENTITY, 0.1, Colors::WHITE);
             }
         } else {
             *marker_visibility = Visibility::Hidden;

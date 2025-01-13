@@ -67,7 +67,7 @@ pub fn add_wall_visual(
     for (e, edge, texture_source) in &walls {
         let (base_color_texture, texture) = from_texture_source(texture_source, &textures);
         let (base_color, alpha_mode) = if let Some(alpha) = texture.alpha.filter(|a| a < &1.0) {
-            (*Color::default().set_a(alpha), AlphaMode::Blend)
+            (Color::default().with_alpha(alpha), AlphaMode::Blend)
         } else {
             (Color::default(), AlphaMode::Opaque)
         };
@@ -166,7 +166,7 @@ pub fn update_walls(
         *mesh = meshes.add(make_wall(e, edge, &texture, &anchors));
         if let Some(material) = materials.get_mut(material) {
             let (base_color, alpha_mode) = if let Some(alpha) = texture.alpha.filter(|a| a < &1.0) {
-                (*Color::default().set_a(alpha), AlphaMode::Blend)
+                (Color::default().with_alpha(alpha), AlphaMode::Blend)
             } else {
                 (Color::default(), AlphaMode::Opaque)
             };
