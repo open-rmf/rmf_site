@@ -18,7 +18,7 @@
 use bevy::{
     ecs::{
         component::ComponentInfo,
-        query::{QueryFilter, QueryData},
+        query::{QueryData, QueryFilter},
         system::{EntityCommands, SystemParam},
     },
     prelude::*,
@@ -50,8 +50,13 @@ impl Plugin for InspectModelDescriptionPlugin {
     fn build(&self, app: &mut App) {
         let main_inspector = app.world().resource::<MainInspector>().id;
         let widget = Widget::new::<InspectModelDescription>(app.world_mut());
-        let id = app.world_mut().spawn(widget).set_parent(main_inspector).id();
-        app.world_mut().insert_resource(ModelDescriptionInspector { id });
+        let id = app
+            .world_mut()
+            .spawn(widget)
+            .set_parent(main_inspector)
+            .id();
+        app.world_mut()
+            .insert_resource(ModelDescriptionInspector { id });
         app.world_mut().init_resource::<ModelPropertyData>();
     }
 }
@@ -151,7 +156,16 @@ where
 impl<W, T> Plugin for InspectModelPropertyPlugin<W, T>
 where
     W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
-    T: 'static + Send + Sync + Debug + Default + Clone + FromReflect + TypePath + Component + GetTypeRegistration,
+    T: 'static
+        + Send
+        + Sync
+        + Debug
+        + Default
+        + Clone
+        + FromReflect
+        + TypePath
+        + Component
+        + GetTypeRegistration,
 {
     fn build(&self, app: &mut App) {
         let type_id = TypeId::of::<ModelProperty<T>>();

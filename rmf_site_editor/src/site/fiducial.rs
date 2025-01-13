@@ -19,8 +19,8 @@ use crate::interaction::VisualCue;
 use crate::site::*;
 use crate::{Issue, ValidateWorkspace};
 use bevy::prelude::*;
-use uuid::Uuid;
 use std::collections::HashMap;
+use uuid::Uuid;
 
 #[derive(Component)]
 pub struct FiducialUsage {

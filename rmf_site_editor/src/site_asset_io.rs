@@ -1,6 +1,9 @@
 use bevy::asset::io::AssetSource as BevyAssetSource;
 use bevy::{
-    asset::io::{AssetReader, AssetReaderError, AssetSourceBuilder, ErasedAssetReader, PathStream, Reader, VecReader},
+    asset::io::{
+        AssetReader, AssetReaderError, AssetSourceBuilder, ErasedAssetReader, PathStream, Reader,
+        VecReader,
+    },
     prelude::*,
     utils::BoxedFuture,
 };

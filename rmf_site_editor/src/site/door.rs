@@ -26,9 +26,9 @@ use bevy::{
     render::mesh::{Indices, PrimitiveTopology},
     render::render_asset::RenderAssetUsages,
 };
-use uuid::Uuid;
 use rmf_site_format::{Category, DoorType, Edge, DEFAULT_LEVEL_HEIGHT};
 use std::collections::{BTreeSet, HashMap};
+use uuid::Uuid;
 
 pub const DOOR_CUE_HEIGHT: f32 = 0.004;
 pub const DOOR_STOP_LINE_THICKNESS: f32 = 0.01;

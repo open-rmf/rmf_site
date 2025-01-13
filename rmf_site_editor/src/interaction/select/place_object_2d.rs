@@ -36,14 +36,15 @@ pub fn spawn_place_object_2d_workflow(app: &mut App) -> Service<Option<Entity>, 
         .resource::<KeyboardServices>()
         .keyboard_just_pressed;
 
-    app.world_mut().spawn_io_workflow(build_place_object_2d_workflow(
-        setup,
-        find_position,
-        placement_chosen,
-        handle_key_code,
-        cleanup,
-        keyboard_just_pressed,
-    ))
+    app.world_mut()
+        .spawn_io_workflow(build_place_object_2d_workflow(
+            setup,
+            find_position,
+            placement_chosen,
+            handle_key_code,
+            cleanup,
+            keyboard_just_pressed,
+        ))
 }
 
 pub fn build_place_object_2d_workflow(

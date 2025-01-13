@@ -18,9 +18,9 @@
 use crate::{site::*, Issue, ValidateWorkspace};
 use bevy::{ecs::world::Command, prelude::*, render::primitives::Sphere};
 use itertools::Itertools;
-use uuid::Uuid;
 use rmf_site_format::{Anchor, LevelElevation, LiftCabin};
 use std::collections::HashMap;
+use uuid::Uuid;
 
 #[derive(Bundle, Debug)]
 pub struct AnchorBundle {

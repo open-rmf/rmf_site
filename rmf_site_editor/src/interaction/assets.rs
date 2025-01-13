@@ -16,8 +16,8 @@
 */
 
 use crate::{interaction::*, shapes::*};
-use bevy::{math::Affine3A, prelude::*};
 use bevy::color::palettes::css as Colors;
+use bevy::{math::Affine3A, prelude::*};
 use bevy_polyline::{
     material::PolylineMaterial,
     polyline::{Polyline, PolylineBundle},

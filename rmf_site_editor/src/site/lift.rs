@@ -18,14 +18,10 @@
 use crate::{
     interaction::Selectable, shapes::*, site::*, CurrentWorkspace, Issue, ValidateWorkspace,
 };
-use bevy::{
-    prelude::*,
-    render::primitives::Aabb,
-    utils::HashMap,
-};
-use uuid::Uuid;
+use bevy::{prelude::*, render::primitives::Aabb, utils::HashMap};
 use rmf_site_format::{Edge, LiftCabin};
 use std::collections::BTreeSet;
+use uuid::Uuid;
 
 #[derive(Clone, Copy, Debug, Component, Deref, DerefMut)]
 pub struct ChildLiftCabinGroup(pub Entity);

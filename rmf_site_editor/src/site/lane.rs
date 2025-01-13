@@ -18,9 +18,9 @@
 use crate::site::*;
 use crate::{CurrentWorkspace, Issue, ValidateWorkspace};
 use bevy::prelude::*;
-use uuid::Uuid;
 use rmf_site_format::{Edge, LaneMarker};
 use std::collections::{BTreeSet, HashMap};
+use uuid::Uuid;
 
 pub const SELECTED_LANE_OFFSET: f32 = 0.001;
 pub const HOVERED_LANE_OFFSET: f32 = 0.002;

@@ -275,7 +275,7 @@ pub struct IntersectGroundPlaneParams<'w, 's> {
 
 impl<'w, 's> IntersectGroundPlaneParams<'w, 's> {
     pub fn ground_plane_intersection(&self) -> Option<Transform> {
-        self.plane_intersection(Vec3::ZERO, InfinitePlane3d {normal: Dir3::Z})
+        self.plane_intersection(Vec3::ZERO, InfinitePlane3d { normal: Dir3::Z })
     }
 
     pub fn frame_plane_intersection(&self, frame: Entity) -> Option<Transform> {
@@ -286,7 +286,11 @@ impl<'w, 's> IntersectGroundPlaneParams<'w, 's> {
         self.plane_intersection(point, InfinitePlane3d { normal })
     }
 
-    pub fn plane_intersection(&self, plane_origin: Vec3, plane: InfinitePlane3d) -> Option<Transform> {
+    pub fn plane_intersection(
+        &self,
+        plane_origin: Vec3,
+        plane: InfinitePlane3d,
+    ) -> Option<Transform> {
         let window = self.primary_windows.get_single().ok()?;
         let cursor_position = window.cursor_position()?;
         let e_active_camera = self.camera_controls.active_camera();
@@ -295,7 +299,9 @@ impl<'w, 's> IntersectGroundPlaneParams<'w, 's> {
         let primary_window = self.primary_window.get_single().ok()?;
         let ray = ray_from_screenspace(cursor_position, active_camera, camera_tf, primary_window)?;
 
-        let p = ray.intersect_plane(plane_origin, plane).map(|distance| ray.get_point(distance))?;
+        let p = ray
+            .intersect_plane(plane_origin, plane)
+            .map(|distance| ray.get_point(distance))?;
 
         Some(Transform::from_translation(p).with_rotation(aligned_z_axis(*plane.normal)))
     }
