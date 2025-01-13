@@ -68,9 +68,9 @@ pub struct ModelProperty<T: Default + Clone>(pub T);
 /// Defines a property in a model description, that will be added to all instances
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
-pub struct OptionalModelProperties(pub serde_json::Value);
+pub struct OptionalModelData(pub serde_json::Value);
 
-impl Default for OptionalModelProperties {
+impl Default for OptionalModelData {
     fn default() -> Self {
         Self(serde_json::Value::Object(Map::new()))
     }
@@ -90,7 +90,8 @@ pub struct ModelDescriptionBundle {
     pub group: Group,
     #[serde(skip)]
     pub marker: ModelMarker,
-    pub optional_properties: OptionalModelProperties,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub optional_data: OptionalModelData,
 }
 
 impl Default for ModelDescriptionBundle {
@@ -102,7 +103,7 @@ impl Default for ModelDescriptionBundle {
             scale: ModelProperty(Scale::default()),
             group: Group,
             marker: ModelMarker,
-            optional_properties: OptionalModelProperties::default(),
+            optional_data: OptionalModelData::default(),
         }
     }
 }
@@ -118,7 +119,8 @@ pub struct ModelInstance<T: RefTrait> {
     pub marker: ModelMarker,
     #[serde(skip)]
     pub instance_marker: InstanceMarker,
-    pub optional_properties: OptionalModelProperties,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub optional_data: OptionalModelData,
 }
 
 impl<T: RefTrait> Default for ModelInstance<T> {
@@ -129,7 +131,7 @@ impl<T: RefTrait> Default for ModelInstance<T> {
             description: Affiliation::default(),
             marker: ModelMarker,
             instance_marker: InstanceMarker,
-            optional_properties: OptionalModelProperties::default(),
+            optional_data: OptionalModelData::default(),
         }
     }
 }
@@ -140,7 +142,7 @@ impl<T: RefTrait> ModelInstance<T> {
             name: self.name.clone(),
             pose: self.pose.clone(),
             description: self.description.convert(id_map)?,
-            optional_properties: self.optional_properties.clone(),
+            optional_data: self.optional_data.clone(),
             ..Default::default()
         })
     }

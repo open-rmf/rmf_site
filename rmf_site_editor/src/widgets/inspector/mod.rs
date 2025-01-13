@@ -27,6 +27,9 @@ pub use inspect_angle::*;
 pub mod inspect_asset_source;
 pub use inspect_asset_source::*;
 
+pub mod inspect_default_tasks;
+pub use inspect_default_tasks::*;
+
 pub mod inspect_door;
 pub use inspect_door::*;
 
@@ -211,10 +214,11 @@ impl Plugin for StandardInspectorPlugin {
                 InspectModelPropertyPlugin::<InspectModelAssetSource, AssetSource>::new(
                     "Asset Source".to_string(),
                 ),
-                // Optional model properties
+                // Optional model properties/data
                 InspectMobilityPlugin::default(),
                 InspectDifferentialDrivePlugin::default(),
                 InspectTaskPlugin::default(),
+                InspectDefaultTasksPlugin::default(),
             ));
     }
 }

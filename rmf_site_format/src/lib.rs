@@ -77,8 +77,8 @@ pub use measurement::*;
 pub mod misc;
 pub use misc::*;
 
-pub mod robot;
-pub use robot::*;
+pub mod mobility;
+pub use mobility::*;
 
 pub mod model;
 pub use model::*;

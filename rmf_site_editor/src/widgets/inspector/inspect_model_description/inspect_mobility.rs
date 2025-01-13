@@ -28,15 +28,8 @@ use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{ComboBox, DragValue, Grid, Ui};
 use std::collections::HashMap;
 
-// pub trait MobilityWidget {}
-
 #[derive(Resource)]
-pub struct MobilityKinds(
-    // pub mobility_map: HashMap<String, Box<dyn MobilityWidget + Send + Sync>>,
-
-    // store a function to show the widget if called
-    pub HashMap<String, fn(&mut Mobility, &mut Ui)>,
-);
+pub struct MobilityKinds(pub HashMap<String, fn(&mut Mobility, &mut Ui)>);
 
 impl FromWorld for MobilityKinds {
     fn from_world(_world: &mut World) -> Self {
@@ -170,13 +163,16 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectMobility<'w, 's> {
                 });
 
             ui.add_space(10.0);
-            ComboBox::from_id_source("select_mobility_kind")
-                .selected_text(selected_mobility_kind)
-                .show_ui(ui, |ui| {
-                    for (kind, _) in params.mobility.0.iter() {
-                        ui.selectable_value(&mut new_mobility.kind, kind.clone(), kind.clone());
-                    }
-                });
+            ui.horizontal(|ui| {
+                ui.label("Mobility Kind");
+                ComboBox::from_id_source("select_mobility_kind")
+                    .selected_text(selected_mobility_kind)
+                    .show_ui(ui, |ui| {
+                        for (kind, _) in params.mobility.0.iter() {
+                            ui.selectable_value(&mut new_mobility.kind, kind.clone(), kind.clone());
+                        }
+                    });
+            });
             if !new_mobility.is_default() {
                 if let Some(show_widget) = params.mobility.0.get(&new_mobility.kind) {
                     show_widget(&mut new_mobility, ui);

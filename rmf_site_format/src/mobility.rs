@@ -16,13 +16,8 @@
 */
 
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Component, Reflect, ReflectComponent};
+use bevy::prelude::{Component, Reflect};
 use serde::{Deserialize, Serialize};
-
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
-#[cfg_attr(feature = "bevy", reflect(Component))]
-pub struct RobotMarker;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]

@@ -1213,8 +1213,8 @@ fn generate_model_descriptions(
             (With<ModelMarker>, With<Group>, Without<Pending>),
         >,
         Query<&Children>,
-        // Optional model properties
-        // TODO(@xiyuoh) store property data in optional_properties instead of querying on save
+        // Optional model data
+        // TODO(@xiyuoh) store property data in optional_data instead of querying on save
         Query<&ModelProperty<Mobility>>,
     )> = SystemState::new(world);
     let (model_descriptions, children, mobility) = state.get(world);
@@ -1230,14 +1230,13 @@ fn generate_model_descriptions(
                     scale: scale.clone(),
                     ..Default::default()
                 };
-                let mut optional_properties = serde_json::Map::new();
+                let mut optional_data = serde_json::Map::new();
                 if let Ok(mobility_property) = mobility.get(*child) {
                     if let Ok(mobility_data) = serde_json::to_value(mobility_property.0.clone()) {
-                        optional_properties.insert("Mobility".to_string(), mobility_data.into());
+                        optional_data.insert("Mobility".to_string(), mobility_data.into());
                     }
                 }
-                desc_bundle.optional_properties =
-                    OptionalModelProperties(optional_properties.into());
+                desc_bundle.optional_data = OptionalModelData(optional_data.into());
 
                 res.insert(site_id.0, desc_bundle);
             }
@@ -1260,7 +1259,7 @@ fn generate_model_instances(
         Query<(&Point<Entity>, &SiteID), (With<LocationTags>, Without<Pending>)>,
         Query<&Children>,
         Query<&Parent>,
-        Query<&Tasks<Entity>, (With<RobotMarker>, Without<Group>)>,
+        Query<&Tasks, (With<RobotMarker>, Without<Group>)>,
     )> = SystemState::new(world);
     let (model_descriptions, model_instances, levels, locations, _, parents, tasks) =
         state.get(world);
@@ -1295,9 +1294,14 @@ fn generate_model_instances(
             ),
             ..Default::default()
         };
+        let mut optional_data = serde_json::Map::new();
         if let Ok(robot_tasks) = tasks.get(instance_entity) {
-            //TODO(@xiyuoh)
+            if let Ok(tasks_data) = serde_json::to_value(robot_tasks.clone()) {
+                optional_data.insert("Tasks".to_string(), tasks_data.into());
+            }
         }
+        model_instance.optional_data = OptionalModelData(optional_data.into());
+
         res.insert(
             instance_id.0,
             Parented {
