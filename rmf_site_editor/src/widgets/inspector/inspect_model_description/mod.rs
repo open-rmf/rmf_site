@@ -22,6 +22,7 @@ use bevy::{
         system::{EntityCommands, SystemParam},
     },
     prelude::*,
+    reflect::GetTypeRegistration,
 };
 use bevy_egui::egui::{CollapsingHeader, ComboBox, RichText, Ui};
 use smallvec::SmallVec;
@@ -150,7 +151,7 @@ where
 impl<W, T> Plugin for InspectModelPropertyPlugin<W, T>
 where
     W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
-    T: 'static + Send + Sync + Debug + Default + Clone + FromReflect + TypePath + Component,
+    T: 'static + Send + Sync + Debug + Default + Clone + FromReflect + TypePath + Component + GetTypeRegistration,
 {
     fn build(&self, app: &mut App) {
         let type_id = TypeId::of::<ModelProperty<T>>();
