@@ -57,6 +57,10 @@ impl Mobility {
         }
         false
     }
+
+    pub fn label() -> String {
+        "Mobility".to_string()
+    }
 }
 
 // Supported kinds of Mobility

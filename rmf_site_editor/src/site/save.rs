@@ -1214,7 +1214,8 @@ fn generate_model_descriptions(
         >,
         Query<&Children>,
         // Optional model data
-        // TODO(@xiyuoh) store property data in optional_data instead of querying on save
+        // TODO(@xiyuoh) store property data in optional_data instead of querying
+        // on save or query ModelProperty<T> instead but exclude required
         Query<&ModelProperty<Mobility>>,
     )> = SystemState::new(world);
     let (model_descriptions, children, mobility) = state.get(world);
@@ -1233,7 +1234,7 @@ fn generate_model_descriptions(
                 let mut optional_data = serde_json::Map::new();
                 if let Ok(mobility_property) = mobility.get(*child) {
                     if let Ok(mobility_data) = serde_json::to_value(mobility_property.0.clone()) {
-                        optional_data.insert("Mobility".to_string(), mobility_data.into());
+                        optional_data.insert(Mobility::label(), mobility_data.into());
                     }
                 }
                 desc_bundle.optional_data = OptionalModelData(optional_data.into());

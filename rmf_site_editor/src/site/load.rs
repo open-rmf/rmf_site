@@ -351,15 +351,12 @@ fn generate_site_entities(
         // Insert optional model data
         if let serde_json::Value::Object(map) = &model_description.optional_data.0 {
             for (k, v) in map.iter() {
-                // TODO(@xiyuoh) check with existing formatted label instead of hardcoding String here
-                if *k == String::from("Mobility") {
+                if *k == Mobility::label() {
                     if let Ok(mobility) = serde_json::from_value::<Mobility>(v.clone()) {
                         commands
                             .entity(model_description_entity)
                             .insert(ModelProperty(mobility));
                     }
-                } else {
-                    continue;
                 }
             }
         }
@@ -402,13 +399,10 @@ fn generate_site_entities(
         // Insert optional model data
         if let serde_json::Value::Object(map) = &model_instance.optional_data.0 {
             for (k, v) in map.iter() {
-                // TODO(@xiyuoh) check with existing formatted label instead of hardcoding String here
-                if *k == String::from("Tasks") {
+                if *k == Tasks::label() {
                     if let Ok(tasks) = serde_json::from_value::<Tasks>(v.clone()) {
                         commands.entity(model_instance_entity).insert(tasks);
                     }
-                } else {
-                    continue;
                 }
             }
         }

@@ -51,6 +51,12 @@ impl Default for Tasks {
     }
 }
 
+impl Tasks {
+    pub fn label() -> String {
+        "Tasks".to_string()
+    }
+}
+
 // Supported Task kinds
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
