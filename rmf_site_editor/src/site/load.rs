@@ -402,6 +402,11 @@ fn generate_site_entities(
                 if *k == Tasks::label() {
                     if let Ok(tasks) = serde_json::from_value::<Tasks>(v.clone()) {
                         commands.entity(model_instance_entity).insert(tasks);
+                        if let Some(description_entity) = model_instance.description.0 {
+                            commands
+                                .entity(description_entity)
+                                .insert(ModelProperty(RobotMarker));
+                        }
                     }
                 }
             }
