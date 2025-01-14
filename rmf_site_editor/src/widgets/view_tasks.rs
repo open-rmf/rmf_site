@@ -137,40 +137,34 @@ fn show_task(
             });
 
             // Additional context for default tasks
-            if task.kind == GoToPlace::label() {
+            if let Ok(go_to_place) = serde_json::from_value::<GoToPlace>(task.config.clone()) {
                 ui.horizontal(|ui| {
                     ui.label("Go To Place: ");
-                    if let Ok(go_to_place) =
-                        serde_json::from_value::<GoToPlace>(task.config.clone())
-                    {
-                        for (entity, name, _, site_id) in site_entities.iter() {
-                            if *name == go_to_place.location {
-                                if ui
-                                    .selectable_label(
-                                        selected.0.is_some_and(|s| s == entity),
-                                        format!(
-                                            "Location #{} [{}]",
-                                            site_id
-                                                .map(|id| id.to_string())
-                                                .unwrap_or("unsaved".to_string()),
-                                            name.0
-                                        ),
-                                    )
-                                    .clicked()
-                                {
-                                    select.send(Select::new(Some(entity)));
-                                }
-                                break;
+                    for (entity, name, _, site_id) in site_entities.iter() {
+                        if *name == go_to_place.location {
+                            if ui
+                                .selectable_label(
+                                    selected.0.is_some_and(|s| s == entity),
+                                    format!(
+                                        "Location #{} [{}]",
+                                        site_id
+                                            .map(|id| id.to_string())
+                                            .unwrap_or("unsaved".to_string()),
+                                        name.0
+                                    ),
+                                )
+                                .clicked()
+                            {
+                                select.send(Select::new(Some(entity)));
                             }
+                            break;
                         }
                     }
                 });
-            } else if task.kind == WaitFor::label() {
-                if let Ok(wait_for) = serde_json::from_value::<WaitFor>(task.config.clone()) {
-                    // TODO(@xiyuoh) provide selectable label for different units
-                    // internal conversions
-                    ui.label(format!("Wait For: {} seconds", wait_for.duration));
-                }
+            } else if let Ok(wait_for) = serde_json::from_value::<WaitFor>(task.config.clone()) {
+                // TODO(@xiyuoh) provide selectable label for different units
+                // internal conversions
+                ui.label(format!("Wait For: {} seconds", wait_for.duration));
             }
         });
     *task_count += 1;

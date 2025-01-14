@@ -1256,13 +1256,11 @@ fn generate_model_instances(
             (With<ModelMarker>, Without<Group>, Without<Pending>),
         >,
         Query<(Entity, &SiteID), With<LevelElevation>>,
-        Query<(&Point<Entity>, &SiteID), (With<LocationTags>, Without<Pending>)>,
         Query<&Children>,
         Query<&Parent>,
         Query<&Tasks, (With<RobotMarker>, Without<Group>)>,
     )> = SystemState::new(world);
-    let (model_descriptions, model_instances, levels, locations, _, parents, tasks) =
-        state.get(world);
+    let (model_descriptions, model_instances, levels, _, parents, tasks) = state.get(world);
 
     let mut site_levels_ids = std::collections::HashMap::<Entity, u32>::new();
     for (level_entity, site_id) in levels.iter() {
