@@ -51,9 +51,31 @@ impl<'a> InspectDifferentialDrive<'a> {
             };
 
         ui.indent("inspect_differential_drive_properties", |ui| {
-            Grid::new("inspect_diferential_drive")
+            Grid::new("inspect_differential_drive")
                 .num_columns(3)
                 .show(ui, |ui| {
+                    ui.label("Center Offset");
+                    ui.label("x");
+                    ui.label("y");
+                    ui.end_row();
+
+                    ui.label("");
+                    ui.add(
+                        DragValue::new(&mut new_differential_drive.rotation_center_offset[0])
+                            .clamp_range(std::f32::NEG_INFINITY..=std::f32::INFINITY)
+                            .speed(0.01),
+                    );
+                    ui.add(
+                        DragValue::new(&mut new_differential_drive.rotation_center_offset[1])
+                            .clamp_range(std::f32::NEG_INFINITY..=std::f32::INFINITY)
+                            .speed(0.01),
+                    );
+                    ui.end_row();
+
+                    ui.label("Bidirectional");
+                    ui.checkbox(&mut new_differential_drive.bidirectional, "");
+                    ui.end_row();
+
                     ui.label("Max Velocity");
                     ui.add(
                         DragValue::new(&mut new_differential_drive.translational_speed)

@@ -17,15 +17,11 @@
 
 use super::get_selected_description_entity;
 use crate::{
-    site::{
-        update_model_instances, Affiliation, Change, ChangePlugin, Group, Mobility, ModelMarker,
-        ModelProperty, Pose,
-    },
+    site::{Affiliation, Change, Group, Mobility, ModelMarker, ModelProperty, Pose, Robot},
     widgets::{prelude::*, Inspect},
-    ModelPropertyData,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{ComboBox, DragValue, Grid, Ui};
+use bevy_egui::egui::{ComboBox, Ui};
 use std::collections::HashMap;
 
 #[derive(Resource)]
@@ -42,32 +38,6 @@ pub struct InspectMobilityPlugin {}
 
 impl Plugin for InspectMobilityPlugin {
     fn build(&self, app: &mut App) {
-        app.world.init_component::<ModelProperty<Mobility>>();
-        let component_id = app
-            .world
-            .components()
-            .component_id::<ModelProperty<Mobility>>()
-            .unwrap();
-        app.add_plugins(ChangePlugin::<ModelProperty<Mobility>>::default())
-            .add_systems(PreUpdate, update_model_instances::<Mobility>)
-            .init_resource::<ModelPropertyData>()
-            .world
-            .resource_mut::<ModelPropertyData>()
-            .optional
-            .insert(
-                component_id,
-                (
-                    "Mobility".to_string(),
-                    |mut e_cmd| {
-                        e_cmd.insert(ModelProperty::<Mobility>::default());
-                    },
-                    |mut e_cmd| {
-                        e_cmd.remove::<ModelProperty<Mobility>>();
-                    },
-                ),
-            );
-
-        // Ui
         app.init_resource::<MobilityKinds>()
             .add_plugins(InspectionPlugin::<InspectMobility>::new());
     }
@@ -80,11 +50,11 @@ pub struct InspectMobility<'w, 's> {
         'w,
         's,
         &'static Affiliation<Entity>,
-        (With<ModelMarker>, Without<Group>, With<Mobility>),
+        (With<ModelMarker>, Without<Group>, With<Robot>),
     >,
     model_descriptions:
-        Query<'w, 's, &'static ModelProperty<Mobility>, (With<ModelMarker>, With<Group>)>,
-    change_mobility: EventWriter<'w, Change<ModelProperty<Mobility>>>,
+        Query<'w, 's, &'static ModelProperty<Robot>, (With<ModelMarker>, With<Group>)>,
+    change_robot_property: EventWriter<'w, Change<ModelProperty<Robot>>>,
     poses: Query<'w, 's, &'static Pose>,
     gizmos: Gizmos<'s>,
 }
@@ -104,65 +74,38 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectMobility<'w, 's> {
         ) else {
             return;
         };
-        let Ok(ModelProperty(mobility)) = params.model_descriptions.get(description_entity) else {
+        let Ok(ModelProperty(robot)) = params.model_descriptions.get(description_entity) else {
             return;
         };
+        let mobility = robot
+            .properties
+            .get(&Mobility::label())
+            .and_then(|m| serde_json::from_value::<Mobility>(m.clone()).ok());
+        let mut is_mobile = mobility.is_some();
 
-        let mut new_mobility = mobility.clone();
+        ui.checkbox(&mut is_mobile, "Mobility");
+
+        if !is_mobile {
+            let mut new_robot = robot.clone();
+            new_robot.properties.remove(&Mobility::label());
+            params
+                .change_robot_property
+                .send(Change::new(ModelProperty(new_robot), description_entity));
+            return;
+        }
+
+        let mut new_mobility = match mobility {
+            Some(ref m) => m.clone(),
+            None => Mobility::default(),
+        };
+
         let selected_mobility_kind = if !new_mobility.is_empty() {
             new_mobility.kind.clone()
         } else {
             "Select Kind".to_string()
         };
 
-        ui.label("Mobility");
-        ui.indent("inspect_mobility", |ui| {
-            Grid::new("inspect_collision_radius")
-                .num_columns(3)
-                .show(ui, |ui| {
-                    ui.label("Collision Radius");
-                    if ui
-                        .add(
-                            DragValue::new(&mut new_mobility.collision_radius)
-                                .clamp_range(0_f32..=std::f32::INFINITY)
-                                .speed(0.01),
-                        )
-                        .is_pointer_button_down_on()
-                    {
-                        if let Ok(pose) = params.poses.get(selection) {
-                            params.gizmos.circle(
-                                Vec3::new(pose.trans[0], pose.trans[1], pose.trans[2] + 0.01),
-                                Vec3::Z,
-                                new_mobility.collision_radius,
-                                Color::RED,
-                            );
-                        }
-                    };
-                    ui.label("m");
-                    ui.end_row();
-
-                    ui.label("Center Offset");
-                    ui.label("x");
-                    ui.label("y");
-                    ui.end_row();
-
-                    ui.label("");
-                    ui.add(
-                        DragValue::new(&mut new_mobility.rotation_center_offset[0])
-                            .clamp_range(std::f32::NEG_INFINITY..=std::f32::INFINITY)
-                            .speed(0.01),
-                    );
-                    ui.add(
-                        DragValue::new(&mut new_mobility.rotation_center_offset[1])
-                            .clamp_range(std::f32::NEG_INFINITY..=std::f32::INFINITY)
-                            .speed(0.01),
-                    );
-                    ui.end_row();
-                    ui.label("Bidirectional");
-                    ui.checkbox(&mut new_mobility.bidirectional, "");
-                });
-
-            ui.add_space(10.0);
+        ui.indent("configure_mobility", |ui| {
             ui.horizontal(|ui| {
                 ui.label("Mobility Kind");
                 ComboBox::from_id_source("select_mobility_kind")
@@ -180,10 +123,16 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectMobility<'w, 's> {
             }
         });
 
-        if new_mobility != *mobility {
-            params
-                .change_mobility
-                .send(Change::new(ModelProperty(new_mobility), description_entity));
+        if mobility.is_none()
+            || mobility.is_some_and(|m| m != new_mobility && !new_mobility.is_empty())
+        {
+            if let Ok(new_value) = serde_json::to_value(new_mobility) {
+                let mut new_robot = robot.clone();
+                new_robot.properties.insert(Mobility::label(), new_value);
+                params
+                    .change_robot_property
+                    .send(Change::new(ModelProperty(new_robot), description_entity));
+            }
         }
         ui.add_space(10.0);
     }

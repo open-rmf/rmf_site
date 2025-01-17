@@ -90,8 +90,6 @@ pub struct ModelDescriptionBundle {
     pub group: Group,
     #[serde(skip)]
     pub marker: ModelMarker,
-    #[serde(default, skip_serializing_if = "is_default")]
-    pub optional_data: OptionalModelData,
 }
 
 impl Default for ModelDescriptionBundle {
@@ -103,7 +101,6 @@ impl Default for ModelDescriptionBundle {
             scale: ModelProperty(Scale::default()),
             group: Group,
             marker: ModelMarker,
-            optional_data: OptionalModelData::default(),
         }
     }
 }

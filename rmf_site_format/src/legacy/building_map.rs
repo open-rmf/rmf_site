@@ -8,8 +8,9 @@ use crate::{
     FiducialMarker, Guided, Lane as SiteLane, LaneMarker, Level as SiteLevel, LevelElevation,
     LevelProperties as SiteLevelProperties, ModelDescriptionBundle, ModelInstance, Motion,
     NameInSite, NameOfSite, NavGraph, Navigation, OrientationConstraint, Parented, PixelsPerMeter,
-    Pose, PreferredSemiTransparency, RankingsInLevel, ReverseLane, Rotation, ScenarioBundle, Site,
-    SiteProperties, Texture as SiteTexture, TextureGroup, UserCameraPose, DEFAULT_NAV_GRAPH_COLORS,
+    Pose, PreferredSemiTransparency, RankingsInLevel, ReverseLane, Robot, Rotation, ScenarioBundle,
+    Site, SiteProperties, Texture as SiteTexture, TextureGroup, UserCameraPose,
+    DEFAULT_NAV_GRAPH_COLORS,
 };
 use glam::{DAffine2, DMat3, DQuat, DVec2, DVec3, EulerRot};
 use serde::{Deserialize, Serialize};
@@ -203,6 +204,7 @@ impl BuildingMap {
         let mut cartesian_fiducials: HashMap<u32, Vec<DVec2>> = HashMap::new();
 
         let mut model_descriptions: BTreeMap<u32, ModelDescriptionBundle> = BTreeMap::new();
+        let mut robots: BTreeMap<u32, Robot> = BTreeMap::new();
         let mut model_instances: BTreeMap<u32, Parented<u32, ModelInstance<u32>>> = BTreeMap::new();
         let mut model_description_name_map = HashMap::<String, u32>::new();
         let mut scenarios: BTreeMap<u32, ScenarioBundle<u32>> = BTreeMap::new();
@@ -524,6 +526,7 @@ impl BuildingMap {
                     &mut model_instances,
                     &mut site_id,
                     level_id,
+                    None,
                 );
                 scenarios
                     .get_mut(&default_scenario_id)
@@ -540,6 +543,7 @@ impl BuildingMap {
                     &mut model_instances,
                     &mut site_id,
                     level_id,
+                    Some(&mut robots),
                 );
                 scenarios
                     .get_mut(&default_scenario_id)
@@ -757,6 +761,7 @@ impl BuildingMap {
             scenarios,
             model_instances,
             model_descriptions,
+            robots,
         })
     }
 }

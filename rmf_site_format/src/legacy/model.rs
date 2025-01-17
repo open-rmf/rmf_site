@@ -1,6 +1,6 @@
 use crate::{
     Affiliation, Angle, AssetSource, InstanceMarker, IsStatic, ModelDescriptionBundle,
-    ModelInstance, ModelMarker, ModelProperty, NameInSite, Parented, Pose, Rotation, Scale,
+    ModelInstance, ModelMarker, ModelProperty, NameInSite, Parented, Pose, Robot, Rotation, Scale,
 };
 use glam::DVec2;
 use serde::{Deserialize, Serialize};
@@ -36,6 +36,7 @@ impl Model {
         model_instances: &mut BTreeMap<u32, Parented<u32, ModelInstance<u32>>>,
         site_id: &mut RangeFrom<u32>,
         level_id: u32,
+        robots: Option<&mut BTreeMap<u32, Robot>>,
     ) -> (u32, Pose) {
         let model_description_id = match model_description_name_map.get(&self.model_name) {
             Some(id) => *id,
@@ -52,6 +53,9 @@ impl Model {
                         ..Default::default()
                     },
                 );
+                if let Some(robots) = robots {
+                    robots.insert(id, Robot::default());
+                }
                 id
             }
         };

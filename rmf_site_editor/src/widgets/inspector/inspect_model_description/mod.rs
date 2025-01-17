@@ -45,6 +45,9 @@ pub use inspect_mobility::*;
 pub mod inspect_required_properties;
 pub use inspect_required_properties::*;
 
+pub mod inspect_robot_properties;
+pub use inspect_robot_properties::*;
+
 #[derive(Default)]
 pub struct InspectModelDescriptionPlugin {}
 

@@ -1213,33 +1213,42 @@ fn generate_model_descriptions(
             (With<ModelMarker>, With<Group>, Without<Pending>),
         >,
         Query<&Children>,
-        // Optional model data
-        // TODO(@xiyuoh) store property data in optional_data instead of querying
-        // on save or query ModelProperty<T> instead but exclude required
-        Query<&ModelProperty<Mobility>>,
     )> = SystemState::new(world);
-    let (model_descriptions, children, mobility) = state.get(world);
+    let (model_descriptions, children) = state.get(world);
 
     let mut res = BTreeMap::<u32, ModelDescriptionBundle>::new();
     if let Ok(children) = children.get(site) {
         for child in children.iter() {
             if let Ok((site_id, name, source, is_static, scale)) = model_descriptions.get(*child) {
-                let mut desc_bundle = ModelDescriptionBundle {
+                let desc_bundle = ModelDescriptionBundle {
                     name: name.clone(),
                     source: source.clone(),
                     is_static: is_static.clone(),
                     scale: scale.clone(),
                     ..Default::default()
                 };
-                let mut optional_data = serde_json::Map::new();
-                if let Ok(mobility_property) = mobility.get(*child) {
-                    if let Ok(mobility_data) = serde_json::to_value(mobility_property.0.clone()) {
-                        optional_data.insert(Mobility::label(), mobility_data.into());
-                    }
-                }
-                desc_bundle.optional_data = OptionalModelData(optional_data.into());
-
                 res.insert(site_id.0, desc_bundle);
+            }
+        }
+    }
+    Ok(res)
+}
+
+fn generate_robots(
+    site: Entity,
+    world: &mut World,
+) -> Result<BTreeMap<u32, Robot>, SiteGenerationError> {
+    let mut state: SystemState<(
+        Query<(&SiteID, &ModelProperty<Robot>), (With<ModelMarker>, With<Group>, Without<Pending>)>,
+        Query<&Children>,
+    )> = SystemState::new(world);
+    let (robots, children) = state.get(world);
+
+    let mut res = BTreeMap::<u32, Robot>::new();
+    if let Ok(children) = children.get(site) {
+        for child in children.iter() {
+            if let Ok((site_id, robot)) = robots.get(*child) {
+                res.insert(site_id.0, robot.0.clone());
             }
         }
     }
@@ -1259,7 +1268,7 @@ fn generate_model_instances(
         Query<(Entity, &SiteID), With<LevelElevation>>,
         Query<&Children>,
         Query<&Parent>,
-        Query<&Tasks, (With<RobotMarker>, Without<Group>)>,
+        Query<&Tasks, (With<Robot>, Without<Group>)>,
     )> = SystemState::new(world);
     let (model_descriptions, model_instances, levels, _, parents, tasks) = state.get(world);
 
@@ -1293,6 +1302,7 @@ fn generate_model_instances(
             ),
             ..Default::default()
         };
+        // TODO(@xiyuoh) bring tasks to its own section
         let mut optional_data = serde_json::Map::new();
         if let Ok(robot_tasks) = tasks.get(instance_entity) {
             if let Ok(tasks_data) = serde_json::to_value(robot_tasks.clone()) {
@@ -1402,6 +1412,7 @@ pub fn generate_site(
     let graph_ranking = generate_graph_rankings(world, site)?;
     let properties = generate_site_properties(world, site)?;
     let model_descriptions = generate_model_descriptions(site, world)?;
+    let robots = generate_robots(site, world)?;
     let model_instances = generate_model_instances(site, world)?;
     let scenarios = generate_scenarios(site, world)?;
 
@@ -1426,6 +1437,7 @@ pub fn generate_site(
         // TODO(MXG): Parse agent information once the spec is figured out
         agents: Default::default(),
         model_descriptions,
+        robots,
         model_instances,
         scenarios,
     });

@@ -37,7 +37,7 @@ pub struct ViewTasks<'w, 's> {
             Option<&'static SiteID>,
             &'static mut Tasks,
         ),
-        (With<RobotMarker>, Without<Group>),
+        (With<Robot>, Without<Group>),
     >,
     site_entities: Query<
         'w,

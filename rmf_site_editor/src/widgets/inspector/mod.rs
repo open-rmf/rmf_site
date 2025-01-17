@@ -214,7 +214,8 @@ impl Plugin for StandardInspectorPlugin {
                 InspectModelPropertyPlugin::<InspectModelAssetSource, AssetSource>::new(
                     "Asset Source".to_string(),
                 ),
-                // Optional model properties/data
+                // Robot properties
+                InspectRobotPropertiesPlugin::default(),
                 InspectMobilityPlugin::default(),
                 InspectDifferentialDrivePlugin::default(),
                 InspectTaskPlugin::default(),

@@ -16,12 +16,9 @@
 */
 
 use crate::{
-    site::{
-        update_model_instances, ChangePlugin, Group, LocationTags, ModelProperty, NameInSite,
-        RobotMarker, Task, Tasks,
-    },
+    site::{ChangePlugin, Group, LocationTags, NameInSite, Robot, Task, Tasks},
     widgets::{prelude::*, Inspect, InspectionPlugin},
-    Icons, ModelPropertyData,
+    Icons,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Align, Button, Color32, ComboBox, Frame, Layout, Stroke, Ui};
@@ -47,40 +44,6 @@ pub struct InspectTaskPlugin {}
 
 impl Plugin for InspectTaskPlugin {
     fn build(&self, app: &mut App) {
-        // Allows us to toggle RobotMarker as a configurable property
-        // from the model description inspector
-        app.world.init_component::<ModelProperty<RobotMarker>>();
-        let component_id = app
-            .world
-            .components()
-            .component_id::<ModelProperty<RobotMarker>>()
-            .unwrap();
-        app.add_plugins(ChangePlugin::<ModelProperty<RobotMarker>>::default())
-            .add_systems(
-                PreUpdate,
-                (
-                    add_remove_robot_tasks,
-                    update_model_instances::<RobotMarker>,
-                ),
-            )
-            .init_resource::<ModelPropertyData>()
-            .world
-            .resource_mut::<ModelPropertyData>()
-            .optional
-            .insert(
-                component_id,
-                (
-                    "Robot".to_string(),
-                    |mut e_cmd| {
-                        e_cmd.insert(ModelProperty::<RobotMarker>::default());
-                    },
-                    |mut e_cmd| {
-                        e_cmd.remove::<ModelProperty<RobotMarker>>();
-                    },
-                ),
-            );
-
-        // Ui
         app.init_resource::<PendingTask>()
             .init_resource::<TaskKinds>()
             .add_plugins((
@@ -92,7 +55,7 @@ impl Plugin for InspectTaskPlugin {
 
 #[derive(SystemParam)]
 pub struct InspectTasks<'w, 's> {
-    robots: Query<'w, 's, &'static mut Tasks, (With<RobotMarker>, Without<Group>)>,
+    robots: Query<'w, 's, &'static mut Tasks, (With<Robot>, Without<Group>)>,
     locations: Query<'w, 's, (Entity, &'static NameInSite, &'static LocationTags)>,
     pending_task: ResMut<'w, PendingTask>,
     tasks: ResMut<'w, TaskKinds>,
@@ -234,30 +197,5 @@ pub struct PendingTask(Task);
 impl FromWorld for PendingTask {
     fn from_world(_world: &mut World) -> Self {
         PendingTask(Task::default())
-    }
-}
-
-/// When the RobotMarker is added or removed, add or remove the Tasks component
-fn add_remove_robot_tasks(
-    mut commands: Commands,
-    instances: Query<(Entity, Ref<RobotMarker>), Without<Group>>,
-    tasks: Query<&Tasks, (With<RobotMarker>, Without<Group>)>,
-    mut removals: RemovedComponents<ModelProperty<RobotMarker>>,
-) {
-    // all instances with this description - add/remove Tasks component
-
-    for removal in removals.read() {
-        if instances.get(removal).is_ok() {
-            commands.entity(removal).remove::<Tasks>();
-        }
-    }
-
-    for (e, marker) in instances.iter() {
-        if marker.is_added() {
-            if let Ok(_) = tasks.get(e) {
-                continue;
-            }
-            commands.entity(e).insert(Tasks::default());
-        }
     }
 }

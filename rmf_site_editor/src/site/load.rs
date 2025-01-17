@@ -348,18 +348,21 @@ fn generate_site_entities(
         model_description_dependents.insert(model_description_entity, HashSet::new());
         model_description_to_source
             .insert(model_description_entity, model_description.source.0.clone());
-        // Insert optional model data
-        if let serde_json::Value::Object(map) = &model_description.optional_data.0 {
-            for (k, v) in map.iter() {
-                if *k == Mobility::label() {
-                    if let Ok(mobility) = serde_json::from_value::<Mobility>(v.clone()) {
-                        commands
-                            .entity(model_description_entity)
-                            .insert(ModelProperty(mobility));
-                    }
-                }
-            }
-        }
+    }
+
+    for (robot_id, robot_data) in &site_data.robots {
+        // Robot IDs are pointing to model description entities
+        if let Some(model_description_entity) = id_to_entity
+            .get(robot_id)
+            .filter(|e| model_description_to_source.contains_key(*e))
+        {
+            commands
+                .entity(*model_description_entity)
+                .insert(ModelProperty(robot_data.clone()));
+        } else {
+            // TODO(@xiyuoh) consider creating an entity if not found
+            error!("Robot is pointing to a non-existent model description!");
+        };
     }
 
     for (model_instance_id, parented_model_instance) in &site_data.model_instances {
@@ -396,17 +399,13 @@ fn generate_site_entities(
                 model_instance.name.0,
             );
         }
+        // TODO(@xiyuoh) Move Task out of model instance and have their own section in Site data.
         // Insert optional model data
         if let serde_json::Value::Object(map) = &model_instance.optional_data.0 {
             for (k, v) in map.iter() {
                 if *k == Tasks::label() {
                     if let Ok(tasks) = serde_json::from_value::<Tasks>(v.clone()) {
                         commands.entity(model_instance_entity).insert(tasks);
-                        if let Some(description_entity) = model_instance.description.0 {
-                            commands
-                                .entity(description_entity)
-                                .insert(ModelProperty(RobotMarker));
-                        }
                     }
                 }
             }
