@@ -142,7 +142,7 @@ fn show_task(
                     ui.horizontal(|ui| {
                         ui.label("Go To Place: ");
                         for (entity, name, _, site_id) in site_entities.iter() {
-                            if *name == go_to_place.location {
+                            if *name.0 == go_to_place.location {
                                 if ui
                                     .selectable_label(
                                         selected.0.is_some_and(|s| s == entity),

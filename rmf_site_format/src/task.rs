@@ -61,13 +61,13 @@ impl Tasks {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
 pub struct GoToPlace {
-    pub location: NameInSite,
+    pub location: String,
 }
 
 impl Default for GoToPlace {
     fn default() -> Self {
         Self {
-            location: NameInSite::default(),
+            location: String::new(),
         }
     }
 }

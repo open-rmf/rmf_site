@@ -18,7 +18,7 @@
 use crate::TaskKinds;
 use bevy::prelude::*;
 use bevy_egui::egui::{ComboBox, DragValue, Ui};
-use rmf_site_format::{GoToPlace, NameInSite, Task, WaitFor};
+use rmf_site_format::{GoToPlace, Task, WaitFor};
 
 #[derive(Default)]
 pub struct InspectDefaultTasksPlugin {}
@@ -69,11 +69,11 @@ impl<'a> InspectGoToPlace<'a> {
             };
 
         let selected_location_name = if new_go_to_place.is_default()
-            || !self.locations.contains(&new_go_to_place.location.0)
+            || !self.locations.contains(&new_go_to_place.location)
         {
             "Select Location".to_string()
         } else {
-            new_go_to_place.location.0.clone()
+            new_go_to_place.location.clone()
         };
         ComboBox::from_id_source(self.id.to_string() + "select_go_to_location")
             .selected_text(selected_location_name)
@@ -81,12 +81,12 @@ impl<'a> InspectGoToPlace<'a> {
                 for location_name in self.locations.iter() {
                     ui.selectable_value(
                         &mut new_go_to_place.location,
-                        NameInSite(location_name.clone()),
+                        location_name.clone(),
                         location_name.clone(),
                     );
                 }
             });
-        if !new_go_to_place.is_default() && self.locations.contains(&new_go_to_place.location.0) {
+        if !new_go_to_place.is_default() && self.locations.contains(&new_go_to_place.location) {
             if let Ok(new_value) = serde_json::to_value(new_go_to_place) {
                 self.task.config = new_value;
             }
@@ -95,7 +95,7 @@ impl<'a> InspectGoToPlace<'a> {
 
     pub fn is_valid(task: &Task, locations: &Vec<String>) -> bool {
         match serde_json::from_value::<GoToPlace>(task.config.clone()) {
-            Ok(go_to_place) => locations.contains(&go_to_place.location.0),
+            Ok(go_to_place) => locations.contains(&go_to_place.location),
             Err(_) => false,
         }
     }

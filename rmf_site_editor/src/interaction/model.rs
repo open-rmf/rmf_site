@@ -46,7 +46,6 @@ pub fn update_model_instance_visual_cues(
     for (instance_entity, mut instance_selected, mut instance_hovered, affiliation, tasks) in
         &mut model_instances
     {
-        let mut is_description_selected = false;
         if let Some(description_entity) = affiliation.0 {
             if let Ok((_, description_selected, description_hovered)) =
                 model_descriptions.get(description_entity)
@@ -55,7 +54,6 @@ pub fn update_model_instance_visual_cues(
                     instance_selected
                         .support_selected
                         .insert(description_entity);
-                    is_description_selected = true;
                 } else {
                     instance_selected
                         .support_selected
@@ -80,31 +78,7 @@ pub fn update_model_instance_visual_cues(
                     location_hovered.support_hovering.remove(&instance_entity);
                 }
             }
-
-            // Additional interaction for default tasks
-            if let Some(go_to_place) = tasks
-                .0
-                .first()
-                .and_then(|t| serde_json::from_value::<GoToPlace>(t.config.clone()).ok())
-            {
-                for (location_name, mut location_selected, mut location_hovered) in
-                    locations.iter_mut()
-                {
-                    if location_name == &go_to_place.location {
-                        if instance_selected.cue() && !is_description_selected {
-                            location_selected.support_selected.insert(instance_entity);
-                        } else {
-                            location_selected.support_selected.remove(&instance_entity);
-                        }
-                        if instance_hovered.cue() {
-                            location_hovered.support_hovering.insert(instance_entity);
-                        } else {
-                            location_hovered.support_hovering.remove(&instance_entity);
-                        }
-                        break;
-                    }
-                }
-            }
+            // TODO(@xiyuoh) support task-based visual cues
         }
     }
 
