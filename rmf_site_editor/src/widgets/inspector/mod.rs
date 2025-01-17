@@ -218,6 +218,8 @@ impl Plugin for StandardInspectorPlugin {
                 InspectRobotPropertiesPlugin::default(),
                 InspectMobilityPlugin::default(),
                 InspectDifferentialDrivePlugin::default(),
+                InspectCollisionPlugin::default(),
+                InspectCircleCollisionPlugin::default(),
                 InspectTaskPlugin::default(),
                 InspectDefaultTasksPlugin::default(),
             ));

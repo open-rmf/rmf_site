@@ -15,10 +15,11 @@
  *
 */
 
-// TODO(@xiyuoh) change file name to robot.rs since we are mostly dealing with Robot properties
-
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Component, Reflect};
+use bevy::{
+    math::Vec2,
+    prelude::{Component, Reflect},
+};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -138,5 +139,28 @@ impl Collision {
 
     pub fn label() -> String {
         "Collision".to_string()
+    }
+}
+
+// Supported kinds of Collision
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+pub struct CircleCollision {
+    pub radius: f32,
+    pub offset: Vec2,
+}
+
+impl Default for CircleCollision {
+    fn default() -> Self {
+        Self {
+            radius: 0.0,
+            offset: Vec2::default(),
+        }
+    }
+}
+
+impl CircleCollision {
+    pub fn label() -> String {
+        "Circle Collision".to_string()
     }
 }

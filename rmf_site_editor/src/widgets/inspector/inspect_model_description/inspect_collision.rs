@@ -17,7 +17,7 @@
 
 use super::get_selected_description_entity;
 use crate::{
-    site::{Affiliation, Change, Group, Mobility, ModelMarker, ModelProperty, Robot},
+    site::{Affiliation, Change, Collision, Group, ModelMarker, ModelProperty, Pose, Robot},
     widgets::{prelude::*, Inspect},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -25,27 +25,27 @@ use bevy_egui::egui::{ComboBox, Ui};
 use std::collections::HashMap;
 
 #[derive(Resource)]
-pub struct MobilityKinds(pub HashMap<String, fn(&mut Mobility, &mut Ui)>);
+pub struct CollisionKinds(pub HashMap<String, fn(&mut Collision, &mut Ui)>);
 
-impl FromWorld for MobilityKinds {
+impl FromWorld for CollisionKinds {
     fn from_world(_world: &mut World) -> Self {
-        MobilityKinds(HashMap::new())
+        CollisionKinds(HashMap::new())
     }
 }
 
 #[derive(Default)]
-pub struct InspectMobilityPlugin {}
+pub struct InspectCollisionPlugin {}
 
-impl Plugin for InspectMobilityPlugin {
+impl Plugin for InspectCollisionPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<MobilityKinds>()
-            .add_plugins(InspectionPlugin::<InspectMobility>::new());
+        app.init_resource::<CollisionKinds>()
+            .add_plugins(InspectionPlugin::<InspectCollision>::new());
     }
 }
 
 #[derive(SystemParam)]
-pub struct InspectMobility<'w, 's> {
-    mobility: ResMut<'w, MobilityKinds>,
+pub struct InspectCollision<'w, 's> {
+    collision: ResMut<'w, CollisionKinds>,
     model_instances: Query<
         'w,
         's,
@@ -55,9 +55,11 @@ pub struct InspectMobility<'w, 's> {
     model_descriptions:
         Query<'w, 's, &'static ModelProperty<Robot>, (With<ModelMarker>, With<Group>)>,
     change_robot_property: EventWriter<'w, Change<ModelProperty<Robot>>>,
+    poses: Query<'w, 's, &'static Pose>,
+    gizmos: Gizmos<'s>,
 }
 
-impl<'w, 's> WidgetSystem<Inspect> for InspectMobility<'w, 's> {
+impl<'w, 's> WidgetSystem<Inspect> for InspectCollision<'w, 's> {
     fn show(
         Inspect { selection, .. }: Inspect,
         ui: &mut Ui,
@@ -75,58 +77,64 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectMobility<'w, 's> {
         let Ok(ModelProperty(robot)) = params.model_descriptions.get(description_entity) else {
             return;
         };
-        let mobility = robot
+        let collision = robot
             .properties
-            .get(&Mobility::label())
-            .and_then(|m| serde_json::from_value::<Mobility>(m.clone()).ok());
-        let mut is_mobile = mobility.is_some();
+            .get(&Collision::label())
+            .and_then(|c| serde_json::from_value::<Collision>(c.clone()).ok());
+        let mut has_collision = collision.is_some();
+        // TODO(@xiyuoh) a lot of duplicate code with inspect_mobility, consider consolidating
+        // some of them to inspect_robot_properties
 
-        ui.checkbox(&mut is_mobile, "Mobility");
+        ui.checkbox(&mut has_collision, "Collision");
 
-        if !is_mobile {
+        if !has_collision {
             let mut new_robot = robot.clone();
-            new_robot.properties.remove(&Mobility::label());
+            new_robot.properties.remove(&Collision::label());
             params
                 .change_robot_property
                 .send(Change::new(ModelProperty(new_robot), description_entity));
             return;
         }
 
-        let mut new_mobility = match mobility {
-            Some(ref m) => m.clone(),
-            None => Mobility::default(),
+        let mut new_collision = match collision {
+            Some(ref c) => c.clone(),
+            None => Collision::default(),
         };
 
-        let selected_mobility_kind = if !new_mobility.is_empty() {
-            new_mobility.kind.clone()
+        let selected_collision_kind = if !new_collision.is_empty() {
+            new_collision.kind.clone()
         } else {
             "Select Kind".to_string()
         };
 
-        ui.indent("configure_mobility", |ui| {
+        ui.indent("configure_collision", |ui| {
             ui.horizontal(|ui| {
-                ui.label("Mobility Kind");
-                ComboBox::from_id_source("select_mobility_kind")
-                    .selected_text(selected_mobility_kind)
+                ui.label("Collision Kind");
+                ComboBox::from_id_source("select_collision_kind")
+                    .selected_text(selected_collision_kind)
                     .show_ui(ui, |ui| {
-                        for (kind, _) in params.mobility.0.iter() {
-                            ui.selectable_value(&mut new_mobility.kind, kind.clone(), kind.clone());
+                        for (kind, _) in params.collision.0.iter() {
+                            ui.selectable_value(
+                                &mut new_collision.kind,
+                                kind.clone(),
+                                kind.clone(),
+                            );
                         }
                     });
             });
-            if !new_mobility.is_default() {
-                if let Some(show_widget) = params.mobility.0.get(&new_mobility.kind) {
-                    show_widget(&mut new_mobility, ui);
+            if !new_collision.is_default() {
+                if let Some(show_widget) = params.collision.0.get(&new_collision.kind) {
+                    show_widget(&mut new_collision, ui);
                 }
             }
         });
 
-        if mobility.is_none()
-            || mobility.is_some_and(|m| m != new_mobility && !new_mobility.is_empty())
+        if collision.is_none()
+            || collision.is_some_and(|m| m != new_collision && !new_collision.is_empty())
         {
-            if let Ok(new_value) = serde_json::to_value(new_mobility) {
+            if let Ok(new_value) = serde_json::to_value(new_collision) {
                 let mut new_robot = robot.clone();
-                new_robot.properties.insert(Mobility::label(), new_value);
+                new_robot.properties.insert(Collision::label(), new_value);
                 params
                     .change_robot_property
                     .send(Change::new(ModelProperty(new_robot), description_entity));

@@ -18,8 +18,8 @@
 use super::get_selected_description_entity;
 use crate::{
     site::{
-        update_model_instances, Affiliation, Change, ChangePlugin, Group, ModelMarker,
-        ModelProperty, Robot, Tasks,
+        update_model_instances, Affiliation, ChangePlugin, Group, ModelMarker, ModelProperty,
+        Robot, Tasks,
     },
     widgets::{prelude::*, Inspect},
     ModelPropertyData,

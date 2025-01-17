@@ -36,6 +36,12 @@ use crate::{
     MainInspector,
 };
 
+pub mod inspect_circle_collision;
+pub use inspect_circle_collision::*;
+
+pub mod inspect_collision;
+pub use inspect_collision::*;
+
 pub mod inspect_differential_drive;
 pub use inspect_differential_drive::*;
 
