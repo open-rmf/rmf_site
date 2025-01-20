@@ -167,13 +167,21 @@ impl Site {
     pub fn to_writer_ron<W: io::Write>(&self, mut writer: W) -> ron::Result<()> {
         let mut contents = String::new();
         ron::ser::to_writer_pretty(&mut contents, self, default_style_config())?;
-        writer.write_all(contents.as_bytes()).map_err(ron::Error::from)
+        writer
+            .write_all(contents.as_bytes())
+            .map_err(ron::Error::from)
     }
 
-    pub fn to_writer_custom_ron<W: io::Write>(&self, mut writer: W, style: Style) -> ron::Result<()> {
+    pub fn to_writer_custom_ron<W: io::Write>(
+        &self,
+        mut writer: W,
+        style: Style,
+    ) -> ron::Result<()> {
         let mut contents = String::new();
         ron::ser::to_writer_pretty(&mut contents, self, style)?;
-        writer.write_all(contents.as_bytes()).map_err(ron::Error::from)
+        writer
+            .write_all(contents.as_bytes())
+            .map_err(ron::Error::from)
     }
 
     pub fn to_string_ron(&self) -> ron::Result<String> {
