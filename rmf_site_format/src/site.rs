@@ -202,6 +202,18 @@ impl Site {
         serde_json::to_vec_pretty(self)
     }
 
+    pub fn to_bytes_json_pretty(&self) -> serde_json::Result<Vec<u8>> {
+        serde_json::to_vec(self)
+    }
+
+    pub fn to_string_json(&self) -> serde_json::Result<String> {
+        serde_json::to_string(self)
+    }
+
+    pub fn to_string_json_pretty(&self) -> serde_json::Result<String> {
+        serde_json::to_string_pretty(self)
+    }
+
     pub fn from_bytes_ron<'a>(s: &'a [u8]) -> ron::error::SpannedResult<Self> {
         ron::de::from_bytes(s)
     }
@@ -257,5 +269,13 @@ mod tests {
         let map = BuildingMap::from_bytes(&data).unwrap();
         let site_string = map.to_site().unwrap().to_bytes_json().unwrap();
         Site::from_bytes_json(&site_string).unwrap();
+    }
+
+    #[test]
+    fn produce_json_string() {
+        let data = std::fs::read("../assets/demo_maps/office.building.yaml").unwrap();
+        let map = BuildingMap::from_bytes(&data).unwrap();
+        let text = map.to_site().unwrap().to_string_json_pretty().unwrap();
+        println!("{text}");
     }
 }
