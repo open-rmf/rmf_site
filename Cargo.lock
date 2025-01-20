@@ -424,6 +424,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
 
 [[package]]
+name = "base64"
+version = "0.22.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
+
+[[package]]
 name = "bevy"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -503,7 +509,7 @@ dependencies = [
  "futures-lite 1.13.0",
  "js-sys",
  "parking_lot",
- "ron",
+ "ron 0.8.1",
  "serde",
  "thiserror",
  "wasm-bindgen",
@@ -1092,7 +1098,7 @@ dependencies = [
  "bevy_render",
  "bevy_transform",
  "bevy_utils",
- "ron",
+ "ron 0.8.1",
  "serde",
  "thiserror",
  "uuid",
@@ -4067,7 +4073,7 @@ dependencies = [
  "glam",
  "once_cell",
  "pathdiff",
- "ron",
+ "ron 0.9.0-alpha.0",
  "sdformat_rs",
  "serde",
  "serde_json",
@@ -4106,6 +4112,18 @@ dependencies = [
  "bitflags 2.4.2",
  "serde",
  "serde_derive",
+]
+
+[[package]]
+name = "ron"
+version = "0.9.0-alpha.0"
+source = "git+https://github.com/ron-rs/ron?branch=master#74666478d5553592c6136e0dec12d11bbd10302e"
+dependencies = [
+ "base64 0.22.1",
+ "bitflags 2.4.2",
+ "serde",
+ "serde_derive",
+ "unicode-ident",
 ]
 
 [[package]]

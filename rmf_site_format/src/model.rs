@@ -98,6 +98,7 @@ impl<T: RefTrait> OptionalModelProperty<T> {
 /// Defines a property in a model description, that will be added to all instances
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
+#[serde(transparent)]
 pub struct OptionalModelProperties<T: RefTrait>(pub Vec<OptionalModelProperty<T>>);
 
 impl<T: RefTrait> Default for OptionalModelProperties<T> {
