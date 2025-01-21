@@ -16,7 +16,13 @@
 */
 
 use super::inspect_robot_properties::RobotPropertyData;
-use crate::site::{CircleCollision, Collision, RobotProperty, RobotPropertyKind};
+use crate::{
+    interaction::Selection,
+    site::{
+        Affiliation, CircleCollision, Collision, Group, ModelMarker, ModelProperty, Pose, Robot,
+        RobotProperty, RobotPropertyKind,
+    },
+};
 use bevy::prelude::*;
 use bevy_egui::egui::{DragValue, Grid, Ui};
 
@@ -34,6 +40,7 @@ impl Plugin for InspectCircleCollisionPlugin {
                     InspectCircleCollision::new(config).show(ui);
                 })
             });
+        app.add_systems(PostUpdate, update_view_circle_collision);
     }
 }
 
@@ -58,24 +65,11 @@ impl<'a> InspectCircleCollision<'a> {
                 .num_columns(3)
                 .show(ui, |ui| {
                     ui.label("Collision Radius");
-                    if ui
-                        .add(
-                            DragValue::new(&mut new_circle_collision.radius)
-                                .clamp_range(0_f32..=std::f32::INFINITY)
-                                .speed(0.01),
-                        )
-                        .is_pointer_button_down_on()
-                    {
-                        // TODO(@xiyuoh) bring in poses and gizmos
-                        // if let Ok(pose) = params.poses.get(selection) {
-                        //     params.gizmos.circle(
-                        //         Vec3::new(pose.trans[0], pose.trans[1], pose.trans[2] + 0.01),
-                        //         Vec3::Z,
-                        //         new_circle_collision.radius,
-                        //         Color::RED,
-                        //     );
-                        // }
-                    };
+                    ui.add(
+                        DragValue::new(&mut new_circle_collision.radius)
+                            .clamp_range(0_f32..=std::f32::INFINITY)
+                            .speed(0.01),
+                    );
                     ui.label("m");
                     ui.end_row();
 
@@ -96,6 +90,8 @@ impl<'a> InspectCircleCollision<'a> {
                             .speed(0.01),
                     );
                     ui.end_row();
+                    ui.checkbox(&mut new_circle_collision.view, "View".to_string());
+                    ui.end_row();
                 });
         });
 
@@ -108,5 +104,57 @@ impl<'a> InspectCircleCollision<'a> {
                 self.config.as_object_mut().unwrap().insert(k, v);
             }
         }
+    }
+}
+
+fn update_view_circle_collision(
+    model_instances: Query<&Affiliation<Entity>, (With<ModelMarker>, Without<Group>, With<Robot>)>,
+    model_descriptions: Query<&ModelProperty<Robot>, (With<ModelMarker>, With<Group>)>,
+    selection: Res<Selection>,
+    poses: Query<&Pose>,
+    mut gizmos: Gizmos,
+) {
+    let Some(selected_entity) = selection.0 else {
+        return;
+    };
+    let mut description_entity: Option<Entity> = None;
+    if model_descriptions.get(selected_entity).ok().is_some() {
+        description_entity = Some(selected_entity);
+    } else {
+        if let Some(affiliation) = model_instances.get(selected_entity).ok().and_then(|a| a.0) {
+            if model_descriptions.get(affiliation).is_ok() {
+                description_entity = Some(affiliation);
+            }
+        }
+    }
+    let Some(ModelProperty(robot)) =
+        description_entity.and_then(|e| model_descriptions.get(e).ok())
+    else {
+        return;
+    };
+
+    let Some(circle_collision) = robot
+        .properties
+        .get(&Collision::label())
+        .and_then(|c| serde_json::from_value::<Collision>(c.clone()).ok())
+        .filter(|c| c.kind() == CircleCollision::label())
+        .and_then(|c| serde_json::from_value::<CircleCollision>(c.config().clone()).ok())
+    else {
+        return;
+    };
+    if !circle_collision.view {
+        return;
+    }
+    if let Ok(pose) = poses.get(selected_entity) {
+        gizmos.circle(
+            Vec3::new(
+                pose.trans[0] + circle_collision.offset[0],
+                pose.trans[1] + circle_collision.offset[1],
+                pose.trans[2] + 0.01,
+            ),
+            Vec3::Z,
+            circle_collision.radius,
+            Color::RED,
+        );
     }
 }

@@ -44,6 +44,8 @@ pub trait RobotProperty {
 
     fn kind_mut(&mut self) -> &mut String;
 
+    fn config(&self) -> serde_json::Value;
+
     fn config_mut(&mut self) -> &mut serde_json::Value;
 
     fn label() -> String;
@@ -90,6 +92,10 @@ impl RobotProperty for Mobility {
 
     fn kind_mut(&mut self) -> &mut String {
         &mut self.kind
+    }
+
+    fn config(&self) -> serde_json::Value {
+        self.config.clone()
     }
 
     fn config_mut(&mut self) -> &mut serde_json::Value {
@@ -165,6 +171,10 @@ impl RobotProperty for Collision {
 
     fn kind_mut(&mut self) -> &mut String {
         &mut self.kind
+    }
+
+    fn config(&self) -> serde_json::Value {
+        self.config.clone()
     }
 
     fn config_mut(&mut self) -> &mut serde_json::Value {
