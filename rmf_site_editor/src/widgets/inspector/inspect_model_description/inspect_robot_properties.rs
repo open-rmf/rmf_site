@@ -15,7 +15,7 @@
  *
 */
 
-use super::get_selected_description_entity;
+use super::{get_selected_description_entity, ModelDescriptionInspector};
 use crate::{
     site::{
         update_model_instances, Affiliation, ChangePlugin, Group, ModelMarker, ModelProperty,
@@ -27,6 +27,7 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{ComboBox, RichText, Ui};
 use rmf_site_format::RobotProperty;
+use smallvec::SmallVec;
 use std::collections::HashMap;
 
 pub type ShowRobotPropertyWidgetFn = fn(&mut serde_json::Value, &mut Ui);
@@ -75,9 +76,23 @@ impl Plugin for InspectRobotPropertiesPlugin {
                     },
                 ),
             );
+        let inspector = app.world.resource::<ModelDescriptionInspector>().id;
+        let widget = Widget::<Inspect>::new::<InspectRobotProperties>(&mut app.world);
+        let id = app.world.spawn(widget).set_parent(inspector).id();
+        app.world.insert_resource(RobotPropertiesInspector { id });
         app.world.init_resource::<RobotPropertyData>();
-        // Ui
-        app.add_plugins(InspectionPlugin::<InspectRobotProperties>::new());
+    }
+}
+
+/// Contains a reference to the robot properties inspector widget.
+#[derive(Resource)]
+pub struct RobotPropertiesInspector {
+    id: Entity,
+}
+
+impl RobotPropertiesInspector {
+    pub fn get(&self) -> Entity {
+        self.id
     }
 }
 
@@ -91,11 +106,17 @@ struct InspectRobotProperties<'w, 's> {
     >,
     model_descriptions:
         Query<'w, 's, &'static ModelProperty<Robot>, (With<ModelMarker>, With<Group>)>,
+    inspect_robot_properties: Res<'w, RobotPropertiesInspector>,
+    children: Query<'w, 's, &'static Children>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectRobotProperties<'w, 's> {
     fn show(
-        Inspect { selection, .. }: Inspect,
+        Inspect {
+            selection,
+            inspection: _,
+            panel,
+        }: Inspect,
         ui: &mut Ui,
         state: &mut SystemState<Self>,
         world: &mut World,
@@ -112,9 +133,25 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectRobotProperties<'w, 's> {
         let Ok(ModelProperty(_robot)) = params.model_descriptions.get(description_entity) else {
             return;
         };
-        ui.separator();
         ui.label(RichText::new(format!("Robot Properties")).size(18.0));
-        ui.add_space(10.0);
+
+        let children: Result<SmallVec<[_; 16]>, _> = params
+            .children
+            .get(params.inspect_robot_properties.id)
+            .map(|children| children.iter().copied().collect());
+        let Ok(children) = children else {
+            return;
+        };
+
+        for child in children {
+            let inspect = Inspect {
+                selection,
+                inspection: child,
+                panel,
+            };
+            ui.add_space(10.0);
+            let _ = world.try_show_in(child, inspect, ui);
+        }
     }
 }
 
@@ -144,7 +181,46 @@ fn add_remove_robot_tasks(
     }
 }
 
-pub fn show_robot_property<T: Component + Clone + Default + PartialEq + RobotProperty>(
+/// Implement this plugin to add a new configurable robot property of type T to the
+/// robot properties inspector.
+pub struct InspectRobotPropertyPlugin<W, T>
+where
+    W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
+    T: 'static + Send + Sync + Default + Clone + RobotProperty + Component,
+{
+    _ignore: std::marker::PhantomData<(W, T)>,
+}
+
+impl<W, T> InspectRobotPropertyPlugin<W, T>
+where
+    W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
+    T: 'static + Send + Sync + Default + Clone + RobotProperty + Component,
+{
+    pub fn new() -> Self {
+        Self {
+            _ignore: Default::default(),
+        }
+    }
+}
+
+impl<W, T> Plugin for InspectRobotPropertyPlugin<W, T>
+where
+    W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
+    T: 'static + Send + Sync + Default + Clone + RobotProperty + Component,
+{
+    fn build(&self, app: &mut App) {
+        app.world
+            .resource_mut::<RobotPropertyData>()
+            .0
+            .insert(T::label(), HashMap::new());
+
+        let inspector = app.world.resource::<RobotPropertiesInspector>().id;
+        let widget = Widget::<Inspect>::new::<W>(&mut app.world);
+        app.world.spawn(widget).set_parent(inspector);
+    }
+}
+
+pub fn show_robot_property<'de, T: Component + Clone + Default + PartialEq + RobotProperty>(
     ui: &mut Ui,
     property: Option<T>,
     robot_property_data: ResMut<RobotPropertyData>,
@@ -152,10 +228,7 @@ pub fn show_robot_property<T: Component + Clone + Default + PartialEq + RobotPro
     let mut has_property = property.is_some();
     let property_label = T::label();
 
-    // TODO(@xiyuoh) bring serde into this function and generalize the entire
-    // WidgetSystem<Inspect> show()
     ui.checkbox(&mut has_property, property_label.clone());
-
     if !has_property {
         if property.is_some() {
             return Ok(None);
@@ -167,7 +240,6 @@ pub fn show_robot_property<T: Component + Clone + Default + PartialEq + RobotPro
         Some(ref p) => p.clone(),
         None => T::default(),
     };
-
     let selected_property_kind = if !new_property.is_empty() {
         new_property.kind().clone()
     } else {
@@ -204,6 +276,7 @@ pub fn show_robot_property<T: Component + Clone + Default + PartialEq + RobotPro
 
     if property.is_none() || property.is_some_and(|m| m != new_property && !new_property.is_empty())
     {
+        // TODO(@xiyuoh) fix saving empty robot properties
         return Ok(Some(new_property));
     }
     Err(())

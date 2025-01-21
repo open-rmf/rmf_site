@@ -1247,8 +1247,13 @@ fn generate_robots(
     let mut res = BTreeMap::<u32, Robot>::new();
     if let Ok(children) = children.get(site) {
         for child in children.iter() {
-            if let Ok((site_id, robot)) = robots.get(*child) {
-                res.insert(site_id.0, robot.0.clone());
+            if let Ok((site_id, robot_property)) = robots.get(*child) {
+                let mut robot = robot_property.0.clone();
+                // Remove any invalid properties
+                robot
+                    .properties
+                    .retain(|k, v| k.is_empty() || v.as_object().is_none_or(|m| m.is_empty()));
+                res.insert(site_id.0, robot);
             }
         }
     }

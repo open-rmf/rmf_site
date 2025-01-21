@@ -182,6 +182,7 @@ impl RobotProperty for Collision {
 pub struct CircleCollision {
     pub radius: f32,
     pub offset: [f32; 2],
+    pub view: bool,
 }
 
 impl Default for CircleCollision {
@@ -189,6 +190,7 @@ impl Default for CircleCollision {
         Self {
             radius: 0.0,
             offset: [0.0, 0.0],
+            view: true,
         }
     }
 }

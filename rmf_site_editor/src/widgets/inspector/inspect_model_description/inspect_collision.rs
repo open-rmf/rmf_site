@@ -21,27 +21,12 @@ use super::{
 };
 use crate::{
     site::{
-        Affiliation, Change, Collision, Group, ModelMarker, ModelProperty, Pose, Robot,
-        RobotProperty,
+        Affiliation, Change, Collision, Group, ModelMarker, ModelProperty, Robot, RobotProperty,
     },
     widgets::{prelude::*, Inspect},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::Ui;
-use std::collections::HashMap;
-
-#[derive(Default)]
-pub struct InspectCollisionPlugin {}
-
-impl Plugin for InspectCollisionPlugin {
-    fn build(&self, app: &mut App) {
-        app.world
-            .resource_mut::<RobotPropertyData>()
-            .0
-            .insert(Collision::label(), HashMap::new());
-        app.add_plugins(InspectionPlugin::<InspectCollision>::new());
-    }
-}
 
 #[derive(SystemParam)]
 pub struct InspectCollision<'w, 's> {
@@ -55,8 +40,6 @@ pub struct InspectCollision<'w, 's> {
     model_descriptions:
         Query<'w, 's, &'static ModelProperty<Robot>, (With<ModelMarker>, With<Group>)>,
     change_robot_property: EventWriter<'w, Change<ModelProperty<Robot>>>,
-    poses: Query<'w, 's, &'static Pose>,
-    gizmos: Gizmos<'s>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectCollision<'w, 's> {

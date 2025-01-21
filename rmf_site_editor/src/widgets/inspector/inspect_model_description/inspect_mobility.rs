@@ -27,20 +27,6 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::Ui;
-use std::collections::HashMap;
-
-#[derive(Default)]
-pub struct InspectMobilityPlugin {}
-
-impl Plugin for InspectMobilityPlugin {
-    fn build(&self, app: &mut App) {
-        app.world
-            .resource_mut::<RobotPropertyData>()
-            .0
-            .insert(Mobility::label(), HashMap::new());
-        app.add_plugins(InspectionPlugin::<InspectMobility>::new());
-    }
-}
 
 #[derive(SystemParam)]
 pub struct InspectMobility<'w, 's> {
@@ -63,7 +49,6 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectMobility<'w, 's> {
         state: &mut SystemState<Self>,
         world: &mut World,
     ) {
-        // TODO(@xiyuoh) fix Mobility cannot be modified unless Collision is toggled on
         let mut params = state.get_mut(world);
         let Some(description_entity) = get_selected_description_entity(
             selection,
