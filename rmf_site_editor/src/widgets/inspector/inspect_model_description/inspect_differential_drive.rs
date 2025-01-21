@@ -15,8 +15,8 @@
  *
 */
 
-use super::MobilityKinds;
-use crate::site::{DifferentialDrive, Mobility, RobotPropertyKind};
+use super::inspect_robot_properties::RobotPropertyData;
+use crate::site::{DifferentialDrive, Mobility, RobotProperty, RobotPropertyKind};
 use bevy::prelude::*;
 use bevy_egui::egui::{DragValue, Grid, Ui};
 
@@ -25,27 +25,30 @@ pub struct InspectDifferentialDrivePlugin {}
 
 impl Plugin for InspectDifferentialDrivePlugin {
     fn build(&self, app: &mut App) {
-        app.world.resource_mut::<MobilityKinds>().0.insert(
-            DifferentialDrive::label(),
-            |mobility, ui| {
-                InspectDifferentialDrive::new(mobility).show(ui);
-            },
-        );
+        app.world
+            .resource_mut::<RobotPropertyData>()
+            .0
+            .get_mut(&Mobility::label())
+            .map(|m_map| {
+                m_map.insert(DifferentialDrive::label(), |config, ui| {
+                    InspectDifferentialDrive::new(config).show(ui);
+                })
+            });
     }
 }
 
 pub struct InspectDifferentialDrive<'a> {
-    mobility: &'a mut Mobility,
+    config: &'a mut serde_json::Value,
 }
 
 impl<'a> InspectDifferentialDrive<'a> {
-    pub fn new(mobility: &'a mut Mobility) -> Self {
-        Self { mobility }
+    pub fn new(config: &'a mut serde_json::Value) -> Self {
+        Self { config }
     }
 
     pub fn show(self, ui: &mut Ui) {
         let mut new_differential_drive =
-            match serde_json::from_value::<DifferentialDrive>(self.mobility.config.clone()) {
+            match serde_json::from_value::<DifferentialDrive>(self.config.clone()) {
                 Ok(diff_drive) => diff_drive,
                 Err(_) => DifferentialDrive::default(),
             };
@@ -96,8 +99,14 @@ impl<'a> InspectDifferentialDrive<'a> {
                 });
         });
 
-        if let Ok(new_value) = serde_json::to_value(new_differential_drive) {
-            self.mobility.config = new_value;
+        if let Some(new_map) = serde_json::to_value(new_differential_drive)
+            .ok()
+            .map(|v| v.as_object().cloned())
+            .flatten()
+        {
+            for (k, v) in new_map {
+                self.config.as_object_mut().unwrap().insert(k, v);
+            }
         }
     }
 }

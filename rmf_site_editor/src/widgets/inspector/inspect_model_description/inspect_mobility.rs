@@ -15,7 +15,10 @@
  *
 */
 
-use super::get_selected_description_entity;
+use super::{
+    get_selected_description_entity,
+    inspect_robot_properties::{show_robot_property, RobotPropertyData},
+};
 use crate::{
     site::{
         Affiliation, Change, Group, Mobility, ModelMarker, ModelProperty, Robot, RobotProperty,
@@ -23,31 +26,25 @@ use crate::{
     widgets::{prelude::*, Inspect},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{ComboBox, Ui};
+use bevy_egui::egui::Ui;
 use std::collections::HashMap;
-
-#[derive(Resource)]
-pub struct MobilityKinds(pub HashMap<String, fn(&mut Mobility, &mut Ui)>);
-
-impl FromWorld for MobilityKinds {
-    fn from_world(_world: &mut World) -> Self {
-        MobilityKinds(HashMap::new())
-    }
-}
 
 #[derive(Default)]
 pub struct InspectMobilityPlugin {}
 
 impl Plugin for InspectMobilityPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<MobilityKinds>()
-            .add_plugins(InspectionPlugin::<InspectMobility>::new());
+        app.world
+            .resource_mut::<RobotPropertyData>()
+            .0
+            .insert(Mobility::label(), HashMap::new());
+        app.add_plugins(InspectionPlugin::<InspectMobility>::new());
     }
 }
 
 #[derive(SystemParam)]
 pub struct InspectMobility<'w, 's> {
-    mobility: ResMut<'w, MobilityKinds>,
+    robot_property_data: ResMut<'w, RobotPropertyData>,
     model_instances: Query<
         'w,
         's,
@@ -77,63 +74,25 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectMobility<'w, 's> {
         let Ok(ModelProperty(robot)) = params.model_descriptions.get(description_entity) else {
             return;
         };
+        let mut new_robot = robot.clone();
+        let mobility_label = Mobility::label();
         let mobility = robot
             .properties
-            .get(&Mobility::label())
+            .get(&mobility_label)
             .and_then(|m| serde_json::from_value::<Mobility>(m.clone()).ok());
-        let mut is_mobile = mobility.is_some();
 
-        ui.checkbox(&mut is_mobile, "Mobility");
-
-        if !is_mobile {
-            let mut new_robot = robot.clone();
-            new_robot.properties.remove(&Mobility::label());
-            params
-                .change_robot_property
-                .send(Change::new(ModelProperty(new_robot), description_entity));
-            return;
-        }
-
-        let mut new_mobility = match mobility {
-            Some(ref m) => m.clone(),
-            None => Mobility::default(),
-        };
-
-        let selected_mobility_kind = if !new_mobility.is_empty() {
-            new_mobility.kind.clone()
-        } else {
-            "Select Kind".to_string()
-        };
-
-        ui.indent("configure_mobility", |ui| {
-            ui.horizontal(|ui| {
-                ui.label("Mobility Kind");
-                ComboBox::from_id_source("select_mobility_kind")
-                    .selected_text(selected_mobility_kind)
-                    .show_ui(ui, |ui| {
-                        for (kind, _) in params.mobility.0.iter() {
-                            ui.selectable_value(&mut new_mobility.kind, kind.clone(), kind.clone());
-                        }
-                    });
-            });
-            if !new_mobility.is_default() {
-                if let Some(show_widget) = params.mobility.0.get(&new_mobility.kind) {
-                    show_widget(&mut new_mobility, ui);
+        match show_robot_property::<Mobility>(ui, mobility, params.robot_property_data) {
+            Ok(res) => {
+                if let Some(new_value) = res.map(|m| serde_json::to_value(m).ok()).flatten() {
+                    new_robot.properties.insert(mobility_label, new_value);
+                } else {
+                    new_robot.properties.remove(&mobility_label);
                 }
-            }
-        });
-
-        if mobility.is_none()
-            || mobility.is_some_and(|m| m != new_mobility && !new_mobility.is_empty())
-        {
-            if let Ok(new_value) = serde_json::to_value(new_mobility) {
-                let mut new_robot = robot.clone();
-                new_robot.properties.insert(Mobility::label(), new_value);
                 params
                     .change_robot_property
                     .send(Change::new(ModelProperty(new_robot), description_entity));
             }
+            Err(_) => {}
         }
-        ui.add_space(10.0);
     }
 }

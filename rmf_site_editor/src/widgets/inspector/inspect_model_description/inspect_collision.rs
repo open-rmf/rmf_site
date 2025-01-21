@@ -30,15 +30,6 @@ use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::Ui;
 use std::collections::HashMap;
 
-#[derive(Resource)]
-pub struct CollisionKinds(pub HashMap<String, fn(&mut Collision, &mut Ui)>);
-
-impl FromWorld for CollisionKinds {
-    fn from_world(_world: &mut World) -> Self {
-        CollisionKinds(HashMap::new())
-    }
-}
-
 #[derive(Default)]
 pub struct InspectCollisionPlugin {}
 
@@ -48,8 +39,7 @@ impl Plugin for InspectCollisionPlugin {
             .resource_mut::<RobotPropertyData>()
             .0
             .insert(Collision::label(), HashMap::new());
-        app.init_resource::<CollisionKinds>()
-            .add_plugins(InspectionPlugin::<InspectCollision>::new());
+        app.add_plugins(InspectionPlugin::<InspectCollision>::new());
     }
 }
 
