@@ -16,7 +16,7 @@
 */
 
 use super::MobilityKinds;
-use crate::site::{DifferentialDrive, Mobility};
+use crate::site::{DifferentialDrive, Mobility, RobotPropertyKind};
 use bevy::prelude::*;
 use bevy_egui::egui::{DragValue, Grid, Ui};
 

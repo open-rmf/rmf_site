@@ -25,7 +25,21 @@ use crate::{
     ModelPropertyData,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{RichText, Ui};
+use bevy_egui::egui::{ComboBox, RichText, Ui};
+use rmf_site_format::RobotProperty;
+use std::collections::HashMap;
+
+pub type ShowRobotPropertyWidgetFn = fn(&mut serde_json::Value, &mut Ui);
+
+/// This resource keeps track of all the properties that can be configured for a robot.
+#[derive(Resource)]
+pub struct RobotPropertyData(pub HashMap<String, HashMap<String, ShowRobotPropertyWidgetFn>>);
+
+impl FromWorld for RobotPropertyData {
+    fn from_world(_world: &mut World) -> Self {
+        Self(HashMap::new())
+    }
+}
 
 #[derive(Default)]
 pub struct InspectRobotPropertiesPlugin {}
@@ -61,13 +75,14 @@ impl Plugin for InspectRobotPropertiesPlugin {
                     },
                 ),
             );
+        app.world.init_resource::<RobotPropertyData>();
         // Ui
         app.add_plugins(InspectionPlugin::<InspectRobotProperties>::new());
     }
 }
 
 #[derive(SystemParam)]
-pub struct InspectRobotProperties<'w, 's> {
+struct InspectRobotProperties<'w, 's> {
     model_instances: Query<
         'w,
         's,
@@ -127,4 +142,64 @@ fn add_remove_robot_tasks(
             commands.entity(e).insert(Tasks::default());
         }
     }
+}
+
+pub fn show_robot_property<T: Component + Clone + Default + PartialEq + RobotProperty>(
+    ui: &mut Ui,
+    property: Option<T>,
+    robot_property_data: ResMut<RobotPropertyData>,
+) -> Result<Option<T>, ()> {
+    let mut has_property = property.is_some();
+    let property_label = T::label();
+
+    ui.checkbox(&mut has_property, property_label.clone());
+
+    if !has_property {
+        return Ok(None);
+    }
+
+    let mut new_property = match property {
+        Some(ref p) => p.clone(),
+        None => T::default(),
+    };
+
+    let selected_property_kind = if !new_property.is_empty() {
+        new_property.kind().clone()
+    } else {
+        "Select Kind".to_string()
+    };
+
+    if let Some(property_kinds) = robot_property_data.0.get(&property_label) {
+        ui.indent("configure_".to_owned() + &property_label, |ui| {
+            ui.horizontal(|ui| {
+                ui.label(property_label.to_owned() + " Kind");
+                ComboBox::from_id_source("select_".to_owned() + &property_label + "_kind")
+                    .selected_text(selected_property_kind)
+                    .show_ui(ui, |ui| {
+                        for (kind, _) in property_kinds.iter() {
+                            ui.selectable_value(
+                                new_property.kind_mut(),
+                                kind.clone(),
+                                kind.clone(),
+                            );
+                        }
+                    });
+            });
+            if !new_property.is_default() {
+                if let Some(show_widget) = property_kinds.get(&new_property.kind()) {
+                    show_widget(&mut new_property.config_mut(), ui);
+                }
+            }
+        });
+    } else {
+        ui.label(format!("No {} kind registered.", property_label));
+    }
+
+    ui.add_space(10.0);
+
+    if property.is_none() || property.is_some_and(|m| m != new_property && !new_property.is_empty())
+    {
+        return Ok(Some(new_property));
+    }
+    Err(())
 }

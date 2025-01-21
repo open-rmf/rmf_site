@@ -15,8 +15,8 @@
  *
 */
 
-use super::CollisionKinds;
-use crate::site::{CircleCollision, Collision};
+use super::inspect_robot_properties::RobotPropertyData;
+use crate::site::{CircleCollision, Collision, RobotProperty, RobotPropertyKind};
 use bevy::prelude::*;
 use bevy_egui::egui::{DragValue, Grid, Ui};
 
@@ -25,27 +25,30 @@ pub struct InspectCircleCollisionPlugin {}
 
 impl Plugin for InspectCircleCollisionPlugin {
     fn build(&self, app: &mut App) {
-        app.world.resource_mut::<CollisionKinds>().0.insert(
-            CircleCollision::label(),
-            |collision, ui| {
-                InspectCircleCollision::new(collision).show(ui);
-            },
-        );
+        app.world
+            .resource_mut::<RobotPropertyData>()
+            .0
+            .get_mut(&Collision::label())
+            .map(|c_map| {
+                c_map.insert(CircleCollision::label(), |config, ui| {
+                    InspectCircleCollision::new(config).show(ui);
+                })
+            });
     }
 }
 
 pub struct InspectCircleCollision<'a> {
-    collision: &'a mut Collision,
+    config: &'a mut serde_json::Value,
 }
 
 impl<'a> InspectCircleCollision<'a> {
-    pub fn new(collision: &'a mut Collision) -> Self {
-        Self { collision }
+    pub fn new(config: &'a mut serde_json::Value) -> Self {
+        Self { config }
     }
 
     pub fn show(self, ui: &mut Ui) {
         let mut new_circle_collision =
-            match serde_json::from_value::<CircleCollision>(self.collision.config.clone()) {
+            match serde_json::from_value::<CircleCollision>(self.config.clone()) {
                 Ok(circle_collision) => circle_collision,
                 Err(_) => CircleCollision::default(),
             };
@@ -96,8 +99,14 @@ impl<'a> InspectCircleCollision<'a> {
                 });
         });
 
-        if let Ok(new_value) = serde_json::to_value(new_circle_collision) {
-            self.collision.config = new_value;
+        if let Some(new_map) = serde_json::to_value(new_circle_collision)
+            .ok()
+            .map(|v| v.as_object().cloned())
+            .flatten()
+        {
+            for (k, v) in new_map {
+                self.config.as_object_mut().unwrap().insert(k, v);
+            }
         }
     }
 }

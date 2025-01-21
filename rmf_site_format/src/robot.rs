@@ -21,6 +21,7 @@ use bevy::{
     prelude::{Component, Reflect},
 };
 use serde::{Deserialize, Serialize};
+use serde_json::Map;
 use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -37,6 +38,24 @@ impl Default for Robot {
     }
 }
 
+pub trait RobotProperty {
+    fn is_default(&self) -> bool;
+
+    fn is_empty(&self) -> bool;
+
+    fn kind(&self) -> String;
+
+    fn kind_mut(&mut self) -> &mut String;
+
+    fn config_mut(&mut self) -> &mut serde_json::Value;
+
+    fn label() -> String;
+}
+
+pub trait RobotPropertyKind {
+    fn label() -> String;
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct Mobility {
@@ -48,29 +67,39 @@ impl Default for Mobility {
     fn default() -> Self {
         Self {
             kind: String::new(),
-            config: serde_json::Value::Null,
+            config: serde_json::Value::Object(Map::new()),
         }
     }
 }
 
-impl Mobility {
-    pub fn is_default(&self) -> bool {
+impl RobotProperty for Mobility {
+    fn is_default(&self) -> bool {
         if *self == Self::default() {
             return true;
         }
         false
     }
 
-    pub fn is_empty(&self) -> bool {
+    fn is_empty(&self) -> bool {
         if self.kind.is_empty() {
             return true;
-        } else if self.config.is_null() {
-            return true;
         }
-        false
+        return self.config.as_object().is_none_or(|m| m.is_empty());
     }
 
-    pub fn label() -> String {
+    fn kind(&self) -> String {
+        self.kind.clone()
+    }
+
+    fn kind_mut(&mut self) -> &mut String {
+        &mut self.kind
+    }
+
+    fn config_mut(&mut self) -> &mut serde_json::Value {
+        &mut self.config
+    }
+
+    fn label() -> String {
         "Mobility".to_string()
     }
 }
@@ -98,8 +127,8 @@ impl Default for DifferentialDrive {
     }
 }
 
-impl DifferentialDrive {
-    pub fn label() -> String {
+impl RobotPropertyKind for DifferentialDrive {
+    fn label() -> String {
         "Differential Drive".to_string()
     }
 }
@@ -115,29 +144,39 @@ impl Default for Collision {
     fn default() -> Self {
         Self {
             kind: String::new(),
-            config: serde_json::Value::Null,
+            config: serde_json::Value::Object(Map::new()),
         }
     }
 }
 
-impl Collision {
-    pub fn is_default(&self) -> bool {
-        if *self == Collision::default() {
+impl RobotProperty for Collision {
+    fn is_default(&self) -> bool {
+        if *self == Self::default() {
             return true;
         }
         false
     }
 
-    pub fn is_empty(&self) -> bool {
+    fn is_empty(&self) -> bool {
         if self.kind.is_empty() {
             return true;
-        } else if self.config.is_null() {
-            return true;
         }
-        false
+        return self.config.as_object().is_none_or(|m| m.is_empty());
     }
 
-    pub fn label() -> String {
+    fn kind(&self) -> String {
+        self.kind.clone()
+    }
+
+    fn kind_mut(&mut self) -> &mut String {
+        &mut self.kind
+    }
+
+    fn config_mut(&mut self) -> &mut serde_json::Value {
+        &mut self.config
+    }
+
+    fn label() -> String {
         "Collision".to_string()
     }
 }
@@ -159,8 +198,8 @@ impl Default for CircleCollision {
     }
 }
 
-impl CircleCollision {
-    pub fn label() -> String {
+impl RobotPropertyKind for CircleCollision {
+    fn label() -> String {
         "Circle Collision".to_string()
     }
 }

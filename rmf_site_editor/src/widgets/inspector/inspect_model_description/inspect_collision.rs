@@ -15,13 +15,19 @@
  *
 */
 
-use super::get_selected_description_entity;
+use super::{
+    get_selected_description_entity,
+    inspect_robot_properties::{show_robot_property, RobotPropertyData},
+};
 use crate::{
-    site::{Affiliation, Change, Collision, Group, ModelMarker, ModelProperty, Pose, Robot},
+    site::{
+        Affiliation, Change, Collision, Group, ModelMarker, ModelProperty, Pose, Robot,
+        RobotProperty,
+    },
     widgets::{prelude::*, Inspect},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{ComboBox, Ui};
+use bevy_egui::egui::Ui;
 use std::collections::HashMap;
 
 #[derive(Resource)]
@@ -38,6 +44,10 @@ pub struct InspectCollisionPlugin {}
 
 impl Plugin for InspectCollisionPlugin {
     fn build(&self, app: &mut App) {
+        app.world
+            .resource_mut::<RobotPropertyData>()
+            .0
+            .insert(Collision::label(), HashMap::new());
         app.init_resource::<CollisionKinds>()
             .add_plugins(InspectionPlugin::<InspectCollision>::new());
     }
@@ -45,7 +55,7 @@ impl Plugin for InspectCollisionPlugin {
 
 #[derive(SystemParam)]
 pub struct InspectCollision<'w, 's> {
-    collision: ResMut<'w, CollisionKinds>,
+    robot_property_data: ResMut<'w, RobotPropertyData>,
     model_instances: Query<
         'w,
         's,
@@ -77,69 +87,25 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectCollision<'w, 's> {
         let Ok(ModelProperty(robot)) = params.model_descriptions.get(description_entity) else {
             return;
         };
+        let mut new_robot = robot.clone();
+        let collision_label = Collision::label();
         let collision = robot
             .properties
-            .get(&Collision::label())
+            .get(&collision_label)
             .and_then(|c| serde_json::from_value::<Collision>(c.clone()).ok());
-        let mut has_collision = collision.is_some();
-        // TODO(@xiyuoh) a lot of duplicate code with inspect_mobility, consider consolidating
-        // some of them to inspect_robot_properties
 
-        ui.checkbox(&mut has_collision, "Collision");
-
-        if !has_collision {
-            let mut new_robot = robot.clone();
-            new_robot.properties.remove(&Collision::label());
-            params
-                .change_robot_property
-                .send(Change::new(ModelProperty(new_robot), description_entity));
-            return;
-        }
-
-        let mut new_collision = match collision {
-            Some(ref c) => c.clone(),
-            None => Collision::default(),
-        };
-
-        let selected_collision_kind = if !new_collision.is_empty() {
-            new_collision.kind.clone()
-        } else {
-            "Select Kind".to_string()
-        };
-
-        ui.indent("configure_collision", |ui| {
-            ui.horizontal(|ui| {
-                ui.label("Collision Kind");
-                ComboBox::from_id_source("select_collision_kind")
-                    .selected_text(selected_collision_kind)
-                    .show_ui(ui, |ui| {
-                        for (kind, _) in params.collision.0.iter() {
-                            ui.selectable_value(
-                                &mut new_collision.kind,
-                                kind.clone(),
-                                kind.clone(),
-                            );
-                        }
-                    });
-            });
-            if !new_collision.is_default() {
-                if let Some(show_widget) = params.collision.0.get(&new_collision.kind) {
-                    show_widget(&mut new_collision, ui);
+        match show_robot_property::<Collision>(ui, collision, params.robot_property_data) {
+            Ok(res) => {
+                if let Some(new_value) = res.map(|c| serde_json::to_value(c).ok()).flatten() {
+                    new_robot.properties.insert(collision_label, new_value);
+                } else {
+                    new_robot.properties.remove(&collision_label);
                 }
-            }
-        });
-
-        if collision.is_none()
-            || collision.is_some_and(|m| m != new_collision && !new_collision.is_empty())
-        {
-            if let Ok(new_value) = serde_json::to_value(new_collision) {
-                let mut new_robot = robot.clone();
-                new_robot.properties.insert(Collision::label(), new_value);
                 params
                     .change_robot_property
                     .send(Change::new(ModelProperty(new_robot), description_entity));
             }
+            Err(_) => {}
         }
-        ui.add_space(10.0);
     }
 }

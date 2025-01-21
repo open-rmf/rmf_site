@@ -17,7 +17,9 @@
 
 use super::get_selected_description_entity;
 use crate::{
-    site::{Affiliation, Change, Group, Mobility, ModelMarker, ModelProperty, Robot},
+    site::{
+        Affiliation, Change, Group, Mobility, ModelMarker, ModelProperty, Robot, RobotProperty,
+    },
     widgets::{prelude::*, Inspect},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};

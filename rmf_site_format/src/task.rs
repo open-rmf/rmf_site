@@ -18,6 +18,7 @@
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Component, Reflect};
 use serde::{Deserialize, Serialize};
+use serde_json::Map;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
@@ -30,7 +31,7 @@ impl Default for Task {
     fn default() -> Self {
         Self {
             kind: "Select Kind".to_string(),
-            config: serde_json::Value::Null,
+            config: serde_json::Value::Object(Map::new()),
         }
     }
 }
