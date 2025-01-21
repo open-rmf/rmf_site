@@ -63,6 +63,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectMobility<'w, 's> {
         state: &mut SystemState<Self>,
         world: &mut World,
     ) {
+        // TODO(@xiyuoh) fix Mobility cannot be modified unless Collision is toggled on
         let mut params = state.get_mut(world);
         let Some(description_entity) = get_selected_description_entity(
             selection,

@@ -16,10 +16,7 @@
 */
 
 #[cfg(feature = "bevy")]
-use bevy::{
-    math::Vec2,
-    prelude::{Component, Reflect},
-};
+use bevy::prelude::{Component, Reflect};
 use serde::{Deserialize, Serialize};
 use serde_json::Map;
 use std::collections::HashMap;
@@ -109,7 +106,6 @@ impl RobotProperty for Mobility {
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
 pub struct DifferentialDrive {
     pub bidirectional: bool,
-    pub collision_radius: f32,
     pub rotation_center_offset: [f32; 2],
     pub translational_speed: f32,
     pub rotational_speed: f32,
@@ -119,7 +115,6 @@ impl Default for DifferentialDrive {
     fn default() -> Self {
         Self {
             bidirectional: false,
-            collision_radius: 0.5,
             rotation_center_offset: [0.0, 0.0],
             translational_speed: 0.5,
             rotational_speed: 1.0,
@@ -186,14 +181,14 @@ impl RobotProperty for Collision {
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
 pub struct CircleCollision {
     pub radius: f32,
-    pub offset: Vec2,
+    pub offset: [f32; 2],
 }
 
 impl Default for CircleCollision {
     fn default() -> Self {
         Self {
             radius: 0.0,
-            offset: Vec2::default(),
+            offset: [0.0, 0.0],
         }
     }
 }

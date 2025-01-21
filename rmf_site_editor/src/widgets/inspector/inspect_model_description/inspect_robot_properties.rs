@@ -152,10 +152,15 @@ pub fn show_robot_property<T: Component + Clone + Default + PartialEq + RobotPro
     let mut has_property = property.is_some();
     let property_label = T::label();
 
+    // TODO(@xiyuoh) bring serde into this function and generalize the entire
+    // WidgetSystem<Inspect> show()
     ui.checkbox(&mut has_property, property_label.clone());
 
     if !has_property {
-        return Ok(None);
+        if property.is_some() {
+            return Ok(None);
+        }
+        return Err(());
     }
 
     let mut new_property = match property {
