@@ -61,16 +61,15 @@ impl<T: Component + Clone + Debug> Default for ChangePlugin<T> {
 }
 
 /// This is a changelog used for the undo/redo system
-struct ChangeLog<T: Component + Clone + Debug>
-{
+struct ChangeLog<T: Component + Clone + Debug> {
     entity: Entity,
     from: Option<T>,
-    to: T
+    to: T,
 }
 
 #[derive(Resource)]
 struct ChangeHistory<T: Component + Clone + Debug> {
-    pub(crate) revisions: std::collections::HashMap<usize, ChangeLog<T>>
+    pub(crate) revisions: std::collections::HashMap<usize, ChangeLog<T>>,
 }
 
 impl<T: Component + Clone + Debug> Default for ChangeHistory<T> {
@@ -81,17 +80,17 @@ impl<T: Component + Clone + Debug> Default for ChangeHistory<T> {
     }
 }
 
-
 impl<T: Component + Clone + Debug> Plugin for ChangePlugin<T> {
     fn build(&self, app: &mut App) {
         app.add_event::<Change<T>>()
-        .init_resource::<ChangeHistory<T>>()
-        .add_systems(
-            PreUpdate,
-            (update_changed_values::<T>.in_set(SiteUpdateSet::ProcessChanges),
-            undo_change::<T>.in_set(SiteUpdateSet::ProcessChanges)) // TODO do this on another stage
-
-        );
+            .init_resource::<ChangeHistory<T>>()
+            .add_systems(
+                PreUpdate,
+                (
+                    update_changed_values::<T>.in_set(SiteUpdateSet::ProcessChanges),
+                    undo_change::<T>.in_set(SiteUpdateSet::ProcessChanges),
+                ), // TODO do this on another stage
+            );
     }
 }
 
@@ -109,12 +108,10 @@ fn undo_change<T: Component + Clone + Debug>(
         if let Ok(mut component_to_change) = values.get_mut(change.entity) {
             if let Some(old_value) = &change.from {
                 *component_to_change = old_value.clone();
-            }
-            else {
+            } else {
                 commands.entity(change.entity).remove::<T>();
             }
-        }
-        else {
+        } else {
             error!("Undo history corrupted.");
         }
     }
@@ -125,7 +122,7 @@ fn update_changed_values<T: Component + Clone + Debug>(
     mut values: Query<&mut T>,
     mut changes: EventReader<Change<T>>,
     mut undo_buffer: ResMut<UndoBuffer>,
-    mut change_history: ResMut<ChangeHistory<T>>
+    mut change_history: ResMut<ChangeHistory<T>>,
 ) {
     for change in changes.read() {
         if let Ok(mut component_to_change) = values.get_mut(change.for_element) {
@@ -134,9 +131,8 @@ fn update_changed_values<T: Component + Clone + Debug>(
                 ChangeLog {
                     entity: change.for_element,
                     to: change.to_value.clone(),
-                    from: Some(component_to_change.clone())
-                  }
-
+                    from: Some(component_to_change.clone()),
+                },
             );
             *component_to_change = change.to_value.clone();
         } else {
@@ -149,8 +145,8 @@ fn update_changed_values<T: Component + Clone + Debug>(
                     ChangeLog {
                         entity: change.for_element,
                         to: change.to_value.clone(),
-                        from: None
-                      }
+                        from: None,
+                    },
                 );
             } else {
                 error!(

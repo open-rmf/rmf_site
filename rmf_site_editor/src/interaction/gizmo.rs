@@ -15,7 +15,12 @@
  *
 */
 
-use crate::interaction::*;
+use std::collections::HashMap;
+
+use crate::{
+    interaction::*,
+    site::{UndoBuffer, UndoEvent},
+};
 use bevy::{math::Affine3A, prelude::*, window::PrimaryWindow};
 use bevy_mod_raycast::{deferred::RaycastMesh, deferred::RaycastSource, primitives::rays::Ray3d};
 use rmf_site_format::Pose;
@@ -224,10 +229,26 @@ impl DragPlaneBundle {
     }
 }
 
+/// This handles the
+#[derive(Debug, Clone, Copy)]
+pub struct DraggingInfo {
+    entity: Entity,
+    start_pos: Transform,
+}
+
+// A hack
+impl PartialEq for DraggingInfo {
+    fn eq(&self, other: &Self) -> bool {
+        self.entity == other.entity
+    }
+}
+
+impl Eq for DraggingInfo {}
+
 /// Used as a resource to keep track of which draggable is currently hovered
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Resource)]
 pub enum GizmoState {
-    Dragging(Entity),
+    Dragging(DraggingInfo),
     Hovering(Entity),
     None,
 }
@@ -346,7 +367,15 @@ pub fn update_gizmo_click_start(
                         if let Some(drag_materials) = &gizmo.materials {
                             *material = drag_materials.drag.clone();
                         }
-                        *gizmo_state = GizmoState::Dragging(e);
+
+                        let Ok((_, transform)) = transforms.get(e) else {
+                            error!("Could not get transform for entity {:?}", e);
+                            return;
+                        };
+                        *gizmo_state = GizmoState::Dragging(DraggingInfo {
+                            entity: e,
+                            start_pos: (*transform).into(),
+                        });
                     } else {
                         *gizmo_state = GizmoState::None;
                     }
@@ -360,6 +389,39 @@ pub fn update_gizmo_click_start(
     }
 }
 
+#[derive(Debug)]
+pub struct GizmoMoveChange {
+    entity: Entity,
+    prev_pos: Transform,
+    dest_pos: Transform,
+}
+
+#[derive(Resource, Default)]
+pub struct GizmoMoveUndoBuffer {
+    revisions: HashMap<usize, GizmoMoveChange>,
+}
+
+pub(crate) fn undo_gizmo_change(
+    change_history: ResMut<GizmoMoveUndoBuffer>,
+    mut undo_cmds: EventReader<UndoEvent>,
+    mut move_to: EventWriter<MoveTo>,
+) {
+    for undo in undo_cmds.read() {
+        let Some(change) = change_history.revisions.get(&undo.action_id) else {
+            continue;
+        };
+        move_to.send(MoveTo {
+            entity: change.entity,
+            transform: change.prev_pos,
+        })
+    }
+}
+
+#[derive(Resource, Default)]
+pub struct LastDraggedPos {
+    transform: Transform,
+}
+
 pub fn update_gizmo_release(
     mut draggables: Query<(&Gizmo, &mut Draggable, &mut Handle<StandardMaterial>)>,
     mut selection_blockers: ResMut<SelectionBlockers>,
@@ -367,12 +429,23 @@ pub fn update_gizmo_release(
     mut gizmo_state: ResMut<GizmoState>,
     mouse_button_input: Res<Input<MouseButton>>,
     mut picked: ResMut<Picked>,
+    mut version_tracker: ResMut<UndoBuffer>,
+    mut change_history: ResMut<GizmoMoveUndoBuffer>,
+    last_dragged: Res<LastDraggedPos>,
 ) {
     let mouse_released = mouse_button_input.just_released(MouseButton::Left);
     let gizmos_blocked = gizmo_blockers.blocking();
     if mouse_released || gizmos_blocked {
-        if let GizmoState::Dragging(e) = *gizmo_state {
-            if let Ok((gizmo, mut draggable, mut material)) = draggables.get_mut(e) {
+        if let GizmoState::Dragging(info) = *gizmo_state {
+            if let Ok((gizmo, mut draggable, mut material)) = draggables.get_mut(info.entity) {
+                change_history.revisions.insert(
+                    version_tracker.get_next_revision(),
+                    GizmoMoveChange {
+                        entity: draggable.for_entity,
+                        prev_pos: info.start_pos,
+                        dest_pos: last_dragged.transform,
+                    },
+                );
                 draggable.drag = None;
                 if let Some(gizmo_materials) = &gizmo.materials {
                     *material = gizmo_materials.passive.clone();
@@ -398,6 +471,7 @@ pub fn update_drag_motions(
     cameras: Query<&Camera>,
     camera_controls: Res<CameraControls>,
     drag_state: Res<GizmoState>,
+    mut last_dragged: ResMut<LastDraggedPos>,
     mut cursor_motion: EventReader<CursorMoved>,
     mut move_to: EventWriter<MoveTo>,
     primary_window: Query<&Window, With<PrimaryWindow>>,
@@ -432,7 +506,7 @@ pub fn update_drag_motions(
             return;
         };
 
-        if let Ok((axis, draggable, drag_tf)) = drag_axis.get(dragging) {
+        if let Ok((axis, draggable, drag_tf)) = drag_axis.get(dragging.entity) {
             if let Some(initial) = &draggable.drag {
                 let n = if axis.frame.is_local() {
                     drag_tf
@@ -468,7 +542,7 @@ pub fn update_drag_motions(
             }
         }
 
-        if let Ok((plane, draggable, drag_tf)) = drag_plane.get(dragging) {
+        if let Ok((plane, draggable, drag_tf)) = drag_plane.get(dragging.entity) {
             if let Some(initial) = &draggable.drag {
                 let n_p = if plane.frame.is_local() {
                     drag_tf
@@ -492,6 +566,9 @@ pub fn update_drag_motions(
                 let tf_goal = initial
                     .tf_for_entity_global
                     .with_translation(initial.tf_for_entity_global.translation + delta);
+                last_dragged.transform = Transform::from_matrix(
+                    (initial.tf_for_entity_parent_inv * tf_goal.compute_affine()).into(),
+                );
                 move_to.send(MoveTo {
                     entity: draggable.for_entity,
                     transform: Transform::from_matrix(

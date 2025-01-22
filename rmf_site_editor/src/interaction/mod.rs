@@ -152,6 +152,8 @@ impl Plugin for InteractionPlugin {
             .init_resource::<GizmoState>()
             .init_resource::<CurrentEditDrawing>()
             .init_resource::<CurrentLevel>()
+            .init_resource::<GizmoMoveUndoBuffer>()
+            .init_resource::<LastDraggedPos>()
             .insert_resource(HighlightAnchors(false))
             .add_event::<ChangePick>()
             .add_event::<MoveTo>()
@@ -205,7 +207,8 @@ impl Plugin for InteractionPlugin {
                         update_highlight_visualization.after(SelectionServiceStages::Select),
                         update_cursor_hover_visualization.after(SelectionServiceStages::Select),
                         update_gizmo_click_start.after(SelectionServiceStages::Select),
-                        update_gizmo_release,
+                        update_gizmo_release.after(update_gizmo_click_start),
+                        undo_gizmo_change,
                         update_drag_motions
                             .after(update_gizmo_click_start)
                             .after(update_gizmo_release),

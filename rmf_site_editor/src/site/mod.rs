@@ -215,7 +215,7 @@ impl Plugin for SitePlugin {
             ChangePlugin::<Scale>::default(),
             ChangePlugin::<Distance>::default(),
             ChangePlugin::<Texture>::default(),
-            UndoPlugin::default()
+            UndoPlugin::default(),
         ))
         .add_plugins((
             ChangePlugin::<DoorType>::default(),
