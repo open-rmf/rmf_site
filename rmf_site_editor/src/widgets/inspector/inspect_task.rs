@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    site::{ChangePlugin, Group, LocationTags, NameInSite, Robot, Task, Tasks},
+    site::{ChangePlugin, Group, LocationTags, ModelProperty, NameInSite, Robot, Task, Tasks},
     widgets::{prelude::*, Inspect, InspectionPlugin},
     Icons,
 };
@@ -44,7 +44,8 @@ pub struct InspectTaskPlugin {}
 
 impl Plugin for InspectTaskPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<PendingTask>()
+        app.add_systems(PreUpdate, add_remove_robot_tasks)
+            .init_resource::<PendingTask>()
             .init_resource::<TaskKinds>()
             .add_plugins((
                 ChangePlugin::<Tasks>::default(),
@@ -197,5 +198,29 @@ pub struct PendingTask(Task);
 impl FromWorld for PendingTask {
     fn from_world(_world: &mut World) -> Self {
         PendingTask(Task::default())
+    }
+}
+
+fn add_remove_robot_tasks(
+    mut commands: Commands,
+    instances: Query<(Entity, Ref<Robot>), Without<Group>>,
+    tasks: Query<&Tasks, (With<Robot>, Without<Group>)>,
+    mut removals: RemovedComponents<ModelProperty<Robot>>,
+) {
+    // all instances with this description - add/remove Tasks component
+
+    for removal in removals.read() {
+        if instances.get(removal).is_ok() {
+            commands.entity(removal).remove::<Tasks>();
+        }
+    }
+
+    for (e, marker) in instances.iter() {
+        if marker.is_added() {
+            if let Ok(_) = tasks.get(e) {
+                continue;
+            }
+            commands.entity(e).insert(Tasks::default());
+        }
     }
 }

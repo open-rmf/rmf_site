@@ -18,14 +18,13 @@
 use super::{get_selected_description_entity, ModelDescriptionInspector};
 use crate::{
     site::{
-        update_model_instances, Affiliation, ChangePlugin, Group, ModelMarker, ModelProperty,
-        Robot, Tasks,
+        update_model_instances, Affiliation, ChangePlugin, Group, ModelMarker, ModelProperty, Robot,
     },
     widgets::{prelude::*, Inspect},
     ModelPropertyData,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{ComboBox, RichText, Ui};
+use bevy_egui::egui::{ComboBox, Ui};
 use rmf_site_format::RobotProperty;
 use smallvec::SmallVec;
 use std::collections::HashMap;
@@ -56,10 +55,7 @@ impl Plugin for InspectRobotPropertiesPlugin {
             .component_id::<ModelProperty<Robot>>()
             .unwrap();
         app.add_plugins(ChangePlugin::<ModelProperty<Robot>>::default())
-            .add_systems(
-                PreUpdate,
-                (add_remove_robot_tasks, update_model_instances::<Robot>),
-            )
+            .add_systems(PreUpdate, update_model_instances::<Robot>)
             .init_resource::<ModelPropertyData>()
             .world
             .resource_mut::<ModelPropertyData>()
@@ -133,7 +129,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectRobotProperties<'w, 's> {
         let Ok(ModelProperty(_robot)) = params.model_descriptions.get(description_entity) else {
             return;
         };
-        ui.label(RichText::new(format!("Robot Properties")).size(18.0));
+        ui.label("Robot Properties");
 
         let children: Result<SmallVec<[_; 16]>, _> = params
             .children
@@ -143,41 +139,18 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectRobotProperties<'w, 's> {
             return;
         };
 
-        for child in children {
-            let inspect = Inspect {
-                selection,
-                inspection: child,
-                panel,
-            };
-            ui.add_space(10.0);
-            let _ = world.try_show_in(child, inspect, ui);
-        }
-    }
-}
-
-// TODO(@xiyuoh) get rid of this and use checkbox to enable tasks instead?
-/// When the Robot is added or removed, add or remove the Tasks component
-fn add_remove_robot_tasks(
-    mut commands: Commands,
-    instances: Query<(Entity, Ref<Robot>), Without<Group>>,
-    tasks: Query<&Tasks, (With<Robot>, Without<Group>)>,
-    mut removals: RemovedComponents<ModelProperty<Robot>>,
-) {
-    // all instances with this description - add/remove Tasks component
-
-    for removal in removals.read() {
-        if instances.get(removal).is_ok() {
-            commands.entity(removal).remove::<Tasks>();
-        }
-    }
-
-    for (e, marker) in instances.iter() {
-        if marker.is_added() {
-            if let Ok(_) = tasks.get(e) {
-                continue;
+        ui.indent("inspect_robot_properties", |ui| {
+            for child in children {
+                let inspect = Inspect {
+                    selection,
+                    inspection: child,
+                    panel,
+                };
+                ui.add_space(10.0);
+                let _ = world.try_show_in(child, inspect, ui);
             }
-            commands.entity(e).insert(Tasks::default());
-        }
+        });
+        ui.add_space(10.0);
     }
 }
 
@@ -276,7 +249,6 @@ pub fn show_robot_property<'de, T: Component + Clone + Default + PartialEq + Rob
 
     if property.is_none() || property.is_some_and(|m| m != new_property && !new_property.is_empty())
     {
-        // TODO(@xiyuoh) fix saving empty robot properties
         return Ok(Some(new_property));
     }
     Err(())
