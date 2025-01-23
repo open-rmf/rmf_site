@@ -9,7 +9,7 @@ use crate::{
     LevelProperties as SiteLevelProperties, ModelDescriptionBundle, ModelInstance, Motion,
     NameInSite, NameOfSite, NavGraph, Navigation, OrientationConstraint, Parented, PixelsPerMeter,
     Pose, PreferredSemiTransparency, RankingsInLevel, ReverseLane, Robot, Rotation, ScenarioBundle,
-    Site, SiteProperties, Texture as SiteTexture, TextureGroup, UserCameraPose,
+    Site, SiteProperties, Tasks, Texture as SiteTexture, TextureGroup, UserCameraPose,
     DEFAULT_NAV_GRAPH_COLORS,
 };
 use glam::{DAffine2, DMat3, DQuat, DVec2, DVec3, EulerRot};
@@ -208,6 +208,7 @@ impl BuildingMap {
         let mut model_instances: BTreeMap<u32, Parented<u32, ModelInstance<u32>>> = BTreeMap::new();
         let mut model_description_name_map = HashMap::<String, u32>::new();
         let mut scenarios: BTreeMap<u32, ScenarioBundle<u32>> = BTreeMap::new();
+        let tasks: BTreeMap<u32, Tasks> = BTreeMap::new(); // Tasks not supported in legacy
         let default_scenario_id = site_id.next().unwrap();
         scenarios.insert(default_scenario_id, ScenarioBundle::default());
 
@@ -762,6 +763,7 @@ impl BuildingMap {
             model_instances,
             model_descriptions,
             robots,
+            tasks,
         })
     }
 }

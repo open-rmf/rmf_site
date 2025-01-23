@@ -182,14 +182,12 @@ where
             .components()
             .component_id::<ModelProperty<T>>()
             .unwrap();
-        // let type_id = TypeId::of::<ModelProperty<T>>();
         if !app
             .world
             .resource::<ModelPropertyData>()
             .required
             .contains_key(&component_id)
         {
-            // app.add_plugins(ChangePlugin::<ModelProperty<T>>::default());
             app.add_systems(PreUpdate, update_model_instances::<T>);
 
             app.world

@@ -19,7 +19,6 @@ use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Bundle, Component, Reflect, ReflectComponent};
 use serde::{Deserialize, Serialize};
-use serde_json::Map;
 use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -65,17 +64,6 @@ impl Default for Model {
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
 pub struct ModelProperty<T: Default + Clone>(pub T);
 
-/// Defines a property in a model description, that will be added to all instances
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub struct OptionalModelData(pub serde_json::Value);
-
-impl Default for OptionalModelData {
-    fn default() -> Self {
-        Self(serde_json::Value::Object(Map::new()))
-    }
-}
-
 /// Bundle with all required components for a valid model description
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
@@ -116,8 +104,6 @@ pub struct ModelInstance<T: RefTrait> {
     pub marker: ModelMarker,
     #[serde(skip)]
     pub instance_marker: InstanceMarker,
-    #[serde(default, skip_serializing_if = "is_default")]
-    pub optional_data: OptionalModelData,
 }
 
 impl<T: RefTrait> Default for ModelInstance<T> {
@@ -128,7 +114,6 @@ impl<T: RefTrait> Default for ModelInstance<T> {
             description: Affiliation::default(),
             marker: ModelMarker,
             instance_marker: InstanceMarker,
-            optional_data: OptionalModelData::default(),
         }
     }
 }
@@ -139,7 +124,6 @@ impl<T: RefTrait> ModelInstance<T> {
             name: self.name.clone(),
             pose: self.pose.clone(),
             description: self.description.convert(id_map)?,
-            optional_data: self.optional_data.clone(),
             ..Default::default()
         })
     }

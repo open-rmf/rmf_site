@@ -399,16 +399,8 @@ fn generate_site_entities(
                 model_instance.name.0,
             );
         }
-        // TODO(@xiyuoh) Move Task out of model instance and have their own section in Site data.
-        // Insert optional model data
-        if let serde_json::Value::Object(map) = &model_instance.optional_data.0 {
-            for (k, v) in map.iter() {
-                if *k == Tasks::label() {
-                    if let Ok(tasks) = serde_json::from_value::<Tasks>(v.clone()) {
-                        commands.entity(model_instance_entity).insert(tasks);
-                    }
-                }
-            }
+        if let Some(tasks) = site_data.tasks.get(model_instance_id) {
+            commands.entity(model_instance_entity).insert(tasks.clone());
         }
     }
 

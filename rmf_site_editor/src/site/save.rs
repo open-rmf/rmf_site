@@ -1271,11 +1271,9 @@ fn generate_model_instances(
             (With<ModelMarker>, Without<Group>, Without<Pending>),
         >,
         Query<(Entity, &SiteID), With<LevelElevation>>,
-        Query<&Children>,
         Query<&Parent>,
-        Query<&Tasks, (With<Robot>, Without<Group>)>,
     )> = SystemState::new(world);
-    let (model_descriptions, model_instances, levels, _, parents, tasks) = state.get(world);
+    let (model_descriptions, model_instances, levels, parents) = state.get(world);
 
     let mut site_levels_ids = std::collections::HashMap::<Entity, u32>::new();
     for (level_entity, site_id) in levels.iter() {
@@ -1296,7 +1294,7 @@ fn generate_model_instances(
             error!("Unable to find parent for instance [{}]", instance_name.0);
             continue;
         };
-        let mut model_instance = ModelInstance::<u32> {
+        let model_instance = ModelInstance::<u32> {
             name: instance_name.clone(),
             pose: instance_pose.clone(),
             description: Affiliation(
@@ -1307,15 +1305,6 @@ fn generate_model_instances(
             ),
             ..Default::default()
         };
-        // TODO(@xiyuoh) bring tasks to its own section
-        let mut optional_data = serde_json::Map::new();
-        if let Ok(robot_tasks) = tasks.get(instance_entity) {
-            if let Ok(tasks_data) = serde_json::to_value(robot_tasks.clone()) {
-                optional_data.insert("Tasks".to_string(), tasks_data.into());
-            }
-        }
-        model_instance.optional_data = OptionalModelData(optional_data.into());
-
         res.insert(
             instance_id.0,
             Parented {
@@ -1398,6 +1387,34 @@ fn generate_scenarios(
     Ok(res)
 }
 
+fn generate_tasks(
+    site: Entity,
+    world: &mut World,
+) -> Result<BTreeMap<u32, Tasks>, SiteGenerationError> {
+    let mut state: SystemState<(
+        Query<(&SiteID, &Tasks), (With<ModelMarker>, Without<Group>, Without<Pending>)>,
+        Query<(Entity, &SiteID), With<LevelElevation>>,
+        Query<&Children>,
+        Query<&Parent>,
+    )> = SystemState::new(world);
+    let (tasks, levels, children, parents) = state.get(world);
+    let mut res = BTreeMap::<u32, Tasks>::new();
+    for (level_entity, _) in levels.iter() {
+        if !parents.get(level_entity).is_ok_and(|p| p.get() == site) {
+            continue;
+        }
+        let Ok(children) = children.get(level_entity) else {
+            continue;
+        };
+        for child in children.iter() {
+            if let Ok((site_id, tasks_data)) = tasks.get(*child) {
+                res.insert(site_id.0, tasks_data.clone());
+            }
+        }
+    }
+    Ok(res)
+}
+
 pub fn generate_site(
     world: &mut World,
     site: Entity,
@@ -1420,6 +1437,7 @@ pub fn generate_site(
     let robots = generate_robots(site, world)?;
     let model_instances = generate_model_instances(site, world)?;
     let scenarios = generate_scenarios(site, world)?;
+    let tasks = generate_tasks(site, world)?;
 
     disassemble_edited_drawing(world);
     return Ok(Site {
@@ -1445,6 +1463,7 @@ pub fn generate_site(
         robots,
         model_instances,
         scenarios,
+        tasks,
     });
 }
 
