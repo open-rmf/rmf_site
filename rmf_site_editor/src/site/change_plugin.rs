@@ -61,12 +61,14 @@ impl<T: Component + Clone + Debug> Default for ChangePlugin<T> {
 }
 
 /// This is a changelog used for the undo/redo system
+/// within the change plugin.
 struct ChangeLog<T: Component + Clone + Debug> {
     entity: Entity,
     from: Option<T>,
     to: T,
 }
 
+/// This buffer stores the history of changes
 #[derive(Resource)]
 struct ChangeHistory<T: Component + Clone + Debug> {
     pub(crate) revisions: std::collections::HashMap<usize, ChangeLog<T>>,
