@@ -19,7 +19,7 @@ use std::collections::HashMap;
 
 use crate::{
     interaction::*,
-    site::{UndoBuffer, UndoEvent},
+    site::{RevisionTracker, UndoEvent},
 };
 use bevy::{math::Affine3A, prelude::*, window::PrimaryWindow};
 use bevy_mod_raycast::{deferred::RaycastMesh, deferred::RaycastSource, primitives::rays::Ray3d};
@@ -391,14 +391,14 @@ pub fn update_gizmo_click_start(
 
 #[derive(Debug)]
 pub struct GizmoMoveChange {
-    entity: Entity,
-    prev_pos: Transform,
-    dest_pos: Transform,
+    pub entity: Entity,
+    pub prev_pos: Transform,
+    pub dest_pos: Transform,
 }
 
 #[derive(Resource, Default)]
 pub struct GizmoMoveUndoBuffer {
-    revisions: HashMap<usize, GizmoMoveChange>,
+    pub revisions: HashMap<usize, GizmoMoveChange>,
 }
 
 pub(crate) fn undo_gizmo_change(
@@ -429,7 +429,7 @@ pub fn update_gizmo_release(
     mut gizmo_state: ResMut<GizmoState>,
     mouse_button_input: Res<Input<MouseButton>>,
     mut picked: ResMut<Picked>,
-    mut version_tracker: ResMut<UndoBuffer>,
+    mut version_tracker: ResMut<RevisionTracker>,
     mut change_history: ResMut<GizmoMoveUndoBuffer>,
     last_dragged: Res<LastDraggedPos>,
 ) {

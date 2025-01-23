@@ -19,7 +19,7 @@ use crate::site::SiteUpdateSet;
 use bevy::prelude::*;
 use std::{fmt::Debug, sync::Arc};
 
-use super::{UndoBuffer, UndoEvent};
+use super::{RevisionTracker, UndoEvent};
 
 /// The Change component is used as an event to indicate that the value of a
 /// component should change for some entity. Using these events instead of
@@ -121,7 +121,7 @@ fn update_changed_values<T: Component + Clone + Debug>(
     mut commands: Commands,
     mut values: Query<&mut T>,
     mut changes: EventReader<Change<T>>,
-    mut undo_buffer: ResMut<UndoBuffer>,
+    mut undo_buffer: ResMut<RevisionTracker>,
     mut change_history: ResMut<ChangeHistory<T>>,
 ) {
     for change in changes.read() {
