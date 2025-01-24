@@ -127,13 +127,11 @@ impl Cursor {
         model_instance: Option<ModelInstance<Entity>>,
     ) {
         self.remove_preview(commands);
-        self.preview_model = model_instance.and_then(|model_instance| {
-            Some(
-                model_loader
-                    .spawn_model_instance(self.frame, model_instance)
-                    .insert(Pending)
-                    .id(),
-            )
+        self.preview_model = model_instance.map(|instance| {
+            model_loader
+                .spawn_model_instance(self.frame, instance)
+                .insert(Pending)
+                .id()
         });
     }
 
