@@ -17,7 +17,7 @@
 
 use super::{
     get_selected_description_entity,
-    inspect_robot_properties::{show_robot_property, RobotPropertyData},
+    inspect_robot_properties::{show_robot_property, RobotPropertyWidgets},
 };
 use crate::{
     site::{
@@ -30,7 +30,7 @@ use bevy_egui::egui::Ui;
 
 #[derive(SystemParam)]
 pub struct InspectCollision<'w, 's> {
-    robot_property_data: ResMut<'w, RobotPropertyData>,
+    robot_property_data: ResMut<'w, RobotPropertyWidgets>,
     model_instances: Query<
         'w,
         's,

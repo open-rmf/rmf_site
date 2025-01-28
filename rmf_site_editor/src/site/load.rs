@@ -360,8 +360,19 @@ fn generate_site_entities(
                 .entity(*model_description_entity)
                 .insert(ModelProperty(robot_data.clone()));
         } else {
-            // TODO(@xiyuoh) consider creating an entity if not found
-            error!("Robot is pointing to a non-existent model description!");
+            // Robot is affiliated to a non-existent model description,
+            // create a description entity for users to modify after loading
+            commands
+                .spawn(ModelDescriptionBundle::default())
+                .insert(Category::ModelDescription)
+                .insert(ModelProperty(robot_data.clone()))
+                .set_parent(site_id);
+            error!(
+                "Robot {} with properties {:?} is pointing to a non-existent \
+                model description! Assigning robot to the default model description \
+                with an empty asset source.",
+                robot_id, robot_data
+            );
         };
     }
 

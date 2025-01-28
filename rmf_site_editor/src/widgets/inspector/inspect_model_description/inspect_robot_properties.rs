@@ -33,9 +33,9 @@ pub type ShowRobotPropertyWidgetFn = fn(&mut serde_json::Value, &mut Ui);
 
 /// This resource keeps track of all the properties that can be configured for a robot.
 #[derive(Resource)]
-pub struct RobotPropertyData(pub HashMap<String, HashMap<String, ShowRobotPropertyWidgetFn>>);
+pub struct RobotPropertyWidgets(pub HashMap<String, HashMap<String, ShowRobotPropertyWidgetFn>>);
 
-impl FromWorld for RobotPropertyData {
+impl FromWorld for RobotPropertyWidgets {
     fn from_world(_world: &mut World) -> Self {
         Self(HashMap::new())
     }
@@ -76,7 +76,7 @@ impl Plugin for InspectRobotPropertiesPlugin {
         let widget = Widget::<Inspect>::new::<InspectRobotProperties>(&mut app.world);
         let id = app.world.spawn(widget).set_parent(inspector).id();
         app.world.insert_resource(RobotPropertiesInspector { id });
-        app.world.init_resource::<RobotPropertyData>();
+        app.world.init_resource::<RobotPropertyWidgets>();
     }
 }
 
@@ -183,7 +183,7 @@ where
 {
     fn build(&self, app: &mut App) {
         app.world
-            .resource_mut::<RobotPropertyData>()
+            .resource_mut::<RobotPropertyWidgets>()
             .0
             .insert(T::label(), HashMap::new());
 
@@ -196,7 +196,7 @@ where
 pub fn show_robot_property<'de, T: Component + Clone + Default + PartialEq + RobotProperty>(
     ui: &mut Ui,
     property: Option<T>,
-    robot_property_data: ResMut<RobotPropertyData>,
+    robot_property_data: ResMut<RobotPropertyWidgets>,
 ) -> Result<Option<T>, ()> {
     let mut has_property = property.is_some();
     let property_label = T::label();

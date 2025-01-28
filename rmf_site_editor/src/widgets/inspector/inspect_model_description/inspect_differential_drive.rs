@@ -15,7 +15,7 @@
  *
 */
 
-use super::inspect_robot_properties::RobotPropertyData;
+use super::inspect_robot_properties::RobotPropertyWidgets;
 use crate::site::{DifferentialDrive, Mobility, RobotProperty, RobotPropertyKind};
 use bevy::prelude::*;
 use bevy_egui::egui::{DragValue, Grid, Ui};
@@ -26,13 +26,12 @@ pub struct InspectDifferentialDrivePlugin {}
 impl Plugin for InspectDifferentialDrivePlugin {
     fn build(&self, app: &mut App) {
         app.world
-            .resource_mut::<RobotPropertyData>()
+            .resource_mut::<RobotPropertyWidgets>()
             .0
-            .get_mut(&Mobility::label())
-            .map(|m_map| {
-                m_map.insert(DifferentialDrive::label(), |config, ui| {
-                    InspectDifferentialDrive::new(config).show(ui);
-                })
+            .entry(Mobility::label())
+            .or_default()
+            .insert(DifferentialDrive::label(), |config, ui| {
+                InspectDifferentialDrive::new(config).show(ui);
             });
     }
 }

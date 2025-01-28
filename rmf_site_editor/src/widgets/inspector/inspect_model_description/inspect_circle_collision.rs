@@ -15,7 +15,7 @@
  *
 */
 
-use super::inspect_robot_properties::RobotPropertyData;
+use super::inspect_robot_properties::RobotPropertyWidgets;
 use crate::{
     interaction::Selection,
     site::{
@@ -32,13 +32,12 @@ pub struct InspectCircleCollisionPlugin {}
 impl Plugin for InspectCircleCollisionPlugin {
     fn build(&self, app: &mut App) {
         app.world
-            .resource_mut::<RobotPropertyData>()
+            .resource_mut::<RobotPropertyWidgets>()
             .0
-            .get_mut(&Collision::label())
-            .map(|c_map| {
-                c_map.insert(CircleCollision::label(), |config, ui| {
-                    InspectCircleCollision::new(config).show(ui);
-                })
+            .entry(Collision::label())
+            .or_default()
+            .insert(CircleCollision::label(), |config, ui| {
+                InspectCircleCollision::new(config).show(ui);
             });
         app.add_systems(PostUpdate, update_view_circle_collision);
     }
