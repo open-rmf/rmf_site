@@ -18,7 +18,7 @@
 use super::{
     get_selected_description_entity,
     inspect_robot_properties::{
-        serialize_and_change_robot_property, show_robot_property_widget, RobotPropertyWidgets,
+        serialize_and_change_robot_property, show_robot_property_widget, RobotPropertyData,
     },
 };
 use crate::{
@@ -34,7 +34,7 @@ use smallvec::SmallVec;
 
 #[derive(SystemParam)]
 pub struct InspectCollision<'w, 's> {
-    robot_property_widgets: Res<'w, RobotPropertyWidgets>,
+    robot_property_data: Res<'w, RobotPropertyData>,
     model_instances: Query<
         'w,
         's,
@@ -76,12 +76,12 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectCollision<'w, 's> {
             params.collision,
             params.change_robot_property,
             robot,
-            &params.robot_property_widgets,
+            &params.robot_property_data,
             description_entity,
         );
 
         // Show children widgets
-        if let Some((inspector_id, _)) = params.robot_property_widgets.0.get(&Collision::label()) {
+        if let Some((inspector_id, _)) = params.robot_property_data.0.get(&Collision::label()) {
             let children_widgets: Result<SmallVec<[_; 16]>, _> = params
                 .children
                 .get(*inspector_id)

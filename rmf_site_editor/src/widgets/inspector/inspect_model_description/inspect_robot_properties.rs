@@ -41,7 +41,7 @@ pub type RemovePropertyKindFn = fn(EntityCommands);
 
 /// This resource keeps track of all the properties that can be configured for a robot.
 #[derive(Resource)]
-pub struct RobotPropertyWidgets(
+pub struct RobotPropertyData(
     pub  HashMap<
         String,
         (
@@ -51,7 +51,7 @@ pub struct RobotPropertyWidgets(
     >,
 );
 
-impl FromWorld for RobotPropertyWidgets {
+impl FromWorld for RobotPropertyData {
     fn from_world(_world: &mut World) -> Self {
         Self(HashMap::new())
     }
@@ -92,7 +92,7 @@ impl Plugin for InspectRobotPropertiesPlugin {
         let widget = Widget::<Inspect>::new::<InspectRobotProperties>(&mut app.world);
         let id = app.world.spawn(widget).set_parent(inspector).id();
         app.world.insert_resource(RobotPropertiesInspector { id });
-        app.world.init_resource::<RobotPropertyWidgets>();
+        app.world.init_resource::<RobotPropertyData>();
         app.add_event::<UpdateRobotPropertyKinds>();
     }
 }
@@ -224,7 +224,7 @@ where
         let widget = Widget::<Inspect>::new::<W>(&mut app.world);
         let id = app.world.spawn(widget).set_parent(inspector).id();
         app.world
-            .resource_mut::<RobotPropertyWidgets>()
+            .resource_mut::<RobotPropertyData>()
             .0
             .insert(T::label(), (id, HashMap::new()));
         app.add_systems(PreUpdate, update_robot_properties::<T>);
@@ -286,7 +286,7 @@ where
         let property_label = U::label();
         let Some(inspector) = app
             .world
-            .resource::<RobotPropertyWidgets>()
+            .resource::<RobotPropertyData>()
             .0
             .get(&property_label)
             .map(|(id, _)| id.clone())
@@ -296,7 +296,7 @@ where
         let widget = Widget::<Inspect>::new::<W>(&mut app.world);
         app.world.spawn(widget).set_parent(inspector);
         app.world
-            .resource_mut::<RobotPropertyWidgets>()
+            .resource_mut::<RobotPropertyData>()
             .0
             .get_mut(&property_label)
             .map(|(_, ref mut m)| {
@@ -334,7 +334,6 @@ pub fn update_robot_properties<
     mut removals: RemovedComponents<ModelProperty<Robot>>,
     mut update_robot_property_kinds: EventWriter<UpdateRobotPropertyKinds>,
 ) {
-    // TODO(@xiyuoh) change back to RobotPropertyData now that its no longer widgets
     let property_label = T::label();
 
     // Remove Robot property entirely
@@ -350,7 +349,7 @@ pub fn update_robot_properties<
     for (entity, robot) in model_properties.iter() {
         if robot.is_changed() {
             let mut value = serde_json::Value::Object(Map::new());
-            // Update robot property first
+            // Update robot property
             match robot.0.properties.get(&property_label) {
                 Some(property_value) => {
                     if property_value.as_object().is_none_or(|m| m.is_empty()) {
@@ -427,14 +426,14 @@ pub fn show_robot_property_widget<
     mut property_query: Query<&T, (With<ModelMarker>, With<Group>)>,
     mut change_robot_property: EventWriter<Change<ModelProperty<Robot>>>,
     robot: &Robot,
-    robot_property_widgets: &Res<RobotPropertyWidgets>,
+    robot_property_data: &Res<RobotPropertyData>,
     description_entity: Entity,
 ) {
     let mut new_robot = robot.clone();
     let property_label = T::label();
     let property = property_query.get_mut(description_entity).ok();
 
-    let Some((_, property_kinds)) = robot_property_widgets.0.get(&property_label) else {
+    let Some((_, property_kinds)) = robot_property_data.0.get(&property_label) else {
         ui.label(format!("No {} kind registered.", property_label));
         return;
     };
