@@ -1252,7 +1252,7 @@ fn generate_robots(
                 // Remove any invalid properties
                 robot
                     .properties
-                    .retain(|k, v| k.is_empty() || v.as_object().is_none_or(|m| m.is_empty()));
+                    .retain(|k, v| !k.is_empty() || v.as_object().is_some());
                 res.insert(site_id.0, robot);
             }
         }

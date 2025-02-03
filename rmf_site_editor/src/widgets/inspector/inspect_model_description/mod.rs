@@ -36,14 +36,8 @@ use crate::{
     MainInspector,
 };
 
-pub mod inspect_circle_collision;
-pub use inspect_circle_collision::*;
-
 pub mod inspect_collision;
 pub use inspect_collision::*;
-
-pub mod inspect_differential_drive;
-pub use inspect_differential_drive::*;
 
 pub mod inspect_mobility;
 pub use inspect_mobility::*;
@@ -454,7 +448,7 @@ fn get_selected_description_entity<'w, 's, S: ReadOnlyWorldQuery, T: WorldQuery>
         if model_descriptions.get(affiliation).is_ok() {
             return Some(affiliation);
         } else {
-            warn!("Model instance is affiliated with a non-existent description");
+            debug!("Model instance is affiliated with a description with different components");
             return None;
         }
     }

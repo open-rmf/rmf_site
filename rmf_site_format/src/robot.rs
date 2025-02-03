@@ -36,6 +36,8 @@ impl Default for Robot {
 }
 
 pub trait RobotProperty {
+    fn new(kind: String, config: serde_json::Value) -> Self;
+
     fn is_default(&self) -> bool;
 
     fn is_empty(&self) -> bool;
@@ -72,6 +74,10 @@ impl Default for Mobility {
 }
 
 impl RobotProperty for Mobility {
+    fn new(kind: String, config: serde_json::Value) -> Self {
+        Self { kind, config }
+    }
+
     fn is_default(&self) -> bool {
         if *self == Self::default() {
             return true;
@@ -151,6 +157,10 @@ impl Default for Collision {
 }
 
 impl RobotProperty for Collision {
+    fn new(kind: String, config: serde_json::Value) -> Self {
+        Self { kind, config }
+    }
+
     fn is_default(&self) -> bool {
         if *self == Self::default() {
             return true;
@@ -192,7 +202,6 @@ impl RobotProperty for Collision {
 pub struct CircleCollision {
     pub radius: f32,
     pub offset: [f32; 2],
-    pub view: bool,
 }
 
 impl Default for CircleCollision {
@@ -200,7 +209,6 @@ impl Default for CircleCollision {
         Self {
             radius: 0.0,
             offset: [0.0, 0.0],
-            view: true,
         }
     }
 }

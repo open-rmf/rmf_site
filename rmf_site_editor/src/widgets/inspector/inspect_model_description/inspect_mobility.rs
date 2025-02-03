@@ -17,20 +17,25 @@
 
 use super::{
     get_selected_description_entity,
-    inspect_robot_properties::{show_robot_property, RobotPropertyWidgets},
+    inspect_robot_properties::{
+        serialize_and_change_robot_property, show_robot_property, RobotPropertyWidgets,
+    },
 };
 use crate::{
     site::{
-        Affiliation, Change, Group, Mobility, ModelMarker, ModelProperty, Robot, RobotProperty,
+        Affiliation, Change, DifferentialDrive, Group, Mobility, ModelMarker, ModelProperty, Robot,
+        RobotProperty,
     },
     widgets::{prelude::*, Inspect},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::Ui;
+use bevy_egui::egui::{DragValue, Grid, Ui};
+use smallvec::SmallVec;
 
 #[derive(SystemParam)]
 pub struct InspectMobility<'w, 's> {
-    robot_property_data: ResMut<'w, RobotPropertyWidgets>,
+    commands: Commands<'w, 's>,
+    robot_property_widgets: Res<'w, RobotPropertyWidgets>,
     model_instances: Query<
         'w,
         's,
@@ -39,10 +44,86 @@ pub struct InspectMobility<'w, 's> {
     >,
     model_descriptions:
         Query<'w, 's, &'static ModelProperty<Robot>, (With<ModelMarker>, With<Group>)>,
+    mobility: Query<'w, 's, &'static Mobility, (With<ModelMarker>, With<Group>)>,
     change_robot_property: EventWriter<'w, Change<ModelProperty<Robot>>>,
+    children: Query<'w, 's, &'static Children>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectMobility<'w, 's> {
+    fn show(
+        Inspect {
+            selection,
+            inspection: _,
+            panel,
+        }: Inspect,
+        ui: &mut Ui,
+        state: &mut SystemState<Self>,
+        world: &mut World,
+    ) {
+        let params = state.get_mut(world);
+        let Some(description_entity) = get_selected_description_entity(
+            selection,
+            &params.model_instances,
+            &params.model_descriptions,
+        ) else {
+            return;
+        };
+        let Ok(ModelProperty(robot)) = params.model_descriptions.get(description_entity) else {
+            return;
+        };
+
+        show_robot_property::<Mobility>(
+            ui,
+            params.commands,
+            params.mobility,
+            params.change_robot_property,
+            robot,
+            &params.robot_property_widgets,
+            description_entity,
+        );
+
+        // Show children widgets
+        if let Some((inspector_id, _)) = params.robot_property_widgets.0.get(&Mobility::label()) {
+            let children_widgets: Result<SmallVec<[_; 16]>, _> = params
+                .children
+                .get(*inspector_id)
+                .map(|c| c.iter().copied().collect());
+            let Ok(children_widgets) = children_widgets else {
+                return;
+            };
+
+            for child in children_widgets {
+                let inspect = Inspect {
+                    selection,
+                    inspection: child,
+                    panel,
+                };
+                ui.add_space(10.0);
+                let _ = world.try_show_in(child, inspect, ui);
+            }
+        }
+    }
+}
+
+#[derive(SystemParam)]
+pub struct InspectDifferentialDrive<'w, 's> {
+    commands: Commands<'w, 's>,
+    model_instances: Query<
+        'w,
+        's,
+        &'static Affiliation<Entity>,
+        (With<ModelMarker>, Without<Group>, With<Robot>),
+    >,
+    model_descriptions: Query<
+        'w,
+        's,
+        (&'static ModelProperty<Robot>, &'static DifferentialDrive),
+        (With<ModelMarker>, With<Group>),
+    >,
+    change_robot_property: EventWriter<'w, Change<ModelProperty<Robot>>>,
+}
+
+impl<'w, 's> WidgetSystem<Inspect> for InspectDifferentialDrive<'w, 's> {
     fn show(
         Inspect { selection, .. }: Inspect,
         ui: &mut Ui,
@@ -57,28 +138,92 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectMobility<'w, 's> {
         ) else {
             return;
         };
-        let Ok(ModelProperty(robot)) = params.model_descriptions.get(description_entity) else {
+        let Ok((ModelProperty(robot), differential_drive)) =
+            params.model_descriptions.get_mut(description_entity)
+        else {
             return;
         };
-        let mut new_robot = robot.clone();
-        let mobility_label = Mobility::label();
-        let mobility = robot
-            .properties
-            .get(&mobility_label)
-            .and_then(|m| serde_json::from_value::<Mobility>(m.clone()).ok());
 
-        match show_robot_property::<Mobility>(ui, mobility, params.robot_property_data) {
-            Ok(res) => {
-                if let Some(new_value) = res.map(|m| serde_json::to_value(m).ok()).flatten() {
-                    new_robot.properties.insert(mobility_label, new_value);
-                } else {
-                    new_robot.properties.remove(&mobility_label);
-                }
-                params
-                    .change_robot_property
-                    .send(Change::new(ModelProperty(new_robot), description_entity));
-            }
-            Err(_) => {}
+        // Add default diff drive config if they have not been added
+        if robot
+            .properties
+            .get(&Mobility::label())
+            .and_then(|c| c.as_object())
+            .and_then(|obj| obj.get("config"))
+            .is_some_and(|config| config.as_object().is_none_or(|m| m.is_empty()))
+        {
+            serialize_and_change_robot_property::<Mobility, DifferentialDrive>(
+                params.commands,
+                params.change_robot_property,
+                DifferentialDrive::default(),
+                robot,
+                description_entity,
+            );
+            return;
+        }
+
+        let mut new_differential_drive = differential_drive.clone();
+
+        ui.indent("inspect_differential_drive_properties", |ui| {
+            Grid::new("inspect_differential_drive")
+                .num_columns(3)
+                .show(ui, |ui| {
+                    ui.label("Center Offset");
+                    ui.label("x");
+                    ui.label("y");
+                    ui.end_row();
+
+                    ui.label("");
+                    ui.add(
+                        DragValue::new(&mut new_differential_drive.rotation_center_offset[0])
+                            .clamp_range(std::f32::NEG_INFINITY..=std::f32::INFINITY)
+                            .speed(0.01),
+                    );
+                    ui.add(
+                        DragValue::new(&mut new_differential_drive.rotation_center_offset[1])
+                            .clamp_range(std::f32::NEG_INFINITY..=std::f32::INFINITY)
+                            .speed(0.01),
+                    );
+                    ui.end_row();
+
+                    ui.label("Bidirectional");
+                    ui.checkbox(&mut new_differential_drive.bidirectional, "");
+                    ui.end_row();
+
+                    ui.label("Max Velocity");
+                    ui.add(
+                        DragValue::new(&mut new_differential_drive.translational_speed)
+                            .clamp_range(0_f32..=std::f32::INFINITY)
+                            .speed(0.01),
+                    );
+                    ui.label("m/s");
+                    ui.end_row();
+
+                    ui.label("Max Angular");
+                    ui.add(
+                        DragValue::new(&mut new_differential_drive.rotational_speed)
+                            .clamp_range(0_f32..=std::f32::INFINITY)
+                            .speed(0.01),
+                    );
+                    ui.label("rad/s");
+                    ui.end_row();
+                });
+        });
+
+        if new_differential_drive != *differential_drive {
+            // Update DifferentialDrive component
+            params
+                .commands
+                .entity(description_entity)
+                .insert(new_differential_drive.clone());
+            // Update Mobility and Robot
+            serialize_and_change_robot_property::<Mobility, DifferentialDrive>(
+                params.commands,
+                params.change_robot_property,
+                new_differential_drive,
+                robot,
+                description_entity,
+            );
         }
     }
 }
