@@ -30,9 +30,11 @@ use bevy::{
 };
 use bevy_egui::egui::{ComboBox, Ui};
 use rmf_site_format::{RobotProperty, RobotPropertyKind};
-use serde::Serialize;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde_json::{Map, Value};
 use smallvec::SmallVec;
 use std::collections::HashMap;
+use std::fmt::Debug;
 
 pub type InsertPropertyKindFn = fn(EntityCommands);
 pub type RemovePropertyKindFn = fn(EntityCommands);
@@ -91,6 +93,7 @@ impl Plugin for InspectRobotPropertiesPlugin {
         let id = app.world.spawn(widget).set_parent(inspector).id();
         app.world.insert_resource(RobotPropertiesInspector { id });
         app.world.init_resource::<RobotPropertyWidgets>();
+        app.add_event::<UpdateRobotPropertyKinds>();
     }
 }
 
@@ -173,7 +176,14 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectRobotProperties<'w, 's> {
 pub struct InspectRobotPropertyPlugin<W, T>
 where
     W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
-    T: 'static + Send + Sync + Default + Clone + RobotProperty + Component,
+    T: 'static
+        + Send
+        + Sync
+        + Default
+        + Clone
+        + RobotProperty
+        + Component
+        + for<'de> Deserialize<'de>,
 {
     _ignore: std::marker::PhantomData<(W, T)>,
 }
@@ -181,7 +191,14 @@ where
 impl<W, T> InspectRobotPropertyPlugin<W, T>
 where
     W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
-    T: 'static + Send + Sync + Default + Clone + RobotProperty + Component,
+    T: 'static
+        + Send
+        + Sync
+        + Default
+        + Clone
+        + RobotProperty
+        + Component
+        + for<'de> Deserialize<'de>,
 {
     pub fn new() -> Self {
         Self {
@@ -193,7 +210,14 @@ where
 impl<W, T> Plugin for InspectRobotPropertyPlugin<W, T>
 where
     W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
-    T: 'static + Send + Sync + Default + Clone + RobotProperty + Component,
+    T: 'static
+        + Send
+        + Sync
+        + Default
+        + Clone
+        + RobotProperty
+        + Component
+        + for<'de> Deserialize<'de>,
 {
     fn build(&self, app: &mut App) {
         let inspector = app.world.resource::<RobotPropertiesInspector>().id;
@@ -203,6 +227,7 @@ where
             .resource_mut::<RobotPropertyWidgets>()
             .0
             .insert(T::label(), (id, HashMap::new()));
+        app.add_systems(PreUpdate, update_robot_properties::<T>);
     }
 }
 
@@ -211,7 +236,14 @@ where
 pub struct InspectRobotPropertyKindPlugin<W, T, U>
 where
     W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
-    T: 'static + Send + Sync + Default + Clone + RobotPropertyKind + Component,
+    T: 'static
+        + Send
+        + Sync
+        + Default
+        + Clone
+        + RobotPropertyKind
+        + Component
+        + for<'de> Deserialize<'de>,
     U: 'static + Send + Sync + Default + Clone + RobotProperty + Component,
 {
     _ignore: std::marker::PhantomData<(W, T, U)>,
@@ -220,7 +252,14 @@ where
 impl<W, T, U> InspectRobotPropertyKindPlugin<W, T, U>
 where
     W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
-    T: 'static + Send + Sync + Default + Clone + RobotPropertyKind + Component,
+    T: 'static
+        + Send
+        + Sync
+        + Default
+        + Clone
+        + RobotPropertyKind
+        + Component
+        + for<'de> Deserialize<'de>,
     U: 'static + Send + Sync + Default + Clone + RobotProperty + Component,
 {
     pub fn new() -> Self {
@@ -233,7 +272,14 @@ where
 impl<W, T, U> Plugin for InspectRobotPropertyKindPlugin<W, T, U>
 where
     W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
-    T: 'static + Send + Sync + Default + Clone + RobotPropertyKind + Component,
+    T: 'static
+        + Send
+        + Sync
+        + Default
+        + Clone
+        + RobotPropertyKind
+        + Component
+        + for<'de> Deserialize<'de>,
     U: 'static + Send + Sync + Default + Clone + RobotProperty + Component,
 {
     fn build(&self, app: &mut App) {
@@ -266,15 +312,118 @@ where
                     ),
                 );
             });
+        app.add_systems(PreUpdate, update_robot_property_kinds::<T, U>);
     }
 }
 
-pub fn show_robot_property<
+#[derive(Debug, Event)]
+pub struct UpdateRobotPropertyKinds {
+    pub entity: Entity,
+    pub label: String,
+    pub value: serde_json::Value,
+}
+
+/// This system monitors changes to ModelProperty<Robot> and inserts robot property components
+/// to the model descriptions
+pub fn update_robot_properties<
     'de,
-    T: Component + Clone + Default + PartialEq + RobotProperty + Serialize,
+    T: Component + Clone + Default + RobotProperty + DeserializeOwned,
+>(
+    mut commands: Commands,
+    model_properties: Query<(Entity, Ref<ModelProperty<Robot>>), (With<ModelMarker>, With<Group>)>,
+    mut removals: RemovedComponents<ModelProperty<Robot>>,
+    mut update_robot_property_kinds: EventWriter<UpdateRobotPropertyKinds>,
+) {
+    // TODO(@xiyuoh) change back to RobotPropertyData now that its no longer widgets
+    let property_label = T::label();
+
+    // Remove Robot property entirely
+    for description_entity in removals.read() {
+        commands.entity(description_entity).remove::<T>();
+        update_robot_property_kinds.send(UpdateRobotPropertyKinds {
+            entity: description_entity,
+            label: property_label.clone(),
+            value: serde_json::Value::Object(Map::new()),
+        });
+    }
+
+    for (entity, robot) in model_properties.iter() {
+        if robot.is_changed() {
+            let mut value = serde_json::Value::Object(Map::new());
+            // Update robot property first
+            match robot.0.properties.get(&property_label) {
+                Some(property_value) => {
+                    if property_value.as_object().is_none_or(|m| m.is_empty()) {
+                        commands.entity(entity).insert(T::default());
+                    } else if let Ok(property) = serde_json::from_value::<T>(property_value.clone())
+                    {
+                        commands.entity(entity).insert(property.clone());
+                        value = property_value.clone();
+                    } else {
+                        continue;
+                    }
+                }
+                None => {
+                    commands.entity(entity).remove::<T>();
+                }
+            }
+            // Update robot property kinds
+            update_robot_property_kinds.send(UpdateRobotPropertyKinds {
+                entity,
+                label: property_label.clone(),
+                value,
+            });
+        }
+    }
+}
+
+/// This system inserts or removes robot property kinds when a robot property is updated
+pub fn update_robot_property_kinds<
+    'de,
+    T: Component + Clone + Default + RobotPropertyKind + DeserializeOwned,
+    U: Clone + RobotProperty,
+>(
+    mut commands: Commands,
+    mut update_robot_property_kinds: EventReader<UpdateRobotPropertyKinds>,
+) {
+    for update in update_robot_property_kinds.read() {
+        let property_label = U::label();
+        let property_kind_label = T::label();
+        if update.label != property_label {
+            continue;
+        }
+
+        if let Some(property) = update.value.as_object() {
+            if property
+                .get("kind")
+                .and_then(|k| k.as_str())
+                .is_some_and(|label| label == property_kind_label.as_str())
+            {
+                match property
+                    .get("config")
+                    .and_then(|config| serde_json::from_value::<T>(config.clone()).ok())
+                {
+                    Some(property_kind) => {
+                        commands.entity(update.entity).insert(property_kind);
+                    }
+                    None => {
+                        commands.entity(update.entity).insert(T::default());
+                    }
+                }
+                continue;
+            }
+        }
+        commands.entity(update.entity).remove::<T>();
+    }
+}
+
+/// This system displays each RobotProperty widget and enables users to toggle
+/// the properties on and off, and select relevant RobotPropertyKinds.
+pub fn show_robot_property_widget<
+    'de,
+    T: Component + Clone + Debug + Default + PartialEq + RobotProperty + Serialize,
 >(
     ui: &mut Ui,
-    mut commands: Commands,
     mut property_query: Query<&T, (With<ModelMarker>, With<Group>)>,
     mut change_robot_property: EventWriter<Change<ModelProperty<Robot>>>,
     robot: &Robot,
@@ -295,21 +444,11 @@ pub fn show_robot_property<
     if !has_property {
         if property.is_some() {
             // RobotProperty toggled from enabled to disabled
-            if let Some((_, remove_kind_fn)) = property.and_then(|p| property_kinds.get(&p.kind()))
-            {
-                remove_kind_fn(commands.entity(description_entity));
-            }
-            commands.entity(description_entity).remove::<T>();
             new_robot.properties.remove(&property_label);
         } else {
-            // RobotProperty remained disabled
             return;
         }
     } else {
-        if property.is_none() {
-            commands.entity(description_entity).insert(T::default());
-        }
-
         let mut new_property = match property {
             Some(p) => p.clone(),
             None => T::default(),
@@ -339,50 +478,35 @@ pub fn show_robot_property<
 
         ui.add_space(10.0);
 
-        // Handle switching of RobotPropertyKind. Changes in values will be handled within each RobotPropertyKind widget
-        if !new_property.is_default()
-            && (property.is_none() || (property.is_some_and(|p| p.kind() != new_property.kind())))
-        {
-            commands
-                .entity(description_entity)
-                .insert(new_property.clone());
-            // If the kind has been updated, insert/remove property kind component for the respective
-            // widgets to show accordingly
-            if let Some((_, remove_kind_fn)) = property.and_then(|p| property_kinds.get(&p.kind()))
-            {
-                remove_kind_fn(commands.entity(description_entity));
-            }
-            if let Some((insert_kind_fn, _)) = property_kinds.get(&new_property.kind()) {
-                insert_kind_fn(commands.entity(description_entity));
-            }
-            // Update Robot properties
+        if property.is_some_and(|p| p.kind() == new_property.kind()) {
+            return;
+        }
+        // Update changes in RobotPropertyKind only, values will be updated in the respective widgets
+        if new_property.is_default() {
+            // Setting value as null to filter out invalid data on save
+            new_robot.properties.insert(property_label, Value::Null);
+        } else {
             if let Ok(new_value) = serde_json::to_value(new_property) {
                 new_robot.properties.insert(property_label, new_value);
             }
-        } else {
-            // RobotProperty remains unchanged
-            return;
         }
     }
     change_robot_property.send(Change::new(ModelProperty(new_robot), description_entity));
 }
 
+/// This system updates ModelProperty<Robot> based on updates to the property components
 pub fn serialize_and_change_robot_property<
     'de,
-    T: Component + Clone + Default + PartialEq + RobotProperty + Serialize,
-    U: Component + Clone + Default + PartialEq + RobotPropertyKind + Serialize,
+    T: Clone + Default + PartialEq + RobotProperty + Serialize,
+    U: Clone + Default + PartialEq + RobotPropertyKind + Serialize,
 >(
-    mut commands: Commands,
     mut change_robot_property: EventWriter<Change<ModelProperty<Robot>>>,
     property_kind: U,
     robot: &Robot,
     description_entity: Entity,
 ) {
-    if let Ok(new_value) = serde_json::to_value(property_kind) {
-        let new_property = T::new(U::label(), new_value);
-        commands
-            .entity(description_entity)
-            .insert(new_property.clone());
+    if let Ok(new_property) = serde_json::to_value(property_kind).map(|val| T::new(U::label(), val))
+    {
         if let Ok(new_property_value) = serde_json::to_value(new_property) {
             let mut new_robot = robot.clone();
             new_robot.properties.insert(T::label(), new_property_value);

@@ -18,7 +18,7 @@
 use super::{
     get_selected_description_entity,
     inspect_robot_properties::{
-        serialize_and_change_robot_property, show_robot_property, RobotPropertyWidgets,
+        serialize_and_change_robot_property, show_robot_property_widget, RobotPropertyWidgets,
     },
 };
 use crate::{
@@ -34,7 +34,6 @@ use smallvec::SmallVec;
 
 #[derive(SystemParam)]
 pub struct InspectCollision<'w, 's> {
-    commands: Commands<'w, 's>,
     robot_property_widgets: Res<'w, RobotPropertyWidgets>,
     model_instances: Query<
         'w,
@@ -72,9 +71,8 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectCollision<'w, 's> {
             return;
         };
 
-        show_robot_property::<Collision>(
+        show_robot_property_widget::<Collision>(
             ui,
-            params.commands,
             params.collision,
             params.change_robot_property,
             robot,
@@ -107,7 +105,6 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectCollision<'w, 's> {
 
 #[derive(SystemParam)]
 pub struct InspectCircleCollision<'w, 's> {
-    commands: Commands<'w, 's>,
     model_instances: Query<
         'w,
         's,
@@ -155,7 +152,6 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectCircleCollision<'w, 's> {
             .is_some_and(|config| config.as_object().is_none_or(|m| m.is_empty()))
         {
             serialize_and_change_robot_property::<Collision, CircleCollision>(
-                params.commands,
                 params.change_robot_property,
                 CircleCollision::default(),
                 robot,
@@ -212,14 +208,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectCircleCollision<'w, 's> {
         });
 
         if new_circle_collision != *circle_collision {
-            // Update CircleCollision component
-            params
-                .commands
-                .entity(description_entity)
-                .insert(new_circle_collision.clone());
-            // Update Collision and Robot
             serialize_and_change_robot_property::<Collision, CircleCollision>(
-                params.commands,
                 params.change_robot_property,
                 new_circle_collision,
                 robot,
