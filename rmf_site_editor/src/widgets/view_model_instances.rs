@@ -25,8 +25,8 @@ use crate::{
     CurrentWorkspace, Icons,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{Align, Button, CollapsingHeader, Color32, Layout, ScrollArea, Ui};
-use rmf_site_format::{Angle, InstanceMarker, Pose, ScenarioBundle, SiteID};
+use bevy_egui::egui::{CollapsingHeader, Color32, ScrollArea, Ui};
+use rmf_site_format::{Angle, InstanceMarker, Pose, SiteID};
 use std::collections::{HashMap, HashSet};
 
 const INSTANCES_VIEWER_HEIGHT: f32 = 200.0;
@@ -104,21 +104,17 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                             .send(Change::new(NameInSite(new_name), current_scenario_entity));
                     }
                 });
-                let mut current_scenario_instances = scenario.instances.clone();
+                let current_scenario_instances = scenario.instances.clone();
                 let mut non_affiliated_instances = HashSet::<Entity>::new();
-                // let mut hide_instance_ids = Vec::new();
                 ScrollArea::vertical()
                     .max_height(INSTANCES_VIEWER_HEIGHT)
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
-                        // Loop through every model description
-                        for (desc_entity, desc_name, desc_site_id) in self.model_descriptions.iter()
-                        {
+                        for (desc_entity, desc_name, _) in self.model_descriptions.iter() {
                             CollapsingHeader::new(desc_name.0.clone())
                                 .id_source(desc_name.0.clone())
                                 .default_open(false)
                                 .show(ui, |ui| {
-                                    // Loop through every model instance
                                     for (
                                         instance_entity,
                                         instance_name,
@@ -128,42 +124,47 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                     ) in self.model_instances.iter_mut()
                                     {
                                         if affiliation.0.is_some_and(|e| e == desc_entity) {
-                                            ui.horizontal(|ui| {
-                                                instance_selector(
-                                                    ui,
-                                                    instance_name,
-                                                    instance_site_id,
-                                                    category,
-                                                    &instance_entity,
-                                                    &self.selection,
-                                                    &mut self.select,
-                                                );
-                                            });
-                                            if let Some((pose, included)) =
-                                                scenario.instances.get_mut(&instance_entity)
-                                            {
-                                                //
-                                                ui.horizontal(|ui| {
-                                                    ui.checkbox(included, "Include");
-                                                    // .on_hover_text("Include this model instance in the current scenario.");
-                                                    if ui
-                                                        .button("❌")
-                                                        .on_hover_text("Remove instance")
-                                                        .clicked()
-                                                    {
-                                                        self.delete
-                                                            .send(Delete::new(instance_entity));
-                                                    }
-                                                });
-                                                formatted_pose(ui, pose);
-                                            }
+                                            show_model_instance(
+                                                ui,
+                                                instance_name,
+                                                instance_site_id,
+                                                category,
+                                                &instance_entity,
+                                                &self.selection,
+                                                &mut self.select,
+                                                &mut self.delete,
+                                                &mut scenario.instances,
+                                            );
                                         } else {
                                             non_affiliated_instances.insert(instance_entity);
                                         }
                                     }
                                 });
                         }
-                        // TODO(@xiyuoh) add a single collapsing header for all the non affiliated instances
+                        CollapsingHeader::new("Non-affiliated instances")
+                            .default_open(false)
+                            .show(ui, |ui| {
+                                if non_affiliated_instances.is_empty() {
+                                    ui.label("No orphan model instances.");
+                                }
+                                for instance_entity in non_affiliated_instances.iter() {
+                                    if let Ok((_, instance_name, category, _, instance_site_id)) =
+                                        self.model_instances.get_mut(*instance_entity)
+                                    {
+                                        show_model_instance(
+                                            ui,
+                                            instance_name,
+                                            instance_site_id,
+                                            category,
+                                            instance_entity,
+                                            &self.selection,
+                                            &mut self.select,
+                                            &mut self.delete,
+                                            &mut scenario.instances,
+                                        );
+                                    }
+                                }
+                            });
                     });
                 // Update visibility by triggering ChangeCurrentScenario event
                 if scenario.instances != current_scenario_instances {
@@ -172,6 +173,33 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                 }
             }
         }
+    }
+}
+
+/// Show a widget for users to interact with a model instance
+fn show_model_instance(
+    ui: &mut Ui,
+    name: &NameInSite,
+    site_id: Option<&SiteID>,
+    category: &Category,
+    entity: &Entity,
+    selection: &Selection,
+    select: &mut EventWriter<Select>,
+    delete: &mut EventWriter<Delete>,
+    instances: &mut HashMap<Entity, (Pose, bool)>,
+) {
+    ui.horizontal(|ui| {
+        instance_selector(ui, name, site_id, category, entity, selection, select);
+    });
+    if let Some((pose, included)) = instances.get_mut(entity) {
+        ui.horizontal(|ui| {
+            ui.checkbox(included, "Include")
+                .on_hover_text("Include this model instance in the current scenario.");
+            if ui.button("❌").on_hover_text("Remove instance").clicked() {
+                delete.send(Delete::new(*entity));
+            }
+        });
+        formatted_pose(ui, pose);
     }
 }
 
