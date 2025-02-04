@@ -116,6 +116,9 @@ use view_layers::*;
 pub mod view_levels;
 use view_levels::*;
 
+pub mod view_model_instances;
+use view_model_instances::*;
+
 pub mod view_scenarios;
 use view_scenarios::*;
 

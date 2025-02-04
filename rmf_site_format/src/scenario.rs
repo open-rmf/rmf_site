@@ -35,18 +35,14 @@ pub struct ScenarioMarker;
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct Scenario<T: RefTrait> {
     pub parent_scenario: Affiliation<T>,
-    pub added_instances: Vec<(T, Pose)>,
-    pub removed_instances: Vec<T>,
-    pub moved_instances: Vec<(T, Pose)>,
+    pub instances: HashMap<T, (Pose, bool)>,
 }
 
 impl<T: RefTrait> Scenario<T> {
     pub fn from_parent(parent: T) -> Scenario<T> {
         Scenario {
             parent_scenario: Affiliation(Some(parent)),
-            added_instances: Vec::new(),
-            removed_instances: Vec::new(),
-            moved_instances: Vec::new(),
+            instances: HashMap::new(),
         }
     }
 }
@@ -56,9 +52,7 @@ impl<T: RefTrait> Default for Scenario<T> {
     fn default() -> Self {
         Self {
             parent_scenario: Affiliation::default(),
-            added_instances: Vec::new(),
-            removed_instances: Vec::new(),
-            moved_instances: Vec::new(),
+            instances: HashMap::new(),
         }
     }
 }
@@ -67,28 +61,13 @@ impl<T: RefTrait> Scenario<T> {
     pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Scenario<U>, T> {
         Ok(Scenario {
             parent_scenario: self.parent_scenario.convert(id_map)?,
-            added_instances: self
-                .added_instances
+            instances: self
+                .instances
                 .clone()
                 .into_iter()
-                .map(|(id, pose)| {
+                .map(|(id, (pose, included))| {
                     let converted_id = id_map.get(&id).cloned().ok_or(id)?;
-                    Ok((converted_id, pose))
-                })
-                .collect::<Result<_, _>>()?,
-            removed_instances: self
-                .removed_instances
-                .clone()
-                .into_iter()
-                .map(|id| id_map.get(&id).cloned().ok_or(id))
-                .collect::<Result<_, _>>()?,
-            moved_instances: self
-                .moved_instances
-                .clone()
-                .into_iter()
-                .map(|(id, pose)| {
-                    let converted_id = id_map.get(&id).cloned().ok_or(id)?;
-                    Ok((converted_id, pose))
+                    Ok((converted_id, (pose, included)))
                 })
                 .collect::<Result<_, _>>()?,
         })
@@ -104,14 +83,16 @@ pub struct ScenarioBundle<T: RefTrait> {
 }
 
 impl<T: RefTrait> ScenarioBundle<T> {
-    pub fn from_name_parent(name: String, parent: Option<T>) -> ScenarioBundle<T> {
+    pub fn from_name_parent(
+        name: String,
+        parent: Option<T>,
+        instances: &HashMap<T, (Pose, bool)>,
+    ) -> ScenarioBundle<T> {
         ScenarioBundle {
             name: NameInSite(name),
             scenario: Scenario {
                 parent_scenario: Affiliation(parent),
-                added_instances: Vec::new(),
-                removed_instances: Vec::new(),
-                moved_instances: Vec::new(),
+                instances: instances.clone(),
             },
             marker: ScenarioMarker,
         }

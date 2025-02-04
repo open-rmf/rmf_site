@@ -529,8 +529,8 @@ impl BuildingMap {
                     .get_mut(&default_scenario_id)
                     .unwrap()
                     .scenario
-                    .added_instances
-                    .push((model_instance_id, model_pose));
+                    .instances
+                    .insert(model_instance_id, (model_pose, true));
             }
             // Spawn robots (for legacy imports)
             for model in legacy_robots.iter() {
@@ -545,8 +545,8 @@ impl BuildingMap {
                     .get_mut(&default_scenario_id)
                     .unwrap()
                     .scenario
-                    .added_instances
-                    .push((model_instance_id, model_pose));
+                    .instances
+                    .insert(model_instance_id, (model_pose, true));
             }
 
             let mut physical_cameras = BTreeMap::new();

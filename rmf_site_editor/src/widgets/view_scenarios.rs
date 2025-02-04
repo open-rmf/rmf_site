@@ -27,6 +27,7 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Align, Button, CollapsingHeader, Color32, Layout, ScrollArea, Ui};
 use rmf_site_format::{Angle, InstanceMarker, Pose, ScenarioBundle, SiteID};
+use std::collections::HashMap;
 
 const INSTANCES_VIEWER_HEIGHT: f32 = 200.0;
 
@@ -109,109 +110,56 @@ impl<'w, 's> ViewScenarios<'w, 's> {
                         }
                     });
                 });
-                ui.label("From Previous:");
-                // Added
-                collapsing_instance_viewer(
-                    &format!("Added: {}", scenario.added_instances.len()),
-                    "scenario_added_instances",
-                    ui,
-                    |ui| {
-                        for (entity, pose) in scenario.added_instances.iter() {
-                            if let Ok((_, name, category, site_id)) = self.instances.get(*entity) {
-                                ui.horizontal(|ui| {
-                                    instance_selector(
-                                        ui,
-                                        name,
-                                        site_id,
-                                        category,
-                                        entity,
-                                        &self.selection,
-                                        &mut self.select,
-                                    );
-                                    if ui.button("❌").on_hover_text("Remove instance").clicked() {
-                                        self.delete.send(Delete::new(*entity));
-                                    }
-                                });
-                                formatted_pose(ui, pose);
-                            } else {
-                                warn!("Instance entity {:?} does not exist, or has invalid components", entity);
-                            }
-                        }
-                    },
-                );
+                // TODO(@xiyuoh) undo moved
+                // maybe add a section to indicate that an instance moved from its parent
+
                 // Moved
-                let mut undo_moved_ids = Vec::new();
-                collapsing_instance_viewer(
-                    &format!("Moved: {}", scenario.moved_instances.len()),
-                    "scenario_moved_instances",
-                    ui,
-                    |ui| {
-                        for (id, (entity, pose)) in scenario.moved_instances.iter().enumerate() {
-                            if let Ok((_, name, category, site_id)) = self.instances.get(*entity) {
-                                ui.horizontal(|ui| {
-                                    instance_selector(
-                                        ui,
-                                        name,
-                                        site_id,
-                                        category,
-                                        entity,
-                                        &self.selection,
-                                        &mut self.select,
-                                    );
-                                    if ui.button("↩").on_hover_text("Undo move").clicked() {
-                                        undo_moved_ids.push(id);
-                                    }
-                                });
-                                formatted_pose(ui, pose);
-                            } else {
-                                warn!("Instance entity {:?} does not exist, or has invalid components", entity);
-                            }
-                        }
-                    },
-                );
+                // let mut undo_moved_ids = Vec::new();
+                // collapsing_instance_viewer(
+                //     &format!("Moved: {}", scenario.moved_instances.len()),
+                //     "scenario_moved_instances",
+                //     ui,
+                //     |ui| {
+                //         for (id, (entity, pose)) in scenario.moved_instances.iter().enumerate() {
+                //             if let Ok((_, name, category, site_id)) = self.instances.get(*entity) {
+                //                 ui.horizontal(|ui| {
+                //                     instance_selector(
+                //                         ui,
+                //                         name,
+                //                         site_id,
+                //                         category,
+                //                         entity,
+                //                         &self.selection,
+                //                         &mut self.select,
+                //                     );
+                //                     if ui.button("↩").on_hover_text("Undo move").clicked() {
+                //                         undo_moved_ids.push(id);
+                //                     }
+                //                 });
+                //                 formatted_pose(ui, pose);
+                //             } else {
+                //                 warn!("Instance entity {:?} does not exist, or has invalid components", entity);
+                //             }
+                //         }
+                //     },
+                // );
                 // Removed
-                let mut undo_removed_ids = Vec::new();
-                collapsing_instance_viewer(
-                    &format!("Removed: {}", scenario.removed_instances.len()),
-                    "scenario_removed_instances",
-                    ui,
-                    |ui| {
-                        for (id, entity) in scenario.removed_instances.iter().enumerate() {
-                            if let Ok((_, name, category, site_id)) = self.instances.get(*entity) {
-                                ui.horizontal(|ui| {
-                                    instance_selector(
-                                        ui,
-                                        name,
-                                        site_id,
-                                        category,
-                                        entity,
-                                        &self.selection,
-                                        &mut self.select,
-                                    );
-                                    if ui.button("↺").on_hover_text("Restore instance").clicked()
-                                    {
-                                        undo_removed_ids.push(id);
-                                    }
-                                });
-                            } else {
-                                warn!("Instance entity {:?} does not exist, or has invalid components", entity);
-                            }
-                        }
-                    },
-                );
+                // let mut undo_removed_ids = Vec::new();
 
                 // Trigger an update if the scenario has been modified
-                let modified = !undo_removed_ids.is_empty() || !undo_moved_ids.is_empty();
-                for id in undo_removed_ids {
-                    scenario.removed_instances.remove(id);
-                }
-                for id in undo_moved_ids {
-                    scenario.moved_instances.remove(id);
-                }
-                if modified {
-                    self.change_current_scenario
-                        .send(ChangeCurrentScenario(current_scenario_entity));
-                }
+                // let modified = !undo_removed_ids.is_empty() || !undo_moved_ids.is_empty();
+                // for id in &undo_removed_ids {
+                //     scenario.removed_instances.remove(*id);
+                // }
+                // for id in undo_moved_ids {
+                //     scenario.moved_instances.remove(id);
+                // }
+
+                // TODO(@xiyuoh) we also want to trigger this if an instance has moved
+                // if !undo_removed_ids.is_empty() {
+                //     self.change_current_scenario
+                //         .send(ChangeCurrentScenario(current_scenario_entity));
+                // }
             }
         } else {
             ui.label("No scenario selected");
@@ -241,8 +189,16 @@ impl<'w, 's> ViewScenarios<'w, 's> {
                 }
             });
         });
+        // if let Some(current_scenario_entity) = self.current_scenario.0 {
+        //     if let Ok((_, name, mut scenario)) = self.scenarios.get_mut(current_scenario_entity)
         ui.horizontal(|ui| {
             if ui.add(Button::image(self.icons.add.egui())).clicked() {
+                let instances: HashMap<Entity, (Pose, bool)> = self
+                    .current_scenario
+                    .0
+                    .and_then(|e| self.scenarios.get(e).ok())
+                    .map(|(_, _, scenario)| scenario.instances.clone())
+                    .unwrap_or(HashMap::<Entity, (Pose, bool)>::new());
                 let mut cmd = self
                     .commands
                     .spawn(ScenarioBundle::<Entity>::from_name_parent(
@@ -251,6 +207,7 @@ impl<'w, 's> ViewScenarios<'w, 's> {
                             true => None,
                             false => self.current_scenario.0,
                         },
+                        &instances,
                     ));
                 match self.display_scenarios.is_new_scenario_root {
                     true => {

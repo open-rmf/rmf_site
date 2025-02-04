@@ -1370,24 +1370,15 @@ fn generate_scenarios(
                                         ),
                                         None => Affiliation(None),
                                     },
-                                    added_instances: scenario
-                                        .added_instances
+                                    instances: scenario
+                                        .instances
                                         .iter()
-                                        .map(|(entity, pose)| {
-                                            (instances.get(*entity).unwrap().0, pose.clone())
+                                        .map(|(entity, (pose, included))| {
+                                            (
+                                                instances.get(*entity).unwrap().0,
+                                                (pose.clone(), included.clone()),
+                                            )
                                         })
-                                        .collect(),
-                                    moved_instances: scenario
-                                        .moved_instances
-                                        .iter()
-                                        .map(|(entity, pose)| {
-                                            (instances.get(*entity).unwrap().0, pose.clone())
-                                        })
-                                        .collect(),
-                                    removed_instances: scenario
-                                        .removed_instances
-                                        .iter()
-                                        .map(|entity| instances.get(*entity).unwrap().0)
                                         .collect(),
                                 },
                                 marker: ScenarioMarker,
