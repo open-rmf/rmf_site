@@ -24,7 +24,7 @@ use crate::{
     CurrentWorkspace,
 };
 use bevy::prelude::*;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, Copy, Debug, Event)]
 pub struct ChangeCurrentScenario(pub Entity);
@@ -87,6 +87,7 @@ pub fn update_scenario_properties(
         return;
     }
 
+    let mut newly_added_instances = HashMap::new();
     if let Some(mut current_scenario) = current_scenario
         .0
         .and_then(|entity| scenarios.get_mut(entity).ok())
@@ -96,15 +97,23 @@ pub fn update_scenario_properties(
                 if let Some((current_pose, included)) = current_scenario.instances.get_mut(&entity)
                 {
                     *current_pose = new_pose.clone();
-                    return;
                 } else if new_pose.is_added() {
-                    // this is a new instance created in this scenario
+                    newly_added_instances.insert(entity, new_pose.clone());
                     current_scenario
                         .instances
-                        .insert(entity, (new_pose.clone(), true)); // TODO(@xiyuoh) double check this line
-                    return;
+                        .insert(entity, (new_pose.clone(), true));
                 }
             }
+        }
+    }
+
+    // Add any newly created instance from the current scenario to all others scenarios hidden
+    for (entity, pose) in newly_added_instances.drain() {
+        for mut scenario in scenarios.iter_mut() {
+            if scenario.instances.contains_key(&entity) {
+                continue;
+            }
+            scenario.instances.insert(entity, (pose, false));
         }
     }
 }
