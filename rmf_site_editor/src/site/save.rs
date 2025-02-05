@@ -1373,10 +1373,10 @@ fn generate_scenarios(
                                     instances: scenario
                                         .instances
                                         .iter()
-                                        .map(|(entity, (pose, included))| {
+                                        .map(|(entity, ((pose, moved), included))| {
                                             (
                                                 instances.get(*entity).unwrap().0,
-                                                (pose.clone(), included.clone()),
+                                                ((pose.clone(), moved.clone()), included.clone()),
                                             )
                                         })
                                         .collect(),

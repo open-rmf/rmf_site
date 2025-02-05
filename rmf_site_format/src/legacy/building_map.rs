@@ -530,7 +530,7 @@ impl BuildingMap {
                     .unwrap()
                     .scenario
                     .instances
-                    .insert(model_instance_id, (model_pose, true));
+                    .insert(model_instance_id, ((model_pose, false), true));
             }
             // Spawn robots (for legacy imports)
             for model in legacy_robots.iter() {
@@ -546,7 +546,7 @@ impl BuildingMap {
                     .unwrap()
                     .scenario
                     .instances
-                    .insert(model_instance_id, (model_pose, true));
+                    .insert(model_instance_id, ((model_pose, false), true));
             }
 
             let mut physical_cameras = BTreeMap::new();

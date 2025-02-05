@@ -18,8 +18,8 @@
 use crate::{
     interaction::{Select, Selection},
     site::{
-        Affiliation, CurrentLevel, CurrentScenario, Delete, DeletionBox, DeletionFilters,
-        Dependents, InstanceMarker, Pending, Pose, Scenario, ScenarioBundle, ScenarioMarker,
+        Affiliation, CurrentScenario, Delete, DeletionBox, DeletionFilters, Dependents,
+        InstanceMarker, Pending, Pose, Scenario, ScenarioBundle, ScenarioMarker,
     },
     CurrentWorkspace,
 };
@@ -29,9 +29,11 @@ use std::collections::{HashMap, HashSet};
 #[derive(Clone, Copy, Debug, Event)]
 pub struct ChangeCurrentScenario(pub Entity);
 
+#[derive(Event)]
+pub struct ResetPose(pub Entity);
+
 /// Handles changes to the current scenario
 pub fn update_current_scenario(
-    mut commands: Commands,
     mut selection: ResMut<Selection>,
     mut change_current_scenario: EventReader<ChangeCurrentScenario>,
     mut current_scenario: ResMut<CurrentScenario>,
@@ -39,16 +41,13 @@ pub fn update_current_scenario(
     mut instances: Query<(Entity, &mut Pose, &mut Visibility), With<InstanceMarker>>,
 ) {
     if let Some(ChangeCurrentScenario(scenario_entity)) = change_current_scenario.read().last() {
-        // Used to build a scenario from root
-        let mut scenario_stack = Vec::<&Scenario<Entity>>::new();
-        let Ok(mut scenario) = scenarios.get(*scenario_entity) else {
+        let Ok(scenario) = scenarios.get(*scenario_entity) else {
             error!("Failed to get scenario entity!");
             return;
         };
 
-        // If active, assign parent to level, otherwise assign parent to site
         for (entity, mut pose, mut visibility) in instances.iter_mut() {
-            if let Some((new_pose, _)) = scenario
+            if let Some(((new_pose, _), _)) = scenario
                 .instances
                 .get(&entity)
                 .filter(|(_, included)| *included)
@@ -92,16 +91,19 @@ pub fn update_scenario_properties(
         .0
         .and_then(|entity| scenarios.get_mut(entity).ok())
     {
+        let parent_exists = current_scenario.parent_scenario.0.is_some();
         for (entity, new_pose) in changed_instances.iter() {
             if new_pose.is_changed() {
-                if let Some((current_pose, included)) = current_scenario.instances.get_mut(&entity)
+                if let Some(((current_pose, moved), _)) =
+                    current_scenario.instances.get_mut(&entity)
                 {
                     *current_pose = new_pose.clone();
+                    *moved = parent_exists;
                 } else if new_pose.is_added() {
                     newly_added_instances.insert(entity, new_pose.clone());
                     current_scenario
                         .instances
-                        .insert(entity, (new_pose.clone(), true));
+                        .insert(entity, ((new_pose.clone(), false), true));
                 }
             }
         }
@@ -113,7 +115,39 @@ pub fn update_scenario_properties(
             if scenario.instances.contains_key(&entity) {
                 continue;
             }
-            scenario.instances.insert(entity, (pose, false));
+            scenario.instances.insert(entity, ((pose, false), false));
+        }
+    }
+}
+
+pub fn handle_reset_pose(
+    current_scenario: Res<CurrentScenario>,
+    mut scenarios: Query<&mut Scenario<Entity>>,
+    mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
+    mut reset_pose: EventReader<ResetPose>,
+    parents: Query<&Parent>,
+) {
+    for ResetPose(instance_entity) in reset_pose.read() {
+        let Some(current_scenario_entity) = current_scenario.0 else {
+            continue;
+        };
+        let Some(((parent_pose, _), _)) = parents
+            .get(current_scenario_entity)
+            .and_then(|p| scenarios.get(p.get()))
+            .ok()
+            .and_then(|parent_scenario| parent_scenario.instances.get(instance_entity).cloned())
+        else {
+            continue;
+        };
+        let Ok(mut current_scenario) = scenarios.get_mut(current_scenario_entity) else {
+            continue;
+        };
+        if let Some(((instance_pose, moved), _)) =
+            current_scenario.instances.get_mut(instance_entity)
+        {
+            *instance_pose = parent_pose;
+            *moved = false;
+            change_current_scenario.send(ChangeCurrentScenario(current_scenario_entity));
         }
     }
 }

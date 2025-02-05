@@ -18,11 +18,10 @@
 use crate::{
     interaction::{Select, Selection},
     site::{
-        Affiliation, Category, Change, ChangeCurrentScenario, CurrentScenario, Delete, Group,
-        ModelMarker, NameInSite, Scenario, ScenarioMarker,
+        Affiliation, Category, ChangeCurrentScenario, CurrentScenario, Delete, Group, ModelMarker,
+        NameInSite, ResetPose, Scenario, ScenarioMarker,
     },
     widgets::prelude::*,
-    CurrentWorkspace, Icons,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, Color32, ScrollArea, Ui};
@@ -43,19 +42,14 @@ impl Plugin for ViewModelInstancesPlugin {
 
 #[derive(SystemParam)]
 pub struct ViewModelInstances<'w, 's> {
-    commands: Commands<'w, 's>,
-    children: Query<'w, 's, &'static Children>,
-    parent: Query<'w, 's, &'static Parent>,
     scenarios: Query<
         'w,
         's,
         (Entity, &'static NameInSite, &'static mut Scenario<Entity>),
         With<ScenarioMarker>,
     >,
-    change_name: EventWriter<'w, Change<NameInSite>>,
     change_current_scenario: EventWriter<'w, ChangeCurrentScenario>,
     current_scenario: ResMut<'w, CurrentScenario>,
-    current_workspace: Res<'w, CurrentWorkspace>,
     model_descriptions: Query<
         'w,
         's,
@@ -77,7 +71,7 @@ pub struct ViewModelInstances<'w, 's> {
     selection: Res<'w, Selection>,
     select: EventWriter<'w, Select>,
     delete: EventWriter<'w, Delete>,
-    icons: Res<'w, Icons>,
+    reset_pose: EventWriter<'w, ResetPose>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for ViewModelInstances<'w, 's> {
@@ -93,17 +87,8 @@ impl<'w, 's> WidgetSystem<Tile> for ViewModelInstances<'w, 's> {
 
 impl<'w, 's> ViewModelInstances<'w, 's> {
     pub fn show_widget(&mut self, ui: &mut Ui) {
-        // some label here maybe
         if let Some(current_scenario_entity) = self.current_scenario.0 {
-            if let Ok((_, name, mut scenario)) = self.scenarios.get_mut(current_scenario_entity) {
-                ui.horizontal(|ui| {
-                    ui.label("Selected: ");
-                    let mut new_name = name.0.clone();
-                    if ui.text_edit_singleline(&mut new_name).changed() {
-                        self.change_name
-                            .send(Change::new(NameInSite(new_name), current_scenario_entity));
-                    }
-                });
+            if let Ok((_, _, mut scenario)) = self.scenarios.get_mut(current_scenario_entity) {
                 let current_scenario_instances = scenario.instances.clone();
                 let mut non_affiliated_instances = HashSet::<Entity>::new();
                 ScrollArea::vertical()
@@ -133,6 +118,7 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                                 &self.selection,
                                                 &mut self.select,
                                                 &mut self.delete,
+                                                &mut self.reset_pose,
                                                 &mut scenario.instances,
                                             );
                                         } else {
@@ -160,6 +146,7 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                             &self.selection,
                                             &mut self.select,
                                             &mut self.delete,
+                                            &mut self.reset_pose,
                                             &mut scenario.instances,
                                         );
                                     }
@@ -186,64 +173,63 @@ fn show_model_instance(
     selection: &Selection,
     select: &mut EventWriter<Select>,
     delete: &mut EventWriter<Delete>,
-    instances: &mut HashMap<Entity, (Pose, bool)>,
+    reset_pose: &mut EventWriter<ResetPose>,
+    instances: &mut HashMap<Entity, ((Pose, bool), bool)>,
 ) {
+    // Instance selector
     ui.horizontal(|ui| {
-        instance_selector(ui, name, site_id, category, entity, selection, select);
+        if ui
+            .selectable_label(
+                selection.0.is_some_and(|s| s == *entity),
+                format!(
+                    "{} #{}",
+                    category.label(),
+                    site_id
+                        .map(|s| s.0.to_string())
+                        .unwrap_or("unsaved".to_string()),
+                ),
+            )
+            .clicked()
+        {
+            select.send(Select::new(Some(*entity)));
+        };
+        ui.label(format!("[{}]", name.0));
     });
-    if let Some((pose, included)) = instances.get_mut(entity) {
+
+    if let Some(((pose, moved), included)) = instances.get_mut(entity) {
+        // Include/hide model instance
         ui.horizontal(|ui| {
             ui.checkbox(included, "Include")
                 .on_hover_text("Include this model instance in the current scenario.");
+
+            // Reset instance pose to parent scenario
+            ui.add_enabled_ui(*moved, |ui| {
+                if ui
+                    .button("↩")
+                    .on_hover_text("Reset to parent scenario pose")
+                    .clicked()
+                {
+                    reset_pose.send(ResetPose(*entity));
+                }
+            });
+            // Delete instance from this site (all scenarios)
             if ui.button("❌").on_hover_text("Remove instance").clicked() {
                 delete.send(Delete::new(*entity));
             }
         });
-        formatted_pose(ui, pose);
-    }
-}
-
-/// Creates a selectable label for an instance
-fn instance_selector(
-    ui: &mut Ui,
-    name: &NameInSite,
-    site_id: Option<&SiteID>,
-    category: &Category,
-    entity: &Entity,
-    selection: &Selection,
-    select: &mut EventWriter<Select>,
-) {
-    if ui
-        .selectable_label(
-            selection.0.is_some_and(|s| s == *entity),
+        // Format instance pose
+        ui.colored_label(
+            Color32::GRAY,
             format!(
-                "{} #{}",
-                category.label(),
-                site_id
-                    .map(|s| s.0.to_string())
-                    .unwrap_or("unsaved".to_string()),
+                "[x: {:.3}, y: {:.3}, z: {:.3}, yaw: {:.3}]",
+                pose.trans[0],
+                pose.trans[1],
+                pose.trans[2],
+                match pose.rot.yaw() {
+                    Angle::Rad(r) => r,
+                    Angle::Deg(d) => d.to_radians(),
+                }
             ),
-        )
-        .clicked()
-    {
-        select.send(Select::new(Some(*entity)));
-    };
-    ui.label(format!("[{}]", name.0));
-}
-
-/// Creates a formatted label for a pose
-fn formatted_pose(ui: &mut Ui, pose: &Pose) {
-    ui.colored_label(
-        Color32::GRAY,
-        format!(
-            "[x: {:.3}, y: {:.3}, z: {:.3}, yaw: {:.3}]",
-            pose.trans[0],
-            pose.trans[1],
-            pose.trans[2],
-            match pose.rot.yaw() {
-                Angle::Rad(r) => r,
-                Angle::Deg(d) => d.to_radians(),
-            }
-        ),
-    );
+        );
+    }
 }

@@ -16,20 +16,17 @@
 */
 
 use crate::{
-    interaction::{Select, Selection},
     site::{
-        Category, Change, ChangeCurrentScenario, CurrentScenario, Delete, NameInSite,
-        RemoveScenario, Scenario, ScenarioMarker,
+        Change, ChangeCurrentScenario, CurrentScenario, NameInSite, RemoveScenario, Scenario,
+        ScenarioMarker,
     },
     widgets::prelude::*,
     CurrentWorkspace, Icons,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{Align, Button, CollapsingHeader, Color32, Layout, ScrollArea, Ui};
-use rmf_site_format::{Angle, InstanceMarker, Pose, ScenarioBundle, SiteID};
+use bevy_egui::egui::{Align, Button, CollapsingHeader, Color32, Layout, Ui};
+use rmf_site_format::{Pose, ScenarioBundle};
 use std::collections::HashMap;
-
-const INSTANCES_VIEWER_HEIGHT: f32 = 200.0;
 
 /// Add a plugin for viewing and editing a list of all levels
 #[derive(Default)]
@@ -59,20 +56,6 @@ pub struct ViewScenarios<'w, 's> {
     display_scenarios: ResMut<'w, ScenarioDisplay>,
     current_scenario: ResMut<'w, CurrentScenario>,
     current_workspace: Res<'w, CurrentWorkspace>,
-    instances: Query<
-        'w,
-        's,
-        (
-            Entity,
-            &'static NameInSite,
-            &'static Category,
-            Option<&'static SiteID>,
-        ),
-        With<InstanceMarker>,
-    >,
-    selection: Res<'w, Selection>,
-    select: EventWriter<'w, Select>,
-    delete: EventWriter<'w, Delete>,
     icons: Res<'w, Icons>,
 }
 
@@ -91,7 +74,7 @@ impl<'w, 's> ViewScenarios<'w, 's> {
     pub fn show_widget(&mut self, ui: &mut Ui) {
         // Current Selection Info
         if let Some(current_scenario_entity) = self.current_scenario.0 {
-            if let Ok((_, name, mut scenario)) = self.scenarios.get_mut(current_scenario_entity) {
+            if let Ok((_, name, _)) = self.scenarios.get_mut(current_scenario_entity) {
                 ui.horizontal(|ui| {
                     ui.label("Selected: ");
                     let mut new_name = name.0.clone();
@@ -110,56 +93,6 @@ impl<'w, 's> ViewScenarios<'w, 's> {
                         }
                     });
                 });
-                // TODO(@xiyuoh) undo moved
-                // maybe add a section to indicate that an instance moved from its parent
-
-                // Moved
-                // let mut undo_moved_ids = Vec::new();
-                // collapsing_instance_viewer(
-                //     &format!("Moved: {}", scenario.moved_instances.len()),
-                //     "scenario_moved_instances",
-                //     ui,
-                //     |ui| {
-                //         for (id, (entity, pose)) in scenario.moved_instances.iter().enumerate() {
-                //             if let Ok((_, name, category, site_id)) = self.instances.get(*entity) {
-                //                 ui.horizontal(|ui| {
-                //                     instance_selector(
-                //                         ui,
-                //                         name,
-                //                         site_id,
-                //                         category,
-                //                         entity,
-                //                         &self.selection,
-                //                         &mut self.select,
-                //                     );
-                //                     if ui.button("↩").on_hover_text("Undo move").clicked() {
-                //                         undo_moved_ids.push(id);
-                //                     }
-                //                 });
-                //                 formatted_pose(ui, pose);
-                //             } else {
-                //                 warn!("Instance entity {:?} does not exist, or has invalid components", entity);
-                //             }
-                //         }
-                //     },
-                // );
-                // Removed
-                // let mut undo_removed_ids = Vec::new();
-
-                // Trigger an update if the scenario has been modified
-                // let modified = !undo_removed_ids.is_empty() || !undo_moved_ids.is_empty();
-                // for id in &undo_removed_ids {
-                //     scenario.removed_instances.remove(*id);
-                // }
-                // for id in undo_moved_ids {
-                //     scenario.moved_instances.remove(id);
-                // }
-
-                // TODO(@xiyuoh) we also want to trigger this if an instance has moved
-                // if !undo_removed_ids.is_empty() {
-                //     self.change_current_scenario
-                //         .send(ChangeCurrentScenario(current_scenario_entity));
-                // }
             }
         } else {
             ui.label("No scenario selected");
@@ -189,16 +122,14 @@ impl<'w, 's> ViewScenarios<'w, 's> {
                 }
             });
         });
-        // if let Some(current_scenario_entity) = self.current_scenario.0 {
-        //     if let Ok((_, name, mut scenario)) = self.scenarios.get_mut(current_scenario_entity)
         ui.horizontal(|ui| {
             if ui.add(Button::image(self.icons.add.egui())).clicked() {
-                let instances: HashMap<Entity, (Pose, bool)> = self
+                let instances: HashMap<Entity, ((Pose, bool), bool)> = self
                     .current_scenario
                     .0
                     .and_then(|e| self.scenarios.get(e).ok())
                     .map(|(_, _, scenario)| scenario.instances.clone())
-                    .unwrap_or(HashMap::<Entity, (Pose, bool)>::new());
+                    .unwrap_or(HashMap::<Entity, ((Pose, bool), bool)>::new());
                 let mut cmd = self
                     .commands
                     .spawn(ScenarioBundle::<Entity>::from_name_parent(
@@ -333,68 +264,6 @@ fn show_scenario_widget(
             ui.label("No Child Scenarios");
         }
     });
-}
-
-/// Creates a collapsible header exposing a scroll area for viewing instances
-fn collapsing_instance_viewer<R>(
-    header_name: &str,
-    id: &str,
-    ui: &mut Ui,
-    add_contents: impl FnOnce(&mut Ui) -> R,
-) {
-    CollapsingHeader::new(header_name)
-        .id_source(id)
-        .default_open(false)
-        .show(ui, |ui| {
-            ScrollArea::vertical()
-                .max_height(INSTANCES_VIEWER_HEIGHT)
-                .show(ui, add_contents);
-        });
-}
-
-/// Creates a selectable label for an instance
-fn instance_selector(
-    ui: &mut Ui,
-    name: &NameInSite,
-    site_id: Option<&SiteID>,
-    category: &Category,
-    entity: &Entity,
-    selection: &Selection,
-    select: &mut EventWriter<Select>,
-) {
-    if ui
-        .selectable_label(
-            selection.0.is_some_and(|s| s == *entity),
-            format!(
-                "{} #{}",
-                category.label(),
-                site_id
-                    .map(|s| s.0.to_string())
-                    .unwrap_or("unsaved".to_string()),
-            ),
-        )
-        .clicked()
-    {
-        select.send(Select::new(Some(*entity)));
-    };
-    ui.label(format!("[{}]", name.0));
-}
-
-/// Creates a formatted label for a pose
-fn formatted_pose(ui: &mut Ui, pose: &Pose) {
-    ui.colored_label(
-        Color32::GRAY,
-        format!(
-            "[x: {:.3}, y: {:.3}, z: {:.3}, yaw: {:.3}]",
-            pose.trans[0],
-            pose.trans[1],
-            pose.trans[2],
-            match pose.rot.yaw() {
-                Angle::Rad(r) => r,
-                Angle::Deg(d) => d.to_radians(),
-            }
-        ),
-    );
 }
 
 #[derive(Resource)]

@@ -35,7 +35,7 @@ pub struct ScenarioMarker;
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct Scenario<T: RefTrait> {
     pub parent_scenario: Affiliation<T>,
-    pub instances: HashMap<T, (Pose, bool)>,
+    pub instances: HashMap<T, ((Pose, bool), bool)>,
 }
 
 impl<T: RefTrait> Scenario<T> {
@@ -65,9 +65,9 @@ impl<T: RefTrait> Scenario<T> {
                 .instances
                 .clone()
                 .into_iter()
-                .map(|(id, (pose, included))| {
+                .map(|(id, ((pose, moved), included))| {
                     let converted_id = id_map.get(&id).cloned().ok_or(id)?;
-                    Ok((converted_id, (pose, included)))
+                    Ok((converted_id, ((pose, moved), included)))
                 })
                 .collect::<Result<_, _>>()?,
         })
@@ -86,7 +86,7 @@ impl<T: RefTrait> ScenarioBundle<T> {
     pub fn from_name_parent(
         name: String,
         parent: Option<T>,
-        instances: &HashMap<T, (Pose, bool)>,
+        instances: &HashMap<T, ((Pose, bool), bool)>,
     ) -> ScenarioBundle<T> {
         ScenarioBundle {
             name: NameInSite(name),
