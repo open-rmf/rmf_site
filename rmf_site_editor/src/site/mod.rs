@@ -166,7 +166,6 @@ impl Plugin for SitePlugin {
             )
                 .chain(),
         )
-        .add_systems(Startup, setup_instance_deletion_filter)
         .add_systems(
             PreUpdate,
             apply_deferred.in_set(SiteUpdateSet::ProcessChangesFlush),

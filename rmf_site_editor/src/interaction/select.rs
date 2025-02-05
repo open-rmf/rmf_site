@@ -848,10 +848,6 @@ pub fn selection_update(
     if selection.0 != new_selection.map(|s| s.candidate) {
         if let Some(previous_selection) = selection.0 {
             if let Ok(mut selected) = selected.get_mut(previous_selection) {
-                info!(
-                    "----- setting is_selected for {:?} to false",
-                    previous_selection.index()
-                );
                 selected.is_selected = false;
             }
         }

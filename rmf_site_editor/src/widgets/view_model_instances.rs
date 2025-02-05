@@ -98,6 +98,7 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                         for (desc_entity, desc_name, _) in self.model_descriptions.iter() {
                             CollapsingHeader::new(desc_name.0.clone())
                                 .id_source(desc_name.0.clone())
+                                // TODO(@xiyuoh) true if model is selected
                                 .default_open(false)
                                 .show(ui, |ui| {
                                     for (
@@ -128,6 +129,7 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                 });
                         }
                         CollapsingHeader::new("Non-affiliated instances")
+                            // TODO(@xiyuoh) true if model is selected
                             .default_open(false)
                             .show(ui, |ui| {
                                 if non_affiliated_instances.is_empty() {
@@ -200,7 +202,7 @@ fn show_model_instance(
         // Include/hide model instance
         ui.horizontal(|ui| {
             ui.checkbox(included, "Include")
-                .on_hover_text("Include this model instance in the current scenario.");
+                .on_hover_text("Include/Hide this model instance in the current scenario");
 
             // Reset instance pose to parent scenario
             ui.add_enabled_ui(*moved, |ui| {
@@ -213,7 +215,11 @@ fn show_model_instance(
                 }
             });
             // Delete instance from this site (all scenarios)
-            if ui.button("❌").on_hover_text("Remove instance").clicked() {
+            if ui
+                .button("❌")
+                .on_hover_text("Remove instance from all scenarios")
+                .clicked()
+            {
                 delete.send(Delete::new(*entity));
             }
         });

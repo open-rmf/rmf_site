@@ -16,15 +16,15 @@
 */
 
 use crate::{
-    interaction::{Select, Selection},
+    interaction::{Selected, Selection},
     site::{
-        Affiliation, CurrentScenario, Delete, DeletionBox, DeletionFilters, Dependents,
-        InstanceMarker, Pending, Pose, Scenario, ScenarioBundle, ScenarioMarker,
+        CurrentScenario, Delete, Dependents, InstanceMarker, Pending, Pose, Scenario,
+        ScenarioBundle, ScenarioMarker,
     },
     CurrentWorkspace,
 };
 use bevy::prelude::*;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 #[derive(Clone, Copy, Debug, Event)]
 pub struct ChangeCurrentScenario(pub Entity);
@@ -34,6 +34,7 @@ pub struct ResetPose(pub Entity);
 
 /// Handles changes to the current scenario
 pub fn update_current_scenario(
+    mut selected: Query<&mut Selected>,
     mut selection: ResMut<Selection>,
     mut change_current_scenario: EventReader<ChangeCurrentScenario>,
     mut current_scenario: ResMut<CurrentScenario>,
@@ -59,15 +60,26 @@ pub fn update_current_scenario(
             }
         }
 
-        // Deselect if not in current scenario
-        if selection.0.is_some_and(|e| {
-            !scenario
-                .instances
-                .get(&e)
-                .is_some_and(|(_, included)| *included)
-        }) {
-            // TODO(@xiyuoh) find out why entity is still highlighted after being deselected
-            selection.0 = None;
+        if let Some(entity) = selection.0 {
+            if let Ok(mut selected) = selected.get_mut(entity) {
+                let mut deselect = false;
+                if !scenario
+                    .instances
+                    .get(&entity)
+                    .is_some_and(|(_, included)| *included)
+                {
+                    // Deselect if model instance is hidden
+                    deselect = true;
+                } else if current_scenario.0.is_some_and(|e| e != *scenario_entity) {
+                    // Deselect if scenario has changed
+                    deselect = true;
+                }
+
+                if deselect {
+                    selection.0 = None;
+                    selected.is_selected = false;
+                }
+            }
         }
 
         *current_scenario = CurrentScenario(Some(*scenario_entity));
@@ -220,63 +232,4 @@ pub fn handle_remove_scenarios(
         }
         delete.send(Delete::new(request.0).and_dependents());
     }
-}
-
-pub fn setup_instance_deletion_filter(mut deletion_filter: ResMut<DeletionFilters>) {
-    deletion_filter.insert(DeletionBox(Box::new(IntoSystem::into_system(
-        filter_instance_deletion,
-    ))));
-}
-
-/// Handle requests to remove model instances. If an instance was added in this scenario, or if
-/// the scenario is root, the InstanceMarker is removed, allowing it to be permanently deleted.
-/// Otherwise, it is only temporarily removed.
-fn filter_instance_deletion(
-    In(mut input): In<HashSet<Delete>>,
-    mut scenarios: Query<&mut Scenario<Entity>>,
-    current_scenario: ResMut<CurrentScenario>,
-    mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
-    model_instance: Query<&Affiliation<Entity>, With<InstanceMarker>>,
-    selection: Res<Selection>,
-    mut select: EventWriter<Select>,
-) -> HashSet<Delete> {
-    let Some(current_scenario_entity) = current_scenario.0 else {
-        return input;
-    };
-
-    let mut remove_only: HashSet<Delete> = HashSet::new();
-    for removal in input.iter() {
-        if let Ok(_) = model_instance.get(removal.element) {
-            if let Ok(mut current_scenario) = scenarios.get_mut(current_scenario_entity) {
-                // Delete if root scenario
-                if current_scenario.parent_scenario.0.is_none() {
-                    current_scenario
-                        .instances
-                        .retain(|e, _| *e != removal.element);
-                    continue;
-                }
-                // Delete if added in this scenario
-                // if let Some(added_id) = current_scenario
-                //     .included_instances
-                //     .iter()
-                //     .position(|(e, _)| *e == removal.element)
-                // {
-                //     current_scenario.included_instances.remove(added_id);
-                //     continue;
-                // }
-                // Otherwise, remove only
-                // current_scenario
-                //     .moved_instances
-                //     .retain(|(e, _)| *e != removal.element);
-                // current_scenario.removed_instances.push(removal.element);
-                change_current_scenario.send(ChangeCurrentScenario(current_scenario_entity));
-                remove_only.insert(*removal);
-                if selection.0 == Some(removal.element) {
-                    select.send(Select(None));
-                }
-            }
-        }
-    }
-    input.retain(|delete| !remove_only.contains(delete));
-    input
 }
