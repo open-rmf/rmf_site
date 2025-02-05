@@ -166,7 +166,6 @@ impl Plugin for SitePlugin {
             )
                 .chain(),
         )
-        .add_systems(Startup, setup_instance_deletion_filter)
         .add_systems(
             PreUpdate,
             apply_deferred.in_set(SiteUpdateSet::ProcessChangesFlush),
@@ -201,6 +200,7 @@ impl Plugin for SitePlugin {
         .add_event::<ChangeCurrentSite>()
         .add_event::<ChangeCurrentScenario>()
         .add_event::<RemoveScenario>()
+        .add_event::<ResetPose>()
         .add_event::<SaveSite>()
         .add_event::<SaveNavGraphs>()
         .add_event::<ExportLights>()
@@ -354,6 +354,7 @@ impl Plugin for SitePlugin {
                 update_level_visibility,
                 update_scenario_properties,
                 handle_remove_scenarios.before(update_current_scenario),
+                handle_reset_pose.before(update_current_scenario),
                 update_current_scenario.before(update_scenario_properties),
                 update_changed_lane,
                 update_lane_for_moved_anchor,
