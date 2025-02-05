@@ -285,6 +285,7 @@ impl Plugin for SitePlugin {
                 check_for_duplicated_dock_names,
                 check_for_fiducials_without_affiliation,
                 check_for_close_unconnected_anchors,
+                check_for_orphan_model_instances,
                 fetch_image_for_texture,
                 detect_last_selected_texture::<FloorMarker>,
                 apply_last_selected_texture::<FloorMarker>
@@ -309,7 +310,6 @@ impl Plugin for SitePlugin {
                 assign_orphan_levels_to_site,
                 assign_orphan_nav_elements_to_site,
                 assign_orphan_fiducials_to_parent,
-                assign_orphan_model_instances_to_level,
                 assign_orphan_elements_to_level::<DoorMarker>,
                 assign_orphan_elements_to_level::<DrawingMarker>,
                 assign_orphan_elements_to_level::<FloorMarker>,
