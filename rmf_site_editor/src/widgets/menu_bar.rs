@@ -17,6 +17,7 @@
 
 use crate::widgets::prelude::*;
 
+use crate::interaction::AnchorSelection;
 use bevy::ecs::query::Has;
 use bevy::prelude::*;
 use bevy_egui::egui::{self, Button, Ui};
@@ -282,6 +283,7 @@ struct MenuParams<'w, 's> {
     menu_items: Query<'w, 's, (&'static mut MenuItem, Has<MenuDisabled>)>,
     extension_events: EventWriter<'w, MenuEvent>,
     view_menu: Res<'w, ViewMenu>,
+    anchor_selection: AnchorSelection<'w, 's>,
 }
 
 fn top_menu_bar(
@@ -330,6 +332,36 @@ fn top_menu_bar(
                     false,
                 );
             }
+
+            ui.menu_button("Create", |ui| {
+                if ui.button("↔ Lane").clicked() {
+                    menu_params.anchor_selection.create_lanes();
+                }
+
+                if ui.button("📌 Location").clicked() {
+                    menu_params.anchor_selection.create_location();
+                }
+
+                if ui.button("■ Wall").clicked() {
+                    menu_params.anchor_selection.create_walls();
+                }
+
+                if ui.button("🚪 Door").clicked() {
+                    menu_params.anchor_selection.create_door();
+                }
+
+                if ui.button("⬍ Lift").clicked() {
+                    menu_params.anchor_selection.create_lift();
+                }
+
+                if ui.button("✏ Floor").clicked() {
+                    menu_params.anchor_selection.create_floor();
+                }
+
+                if ui.button("☉ Fiducial").clicked() {
+                    menu_params.anchor_selection.create_site_fiducial();
+                }
+            });
         });
     });
 }
