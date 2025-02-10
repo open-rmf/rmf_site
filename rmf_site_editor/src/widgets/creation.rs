@@ -17,13 +17,13 @@
 
 use crate::{
     inspector::{InspectAssetSourceComponent, InspectScaleComponent},
-    interaction::{AnchorSelection, ObjectPlacement},
+    interaction::ObjectPlacement,
     site::{AssetSource, Category, DefaultFile, DrawingBundle, Recall, RecallAssetSource, Scale},
     widgets::{prelude::*, AssetGalleryStatus},
     AppState, CurrentWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{CollapsingHeader, ComboBox, Grid, Ui};
+use bevy_egui::egui::{CollapsingHeader, ComboBox, Ui};
 
 use rmf_site_format::{
     Affiliation, DrawingProperties, IsStatic, ModelDescriptionBundle, ModelInstance, ModelProperty,
@@ -49,7 +49,6 @@ struct Creation<'w, 's> {
     creation_data: ResMut<'w, CreationData>,
     asset_gallery: Option<ResMut<'w, AssetGalleryStatus>>,
     commands: Commands<'w, 's>,
-    anchor_selection: AnchorSelection<'w, 's>,
     object_placement: ObjectPlacement<'w, 's>,
 }
 
@@ -92,67 +91,11 @@ impl<'w, 's> Creation<'w, 's> {
         ui.separator();
 
         match *self.creation_data {
-            CreationData::SiteObject => {
-                self.show_create_site_objects(ui);
-            }
             CreationData::Drawing(_) => {
                 self.show_create_drawing(ui);
             }
             CreationData::ModelDescription(_) => {
                 self.show_create_model_description(ui);
-            }
-        }
-    }
-
-    pub fn show_create_site_objects(&mut self, ui: &mut Ui) {
-        match self.app_state.get() {
-            AppState::SiteEditor => {
-                Grid::new("create_site_objects")
-                    .num_columns(3)
-                    .show(ui, |ui| {
-                        if ui.button("↔ Lane").clicked() {
-                            self.anchor_selection.create_lanes();
-                        }
-
-                        if ui.button("📌 Location").clicked() {
-                            self.anchor_selection.create_location();
-                        }
-
-                        if ui.button("■ Wall").clicked() {
-                            self.anchor_selection.create_walls();
-                        }
-
-                        ui.end_row();
-
-                        if ui.button("🚪 Door").clicked() {
-                            self.anchor_selection.create_door();
-                        }
-
-                        if ui.button("⬍ Lift").clicked() {
-                            self.anchor_selection.create_lift();
-                        }
-
-                        if ui.button("✏ Floor").clicked() {
-                            self.anchor_selection.create_floor();
-                        }
-
-                        ui.end_row();
-
-                        if ui.button("☉ Fiducial").clicked() {
-                            self.anchor_selection.create_site_fiducial();
-                        }
-                    });
-            }
-            AppState::SiteDrawingEditor => {
-                if ui.button("Fiducial").clicked() {
-                    self.anchor_selection.create_drawing_fiducial();
-                }
-                if ui.button("Measurement").clicked() {
-                    self.anchor_selection.create_measurements();
-                }
-            }
-            _ => {
-                return;
             }
         }
     }
@@ -323,18 +266,21 @@ impl<'w, 's> Creation<'w, 's> {
     }
 }
 
-#[derive(Resource, Clone, Default)]
+#[derive(Resource, Clone)]
 enum CreationData {
-    #[default]
-    SiteObject,
     Drawing(PendingDrawing),
     ModelDescription(PendingModelDescription),
+}
+
+impl Default for CreationData {
+    fn default() -> Self {
+        Self::Drawing(PendingDrawing::default())
+    }
 }
 
 impl CreationData {
     fn to_string(&self) -> &str {
         match self {
-            Self::SiteObject => "Site Object",
             Self::Drawing(_) => "Drawing",
             Self::ModelDescription(_) => "Model Description",
         }
@@ -342,15 +288,14 @@ impl CreationData {
 
     fn from_string(s: &str) -> Self {
         match s {
-            "Site Object" => Self::SiteObject,
             "Drawing" => Self::Drawing(PendingDrawing::default()),
             "Model Description" => Self::ModelDescription(PendingModelDescription::default()),
-            _ => Self::SiteObject,
+            _ => Self::Drawing(PendingDrawing::default()),
         }
     }
 
     fn string_values() -> Vec<&'static str> {
-        vec!["Site Object", "Drawing", "Model Description"]
+        vec!["Drawing", "Model Description"]
     }
 }
 
