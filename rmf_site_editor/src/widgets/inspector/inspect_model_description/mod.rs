@@ -448,7 +448,6 @@ fn get_selected_description_entity<'w, 's, S: ReadOnlyWorldQuery, T: WorldQuery>
         if model_descriptions.get(affiliation).is_ok() {
             return Some(affiliation);
         } else {
-            debug!("Model instance is affiliated with a description with different components");
             return None;
         }
     }

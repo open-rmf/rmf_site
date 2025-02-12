@@ -17,7 +17,7 @@
 
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Component, Reflect};
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Map;
 use std::collections::HashMap;
 
@@ -35,7 +35,9 @@ impl Default for Robot {
     }
 }
 
-pub trait RobotProperty {
+pub trait RobotProperty:
+    'static + Send + Sync + Default + Clone + Component + PartialEq + Serialize + DeserializeOwned
+{
     fn new(kind: String, config: serde_json::Value) -> Self;
 
     fn is_default(&self) -> bool;
@@ -53,7 +55,9 @@ pub trait RobotProperty {
     fn label() -> String;
 }
 
-pub trait RobotPropertyKind {
+pub trait RobotPropertyKind:
+    'static + Send + Sync + Default + Clone + Component + PartialEq + Serialize + DeserializeOwned
+{
     fn label() -> String;
 }
 
