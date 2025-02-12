@@ -36,7 +36,7 @@ impl Default for Robot {
 }
 
 pub trait RobotProperty:
-    'static + Send + Sync + Default + Clone + Component + PartialEq + Serialize + DeserializeOwned
+    'static + Send + Sync + Default + Clone + PartialEq + Serialize + DeserializeOwned
 {
     fn new(kind: String, config: serde_json::Value) -> Self;
 
@@ -56,7 +56,7 @@ pub trait RobotProperty:
 }
 
 pub trait RobotPropertyKind:
-    'static + Send + Sync + Default + Clone + Component + PartialEq + Serialize + DeserializeOwned
+    'static + Send + Sync + Default + Clone + PartialEq + Serialize + DeserializeOwned
 {
     fn label() -> String;
 }
