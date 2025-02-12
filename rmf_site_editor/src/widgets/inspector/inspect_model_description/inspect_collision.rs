@@ -18,19 +18,74 @@
 use super::{
     get_selected_description_entity,
     inspect_robot_properties::{
-        serialize_and_change_robot_property, show_robot_property_widget, RobotPropertyData,
+        serialize_and_change_robot_property, show_robot_property_widget, RobotProperty,
+        RobotPropertyData, RobotPropertyKind,
     },
 };
 use crate::{
-    site::{
-        Affiliation, Change, CircleCollision, Collision, Group, ModelMarker, ModelProperty, Pose,
-        Robot, RobotProperty,
-    },
+    site::{Affiliation, Change, Group, ModelMarker, ModelProperty, Pose, Robot},
     widgets::{prelude::*, Inspect},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{DragValue, Grid, Ui};
+use serde::{Deserialize, Serialize};
+use serde_json::Map;
 use smallvec::SmallVec;
+
+#[derive(Serialize, Deserialize, Debug, Clone, Component, PartialEq)]
+pub struct Collision {
+    pub kind: String,
+    pub config: serde_json::Value,
+}
+
+impl Default for Collision {
+    fn default() -> Self {
+        Self {
+            kind: String::new(),
+            config: serde_json::Value::Object(Map::new()),
+        }
+    }
+}
+
+impl RobotProperty for Collision {
+    fn new(kind: String, config: serde_json::Value) -> Self {
+        Self { kind, config }
+    }
+
+    fn is_default(&self) -> bool {
+        if *self == Self::default() {
+            return true;
+        }
+        false
+    }
+
+    fn is_empty(&self) -> bool {
+        if self.kind.is_empty() {
+            return true;
+        }
+        return self.config.as_object().is_none_or(|m| m.is_empty());
+    }
+
+    fn kind(&self) -> String {
+        self.kind.clone()
+    }
+
+    fn kind_mut(&mut self) -> &mut String {
+        &mut self.kind
+    }
+
+    fn config(&self) -> serde_json::Value {
+        self.config.clone()
+    }
+
+    fn config_mut(&mut self) -> &mut serde_json::Value {
+        &mut self.config
+    }
+
+    fn label() -> String {
+        "Collision".to_string()
+    }
+}
 
 #[derive(SystemParam)]
 pub struct InspectCollision<'w, 's> {
@@ -100,6 +155,28 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectCollision<'w, 's> {
                 let _ = world.try_show_in(child, inspect, ui);
             }
         }
+    }
+}
+
+// Supported kinds of Collision
+#[derive(Serialize, Deserialize, Debug, Clone, Component, PartialEq, Reflect)]
+pub struct CircleCollision {
+    pub radius: f32,
+    pub offset: [f32; 2],
+}
+
+impl Default for CircleCollision {
+    fn default() -> Self {
+        Self {
+            radius: 0.0,
+            offset: [0.0, 0.0],
+        }
+    }
+}
+
+impl RobotPropertyKind for CircleCollision {
+    fn label() -> String {
+        "Circle Collision".to_string()
     }
 }
 

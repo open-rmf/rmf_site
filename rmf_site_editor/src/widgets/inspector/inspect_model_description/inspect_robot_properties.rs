@@ -29,7 +29,7 @@ use bevy::{
     prelude::{Component, *},
 };
 use bevy_egui::egui::{ComboBox, Ui};
-use rmf_site_format::{RobotProperty, RobotPropertyKind};
+use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{Map, Value};
 use smallvec::SmallVec;
 use std::collections::HashMap;
@@ -170,12 +170,38 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectRobotProperties<'w, 's> {
     }
 }
 
+pub trait RobotProperty:
+    'static + Send + Sync + Default + Clone + Component + PartialEq + Serialize + DeserializeOwned
+{
+    fn new(kind: String, config: serde_json::Value) -> Self;
+
+    fn is_default(&self) -> bool;
+
+    fn is_empty(&self) -> bool;
+
+    fn kind(&self) -> String;
+
+    fn kind_mut(&mut self) -> &mut String;
+
+    fn config(&self) -> serde_json::Value;
+
+    fn config_mut(&mut self) -> &mut serde_json::Value;
+
+    fn label() -> String;
+}
+
+pub trait RobotPropertyKind:
+    'static + Send + Sync + Default + Clone + Component + PartialEq + Serialize + DeserializeOwned
+{
+    fn label() -> String;
+}
+
 /// Implement this plugin to add a new configurable robot property of type T to the
 /// robot properties inspector.
 pub struct InspectRobotPropertyPlugin<W, T>
 where
     W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
-    T: Component + RobotProperty,
+    T: RobotProperty,
 {
     _ignore: std::marker::PhantomData<(W, T)>,
 }
@@ -183,7 +209,7 @@ where
 impl<W, T> InspectRobotPropertyPlugin<W, T>
 where
     W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
-    T: Component + RobotProperty,
+    T: RobotProperty,
 {
     pub fn new() -> Self {
         Self {
@@ -195,7 +221,7 @@ where
 impl<W, T> Plugin for InspectRobotPropertyPlugin<W, T>
 where
     W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
-    T: Component + RobotProperty,
+    T: RobotProperty,
 {
     fn build(&self, app: &mut App) {
         let inspector = app.world.resource::<RobotPropertiesInspector>().id;
@@ -214,8 +240,8 @@ where
 pub struct InspectRobotPropertyKindPlugin<W, Kind, Property>
 where
     W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
-    Kind: Component + RobotPropertyKind,
-    Property: Component + RobotProperty,
+    Kind: RobotPropertyKind,
+    Property: RobotProperty,
 {
     _ignore: std::marker::PhantomData<(W, Kind, Property)>,
 }
@@ -223,8 +249,8 @@ where
 impl<W, Kind, Property> InspectRobotPropertyKindPlugin<W, Kind, Property>
 where
     W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
-    Kind: Component + RobotPropertyKind,
-    Property: Component + RobotProperty,
+    Kind: RobotPropertyKind,
+    Property: RobotProperty,
 {
     pub fn new() -> Self {
         Self {
@@ -236,8 +262,8 @@ where
 impl<W, Kind, Property> Plugin for InspectRobotPropertyKindPlugin<W, Kind, Property>
 where
     W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
-    Kind: Component + RobotPropertyKind,
-    Property: Component + RobotProperty,
+    Kind: RobotPropertyKind,
+    Property: RobotProperty,
 {
     fn build(&self, app: &mut App) {
         let property_label = Property::label();
@@ -282,7 +308,7 @@ pub struct UpdateRobotPropertyKinds {
 
 /// This system monitors changes to ModelProperty<Robot> and inserts robot property components
 /// to the model descriptions
-pub fn update_robot_properties<T: Component + RobotProperty>(
+pub fn update_robot_properties<T: RobotProperty>(
     mut commands: Commands,
     model_properties: Query<(Entity, Ref<ModelProperty<Robot>>), (With<ModelMarker>, With<Group>)>,
     mut removals: RemovedComponents<ModelProperty<Robot>>,
@@ -331,10 +357,7 @@ pub fn update_robot_properties<T: Component + RobotProperty>(
 }
 
 /// This system inserts or removes robot property kinds when a robot property is updated
-pub fn update_robot_property_kinds<
-    Kind: Component + RobotPropertyKind,
-    Property: Component + RobotProperty,
->(
+pub fn update_robot_property_kinds<Kind: RobotPropertyKind, Property: RobotProperty>(
     mut commands: Commands,
     mut update_robot_property_kinds: EventReader<UpdateRobotPropertyKinds>,
 ) {
@@ -371,7 +394,7 @@ pub fn update_robot_property_kinds<
 
 /// This system displays each RobotProperty widget and enables users to toggle
 /// the properties on and off, and select relevant RobotPropertyKinds.
-pub fn show_robot_property_widget<T: Component + RobotProperty>(
+pub fn show_robot_property_widget<T: RobotProperty>(
     ui: &mut Ui,
     mut property_query: Query<&T, (With<ModelMarker>, With<Group>)>,
     mut change_robot_property: EventWriter<Change<ModelProperty<Robot>>>,

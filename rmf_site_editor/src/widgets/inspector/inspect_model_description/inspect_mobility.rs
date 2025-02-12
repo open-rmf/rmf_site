@@ -18,19 +18,74 @@
 use super::{
     get_selected_description_entity,
     inspect_robot_properties::{
-        serialize_and_change_robot_property, show_robot_property_widget, RobotPropertyData,
+        serialize_and_change_robot_property, show_robot_property_widget, RobotProperty,
+        RobotPropertyData, RobotPropertyKind,
     },
 };
 use crate::{
-    site::{
-        Affiliation, Change, DifferentialDrive, Group, Mobility, ModelMarker, ModelProperty, Robot,
-        RobotProperty,
-    },
+    site::{Affiliation, Change, Group, ModelMarker, ModelProperty, Robot},
     widgets::{prelude::*, Inspect},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{DragValue, Grid, Ui};
+use serde::{Deserialize, Serialize};
+use serde_json::Map;
 use smallvec::SmallVec;
+
+#[derive(Serialize, Deserialize, Debug, Clone, Component, PartialEq)]
+pub struct Mobility {
+    pub kind: String,
+    pub config: serde_json::Value,
+}
+
+impl Default for Mobility {
+    fn default() -> Self {
+        Self {
+            kind: String::new(),
+            config: serde_json::Value::Object(Map::new()),
+        }
+    }
+}
+
+impl RobotProperty for Mobility {
+    fn new(kind: String, config: serde_json::Value) -> Self {
+        Self { kind, config }
+    }
+
+    fn is_default(&self) -> bool {
+        if *self == Self::default() {
+            return true;
+        }
+        false
+    }
+
+    fn is_empty(&self) -> bool {
+        if self.kind.is_empty() {
+            return true;
+        }
+        return self.config.as_object().is_none_or(|m| m.is_empty());
+    }
+
+    fn kind(&self) -> String {
+        self.kind.clone()
+    }
+
+    fn kind_mut(&mut self) -> &mut String {
+        &mut self.kind
+    }
+
+    fn config(&self) -> serde_json::Value {
+        self.config.clone()
+    }
+
+    fn config_mut(&mut self) -> &mut serde_json::Value {
+        &mut self.config
+    }
+
+    fn label() -> String {
+        "Mobility".to_string()
+    }
+}
 
 #[derive(SystemParam)]
 pub struct InspectMobility<'w, 's> {
@@ -100,6 +155,32 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectMobility<'w, 's> {
                 let _ = world.try_show_in(child, inspect, ui);
             }
         }
+    }
+}
+
+// Supported kinds of Mobility
+#[derive(Serialize, Deserialize, Debug, Clone, Component, PartialEq, Reflect)]
+pub struct DifferentialDrive {
+    pub bidirectional: bool,
+    pub rotation_center_offset: [f32; 2],
+    pub translational_speed: f32,
+    pub rotational_speed: f32,
+}
+
+impl Default for DifferentialDrive {
+    fn default() -> Self {
+        Self {
+            bidirectional: false,
+            rotation_center_offset: [0.0, 0.0],
+            translational_speed: 0.5,
+            rotational_speed: 1.0,
+        }
+    }
+}
+
+impl RobotPropertyKind for DifferentialDrive {
+    fn label() -> String {
+        "Differential Drive".to_string()
     }
 }
 
