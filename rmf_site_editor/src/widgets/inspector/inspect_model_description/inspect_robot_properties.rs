@@ -18,14 +18,16 @@
 use super::{get_selected_description_entity, ModelDescriptionInspector, ModelPropertyQuery};
 use crate::{
     site::{
-        update_model_instances, Change, ChangePlugin, Group, ModelMarker, ModelProperty, Robot,
+        update_model_instances, Change, ChangePlugin, Group, IssueKey, ModelMarker, ModelProperty,
+        NameInSite, Robot, SiteUpdateSet,
     },
     widgets::{prelude::*, Inspect},
-    ModelPropertyData,
+    AppState, Issue, ModelPropertyData, ValidateWorkspace,
 };
 use bevy::{
     ecs::system::SystemParam,
     prelude::{Component, *},
+    utils::Uuid,
 };
 use bevy_egui::egui::{ComboBox, Ui};
 use serde::{de::DeserializeOwned, Serialize};
@@ -91,7 +93,12 @@ impl Plugin for InspectRobotPropertiesPlugin {
         let id = app.world.spawn(widget).set_parent(inspector).id();
         app.world.insert_resource(RobotPropertiesInspector { id });
         app.world.init_resource::<RobotPropertyWidgetRegistry>();
-        app.add_event::<UpdateRobotPropertyKinds>();
+        app.add_event::<UpdateRobotPropertyKinds>().add_systems(
+            PreUpdate,
+            check_for_missing_robot_property_kinds
+                .after(SiteUpdateSet::ProcessChangesFlush)
+                .run_if(AppState::in_displaying_mode()),
+        );
     }
 }
 
@@ -480,6 +487,65 @@ pub fn serialize_and_change_robot_property<Property: RobotProperty, Kind: RobotP
                 .properties
                 .insert(Property::label(), new_property_value);
             change_robot_property.send(Change::new(ModelProperty(new_robot), description_entity));
+        }
+    }
+}
+
+/// Unique UUID to identify issue of missing robot property kind
+pub const MISSING_ROBOT_PROPERTY_KIND_ISSUE_UUID: Uuid =
+    Uuid::from_u128(0x655d6b52d8dd4f4f8324a77c497d9396u128);
+
+pub fn check_for_missing_robot_property_kinds(
+    mut commands: Commands,
+    mut validate_events: EventReader<ValidateWorkspace>,
+    robot_property_widgets: Res<RobotPropertyWidgetRegistry>,
+    robots: Query<(Entity, &NameInSite, &ModelProperty<Robot>), (With<ModelMarker>, With<Group>)>,
+) {
+    for root in validate_events.read() {
+        for (entity, description_name, robot) in robots.iter() {
+            for (property, value) in robot.0.properties.iter() {
+                let Some(widget_registration) = robot_property_widgets.0.get(property) else {
+                    continue;
+                };
+                if widget_registration.kinds.is_empty() {
+                    continue;
+                }
+                if value
+                    .as_object()
+                    .and_then(|m| m.get("kind"))
+                    .and_then(|k| k.as_str())
+                    .is_some_and(|k| widget_registration.kinds.contains_key(&k.to_string()))
+                {
+                    continue;
+                }
+
+                let brief = match value {
+                    Value::Null => format!(
+                        "RobotPropertyKind not found for RobotProperty {:?} \
+                        with affiliated model description {:?}",
+                        property, description_name.0
+                    ),
+                    _ => format!(
+                        "Invalid RobotPropertyKind found for RobotProperty {:?} \
+                        with affiliated model description {:?}",
+                        property, description_name.0,
+                    ),
+                };
+                let issue = Issue {
+                    key: IssueKey {
+                        entities: [entity].into(),
+                        kind: MISSING_ROBOT_PROPERTY_KIND_ISSUE_UUID,
+                    },
+                    brief,
+                    hint: format!(
+                        "RobotProperty {} requires a RobotPropertyKind. \
+                        Select a valid RobotPropertyKind.",
+                        property
+                    ),
+                };
+                let issue_id = commands.spawn(issue).id();
+                commands.entity(**root).add_child(issue_id);
+            }
         }
     }
 }
