@@ -60,27 +60,8 @@ impl RobotProperty for Collision {
         false
     }
 
-    fn is_empty(&self) -> bool {
-        if self.kind.is_empty() {
-            return true;
-        }
-        return self.config.as_object().is_none_or(|m| m.is_empty());
-    }
-
-    fn kind(&self) -> String {
-        self.kind.clone()
-    }
-
-    fn kind_mut(&mut self) -> &mut String {
-        &mut self.kind
-    }
-
-    fn config(&self) -> serde_json::Value {
-        self.config.clone()
-    }
-
-    fn config_mut(&mut self) -> &mut serde_json::Value {
-        &mut self.config
+    fn kind(&self) -> Option<String> {
+        Some(self.kind.clone())
     }
 
     fn label() -> String {
@@ -211,23 +192,6 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectCircleCollision<'w, 's> {
         else {
             return;
         };
-
-        // Add default circle collision config if they have not been added
-        if robot
-            .properties
-            .get(&Collision::label())
-            .and_then(|c| c.as_object())
-            .and_then(|obj| obj.get("config"))
-            .is_some_and(|config| config.as_object().is_none_or(|m| m.is_empty()))
-        {
-            serialize_and_change_robot_property::<Collision, CircleCollision>(
-                params.change_robot_property,
-                CircleCollision::default(),
-                robot,
-                description_entity,
-            );
-            return;
-        }
 
         let mut new_circle_collision = circle_collision.clone();
 

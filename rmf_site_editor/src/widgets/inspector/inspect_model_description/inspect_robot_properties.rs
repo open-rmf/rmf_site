@@ -29,14 +29,20 @@ use bevy::{
 };
 use bevy_egui::egui::{ComboBox, Ui};
 use serde::{de::DeserializeOwned, Serialize};
-use serde_json::{Map, Value};
+use serde_json::{Error, Map, Value};
 use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::fmt::Debug;
 
+type InsertDefaultValueFn = fn() -> Result<Value, Error>;
+
 pub struct RobotPropertyWidgetRegistration {
     pub property_widget: Entity,
-    pub kinds: Vec<String>,
+    pub kinds: HashMap<String, RobotPropertyKindWidgetRegistration>,
+}
+
+pub struct RobotPropertyKindWidgetRegistration {
+    pub default: InsertDefaultValueFn,
 }
 
 /// This resource keeps track of all the properties that can be configured for a robot.
@@ -165,15 +171,7 @@ pub trait RobotProperty:
 
     fn is_default(&self) -> bool;
 
-    fn is_empty(&self) -> bool;
-
-    fn kind(&self) -> String;
-
-    fn kind_mut(&mut self) -> &mut String;
-
-    fn config(&self) -> serde_json::Value;
-
-    fn config_mut(&mut self) -> &mut serde_json::Value;
+    fn kind(&self) -> Option<String>;
 
     fn label() -> String;
 }
@@ -222,7 +220,7 @@ where
                 T::label(),
                 RobotPropertyWidgetRegistration {
                     property_widget: id,
-                    kinds: Vec::new(),
+                    kinds: HashMap::new(),
                 },
             );
         app.add_systems(PreUpdate, update_robot_property_components::<T>);
@@ -277,7 +275,12 @@ where
             .0
             .get_mut(&property_label)
             .map(|registration| {
-                registration.kinds.push(Kind::label());
+                registration.kinds.insert(
+                    Kind::label(),
+                    RobotPropertyKindWidgetRegistration {
+                        default: || serde_json::to_value(Kind::default()),
+                    },
+                );
             });
         app.add_systems(
             PreUpdate,
@@ -412,35 +415,43 @@ pub fn show_robot_property_widget<T: RobotProperty>(
             Some(p) => p.clone(),
             None => T::default(),
         };
-        let selected_property_kind = if !new_property.is_default() {
-            new_property.kind().clone()
-        } else {
-            "Select Kind".to_string()
-        };
 
-        ui.indent("configure_".to_owned() + &property_label, |ui| {
-            ui.horizontal(|ui| {
-                ui.label(property_label.to_owned() + " Kind");
-                ComboBox::from_id_source("select_".to_owned() + &property_label + "_kind")
-                    .selected_text(selected_property_kind)
-                    .show_ui(ui, |ui| {
-                        for kind in widget_registration.kinds.iter() {
-                            ui.selectable_value(
-                                new_property.kind_mut(),
-                                kind.clone(),
-                                kind.clone(),
-                            );
-                        }
-                    });
+        // Display Select Kind widget only if property kinds are provided
+        if !widget_registration.kinds.is_empty() {
+            let selected_property_kind = match new_property
+                .kind()
+                .filter(|k| widget_registration.kinds.contains_key(k))
+            {
+                Some(kind) => kind,
+                None => "Select Kind".to_string(),
+            };
+
+            ui.indent("configure_".to_owned() + &property_label, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(property_label.to_owned() + " Kind");
+                    ComboBox::from_id_source("select_".to_owned() + &property_label + "_kind")
+                        .selected_text(selected_property_kind)
+                        .show_ui(ui, |ui| {
+                            for (kind, kind_registration) in widget_registration.kinds.iter() {
+                                let get_default_config = kind_registration.default;
+                                let config = match get_default_config() {
+                                    Ok(c) => c,
+                                    Err(_) => Value::Null,
+                                };
+                                ui.selectable_value(
+                                    &mut new_property,
+                                    T::new(kind.clone(), config),
+                                    kind.clone(),
+                                );
+                            }
+                        });
+                });
             });
-        });
+        }
 
-        ui.add_space(10.0);
-
-        if property.is_some_and(|p| p.kind() == new_property.kind()) {
+        if property.is_some_and(|p| *p == new_property) {
             return;
         }
-        // Update changes in RobotPropertyKind only, values will be updated in the respective widgets
         if new_property.is_default() {
             // Setting value as null to filter out invalid data on save
             new_robot.properties.insert(property_label, Value::Null);
