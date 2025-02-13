@@ -15,11 +15,10 @@
  *
 */
 
-use super::{get_selected_description_entity, ModelDescriptionInspector};
+use super::{get_selected_description_entity, ModelDescriptionInspector, ModelPropertyQuery};
 use crate::{
     site::{
-        update_model_instances, Affiliation, Change, ChangePlugin, Group, ModelMarker,
-        ModelProperty, Robot,
+        update_model_instances, Change, ChangePlugin, Group, ModelMarker, ModelProperty, Robot,
     },
     widgets::{prelude::*, Inspect},
     ModelPropertyData,
@@ -110,12 +109,7 @@ impl RobotPropertiesInspector {
 
 #[derive(SystemParam)]
 struct InspectRobotProperties<'w, 's> {
-    model_instances: Query<
-        'w,
-        's,
-        &'static Affiliation<Entity>,
-        (With<ModelMarker>, Without<Group>, With<Robot>),
-    >,
+    model_instances: ModelPropertyQuery<'w, 's, Robot>,
     model_descriptions:
         Query<'w, 's, &'static ModelProperty<Robot>, (With<ModelMarker>, With<Group>)>,
     inspect_robot_properties: Res<'w, RobotPropertiesInspector>,

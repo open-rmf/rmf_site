@@ -21,9 +21,10 @@ use super::{
         serialize_and_change_robot_property, show_robot_property_widget, RobotProperty,
         RobotPropertyData, RobotPropertyKind,
     },
+    ModelPropertyQuery,
 };
 use crate::{
-    site::{Affiliation, Change, Group, ModelMarker, ModelProperty, Pose, Robot},
+    site::{Change, Group, ModelMarker, ModelProperty, Pose, Robot},
     widgets::{prelude::*, Inspect},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -90,12 +91,7 @@ impl RobotProperty for Collision {
 #[derive(SystemParam)]
 pub struct InspectCollision<'w, 's> {
     robot_property_data: Res<'w, RobotPropertyData>,
-    model_instances: Query<
-        'w,
-        's,
-        &'static Affiliation<Entity>,
-        (With<ModelMarker>, Without<Group>, With<Robot>),
-    >,
+    model_instances: ModelPropertyQuery<'w, 's, Robot>,
     model_descriptions:
         Query<'w, 's, &'static ModelProperty<Robot>, (With<ModelMarker>, With<Group>)>,
     collision: Query<'w, 's, &'static Collision, (With<ModelMarker>, With<Group>)>,
@@ -182,12 +178,7 @@ impl RobotPropertyKind for CircleCollision {
 
 #[derive(SystemParam)]
 pub struct InspectCircleCollision<'w, 's> {
-    model_instances: Query<
-        'w,
-        's,
-        &'static Affiliation<Entity>,
-        (With<ModelMarker>, Without<Group>, With<Robot>),
-    >,
+    model_instances: ModelPropertyQuery<'w, 's, Robot>,
     model_descriptions: Query<
         'w,
         's,

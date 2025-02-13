@@ -21,9 +21,10 @@ use super::{
         serialize_and_change_robot_property, show_robot_property_widget, RobotProperty,
         RobotPropertyData, RobotPropertyKind,
     },
+    ModelPropertyQuery,
 };
 use crate::{
-    site::{Affiliation, Change, Group, ModelMarker, ModelProperty, Robot},
+    site::{Change, Group, ModelMarker, ModelProperty, Robot},
     widgets::{prelude::*, Inspect},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -90,12 +91,7 @@ impl RobotProperty for Mobility {
 #[derive(SystemParam)]
 pub struct InspectMobility<'w, 's> {
     robot_property_data: Res<'w, RobotPropertyData>,
-    model_instances: Query<
-        'w,
-        's,
-        &'static Affiliation<Entity>,
-        (With<ModelMarker>, Without<Group>, With<Robot>),
-    >,
+    model_instances: ModelPropertyQuery<'w, 's, Robot>,
     model_descriptions:
         Query<'w, 's, &'static ModelProperty<Robot>, (With<ModelMarker>, With<Group>)>,
     mobility: Query<'w, 's, &'static Mobility, (With<ModelMarker>, With<Group>)>,
@@ -186,12 +182,7 @@ impl RobotPropertyKind for DifferentialDrive {
 
 #[derive(SystemParam)]
 pub struct InspectDifferentialDrive<'w, 's> {
-    model_instances: Query<
-        'w,
-        's,
-        &'static Affiliation<Entity>,
-        (With<ModelMarker>, Without<Group>, With<Robot>),
-    >,
+    model_instances: ModelPropertyQuery<'w, 's, Robot>,
     model_descriptions: Query<
         'w,
         's,
