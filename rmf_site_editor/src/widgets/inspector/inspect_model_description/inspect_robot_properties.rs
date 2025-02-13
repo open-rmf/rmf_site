@@ -24,7 +24,7 @@ use crate::{
     ModelPropertyData,
 };
 use bevy::{
-    ecs::system::{EntityCommands, SystemParam},
+    ecs::system::SystemParam,
     prelude::{Component, *},
 };
 use bevy_egui::egui::{ComboBox, Ui};
@@ -34,17 +34,9 @@ use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::fmt::Debug;
 
-pub type InsertPropertyKindFn = fn(EntityCommands);
-pub type RemovePropertyKindFn = fn(EntityCommands);
-
 pub struct RobotPropertyWidgetRegistration {
     pub property_widget: Entity,
-    pub kinds: HashMap<String, RobotPropertyKindRegistration>,
-}
-
-pub struct RobotPropertyKindRegistration {
-    pub insert: InsertPropertyKindFn,
-    pub remove: RemovePropertyKindFn,
+    pub kinds: Vec<String>,
 }
 
 /// This resource keeps track of all the properties that can be configured for a robot.
@@ -230,7 +222,7 @@ where
                 T::label(),
                 RobotPropertyWidgetRegistration {
                     property_widget: id,
-                    kinds: HashMap::new(),
+                    kinds: Vec::new(),
                 },
             );
         app.add_systems(PreUpdate, update_robot_property_components::<T>);
@@ -285,17 +277,7 @@ where
             .0
             .get_mut(&property_label)
             .map(|registration| {
-                registration.kinds.insert(
-                    Kind::label(),
-                    RobotPropertyKindRegistration {
-                        insert: |mut e_commands| {
-                            e_commands.insert(Kind::default());
-                        },
-                        remove: |mut e_commands| {
-                            e_commands.remove::<Kind>();
-                        },
-                    },
-                );
+                registration.kinds.push(Kind::label());
             });
         app.add_systems(
             PreUpdate,
@@ -442,7 +424,7 @@ pub fn show_robot_property_widget<T: RobotProperty>(
                 ComboBox::from_id_source("select_".to_owned() + &property_label + "_kind")
                     .selected_text(selected_property_kind)
                     .show_ui(ui, |ui| {
-                        for (kind, _) in widget_registration.kinds.iter() {
+                        for kind in widget_registration.kinds.iter() {
                             ui.selectable_value(
                                 new_property.kind_mut(),
                                 kind.clone(),
