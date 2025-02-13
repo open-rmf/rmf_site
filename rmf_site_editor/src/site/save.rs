@@ -1250,9 +1250,7 @@ fn generate_robots(
             if let Ok((site_id, robot_property)) = robots.get(*child) {
                 let mut robot = robot_property.0.clone();
                 // Remove any invalid properties
-                robot
-                    .properties
-                    .retain(|k, v| !k.is_empty() && !v.is_null());
+                robot.properties.retain(|k, _| !k.is_empty());
                 res.insert(site_id.0, robot);
             }
         }
