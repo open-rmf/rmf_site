@@ -19,7 +19,7 @@ use super::{
     get_selected_description_entity,
     inspect_robot_properties::{
         serialize_and_change_robot_property, show_robot_property_widget, RobotProperty,
-        RobotPropertyData, RobotPropertyKind,
+        RobotPropertyKind, RobotPropertyWidgetRegistry,
     },
     ModelPropertyQuery,
 };
@@ -90,7 +90,7 @@ impl RobotProperty for Mobility {
 
 #[derive(SystemParam)]
 pub struct InspectMobility<'w, 's> {
-    robot_property_data: Res<'w, RobotPropertyData>,
+    robot_property_widgets: Res<'w, RobotPropertyWidgetRegistry>,
     model_instances: ModelPropertyQuery<'w, 's, Robot>,
     model_descriptions:
         Query<'w, 's, &'static ModelProperty<Robot>, (With<ModelMarker>, With<Group>)>,
@@ -127,15 +127,15 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectMobility<'w, 's> {
             params.mobility,
             params.change_robot_property,
             robot,
-            &params.robot_property_data,
+            &params.robot_property_widgets,
             description_entity,
         );
 
         // Show children widgets
-        if let Some((inspector_id, _)) = params.robot_property_data.0.get(&Mobility::label()) {
+        if let Some(widget_registration) = params.robot_property_widgets.0.get(&Mobility::label()) {
             let children_widgets: Result<SmallVec<[_; 16]>, _> = params
                 .children
-                .get(*inspector_id)
+                .get(widget_registration.property_widget)
                 .map(|c| c.iter().copied().collect());
             let Ok(children_widgets) = children_widgets else {
                 return;

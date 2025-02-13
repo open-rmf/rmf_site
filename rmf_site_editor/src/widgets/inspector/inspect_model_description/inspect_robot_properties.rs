@@ -37,19 +37,21 @@ use std::fmt::Debug;
 pub type InsertPropertyKindFn = fn(EntityCommands);
 pub type RemovePropertyKindFn = fn(EntityCommands);
 
+pub struct RobotPropertyWidgetRegistration {
+    pub property_widget: Entity,
+    pub kinds: HashMap<String, RobotPropertyKindRegistration>,
+}
+
+pub struct RobotPropertyKindRegistration {
+    pub insert: InsertPropertyKindFn,
+    pub remove: RemovePropertyKindFn,
+}
+
 /// This resource keeps track of all the properties that can be configured for a robot.
 #[derive(Resource)]
-pub struct RobotPropertyData(
-    pub  HashMap<
-        String,
-        (
-            Entity, // entity id of the widget
-            HashMap<String, (InsertPropertyKindFn, RemovePropertyKindFn)>,
-        ),
-    >,
-);
+pub struct RobotPropertyWidgetRegistry(pub HashMap<String, RobotPropertyWidgetRegistration>);
 
-impl FromWorld for RobotPropertyData {
+impl FromWorld for RobotPropertyWidgetRegistry {
     fn from_world(_world: &mut World) -> Self {
         Self(HashMap::new())
     }
@@ -90,7 +92,7 @@ impl Plugin for InspectRobotPropertiesPlugin {
         let widget = Widget::<Inspect>::new::<InspectRobotProperties>(&mut app.world);
         let id = app.world.spawn(widget).set_parent(inspector).id();
         app.world.insert_resource(RobotPropertiesInspector { id });
-        app.world.init_resource::<RobotPropertyData>();
+        app.world.init_resource::<RobotPropertyWidgetRegistry>();
         app.add_event::<UpdateRobotPropertyKinds>();
     }
 }
@@ -222,10 +224,16 @@ where
         let widget = Widget::<Inspect>::new::<W>(&mut app.world);
         let id = app.world.spawn(widget).set_parent(inspector).id();
         app.world
-            .resource_mut::<RobotPropertyData>()
+            .resource_mut::<RobotPropertyWidgetRegistry>()
             .0
-            .insert(T::label(), (id, HashMap::new()));
-        app.add_systems(PreUpdate, update_robot_properties::<T>);
+            .insert(
+                T::label(),
+                RobotPropertyWidgetRegistration {
+                    property_widget: id,
+                    kinds: HashMap::new(),
+                },
+            );
+        app.add_systems(PreUpdate, update_robot_property_components::<T>);
     }
 }
 
@@ -263,33 +271,36 @@ where
         let property_label = Property::label();
         let Some(inspector) = app
             .world
-            .resource::<RobotPropertyData>()
+            .resource::<RobotPropertyWidgetRegistry>()
             .0
             .get(&property_label)
-            .map(|(id, _)| id.clone())
+            .map(|registration| registration.property_widget.clone())
         else {
             return;
         };
         let widget = Widget::<Inspect>::new::<W>(&mut app.world);
         app.world.spawn(widget).set_parent(inspector);
         app.world
-            .resource_mut::<RobotPropertyData>()
+            .resource_mut::<RobotPropertyWidgetRegistry>()
             .0
             .get_mut(&property_label)
-            .map(|(_, ref mut m)| {
-                m.insert(
+            .map(|registration| {
+                registration.kinds.insert(
                     Kind::label(),
-                    (
-                        |mut e_commands| {
+                    RobotPropertyKindRegistration {
+                        insert: |mut e_commands| {
                             e_commands.insert(Kind::default());
                         },
-                        |mut e_commands| {
+                        remove: |mut e_commands| {
                             e_commands.remove::<Kind>();
                         },
-                    ),
+                    },
                 );
             });
-        app.add_systems(PreUpdate, update_robot_property_kinds::<Kind, Property>);
+        app.add_systems(
+            PreUpdate,
+            update_robot_property_kind_components::<Kind, Property>,
+        );
     }
 }
 
@@ -302,7 +313,7 @@ pub struct UpdateRobotPropertyKinds {
 
 /// This system monitors changes to ModelProperty<Robot> and inserts robot property components
 /// to the model descriptions
-pub fn update_robot_properties<T: RobotProperty>(
+pub fn update_robot_property_components<T: RobotProperty>(
     mut commands: Commands,
     model_properties: Query<(Entity, Ref<ModelProperty<Robot>>), (With<ModelMarker>, With<Group>)>,
     mut removals: RemovedComponents<ModelProperty<Robot>>,
@@ -350,8 +361,8 @@ pub fn update_robot_properties<T: RobotProperty>(
     }
 }
 
-/// This system inserts or removes robot property kinds when a robot property is updated
-pub fn update_robot_property_kinds<Kind: RobotPropertyKind, Property: RobotProperty>(
+/// This system inserts or removes robot property kind components when a robot property is updated
+pub fn update_robot_property_kind_components<Kind: RobotPropertyKind, Property: RobotProperty>(
     mut commands: Commands,
     mut update_robot_property_kinds: EventReader<UpdateRobotPropertyKinds>,
 ) {
@@ -393,14 +404,14 @@ pub fn show_robot_property_widget<T: RobotProperty>(
     mut property_query: Query<&T, (With<ModelMarker>, With<Group>)>,
     mut change_robot_property: EventWriter<Change<ModelProperty<Robot>>>,
     robot: &Robot,
-    robot_property_data: &Res<RobotPropertyData>,
+    robot_property_widgets: &Res<RobotPropertyWidgetRegistry>,
     description_entity: Entity,
 ) {
     let mut new_robot = robot.clone();
     let property_label = T::label();
     let property = property_query.get_mut(description_entity).ok();
 
-    let Some((_, property_kinds)) = robot_property_data.0.get(&property_label) else {
+    let Some(widget_registration) = robot_property_widgets.0.get(&property_label) else {
         ui.label(format!("No {} kind registered.", property_label));
         return;
     };
@@ -431,7 +442,7 @@ pub fn show_robot_property_widget<T: RobotProperty>(
                 ComboBox::from_id_source("select_".to_owned() + &property_label + "_kind")
                     .selected_text(selected_property_kind)
                     .show_ui(ui, |ui| {
-                        for (kind, _) in property_kinds.iter() {
+                        for (kind, _) in widget_registration.kinds.iter() {
                             ui.selectable_value(
                                 new_property.kind_mut(),
                                 kind.clone(),
