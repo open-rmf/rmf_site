@@ -18,8 +18,9 @@
 use super::{get_selected_description_entity, ModelDescriptionInspector, ModelPropertyQuery};
 use crate::{
     site::{
-        update_model_instances, Change, ChangePlugin, Group, IssueKey, ModelMarker, ModelProperty,
-        NameInSite, Recall, RecallPlugin, Robot, SiteUpdateSet,
+        recall_plugin::UpdateRecallSet, update_model_instances, Change, ChangePlugin, Group,
+        IssueKey, ModelMarker, ModelProperty, NameInSite, Recall, RecallPlugin, Robot,
+        SiteUpdateSet,
     },
     widgets::{prelude::*, Inspect},
     AppState, Issue, ModelPropertyData, ValidateWorkspace,
@@ -236,8 +237,11 @@ where
                     kinds: HashMap::new(),
                 },
             );
-        app.add_systems(PreUpdate, update_robot_property_components::<Property>)
-            .add_plugins(RecallPlugin::<RecallProperty>::default());
+        app.add_systems(
+            PreUpdate,
+            update_robot_property_components::<Property>.after(UpdateRecallSet),
+        )
+        .add_plugins(RecallPlugin::<RecallProperty>::default());
     }
 }
 
