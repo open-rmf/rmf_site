@@ -29,6 +29,7 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{DragValue, Grid, Ui};
+use rmf_site_format::Recall;
 use serde::{Deserialize, Serialize};
 use serde_json::Map;
 use smallvec::SmallVec;
@@ -69,6 +70,21 @@ impl RobotProperty for Collision {
     }
 }
 
+#[derive(Clone, Debug, Default, Component, PartialEq)]
+pub struct RecallCollision {
+    pub kind: Option<String>,
+    pub config: Option<serde_json::Value>,
+}
+
+impl Recall for RecallCollision {
+    type Source = Collision;
+
+    fn remember(&mut self, source: &Collision) {
+        self.kind = Some(source.kind.clone());
+        self.config = Some(source.config.clone());
+    }
+}
+
 #[derive(SystemParam)]
 pub struct InspectCollision<'w, 's> {
     robot_property_widgets: Res<'w, RobotPropertyWidgetRegistry>,
@@ -78,6 +94,7 @@ pub struct InspectCollision<'w, 's> {
     collision: Query<'w, 's, &'static Collision, (With<ModelMarker>, With<Group>)>,
     change_robot_property: EventWriter<'w, Change<ModelProperty<Robot>>>,
     children: Query<'w, 's, &'static Children>,
+    recall_collision: Query<'w, 's, &'static RecallCollision, (With<ModelMarker>, With<Group>)>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectCollision<'w, 's> {
@@ -103,9 +120,19 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectCollision<'w, 's> {
             return;
         };
 
+        let recall_collision: Option<Collision> =
+            match params.recall_collision.get(description_entity) {
+                Ok(recall) => Some(Collision {
+                    kind: recall.kind.clone().unwrap_or_default(),
+                    config: recall.config.clone().unwrap_or_default(),
+                }),
+                Err(_) => None,
+            };
+
         show_robot_property_widget::<Collision>(
             ui,
             params.collision,
+            recall_collision,
             params.change_robot_property,
             robot,
             &params.robot_property_widgets,

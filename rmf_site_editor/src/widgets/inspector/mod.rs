@@ -218,8 +218,9 @@ impl Plugin for StandardInspectorPlugin {
                         "Asset Source".to_string(),
                     ),
                     InspectRobotPropertiesPlugin::default(),
-                    InspectRobotPropertyPlugin::<InspectMobility, Mobility>::new(),
-                    InspectRobotPropertyPlugin::<InspectCollision, Collision>::new(),
+                    InspectRobotPropertyPlugin::<InspectMobility, Mobility, RecallMobility>::new(),
+                    InspectRobotPropertyPlugin::<InspectCollision, Collision, RecallCollision>::new(
+                    ),
                     InspectRobotPropertyKindPlugin::<
                         InspectDifferentialDrive,
                         DifferentialDrive,

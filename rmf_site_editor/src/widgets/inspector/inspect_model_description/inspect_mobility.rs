@@ -29,6 +29,7 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{DragValue, Grid, Ui};
+use rmf_site_format::Recall;
 use serde::{Deserialize, Serialize};
 use serde_json::Map;
 use smallvec::SmallVec;
@@ -69,6 +70,21 @@ impl RobotProperty for Mobility {
     }
 }
 
+#[derive(Clone, Debug, Default, Component, PartialEq)]
+pub struct RecallMobility {
+    pub kind: Option<String>,
+    pub config: Option<serde_json::Value>,
+}
+
+impl Recall for RecallMobility {
+    type Source = Mobility;
+
+    fn remember(&mut self, source: &Mobility) {
+        self.kind = Some(source.kind.clone());
+        self.config = Some(source.config.clone());
+    }
+}
+
 #[derive(SystemParam)]
 pub struct InspectMobility<'w, 's> {
     robot_property_widgets: Res<'w, RobotPropertyWidgetRegistry>,
@@ -78,6 +94,7 @@ pub struct InspectMobility<'w, 's> {
     mobility: Query<'w, 's, &'static Mobility, (With<ModelMarker>, With<Group>)>,
     change_robot_property: EventWriter<'w, Change<ModelProperty<Robot>>>,
     children: Query<'w, 's, &'static Children>,
+    recall_mobility: Query<'w, 's, &'static RecallMobility, (With<ModelMarker>, With<Group>)>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectMobility<'w, 's> {
@@ -103,9 +120,19 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectMobility<'w, 's> {
             return;
         };
 
+        let recall_mobility: Option<Mobility> = match params.recall_mobility.get(description_entity)
+        {
+            Ok(recall) => Some(Mobility {
+                kind: recall.kind.clone().unwrap_or_default(),
+                config: recall.config.clone().unwrap_or_default(),
+            }),
+            Err(_) => None,
+        };
+
         show_robot_property_widget::<Mobility>(
             ui,
             params.mobility,
+            recall_mobility,
             params.change_robot_property,
             robot,
             &params.robot_property_widgets,

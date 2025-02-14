@@ -19,7 +19,7 @@ use super::{get_selected_description_entity, ModelDescriptionInspector, ModelPro
 use crate::{
     site::{
         update_model_instances, Change, ChangePlugin, Group, IssueKey, ModelMarker, ModelProperty,
-        NameInSite, Robot, SiteUpdateSet,
+        NameInSite, Recall, RecallPlugin, Robot, SiteUpdateSet,
     },
     widgets::{prelude::*, Inspect},
     AppState, Issue, ModelPropertyData, ValidateWorkspace,
@@ -191,18 +191,22 @@ pub trait RobotPropertyKind:
 
 /// Implement this plugin to add a new configurable robot property of type T to the
 /// robot properties inspector.
-pub struct InspectRobotPropertyPlugin<W, T>
+pub struct InspectRobotPropertyPlugin<W, Property, RecallProperty>
 where
     W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
-    T: RobotProperty,
+    Property: RobotProperty,
+    RecallProperty: Recall + Component + Default,
+    RecallProperty::Source: RobotProperty,
 {
-    _ignore: std::marker::PhantomData<(W, T)>,
+    _ignore: std::marker::PhantomData<(W, Property, RecallProperty)>,
 }
 
-impl<W, T> InspectRobotPropertyPlugin<W, T>
+impl<W, Property, RecallProperty> InspectRobotPropertyPlugin<W, Property, RecallProperty>
 where
     W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
-    T: RobotProperty,
+    Property: RobotProperty,
+    RecallProperty: Recall + Component + Default,
+    RecallProperty::Source: RobotProperty,
 {
     pub fn new() -> Self {
         Self {
@@ -211,10 +215,12 @@ where
     }
 }
 
-impl<W, T> Plugin for InspectRobotPropertyPlugin<W, T>
+impl<W, Property, RecallProperty> Plugin for InspectRobotPropertyPlugin<W, Property, RecallProperty>
 where
     W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
-    T: RobotProperty,
+    Property: RobotProperty,
+    RecallProperty: Recall + Component + Default,
+    RecallProperty::Source: RobotProperty,
 {
     fn build(&self, app: &mut App) {
         let inspector = app.world.resource::<RobotPropertiesInspector>().id;
@@ -224,13 +230,14 @@ where
             .resource_mut::<RobotPropertyWidgetRegistry>()
             .0
             .insert(
-                T::label(),
+                Property::label(),
                 RobotPropertyWidgetRegistration {
                     property_widget: id,
                     kinds: HashMap::new(),
                 },
             );
-        app.add_systems(PreUpdate, update_robot_property_components::<T>);
+        app.add_systems(PreUpdate, update_robot_property_components::<Property>)
+            .add_plugins(RecallPlugin::<RecallProperty>::default());
     }
 }
 
@@ -393,7 +400,8 @@ pub fn update_robot_property_kind_components<Kind: RobotPropertyKind, Property: 
 /// the properties on and off, and select relevant RobotPropertyKinds.
 pub fn show_robot_property_widget<T: RobotProperty>(
     ui: &mut Ui,
-    mut property_query: Query<&T, (With<ModelMarker>, With<Group>)>,
+    property_query: Query<&T, (With<ModelMarker>, With<Group>)>,
+    property_recall: Option<T>,
     mut change_robot_property: EventWriter<Change<ModelProperty<Robot>>>,
     robot: &Robot,
     robot_property_widgets: &Res<RobotPropertyWidgetRegistry>,
@@ -401,7 +409,7 @@ pub fn show_robot_property_widget<T: RobotProperty>(
 ) {
     let mut new_robot = robot.clone();
     let property_label = T::label();
-    let property = property_query.get_mut(description_entity).ok();
+    let property = property_query.get(description_entity).ok();
 
     let Some(widget_registration) = robot_property_widgets.get(&property_label) else {
         ui.label(format!("No {} kind registered.", property_label));
@@ -420,7 +428,10 @@ pub fn show_robot_property_widget<T: RobotProperty>(
     } else {
         let mut new_property = match property {
             Some(p) => p.clone(),
-            None => T::default(),
+            None => match property_recall {
+                Some(r) => r,
+                None => T::default(),
+            },
         };
 
         // Display Select Kind widget only if property kinds are provided
