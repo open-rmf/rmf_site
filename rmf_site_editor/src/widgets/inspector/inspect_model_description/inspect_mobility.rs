@@ -113,7 +113,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectMobility<'w, 's> {
         );
 
         // Show children widgets
-        if let Some(widget_registration) = params.robot_property_widgets.0.get(&Mobility::label()) {
+        if let Some(widget_registration) = params.robot_property_widgets.get(&Mobility::label()) {
             let children_widgets: Result<SmallVec<[_; 16]>, _> = params
                 .children
                 .get(widget_registration.property_widget)

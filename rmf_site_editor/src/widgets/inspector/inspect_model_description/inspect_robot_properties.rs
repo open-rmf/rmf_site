@@ -48,7 +48,7 @@ pub struct RobotPropertyKindWidgetRegistration {
 }
 
 /// This resource keeps track of all the properties that can be configured for a robot.
-#[derive(Resource)]
+#[derive(Resource, Deref, DerefMut)]
 pub struct RobotPropertyWidgetRegistry(pub HashMap<String, RobotPropertyWidgetRegistration>);
 
 impl FromWorld for RobotPropertyWidgetRegistry {
@@ -403,7 +403,7 @@ pub fn show_robot_property_widget<T: RobotProperty>(
     let property_label = T::label();
     let property = property_query.get_mut(description_entity).ok();
 
-    let Some(widget_registration) = robot_property_widgets.0.get(&property_label) else {
+    let Some(widget_registration) = robot_property_widgets.get(&property_label) else {
         ui.label(format!("No {} kind registered.", property_label));
         return;
     };
@@ -504,7 +504,7 @@ pub fn check_for_missing_robot_property_kinds(
     for root in validate_events.read() {
         for (entity, description_name, robot) in robots.iter() {
             for (property, value) in robot.0.properties.iter() {
-                let Some(widget_registration) = robot_property_widgets.0.get(property) else {
+                let Some(widget_registration) = robot_property_widgets.get(property) else {
                     continue;
                 };
                 if widget_registration.kinds.is_empty() {

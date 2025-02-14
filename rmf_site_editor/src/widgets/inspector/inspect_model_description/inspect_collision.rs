@@ -113,8 +113,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectCollision<'w, 's> {
         );
 
         // Show children widgets
-        if let Some(widget_registration) = params.robot_property_widgets.0.get(&Collision::label())
-        {
+        if let Some(widget_registration) = params.robot_property_widgets.get(&Collision::label()) {
             let children_widgets: Result<SmallVec<[_; 16]>, _> = params
                 .children
                 .get(widget_registration.property_widget)
