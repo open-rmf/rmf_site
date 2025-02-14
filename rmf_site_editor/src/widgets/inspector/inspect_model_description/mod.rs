@@ -18,7 +18,7 @@
 use bevy::{
     ecs::{
         component::{ComponentId, ComponentInfo},
-        query::{ReadOnlyWorldQuery, WorldQuery},
+        query::WorldQuery,
         system::{EntityCommands, SystemParam},
     },
     prelude::*,
@@ -36,14 +36,8 @@ use crate::{
     MainInspector,
 };
 
-pub mod inspect_circle_collision;
-pub use inspect_circle_collision::*;
-
 pub mod inspect_collision;
 pub use inspect_collision::*;
-
-pub mod inspect_differential_drive;
-pub use inspect_differential_drive::*;
 
 pub mod inspect_mobility;
 pub use inspect_mobility::*;
@@ -360,12 +354,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelDescription<'w, 's> {
 /// and change its description
 #[derive(SystemParam)]
 pub struct InspectSelectedModelDescription<'w, 's> {
-    model_instances: Query<
-        'w,
-        's,
-        &'static Affiliation<Entity>,
-        (With<ModelMarker>, Without<Group>, With<NameInSite>),
-    >,
+    model_instances: ModelPropertyQuery<'w, 's, NameInSite>,
     model_descriptions: Query<
         'w,
         's,
@@ -429,16 +418,14 @@ impl<'w, 's> InspectSelectedModelDescription<'w, 's> {
     }
 }
 
+type ModelPropertyQuery<'w, 's, P> =
+    Query<'w, 's, &'static Affiliation<Entity>, (With<ModelMarker>, Without<Group>, With<P>)>;
+
 /// Helper function to get the corresponding description entity for a given model instance entity
 /// if it exists.
-fn get_selected_description_entity<'w, 's, S: ReadOnlyWorldQuery, T: WorldQuery>(
+fn get_selected_description_entity<'w, 's, P: Component, T: WorldQuery>(
     selection: Entity,
-    model_instances: &Query<
-        'w,
-        's,
-        &'static Affiliation<Entity>,
-        (With<ModelMarker>, Without<Group>, S),
-    >,
+    model_instances: &ModelPropertyQuery<'w, 's, P>,
     model_descriptions: &Query<'w, 's, T, (With<ModelMarker>, With<Group>)>,
 ) -> Option<Entity> {
     if model_descriptions.get(selection).ok().is_some() {
@@ -454,7 +441,6 @@ fn get_selected_description_entity<'w, 's, S: ReadOnlyWorldQuery, T: WorldQuery>
         if model_descriptions.get(affiliation).is_ok() {
             return Some(affiliation);
         } else {
-            warn!("Model instance is affiliated with a non-existent description");
             return None;
         }
     }

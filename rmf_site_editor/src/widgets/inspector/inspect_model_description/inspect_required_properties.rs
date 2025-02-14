@@ -15,11 +15,11 @@
  *
 */
 
-use super::get_selected_description_entity;
+use super::{get_selected_description_entity, ModelPropertyQuery};
 use crate::{
     site::{
-        Affiliation, AssetSource, Change, DefaultFile, Group, ModelLoader, ModelMarker,
-        ModelProperty, RecallAssetSource, Scale,
+        AssetSource, Change, DefaultFile, Group, ModelLoader, ModelMarker, ModelProperty,
+        RecallAssetSource, Scale,
     },
     widgets::{prelude::*, Inspect, InspectAssetSourceComponent, InspectScaleComponent},
     CurrentWorkspace,
@@ -28,12 +28,7 @@ use bevy::{ecs::system::SystemParam, prelude::*};
 
 #[derive(SystemParam)]
 pub struct InspectModelScale<'w, 's> {
-    model_instances: Query<
-        'w,
-        's,
-        &'static Affiliation<Entity>,
-        (With<ModelMarker>, Without<Group>, With<Scale>),
-    >,
+    model_instances: ModelPropertyQuery<'w, 's, Scale>,
     model_descriptions:
         Query<'w, 's, &'static ModelProperty<Scale>, (With<ModelMarker>, With<Group>)>,
     change_scale: EventWriter<'w, Change<ModelProperty<Scale>>>,
@@ -68,12 +63,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelScale<'w, 's> {
 
 #[derive(SystemParam)]
 pub struct InspectModelAssetSource<'w, 's> {
-    model_instances: Query<
-        'w,
-        's,
-        &'static Affiliation<Entity>,
-        (With<ModelMarker>, Without<Group>, With<AssetSource>),
-    >,
+    model_instances: ModelPropertyQuery<'w, 's, AssetSource>,
     model_descriptions:
         Query<'w, 's, &'static ModelProperty<AssetSource>, (With<ModelMarker>, With<Group>)>,
     change_asset_source: EventWriter<'w, Change<ModelProperty<AssetSource>>>,

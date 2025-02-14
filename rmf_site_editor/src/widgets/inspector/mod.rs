@@ -208,22 +208,32 @@ impl Plugin for StandardInspectorPlugin {
                 InspectModelDescriptionPlugin::default(),
                 InspectLiftPlugin::default(),
             ))
-            .add_plugins((
-                // Required model properties
-                InspectModelPropertyPlugin::<InspectModelScale, Scale>::new("Scale".to_string()),
-                InspectModelPropertyPlugin::<InspectModelAssetSource, AssetSource>::new(
-                    "Asset Source".to_string(),
+            .add_plugins(
+                (
+                    // Required model properties
+                    InspectModelPropertyPlugin::<InspectModelScale, Scale>::new(
+                        "Scale".to_string(),
+                    ),
+                    InspectModelPropertyPlugin::<InspectModelAssetSource, AssetSource>::new(
+                        "Asset Source".to_string(),
+                    ),
+                    InspectRobotPropertiesPlugin::default(),
+                    InspectRobotPropertyPlugin::<InspectMobility, Mobility>::new(),
+                    InspectRobotPropertyPlugin::<InspectCollision, Collision>::new(),
+                    InspectRobotPropertyKindPlugin::<
+                        InspectDifferentialDrive,
+                        DifferentialDrive,
+                        Mobility,
+                    >::new(),
+                    InspectRobotPropertyKindPlugin::<
+                        InspectCircleCollision,
+                        CircleCollision,
+                        Collision,
+                    >::new(),
+                    InspectTaskPlugin::default(),
+                    InspectDefaultTasksPlugin::default(),
                 ),
-                // Robot properties
-                InspectRobotPropertiesPlugin::default(),
-                InspectRobotPropertyPlugin::<InspectMobility, Mobility>::new(),
-                InspectRobotPropertyPlugin::<InspectCollision, Collision>::new(),
-                // Robot property kinds
-                InspectDifferentialDrivePlugin::default(),
-                InspectCircleCollisionPlugin::default(),
-                InspectTaskPlugin::default(),
-                InspectDefaultTasksPlugin::default(),
-            ));
+            );
     }
 }
 
