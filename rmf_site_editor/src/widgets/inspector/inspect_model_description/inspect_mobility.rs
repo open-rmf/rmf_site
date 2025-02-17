@@ -18,8 +18,8 @@
 use super::{
     get_selected_description_entity,
     inspect_robot_properties::{
-        serialize_and_change_robot_property, show_robot_property_widget, RobotProperty,
-        RobotPropertyKind, RobotPropertyWidgetRegistry,
+        serialize_and_change_robot_property, show_robot_property_widget, RecallPropertyKind,
+        RobotProperty, RobotPropertyKind, RobotPropertyWidgetRegistry,
     },
     ModelPropertyQuery,
 };
@@ -185,6 +185,38 @@ impl Default for DifferentialDrive {
 impl RobotPropertyKind for DifferentialDrive {
     fn label() -> String {
         "Differential Drive".to_string()
+    }
+}
+
+#[derive(Clone, Debug, Default, Component, PartialEq)]
+pub struct RecallDifferentialDrive {
+    pub bidirectional: Option<bool>,
+    pub rotation_center_offset: Option<[f32; 2]>,
+    pub translational_speed: Option<f32>,
+    pub rotational_speed: Option<f32>,
+}
+
+impl RecallPropertyKind for RecallDifferentialDrive {
+    type Kind = DifferentialDrive;
+
+    fn assume(&self) -> DifferentialDrive {
+        DifferentialDrive {
+            bidirectional: self.bidirectional.clone().unwrap_or_default(),
+            rotation_center_offset: self.rotation_center_offset.clone().unwrap_or_default(),
+            translational_speed: self.translational_speed.clone().unwrap_or_default(),
+            rotational_speed: self.rotational_speed.clone().unwrap_or_default(),
+        }
+    }
+}
+
+impl Recall for RecallDifferentialDrive {
+    type Source = DifferentialDrive;
+
+    fn remember(&mut self, source: &DifferentialDrive) {
+        self.bidirectional = Some(source.bidirectional);
+        self.rotation_center_offset = Some(source.rotation_center_offset);
+        self.translational_speed = Some(source.translational_speed);
+        self.rotational_speed = Some(source.rotational_speed);
     }
 }
 

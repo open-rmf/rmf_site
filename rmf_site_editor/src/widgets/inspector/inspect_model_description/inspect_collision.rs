@@ -18,8 +18,8 @@
 use super::{
     get_selected_description_entity,
     inspect_robot_properties::{
-        serialize_and_change_robot_property, show_robot_property_widget, RobotProperty,
-        RobotPropertyKind, RobotPropertyWidgetRegistry,
+        serialize_and_change_robot_property, show_robot_property_widget, RecallPropertyKind,
+        RobotProperty, RobotPropertyKind, RobotPropertyWidgetRegistry,
     },
     ModelPropertyQuery,
 };
@@ -181,6 +181,32 @@ impl Default for CircleCollision {
 impl RobotPropertyKind for CircleCollision {
     fn label() -> String {
         "Circle Collision".to_string()
+    }
+}
+
+#[derive(Clone, Debug, Default, Component, PartialEq)]
+pub struct RecallCircleCollision {
+    pub radius: Option<f32>,
+    pub offset: Option<[f32; 2]>,
+}
+
+impl RecallPropertyKind for RecallCircleCollision {
+    type Kind = CircleCollision;
+
+    fn assume(&self) -> CircleCollision {
+        CircleCollision {
+            radius: self.radius.clone().unwrap_or_default(),
+            offset: self.offset.clone().unwrap_or_default(),
+        }
+    }
+}
+
+impl Recall for RecallCircleCollision {
+    type Source = CircleCollision;
+
+    fn remember(&mut self, source: &CircleCollision) {
+        self.radius = Some(source.radius);
+        self.offset = Some(source.offset);
     }
 }
 

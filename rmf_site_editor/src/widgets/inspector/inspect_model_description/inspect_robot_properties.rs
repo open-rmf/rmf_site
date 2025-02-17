@@ -190,6 +190,11 @@ pub trait RobotPropertyKind:
     fn label() -> String;
 }
 
+pub trait RecallPropertyKind: Recall + Default + Component {
+    type Kind: RobotPropertyKind;
+    fn assume(&self) -> Self::Kind;
+}
+
 /// Implement this plugin to add a new configurable robot property of type T to the
 /// robot properties inspector.
 pub struct InspectRobotPropertyPlugin<W, Property, RecallProperty>
@@ -247,20 +252,24 @@ where
 
 /// Implement this plugin to add a new configurable robot property kind of type T to the
 /// robot properties inspector.
-pub struct InspectRobotPropertyKindPlugin<W, Kind, Property>
+pub struct InspectRobotPropertyKindPlugin<W, Kind, Property, RecallKind>
 where
     W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
     Kind: RobotPropertyKind,
     Property: RobotProperty,
+    RecallKind: RecallPropertyKind,
+    RecallKind::Source: RobotPropertyKind,
 {
-    _ignore: std::marker::PhantomData<(W, Kind, Property)>,
+    _ignore: std::marker::PhantomData<(W, Kind, Property, RecallKind)>,
 }
 
-impl<W, Kind, Property> InspectRobotPropertyKindPlugin<W, Kind, Property>
+impl<W, Kind, Property, RecallKind> InspectRobotPropertyKindPlugin<W, Kind, Property, RecallKind>
 where
     W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
     Kind: RobotPropertyKind,
     Property: RobotProperty,
+    RecallKind: RecallPropertyKind,
+    RecallKind::Source: RobotPropertyKind,
 {
     pub fn new() -> Self {
         Self {
@@ -269,11 +278,14 @@ where
     }
 }
 
-impl<W, Kind, Property> Plugin for InspectRobotPropertyKindPlugin<W, Kind, Property>
+impl<W, Kind, Property, RecallKind> Plugin
+    for InspectRobotPropertyKindPlugin<W, Kind, Property, RecallKind>
 where
     W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
     Kind: RobotPropertyKind,
     Property: RobotProperty,
+    RecallKind: RecallPropertyKind,
+    RecallKind::Source: RobotPropertyKind,
 {
     fn build(&self, app: &mut App) {
         let property_label = Property::label();
@@ -302,8 +314,9 @@ where
             });
         app.add_systems(
             PreUpdate,
-            update_robot_property_kind_components::<Kind, Property>,
-        );
+            update_robot_property_kind_components::<Kind, Property, RecallKind>,
+        )
+        .add_plugins(RecallPlugin::<RecallKind>::default());
     }
 }
 
@@ -365,9 +378,14 @@ pub fn update_robot_property_components<T: RobotProperty>(
 }
 
 /// This system inserts or removes robot property kind components when a robot property is updated
-pub fn update_robot_property_kind_components<Kind: RobotPropertyKind, Property: RobotProperty>(
+pub fn update_robot_property_kind_components<
+    Kind: RobotPropertyKind,
+    Property: RobotProperty,
+    RecallKind: RecallPropertyKind,
+>(
     mut commands: Commands,
     mut update_robot_property_kinds: EventReader<UpdateRobotPropertyKinds>,
+    recall_kind: Query<&RecallKind, (With<ModelMarker>, With<Group>)>,
 ) {
     for update in update_robot_property_kinds.read() {
         let property_label = Property::label();
@@ -387,7 +405,14 @@ pub fn update_robot_property_kind_components<Kind: RobotPropertyKind, Property: 
                     .and_then(|config| serde_json::from_value::<Kind>(config.clone()).ok())
                 {
                     Some(property_kind) => {
-                        commands.entity(update.entity).insert(property_kind);
+                        if property_kind == Kind::default()
+                            && recall_kind.get(update.entity).is_ok()
+                        {
+                            let recall = recall_kind.get(update.entity).unwrap();
+                            commands.entity(update.entity).insert(recall.assume());
+                        } else {
+                            commands.entity(update.entity).insert(property_kind);
+                        }
                     }
                     None => {
                         commands.entity(update.entity).insert(Kind::default());
