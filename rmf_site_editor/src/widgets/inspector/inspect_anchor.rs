@@ -150,7 +150,6 @@ fn impl_inspect_anchor(
                     ui.add(DragValue::new(&mut y).speed(0.01));
 
                     if x != tf.translation.x || y != tf.translation.y {
-                        {}
                         params.move_to.send(MoveTo {
                             entity: id,
                             transform: Transform::from_translation([x, y, 0.0].into()),
