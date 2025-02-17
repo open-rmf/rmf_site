@@ -27,6 +27,9 @@ pub use inspect_angle::*;
 pub mod inspect_asset_source;
 pub use inspect_asset_source::*;
 
+pub mod inspect_default_tasks;
+pub use inspect_default_tasks::*;
+
 pub mod inspect_door;
 pub use inspect_door::*;
 
@@ -195,7 +198,6 @@ impl Plugin for StandardInspectorPlugin {
             ))
             .add_plugins((
                 InspectionPlugin::<InspectScale>::new(),
-                InspectTaskPlugin::default(),
                 InspectionPlugin::<InspectLight>::new(),
                 InspectionPlugin::<InspectDoor>::new(),
                 InspectionPlugin::<InspectPrimitiveShape>::new(),
@@ -206,15 +208,33 @@ impl Plugin for StandardInspectorPlugin {
                 InspectModelDescriptionPlugin::default(),
                 InspectLiftPlugin::default(),
             ))
-            .add_plugins((
-                InspectModelPropertyPlugin::<InspectModelScale, Scale>::new("Scale".to_string()),
-                InspectModelPropertyPlugin::<InspectModelAssetSource, AssetSource>::new(
-                    "Source".to_string(),
+            .add_plugins(
+                (
+                    // Required model properties
+                    InspectModelPropertyPlugin::<InspectModelScale, Scale>::new(
+                        "Scale".to_string(),
+                    ),
+                    InspectModelPropertyPlugin::<InspectModelAssetSource, AssetSource>::new(
+                        "Asset Source".to_string(),
+                    ),
+                    InspectRobotPropertiesPlugin::default(),
+                    InspectRobotPropertyPlugin::<InspectMobility, Mobility, RecallMobility>::new(),
+                    InspectRobotPropertyPlugin::<InspectCollision, Collision, RecallCollision>::new(
+                    ),
+                    InspectRobotPropertyKindPlugin::<
+                        InspectDifferentialDrive,
+                        DifferentialDrive,
+                        Mobility,
+                    >::new(),
+                    InspectRobotPropertyKindPlugin::<
+                        InspectCircleCollision,
+                        CircleCollision,
+                        Collision,
+                    >::new(),
+                    InspectTaskPlugin::default(),
+                    InspectDefaultTasksPlugin::default(),
                 ),
-                InspectModelPropertyPlugin::<InspectModelDifferentialDrive, DifferentialDrive>::new(
-                    "Differential Drive".to_string(),
-                ),
-            ));
+            );
     }
 }
 

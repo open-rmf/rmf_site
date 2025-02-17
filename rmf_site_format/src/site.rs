@@ -144,10 +144,16 @@ pub struct Site {
     pub scenarios: BTreeMap<u32, ScenarioBundle<u32>>,
     /// Model descriptions available in this site
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub model_descriptions: BTreeMap<u32, ModelDescriptionBundle<u32>>,
+    pub model_descriptions: BTreeMap<u32, ModelDescriptionBundle>,
+    /// Robots available in this site
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub robots: BTreeMap<u32, Robot>,
     /// Model instances that exist in the site
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub model_instances: BTreeMap<u32, Parented<u32, ModelInstance<u32>>>,
+    /// Tasks available in this site
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub tasks: BTreeMap<u32, Tasks>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -164,12 +170,24 @@ fn default_style_config() -> Style {
 }
 
 impl Site {
-    pub fn to_writer_ron<W: io::Write>(&self, writer: W) -> ron::Result<()> {
-        ron::ser::to_writer_pretty(writer, self, default_style_config())
+    pub fn to_writer_ron<W: io::Write>(&self, mut writer: W) -> ron::Result<()> {
+        let mut contents = String::new();
+        ron::ser::to_writer_pretty(&mut contents, self, default_style_config())?;
+        writer
+            .write_all(contents.as_bytes())
+            .map_err(ron::Error::from)
     }
 
-    pub fn to_writer_custom_ron<W: io::Write>(&self, writer: W, style: Style) -> ron::Result<()> {
-        ron::ser::to_writer_pretty(writer, self, style)
+    pub fn to_writer_custom_ron<W: io::Write>(
+        &self,
+        mut writer: W,
+        style: Style,
+    ) -> ron::Result<()> {
+        let mut contents = String::new();
+        ron::ser::to_writer_pretty(&mut contents, self, style)?;
+        writer
+            .write_all(contents.as_bytes())
+            .map_err(ron::Error::from)
     }
 
     pub fn to_string_ron(&self) -> ron::Result<String> {
@@ -200,6 +218,18 @@ impl Site {
 
     pub fn to_bytes_json(&self) -> serde_json::Result<Vec<u8>> {
         serde_json::to_vec_pretty(self)
+    }
+
+    pub fn to_bytes_json_pretty(&self) -> serde_json::Result<Vec<u8>> {
+        serde_json::to_vec(self)
+    }
+
+    pub fn to_string_json(&self) -> serde_json::Result<String> {
+        serde_json::to_string(self)
+    }
+
+    pub fn to_string_json_pretty(&self) -> serde_json::Result<String> {
+        serde_json::to_string_pretty(self)
     }
 
     pub fn from_bytes_ron<'a>(s: &'a [u8]) -> ron::error::SpannedResult<Self> {
@@ -248,6 +278,7 @@ mod tests {
         let data = std::fs::read("../assets/demo_maps/office.building.yaml").unwrap();
         let map = BuildingMap::from_bytes(&data).unwrap();
         let site_string = map.to_site().unwrap().to_string_ron().unwrap();
+        println!("{site_string}");
         Site::from_str_ron(&site_string).unwrap();
     }
 
@@ -257,5 +288,13 @@ mod tests {
         let map = BuildingMap::from_bytes(&data).unwrap();
         let site_string = map.to_site().unwrap().to_bytes_json().unwrap();
         Site::from_bytes_json(&site_string).unwrap();
+    }
+
+    #[test]
+    fn produce_json_string() {
+        let data = std::fs::read("../assets/demo_maps/office.building.yaml").unwrap();
+        let map = BuildingMap::from_bytes(&data).unwrap();
+        let text = map.to_site().unwrap().to_string_json_pretty().unwrap();
+        println!("{text}");
     }
 }

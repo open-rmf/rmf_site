@@ -248,15 +248,14 @@ impl<'w, 's> Creation<'w, 's> {
                                 };
                                 if ui.button(add_icon).clicked() {
                                     if let Some(site_entity) = self.current_workspace.root {
-                                        let model_description_bundle: ModelDescriptionBundle<
-                                            Entity,
-                                        > = ModelDescriptionBundle {
-                                            name: NameInSite(pending_model.name.clone()),
-                                            source: ModelProperty(pending_model.source.clone()),
-                                            is_static: ModelProperty(IsStatic::default()),
-                                            scale: ModelProperty(pending_model.scale.clone()),
-                                            ..Default::default()
-                                        };
+                                        let model_description_bundle: ModelDescriptionBundle =
+                                            ModelDescriptionBundle {
+                                                name: NameInSite(pending_model.name.clone()),
+                                                source: ModelProperty(pending_model.source.clone()),
+                                                is_static: ModelProperty(IsStatic::default()),
+                                                scale: ModelProperty(pending_model.scale.clone()),
+                                                ..Default::default()
+                                            };
                                         let description_entity = self
                                             .commands
                                             .spawn(model_description_bundle)

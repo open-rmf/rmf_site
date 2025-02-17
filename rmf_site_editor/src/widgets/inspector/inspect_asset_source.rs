@@ -137,6 +137,8 @@ impl<'a> InspectAssetSourceComponent<'a> {
                 ui.text_edit_singleline(path);
             }
         }
+        ui.add_space(10.0);
+
         if &new_source != self.source {
             Some(new_source)
         } else {
