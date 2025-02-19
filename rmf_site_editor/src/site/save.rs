@@ -1200,7 +1200,7 @@ fn migrate_relative_paths(
 fn generate_model_descriptions(
     site: Entity,
     world: &mut World,
-) -> Result<BTreeMap<u32, ModelDescriptionBundle<u32>>, SiteGenerationError> {
+) -> Result<BTreeMap<u32, ModelDescriptionBundle>, SiteGenerationError> {
     let mut state: SystemState<(
         Query<
             (
@@ -1213,34 +1213,45 @@ fn generate_model_descriptions(
             (With<ModelMarker>, With<Group>, Without<Pending>),
         >,
         Query<&Children>,
-        // Optional model properties
-        Query<&ModelProperty<DifferentialDrive>>,
-        Query<&ModelProperty<MobileRobotMarker>>,
     )> = SystemState::new(world);
-    let (model_descriptions, children, differential_drive, robot_marker) = state.get(world);
+    let (model_descriptions, children) = state.get(world);
 
-    let mut res = BTreeMap::<u32, ModelDescriptionBundle<u32>>::new();
+    let mut res = BTreeMap::<u32, ModelDescriptionBundle>::new();
     if let Ok(children) = children.get(site) {
         for child in children.iter() {
             if let Ok((site_id, name, source, is_static, scale)) = model_descriptions.get(*child) {
-                let mut desc_bundle = ModelDescriptionBundle {
+                let desc_bundle = ModelDescriptionBundle {
                     name: name.clone(),
                     source: source.clone(),
                     is_static: is_static.clone(),
                     scale: scale.clone(),
                     ..Default::default()
                 };
-                if let Ok(diff_drive) = differential_drive.get(*child) {
-                    desc_bundle.optional_properties.0.push(
-                        OptionalModelProperty::DifferentialDrive(diff_drive.0.clone()),
-                    );
-                };
-                if let Ok(mobile_robot) = robot_marker.get(*child) {
-                    desc_bundle.optional_properties.0.push(
-                        OptionalModelProperty::MobileRobotMarker(mobile_robot.0.clone()),
-                    );
-                };
                 res.insert(site_id.0, desc_bundle);
+            }
+        }
+    }
+    Ok(res)
+}
+
+fn generate_robots(
+    site: Entity,
+    world: &mut World,
+) -> Result<BTreeMap<u32, Robot>, SiteGenerationError> {
+    let mut state: SystemState<(
+        Query<(&SiteID, &ModelProperty<Robot>), (With<ModelMarker>, With<Group>, Without<Pending>)>,
+        Query<&Children>,
+    )> = SystemState::new(world);
+    let (robots, children) = state.get(world);
+
+    let mut res = BTreeMap::<u32, Robot>::new();
+    if let Ok(children) = children.get(site) {
+        for child in children.iter() {
+            if let Ok((site_id, robot_property)) = robots.get(*child) {
+                let mut robot = robot_property.0.clone();
+                // Remove any invalid properties
+                robot.properties.retain(|k, _| !k.is_empty());
+                res.insert(site_id.0, robot);
             }
         }
     }
@@ -1258,13 +1269,9 @@ fn generate_model_instances(
             (With<ModelMarker>, Without<Group>, Without<Pending>),
         >,
         Query<(Entity, &SiteID), With<LevelElevation>>,
-        Query<(&Point<Entity>, &SiteID), (With<LocationTags>, Without<Pending>)>,
-        Query<&Children>,
         Query<&Parent>,
-        Query<&Tasks<Entity>, (With<MobileRobotMarker>, Without<Group>)>,
     )> = SystemState::new(world);
-    let (model_descriptions, model_instances, levels, locations, _, parents, tasks) =
-        state.get(world);
+    let (model_descriptions, model_instances, levels, parents) = state.get(world);
 
     let mut site_levels_ids = std::collections::HashMap::<Entity, u32>::new();
     for (level_entity, site_id) in levels.iter() {
@@ -1285,7 +1292,7 @@ fn generate_model_instances(
             error!("Unable to find parent for instance [{}]", instance_name.0);
             continue;
         };
-        let mut model_instance = ModelInstance::<u32> {
+        let model_instance = ModelInstance::<u32> {
             name: instance_name.clone(),
             pose: instance_pose.clone(),
             description: Affiliation(
@@ -1296,30 +1303,6 @@ fn generate_model_instances(
             ),
             ..Default::default()
         };
-        if let Ok(robot_tasks) = tasks.get(instance_entity) {
-            let tasks: Vec<Task<u32>> = robot_tasks
-                .0
-                .clone()
-                .iter()
-                .map(|task| match task {
-                    Task::GoToPlace(go_to_place) => locations
-                        .get(go_to_place.location.unwrap().0)
-                        .map(|(_, location_id)| {
-                            Task::GoToPlace(GoToPlace {
-                                location: Some(Point(location_id.0)),
-                            })
-                        })
-                        .unwrap(),
-                    Task::WaitFor(wait_for) => Task::WaitFor(WaitFor {
-                        duration: wait_for.duration.clone(),
-                    }),
-                })
-                .collect::<Vec<Task<u32>>>();
-            model_instance
-                .optional_properties
-                .0
-                .push(OptionalModelProperty::Tasks(Tasks(tasks.clone())));
-        }
         res.insert(
             instance_id.0,
             Parented {
@@ -1393,6 +1376,34 @@ fn generate_scenarios(
     Ok(res)
 }
 
+fn generate_tasks(
+    site: Entity,
+    world: &mut World,
+) -> Result<BTreeMap<u32, Tasks>, SiteGenerationError> {
+    let mut state: SystemState<(
+        Query<(&SiteID, &Tasks), (With<ModelMarker>, Without<Group>, Without<Pending>)>,
+        Query<(Entity, &SiteID), With<LevelElevation>>,
+        Query<&Children>,
+        Query<&Parent>,
+    )> = SystemState::new(world);
+    let (tasks, levels, children, parents) = state.get(world);
+    let mut res = BTreeMap::<u32, Tasks>::new();
+    for (level_entity, _) in levels.iter() {
+        if !parents.get(level_entity).is_ok_and(|p| p.get() == site) {
+            continue;
+        }
+        let Ok(children) = children.get(level_entity) else {
+            continue;
+        };
+        for child in children.iter() {
+            if let Ok((site_id, tasks_data)) = tasks.get(*child) {
+                res.insert(site_id.0, tasks_data.clone());
+            }
+        }
+    }
+    Ok(res)
+}
+
 pub fn generate_site(
     world: &mut World,
     site: Entity,
@@ -1412,8 +1423,10 @@ pub fn generate_site(
     let graph_ranking = generate_graph_rankings(world, site)?;
     let properties = generate_site_properties(world, site)?;
     let model_descriptions = generate_model_descriptions(site, world)?;
+    let robots = generate_robots(site, world)?;
     let model_instances = generate_model_instances(site, world)?;
     let scenarios = generate_scenarios(site, world)?;
+    let tasks = generate_tasks(site, world)?;
 
     disassemble_edited_drawing(world);
     return Ok(Site {
@@ -1436,8 +1449,10 @@ pub fn generate_site(
         // TODO(MXG): Parse agent information once the spec is figured out
         agents: Default::default(),
         model_descriptions,
+        robots,
         model_instances,
         scenarios,
+        tasks,
     });
 }
 

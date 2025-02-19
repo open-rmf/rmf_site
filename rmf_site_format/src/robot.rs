@@ -16,32 +16,20 @@
 */
 
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Component, Reflect, ReflectComponent};
+use bevy::prelude::Component;
 use serde::{Deserialize, Serialize};
-
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
-#[cfg_attr(feature = "bevy", reflect(Component))]
-pub struct MobileRobotMarker;
+use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
-pub struct DifferentialDrive {
-    pub translational_speed: f32,
-    pub rotational_speed: f32,
-    pub bidirectional: bool,
-    pub collision_radius: f32,
-    pub rotation_center_offset: [f32; 2],
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct Robot {
+    pub properties: HashMap<String, serde_json::Value>,
 }
 
-impl Default for DifferentialDrive {
+impl Default for Robot {
     fn default() -> Self {
         Self {
-            translational_speed: 0.5,
-            rotational_speed: 1.0,
-            bidirectional: false,
-            collision_radius: 0.5,
-            rotation_center_offset: [0.0, 0.0],
+            properties: HashMap::new(),
         }
     }
 }

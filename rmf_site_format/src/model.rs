@@ -64,67 +64,10 @@ impl Default for Model {
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
 pub struct ModelProperty<T: Default + Clone>(pub T);
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub enum OptionalModelProperty<T: RefTrait> {
-    DifferentialDrive(DifferentialDrive),
-    MobileRobotMarker(MobileRobotMarker),
-    Tasks(Tasks<T>),
-}
-
-impl<T: RefTrait> Default for OptionalModelProperty<T> {
-    fn default() -> Self {
-        OptionalModelProperty::DifferentialDrive(DifferentialDrive::default())
-    }
-}
-
-impl<T: RefTrait> OptionalModelProperty<T> {
-    pub fn convert<U: RefTrait>(
-        &self,
-        id_map: &HashMap<T, U>,
-    ) -> Result<OptionalModelProperty<U>, T> {
-        let result = match self {
-            Self::DifferentialDrive(diff_drive) => {
-                OptionalModelProperty::DifferentialDrive(diff_drive.clone())
-            }
-            Self::MobileRobotMarker(mobile_marker) => {
-                OptionalModelProperty::MobileRobotMarker(mobile_marker.clone())
-            }
-            Self::Tasks(tasks) => OptionalModelProperty::Tasks(tasks.convert(id_map)?),
-        };
-        Ok(result)
-    }
-}
-
-/// Defines a property in a model description, that will be added to all instances
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub struct OptionalModelProperties<T: RefTrait>(pub Vec<OptionalModelProperty<T>>);
-
-impl<T: RefTrait> Default for OptionalModelProperties<T> {
-    fn default() -> Self {
-        Self(Vec::new())
-    }
-}
-
-impl<T: RefTrait> OptionalModelProperties<T> {
-    pub fn convert<U: RefTrait>(
-        &self,
-        id_map: &HashMap<T, U>,
-    ) -> Result<OptionalModelProperties<U>, T> {
-        self.0.iter().try_fold(
-            OptionalModelProperties::default(),
-            |mut optional_properties, property| {
-                optional_properties.0.push(property.convert(id_map)?);
-                Ok(optional_properties)
-            },
-        )
-    }
-}
-
 /// Bundle with all required components for a valid model description
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
-pub struct ModelDescriptionBundle<T: RefTrait> {
+pub struct ModelDescriptionBundle {
     pub name: NameInSite,
     pub source: ModelProperty<AssetSource>,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -135,10 +78,9 @@ pub struct ModelDescriptionBundle<T: RefTrait> {
     pub group: Group,
     #[serde(skip)]
     pub marker: ModelMarker,
-    pub optional_properties: OptionalModelProperties<T>,
 }
 
-impl<T: RefTrait> Default for ModelDescriptionBundle<T> {
+impl Default for ModelDescriptionBundle {
     fn default() -> Self {
         Self {
             name: NameInSite("<Unnamed>".to_string()),
@@ -147,7 +89,6 @@ impl<T: RefTrait> Default for ModelDescriptionBundle<T> {
             scale: ModelProperty(Scale::default()),
             group: Group,
             marker: ModelMarker,
-            optional_properties: OptionalModelProperties::default(),
         }
     }
 }
@@ -163,7 +104,6 @@ pub struct ModelInstance<T: RefTrait> {
     pub marker: ModelMarker,
     #[serde(skip)]
     pub instance_marker: InstanceMarker,
-    pub optional_properties: OptionalModelProperties<T>,
 }
 
 impl<T: RefTrait> Default for ModelInstance<T> {
@@ -174,7 +114,6 @@ impl<T: RefTrait> Default for ModelInstance<T> {
             description: Affiliation::default(),
             marker: ModelMarker,
             instance_marker: InstanceMarker,
-            optional_properties: OptionalModelProperties::default(),
         }
     }
 }
@@ -185,7 +124,6 @@ impl<T: RefTrait> ModelInstance<T> {
             name: self.name.clone(),
             pose: self.pose.clone(),
             description: self.description.convert(id_map)?,
-            optional_properties: self.optional_properties.convert(id_map)?,
             ..Default::default()
         })
     }

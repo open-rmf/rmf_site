@@ -870,6 +870,6 @@ mod tests {
             ..Default::default()
         };
         let s = yaserde::ser::to_string_with_config(&sdf, &config).unwrap();
-        std::fs::write("test.sdf", s);
+        std::fs::write("test.sdf", s).unwrap();
     }
 }
