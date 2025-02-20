@@ -118,6 +118,7 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
         Query<Entity, (With<ModelMarker>, With<Group>)>,
         Query<Entity, (With<ModelMarker>, Without<Group>, Without<Preview>)>,
         Query<Entity, With<ScenarioMarker>>,
+        Query<Entity, (With<Task>, Without<Pending>)>,
         Query<
             Entity,
             (
@@ -152,6 +153,7 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
         model_descriptions,
         model_instances,
         scenarios,
+        tasks,
         nav_graph_elements,
         levels,
         lifts,
@@ -228,6 +230,12 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
                         queue.push(*child);
                     }
                 }
+            }
+        }
+
+        if let Ok(task) = tasks.get(*site_child) {
+            if !site_ids.contains(task) {
+                new_entities.push(task);
             }
         }
 
@@ -1321,9 +1329,10 @@ fn generate_scenarios(
     let mut state: SystemState<(
         Query<(Entity, &NameInSite, &SiteID, &Scenario<Entity>), With<ScenarioMarker>>,
         Query<&SiteID, With<InstanceMarker>>,
+        Query<&SiteID, (With<Task>, Without<Pending>)>,
         Query<&Children>,
     )> = SystemState::new(world);
-    let (scenarios, instances, children) = state.get(world);
+    let (scenarios, instances, tasks, children) = state.get(world);
     let mut res = BTreeMap::<u32, ScenarioBundle<u32>>::new();
 
     if let Ok(site_children) = children.get(site) {
@@ -1372,6 +1381,16 @@ fn generate_scenarios(
                                         .iter()
                                         .map(|entity| instances.get(*entity).unwrap().0)
                                         .collect(),
+                                    added_tasks: scenario
+                                        .added_tasks
+                                        .iter()
+                                        .map(|entity| tasks.get(*entity).unwrap().0)
+                                        .collect(),
+                                    removed_tasks: scenario
+                                        .removed_tasks
+                                        .iter()
+                                        .map(|entity| tasks.get(*entity).unwrap().0)
+                                        .collect(),
                                 },
                                 marker: ScenarioMarker,
                             },
@@ -1388,25 +1407,15 @@ fn generate_scenarios(
 fn generate_tasks(
     site: Entity,
     world: &mut World,
-) -> Result<BTreeMap<u32, Tasks>, SiteGenerationError> {
-    let mut state: SystemState<(
-        Query<(&SiteID, &Tasks), (With<ModelMarker>, Without<Group>, Without<Pending>)>,
-        Query<(Entity, &SiteID), With<LevelElevation>>,
-        Query<&Children>,
-        Query<&Parent>,
-    )> = SystemState::new(world);
-    let (tasks, levels, children, parents) = state.get(world);
-    let mut res = BTreeMap::<u32, Tasks>::new();
-    for (level_entity, _) in levels.iter() {
-        if !parents.get(level_entity).is_ok_and(|p| p.get() == site) {
-            continue;
-        }
-        let Ok(children) = children.get(level_entity) else {
-            continue;
-        };
+) -> Result<BTreeMap<u32, Task>, SiteGenerationError> {
+    let mut state: SystemState<(Query<(&SiteID, &Task), Without<Pending>>, Query<&Children>)> =
+        SystemState::new(world);
+    let (tasks, children) = state.get(world);
+    let mut res = BTreeMap::<u32, Task>::new();
+    if let Ok(children) = children.get(site) {
         for child in children.iter() {
-            if let Ok((site_id, tasks_data)) = tasks.get(*child) {
-                res.insert(site_id.0, tasks_data.clone());
+            if let Ok((site_id, task)) = tasks.get(*child) {
+                res.insert(site_id.0, task.clone());
             }
         }
     }

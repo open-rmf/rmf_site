@@ -38,6 +38,8 @@ pub struct Scenario<T: RefTrait> {
     pub added_instances: Vec<(T, Pose)>,
     pub removed_instances: Vec<T>,
     pub moved_instances: Vec<(T, Pose)>,
+    pub added_tasks: Vec<T>,
+    pub removed_tasks: Vec<T>,
 }
 
 impl<T: RefTrait> Scenario<T> {
@@ -47,6 +49,8 @@ impl<T: RefTrait> Scenario<T> {
             added_instances: Vec::new(),
             removed_instances: Vec::new(),
             moved_instances: Vec::new(),
+            added_tasks: Vec::new(),
+            removed_tasks: Vec::new(),
         }
     }
 }
@@ -59,6 +63,8 @@ impl<T: RefTrait> Default for Scenario<T> {
             added_instances: Vec::new(),
             removed_instances: Vec::new(),
             moved_instances: Vec::new(),
+            added_tasks: Vec::new(),
+            removed_tasks: Vec::new(),
         }
     }
 }
@@ -91,6 +97,18 @@ impl<T: RefTrait> Scenario<T> {
                     Ok((converted_id, pose))
                 })
                 .collect::<Result<_, _>>()?,
+            added_tasks: self
+                .added_tasks
+                .clone()
+                .into_iter()
+                .map(|id| id_map.get(&id).cloned().ok_or(id))
+                .collect::<Result<_, _>>()?,
+            removed_tasks: self
+                .removed_tasks
+                .clone()
+                .into_iter()
+                .map(|id| id_map.get(&id).cloned().ok_or(id))
+                .collect::<Result<_, _>>()?,
         })
     }
 }
@@ -112,6 +130,8 @@ impl<T: RefTrait> ScenarioBundle<T> {
                 added_instances: Vec::new(),
                 removed_instances: Vec::new(),
                 moved_instances: Vec::new(),
+                added_tasks: Vec::new(),
+                removed_tasks: Vec::new(),
             },
             marker: ScenarioMarker,
         }
