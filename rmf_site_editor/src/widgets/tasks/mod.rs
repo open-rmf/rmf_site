@@ -16,7 +16,7 @@
 */
 use crate::{
     site::{
-        Category, CurrentScenario, DispatchTaskRequest, Group, NameInSite, Pending, Robot,
+        Category, CurrentScenario, Delete, DispatchTaskRequest, Group, NameInSite, Pending, Robot,
         RobotTaskRequest, Scenario, ScenarioMarker, Task,
     },
     widgets::prelude::*,
@@ -110,6 +110,7 @@ pub struct ViewTasks<'w, 's> {
     commands: Commands<'w, 's>,
     current_scenario: ResMut<'w, CurrentScenario>,
     current_workspace: Res<'w, CurrentWorkspace>,
+    delete: EventWriter<'w, Delete>,
     edit_task: ResMut<'w, EditTask>,
     pending_tasks: Query<'w, 's, (Entity, &'static mut Task), With<Pending>>,
     robots: Query<'w, 's, (Entity, &'static NameInSite), (With<Robot>, Without<Group>)>,
@@ -173,11 +174,12 @@ impl<'w, 's> ViewTasks<'w, 's> {
 
                 let mut id: usize = 0;
                 for (task_entity, task) in self.tasks.iter() {
-                    // Do not show if not in current scenario
-                    if !scenario.added_tasks.contains(&task_entity) {
-                        continue;
-                    }
-                    if show_task(ui, task_entity, &task, &mut scenario, &mut id) {
+                    let present = scenario.tasks.contains(&task_entity);
+                    let (edit, delete) =
+                        show_task(ui, task_entity, &task, &mut scenario, &mut id, present);
+                    if delete {
+                        self.delete.send(Delete::new(task_entity));
+                    } else if edit {
                         edit_existing_task = Some(task_entity);
                     }
                 }
@@ -202,14 +204,14 @@ impl<'w, 's> ViewTasks<'w, 's> {
                             cancel_task = true;
                         }
                         ui.add_enabled_ui(pending_task.is_valid(), |ui| {
-                            // TODO(@xiyuoh) Also check validity of actual task (e.g. GoToPlace)
+                            // TODO(@xiyuoh) Also check validity of TaskKind (e.g. GoToPlace)
                             if ui
                                 .button("Add Task")
                                 .on_hover_text("Add this task to the current scenario")
                                 .clicked()
                             {
                                 self.commands.entity(task_entity).remove::<Pending>();
-                                scenario.added_tasks.push(task_entity);
+                                scenario.tasks.insert(task_entity);
                                 self.edit_task.0 = None;
                                 return;
                             }
@@ -285,12 +287,19 @@ fn show_task(
     task: &Task,
     scenario: &mut Scenario<Entity>,
     id: &mut usize,
-) -> bool {
+    present: bool,
+) -> (bool, bool) {
     let mut edit_task = false;
-    let mut remove_task = false;
+    let mut delete_task = false;
+    let mut include_task = present.clone();
+    let color = if present {
+        Color32::DARK_GRAY
+    } else {
+        Color32::BLACK
+    };
     Frame::default()
         .inner_margin(4.0)
-        .fill(Color32::DARK_GRAY)
+        .fill(color)
         .rounding(2.0)
         .show(ui, |ui| {
             ui.set_min_width(ui.available_width());
@@ -301,14 +310,16 @@ fn show_task(
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     if ui
                         .button("❌")
-                        .on_hover_text("Remove task from scenario")
+                        .on_hover_text("Delete task from site")
                         .clicked()
                     {
-                        remove_task = true;
+                        delete_task = true;
                     }
                     if ui.button("Edit").clicked() {
                         edit_task = true;
                     }
+                    ui.checkbox(&mut include_task, "")
+                        .on_hover_text("Add to/Remove from current scenario");
                 });
             });
 
@@ -332,9 +343,6 @@ fn show_task(
                             ui.end_row();
                         }
                     }
-                    ui.label("Status:");
-                    ui.label("Queued"); // TODO(@xiyuoh) Update this
-                    ui.end_row();
 
                     ui.label("Kind:");
                     ui.label(task_request.category());
@@ -356,6 +364,8 @@ fn show_task(
                     Grid::new("task_details_".to_owned() + &id_string)
                         .num_columns(2)
                         .show(ui, |ui| {
+                            // TODO(@xiyuoh) Add status/queued information
+
                             if let Some(start_time) = task_request.start_time() {
                                 ui.label("Start time:");
                                 ui.label(format!("{:?}", start_time));
@@ -396,12 +406,13 @@ fn show_task(
                 });
         });
     *id += 1;
-    if remove_task {
-        scenario.removed_tasks.push(entity);
-        scenario.added_tasks.retain(|e| *e != entity);
-        return false;
+    if include_task && !present {
+        scenario.tasks.insert(entity);
+    } else if !include_task && present {
+        scenario.tasks.remove(&entity);
+        return (false, false);
     }
-    edit_task
+    (edit_task, delete_task)
 }
 
 fn edit_task(

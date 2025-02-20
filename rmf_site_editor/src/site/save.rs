@@ -1381,13 +1381,8 @@ fn generate_scenarios(
                                         .iter()
                                         .map(|entity| instances.get(*entity).unwrap().0)
                                         .collect(),
-                                    added_tasks: scenario
-                                        .added_tasks
-                                        .iter()
-                                        .map(|entity| tasks.get(*entity).unwrap().0)
-                                        .collect(),
-                                    removed_tasks: scenario
-                                        .removed_tasks
+                                    tasks: scenario
+                                        .tasks
                                         .iter()
                                         .map(|entity| tasks.get(*entity).unwrap().0)
                                         .collect(),

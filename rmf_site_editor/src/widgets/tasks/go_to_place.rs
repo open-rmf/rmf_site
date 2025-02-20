@@ -65,6 +65,10 @@ impl<'w, 's> WidgetSystem<Tile> for ViewGoToPlace<'w, 's> {
         else {
             return;
         };
+        if params.locations.is_empty() {
+            ui.label("No locations available in site");
+            return;
+        }
 
         let selected_location_name = if go_to_place.location.is_empty()
             || !params.locations.iter().any(|l| l.0 == go_to_place.location)
