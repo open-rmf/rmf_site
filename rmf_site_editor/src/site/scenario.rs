@@ -16,81 +16,68 @@
 */
 
 use crate::{
-    interaction::{Select, Selection},
+    interaction::{Selected, Selection},
     site::{
-        Affiliation, CurrentScenario, Delete, DeletionBox, DeletionFilters, Dependents,
-        InstanceMarker, Pending, Pose, Scenario, ScenarioBundle, ScenarioMarker,
+        CurrentScenario, Delete, Dependents, InstanceMarker, Pending, Pose, Scenario,
+        ScenarioBundle, ScenarioMarker,
     },
     CurrentWorkspace,
 };
 use bevy::prelude::*;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 #[derive(Clone, Copy, Debug, Event)]
 pub struct ChangeCurrentScenario(pub Entity);
 
+#[derive(Event)]
+pub struct ResetPose(pub Entity);
+
 /// Handles changes to the current scenario
 pub fn update_current_scenario(
-    mut commands: Commands,
+    mut selected: Query<&mut Selected>,
     mut selection: ResMut<Selection>,
     mut change_current_scenario: EventReader<ChangeCurrentScenario>,
     mut current_scenario: ResMut<CurrentScenario>,
-    current_workspace: Res<CurrentWorkspace>,
     scenarios: Query<&Scenario<Entity>>,
     mut instances: Query<(Entity, &mut Pose, &mut Visibility), With<InstanceMarker>>,
 ) {
     if let Some(ChangeCurrentScenario(scenario_entity)) = change_current_scenario.read().last() {
-        // Used to build a scenario from root
-        let mut scenario_stack = Vec::<&Scenario<Entity>>::new();
-        let mut scenario = scenarios
-            .get(*scenario_entity)
-            .expect("Failed to get scenario entity");
-        loop {
-            scenario_stack.push(scenario);
-            if let Some(scenario_parent) = scenario.parent_scenario.0 {
-                scenario = scenarios
-                    .get(scenario_parent)
-                    .expect("Scenario parent doesn't exist");
-            } else {
-                break;
-            }
-        }
-
-        // Iterate stack to identify instances in this model
-        let mut active_instances = HashMap::<Entity, Pose>::new();
-        for scenario in scenario_stack.iter().rev() {
-            for (e, pose) in scenario.added_instances.iter() {
-                active_instances.insert(*e, pose.clone());
-            }
-            for (e, pose) in scenario.moved_instances.iter() {
-                active_instances.insert(*e, pose.clone());
-            }
-            for e in scenario.removed_instances.iter() {
-                active_instances.remove(e);
-            }
-        }
-
-        let current_site_entity = match current_workspace.root {
-            Some(current_site) => current_site,
-            None => return,
+        let Ok(scenario) = scenarios.get(*scenario_entity) else {
+            error!("Failed to get scenario entity!");
+            return;
         };
 
-        // If active, assign parent to level, otherwise assign parent to site
         for (entity, mut pose, mut visibility) in instances.iter_mut() {
-            if let Some(new_pose) = active_instances.get(&entity) {
+            if let Some(((new_pose, _), _)) = scenario
+                .instances
+                .get(&entity)
+                .filter(|(_, included)| *included)
+            {
                 *pose = new_pose.clone();
                 *visibility = Visibility::Inherited;
             } else {
-                commands.entity(entity).set_parent(current_site_entity);
                 *visibility = Visibility::Hidden;
             }
         }
 
-        // Deselect if not in current scenario
-        if let Some(selected_entity) = selection.0.clone() {
-            if let Ok((instance_entity, ..)) = instances.get(selected_entity) {
-                if active_instances.get(&instance_entity).is_none() {
+        if let Some(entity) = selection.0 {
+            if let Ok(mut selected) = selected.get_mut(entity) {
+                let mut deselect = false;
+                if !scenario
+                    .instances
+                    .get(&entity)
+                    .is_some_and(|(_, included)| *included)
+                {
+                    // Deselect if model instance is hidden
+                    deselect = true;
+                } else if current_scenario.0.is_some_and(|e| e != *scenario_entity) {
+                    // Deselect if scenario has changed
+                    deselect = true;
+                }
+
+                if deselect {
                     selection.0 = None;
+                    selected.is_selected = false;
                 }
             }
         }
@@ -111,55 +98,68 @@ pub fn update_scenario_properties(
         return;
     }
 
+    let mut newly_added_instances = HashMap::new();
     if let Some(mut current_scenario) = current_scenario
         .0
         .and_then(|entity| scenarios.get_mut(entity).ok())
     {
-        for (entity, pose) in changed_instances.iter() {
-            if pose.is_changed() {
-                let existing_removed_instance = current_scenario
-                    .removed_instances
-                    .iter_mut()
-                    .find(|e| **e == entity)
-                    .map(|e| e.clone());
-                if let Some(existing_removed_instance) = existing_removed_instance {
+        let parent_exists = current_scenario.parent_scenario.0.is_some();
+        for (entity, new_pose) in changed_instances.iter() {
+            if new_pose.is_changed() {
+                if let Some(((current_pose, moved), _)) =
+                    current_scenario.instances.get_mut(&entity)
+                {
+                    *current_pose = new_pose.clone();
+                    *moved = parent_exists;
+                } else if new_pose.is_added() {
+                    newly_added_instances.insert(entity, new_pose.clone());
                     current_scenario
-                        .moved_instances
-                        .retain(|(e, _)| *e != existing_removed_instance);
-                    current_scenario
-                        .added_instances
-                        .retain(|(e, _)| *e != existing_removed_instance);
-                    return;
-                }
-
-                let existing_added_instance: Option<&mut (Entity, Pose)> = current_scenario
-                    .added_instances
-                    .iter_mut()
-                    .find(|(e, _)| *e == entity);
-                if let Some(existing_added_instance) = existing_added_instance {
-                    existing_added_instance.1 = pose.clone();
-                    return;
-                } else if pose.is_added() {
-                    current_scenario
-                        .added_instances
-                        .push((entity, pose.clone()));
-                    return;
-                }
-
-                let existing_moved_instance = current_scenario
-                    .moved_instances
-                    .iter_mut()
-                    .find(|(e, _)| *e == entity);
-                if let Some(existing_moved_instance) = existing_moved_instance {
-                    existing_moved_instance.1 = pose.clone();
-                    return;
-                } else {
-                    current_scenario
-                        .moved_instances
-                        .push((entity, pose.clone()));
-                    return;
+                        .instances
+                        .insert(entity, ((new_pose.clone(), false), true));
                 }
             }
+        }
+    }
+
+    // Add any newly created instance from the current scenario to all others scenarios hidden
+    for (entity, pose) in newly_added_instances.drain() {
+        for mut scenario in scenarios.iter_mut() {
+            if scenario.instances.contains_key(&entity) {
+                continue;
+            }
+            scenario.instances.insert(entity, ((pose, false), false));
+        }
+    }
+}
+
+pub fn handle_reset_pose(
+    current_scenario: Res<CurrentScenario>,
+    mut scenarios: Query<&mut Scenario<Entity>>,
+    mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
+    mut reset_pose: EventReader<ResetPose>,
+    parents: Query<&Parent>,
+) {
+    for ResetPose(instance_entity) in reset_pose.read() {
+        let Some(current_scenario_entity) = current_scenario.0 else {
+            continue;
+        };
+        let Some(((parent_pose, _), _)) = parents
+            .get(current_scenario_entity)
+            .and_then(|p| scenarios.get(p.get()))
+            .ok()
+            .and_then(|parent_scenario| parent_scenario.instances.get(instance_entity).cloned())
+        else {
+            continue;
+        };
+        let Ok(mut current_scenario) = scenarios.get_mut(current_scenario_entity) else {
+            continue;
+        };
+        if let Some(((instance_pose, moved), _)) =
+            current_scenario.instances.get_mut(instance_entity)
+        {
+            *instance_pose = parent_pose;
+            *moved = false;
+            change_current_scenario.send(ChangeCurrentScenario(current_scenario_entity));
         }
     }
 }
@@ -188,7 +188,7 @@ pub fn handle_remove_scenarios(
         let mut queue = vec![request.0];
         while let Some(scenario_entity) = queue.pop() {
             if let Ok((_, scenario, _)) = scenarios.get(scenario_entity) {
-                scenario.added_instances.iter().for_each(|(e, _)| {
+                scenario.instances.iter().for_each(|(e, _)| {
                     subtree_dependents.insert(*e);
                 });
             }
@@ -232,63 +232,4 @@ pub fn handle_remove_scenarios(
         }
         delete.send(Delete::new(request.0).and_dependents());
     }
-}
-
-pub fn setup_instance_deletion_filter(mut deletion_filter: ResMut<DeletionFilters>) {
-    deletion_filter.insert(DeletionBox(Box::new(IntoSystem::into_system(
-        filter_instance_deletion,
-    ))));
-}
-
-/// Handle requests to remove model instances. If an instance was added in this scenario, or if
-/// the scenario is root, the InstanceMarker is removed, allowing it to be permanently deleted.
-/// Otherwise, it is only temporarily removed.
-fn filter_instance_deletion(
-    In(mut input): In<HashSet<Delete>>,
-    mut scenarios: Query<&mut Scenario<Entity>>,
-    current_scenario: ResMut<CurrentScenario>,
-    mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
-    model_instance: Query<&Affiliation<Entity>, With<InstanceMarker>>,
-    selection: Res<Selection>,
-    mut select: EventWriter<Select>,
-) -> HashSet<Delete> {
-    let Some(current_scenario_entity) = current_scenario.0 else {
-        return input;
-    };
-
-    let mut remove_only: HashSet<Delete> = HashSet::new();
-    for removal in input.iter() {
-        if let Ok(_) = model_instance.get(removal.element) {
-            if let Ok(mut current_scenario) = scenarios.get_mut(current_scenario_entity) {
-                // Delete if root scenario
-                if current_scenario.parent_scenario.0.is_none() {
-                    current_scenario
-                        .added_instances
-                        .retain(|(e, _)| *e != removal.element);
-                    continue;
-                }
-                // Delete if added in this scenario
-                if let Some(added_id) = current_scenario
-                    .added_instances
-                    .iter()
-                    .position(|(e, _)| *e == removal.element)
-                {
-                    current_scenario.added_instances.remove(added_id);
-                    continue;
-                }
-                // Otherwise, remove only
-                current_scenario
-                    .moved_instances
-                    .retain(|(e, _)| *e != removal.element);
-                current_scenario.removed_instances.push(removal.element);
-                change_current_scenario.send(ChangeCurrentScenario(current_scenario_entity));
-                remove_only.insert(*removal);
-                if selection.0 == Some(removal.element) {
-                    select.send(Select(None));
-                }
-            }
-        }
-    }
-    input.retain(|delete| !remove_only.contains(delete));
-    input
 }
