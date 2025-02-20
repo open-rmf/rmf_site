@@ -246,7 +246,6 @@ impl Task {
             Task::Dispatch(dispatch_task_request) => dispatch_task_request.is_valid(),
             Task::Direct(robot_task_request) => robot_task_request.is_valid(),
         }
-        // TODO(@xiyuoh) make it compulsory for task kinds to implement is_valid(), and check against those?
     }
 
     pub fn is_dispatch(&self) -> bool {

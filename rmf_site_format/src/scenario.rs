@@ -38,7 +38,7 @@ pub struct Scenario<T: RefTrait> {
     pub added_instances: Vec<(T, Pose)>,
     pub removed_instances: Vec<T>,
     pub moved_instances: Vec<(T, Pose)>,
-    pub tasks: HashSet<T>,
+    pub tasks: HashSet<T>, // TODO(@xiyuoh) Consider changing to BTreeMap similar to instances
 }
 
 impl<T: RefTrait> Scenario<T> {
