@@ -27,6 +27,7 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Align, Button, CollapsingHeader, Color32, Layout, ScrollArea, Ui};
 use rmf_site_format::{Angle, InstanceMarker, Pose, ScenarioBundle, SiteID};
+use std::collections::HashSet;
 
 const INSTANCES_VIEWER_HEIGHT: f32 = 200.0;
 
@@ -243,6 +244,15 @@ impl<'w, 's> ViewScenarios<'w, 's> {
         });
         ui.horizontal(|ui| {
             if ui.add(Button::image(self.icons.add.egui())).clicked() {
+                let tasks: HashSet<Entity> = match self.display_scenarios.is_new_scenario_root {
+                    true => HashSet::<Entity>::new(),
+                    false => self
+                        .current_scenario
+                        .0
+                        .and_then(|e| self.scenarios.get(e).ok())
+                        .map(|(_, _, scenario)| scenario.tasks.clone())
+                        .unwrap_or(HashSet::<Entity>::new()),
+                };
                 let mut cmd = self
                     .commands
                     .spawn(ScenarioBundle::<Entity>::from_name_parent(
@@ -251,6 +261,7 @@ impl<'w, 's> ViewScenarios<'w, 's> {
                             true => None,
                             false => self.current_scenario.0,
                         },
+                        &tasks,
                     ));
                 match self.display_scenarios.is_new_scenario_root {
                     true => {

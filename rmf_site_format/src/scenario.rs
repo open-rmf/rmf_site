@@ -19,7 +19,7 @@ use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Bundle, Component, Reflect, ReflectComponent};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
@@ -38,6 +38,7 @@ pub struct Scenario<T: RefTrait> {
     pub added_instances: Vec<(T, Pose)>,
     pub removed_instances: Vec<T>,
     pub moved_instances: Vec<(T, Pose)>,
+    pub tasks: HashSet<T>, // TODO(@xiyuoh) Consider changing to BTreeMap similar to instances
 }
 
 impl<T: RefTrait> Scenario<T> {
@@ -47,6 +48,7 @@ impl<T: RefTrait> Scenario<T> {
             added_instances: Vec::new(),
             removed_instances: Vec::new(),
             moved_instances: Vec::new(),
+            tasks: HashSet::new(),
         }
     }
 }
@@ -59,6 +61,7 @@ impl<T: RefTrait> Default for Scenario<T> {
             added_instances: Vec::new(),
             removed_instances: Vec::new(),
             moved_instances: Vec::new(),
+            tasks: HashSet::new(),
         }
     }
 }
@@ -91,6 +94,12 @@ impl<T: RefTrait> Scenario<T> {
                     Ok((converted_id, pose))
                 })
                 .collect::<Result<_, _>>()?,
+            tasks: self
+                .tasks
+                .clone()
+                .into_iter()
+                .map(|id| id_map.get(&id).cloned().ok_or(id))
+                .collect::<Result<_, _>>()?,
         })
     }
 }
@@ -104,7 +113,11 @@ pub struct ScenarioBundle<T: RefTrait> {
 }
 
 impl<T: RefTrait> ScenarioBundle<T> {
-    pub fn from_name_parent(name: String, parent: Option<T>) -> ScenarioBundle<T> {
+    pub fn from_name_parent(
+        name: String,
+        parent: Option<T>,
+        tasks: &HashSet<T>,
+    ) -> ScenarioBundle<T> {
         ScenarioBundle {
             name: NameInSite(name),
             scenario: Scenario {
@@ -112,6 +125,7 @@ impl<T: RefTrait> ScenarioBundle<T> {
                 added_instances: Vec::new(),
                 removed_instances: Vec::new(),
                 moved_instances: Vec::new(),
+                tasks: tasks.clone(),
             },
             marker: ScenarioMarker,
         }
