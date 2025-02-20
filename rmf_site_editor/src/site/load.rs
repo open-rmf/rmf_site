@@ -348,30 +348,48 @@ fn generate_site_entities(
         model_description_dependents.insert(model_description_entity, HashSet::new());
         model_description_to_source
             .insert(model_description_entity, model_description.source.0.clone());
-        // Insert optional model properties
-        for optional_property in &model_description.optional_properties.0 {
-            match optional_property {
-                OptionalModelProperty::DifferentialDrive(diff_drive) => commands
-                    .entity(model_description_entity)
-                    .insert(ModelProperty(diff_drive.clone())),
-                OptionalModelProperty::MobileRobotMarker(robot_marker) => commands
-                    .entity(model_description_entity)
-                    .insert(ModelProperty(robot_marker.clone())),
-                _ => continue,
-            };
-        }
     }
 
-    for (model_instance_id, model_instance_data) in &site_data.model_instances {
-        let model_instance = model_instance_data
+    for (robot_id, robot_data) in &site_data.robots {
+        // Robot IDs are pointing to model description entities
+        if let Some(model_description_entity) = id_to_entity
+            .get(robot_id)
+            .filter(|e| model_description_to_source.contains_key(*e))
+        {
+            commands
+                .entity(*model_description_entity)
+                .insert(ModelProperty(robot_data.clone()));
+        } else {
+            // Robot is affiliated to a non-existent model description,
+            // create a description entity for users to modify after loading
+            commands
+                .spawn(ModelDescriptionBundle::default())
+                .insert(Category::ModelDescription)
+                .insert(ModelProperty(robot_data.clone()))
+                .set_parent(site_id);
+            error!(
+                "Robot {} with properties {:?} is pointing to a non-existent \
+                model description! Assigning robot to the default model description \
+                with an empty asset source.",
+                robot_id, robot_data
+            );
+        };
+    }
+
+    for (model_instance_id, parented_model_instance) in &site_data.model_instances {
+        let model_instance = parented_model_instance
+            .bundle
             .convert(&id_to_entity)
             .for_site(site_id)?;
 
+        // The parent id is invalid, we do not spawn this model instance and generate
+        // an error instead
+        let parent = id_to_entity
+            .get(&parented_model_instance.parent)
+            .ok_or_else(|| LoadSiteError::new(site_id, parented_model_instance.parent))?;
+
         let model_instance_entity = model_loader
-            .spawn_model_instance(
-                model_instance.parent.0.unwrap_or(site_id),
-                model_instance.clone(),
-            )
+            .spawn_model_instance(*parent, model_instance.clone())
             .insert((Category::Model, SiteID(*model_instance_id)))
             .id();
         id_to_entity.insert(*model_instance_id, model_instance_entity);
@@ -392,15 +410,8 @@ fn generate_site_entities(
                 model_instance.name.0,
             );
         }
-
-        // Insert optional model properties
-        for optional_property in &model_instance.optional_properties.0 {
-            match optional_property {
-                OptionalModelProperty::Tasks(tasks) => {
-                    commands.entity(model_instance_entity).insert(tasks.clone())
-                }
-                _ => continue,
-            };
+        if let Some(tasks) = site_data.tasks.get(model_instance_id) {
+            commands.entity(model_instance_entity).insert(tasks.clone());
         }
     }
 

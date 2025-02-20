@@ -17,8 +17,9 @@
 
 use crate::{
     interaction::{DragPlaneBundle, Preview, MODEL_PREVIEW_LAYER},
-    site::{CurrentLevel, SiteAssets, SiteParent},
+    site::SiteAssets,
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
+    Issue, ValidateWorkspace,
 };
 use bevy::{
     ecs::system::{EntityCommands, SystemParam},
@@ -26,11 +27,13 @@ use bevy::{
     prelude::*,
     render::view::RenderLayers,
     scene::SceneInstance,
+    utils::Uuid,
 };
 use bevy_impulse::*;
 use bevy_mod_outline::OutlineMeshExt;
 use rmf_site_format::{
-    Affiliation, AssetSource, Group, ModelInstance, ModelMarker, ModelProperty, Pending, Scale,
+    Affiliation, AssetSource, Group, IssueKey, ModelInstance, ModelMarker, ModelProperty,
+    NameInSite, Pending, Scale,
 };
 use smallvec::SmallVec;
 use std::{any::TypeId, collections::HashSet, fmt, future::Future};
@@ -783,25 +786,48 @@ pub fn update_model_instances<T: Component + Default + Clone>(
     }
 }
 
-pub fn assign_orphan_model_instances_to_level(
-    mut commands: Commands,
-    mut orphan_instances: Query<
-        (Entity, Option<&Parent>, &mut SiteParent<Entity>),
-        (With<ModelMarker>, Without<Group>),
-    >,
-    current_level: Res<CurrentLevel>,
-) {
-    let current_level = match current_level.0 {
-        Some(c) => c,
-        None => return,
-    };
+/// Unique UUID to identify issue of orphan model instance
+pub const ORPHAN_MODEL_INSTANCE_ISSUE_UUID: Uuid =
+    Uuid::from_u128(0x4e98ce0bc28e4fe528cb0a028f4d5c08u128);
 
-    for (instance_entity, parent, mut site_parent) in orphan_instances.iter_mut() {
-        if parent.is_none() {
-            commands.entity(current_level).add_child(instance_entity);
-        }
-        if site_parent.0.is_none() {
-            site_parent.0 = Some(current_level);
+pub fn check_for_orphan_model_instances(
+    mut commands: Commands,
+    mut validate_events: EventReader<ValidateWorkspace>,
+    mut orphan_instances: Query<
+        (Entity, &NameInSite, &Affiliation<Entity>),
+        (With<ModelMarker>, Without<Group>, Without<Parent>),
+    >,
+    model_descriptions: Query<&NameInSite, (With<ModelMarker>, With<Group>)>,
+) {
+    for root in validate_events.read() {
+        for (instance_entity, instance_name, affiliation) in orphan_instances.iter_mut() {
+            let brief = match affiliation
+                .0
+                .map(|e| model_descriptions.get(e).ok())
+                .flatten()
+            {
+                Some(description_name) => format!(
+                    "Parent level entity not found for model instance {:?} with \
+                    affiliated model description {:?}",
+                    instance_name, description_name
+                ),
+                None => format!(
+                    "Parent level entity not found for model instance {:?} when saving",
+                    instance_name,
+                ),
+            };
+            let issue = Issue {
+                key: IssueKey {
+                    entities: [instance_entity].into(),
+                    kind: ORPHAN_MODEL_INSTANCE_ISSUE_UUID,
+                },
+                brief,
+                hint: "Model instances need to be assigned to a parent level entity. \
+                      Respawn the orphan model instance"
+                    .to_string(),
+            };
+            let issue_id = commands.spawn(issue).id();
+            commands.entity(**root).add_child(issue_id);
         }
     }
 }

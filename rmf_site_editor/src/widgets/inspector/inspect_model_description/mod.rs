@@ -17,30 +17,36 @@
 
 use bevy::{
     ecs::{
-        component::ComponentInfo,
-        query::{ReadOnlyWorldQuery, WorldQuery},
+        component::{ComponentId, ComponentInfo},
+        query::WorldQuery,
         system::{EntityCommands, SystemParam},
     },
     prelude::*,
 };
 use bevy_egui::egui::{CollapsingHeader, ComboBox, RichText, Ui};
 use smallvec::SmallVec;
-use std::{any::TypeId, collections::HashMap, fmt::Debug};
+use std::{collections::HashMap, fmt::Debug};
 
 use crate::{
     site::{
-        update_model_instances, Affiliation, AssetSource, Change, ChangePlugin, Group, IsStatic,
-        ModelLoader, ModelMarker, ModelProperty, NameInSite, Scale,
+        update_model_instances, Affiliation, AssetSource, Change, Group, IsStatic, ModelLoader,
+        ModelMarker, ModelProperty, NameInSite, Scale,
     },
     widgets::{prelude::*, Inspect},
     MainInspector,
 };
 
-pub mod inspect_differential_drive;
-pub use inspect_differential_drive::*;
+pub mod inspect_collision;
+pub use inspect_collision::*;
+
+pub mod inspect_mobility;
+pub use inspect_mobility::*;
 
 pub mod inspect_required_properties;
 pub use inspect_required_properties::*;
+
+pub mod inspect_robot_properties;
+pub use inspect_robot_properties::*;
 
 #[derive(Default)]
 pub struct InspectModelDescriptionPlugin {}
@@ -88,31 +94,43 @@ fn get_remove_model_property_fn<T: Component + Default>() -> RemoveModelProperty
 /// This resource keeps track of all the properties that can be configured for a model description.
 #[derive(Resource)]
 pub struct ModelPropertyData {
-    pub required: HashMap<TypeId, (String, InsertModelPropertyFn, RemoveModelPropertyFn)>,
-    pub optional: HashMap<TypeId, (String, InsertModelPropertyFn, RemoveModelPropertyFn)>,
+    pub required: HashMap<ComponentId, (String, InsertModelPropertyFn, RemoveModelPropertyFn)>,
+    pub optional: HashMap<ComponentId, (String, InsertModelPropertyFn, RemoveModelPropertyFn)>,
 }
 
 impl FromWorld for ModelPropertyData {
-    fn from_world(_world: &mut World) -> Self {
+    fn from_world(world: &mut World) -> Self {
         let mut required = HashMap::new();
+        world.init_component::<ModelProperty<AssetSource>>();
         required.insert(
-            TypeId::of::<ModelProperty<AssetSource>>(),
+            world
+                .components()
+                .component_id::<ModelProperty<AssetSource>>()
+                .unwrap(),
             (
                 "Asset Source".to_string(),
                 get_insert_model_property_fn::<ModelProperty<AssetSource>>(),
                 get_remove_model_property_fn::<ModelProperty<AssetSource>>(),
             ),
         );
+        world.init_component::<ModelProperty<Scale>>();
         required.insert(
-            TypeId::of::<ModelProperty<Scale>>(),
+            world
+                .components()
+                .component_id::<ModelProperty<Scale>>()
+                .unwrap(),
             (
                 "Scale".to_string(),
                 get_insert_model_property_fn::<ModelProperty<Scale>>(),
                 get_remove_model_property_fn::<ModelProperty<Scale>>(),
             ),
         );
+        world.init_component::<ModelProperty<IsStatic>>();
         required.insert(
-            TypeId::of::<ModelProperty<IsStatic>>(),
+            world
+                .components()
+                .component_id::<ModelProperty<IsStatic>>()
+                .unwrap(),
             (
                 "Is Static".to_string(),
                 get_insert_model_property_fn::<IsStatic>(),
@@ -153,22 +171,24 @@ where
     T: 'static + Send + Sync + Debug + Default + Clone + FromReflect + TypePath + Component,
 {
     fn build(&self, app: &mut App) {
-        let type_id = TypeId::of::<ModelProperty<T>>();
+        let component_id = app
+            .world
+            .components()
+            .component_id::<ModelProperty<T>>()
+            .unwrap();
         if !app
             .world
             .resource::<ModelPropertyData>()
             .required
-            .contains_key(&type_id)
+            .contains_key(&component_id)
         {
-            app.register_type::<ModelProperty<T>>();
-            app.add_plugins(ChangePlugin::<ModelProperty<T>>::default());
             app.add_systems(PreUpdate, update_model_instances::<T>);
 
             app.world
                 .resource_mut::<ModelPropertyData>()
                 .optional
                 .insert(
-                    type_id,
+                    component_id,
                     (
                         self.property_name.clone(),
                         get_insert_model_property_fn::<ModelProperty<T>>(),
@@ -237,18 +257,17 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelDescription<'w, 's> {
         {
             let params = state.get_mut(world);
 
-            let mut enabled_property_types = Vec::<TypeId>::new();
+            let mut enabled_property_types = Vec::<ComponentId>::new();
             for component_info in components_info {
-                if let Some(type_id) = component_info.type_id() {
-                    if params.model_properties.optional.contains_key(&type_id) {
-                        enabled_property_types.push(type_id);
-                    }
+                let component_id = component_info.id();
+                if params.model_properties.optional.contains_key(&component_id) {
+                    enabled_property_types.push(component_id);
                 }
             }
-            let mut disabled_property_types = Vec::<TypeId>::new();
-            for (type_id, _) in params.model_properties.optional.iter() {
-                if !enabled_property_types.contains(type_id) {
-                    disabled_property_types.push(*type_id);
+            let mut disabled_property_types = Vec::<ComponentId>::new();
+            for (component_id, _) in params.model_properties.optional.iter() {
+                if !enabled_property_types.contains(component_id) {
+                    disabled_property_types.push(component_id.clone());
                 }
             }
 
@@ -268,9 +287,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelDescription<'w, 's> {
                 .show(ui, |ui| {
                     ui.horizontal_wrapped(|ui| {
                         // Required
-                        for type_id in params.model_properties.required.keys() {
-                            let (property_name, _, _) =
-                                params.model_properties.required.get(&type_id).unwrap();
+                        for (property_name, _, _) in params.model_properties.required.values() {
                             ui.add_enabled_ui(false, |ui| {
                                 ui.selectable_label(true, property_name)
                                     .on_disabled_hover_text(
@@ -279,9 +296,9 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelDescription<'w, 's> {
                             });
                         }
                         // Enabled
-                        for type_id in enabled_property_types {
+                        for component_id in enabled_property_types {
                             let (property_name, _, remove_fn) =
-                                params.model_properties.optional.get(&type_id).unwrap();
+                                params.model_properties.optional.get(&component_id).unwrap();
                             if ui
                                 .selectable_label(true, property_name)
                                 .on_hover_text("Click to toggle")
@@ -291,9 +308,9 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelDescription<'w, 's> {
                             }
                         }
                         // Disabled
-                        for type_id in disabled_property_types {
+                        for component_id in disabled_property_types {
                             let (property_name, insert_fn, _) =
-                                params.model_properties.optional.get(&type_id).unwrap();
+                                params.model_properties.optional.get(&component_id).unwrap();
                             if ui
                                 .selectable_label(false, property_name)
                                 .on_hover_text("Click to toggle")
@@ -337,12 +354,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelDescription<'w, 's> {
 /// and change its description
 #[derive(SystemParam)]
 pub struct InspectSelectedModelDescription<'w, 's> {
-    model_instances: Query<
-        'w,
-        's,
-        &'static Affiliation<Entity>,
-        (With<ModelMarker>, Without<Group>, With<NameInSite>),
-    >,
+    model_instances: ModelPropertyQuery<'w, 's, NameInSite>,
     model_descriptions: Query<
         'w,
         's,
@@ -406,16 +418,14 @@ impl<'w, 's> InspectSelectedModelDescription<'w, 's> {
     }
 }
 
+type ModelPropertyQuery<'w, 's, P> =
+    Query<'w, 's, &'static Affiliation<Entity>, (With<ModelMarker>, Without<Group>, With<P>)>;
+
 /// Helper function to get the corresponding description entity for a given model instance entity
 /// if it exists.
-fn get_selected_description_entity<'w, 's, S: ReadOnlyWorldQuery, T: WorldQuery>(
+fn get_selected_description_entity<'w, 's, P: Component, T: WorldQuery>(
     selection: Entity,
-    model_instances: &Query<
-        'w,
-        's,
-        &'static Affiliation<Entity>,
-        (With<ModelMarker>, Without<Group>, S),
-    >,
+    model_instances: &ModelPropertyQuery<'w, 's, P>,
     model_descriptions: &Query<'w, 's, T, (With<ModelMarker>, With<Group>)>,
 ) -> Option<Entity> {
     if model_descriptions.get(selection).ok().is_some() {
@@ -431,7 +441,6 @@ fn get_selected_description_entity<'w, 's, S: ReadOnlyWorldQuery, T: WorldQuery>
         if model_descriptions.get(affiliation).is_ok() {
             return Some(affiliation);
         } else {
-            warn!("Model instance is affiliated with a non-existent description");
             return None;
         }
     }

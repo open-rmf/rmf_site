@@ -28,22 +28,11 @@ pub fn update_model_instance_visual_cues(
         ),
     >,
     mut model_instances: Query<
-        (
-            Entity,
-            &mut Selected,
-            &mut Hovered,
-            &mut Affiliation<Entity>,
-            Option<Ref<Tasks<Entity>>>,
-        ),
+        (&mut Selected, &mut Hovered, &mut Affiliation<Entity>),
         (With<ModelMarker>, Without<Group>),
     >,
-    mut locations: Query<(&mut Selected, &mut Hovered), (With<LocationTags>, Without<ModelMarker>)>,
-    mut removed_components: RemovedComponents<Tasks<Entity>>,
 ) {
-    for (instance_entity, mut instance_selected, mut instance_hovered, affiliation, tasks) in
-        &mut model_instances
-    {
-        let mut is_description_selected = false;
+    for (mut instance_selected, mut instance_hovered, affiliation) in &mut model_instances {
         if let Some(description_entity) = affiliation.0 {
             if let Ok((_, description_selected, description_hovered)) =
                 model_descriptions.get(description_entity)
@@ -52,7 +41,6 @@ pub fn update_model_instance_visual_cues(
                     instance_selected
                         .support_selected
                         .insert(description_entity);
-                    is_description_selected = true;
                 } else {
                     instance_selected
                         .support_selected
@@ -67,41 +55,6 @@ pub fn update_model_instance_visual_cues(
                 }
             }
         }
-
-        // When an instance is selected, select all locations supporting it
-        if let Some(tasks) = tasks {
-            // When tasks for an instance have changed, reset all locations from supporting this instance
-            if tasks.is_changed() {
-                for (mut location_selected, mut location_hovered) in locations.iter_mut() {
-                    location_selected.support_selected.remove(&instance_entity);
-                    location_hovered.support_hovering.remove(&instance_entity);
-                }
-            }
-
-            if let Some(task_location) = tasks.0.first().and_then(|t| t.location()) {
-                if let Ok((mut location_selected, mut location_hovered)) =
-                    locations.get_mut(task_location.0)
-                {
-                    if instance_selected.cue() && !is_description_selected {
-                        location_selected.support_selected.insert(instance_entity);
-                    } else {
-                        location_selected.support_selected.remove(&instance_entity);
-                    }
-                    if instance_hovered.cue() {
-                        location_hovered.support_hovering.insert(instance_entity);
-                    } else {
-                        location_hovered.support_hovering.remove(&instance_entity);
-                    }
-                }
-            }
-        }
-    }
-
-    // When instances are removed, prevent any location from supporting them
-    for removed in removed_components.read() {
-        for (mut location_selected, mut location_hovered) in locations.iter_mut() {
-            location_selected.support_selected.remove(&removed);
-            location_hovered.support_hovering.remove(&removed);
-        }
+        // TODO(@xiyuoh) support task-based visual cues
     }
 }

@@ -11,9 +11,8 @@ crate-type = ["rlib"]
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.8.23"
 serde_json = "*"
-strum = "*"
-strum_macros = "*"
-ron = "0.8"
+# We need ron v0.9 to be released before RON works correctly for structs with #[serde(flatten)]
+ron = { git = "https://github.com/ron-rs/ron", branch = "master" }
 thiserror = "*"
 glam = { version = "0.24", features = ["serde"] }
 uuid = { version = "1.1", features = ["v4", "serde"] }

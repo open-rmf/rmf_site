@@ -16,65 +16,50 @@
 */
 
 use crate::{
-    site::{
-        update_model_instances, ChangePlugin, GoToPlace, Group, LocationTags, MobileRobotMarker,
-        ModelProperty, NameInSite, Point, Task, Tasks,
-    },
+    site::{ChangePlugin, Group, LocationTags, ModelProperty, NameInSite, Robot, Task, Tasks},
     widgets::{prelude::*, Inspect, InspectionPlugin},
-    Icons, ModelPropertyData,
+    Icons,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{Align, Button, Color32, ComboBox, DragValue, Frame, Layout, Stroke, Ui};
-use std::any::TypeId;
-use strum::IntoEnumIterator;
+use bevy_egui::egui::{Align, Button, Color32, ComboBox, Frame, Layout, Stroke, Ui};
+use std::collections::HashMap;
+
+/// Function that displays a widget to configure Task
+type ShowTaskWidgetFn = fn(&usize, &mut Task, &Vec<String>, &mut Ui);
+
+/// Function that checks whether a given Task is valid
+type CheckTaskValidFn = fn(&Task, &Vec<String>) -> bool;
+
+#[derive(Resource)]
+pub struct TaskKinds(pub HashMap<String, (ShowTaskWidgetFn, CheckTaskValidFn)>);
+
+impl FromWorld for TaskKinds {
+    fn from_world(_world: &mut World) -> Self {
+        TaskKinds(HashMap::new())
+    }
+}
 
 #[derive(Default)]
 pub struct InspectTaskPlugin {}
 
 impl Plugin for InspectTaskPlugin {
     fn build(&self, app: &mut App) {
-        // Allows us to toggle MobileRobotMarker as a configurable property
-        // from the model description inspector
-        app.register_type::<ModelProperty<MobileRobotMarker>>()
-            .add_plugins(ChangePlugin::<ModelProperty<MobileRobotMarker>>::default())
-            .add_systems(
-                PreUpdate,
-                (
-                    add_remove_mobile_robot_tasks,
-                    update_model_instances::<MobileRobotMarker>,
-                ),
-            )
-            .init_resource::<ModelPropertyData>()
-            .world
-            .resource_mut::<ModelPropertyData>()
-            .optional
-            .insert(
-                TypeId::of::<ModelProperty<MobileRobotMarker>>(),
-                (
-                    "Mobile Robot".to_string(),
-                    |mut e_cmd| {
-                        e_cmd.insert(ModelProperty::<MobileRobotMarker>::default());
-                    },
-                    |mut e_cmd| {
-                        e_cmd.remove::<ModelProperty<MobileRobotMarker>>();
-                    },
-                ),
-            );
-
-        // Ui
-        app.init_resource::<PendingTask>().add_plugins((
-            ChangePlugin::<Tasks<Entity>>::default(),
-            InspectionPlugin::<InspectTasks>::new(),
-        ));
+        app.add_systems(PreUpdate, add_remove_robot_tasks)
+            .init_resource::<PendingTask>()
+            .init_resource::<TaskKinds>()
+            .add_plugins((
+                ChangePlugin::<Tasks>::default(),
+                InspectionPlugin::<InspectTasks>::new(),
+            ));
     }
 }
 
 #[derive(SystemParam)]
 pub struct InspectTasks<'w, 's> {
-    mobile_robots:
-        Query<'w, 's, &'static mut Tasks<Entity>, (With<MobileRobotMarker>, Without<Group>)>,
+    robots: Query<'w, 's, &'static mut Tasks, (With<Robot>, Without<Group>)>,
     locations: Query<'w, 's, (Entity, &'static NameInSite, &'static LocationTags)>,
     pending_task: ResMut<'w, PendingTask>,
+    tasks: ResMut<'w, TaskKinds>,
     icons: Res<'w, Icons>,
 }
 
@@ -86,87 +71,107 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectTasks<'w, 's> {
         world: &mut World,
     ) {
         let mut params = state.get_mut(world);
-        let Ok(mut tasks) = params.mobile_robots.get_mut(selection) else {
+        let Ok(mut tasks) = params.robots.get_mut(selection) else {
             return;
         };
 
+        let current_locations = get_location_names(&params.locations);
+
         ui.label("Tasks");
-        Frame::default()
-            .inner_margin(4.0)
-            .rounding(2.0)
-            .stroke(Stroke::new(1.0, Color32::GRAY))
-            .show(ui, |ui| {
-                ui.set_min_width(ui.available_width());
+        ui.indent("inspect_tasks", |ui| {
+            Frame::default()
+                .inner_margin(4.0)
+                .rounding(2.0)
+                .stroke(Stroke::new(1.0, Color32::GRAY))
+                .show(ui, |ui| {
+                    ui.set_min_width(ui.available_width());
 
-                if tasks.0.is_empty() {
-                    ui.label("No tasks");
-                } else {
-                    let mut deleted_ids = Vec::new();
-                    for (id, task) in tasks.0.iter_mut().enumerate() {
-                        let is_deleted =
-                            edit_task_component(ui, &id, task, &params.locations, true);
-                        if is_deleted {
-                            deleted_ids.push(id);
+                    if tasks.0.is_empty() {
+                        ui.label("No tasks");
+                    } else {
+                        let mut deleted_ids = Vec::new();
+                        for (id, task) in tasks.0.iter_mut().enumerate() {
+                            if let Some((show_widget, _)) = params.tasks.0.get(&task.kind) {
+                                edit_task_component(
+                                    ui,
+                                    &id,
+                                    task,
+                                    *show_widget,
+                                    &current_locations,
+                                    Some(&mut deleted_ids),
+                                );
+                            }
                         }
-                    }
-                    for id in deleted_ids {
-                        tasks.0.remove(id);
-                    }
-                }
-            });
-
-        ui.add_space(10.0);
-        ui.horizontal(|ui| {
-            // Only allow adding as task if valid
-            ui.add_enabled_ui(
-                is_task_valid(&params.pending_task.0, &params.locations),
-                |ui| {
-                    if ui
-                        .add(Button::image_and_text(params.icons.add.egui(), "New"))
-                        .clicked()
-                    {
-                        tasks.0.push(params.pending_task.0.clone());
-                    }
-                },
-            );
-            // Select new task type
-            ComboBox::from_id_source("pending_edit_task")
-                .selected_text(params.pending_task.0.label())
-                .show_ui(ui, |ui| {
-                    for task in Task::<Entity>::iter() {
-                        if ui
-                            .selectable_label(
-                                task.label() == params.pending_task.0.label(),
-                                task.label(),
-                            )
-                            .clicked()
-                        {
-                            *params.pending_task = PendingTask(task);
+                        for id in deleted_ids {
+                            tasks.0.remove(id);
                         }
                     }
                 });
+
+            ui.add_space(10.0);
+            ui.label("Add Task");
+            ui.horizontal(|ui| {
+                ui.add_enabled_ui(
+                    params
+                        .tasks
+                        .0
+                        .get(&params.pending_task.0.kind)
+                        .is_some_and(|(_, is_valid)| {
+                            is_valid(&params.pending_task.0, &current_locations)
+                        }),
+                    |ui| {
+                        if ui
+                            .add(Button::image_and_text(params.icons.add.egui(), "New"))
+                            .clicked()
+                        {
+                            tasks.0.push(params.pending_task.0.clone());
+                        }
+                    },
+                );
+                ComboBox::from_id_source("select_task_kind")
+                    .selected_text(params.pending_task.0.kind.clone())
+                    .show_ui(ui, |ui| {
+                        for (kind, _) in params.tasks.0.iter() {
+                            ui.selectable_value(
+                                &mut params.pending_task.0.kind,
+                                kind.clone(),
+                                kind.clone(),
+                            );
+                        }
+                    });
+            });
+            if let Some((show_widget, _)) = params.tasks.0.get(&params.pending_task.0.kind) {
+                edit_task_component(
+                    ui,
+                    &tasks.0.len(),
+                    &mut params.pending_task.0,
+                    *show_widget,
+                    &current_locations,
+                    None,
+                );
+            }
         });
 
         ui.add_space(10.0);
-        edit_task_component(
-            ui,
-            &tasks.0.len(),
-            &mut params.pending_task.0,
-            &params.locations,
-            false,
-        );
     }
 }
 
-/// Returns true if the task should be deleted
+fn get_location_names(locations: &Query<(Entity, &NameInSite, &LocationTags)>) -> Vec<String> {
+    let mut location_names = Vec::new();
+    for (_, location_name, _) in locations.iter() {
+        location_names.push(location_name.0.clone());
+    }
+    location_names
+}
+
 fn edit_task_component(
     ui: &mut Ui,
     id: &usize,
-    task: &mut Task<Entity>,
-    locations: &Query<(Entity, &NameInSite, &LocationTags)>,
-    with_delete: bool,
-) -> bool {
-    let mut is_deleted = false;
+    task: &mut Task,
+    show_widget: ShowTaskWidgetFn,
+    locations: &Vec<String>,
+    deleted_ids: Option<&mut Vec<usize>>,
+) {
     Frame::default()
         .inner_margin(4.0)
         .fill(Color32::DARK_GRAY)
@@ -174,73 +179,39 @@ fn edit_task_component(
         .show(ui, |ui| {
             ui.set_min_width(ui.available_width());
             ui.horizontal(|ui| {
-                ui.label(task.label());
-
-                match task {
-                    Task::GoToPlace(go_to_place) => {
-                        let location = go_to_place.location.unwrap_or(Point(Entity::PLACEHOLDER));
-                        let selected_location_name = locations
-                            .get(location.0)
-                            .map(|(_, name, _)| name.0.clone())
-                            .unwrap_or("Select Location".to_string());
-
-                        ComboBox::from_id_source(id.to_string() + "select_go_to_location")
-                            .selected_text(selected_location_name)
-                            .show_ui(ui, |ui| {
-                                for (entity, name, _) in locations.iter() {
-                                    if ui
-                                        .selectable_label(location.0 == entity, name.0.clone())
-                                        .clicked()
-                                    {
-                                        go_to_place.location = Some(Point(entity));
-                                    }
-                                }
-                            });
-                    }
-                    Task::WaitFor(wait_for) => {
-                        ui.add(
-                            DragValue::new(&mut wait_for.duration)
-                                .clamp_range(0_f32..=std::f32::INFINITY)
-                                .speed(0.01),
-                        );
-                        ui.label(" seconds");
-                    }
-                }
-
-                // Delete
-                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if with_delete {
+                ui.label(task.kind.clone());
+                show_widget(id, task, &locations, ui);
+                if let Some(pending_delete) = deleted_ids {
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         if ui.button("❌").on_hover_text("Delete task").clicked() {
-                            is_deleted = true;
+                            pending_delete.push(*id);
                         }
-                    }
-                });
+                    });
+                }
             });
         });
-    return is_deleted;
 }
 
 #[derive(Resource)]
-pub struct PendingTask(Task<Entity>);
+pub struct PendingTask(Task);
 
 impl FromWorld for PendingTask {
     fn from_world(_world: &mut World) -> Self {
-        PendingTask(Task::GoToPlace(GoToPlace {
-            location: Some(Point(Entity::PLACEHOLDER)),
-        }))
+        PendingTask(Task::default())
     }
 }
 
-/// When the MobileRobotMarker is added or removed, add or remove the Tasks<Entity> component
-fn add_remove_mobile_robot_tasks(
+fn add_remove_robot_tasks(
     mut commands: Commands,
-    instances: Query<(Entity, Ref<MobileRobotMarker>), Without<Group>>,
-    tasks: Query<&Tasks<Entity>, (With<MobileRobotMarker>, Without<Group>)>,
-    mut removals: RemovedComponents<ModelProperty<MobileRobotMarker>>,
+    instances: Query<(Entity, Ref<Robot>), Without<Group>>,
+    tasks: Query<&Tasks, (With<Robot>, Without<Group>)>,
+    mut removals: RemovedComponents<ModelProperty<Robot>>,
 ) {
+    // all instances with this description - add/remove Tasks component
+
     for removal in removals.read() {
         if instances.get(removal).is_ok() {
-            commands.entity(removal).remove::<Tasks<Entity>>();
+            commands.entity(removal).remove::<Tasks>();
         }
     }
 
@@ -249,23 +220,7 @@ fn add_remove_mobile_robot_tasks(
             if let Ok(_) = tasks.get(e) {
                 continue;
             }
-            commands.entity(e).insert(Tasks::<Entity>::default());
+            commands.entity(e).insert(Tasks::default());
         }
-    }
-}
-
-fn is_task_valid(
-    task: &Task<Entity>,
-    locations: &Query<(Entity, &NameInSite, &LocationTags)>,
-) -> bool {
-    match task {
-        Task::GoToPlace(go_to_place) => {
-            if let Some(location) = go_to_place.location {
-                locations.get(location.0).is_ok()
-            } else {
-                false
-            }
-        }
-        _ => true,
     }
 }

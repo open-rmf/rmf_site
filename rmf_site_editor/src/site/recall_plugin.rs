@@ -19,6 +19,10 @@ use crate::site::SiteUpdateSet;
 use bevy::prelude::*;
 use rmf_site_format::Recall;
 
+/// The set in which all [`RecallPlugin`]s run.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub struct UpdateRecallSet;
+
 #[derive(Default)]
 pub struct RecallPlugin<T: Recall + Component + Default>
 where
@@ -37,7 +41,8 @@ where
             (
                 add_recaller::<T>.after(SiteUpdateSet::ProcessChanges),
                 update_recaller::<T>.after(SiteUpdateSet::ProcessChanges),
-            ),
+            )
+                .in_set(UpdateRecallSet),
         );
     }
 }

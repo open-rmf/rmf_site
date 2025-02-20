@@ -19,7 +19,7 @@ use crate::{
     interaction::{Select, Selection},
     site::{
         Affiliation, CurrentScenario, Delete, DeletionBox, DeletionFilters, Dependents,
-        InstanceMarker, Pending, Pose, Scenario, ScenarioBundle, ScenarioMarker, SiteParent,
+        InstanceMarker, Pending, Pose, Scenario, ScenarioBundle, ScenarioMarker,
     },
     CurrentWorkspace,
 };
@@ -37,10 +37,7 @@ pub fn update_current_scenario(
     mut current_scenario: ResMut<CurrentScenario>,
     current_workspace: Res<CurrentWorkspace>,
     scenarios: Query<&Scenario<Entity>>,
-    mut instances: Query<
-        (Entity, &mut Pose, &SiteParent<Entity>, &mut Visibility),
-        With<InstanceMarker>,
-    >,
+    mut instances: Query<(Entity, &mut Pose, &mut Visibility), With<InstanceMarker>>,
 ) {
     if let Some(ChangeCurrentScenario(scenario_entity)) = change_current_scenario.read().last() {
         // Used to build a scenario from root
@@ -79,14 +76,8 @@ pub fn update_current_scenario(
         };
 
         // If active, assign parent to level, otherwise assign parent to site
-        for (entity, mut pose, parent, mut visibility) in instances.iter_mut() {
+        for (entity, mut pose, mut visibility) in instances.iter_mut() {
             if let Some(new_pose) = active_instances.get(&entity) {
-                if let Some(parent_entity) = parent.0 {
-                    commands.entity(entity).set_parent(parent_entity);
-                } else {
-                    commands.entity(entity).set_parent(current_site_entity);
-                    warn!("Model instance {:?} has no valid site parent", entity);
-                }
                 *pose = new_pose.clone();
                 *visibility = Visibility::Inherited;
             } else {

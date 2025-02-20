@@ -74,8 +74,8 @@ pub use measurement::*;
 pub mod misc;
 pub use misc::*;
 
-pub mod mobile_robot;
-pub use mobile_robot::*;
+pub mod robot;
+pub use robot::*;
 
 pub mod model;
 pub use model::*;

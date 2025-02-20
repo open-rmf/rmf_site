@@ -28,16 +28,16 @@ use bevy_egui::egui::{CollapsingHeader, Color32, Frame, Stroke, Ui};
 
 #[derive(SystemParam)]
 pub struct ViewTasks<'w, 's> {
-    mobile_robots: Query<
+    robots: Query<
         'w,
         's,
         (
             Entity,
             &'static NameInSite,
             Option<&'static SiteID>,
-            &'static mut Tasks<Entity>,
+            &'static mut Tasks,
         ),
-        (With<MobileRobotMarker>, Without<Group>),
+        (With<Robot>, Without<Group>),
     >,
     site_entities: Query<
         'w,
@@ -75,9 +75,7 @@ impl<'w, 's> ViewTasks<'w, 's> {
                 ui.set_min_width(ui.available_width());
 
                 let mut total_task_count: u32 = 0;
-                for (robot_entity, robot_name, robot_site_id, robot_tasks) in
-                    self.mobile_robots.iter()
-                {
+                for (robot_entity, robot_name, robot_site_id, robot_tasks) in self.robots.iter() {
                     for task in robot_tasks.0.iter() {
                         show_task(
                             ui,
@@ -101,7 +99,7 @@ impl<'w, 's> ViewTasks<'w, 's> {
 
 fn show_task(
     ui: &mut Ui,
-    task: &Task<Entity>,
+    task: &Task,
     robot_name: &str,
     robot_entity: &Entity,
     robot_site_id: Option<&SiteID>,
@@ -117,7 +115,7 @@ fn show_task(
         .show(ui, |ui| {
             ui.set_min_width(ui.available_width());
 
-            // Mobile Robot
+            // Robot
             ui.horizontal(|ui| {
                 ui.label("Robot");
                 if ui
@@ -138,13 +136,13 @@ fn show_task(
                 }
             });
 
-            // Task
-            match task {
-                Task::GoToPlace(go_to_place) => {
+            // Additional context for default tasks
+            if task.kind == GoToPlace::label() {
+                if let Ok(go_to_place) = serde_json::from_value::<GoToPlace>(task.config.clone()) {
                     ui.horizontal(|ui| {
                         ui.label("Go To Place: ");
-                        if let Some(location) = go_to_place.location {
-                            if let Ok((entity, name, _, site_id)) = site_entities.get(location.0) {
+                        for (entity, name, _, site_id) in site_entities.iter() {
+                            if *name.0 == go_to_place.location {
                                 if ui
                                     .selectable_label(
                                         selected.0.is_some_and(|s| s == entity),
@@ -154,20 +152,19 @@ fn show_task(
                                                 .map(|id| id.to_string())
                                                 .unwrap_or("unsaved".to_string()),
                                             name.0
-                                        )
-                                        .to_string(),
+                                        ),
                                     )
                                     .clicked()
                                 {
                                     select.send(Select::new(Some(entity)));
                                 }
+                                break;
                             }
                         }
                     });
                 }
-                Task::WaitFor(wait_for) => {
-                    // TODO(@xiyuoh) provide selectable label for different units
-                    // internal conversions
+            } else if task.kind == WaitFor::label() {
+                if let Ok(wait_for) = serde_json::from_value::<WaitFor>(task.config.clone()) {
                     ui.label(format!("Wait For: {} seconds", wait_for.duration));
                 }
             }
