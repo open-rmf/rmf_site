@@ -476,6 +476,7 @@ pub struct SiteID(pub u32);
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Parented<P: RefTrait, T> {
     pub parent: P,
+    #[serde(flatten)]
     pub bundle: T,
 }
 
