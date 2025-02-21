@@ -17,6 +17,7 @@
 
 use crate::widgets::prelude::*;
 
+use crate::{interaction::AnchorSelection, AppState};
 use bevy::ecs::query::Has;
 use bevy::prelude::*;
 use bevy_egui::egui::{self, Button, Ui};
@@ -276,12 +277,64 @@ pub fn render_sub_menu(
     }
 }
 
+/// Helper function to render site object creation buttons
+fn render_create_site_object(
+    ui: &mut Ui,
+    app_state: &Res<State<AppState>>,
+    anchor_selection: &mut AnchorSelection,
+) {
+    match app_state.get() {
+        AppState::SiteEditor => {
+            if ui.button("↔ Lane").clicked() {
+                anchor_selection.create_lanes();
+            }
+
+            if ui.button("📌 Location").clicked() {
+                anchor_selection.create_location();
+            }
+
+            if ui.button("■ Wall").clicked() {
+                anchor_selection.create_walls();
+            }
+
+            if ui.button("🚪 Door").clicked() {
+                anchor_selection.create_door();
+            }
+
+            if ui.button("⬍ Lift").clicked() {
+                anchor_selection.create_lift();
+            }
+
+            if ui.button("✏ Floor").clicked() {
+                anchor_selection.create_floor();
+            }
+
+            if ui.button("☉ Fiducial").clicked() {
+                anchor_selection.create_site_fiducial();
+            }
+        }
+        AppState::SiteDrawingEditor => {
+            if ui.button("Fiducial").clicked() {
+                anchor_selection.create_drawing_fiducial();
+            }
+            if ui.button("Measurement").clicked() {
+                anchor_selection.create_measurements();
+            }
+        }
+        _ => {
+            return;
+        }
+    };
+}
+
 #[derive(SystemParam)]
 struct MenuParams<'w, 's> {
     menus: Query<'w, 's, (&'static Menu, Entity)>,
     menu_items: Query<'w, 's, (&'static mut MenuItem, Has<MenuDisabled>)>,
     extension_events: EventWriter<'w, MenuEvent>,
     view_menu: Res<'w, ViewMenu>,
+    app_state: Res<'w, State<AppState>>,
+    anchor_selection: AnchorSelection<'w, 's>,
 }
 
 fn top_menu_bar(
@@ -330,6 +383,13 @@ fn top_menu_bar(
                     false,
                 );
             }
+
+            ui.separator();
+            render_create_site_object(
+                ui,
+                &menu_params.app_state,
+                &mut menu_params.anchor_selection,
+            );
         });
     });
 }
