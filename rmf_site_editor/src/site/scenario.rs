@@ -38,7 +38,8 @@ pub enum UpdateInstanceType {
 
 #[derive(Event)]
 pub struct UpdateInstance {
-    pub entity: Entity,
+    pub scenario: Entity,
+    pub instance: Entity,
     pub update_type: UpdateInstanceType,
 }
 
@@ -48,6 +49,8 @@ pub fn update_current_scenario(
     mut selection: ResMut<Selection>,
     mut change_current_scenario: EventReader<ChangeCurrentScenario>,
     mut current_scenario: ResMut<CurrentScenario>,
+    mut update_instance: EventWriter<UpdateInstance>,
+    children: Query<&Children>,
     scenarios: Query<&Scenario<Entity>>,
     mut instances: Query<(Entity, &mut Pose, &mut Visibility), With<InstanceMarker>>,
 ) {
@@ -65,6 +68,18 @@ pub fn update_current_scenario(
             }) {
                 *pose = new_pose.clone();
                 *visibility = Visibility::Inherited;
+
+                // Trigger an update for this instance in children scenarios (if any) since
+                // the same instance in the parent scenario may have been modified
+                if let Ok(scenario_children) = children.get(*scenario_entity) {
+                    scenario_children.iter().for_each(|child| {
+                        update_instance.send(UpdateInstance {
+                            scenario: *child,
+                            instance: entity,
+                            update_type: UpdateInstanceType::Modify,
+                        });
+                    });
+                }
             } else {
                 *visibility = Visibility::Hidden;
             }
@@ -100,6 +115,7 @@ pub fn update_scenario_properties(
     current_scenario: Res<CurrentScenario>,
     mut scenarios: Query<&mut Scenario<Entity>>,
     mut change_current_scenario: EventReader<ChangeCurrentScenario>,
+    mut update_instance: EventWriter<UpdateInstance>,
     changed_instances: Query<(Entity, Ref<Pose>), (With<InstanceMarker>, Without<Pending>)>,
     children: Query<&Children>,
 ) {
@@ -107,36 +123,45 @@ pub fn update_scenario_properties(
     for ChangeCurrentScenario(_) in change_current_scenario.read() {
         return;
     }
+    let Some(current_scenario_entity) = current_scenario.0 else {
+        return;
+    };
+    let Ok(mut current_scenario) = scenarios.get_mut(current_scenario_entity) else {
+        return;
+    };
 
     let mut newly_added_instances = HashMap::new();
-    if let Some(mut current_scenario) = current_scenario
-        .0
-        .and_then(|entity| scenarios.get_mut(entity).ok())
-    {
-        let parent_exists = current_scenario.parent_scenario.0.is_some();
-        for (entity, new_pose) in changed_instances.iter() {
-            if new_pose.is_changed() {
-                if let Some(instance) = current_scenario.instances.get_mut(&entity) {
-                    *instance = if parent_exists {
-                        Instance::Modified(ModifiedInstance {
-                            pose: new_pose.clone(),
-                        })
-                    } else {
-                        Instance::Added(AddedInstance {
-                            pose: new_pose.clone(),
-                        })
-                    };
-                    // TODO(@xiyuoh) if this scenario has children, update children instances
-                    // from Added to Modified since their poses now deviate from the parent pose
-                } else if new_pose.is_added() {
-                    newly_added_instances.insert(entity, new_pose.clone());
-                    current_scenario.instances.insert(
-                        entity,
-                        Instance::Added(AddedInstance {
-                            pose: new_pose.clone(),
-                        }),
-                    );
+    let parent_exists = current_scenario.parent_scenario.0.is_some();
+    for (entity, new_pose) in changed_instances.iter() {
+        if new_pose.is_changed() {
+            if let Some(instance) = current_scenario.instances.get_mut(&entity) {
+                *instance = if parent_exists {
+                    Instance::Modified(ModifiedInstance {
+                        pose: new_pose.clone(),
+                    })
+                } else {
+                    Instance::Added(AddedInstance {
+                        pose: new_pose.clone(),
+                    })
+                };
+                // Update children scenarios/instances since the parent pose changed
+                if let Ok(scenario_children) = children.get(current_scenario_entity) {
+                    scenario_children.iter().for_each(|child| {
+                        update_instance.send(UpdateInstance {
+                            scenario: *child,
+                            instance: entity,
+                            update_type: UpdateInstanceType::Modify,
+                        });
+                    });
                 }
+            } else if new_pose.is_added() {
+                newly_added_instances.insert(entity, new_pose.clone());
+                current_scenario.instances.insert(
+                    entity,
+                    Instance::Added(AddedInstance {
+                        pose: new_pose.clone(),
+                    }),
+                );
             }
         }
     }
@@ -163,14 +188,11 @@ pub fn handle_instance_updates(
     parents: Query<&Parent>,
 ) {
     for update in update_instance.read() {
-        let Some(current_scenario_entity) = current_scenario.0 else {
-            return;
-        };
         let parent_pose = parents
-            .get(current_scenario_entity)
+            .get(update.scenario)
             .and_then(|p| scenarios.get(p.get()))
             .ok()
-            .and_then(|ps| ps.instances.get(&update.entity))
+            .and_then(|ps| ps.instances.get(&update.instance))
             .and_then(|instance| match instance {
                 Instance::Added(added) => Some(added.pose),
                 Instance::Modified(modified) => Some(modified.pose),
@@ -178,10 +200,10 @@ pub fn handle_instance_updates(
                 Instance::Hidden(hidden) => Some(hidden.pose),
             });
 
-        let Ok(mut current_scenario) = scenarios.get_mut(current_scenario_entity) else {
+        let Ok(mut scenario) = scenarios.get_mut(update.scenario) else {
             return;
         };
-        let Some(instance) = current_scenario.instances.get_mut(&update.entity) else {
+        let Some(instance) = scenario.instances.get_mut(&update.instance) else {
             continue;
         };
         let instance_pose = match instance {
@@ -208,8 +230,13 @@ pub fn handle_instance_updates(
                 });
             }
             UpdateInstanceType::Modify => {
-                // Do nothing for now as the only type of modification is pose change,
-                // which is handled above
+                // If the instance pose in this scenario's parent has changed, update the instance in
+                // this scenario to Modified
+                if parent_pose.is_some_and(|p| p != instance_pose) {
+                    *instance = Instance::Modified(ModifiedInstance {
+                        pose: instance_pose,
+                    });
+                }
             }
             UpdateInstanceType::ResetPose => {
                 if let Some(reset_pose) = parent_pose {
@@ -217,7 +244,10 @@ pub fn handle_instance_updates(
                 };
             }
         }
-        change_current_scenario.send(ChangeCurrentScenario(current_scenario_entity));
+
+        if current_scenario.0.is_some_and(|e| e == update.scenario) {
+            change_current_scenario.send(ChangeCurrentScenario(update.scenario));
+        };
     }
 }
 

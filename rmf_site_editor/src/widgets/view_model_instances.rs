@@ -112,6 +112,7 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                                 &mut self.delete,
                                                 &mut self.update_instance,
                                                 &mut scenario.instances,
+                                                current_scenario_entity,
                                             );
                                         } else {
                                             unaffiliated_instances.push(instance_entity);
@@ -138,6 +139,7 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                             &mut self.delete,
                                             &mut self.update_instance,
                                             &mut scenario.instances,
+                                            current_scenario_entity,
                                         );
                                     }
                                 }
@@ -162,6 +164,7 @@ fn show_model_instance(
     delete: &mut EventWriter<Delete>,
     update_instance: &mut EventWriter<UpdateInstance>,
     instances: &mut BTreeMap<Entity, Instance>,
+    scenario: Entity,
 ) {
     // Instance selector
     ui.horizontal(|ui| {
@@ -185,12 +188,14 @@ fn show_model_instance(
             {
                 if included {
                     update_instance.send(UpdateInstance {
-                        entity,
+                        scenario,
+                        instance: entity,
                         update_type: UpdateInstanceType::Include,
                     });
                 } else {
                     update_instance.send(UpdateInstance {
-                        entity,
+                        scenario,
+                        instance: entity,
                         update_type: UpdateInstanceType::Hide,
                     });
                 }
@@ -209,7 +214,8 @@ fn show_model_instance(
                         .clicked()
                     {
                         update_instance.send(UpdateInstance {
-                            entity,
+                            scenario,
+                            instance: entity,
                             update_type: UpdateInstanceType::ResetPose,
                         });
                     }
