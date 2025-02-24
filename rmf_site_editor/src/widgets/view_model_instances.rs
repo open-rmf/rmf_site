@@ -16,17 +16,16 @@
 */
 
 use crate::{
-    interaction::{Select, Selection},
     site::{
-        Affiliation, Category, ChangeCurrentScenario, CurrentScenario, Delete, Group, Instance,
+        Affiliation, ChangeCurrentScenario, CurrentScenario, Delete, Group, Instance, Members,
         ModelMarker, NameInSite, Scenario, ScenarioMarker, UpdateInstance, UpdateInstanceType,
     },
-    widgets::prelude::*,
+    widgets::{prelude::*, SelectorWidget},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, Color32, ScrollArea, Ui};
 use rmf_site_format::{Angle, InstanceMarker, SiteID};
-use std::collections::{BTreeMap, HashSet};
+use std::collections::BTreeMap;
 
 const INSTANCES_VIEWER_HEIGHT: f32 = 200.0;
 
@@ -50,6 +49,7 @@ pub struct ViewModelInstances<'w, 's> {
     >,
     change_current_scenario: EventWriter<'w, ChangeCurrentScenario>,
     current_scenario: ResMut<'w, CurrentScenario>,
+    members: Query<'w, 's, &'static Members>,
     model_descriptions: Query<
         'w,
         's,
@@ -59,17 +59,10 @@ pub struct ViewModelInstances<'w, 's> {
     model_instances: Query<
         'w,
         's,
-        (
-            Entity,
-            &'static NameInSite,
-            &'static Category,
-            &'static Affiliation<Entity>,
-            Option<&'static SiteID>,
-        ),
+        (Entity, &'static NameInSite, &'static Affiliation<Entity>),
         With<InstanceMarker>,
     >,
-    selection: Res<'w, Selection>,
-    select: EventWriter<'w, Select>,
+    selector: SelectorWidget<'w, 's>,
     delete: EventWriter<'w, Delete>,
     update_instance: EventWriter<'w, UpdateInstance>,
 }
@@ -90,40 +83,38 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
         if let Some(current_scenario_entity) = self.current_scenario.0 {
             if let Ok((_, _, mut scenario)) = self.scenarios.get_mut(current_scenario_entity) {
                 let current_scenario_instances = scenario.instances.clone();
-                let mut unaffiliated_instances = HashSet::<Entity>::new();
+                let mut unaffiliated_instances = Vec::<Entity>::new();
                 ScrollArea::vertical()
                     .max_height(INSTANCES_VIEWER_HEIGHT)
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
                         for (desc_entity, desc_name, _) in self.model_descriptions.iter() {
+                            let Ok(members) = self.members.get(desc_entity) else {
+                                continue;
+                            };
                             CollapsingHeader::new(desc_name.0.clone())
                                 .id_source(desc_name.0.clone())
                                 // TODO(@xiyuoh) true if model is selected
                                 .default_open(false)
                                 .show(ui, |ui| {
-                                    for (
-                                        instance_entity,
-                                        instance_name,
-                                        category,
-                                        affiliation,
-                                        instance_site_id,
-                                    ) in self.model_instances.iter_mut()
-                                    {
+                                    for member in members.iter() {
+                                        let Ok((instance_entity, instance_name, affiliation)) =
+                                            self.model_instances.get_mut(*member)
+                                        else {
+                                            continue;
+                                        };
                                         if affiliation.0.is_some_and(|e| e == desc_entity) {
                                             show_model_instance(
                                                 ui,
                                                 instance_name,
-                                                instance_site_id,
-                                                category,
                                                 instance_entity,
-                                                &self.selection,
-                                                &mut self.select,
+                                                &mut self.selector,
                                                 &mut self.delete,
                                                 &mut self.update_instance,
                                                 &mut scenario.instances,
                                             );
                                         } else {
-                                            unaffiliated_instances.insert(instance_entity);
+                                            unaffiliated_instances.push(instance_entity);
                                         }
                                     }
                                 });
@@ -136,17 +127,14 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                     ui.label("No orphan model instances.");
                                 }
                                 for instance_entity in unaffiliated_instances.iter() {
-                                    if let Ok((_, instance_name, category, _, instance_site_id)) =
+                                    if let Ok((_, instance_name, _)) =
                                         self.model_instances.get_mut(*instance_entity)
                                     {
                                         show_model_instance(
                                             ui,
                                             instance_name,
-                                            instance_site_id,
-                                            category,
                                             *instance_entity,
-                                            &self.selection,
-                                            &mut self.select,
+                                            &mut self.selector,
                                             &mut self.delete,
                                             &mut self.update_instance,
                                             &mut scenario.instances,
@@ -169,33 +157,16 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
 fn show_model_instance(
     ui: &mut Ui,
     name: &NameInSite,
-    site_id: Option<&SiteID>,
-    category: &Category,
     entity: Entity,
-    selection: &Selection,
-    select: &mut EventWriter<Select>,
+    selector: &mut SelectorWidget,
     delete: &mut EventWriter<Delete>,
     update_instance: &mut EventWriter<UpdateInstance>,
     instances: &mut BTreeMap<Entity, Instance>,
 ) {
     // Instance selector
     ui.horizontal(|ui| {
-        if ui
-            .selectable_label(
-                selection.0.is_some_and(|s| s == entity),
-                format!(
-                    "{} #{}",
-                    category.label(),
-                    site_id
-                        .map(|s| s.0.to_string())
-                        .unwrap_or("unsaved".to_string()),
-                ),
-            )
-            .clicked()
-        {
-            select.send(Select::new(Some(entity)));
-        };
-        ui.label(format!("[{}]", name.0));
+        selector.show_widget(entity, ui);
+        ui.label(format!("{}", name.0));
     });
 
     if let Some(instance) = instances.get_mut(&entity) {
