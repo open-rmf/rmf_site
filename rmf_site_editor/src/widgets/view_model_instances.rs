@@ -90,7 +90,7 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
         if let Some(current_scenario_entity) = self.current_scenario.0 {
             if let Ok((_, _, mut scenario)) = self.scenarios.get_mut(current_scenario_entity) {
                 let current_scenario_instances = scenario.instances.clone();
-                let mut non_affiliated_instances = HashSet::<Entity>::new();
+                let mut unaffiliated_instances = HashSet::<Entity>::new();
                 ScrollArea::vertical()
                     .max_height(INSTANCES_VIEWER_HEIGHT)
                     .auto_shrink([false, false])
@@ -123,19 +123,19 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                                 &mut scenario.instances,
                                             );
                                         } else {
-                                            non_affiliated_instances.insert(instance_entity);
+                                            unaffiliated_instances.insert(instance_entity);
                                         }
                                     }
                                 });
                         }
-                        CollapsingHeader::new("Non-affiliated instances")
+                        CollapsingHeader::new("Unaffiliated instances")
                             // TODO(@xiyuoh) true if model is selected
                             .default_open(false)
                             .show(ui, |ui| {
-                                if non_affiliated_instances.is_empty() {
+                                if unaffiliated_instances.is_empty() {
                                     ui.label("No orphan model instances.");
                                 }
-                                for instance_entity in non_affiliated_instances.iter() {
+                                for instance_entity in unaffiliated_instances.iter() {
                                     if let Ok((_, instance_name, category, _, instance_site_id)) =
                                         self.model_instances.get_mut(*instance_entity)
                                     {
