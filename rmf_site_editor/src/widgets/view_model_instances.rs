@@ -18,15 +18,15 @@
 use crate::{
     interaction::{Select, Selection},
     site::{
-        Affiliation, Category, ChangeCurrentScenario, CurrentScenario, Delete, Group, ModelMarker,
-        NameInSite, ResetPose, Scenario, ScenarioMarker,
+        Affiliation, Category, ChangeCurrentScenario, CurrentScenario, Delete, Group, Instance,
+        ModelMarker, NameInSite, Scenario, ScenarioMarker, UpdateInstance, UpdateInstanceType,
     },
     widgets::prelude::*,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, Color32, ScrollArea, Ui};
-use rmf_site_format::{Angle, InstanceMarker, Pose, SiteID};
-use std::collections::{HashMap, HashSet};
+use rmf_site_format::{Angle, InstanceMarker, SiteID};
+use std::collections::{BTreeMap, HashSet};
 
 const INSTANCES_VIEWER_HEIGHT: f32 = 200.0;
 
@@ -71,7 +71,7 @@ pub struct ViewModelInstances<'w, 's> {
     selection: Res<'w, Selection>,
     select: EventWriter<'w, Select>,
     delete: EventWriter<'w, Delete>,
-    reset_pose: EventWriter<'w, ResetPose>,
+    update_instance: EventWriter<'w, UpdateInstance>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for ViewModelInstances<'w, 's> {
@@ -115,11 +115,11 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                                 instance_name,
                                                 instance_site_id,
                                                 category,
-                                                &instance_entity,
+                                                instance_entity,
                                                 &self.selection,
                                                 &mut self.select,
                                                 &mut self.delete,
-                                                &mut self.reset_pose,
+                                                &mut self.update_instance,
                                                 &mut scenario.instances,
                                             );
                                         } else {
@@ -144,11 +144,11 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                             instance_name,
                                             instance_site_id,
                                             category,
-                                            instance_entity,
+                                            *instance_entity,
                                             &self.selection,
                                             &mut self.select,
                                             &mut self.delete,
-                                            &mut self.reset_pose,
+                                            &mut self.update_instance,
                                             &mut scenario.instances,
                                         );
                                     }
@@ -171,18 +171,18 @@ fn show_model_instance(
     name: &NameInSite,
     site_id: Option<&SiteID>,
     category: &Category,
-    entity: &Entity,
+    entity: Entity,
     selection: &Selection,
     select: &mut EventWriter<Select>,
     delete: &mut EventWriter<Delete>,
-    reset_pose: &mut EventWriter<ResetPose>,
-    instances: &mut HashMap<Entity, ((Pose, bool), bool)>,
+    update_instance: &mut EventWriter<UpdateInstance>,
+    instances: &mut BTreeMap<Entity, Instance>,
 ) {
     // Instance selector
     ui.horizontal(|ui| {
         if ui
             .selectable_label(
-                selection.0.is_some_and(|s| s == *entity),
+                selection.0.is_some_and(|s| s == entity),
                 format!(
                     "{} #{}",
                     category.label(),
@@ -193,36 +193,67 @@ fn show_model_instance(
             )
             .clicked()
         {
-            select.send(Select::new(Some(*entity)));
+            select.send(Select::new(Some(entity)));
         };
         ui.label(format!("[{}]", name.0));
     });
 
-    if let Some(((pose, moved), included)) = instances.get_mut(entity) {
+    if let Some(instance) = instances.get_mut(&entity) {
+        let (mut included, pose) = match instance {
+            Instance::Added(added) => (true, added.pose.clone()),
+            Instance::Modified(modified) => (true, modified.pose.clone()),
+            Instance::Hidden(hidden) => (false, hidden.pose.clone()),
+        };
+
         // Include/hide model instance
         ui.horizontal(|ui| {
-            ui.checkbox(included, "Include")
-                .on_hover_text("Include/Hide this model instance in the current scenario");
+            if ui
+                .checkbox(&mut included, "Include")
+                .on_hover_text("Include/Hide this model instance in the current scenario")
+                .changed()
+            {
+                if included {
+                    update_instance.send(UpdateInstance {
+                        entity,
+                        update_type: UpdateInstanceType::Include,
+                    });
+                } else {
+                    update_instance.send(UpdateInstance {
+                        entity,
+                        update_type: UpdateInstanceType::Hide,
+                    });
+                }
+            }
 
             // Reset instance pose to parent scenario
-            ui.add_enabled_ui(*moved, |ui| {
-                if ui
-                    .button("↩")
-                    .on_hover_text("Reset to parent scenario pose")
-                    .clicked()
-                {
-                    reset_pose.send(ResetPose(*entity));
-                }
-            });
+            ui.add_enabled_ui(
+                match instance {
+                    Instance::Modified(_) => true,
+                    _ => false,
+                },
+                |ui| {
+                    if ui
+                        .button("↩")
+                        .on_hover_text("Reset to parent scenario pose")
+                        .clicked()
+                    {
+                        update_instance.send(UpdateInstance {
+                            entity,
+                            update_type: UpdateInstanceType::ResetPose,
+                        });
+                    }
+                },
+            );
             // Delete instance from this site (all scenarios)
             if ui
                 .button("❌")
                 .on_hover_text("Remove instance from all scenarios")
                 .clicked()
             {
-                delete.send(Delete::new(*entity));
+                delete.send(Delete::new(entity));
             }
         });
+
         // Format instance pose
         ui.colored_label(
             Color32::GRAY,

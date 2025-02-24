@@ -17,16 +17,16 @@
 
 use crate::{
     site::{
-        Change, ChangeCurrentScenario, CurrentScenario, NameInSite, RemoveScenario, Scenario,
-        ScenarioMarker,
+        AddedInstance, Change, ChangeCurrentScenario, CurrentScenario, Instance, NameInSite,
+        RemoveScenario, Scenario, ScenarioMarker,
     },
     widgets::prelude::*,
     CurrentWorkspace, Icons,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Align, Button, CollapsingHeader, Color32, Layout, Ui};
-use rmf_site_format::{Pose, ScenarioBundle};
-use std::collections::HashMap;
+use rmf_site_format::ScenarioBundle;
+use std::collections::BTreeMap;
 
 /// Add a plugin for viewing and editing a list of all levels
 #[derive(Default)]
@@ -124,12 +124,32 @@ impl<'w, 's> ViewScenarios<'w, 's> {
         });
         ui.horizontal(|ui| {
             if ui.add(Button::image(self.icons.add.egui())).clicked() {
-                let instances: HashMap<Entity, ((Pose, bool), bool)> = self
-                    .current_scenario
-                    .0
-                    .and_then(|e| self.scenarios.get(e).ok())
-                    .map(|(_, _, scenario)| scenario.instances.clone())
-                    .unwrap_or(HashMap::<Entity, ((Pose, bool), bool)>::new());
+                let instances: BTreeMap<Entity, Instance> =
+                    match self.display_scenarios.is_new_scenario_root {
+                        true => BTreeMap::<Entity, Instance>::new(),
+                        false => self
+                            .current_scenario
+                            .0
+                            .and_then(|e| self.scenarios.get(e).ok())
+                            .map(|(_, _, scenario)| {
+                                scenario
+                                    .instances
+                                    .clone()
+                                    .into_iter()
+                                    .map(|(e, i)| match i {
+                                        Instance::Modified(modified) => (
+                                            e,
+                                            Instance::Added(AddedInstance {
+                                                pose: modified.pose,
+                                            }),
+                                        ),
+                                        _ => (e, i),
+                                    })
+                                    .collect::<BTreeMap<Entity, Instance>>()
+                            })
+                            .unwrap_or(BTreeMap::<Entity, Instance>::new()),
+                    };
+
                 let mut cmd = self
                     .commands
                     .spawn(ScenarioBundle::<Entity>::from_name_parent(

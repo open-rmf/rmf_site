@@ -18,8 +18,8 @@
 use crate::{
     interaction::{Selected, Selection},
     site::{
-        CurrentScenario, Delete, Dependents, InstanceMarker, Pending, Pose, Scenario,
-        ScenarioBundle, ScenarioMarker,
+        AddedInstance, CurrentScenario, Delete, Dependents, HiddenInstance, Instance,
+        InstanceMarker, ModifiedInstance, Pending, Pose, Scenario, ScenarioBundle, ScenarioMarker,
     },
     CurrentWorkspace,
 };
@@ -29,8 +29,18 @@ use std::collections::HashMap;
 #[derive(Clone, Copy, Debug, Event)]
 pub struct ChangeCurrentScenario(pub Entity);
 
+pub enum UpdateInstanceType {
+    Include,
+    Hide,
+    Modify,
+    ResetPose,
+}
+
 #[derive(Event)]
-pub struct ResetPose(pub Entity);
+pub struct UpdateInstance {
+    pub entity: Entity,
+    pub update_type: UpdateInstanceType,
+}
 
 /// Handles changes to the current scenario
 pub fn update_current_scenario(
@@ -48,11 +58,11 @@ pub fn update_current_scenario(
         };
 
         for (entity, mut pose, mut visibility) in instances.iter_mut() {
-            if let Some(((new_pose, _), _)) = scenario
-                .instances
-                .get(&entity)
-                .filter(|(_, included)| *included)
-            {
+            if let Some(new_pose) = scenario.instances.get(&entity).and_then(|i| match i {
+                Instance::Added(added) => Some(added.pose),
+                Instance::Modified(modified) => Some(modified.pose),
+                _ => None,
+            }) {
                 *pose = new_pose.clone();
                 *visibility = Visibility::Inherited;
             } else {
@@ -63,11 +73,10 @@ pub fn update_current_scenario(
         if let Some(entity) = selection.0 {
             if let Ok(mut selected) = selected.get_mut(entity) {
                 let mut deselect = false;
-                if !scenario
-                    .instances
-                    .get(&entity)
-                    .is_some_and(|(_, included)| *included)
-                {
+                if scenario.instances.get(&entity).is_some_and(|i| match i {
+                    Instance::Hidden(_) => true,
+                    _ => false,
+                }) {
                     // Deselect if model instance is hidden
                     deselect = true;
                 } else if current_scenario.0.is_some_and(|e| e != *scenario_entity) {
@@ -92,6 +101,7 @@ pub fn update_scenario_properties(
     mut scenarios: Query<&mut Scenario<Entity>>,
     mut change_current_scenario: EventReader<ChangeCurrentScenario>,
     changed_instances: Query<(Entity, Ref<Pose>), (With<InstanceMarker>, Without<Pending>)>,
+    children: Query<&Children>,
 ) {
     // Do nothing if scenario has changed, as we rely on pose changes by the user and not the system updating instances
     for ChangeCurrentScenario(_) in change_current_scenario.read() {
@@ -106,16 +116,26 @@ pub fn update_scenario_properties(
         let parent_exists = current_scenario.parent_scenario.0.is_some();
         for (entity, new_pose) in changed_instances.iter() {
             if new_pose.is_changed() {
-                if let Some(((current_pose, moved), _)) =
-                    current_scenario.instances.get_mut(&entity)
-                {
-                    *current_pose = new_pose.clone();
-                    *moved = parent_exists;
+                if let Some(instance) = current_scenario.instances.get_mut(&entity) {
+                    *instance = if parent_exists {
+                        Instance::Modified(ModifiedInstance {
+                            pose: new_pose.clone(),
+                        })
+                    } else {
+                        Instance::Added(AddedInstance {
+                            pose: new_pose.clone(),
+                        })
+                    };
+                    // TODO(@xiyuoh) if this scenario has children, update children instances
+                    // from Added to Modified since their poses now deviate from the parent pose
                 } else if new_pose.is_added() {
                     newly_added_instances.insert(entity, new_pose.clone());
-                    current_scenario
-                        .instances
-                        .insert(entity, ((new_pose.clone(), false), true));
+                    current_scenario.instances.insert(
+                        entity,
+                        Instance::Added(AddedInstance {
+                            pose: new_pose.clone(),
+                        }),
+                    );
                 }
             }
         }
@@ -127,40 +147,77 @@ pub fn update_scenario_properties(
             if scenario.instances.contains_key(&entity) {
                 continue;
             }
-            scenario.instances.insert(entity, ((pose, false), false));
+            scenario
+                .instances
+                .insert(entity, Instance::Hidden(HiddenInstance { pose }));
         }
     }
 }
 
-pub fn handle_reset_pose(
+/// Checks that the current scenario's included instances are categorized correctly
+pub fn handle_instance_updates(
     current_scenario: Res<CurrentScenario>,
     mut scenarios: Query<&mut Scenario<Entity>>,
     mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
-    mut reset_pose: EventReader<ResetPose>,
+    mut update_instance: EventReader<UpdateInstance>,
     parents: Query<&Parent>,
 ) {
-    for ResetPose(instance_entity) in reset_pose.read() {
+    for update in update_instance.read() {
         let Some(current_scenario_entity) = current_scenario.0 else {
-            continue;
+            return;
         };
-        let Some(((parent_pose, _), _)) = parents
+        let parent_pose = parents
             .get(current_scenario_entity)
             .and_then(|p| scenarios.get(p.get()))
             .ok()
-            .and_then(|parent_scenario| parent_scenario.instances.get(instance_entity).cloned())
-        else {
-            continue;
-        };
+            .and_then(|ps| ps.instances.get(&update.entity))
+            .and_then(|instance| match instance {
+                Instance::Added(added) => Some(added.pose),
+                Instance::Modified(modified) => Some(modified.pose),
+                // Even if parent pose is hidden, we still allow reset
+                Instance::Hidden(hidden) => Some(hidden.pose),
+            });
+
         let Ok(mut current_scenario) = scenarios.get_mut(current_scenario_entity) else {
+            return;
+        };
+        let Some(instance) = current_scenario.instances.get_mut(&update.entity) else {
             continue;
         };
-        if let Some(((instance_pose, moved), _)) =
-            current_scenario.instances.get_mut(instance_entity)
-        {
-            *instance_pose = parent_pose;
-            *moved = false;
-            change_current_scenario.send(ChangeCurrentScenario(current_scenario_entity));
+        let instance_pose = match instance {
+            Instance::Added(added) => added.pose,
+            Instance::Modified(modified) => modified.pose,
+            Instance::Hidden(hidden) => hidden.pose,
+        };
+
+        match update.update_type {
+            UpdateInstanceType::Include => {
+                if parent_pose.is_some_and(|p| p != instance_pose) {
+                    *instance = Instance::Modified(ModifiedInstance {
+                        pose: instance_pose,
+                    });
+                } else {
+                    *instance = Instance::Added(AddedInstance {
+                        pose: instance_pose,
+                    });
+                }
+            }
+            UpdateInstanceType::Hide => {
+                *instance = Instance::Hidden(HiddenInstance {
+                    pose: instance_pose,
+                });
+            }
+            UpdateInstanceType::Modify => {
+                // Do nothing for now as the only type of modification is pose change,
+                // which is handled above
+            }
+            UpdateInstanceType::ResetPose => {
+                if let Some(reset_pose) = parent_pose {
+                    *instance = Instance::Added(AddedInstance { pose: reset_pose });
+                };
+            }
         }
+        change_current_scenario.send(ChangeCurrentScenario(current_scenario_entity));
     }
 }
 

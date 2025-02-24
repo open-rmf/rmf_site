@@ -19,12 +19,34 @@ use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Bundle, Component, Reflect, ReflectComponent};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct InstanceMarker;
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum Instance {
+    Added(AddedInstance),
+    Modified(ModifiedInstance),
+    Hidden(HiddenInstance),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
+pub struct AddedInstance {
+    pub pose: Pose,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
+pub struct ModifiedInstance {
+    pub pose: Pose,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
+pub struct HiddenInstance {
+    pub pose: Pose,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
@@ -35,14 +57,14 @@ pub struct ScenarioMarker;
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct Scenario<T: RefTrait> {
     pub parent_scenario: Affiliation<T>,
-    pub instances: HashMap<T, ((Pose, bool), bool)>,
+    pub instances: BTreeMap<T, Instance>,
 }
 
 impl<T: RefTrait> Scenario<T> {
     pub fn from_parent(parent: T) -> Scenario<T> {
         Scenario {
             parent_scenario: Affiliation(Some(parent)),
-            instances: HashMap::new(),
+            instances: BTreeMap::new(),
         }
     }
 }
@@ -52,7 +74,7 @@ impl<T: RefTrait> Default for Scenario<T> {
     fn default() -> Self {
         Self {
             parent_scenario: Affiliation::default(),
-            instances: HashMap::new(),
+            instances: BTreeMap::new(),
         }
     }
 }
@@ -65,9 +87,9 @@ impl<T: RefTrait> Scenario<T> {
                 .instances
                 .clone()
                 .into_iter()
-                .map(|(id, ((pose, moved), included))| {
+                .map(|(id, instance)| {
                     let converted_id = id_map.get(&id).cloned().ok_or(id)?;
-                    Ok((converted_id, ((pose, moved), included)))
+                    Ok((converted_id, instance))
                 })
                 .collect::<Result<_, _>>()?,
         })
@@ -86,7 +108,7 @@ impl<T: RefTrait> ScenarioBundle<T> {
     pub fn from_name_parent(
         name: String,
         parent: Option<T>,
-        instances: &HashMap<T, ((Pose, bool), bool)>,
+        instances: &BTreeMap<T, Instance>,
     ) -> ScenarioBundle<T> {
         ScenarioBundle {
             name: NameInSite(name),

@@ -2,15 +2,15 @@ use super::{
     floor::FloorParameters, level::Level, lift::Lift, wall::WallProperties, PortingError, Result,
 };
 use crate::{
-    alignment::align_legacy_building, legacy::model::Model, Affiliation, Anchor, Angle,
-    AssetSource, AssociatedGraphs, Category, DisplayColor, Dock as SiteDock,
+    alignment::align_legacy_building, legacy::model::Model, AddedInstance, Affiliation, Anchor,
+    Angle, AssetSource, AssociatedGraphs, Category, DisplayColor, Dock as SiteDock,
     Drawing as SiteDrawing, DrawingProperties, Fiducial as SiteFiducial, FiducialGroup,
-    FiducialMarker, Guided, Lane as SiteLane, LaneMarker, Level as SiteLevel, LevelElevation,
-    LevelProperties as SiteLevelProperties, ModelDescriptionBundle, ModelInstance, Motion,
-    NameInSite, NameOfSite, NavGraph, Navigation, OrientationConstraint, Parented, PixelsPerMeter,
-    Pose, PreferredSemiTransparency, RankingsInLevel, ReverseLane, Robot, Rotation, ScenarioBundle,
-    Site, SiteProperties, Tasks, Texture as SiteTexture, TextureGroup, UserCameraPose,
-    DEFAULT_NAV_GRAPH_COLORS,
+    FiducialMarker, Guided, Instance, Lane as SiteLane, LaneMarker, Level as SiteLevel,
+    LevelElevation, LevelProperties as SiteLevelProperties, ModelDescriptionBundle, ModelInstance,
+    Motion, NameInSite, NameOfSite, NavGraph, Navigation, OrientationConstraint, Parented,
+    PixelsPerMeter, Pose, PreferredSemiTransparency, RankingsInLevel, ReverseLane, Robot, Rotation,
+    ScenarioBundle, Site, SiteProperties, Tasks, Texture as SiteTexture, TextureGroup,
+    UserCameraPose, DEFAULT_NAV_GRAPH_COLORS,
 };
 use glam::{DAffine2, DMat3, DQuat, DVec2, DVec3, EulerRot};
 use serde::{Deserialize, Serialize};
@@ -534,7 +534,10 @@ impl BuildingMap {
                     .unwrap()
                     .scenario
                     .instances
-                    .insert(model_instance_id, ((model_pose, false), true));
+                    .insert(
+                        model_instance_id,
+                        Instance::Added(AddedInstance { pose: model_pose }),
+                    );
             }
             // Spawn robots (for legacy imports)
             for model in legacy_robots.iter() {
@@ -551,7 +554,10 @@ impl BuildingMap {
                     .unwrap()
                     .scenario
                     .instances
-                    .insert(model_instance_id, ((model_pose, false), true));
+                    .insert(
+                        model_instance_id,
+                        Instance::Added(AddedInstance { pose: model_pose }),
+                    );
             }
 
             let mut physical_cameras = BTreeMap::new();
