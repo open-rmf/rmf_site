@@ -68,6 +68,9 @@ use console::*;
 pub mod creation;
 use creation::*;
 
+pub mod creation_site_object;
+pub use creation_site_object::*;
+
 pub mod canvas_tooltips;
 pub use canvas_tooltips::*;
 
@@ -76,6 +79,9 @@ use diagnostics::*;
 
 pub mod fuel_asset_browser;
 pub use fuel_asset_browser::*;
+
+pub mod header_panel;
+pub use header_panel::*;
 
 pub mod icons;
 pub use icons::*;
