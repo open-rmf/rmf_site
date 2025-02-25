@@ -18,12 +18,14 @@
 use crate::{
     interaction::{Selected, Selection},
     site::{
-        AddedInstance, CurrentScenario, Delete, Dependents, HiddenInstance, Instance,
-        InstanceMarker, ModifiedInstance, Pending, Pose, Scenario, ScenarioBundle, ScenarioMarker,
+        AddedInstance, Affiliation, CurrentScenario, Delete, Dependents, Group, HiddenInstance,
+        Instance, InstanceMarker, IssueKey, ModelMarker, ModifiedInstance, NameInSite, Pending,
+        Pose, Scenario, ScenarioBundle, ScenarioMarker,
     },
-    CurrentWorkspace,
+    widgets::view_model_instances::count_scenarios,
+    CurrentWorkspace, Issue, ValidateWorkspace,
 };
-use bevy::prelude::*;
+use bevy::{prelude::*, utils::Uuid};
 use std::collections::HashMap;
 
 #[derive(Clone, Copy, Debug, Event)]
@@ -315,5 +317,42 @@ pub fn handle_remove_scenarios(
                 .insert(Dependents(subtree_dependents));
         }
         delete.send(Delete::new(request.0).and_dependents());
+    }
+}
+
+/// Unique UUID to identify issue of hidden model instance
+pub const HIDDEN_MODEL_INSTANCE_ISSUE_UUID: Uuid =
+    Uuid::from_u128(0x31923bdecb54473aa9a34b711423e9c1u128);
+
+pub fn check_for_hidden_model_instances(
+    mut commands: Commands,
+    mut validate_events: EventReader<ValidateWorkspace>,
+    instances: Query<
+        (Entity, &NameInSite, &Affiliation<Entity>),
+        (With<ModelMarker>, Without<Group>),
+    >,
+    scenarios: Query<(Entity, &NameInSite, &mut Scenario<Entity>), With<ScenarioMarker>>,
+) {
+    for root in validate_events.read() {
+        for (instance_entity, instance_name, _) in instances.iter() {
+            if count_scenarios(&scenarios, instance_entity) > 0 {
+                continue;
+            }
+            let issue = Issue {
+                key: IssueKey {
+                    entities: [instance_entity].into(),
+                    kind: HIDDEN_MODEL_INSTANCE_ISSUE_UUID,
+                },
+                brief: format!(
+                    "Model instance {:?} from {:?} is not included in any scenario",
+                    instance_name
+                ),
+                hint: "Model instance is not present in any scenario. \
+                      Check that the model instance is meant to be hidden from all scenarios."
+                    .to_string(),
+            };
+            let issue_id = commands.spawn(issue).id();
+            commands.entity(**root).add_child(issue_id);
+        }
     }
 }

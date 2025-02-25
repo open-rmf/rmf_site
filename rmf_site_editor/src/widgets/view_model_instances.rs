@@ -81,7 +81,7 @@ impl<'w, 's> WidgetSystem<Tile> for ViewModelInstances<'w, 's> {
 impl<'w, 's> ViewModelInstances<'w, 's> {
     pub fn show_widget(&mut self, ui: &mut Ui) {
         if let Some(current_scenario_entity) = self.current_scenario.0 {
-            if let Ok((_, _, mut scenario)) = self.scenarios.get_mut(current_scenario_entity) {
+            if let Ok((_, _, scenario)) = self.scenarios.get(current_scenario_entity) {
                 let current_scenario_instances = scenario.instances.clone();
                 let mut unaffiliated_instances = Vec::<Entity>::new();
                 ScrollArea::vertical()
@@ -104,6 +104,8 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                             continue;
                                         };
                                         if affiliation.0.is_some_and(|e| e == desc_entity) {
+                                            let scenario_count =
+                                                count_scenarios(&self.scenarios, instance_entity);
                                             show_model_instance(
                                                 ui,
                                                 instance_name,
@@ -111,8 +113,9 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                                 &mut self.selector,
                                                 &mut self.delete,
                                                 &mut self.update_instance,
-                                                &mut scenario.instances,
+                                                &scenario.instances,
                                                 current_scenario_entity,
+                                                scenario_count,
                                             );
                                         } else {
                                             unaffiliated_instances.push(instance_entity);
@@ -131,6 +134,8 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                     if let Ok((_, instance_name, _)) =
                                         self.model_instances.get_mut(*instance_entity)
                                     {
+                                        let scenario_count =
+                                            count_scenarios(&self.scenarios, *instance_entity);
                                         show_model_instance(
                                             ui,
                                             instance_name,
@@ -138,8 +143,9 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                             &mut self.selector,
                                             &mut self.delete,
                                             &mut self.update_instance,
-                                            &mut scenario.instances,
+                                            &scenario.instances,
                                             current_scenario_entity,
+                                            scenario_count,
                                         );
                                     }
                                 }
@@ -155,6 +161,22 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
     }
 }
 
+pub fn count_scenarios(
+    scenarios: &Query<(Entity, &NameInSite, &mut Scenario<Entity>), With<ScenarioMarker>>,
+    instance: Entity,
+) -> i32 {
+    scenarios.iter().fold(0, |x, (_, _, s)| {
+        if s.instances.get(&instance).is_some_and(|i| match i {
+            Instance::Hidden(_) => false,
+            _ => true,
+        }) {
+            x + 1
+        } else {
+            x
+        }
+    })
+}
+
 /// Show a widget for users to interact with a model instance
 fn show_model_instance(
     ui: &mut Ui,
@@ -163,8 +185,9 @@ fn show_model_instance(
     selector: &mut SelectorWidget,
     delete: &mut EventWriter<Delete>,
     update_instance: &mut EventWriter<UpdateInstance>,
-    instances: &mut BTreeMap<Entity, Instance>,
+    instances: &BTreeMap<Entity, Instance>,
     scenario: Entity,
+    scenario_count: i32,
 ) {
     // Instance selector
     ui.horizontal(|ui| {
@@ -172,15 +195,15 @@ fn show_model_instance(
         ui.label(format!("{}", name.0));
     });
 
-    if let Some(instance) = instances.get_mut(&entity) {
+    if let Some(instance) = instances.get(&entity) {
         let (mut included, pose) = match instance {
             Instance::Added(added) => (true, added.pose.clone()),
             Instance::Modified(modified) => (true, modified.pose.clone()),
             Instance::Hidden(hidden) => (false, hidden.pose.clone()),
         };
 
-        // Include/hide model instance
         ui.horizontal(|ui| {
+            // Include/hide model instance
             if ui
                 .checkbox(&mut included, "Include")
                 .on_hover_text("Include/Hide this model instance in the current scenario")
@@ -200,6 +223,8 @@ fn show_model_instance(
                     });
                 }
             }
+            ui.label(format!("[{}]", scenario_count))
+                .on_hover_text("Number of scenarios this instance is included in");
 
             // Reset instance pose to parent scenario
             ui.add_enabled_ui(
