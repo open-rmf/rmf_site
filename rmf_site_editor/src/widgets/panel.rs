@@ -103,6 +103,22 @@ pub fn render_panels(
     }
 }
 
+/// Configuration options for panel
+#[derive(Clone, Copy, Debug, Component)]
+pub struct PanelConfig {
+    pub resizable: bool,
+    pub default_dimension: f32,
+}
+
+impl Default for PanelConfig {
+    fn default() -> Self {
+        Self {
+            resizable: true,
+            default_dimension: 300.0,
+        }
+    }
+}
+
 /// Indicate which side a panel is on
 #[derive(Clone, Copy, Debug, Component)]
 pub enum PanelSide {
