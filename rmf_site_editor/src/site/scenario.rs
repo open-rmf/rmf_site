@@ -344,7 +344,7 @@ pub fn check_for_hidden_model_instances(
                     kind: HIDDEN_MODEL_INSTANCE_ISSUE_UUID,
                 },
                 brief: format!(
-                    "Model instance {:?} from {:?} is not included in any scenario",
+                    "Model instance {:?} is not included in any scenario",
                     instance_name
                 ),
                 hint: "Model instance is not present in any scenario. \
