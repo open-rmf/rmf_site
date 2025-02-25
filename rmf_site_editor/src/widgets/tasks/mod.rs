@@ -32,7 +32,7 @@ use bevy_egui::egui::{
 };
 use serde_json::Value;
 use smallvec::SmallVec;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 pub mod go_to_place;
 pub use go_to_place::*;
@@ -114,7 +114,12 @@ pub struct ViewTasks<'w, 's> {
     edit_task: ResMut<'w, EditTask>,
     pending_tasks: Query<'w, 's, (Entity, &'static mut Task), With<Pending>>,
     robots: Query<'w, 's, (Entity, &'static NameInSite), (With<Robot>, Without<Group>)>,
-    scenarios: Query<'w, 's, (Entity, &'static mut Scenario<Entity>), With<ScenarioMarker>>,
+    scenarios: Query<
+        'w,
+        's,
+        (Entity, &'static NameInSite, &'static mut Scenario<Entity>),
+        With<ScenarioMarker>,
+    >,
     task_kinds: ResMut<'w, TaskKinds>,
     task_widget: ResMut<'w, TaskWidget>,
     tasks: Query<'w, 's, (Entity, &'static mut Task), Without<Pending>>,
@@ -145,26 +150,47 @@ impl<'w, 's> WidgetSystem<Tile> for ViewTasks<'w, 's> {
                     for child in children {
                         let tile = Tile { id, panel };
                         let _ = world.try_show_in(child, tile, ui);
-                        // ui.add_space(10.0);
                     }
                 }
             });
+        ui.separator();
     }
 }
 
 impl<'w, 's> ViewTasks<'w, 's> {
     pub fn show_widget(&mut self, ui: &mut Ui) {
-        let Some((_, mut scenario)) = self
+        let Some((_, scenario_name, scenario)) = self
             .current_scenario
             .0
-            .and_then(|e| self.scenarios.get_mut(e).ok())
+            .and_then(|e| self.scenarios.get(e).ok())
         else {
             ui.label("No scenario selected, unable to display or create tasks.");
             return;
         };
 
-        // View and modify existing tasks
+        // View and modify tasks in current scenario
+        ui.horizontal(|ui| {
+            ui.label(scenario_name.0.clone());
+            let parent_tasks = scenario
+                .parent_scenario
+                .0
+                .and_then(|p| self.scenarios.get(p).ok())
+                .map(|(_, _, ps)| ps.tasks.clone());
+
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                ui.add_enabled_ui(parent_tasks.is_some_and(|pt| pt != scenario.tasks), |ui| {
+                    if ui
+                        .button("↩")
+                        .on_hover_text("Reset to parent scenario tasks")
+                        .clicked()
+                    {
+                        // TODO(@xiyuoh) send event
+                    }
+                });
+            });
+        });
         let mut edit_existing_task: Option<Entity> = None;
+        let mut remove_from_scenario: HashSet<Entity> = HashSet::new();
         Frame::default()
             .inner_margin(4.0)
             .rounding(2.0)
@@ -173,14 +199,19 @@ impl<'w, 's> ViewTasks<'w, 's> {
                 ui.set_min_width(ui.available_width());
 
                 let mut id: usize = 0;
-                for (task_entity, task) in self.tasks.iter() {
-                    let present = scenario.tasks.contains(&task_entity);
-                    let (edit, delete) =
-                        show_task(ui, task_entity, &task, &mut scenario, &mut id, present);
+                for task_entity in scenario.tasks.iter() {
+                    let Ok((_, task)) = self.tasks.get(*task_entity) else {
+                        continue;
+                    };
+                    let scenario_count = count_scenarios(&self.scenarios, *task_entity);
+                    let (edit, remove, delete) =
+                        show_task(ui, *task_entity, &task, &mut id, true, scenario_count);
                     if delete {
-                        self.delete.send(Delete::new(task_entity));
+                        self.delete.send(Delete::new(*task_entity));
+                    } else if remove {
+                        remove_from_scenario.insert(*task_entity);
                     } else if edit {
-                        edit_existing_task = Some(task_entity);
+                        edit_existing_task = Some(*task_entity);
                     }
                 }
                 if id == 0 {
@@ -189,7 +220,51 @@ impl<'w, 's> ViewTasks<'w, 's> {
             });
         ui.add_space(10.0);
 
-        let mut cancel_task = false;
+        // View other created tasks from this site
+        let mut add_to_scenario: HashSet<Entity> = HashSet::new();
+        CollapsingHeader::new("Other Scenarios")
+            .id_source("show_all_scenario_tasks")
+            .default_open(false)
+            .show(ui, |ui| {
+                Frame::default()
+                    .inner_margin(4.0)
+                    .rounding(2.0)
+                    .stroke(Stroke::new(1.0, Color32::GRAY))
+                    .show(ui, |ui| {
+                        ui.set_min_width(ui.available_width());
+                        let mut id: usize = 0;
+                        for (task_entity, task) in self.tasks.iter() {
+                            if scenario.tasks.contains(&task_entity) {
+                                continue;
+                            }
+                            let scenario_count = count_scenarios(&self.scenarios, task_entity);
+                            let (edit, add, delete) =
+                                show_task(ui, task_entity, &task, &mut id, false, scenario_count);
+                            if delete {
+                                self.delete.send(Delete::new(task_entity));
+                            } else if add {
+                                add_to_scenario.insert(task_entity);
+                            } else if edit {
+                                edit_existing_task = Some(task_entity);
+                            }
+                        }
+                        if id == 0 {
+                            ui.label("No tasks from other scenarios");
+                        }
+                    });
+            });
+        ui.separator();
+
+        // Borrow scenario here again for mutable access to scenario
+        let Some((_, _, mut scenario)) = self
+            .current_scenario
+            .0
+            .and_then(|e| self.scenarios.get_mut(e).ok())
+        else {
+            return;
+        };
+
+        let mut cancel_create_new = false;
         if let Some(task_entity) = self.edit_task.0 {
             if let Ok((_, mut pending_task)) = self.pending_tasks.get_mut(task_entity) {
                 if let Some(existing_task_entity) = edit_existing_task {
@@ -201,7 +276,7 @@ impl<'w, 's> ViewTasks<'w, 's> {
                     ui.label("Creating Task");
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         if ui.button("Cancel").clicked() {
-                            cancel_task = true;
+                            cancel_create_new = true;
                         }
                         ui.add_enabled_ui(pending_task.is_valid(), |ui| {
                             // TODO(@xiyuoh) Also check validity of TaskKind (e.g. GoToPlace)
@@ -211,14 +286,14 @@ impl<'w, 's> ViewTasks<'w, 's> {
                                 .clicked()
                             {
                                 self.commands.entity(task_entity).remove::<Pending>();
-                                scenario.tasks.insert(task_entity);
+                                scenario.tasks.push(task_entity);
                                 self.edit_task.0 = None;
                                 return;
                             }
                         });
                     });
                 });
-                if cancel_task {
+                if cancel_create_new {
                     self.edit_task.0 = None;
                     return;
                 }
@@ -278,24 +353,45 @@ impl<'w, 's> ViewTasks<'w, 's> {
                 }
             }
         }
+
+        // Add and remove tasks from scenario
+        for remove_task in remove_from_scenario.iter() {
+            scenario.tasks.retain(|e| e != remove_task);
+        }
+        for add_task in add_to_scenario.iter() {
+            scenario.tasks.push(*add_task);
+        }
     }
+}
+
+pub fn count_scenarios(
+    scenarios: &Query<(Entity, &NameInSite, &mut Scenario<Entity>), With<ScenarioMarker>>,
+    task: Entity,
+) -> i32 {
+    scenarios.iter().fold(0, |x, (_, _, s)| {
+        if s.tasks.iter().any(|e| *e == task) {
+            x + 1
+        } else {
+            x
+        }
+    })
 }
 
 fn show_task(
     ui: &mut Ui,
     entity: Entity,
     task: &Task,
-    scenario: &mut Scenario<Entity>,
     id: &mut usize,
     present: bool,
-) -> (bool, bool) {
+    scenario_count: i32,
+) -> (bool, bool, bool) {
     let mut edit_task = false;
     let mut delete_task = false;
-    let mut include_task = present.clone();
+    let mut toggle_task = false; // Add to or remove from this scenario
     let color = if present {
         Color32::DARK_GRAY
     } else {
-        Color32::BLACK
+        Color32::default()
     };
     Frame::default()
         .inner_margin(4.0)
@@ -315,11 +411,32 @@ fn show_task(
                     {
                         delete_task = true;
                     }
-                    if ui.button("Edit").clicked() {
-                        edit_task = true;
+                    if present {
+                        if ui
+                            .button("Remove")
+                            .on_hover_text("Remove task from this scenario")
+                            .clicked()
+                        {
+                            toggle_task = true;
+                        }
+                        if ui
+                            .button("Edit") // Do not allow edit if not in this scenario
+                            .on_hover_text("Edit task parameters")
+                            .clicked()
+                        {
+                            edit_task = true;
+                        }
+                    } else {
+                        if ui
+                            .button("Add")
+                            .on_hover_text("Add task to this scenario")
+                            .clicked()
+                        {
+                            toggle_task = true;
+                        }
                     }
-                    ui.checkbox(&mut include_task, "")
-                        .on_hover_text("Add to/Remove from current scenario");
+                    ui.label(format!("[{}]", scenario_count))
+                        .on_hover_text("Number of scenarios this task is included in");
                 });
             });
 
@@ -406,13 +523,7 @@ fn show_task(
                 });
         });
     *id += 1;
-    if include_task && !present {
-        scenario.tasks.insert(entity);
-    } else if !include_task && present {
-        scenario.tasks.remove(&entity);
-        return (false, false);
-    }
-    (edit_task, delete_task)
+    (edit_task, toggle_task, delete_task)
 }
 
 fn edit_task(
@@ -604,9 +715,15 @@ fn edit_task(
                         ui.end_row();
                         ui.label("");
                     }
-                    if ui.button("✚").on_hover_text("Insert new label").clicked() {
-                        task_request.labels_mut().push(String::new());
-                    }
+                    ui.with_layout(Layout::right_to_left(Align::Max), |ui| {
+                        if ui
+                            .button("Add label")
+                            .on_hover_text("Insert new label")
+                            .clicked()
+                        {
+                            task_request.labels_mut().push(String::new());
+                        }
+                    });
                     ui.end_row();
                     for i in remove_labels.drain(..).rev() {
                         task_request.labels_mut().remove(i);
@@ -637,5 +754,4 @@ fn edit_task(
                     ui.end_row();
                 });
         });
-    ui.separator();
 }

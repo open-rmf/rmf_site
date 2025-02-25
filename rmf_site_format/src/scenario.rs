@@ -19,7 +19,7 @@ use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Bundle, Component, Reflect, ReflectComponent};
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
@@ -38,7 +38,7 @@ pub struct Scenario<T: RefTrait> {
     pub added_instances: Vec<(T, Pose)>,
     pub removed_instances: Vec<T>,
     pub moved_instances: Vec<(T, Pose)>,
-    pub tasks: HashSet<T>, // TODO(@xiyuoh) Consider changing to BTreeMap similar to instances
+    pub tasks: Vec<T>, // TODO(@xiyuoh) Consider changing to BTreeMap similar to instances
 }
 
 impl<T: RefTrait> Scenario<T> {
@@ -48,7 +48,7 @@ impl<T: RefTrait> Scenario<T> {
             added_instances: Vec::new(),
             removed_instances: Vec::new(),
             moved_instances: Vec::new(),
-            tasks: HashSet::new(),
+            tasks: Vec::new(),
         }
     }
 }
@@ -61,7 +61,7 @@ impl<T: RefTrait> Default for Scenario<T> {
             added_instances: Vec::new(),
             removed_instances: Vec::new(),
             moved_instances: Vec::new(),
-            tasks: HashSet::new(),
+            tasks: Vec::new(),
         }
     }
 }
@@ -113,11 +113,7 @@ pub struct ScenarioBundle<T: RefTrait> {
 }
 
 impl<T: RefTrait> ScenarioBundle<T> {
-    pub fn from_name_parent(
-        name: String,
-        parent: Option<T>,
-        tasks: &HashSet<T>,
-    ) -> ScenarioBundle<T> {
+    pub fn from_name_parent(name: String, parent: Option<T>, tasks: &Vec<T>) -> ScenarioBundle<T> {
         ScenarioBundle {
             name: NameInSite(name),
             scenario: Scenario {
