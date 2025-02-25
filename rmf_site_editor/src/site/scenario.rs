@@ -269,16 +269,10 @@ pub fn handle_remove_scenarios(
     children: Query<&Children>,
 ) {
     for request in remove_scenario_requests.read() {
-        // Any child scenarios or instances added within the subtree are considered dependents
-        // to be deleted
+        // Any child scenarios are considered dependents to be deleted
         let mut subtree_dependents = std::collections::HashSet::<Entity>::new();
         let mut queue = vec![request.0];
         while let Some(scenario_entity) = queue.pop() {
-            if let Ok((_, scenario, _)) = scenarios.get(scenario_entity) {
-                scenario.instances.iter().for_each(|(e, _)| {
-                    subtree_dependents.insert(*e);
-                });
-            }
             if let Ok(children) = children.get(scenario_entity) {
                 children.iter().for_each(|e| {
                     subtree_dependents.insert(*e);
@@ -308,6 +302,9 @@ pub fn handle_remove_scenarios(
                 .id();
             *current_scenario = CurrentScenario(Some(new_scenario_entity));
         }
+
+        // Remove relationship with parent (if any) before deletion
+        commands.entity(request.0).remove_parent();
 
         // Delete with dependents
         if let Ok((_, _, Some(mut dependents))) = scenarios.get_mut(request.0) {
