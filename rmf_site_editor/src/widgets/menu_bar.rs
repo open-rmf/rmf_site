@@ -16,11 +16,7 @@
 */
 
 use crate::widgets::prelude::*;
-use crate::widgets::{
-    DoorCreationPlugin, FiducialCreationPlugin, FloorCreationPlugin, HeaderPanelPlugin,
-    HeaderTilePlugin, LaneCreationPlugin, LiftCreationPlugin, LocationCreationPlugin,
-    MeasurementCreationPlugin, WallCreationPlugin,
-};
+use crate::widgets::{HeaderPanelPlugin, HeaderTilePlugin, StandardSiteObjectCreationPlugin};
 
 use bevy::ecs::query::Has;
 use bevy::prelude::*;
@@ -35,14 +31,7 @@ impl Plugin for MenuBarPlugin {
         app.add_plugins((
             HeaderPanelPlugin::default(),
             MenuDropdownPlugin::default(),
-            LaneCreationPlugin::default(),
-            LocationCreationPlugin::default(),
-            WallCreationPlugin::default(),
-            DoorCreationPlugin::default(),
-            LiftCreationPlugin::default(),
-            FloorCreationPlugin::default(),
-            FiducialCreationPlugin::default(),
-            MeasurementCreationPlugin::default(),
+            StandardSiteObjectCreationPlugin::default(),
         ))
         .add_event::<MenuEvent>()
         .init_resource::<FileMenu>()

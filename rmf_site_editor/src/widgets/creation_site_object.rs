@@ -22,6 +22,25 @@ use bevy::ecs::system::{SystemParam, SystemState};
 use bevy::prelude::*;
 use bevy_egui::egui::{Button, Ui};
 
+/// This plugin creates a standard set of site object creation buttons
+#[derive(Default)]
+pub struct StandardSiteObjectCreationPlugin {}
+
+impl Plugin for StandardSiteObjectCreationPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_plugins((
+            LaneCreationPlugin::default(),
+            LocationCreationPlugin::default(),
+            WallCreationPlugin::default(),
+            DoorCreationPlugin::default(),
+            LiftCreationPlugin::default(),
+            FloorCreationPlugin::default(),
+            FiducialCreationPlugin::default(),
+            MeasurementCreationPlugin::default(),
+        ));
+    }
+}
+
 /// Add a widget for lane creation
 #[derive(Default)]
 pub struct LaneCreationPlugin {}
