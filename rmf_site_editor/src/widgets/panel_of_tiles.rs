@@ -16,7 +16,7 @@
 */
 
 use crate::widgets::prelude::*;
-use crate::widgets::PanelConfig;
+
 use bevy::prelude::*;
 use bevy_egui::egui;
 use smallvec::SmallVec;
@@ -73,14 +73,10 @@ pub fn show_panel_of_tiles(
                 .default_height(config.default_dimension)
         })
         .show(&context, |ui| {
-            egui::ScrollArea::both()
-                .auto_shrink([false, false])
+            egui::ScrollArea::new(config.enable_scroll())
+                .auto_shrink(config.auto_shrink())
                 .show(ui, |ui| {
-                    if side.is_horizontal() {
-                        ui.horizontal(|ui| render_tiles(ui, world, &children, side, id));
-                    } else {
-                        ui.vertical(|ui| render_tiles(ui, world, &children, side, id));
-                    }
+                    side.align(ui, |ui| render_tiles(ui, world, &children, side, id));
                 });
         });
 }

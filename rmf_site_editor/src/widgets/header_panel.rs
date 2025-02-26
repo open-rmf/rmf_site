@@ -16,11 +16,10 @@
 */
 
 use crate::widgets::{
-    show_panel_of_tiles, PanelConfig, PanelSide, PanelWidget, Tile, WidgetSystem,
+    show_panel_of_tiles, PanelConfig, PanelSide, PanelWidget, ScrollConfig, Tile, Widget,
+    WidgetSystem,
 };
 use bevy::prelude::*;
-
-use super::Widget;
 
 pub struct HeaderTilePlugin<W>
 where
@@ -95,6 +94,14 @@ impl Plugin for HeaderPanelPlugin {
                 PanelConfig {
                     resizable: false,
                     default_dimension: 30.0,
+                    horizontal_scrolling: ScrollConfig {
+                        enable_scroll: false,
+                        auto_shrink: true,
+                    },
+                    vertical_scrolling: ScrollConfig {
+                        enable_scroll: false,
+                        auto_shrink: true,
+                    },
                 },
             ))
             .id();
