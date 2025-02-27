@@ -17,7 +17,7 @@
 
 use crate::{
     site::{
-        AddedInstance, Change, ChangeCurrentScenario, CurrentScenario, Instance, NameInSite,
+        Change, ChangeCurrentScenario, CurrentScenario, InheritedInstance, Instance, NameInSite,
         RemoveScenario, Scenario, ScenarioMarker,
     },
     widgets::prelude::*,
@@ -137,13 +137,13 @@ impl<'w, 's> ViewScenarios<'w, 's> {
                                     .clone()
                                     .into_iter()
                                     .map(|(e, i)| match i {
-                                        Instance::Modified(modified) => (
+                                        Instance::Added(_) | Instance::Inherited(_) => (
                                             e,
-                                            Instance::Added(AddedInstance {
-                                                pose: modified.pose,
+                                            Instance::Inherited(InheritedInstance {
+                                                modified_pose: None,
                                             }),
                                         ),
-                                        _ => (e, i),
+                                        Instance::Hidden(_) => (e, i),
                                     })
                                     .collect::<BTreeMap<Entity, Instance>>()
                             })

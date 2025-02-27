@@ -23,8 +23,8 @@ use crate::{
     widgets::{prelude::*, SelectorWidget},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{CollapsingHeader, Color32, ScrollArea, Ui};
-use rmf_site_format::{Angle, InstanceMarker, SiteID};
+use bevy_egui::egui::{CollapsingHeader, ScrollArea, Ui};
+use rmf_site_format::{InstanceMarker, SiteID};
 use std::collections::BTreeMap;
 
 const INSTANCES_VIEWER_HEIGHT: f32 = 200.0;
@@ -189,17 +189,16 @@ fn show_model_instance(
     scenario: Entity,
     scenario_count: i32,
 ) {
-    // Instance selector
-    ui.horizontal(|ui| {
-        selector.show_widget(entity, ui);
-        ui.label(format!("{}", name.0));
-    });
-
     if let Some(instance) = instances.get(&entity) {
-        let (mut included, pose) = match instance {
-            Instance::Added(added) => (true, added.pose.clone()),
-            Instance::Modified(modified) => (true, modified.pose.clone()),
-            Instance::Hidden(hidden) => (false, hidden.pose.clone()),
+        // Instance selector
+        ui.horizontal(|ui| {
+            selector.show_widget(entity, ui);
+            ui.label(format!("{}", name.0));
+        });
+
+        let mut included = match instance {
+            Instance::Hidden(_) => false,
+            _ => true,
         };
 
         ui.horizontal(|ui| {
@@ -229,7 +228,7 @@ fn show_model_instance(
             // Reset instance pose to parent scenario
             ui.add_enabled_ui(
                 match instance {
-                    Instance::Modified(_) => true,
+                    Instance::Inherited(inherited) => inherited.modified_pose.is_some(),
                     _ => false,
                 },
                 |ui| {
@@ -255,20 +254,5 @@ fn show_model_instance(
                 delete.send(Delete::new(entity));
             }
         });
-
-        // Format instance pose
-        ui.colored_label(
-            Color32::GRAY,
-            format!(
-                "[x: {:.3}, y: {:.3}, z: {:.3}, yaw: {:.3}]",
-                pose.trans[0],
-                pose.trans[1],
-                pose.trans[2],
-                match pose.rot.yaw() {
-                    Angle::Rad(r) => r,
-                    Angle::Deg(d) => d.to_radians(),
-                }
-            ),
-        );
     }
 }

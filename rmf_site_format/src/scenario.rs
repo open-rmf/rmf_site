@@ -29,23 +29,52 @@ pub struct InstanceMarker;
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum Instance {
     Added(AddedInstance),
-    Modified(ModifiedInstance),
+    Inherited(InheritedInstance),
     Hidden(HiddenInstance),
 }
 
+impl Instance {
+    pub fn new_added(pose: Pose) -> Self {
+        Self::Added(AddedInstance { pose: pose })
+    }
+
+    pub fn new_inherited(pose: Option<Pose>) -> Self {
+        Self::Inherited(InheritedInstance {
+            modified_pose: pose,
+        })
+    }
+
+    pub fn new_hidden(pose: Option<Pose>) -> Self {
+        Self::Hidden(HiddenInstance { pose: pose })
+    }
+
+    pub fn pose(&self) -> Option<Pose> {
+        match self {
+            Instance::Added(added) => Some(added.pose.clone()),
+            Instance::Inherited(inherited) => inherited.modified_pose.clone(),
+            Instance::Hidden(hidden) => hidden.pose.clone(),
+        }
+    }
+}
+
+/// The instance was added by this scenario
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 pub struct AddedInstance {
     pub pose: Pose,
 }
 
+/// The instance was inherited from a parent scenario
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
-pub struct ModifiedInstance {
-    pub pose: Pose,
+pub struct InheritedInstance {
+    pub modified_pose: Option<Pose>,
 }
 
+/// The instance doesn't exist in this scenario
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 pub struct HiddenInstance {
-    pub pose: Pose,
+    /// This is the pose of the instance before it was hidden if it was added or modified
+    /// Set to None if the instance pose was inherited without modification
+    pub pose: Option<Pose>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
