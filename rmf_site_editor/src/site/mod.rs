@@ -199,6 +199,7 @@ impl Plugin for SitePlugin {
         .add_event::<ImportNavGraphs>()
         .add_event::<ChangeCurrentSite>()
         .add_event::<ChangeCurrentScenario>()
+        .add_event::<CreateScenario>()
         .add_event::<RemoveScenario>()
         .add_event::<UpdateInstance>()
         .add_event::<SaveSite>()
@@ -353,12 +354,11 @@ impl Plugin for SitePlugin {
                 add_location_visuals,
                 add_fiducial_visuals,
                 update_level_visibility,
-                update_scenario_properties,
                 handle_remove_scenarios.before(update_current_scenario),
-                handle_instance_updates.before(update_current_scenario),
                 update_current_scenario.before(update_scenario_properties),
-                update_changed_lane,
-                update_lane_for_moved_anchor,
+                update_scenario_properties.before(handle_instance_updates),
+                handle_instance_updates.before(handle_create_scenarios),
+                handle_create_scenarios,
             )
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenVisibilityAndTransform),
@@ -366,6 +366,8 @@ impl Plugin for SitePlugin {
         .add_systems(
             PostUpdate,
             (
+                update_changed_lane,
+                update_lane_for_moved_anchor,
                 remove_association_for_deleted_graphs,
                 add_unused_fiducial_tracker,
                 update_fiducial_usage_tracker,

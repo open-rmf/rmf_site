@@ -436,6 +436,22 @@ fn generate_site_entities(
             .id();
         id_to_entity.insert(*scenario_id, scenario_entity);
         consider_id(*scenario_id);
+
+        // Spawn scenario children entities
+        for (instance_id, instance) in scenario_bundle_data.scenario.instances.iter() {
+            if let Some(instance_entity) = id_to_entity.get(&instance_id) {
+                commands
+                    .spawn(instance.clone())
+                    .insert(Affiliation(Some(*instance_entity)))
+                    .set_parent(scenario_entity);
+            } else {
+                error!(
+                    "Model instance {} referenced by scenario {} is missing! This should \
+                    not happen, please report this bug to the maintainers of rmf_site_editor.",
+                    instance_id, scenario_bundle.name.0
+                );
+            }
+        }
     }
 
     let nav_graph_rankings = match RecencyRanking::<NavGraphMarker>::from_u32(

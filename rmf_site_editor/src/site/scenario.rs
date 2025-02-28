@@ -18,8 +18,9 @@
 use crate::{
     interaction::{Selected, Selection},
     site::{
-        Affiliation, CurrentScenario, Delete, Dependents, Group, Instance, InstanceMarker,
-        IssueKey, ModelMarker, NameInSite, Pending, Pose, Scenario, ScenarioBundle, ScenarioMarker,
+        Affiliation, CurrentScenario, Delete, Dependents, Group, InheritedInstance, Instance,
+        InstanceMarker, IssueKey, ModelMarker, NameInSite, Pending, Pose, Scenario, ScenarioBundle,
+        ScenarioMarker,
     },
     widgets::view_model_instances::count_scenarios,
     CurrentWorkspace, Issue, ValidateWorkspace,
@@ -30,6 +31,13 @@ use std::collections::HashSet;
 #[derive(Clone, Copy, Debug, Event)]
 pub struct ChangeCurrentScenario(pub Entity);
 
+#[derive(Clone, Debug, Event)]
+pub struct CreateScenario {
+    pub name: Option<String>,
+    pub parent: Option<Entity>,
+}
+
+#[derive(Clone, Debug)]
 pub enum UpdateInstanceType {
     Include,
     Hide,
@@ -38,7 +46,7 @@ pub enum UpdateInstanceType {
     ResetPose,
 }
 
-#[derive(Event)]
+#[derive(Clone, Debug, Event)]
 pub struct UpdateInstance {
     pub scenario: Entity,
     pub instance: Entity,
@@ -51,18 +59,28 @@ pub fn update_current_scenario(
     mut selection: ResMut<Selection>,
     mut change_current_scenario: EventReader<ChangeCurrentScenario>,
     mut current_scenario: ResMut<CurrentScenario>,
-    scenarios: Query<(Entity, &mut Scenario<Entity>)>,
     mut instances: Query<(Entity, &NameInSite, &mut Pose, &mut Visibility), With<InstanceMarker>>,
+    children: Query<&Children>,
+    scenarios: Query<(Entity, &mut Scenario<Entity>)>,
+    scenario_entities: Query<(&mut Instance, &Affiliation<Entity>)>,
 ) {
-    if let Some(ChangeCurrentScenario(scenario_entity)) = change_current_scenario.read().last() {
-        let Ok((_, scenario)) = scenarios.get(*scenario_entity) else {
-            error!("Failed to get scenario entity!");
-            return;
-        };
+    for ChangeCurrentScenario(scenario_entity) in change_current_scenario.read() {
+        let mut deselect = false;
+        let instance_entities =
+            get_scenario_instance_entities(*scenario_entity, &children, &scenario_entities);
 
+        // Loop over every instance in this site
         for (entity, name, mut pose, mut visibility) in instances.iter_mut() {
-            let Some(instance) = scenario.instances.get(&entity) else {
+            let Some((instance, _)) = instance_entities
+                .iter()
+                .find(|(_, i)| *i == entity)
+                .and_then(|(c_entity, _)| scenario_entities.get(*c_entity).ok())
+            else {
+                // No child Instance matches this instance entity, set to hidden
                 *visibility = Visibility::Hidden;
+                if selection.0.is_some_and(|e| e == entity) {
+                    deselect = true;
+                }
                 continue;
             };
 
@@ -74,7 +92,7 @@ pub fn update_current_scenario(
                 Instance::Inherited(inherited) => {
                     *pose = inherited
                         .modified_pose
-                        .or(retrieve_parent_pose(entity, *scenario_entity, &scenarios))
+                        .or(retrieve_parent_pose(entity, *scenario_entity, &children, &scenarios, &scenario_entities))
                         .map_or_else(
                             || {
                                 error!(
@@ -90,28 +108,22 @@ pub fn update_current_scenario(
                 }
                 Instance::Hidden(_) => {
                     *visibility = Visibility::Hidden;
+                    if selection.0.is_some_and(|e| e == entity) {
+                        deselect = true;
+                    }
                 }
             }
         }
 
-        if let Some(entity) = selection.0 {
-            if let Ok(mut selected) = selected.get_mut(entity) {
-                let mut deselect = false;
-                if scenario.instances.get(&entity).is_some_and(|i| match i {
-                    Instance::Hidden(_) => true,
-                    _ => false,
-                }) {
-                    // Deselect if model instance is hidden
-                    deselect = true;
-                } else if current_scenario.0.is_some_and(|e| e != *scenario_entity) {
-                    // Deselect if scenario has changed
-                    deselect = true;
-                }
+        if let Some(mut selected) = selection.0.and_then(|e| selected.get_mut(e).ok()) {
+            if current_scenario.0.is_some_and(|e| e != *scenario_entity) {
+                // Deselect if scenario has changed
+                deselect = true;
+            }
 
-                if deselect {
-                    selection.0 = None;
-                    selected.is_selected = false;
-                }
+            if deselect {
+                selection.0 = None;
+                selected.is_selected = false;
             }
         }
 
@@ -154,7 +166,9 @@ pub fn update_scenario_properties(
 fn retrieve_parent_pose(
     instance_entity: Entity,
     scenario_entity: Entity,
+    children: &Query<&Children>,
     scenarios: &Query<(Entity, &mut Scenario<Entity>)>,
+    scenario_entities: &Query<(&mut Instance, &Affiliation<Entity>)>,
 ) -> Option<Pose> {
     let mut parent_pose: Option<Pose> = None;
     let mut entity = scenario_entity;
@@ -162,7 +176,7 @@ fn retrieve_parent_pose(
         let Ok((_, scenario)) = scenarios.get(entity) else {
             break;
         };
-        let Some((parent_entity, parent_scenario)) = scenario
+        let Some((parent_entity, _)) = scenario
             .parent_scenario
             .0
             .and_then(|e| scenarios.get(e).ok())
@@ -171,34 +185,63 @@ fn retrieve_parent_pose(
         };
 
         entity = parent_entity;
-        parent_pose = parent_scenario
-            .instances
-            .get(&instance_entity)
-            .and_then(|instance| instance.pose());
+        let instance_entities =
+            get_scenario_instance_entities(parent_entity, children, scenario_entities);
+
+        parent_pose = instance_entities
+            .iter()
+            .find(|(_, i)| *i == instance_entity)
+            .and_then(|(c_entity, _)| scenario_entities.get(*c_entity).ok())
+            .and_then(|(i, _)| i.pose());
     }
     parent_pose
 }
 
+/// This system current searches for scenario children entities with the Instance component
+/// TODO(@xiyuoh) generalize this at some point to use T
+pub fn get_scenario_instance_entities(
+    entity: Entity,
+    children: &Query<&Children>,
+    scenario_entities: &Query<(&mut Instance, &Affiliation<Entity>)>,
+) -> Vec<(Entity, Entity)> {
+    let mut scenario_instances = Vec::new();
+    if let Ok(scenario_children) = children.get(entity) {
+        for child in scenario_children.iter() {
+            if let Some(affiliated_entity) =
+                scenario_entities.get(*child).ok().and_then(|(_, a)| a.0)
+            {
+                scenario_instances.push((*child, affiliated_entity));
+            }
+        }
+    };
+    scenario_instances
+}
+
 /// Checks that the current scenario's included instances are categorized correctly
 pub fn handle_instance_updates(
-    current_scenario: Res<CurrentScenario>,
-    mut scenarios: Query<(Entity, &mut Scenario<Entity>)>,
+    mut commands: Commands,
     mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
+    mut scenario_instances: Query<(&mut Instance, &Affiliation<Entity>)>,
     mut update_instance: EventReader<UpdateInstance>,
-    model_instances: Query<&NameInSite, With<InstanceMarker>>,
     children: Query<&Children>,
+    current_scenario: Res<CurrentScenario>,
+    scenarios: Query<(Entity, &mut Scenario<Entity>)>,
+    model_instances: Query<&NameInSite, With<InstanceMarker>>,
 ) {
     for update in update_instance.read() {
-        let parent_pose = retrieve_parent_pose(update.instance, update.scenario, &scenarios);
-        let Ok((_, mut scenario)) = scenarios.get_mut(update.scenario) else {
-            continue;
-        };
-
+        let parent_pose = retrieve_parent_pose(
+            update.instance,
+            update.scenario,
+            &children,
+            &scenarios,
+            &scenario_instances,
+        );
         match update.update_type {
             UpdateInstanceType::Add(new_pose) => {
-                scenario
-                    .instances
-                    .insert(update.instance, Instance::new_added(new_pose.clone()));
+                commands
+                    .spawn(Instance::new_added(new_pose.clone()))
+                    .insert(Affiliation(Some(update.instance)))
+                    .set_parent(update.scenario);
                 // Insert this new instance into children scenarios as Inherited
                 let mut subtree_dependents = HashSet::<Entity>::new();
                 let mut queue = vec![update.scenario];
@@ -213,17 +256,25 @@ pub fn handle_instance_updates(
                 // Only insert new instance in children scenarios. Other parent/root
                 // scenarios will not have access to this instance
                 for dependent in subtree_dependents.drain() {
-                    if let Ok((_, mut child_scenario)) = scenarios.get_mut(dependent) {
-                        child_scenario
-                            .instances
-                            .insert(update.instance, Instance::new_inherited(None));
+                    if let Ok((child_entity, _)) = scenarios.get(dependent) {
+                        commands
+                            .spawn(Instance::new_inherited(None))
+                            .insert(Affiliation(Some(update.instance)))
+                            .set_parent(child_entity);
                     }
                 }
             }
             _ => {
-                let Some(instance) = scenario.instances.get_mut(&update.instance) else {
+                let instance_entities =
+                    get_scenario_instance_entities(update.scenario, &children, &scenario_instances);
+                let Some((mut instance, _)) = instance_entities
+                    .iter()
+                    .find(|(_, i)| *i == update.instance)
+                    .and_then(|(c_entity, _)| scenario_instances.get_mut(*c_entity).ok())
+                else {
                     continue;
                 };
+                let instance = instance.as_mut();
 
                 match update.update_type {
                     UpdateInstanceType::Include => {
@@ -280,9 +331,8 @@ pub fn handle_remove_scenarios(
     mut commands: Commands,
     mut remove_scenario_requests: EventReader<RemoveScenario>,
     mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
+    mut create_new_scenario: EventWriter<CreateScenario>,
     mut delete: EventWriter<Delete>,
-    mut current_scenario: ResMut<CurrentScenario>,
-    current_workspace: Res<CurrentWorkspace>,
     mut scenarios: Query<
         (Entity, &Scenario<Entity>, Option<&mut Dependents>),
         With<ScenarioMarker>,
@@ -317,11 +367,10 @@ pub fn handle_remove_scenarios(
         {
             change_current_scenario.send(ChangeCurrentScenario(root_scenario_entity));
         } else {
-            let new_scenario_entity = commands
-                .spawn(ScenarioBundle::<Entity>::default())
-                .set_parent(current_workspace.root.expect("No current site"))
-                .id();
-            *current_scenario = CurrentScenario(Some(new_scenario_entity));
+            create_new_scenario.send(CreateScenario {
+                name: None,
+                parent: None,
+            });
         }
 
         // Remove relationship with parent (if any) before deletion
@@ -346,15 +395,17 @@ pub const HIDDEN_MODEL_INSTANCE_ISSUE_UUID: Uuid =
 pub fn check_for_hidden_model_instances(
     mut commands: Commands,
     mut validate_events: EventReader<ValidateWorkspace>,
+    children: Query<&Children>,
     instances: Query<
         (Entity, &NameInSite, &Affiliation<Entity>),
         (With<ModelMarker>, Without<Group>),
     >,
     scenarios: Query<(Entity, &NameInSite, &mut Scenario<Entity>), With<ScenarioMarker>>,
+    scenario_entities: Query<(&mut Instance, &Affiliation<Entity>)>,
 ) {
     for root in validate_events.read() {
         for (instance_entity, instance_name, _) in instances.iter() {
-            if count_scenarios(&scenarios, instance_entity) > 0 {
+            if count_scenarios(&scenarios, instance_entity, &children, &scenario_entities) > 0 {
                 continue;
             }
             let issue = Issue {
@@ -373,5 +424,55 @@ pub fn check_for_hidden_model_instances(
             let issue_id = commands.spawn(issue).id();
             commands.entity(**root).add_child(issue_id);
         }
+    }
+}
+
+/// Create a new scenario and its children entities
+pub fn handle_create_scenarios(
+    mut commands: Commands,
+    mut new_scenarios: EventReader<CreateScenario>,
+    mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
+    children: Query<&Children>,
+    current_workspace: Res<CurrentWorkspace>,
+    instances: Query<(&Instance, &Affiliation<Entity>)>,
+) {
+    for new in new_scenarios.read() {
+        let mut cmd = if let Some(name) = &new.name {
+            commands.spawn(ScenarioBundle::<Entity>::from_name_parent(
+                name.clone(),
+                new.parent,
+            ))
+        } else {
+            commands.spawn(ScenarioBundle::<Entity>::default())
+        };
+        let scenario_entity = cmd.id();
+
+        if let Some(parent_scenario_entity) = new.parent {
+            cmd.set_parent(parent_scenario_entity);
+
+            // Inherit any children entities with Instance component from the parent scenario
+            if let Ok(children) = children.get(parent_scenario_entity) {
+                children.iter().for_each(|e| {
+                    if let Ok((instance, affiliation)) = instances.get(*e).map(|(i, a)| match i {
+                        Instance::Added(_) | Instance::Inherited(_) => (
+                            Instance::Inherited(InheritedInstance {
+                                modified_pose: None,
+                            }),
+                            a.clone(),
+                        ),
+                        Instance::Hidden(_) => (i.clone(), a.clone()),
+                    }) {
+                        commands
+                            .spawn(instance)
+                            .insert(affiliation)
+                            .set_parent(scenario_entity);
+                    }
+                });
+            }
+        } else if let Some(site_entity) = current_workspace.root {
+            cmd.set_parent(site_entity);
+        }
+
+        change_current_scenario.send(ChangeCurrentScenario(scenario_entity));
     }
 }

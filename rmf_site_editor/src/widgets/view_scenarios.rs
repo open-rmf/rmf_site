@@ -17,16 +17,14 @@
 
 use crate::{
     site::{
-        Change, ChangeCurrentScenario, CurrentScenario, InheritedInstance, Instance, NameInSite,
-        RemoveScenario, Scenario, ScenarioMarker,
+        Change, ChangeCurrentScenario, CreateScenario, CurrentScenario, NameInSite, RemoveScenario,
+        Scenario, ScenarioMarker,
     },
     widgets::prelude::*,
     CurrentWorkspace, Icons,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Align, Button, CollapsingHeader, Color32, Layout, Ui};
-use rmf_site_format::ScenarioBundle;
-use std::collections::BTreeMap;
 
 /// Add a plugin for viewing and editing a list of all levels
 #[derive(Default)]
@@ -41,7 +39,6 @@ impl Plugin for ViewScenariosPlugin {
 
 #[derive(SystemParam)]
 pub struct ViewScenarios<'w, 's> {
-    commands: Commands<'w, 's>,
     children: Query<'w, 's, &'static Children>,
     parent: Query<'w, 's, &'static Parent>,
     scenarios: Query<
@@ -52,6 +49,7 @@ pub struct ViewScenarios<'w, 's> {
     >,
     change_name: EventWriter<'w, Change<NameInSite>>,
     change_current_scenario: EventWriter<'w, ChangeCurrentScenario>,
+    create_new_scenario: EventWriter<'w, CreateScenario>,
     remove_scenario: EventWriter<'w, RemoveScenario>,
     display_scenarios: ResMut<'w, ScenarioDisplay>,
     current_scenario: ResMut<'w, CurrentScenario>,
@@ -124,57 +122,13 @@ impl<'w, 's> ViewScenarios<'w, 's> {
         });
         ui.horizontal(|ui| {
             if ui.add(Button::image(self.icons.add.egui())).clicked() {
-                let instances: BTreeMap<Entity, Instance> =
-                    match self.display_scenarios.is_new_scenario_root {
-                        true => BTreeMap::<Entity, Instance>::new(),
-                        false => self
-                            .current_scenario
-                            .0
-                            .and_then(|e| self.scenarios.get(e).ok())
-                            .map(|(_, _, scenario)| {
-                                scenario
-                                    .instances
-                                    .clone()
-                                    .into_iter()
-                                    .map(|(e, i)| match i {
-                                        Instance::Added(_) | Instance::Inherited(_) => (
-                                            e,
-                                            Instance::Inherited(InheritedInstance {
-                                                modified_pose: None,
-                                            }),
-                                        ),
-                                        Instance::Hidden(_) => (e, i),
-                                    })
-                                    .collect::<BTreeMap<Entity, Instance>>()
-                            })
-                            .unwrap_or(BTreeMap::<Entity, Instance>::new()),
-                    };
-
-                let mut cmd = self
-                    .commands
-                    .spawn(ScenarioBundle::<Entity>::from_name_parent(
-                        self.display_scenarios.new_scenario_name.clone(),
-                        match self.display_scenarios.is_new_scenario_root {
-                            true => None,
-                            false => self.current_scenario.0,
-                        },
-                        &instances,
-                    ));
-                match self.display_scenarios.is_new_scenario_root {
-                    true => {
-                        if let Some(site_entity) = self.current_workspace.root {
-                            cmd.set_parent(site_entity);
-                        }
-                    }
-                    false => {
-                        if let Some(current_scenario_entity) = self.current_scenario.0 {
-                            cmd.set_parent(current_scenario_entity);
-                        }
-                    }
-                }
-                let scenario_entity = cmd.id();
-                self.change_current_scenario
-                    .send(ChangeCurrentScenario(scenario_entity));
+                self.create_new_scenario.send(CreateScenario {
+                    name: Some(self.display_scenarios.new_scenario_name.clone()),
+                    parent: match self.display_scenarios.is_new_scenario_root {
+                        true => None,
+                        false => self.current_scenario.0,
+                    },
+                });
             }
             let mut new_name = self.display_scenarios.new_scenario_name.clone();
             if ui
@@ -254,9 +208,15 @@ fn show_scenario_widget(
     // generate errors when collapsing headers of the same name are created
     let mut subversion = 1;
     let children = q_children.get(scenario_entity);
+    let num_children = match children {
+        Ok(children) => children
+            .iter()
+            .fold(0, |x, c| if q_scenario.get(*c).is_ok() { x + 1 } else { x }),
+        Err(_) => 0,
+    };
     CollapsingHeader::new(format!(
         "Child Scenarios:  {}",
-        children.map(|c| c.len()).unwrap_or(0)
+        num_children // children.map(|c| c.len()).unwrap_or(0)
     ))
     .default_open(true)
     .id_source(scenario_version_str.clone())

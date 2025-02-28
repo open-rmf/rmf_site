@@ -27,6 +27,7 @@ use std::collections::{BTreeMap, HashMap};
 pub struct InstanceMarker;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
 pub enum Instance {
     Added(AddedInstance),
     Inherited(InheritedInstance),
@@ -134,16 +135,12 @@ pub struct ScenarioBundle<T: RefTrait> {
 }
 
 impl<T: RefTrait> ScenarioBundle<T> {
-    pub fn from_name_parent(
-        name: String,
-        parent: Option<T>,
-        instances: &BTreeMap<T, Instance>,
-    ) -> ScenarioBundle<T> {
+    pub fn from_name_parent(name: String, parent: Option<T>) -> ScenarioBundle<T> {
         ScenarioBundle {
             name: NameInSite(name),
             scenario: Scenario {
                 parent_scenario: Affiliation(parent),
-                instances: instances.clone(),
+                instances: BTreeMap::new(),
             },
             marker: ScenarioMarker,
         }

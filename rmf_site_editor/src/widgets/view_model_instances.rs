@@ -17,15 +17,16 @@
 
 use crate::{
     site::{
-        Affiliation, ChangeCurrentScenario, CurrentScenario, Delete, Group, Instance, Members,
-        ModelMarker, NameInSite, Scenario, ScenarioMarker, UpdateInstance, UpdateInstanceType,
+        scenario::get_scenario_instance_entities, Affiliation, CurrentScenario, Delete, Group,
+        Instance, Members, ModelMarker, NameInSite, Scenario, ScenarioMarker, UpdateInstance,
+        UpdateInstanceType,
     },
     widgets::{prelude::*, SelectorWidget},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, ScrollArea, Ui};
 use rmf_site_format::{InstanceMarker, SiteID};
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 const INSTANCES_VIEWER_HEIGHT: f32 = 200.0;
 
@@ -47,7 +48,7 @@ pub struct ViewModelInstances<'w, 's> {
         (Entity, &'static NameInSite, &'static mut Scenario<Entity>),
         With<ScenarioMarker>,
     >,
-    change_current_scenario: EventWriter<'w, ChangeCurrentScenario>,
+    children: Query<'w, 's, &'static Children>,
     current_scenario: ResMut<'w, CurrentScenario>,
     members: Query<'w, 's, &'static Members>,
     model_descriptions: Query<
@@ -64,6 +65,7 @@ pub struct ViewModelInstances<'w, 's> {
     >,
     selector: SelectorWidget<'w, 's>,
     delete: EventWriter<'w, Delete>,
+    scenario_entities: Query<'w, 's, (&'static mut Instance, &'static Affiliation<Entity>)>,
     update_instance: EventWriter<'w, UpdateInstance>,
 }
 
@@ -81,82 +83,100 @@ impl<'w, 's> WidgetSystem<Tile> for ViewModelInstances<'w, 's> {
 impl<'w, 's> ViewModelInstances<'w, 's> {
     pub fn show_widget(&mut self, ui: &mut Ui) {
         if let Some(current_scenario_entity) = self.current_scenario.0 {
-            if let Ok((_, _, scenario)) = self.scenarios.get(current_scenario_entity) {
-                let current_scenario_instances = scenario.instances.clone();
-                let mut unaffiliated_instances = Vec::<Entity>::new();
-                ScrollArea::vertical()
-                    .max_height(INSTANCES_VIEWER_HEIGHT)
-                    .auto_shrink([false, false])
-                    .show(ui, |ui| {
-                        for (desc_entity, desc_name, _) in self.model_descriptions.iter() {
-                            let Ok(members) = self.members.get(desc_entity) else {
-                                continue;
-                            };
-                            CollapsingHeader::new(desc_name.0.clone())
-                                .id_source(desc_name.0.clone())
-                                // TODO(@xiyuoh) true if model is selected
-                                .default_open(false)
-                                .show(ui, |ui| {
-                                    for member in members.iter() {
-                                        let Ok((instance_entity, instance_name, affiliation)) =
-                                            self.model_instances.get_mut(*member)
-                                        else {
-                                            continue;
-                                        };
-                                        if affiliation.0.is_some_and(|e| e == desc_entity) {
-                                            let scenario_count =
-                                                count_scenarios(&self.scenarios, instance_entity);
-                                            show_model_instance(
-                                                ui,
-                                                instance_name,
-                                                instance_entity,
-                                                &mut self.selector,
-                                                &mut self.delete,
-                                                &mut self.update_instance,
-                                                &scenario.instances,
-                                                current_scenario_entity,
-                                                scenario_count,
-                                            );
-                                        } else {
-                                            unaffiliated_instances.push(instance_entity);
-                                        }
-                                    }
-                                });
+            let instance_entities = get_scenario_instance_entities(
+                current_scenario_entity,
+                &self.children,
+                &self.scenario_entities,
+            );
+            // Get Instance components in this scenario
+            let scenario_instances =
+                instance_entities
+                    .iter()
+                    .fold(HashMap::new(), |mut x, (c_entity, i_entity)| {
+                        if let Ok((instance, _)) = self.scenario_entities.get(*c_entity) {
+                            x.insert(*i_entity, instance.clone());
+                            x
+                        } else {
+                            x
                         }
-                        CollapsingHeader::new("Unaffiliated instances")
+                    });
+
+            let mut unaffiliated_instances = Vec::<Entity>::new();
+            ScrollArea::vertical()
+                .max_height(INSTANCES_VIEWER_HEIGHT)
+                .auto_shrink([false, false])
+                .show(ui, |ui| {
+                    for (desc_entity, desc_name, _) in self.model_descriptions.iter() {
+                        let Ok(members) = self.members.get(desc_entity) else {
+                            continue;
+                        };
+                        CollapsingHeader::new(desc_name.0.clone())
+                            .id_source(desc_name.0.clone())
                             // TODO(@xiyuoh) true if model is selected
                             .default_open(false)
                             .show(ui, |ui| {
-                                if unaffiliated_instances.is_empty() {
-                                    ui.label("No orphan model instances.");
-                                }
-                                for instance_entity in unaffiliated_instances.iter() {
-                                    if let Ok((_, instance_name, _)) =
-                                        self.model_instances.get_mut(*instance_entity)
-                                    {
-                                        let scenario_count =
-                                            count_scenarios(&self.scenarios, *instance_entity);
+                                for member in members.iter() {
+                                    let Ok((instance_entity, instance_name, affiliation)) =
+                                        self.model_instances.get_mut(*member)
+                                    else {
+                                        continue;
+                                    };
+                                    if affiliation.0.is_some_and(|e| e == desc_entity) {
+                                        let scenario_count = count_scenarios(
+                                            &self.scenarios,
+                                            instance_entity,
+                                            &self.children,
+                                            &self.scenario_entities,
+                                        );
                                         show_model_instance(
                                             ui,
                                             instance_name,
-                                            *instance_entity,
+                                            instance_entity,
                                             &mut self.selector,
                                             &mut self.delete,
                                             &mut self.update_instance,
-                                            &scenario.instances,
+                                            scenario_instances.get(&instance_entity),
                                             current_scenario_entity,
                                             scenario_count,
                                         );
+                                    } else {
+                                        unaffiliated_instances.push(instance_entity);
                                     }
                                 }
                             });
-                    });
-                // Update visibility by triggering ChangeCurrentScenario event
-                if scenario.instances != current_scenario_instances {
-                    self.change_current_scenario
-                        .send(ChangeCurrentScenario(current_scenario_entity));
-                }
-            }
+                    }
+                    CollapsingHeader::new("Unaffiliated instances")
+                        // TODO(@xiyuoh) true if model is selected
+                        .default_open(false)
+                        .show(ui, |ui| {
+                            if unaffiliated_instances.is_empty() {
+                                ui.label("No orphan model instances.");
+                            }
+                            for instance_entity in unaffiliated_instances.iter() {
+                                if let Ok((_, instance_name, _)) =
+                                    self.model_instances.get_mut(*instance_entity)
+                                {
+                                    let scenario_count = count_scenarios(
+                                        &self.scenarios,
+                                        *instance_entity,
+                                        &self.children,
+                                        &self.scenario_entities,
+                                    );
+                                    show_model_instance(
+                                        ui,
+                                        instance_name,
+                                        *instance_entity,
+                                        &mut self.selector,
+                                        &mut self.delete,
+                                        &mut self.update_instance,
+                                        scenario_instances.get(instance_entity),
+                                        current_scenario_entity,
+                                        scenario_count,
+                                    );
+                                }
+                            }
+                        });
+                });
         }
     }
 }
@@ -164,12 +184,20 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
 pub fn count_scenarios(
     scenarios: &Query<(Entity, &NameInSite, &mut Scenario<Entity>), With<ScenarioMarker>>,
     instance: Entity,
+    children: &Query<&Children>,
+    scenario_entities: &Query<(&mut Instance, &Affiliation<Entity>)>,
 ) -> i32 {
-    scenarios.iter().fold(0, |x, (_, _, s)| {
-        if s.instances.get(&instance).is_some_and(|i| match i {
-            Instance::Hidden(_) => false,
-            _ => true,
-        }) {
+    scenarios.iter().fold(0, |x, (e, _, _)| {
+        let instance_entities = get_scenario_instance_entities(e, &children, scenario_entities);
+        if instance_entities
+            .iter()
+            .find(|(_, i)| *i == instance)
+            .and_then(|(c_entity, _)| scenario_entities.get(*c_entity).ok())
+            .is_some_and(|(i, _)| match i {
+                Instance::Hidden(_) => false,
+                _ => true,
+            })
+        {
             x + 1
         } else {
             x
@@ -185,11 +213,11 @@ fn show_model_instance(
     selector: &mut SelectorWidget,
     delete: &mut EventWriter<Delete>,
     update_instance: &mut EventWriter<UpdateInstance>,
-    instances: &BTreeMap<Entity, Instance>,
+    instance: Option<&Instance>,
     scenario: Entity,
     scenario_count: i32,
 ) {
-    if let Some(instance) = instances.get(&entity) {
+    if let Some(instance) = instance {
         // Instance selector
         ui.horizontal(|ui| {
             selector.show_widget(entity, ui);
