@@ -194,7 +194,7 @@ pub fn count_scenarios(
             .find(|(_, i)| *i == instance)
             .and_then(|(c_entity, _)| scenario_entities.get(*c_entity).ok())
             .is_some_and(|(i, _)| match i {
-                Instance::Hidden(_) => false,
+                Instance::Hidden => false,
                 _ => true,
             })
         {
@@ -225,7 +225,7 @@ fn show_model_instance(
         });
 
         let mut included = match instance {
-            Instance::Hidden(_) => false,
+            Instance::Hidden => false,
             _ => true,
         };
 

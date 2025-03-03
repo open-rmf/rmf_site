@@ -31,7 +31,7 @@ pub struct InstanceMarker;
 pub enum Instance {
     Added(AddedInstance),
     Inherited(InheritedInstance),
-    Hidden(HiddenInstance),
+    Hidden,
 }
 
 impl Instance {
@@ -45,16 +45,37 @@ impl Instance {
         })
     }
 
-    pub fn new_hidden(pose: Option<Pose>) -> Self {
-        Self::Hidden(HiddenInstance { pose: pose })
+    pub fn new_hidden() -> Self {
+        Self::Hidden
     }
 
     pub fn pose(&self) -> Option<Pose> {
         match self {
             Instance::Added(added) => Some(added.pose.clone()),
             Instance::Inherited(inherited) => inherited.modified_pose.clone(),
-            Instance::Hidden(hidden) => hidden.pose.clone(),
+            Instance::Hidden => None,
         }
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct RecallInstance {
+    pub pose: Option<Pose>,
+}
+
+impl Recall for RecallInstance {
+    type Source = Instance;
+
+    fn remember(&mut self, source: &Instance) {
+        match source {
+            Instance::Added(_) | Instance::Inherited(_) => {
+                self.pose = source.pose();
+            }
+            Instance::Hidden => {
+                // We don't update the pose if this Instance is hidden
+            }
+        };
     }
 }
 

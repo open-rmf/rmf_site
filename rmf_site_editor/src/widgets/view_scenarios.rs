@@ -214,36 +214,33 @@ fn show_scenario_widget(
             .fold(0, |x, c| if q_scenario.get(*c).is_ok() { x + 1 } else { x }),
         Err(_) => 0,
     };
-    CollapsingHeader::new(format!(
-        "Child Scenarios:  {}",
-        num_children // children.map(|c| c.len()).unwrap_or(0)
-    ))
-    .default_open(true)
-    .id_source(scenario_version_str.clone())
-    .show(ui, |ui| {
-        if let Ok(children) = children {
-            for child in children.iter() {
-                if let Ok(_) = q_scenario.get(*child) {
-                    let mut version = scenario_version.clone();
-                    version.push(subversion);
-                    show_scenario_widget(
-                        ui,
-                        change_name,
-                        change_current_scenario,
-                        current_scenario,
-                        *child,
-                        version,
-                        q_children,
-                        q_scenario,
-                        icons,
-                    );
-                    subversion += 1;
+    CollapsingHeader::new(format!("Child Scenarios:  {}", num_children))
+        .default_open(true)
+        .id_source(scenario_version_str.clone())
+        .show(ui, |ui| {
+            if let Ok(children) = children {
+                for child in children.iter() {
+                    if let Ok(_) = q_scenario.get(*child) {
+                        let mut version = scenario_version.clone();
+                        version.push(subversion);
+                        show_scenario_widget(
+                            ui,
+                            change_name,
+                            change_current_scenario,
+                            current_scenario,
+                            *child,
+                            version,
+                            q_children,
+                            q_scenario,
+                            icons,
+                        );
+                        subversion += 1;
+                    }
                 }
+            } else {
+                ui.label("No Child Scenarios");
             }
-        } else {
-            ui.label("No Child Scenarios");
-        }
-    });
+        });
 }
 
 #[derive(Resource)]

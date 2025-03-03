@@ -260,6 +260,7 @@ impl Plugin for SitePlugin {
             ChangePlugin::<ModelProperty<AssetSource>>::default(),
             ChangePlugin::<ModelProperty<Scale>>::default(),
             ChangePlugin::<ModelProperty<IsStatic>>::default(),
+            RecallPlugin::<RecallInstance>::default(),
         ))
         .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
         .add_issue_type(&DUPLICATED_LIFT_NAME_ISSUE_UUID, "Duplicate lift name")
