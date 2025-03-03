@@ -16,13 +16,13 @@
 */
 
 use crate::{
-    interaction::ModelPreviewCamera,
+    interaction::{ModelPreviewCamera, ObjectPlacement},
     site::{
-        AssetSource, Category, FuelClient, ModelDescriptionBundle, ModelLoader, ModelProperty,
-        NameInSite, SetFuelApiKey, UpdateFuelCache,
+        Affiliation, AssetSource, Category, FuelClient, ModelDescriptionBundle, ModelInstance,
+        ModelLoader, ModelProperty, NameInSite, SetFuelApiKey, UpdateFuelCache,
     },
-    widgets::prelude::*,
-    CurrentWorkspace,
+    widgets::{prelude::*, GetNextInstanceName, PendingModelDescription},
+    AppState, CurrentWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{self, Button, ComboBox, ImageSource, RichText, ScrollArea, Ui, Window};
@@ -82,10 +82,17 @@ pub struct FuelAssetBrowser<'w, 's> {
     commands: Commands<'w, 's>,
     current_workspace: Res<'w, CurrentWorkspace>,
     model_loader: ModelLoader<'w, 's>,
+    pending_model_description: Option<ResMut<'w, PendingModelDescription>>,
+    object_placement: ObjectPlacement<'w, 's>,
+    next_instance_name: GetNextInstanceName<'w, 's>,
 }
 
 fn fuel_asset_browser_panel(In(input): In<PanelWidgetInput>, world: &mut World) {
-    if world.resource::<AssetGalleryStatus>().show {
+    let correct_state = world
+        .get_resource::<State<AppState>>()
+        .is_some_and(|state| matches!(state.get(), AppState::SiteEditor));
+
+    if world.resource::<AssetGalleryStatus>().show && correct_state {
         egui::SidePanel::left("asset_gallery")
             .resizable(true)
             .min_width(320.0)
@@ -271,9 +278,10 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                 if let Some(selected) = &gallery_status.selected {
                     if ui.button("Load as Description").clicked() {
                         if let Some(site_entity) = self.current_workspace.root {
+                            let description_name = selected.owner.clone() + "/" + &selected.name;
                             let model_description: ModelDescriptionBundle =
                                 ModelDescriptionBundle {
-                                    name: NameInSite(selected.owner.clone() + "/" + &selected.name),
+                                    name: NameInSite(description_name.clone()),
                                     source: ModelProperty(AssetSource::Remote(
                                         selected.owner.clone()
                                             + "/"
@@ -282,10 +290,23 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                                     )),
                                     ..Default::default()
                                 };
-                            self.commands
+                            let description = self
+                                .commands
                                 .spawn(model_description)
                                 .insert(Category::ModelDescription)
-                                .set_parent(site_entity);
+                                .set_parent(site_entity)
+                                .id();
+
+                            if let Some(pending) = &mut self.pending_model_description {
+                                pending.selected = Some(description);
+                            }
+
+                            let instance = ModelInstance {
+                                name: NameInSite(format!("{description_name}_0")),
+                                description: Affiliation(Some(description)),
+                                ..Default::default()
+                            };
+                            self.object_placement.place_object_2d(instance);
                         }
                     }
                 }

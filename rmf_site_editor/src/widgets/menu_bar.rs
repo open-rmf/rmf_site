@@ -16,7 +16,7 @@
 */
 
 use crate::widgets::prelude::*;
-use crate::widgets::{HeaderPanelPlugin, HeaderTilePlugin, StandardSiteObjectCreationPlugin};
+use crate::widgets::{HeaderPanelPlugin, HeaderTilePlugin, StandardCreationPlugin};
 
 use bevy::ecs::query::Has;
 use bevy::prelude::*;
@@ -31,7 +31,7 @@ impl Plugin for MenuBarPlugin {
         app.add_plugins((
             HeaderPanelPlugin::default(),
             MenuDropdownPlugin::default(),
-            StandardSiteObjectCreationPlugin::default(),
+            StandardCreationPlugin::default(),
         ))
         .add_event::<MenuEvent>()
         .init_resource::<FileMenu>()

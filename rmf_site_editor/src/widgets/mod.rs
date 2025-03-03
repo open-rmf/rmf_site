@@ -68,9 +68,6 @@ use console::*;
 pub mod creation;
 use creation::*;
 
-pub mod creation_site_object;
-pub use creation_site_object::*;
-
 pub mod canvas_tooltips;
 pub use canvas_tooltips::*;
 
