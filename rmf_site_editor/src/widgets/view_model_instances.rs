@@ -116,8 +116,7 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                         };
                         CollapsingHeader::new(desc_name.0.clone())
                             .id_source(desc_name.0.clone())
-                            .default_open(false)
-                            .open(Some(self.selection.0.is_some_and(|e| members.contains(&e))))
+                            .default_open(self.selection.0.is_some_and(|e| members.contains(&e)))
                             .show(ui, |ui| {
                                 for member in members.iter() {
                                     let Ok((instance_entity, instance_name, affiliation)) =
@@ -151,12 +150,11 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                             });
                     }
                     CollapsingHeader::new("Unaffiliated instances")
-                        .default_open(false)
-                        .open(Some(
+                        .default_open(
                             self.selection
                                 .0
                                 .is_some_and(|e| unaffiliated_instances.contains(&e)),
-                        ))
+                        )
                         .show(ui, |ui| {
                             if unaffiliated_instances.is_empty() {
                                 ui.label("No orphan model instances.");
