@@ -16,6 +16,7 @@
 */
 
 use crate::{
+    interaction::Selection,
     site::{
         scenario::get_scenario_instance_entities, Affiliation, CurrentScenario, Delete, Group,
         Instance, Members, ModelMarker, NameInSite, Scenario, ScenarioMarker, UpdateInstance,
@@ -65,6 +66,7 @@ pub struct ViewModelInstances<'w, 's> {
         (Entity, &'static NameInSite, &'static Affiliation<Entity>),
         With<InstanceMarker>,
     >,
+    selection: Res<'w, Selection>,
     selector: SelectorWidget<'w, 's>,
     delete: EventWriter<'w, Delete>,
     scenario_entities: Query<'w, 's, (&'static mut Instance, &'static Affiliation<Entity>)>,
@@ -114,8 +116,8 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                         };
                         CollapsingHeader::new(desc_name.0.clone())
                             .id_source(desc_name.0.clone())
-                            // TODO(@xiyuoh) true if model is selected
                             .default_open(false)
+                            .open(Some(self.selection.0.is_some_and(|e| members.contains(&e))))
                             .show(ui, |ui| {
                                 for member in members.iter() {
                                     let Ok((instance_entity, instance_name, affiliation)) =
@@ -149,8 +151,12 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                             });
                     }
                     CollapsingHeader::new("Unaffiliated instances")
-                        // TODO(@xiyuoh) true if model is selected
                         .default_open(false)
+                        .open(Some(
+                            self.selection
+                                .0
+                                .is_some_and(|e| unaffiliated_instances.contains(&e)),
+                        ))
                         .show(ui, |ui| {
                             if unaffiliated_instances.is_empty() {
                                 ui.label("No orphan model instances.");
