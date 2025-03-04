@@ -22,9 +22,10 @@ use crate::{
         UpdateInstanceType,
     },
     widgets::{prelude::*, SelectorWidget},
+    Icons,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{CollapsingHeader, ScrollArea, Ui};
+use bevy_egui::egui::{CollapsingHeader, ImageButton, ScrollArea, Ui};
 use rmf_site_format::{InstanceMarker, SiteID};
 use std::collections::HashMap;
 
@@ -50,6 +51,7 @@ pub struct ViewModelInstances<'w, 's> {
     >,
     children: Query<'w, 's, &'static Children>,
     current_scenario: ResMut<'w, CurrentScenario>,
+    icons: Res<'w, Icons>,
     members: Query<'w, 's, &'static Members>,
     model_descriptions: Query<
         'w,
@@ -138,6 +140,7 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                             scenario_instances.get(&instance_entity),
                                             current_scenario_entity,
                                             scenario_count,
+                                            &self.icons,
                                         );
                                     } else {
                                         unaffiliated_instances.push(instance_entity);
@@ -172,6 +175,7 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                         scenario_instances.get(instance_entity),
                                         current_scenario_entity,
                                         scenario_count,
+                                        &self.icons,
                                     );
                                 }
                             }
@@ -216,71 +220,54 @@ fn show_model_instance(
     instance: Option<&Instance>,
     scenario: Entity,
     scenario_count: i32,
+    icons: &Res<Icons>,
 ) {
     if let Some(instance) = instance {
-        // Instance selector
         ui.horizontal(|ui| {
+            // Selector widget
             selector.show_widget(entity, ui);
-            ui.label(format!("{}", name.0));
-        });
-
-        let mut included = match instance {
-            Instance::Hidden => false,
-            _ => true,
-        };
-
-        ui.horizontal(|ui| {
             // Include/hide model instance
-            if ui
-                .checkbox(&mut included, "Include")
-                .on_hover_text("Include/Hide this model instance in the current scenario")
-                .changed()
-            {
-                if included {
-                    update_instance.send(UpdateInstance {
-                        scenario,
-                        instance: entity,
-                        update_type: UpdateInstanceType::Include,
-                    });
-                } else {
-                    update_instance.send(UpdateInstance {
-                        scenario,
-                        instance: entity,
-                        update_type: UpdateInstanceType::Hide,
-                    });
-                }
-            }
-            ui.label(format!("[{}]", scenario_count))
-                .on_hover_text("Number of scenarios this instance is included in");
-
-            // Reset instance pose to parent scenario
-            ui.add_enabled_ui(
-                match instance {
-                    Instance::Inherited(inherited) => inherited.modified_pose.is_some(),
-                    _ => false,
-                },
-                |ui| {
+            match instance {
+                Instance::Hidden => {
                     if ui
-                        .button("↩")
-                        .on_hover_text("Reset to parent scenario pose")
+                        .add(ImageButton::new(icons.hide.egui()))
+                        .on_hover_text("Include model instance in this scenario")
                         .clicked()
                     {
                         update_instance.send(UpdateInstance {
                             scenario,
                             instance: entity,
-                            update_type: UpdateInstanceType::ResetPose,
+                            update_type: UpdateInstanceType::Include,
                         });
                     }
-                },
-            );
+                }
+                _ => {
+                    if ui
+                        .add(ImageButton::new(icons.show.egui()))
+                        .on_hover_text("Hide model instance from this scenario")
+                        .clicked()
+                    {
+                        update_instance.send(UpdateInstance {
+                            scenario,
+                            instance: entity,
+                            update_type: UpdateInstanceType::Hide,
+                        });
+                    }
+                }
+            }
             // Delete instance from this site (all scenarios)
             if ui
-                .button("❌")
+                .add(ImageButton::new(icons.trash.egui()))
                 .on_hover_text("Remove instance from all scenarios")
                 .clicked()
             {
                 delete.send(Delete::new(entity));
             }
+            // Name of model instance and scenario count
+            ui.label(format!("{}", name.0)).on_hover_text(format!(
+                "Instance is included in {} scenarios",
+                scenario_count
+            ));
         });
     }
 }

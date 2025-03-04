@@ -16,7 +16,10 @@
 */
 
 use crate::{
-    site::Change,
+    site::{
+        scenario::get_scenario_instance_entities, Affiliation, Change, CurrentScenario, Instance,
+        UpdateInstance, UpdateInstanceType,
+    },
     widgets::{inspector::InspectAngle, prelude::*, Inspect},
 };
 use bevy::{math::Quat, prelude::*};
@@ -27,6 +30,10 @@ use rmf_site_format::{Pose, Rotation};
 pub struct InspectPose<'w, 's> {
     poses: Query<'w, 's, &'static Pose>,
     change_pose: EventWriter<'w, Change<Pose>>,
+    children: Query<'w, 's, &'static Children>,
+    current_scenario: Res<'w, CurrentScenario>,
+    scenario_entities: Query<'w, 's, (&'static mut Instance, &'static Affiliation<Entity>)>,
+    update_instance: EventWriter<'w, UpdateInstance>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectPose<'w, 's> {
@@ -43,6 +50,40 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPose<'w, 's> {
         if let Some(new_pose) = InspectPoseComponent::new(pose).show(ui) {
             params.change_pose.send(Change::new(new_pose, selection));
         }
+
+        // Reset model instance pose to parent scenario pose (if any)
+        if let Some(scenario_entity) = params.current_scenario.0 {
+            let instance_entities = get_scenario_instance_entities(
+                scenario_entity,
+                &params.children,
+                &params.scenario_entities,
+            );
+            if let Some((instance, _)) = instance_entities
+                .iter()
+                .find(|(_, i)| *i == selection)
+                .and_then(|(c_entity, _)| params.scenario_entities.get(*c_entity).ok())
+            {
+                match instance {
+                    Instance::Inherited(inherited) => {
+                        if inherited.modified_pose.is_some() {
+                            if ui
+                                .button("Reset pose")
+                                .on_hover_text("Reset to parent scenario pose")
+                                .clicked()
+                            {
+                                params.update_instance.send(UpdateInstance {
+                                    scenario: scenario_entity,
+                                    instance: selection,
+                                    update_type: UpdateInstanceType::ResetPose,
+                                });
+                            }
+                        }
+                    }
+                    _ => {}
+                };
+            }
+        }
+
         ui.add_space(10.0);
     }
 }

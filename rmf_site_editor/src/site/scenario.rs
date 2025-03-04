@@ -296,13 +296,10 @@ pub fn handle_instance_updates(
 
                 match update.update_type {
                     UpdateInstanceType::Include => {
-                        let instance_pose = instance
-                            .pose()
-                            .or(recall_instance
-                                .get(*scenario_child)
-                                .ok()
-                                .and_then(|r| r.pose))
-                            .or(parent_pose);
+                        let instance_pose = instance.pose().or(recall_instance
+                            .get(*scenario_child)
+                            .ok()
+                            .and_then(|r| r.pose));
 
                         if parent_pose.is_some() {
                             *instance = Instance::new_inherited(instance_pose)
