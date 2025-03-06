@@ -84,7 +84,6 @@ pub struct FuelAssetBrowser<'w, 's> {
     model_loader: ModelLoader<'w, 's>,
     pending_model_description: Option<ResMut<'w, PendingModelDescription>>,
     object_placement: ObjectPlacement<'w, 's>,
-    next_instance_name: GetNextInstanceName<'w, 's>,
 }
 
 fn fuel_asset_browser_panel(In(input): In<PanelWidgetInput>, world: &mut World) {
