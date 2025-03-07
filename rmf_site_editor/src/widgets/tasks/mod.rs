@@ -16,8 +16,9 @@
 */
 use crate::{
     site::{
-        Category, CurrentScenario, Delete, DispatchTaskRequest, Group, NameInSite, Pending, Robot,
-        RobotTaskRequest, Scenario, ScenarioMarker, Task,
+        Affiliation, Category, CurrentScenario, Delete, DispatchTaskRequest, Group, NameInSite,
+        Pending, Robot, RobotTaskRequest, Scenario, ScenarioMarker, ScenarioTask, ScenarioTaskId,
+        Task,
     },
     widgets::prelude::*,
     CurrentWorkspace, Tile, WidgetSystem,
@@ -32,7 +33,7 @@ use bevy_egui::egui::{
 };
 use serde_json::Value;
 use smallvec::SmallVec;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 pub mod go_to_place;
 pub use go_to_place::*;
@@ -72,7 +73,11 @@ impl Plugin for MainTasksPlugin {
             .init_resource::<TaskKinds>()
             .init_resource::<EditTask>()
             .add_event::<UpdateTask>()
-            .add_systems(PostUpdate, handle_task_updates);
+            .add_event::<UpdateScenarioTask>()
+            .add_systems(
+                PostUpdate,
+                (handle_task_updates, handle_scenario_task_updates),
+            );
     }
 }
 
@@ -106,18 +111,31 @@ impl FromWorld for EditTask {
     }
 }
 
+#[derive(Clone, Debug)]
 pub enum UpdateTaskType {
     New(Entity),
-    Include(Entity),
-    Hide(Entity),
     Edit(Option<Entity>),
-    Reset,
 }
 
-#[derive(Event)]
+#[derive(Clone, Debug, Event)]
 pub struct UpdateTask {
     pub scenario: Entity,
     pub update_type: UpdateTaskType,
+}
+
+#[derive(Clone, Debug)]
+pub enum UpdateScenarioTaskType {
+    Include,
+    Hide,
+    Add,
+    Reset,
+}
+
+#[derive(Clone, Debug, Event)]
+pub struct UpdateScenarioTask {
+    pub scenario: Entity,
+    pub task: Entity,
+    pub update_type: UpdateScenarioTaskType,
 }
 
 #[derive(SystemParam)]
@@ -135,10 +153,20 @@ pub struct ViewTasks<'w, 's> {
         (Entity, &'static NameInSite, &'static mut Scenario<Entity>),
         With<ScenarioMarker>,
     >,
+    scenario_tasks: Query<
+        'w,
+        's,
+        (
+            &'static mut ScenarioTask,
+            &'static ScenarioTaskId,
+            &'static Affiliation<Entity>,
+        ),
+    >,
     task_kinds: ResMut<'w, TaskKinds>,
     task_widget: ResMut<'w, TaskWidget>,
     tasks: Query<'w, 's, (Entity, &'static mut Task), Without<Pending>>,
     update_task: EventWriter<'w, UpdateTask>,
+    update_scenario_task: EventWriter<'w, UpdateScenarioTask>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for ViewTasks<'w, 's> {
@@ -176,37 +204,14 @@ impl<'w, 's> WidgetSystem<Tile> for ViewTasks<'w, 's> {
 impl<'w, 's> ViewTasks<'w, 's> {
     pub fn show_widget(&mut self, ui: &mut Ui) {
         let Some(current_scenario_entity) = self.current_scenario.0 else {
+            ui.label("No scenario selected, unable to display or create tasks.");
             return;
         };
-        let Ok((_, scenario_name, scenario)) = self.scenarios.get(current_scenario_entity) else {
-            ui.label("No scenario selected, unable to display or create tasks.");
+        let Ok((_, scenario_name, _)) = self.scenarios.get(current_scenario_entity) else {
             return;
         };
 
         // View and modify tasks in current scenario
-        ui.horizontal(|ui| {
-            ui.label(scenario_name.0.clone());
-            let parent_tasks = scenario
-                .parent_scenario
-                .0
-                .and_then(|p| self.scenarios.get(p).ok())
-                .map(|(_, _, ps)| ps.tasks.clone());
-
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                ui.add_enabled_ui(parent_tasks.is_some_and(|pt| pt != scenario.tasks), |ui| {
-                    if ui
-                        .button("↩")
-                        .on_hover_text("Reset to parent scenario tasks")
-                        .clicked()
-                    {
-                        self.update_task.send(UpdateTask {
-                            scenario: current_scenario_entity,
-                            update_type: UpdateTaskType::Reset,
-                        })
-                    }
-                });
-            });
-        });
         Frame::default()
             .inner_margin(4.0)
             .rounding(2.0)
@@ -215,20 +220,38 @@ impl<'w, 's> ViewTasks<'w, 's> {
                 ui.set_min_width(ui.available_width());
 
                 let mut id: usize = 0;
-                for task_entity in scenario.tasks.iter() {
+                let scenario_task_entities = get_scenario_task_entities(
+                    current_scenario_entity,
+                    &self.children,
+                    &self.scenario_tasks,
+                );
+                for (scenario_task_entity, task_entity) in scenario_task_entities.iter() {
                     let Ok((_, task)) = self.tasks.get(*task_entity) else {
                         continue;
                     };
-                    let scenario_count = count_scenarios(&self.scenarios, *task_entity);
+                    let task_included =
+                        self.scenario_tasks
+                            .get(*scenario_task_entity)
+                            .is_ok_and(|(st, _, _)| match st {
+                                ScenarioTask::Hidden => false,
+                                _ => true,
+                            });
+                    let scenario_count = count_scenarios_for_tasks(
+                        &self.scenarios,
+                        *task_entity,
+                        &self.children,
+                        &self.scenario_tasks,
+                    );
                     show_task(
                         ui,
                         *task_entity,
                         &task,
                         current_scenario_entity,
                         &mut self.update_task,
+                        &mut self.update_scenario_task,
                         &mut self.delete,
                         &mut id,
-                        true,
+                        task_included,
                         scenario_count,
                     );
                 }
@@ -237,41 +260,6 @@ impl<'w, 's> ViewTasks<'w, 's> {
                 }
             });
         ui.add_space(10.0);
-
-        // View other created tasks from this site
-        CollapsingHeader::new("Other Scenarios")
-            .id_source("show_all_scenario_tasks")
-            .default_open(false)
-            .show(ui, |ui| {
-                Frame::default()
-                    .inner_margin(4.0)
-                    .rounding(2.0)
-                    .stroke(Stroke::new(1.0, Color32::GRAY))
-                    .show(ui, |ui| {
-                        ui.set_min_width(ui.available_width());
-                        let mut id: usize = 0;
-                        for (task_entity, task) in self.tasks.iter() {
-                            if scenario.tasks.contains(&task_entity) {
-                                continue;
-                            }
-                            let scenario_count = count_scenarios(&self.scenarios, task_entity);
-                            show_task(
-                                ui,
-                                task_entity,
-                                &task,
-                                current_scenario_entity,
-                                &mut self.update_task,
-                                &mut self.delete,
-                                &mut id,
-                                false,
-                                scenario_count,
-                            );
-                        }
-                        if id == 0 {
-                            ui.label("No tasks from other scenarios");
-                        }
-                    });
-            });
         ui.separator();
 
         let mut reset_edit: bool = false;
@@ -292,9 +280,11 @@ impl<'w, 's> ViewTasks<'w, 's> {
                                 .clicked()
                             {
                                 self.commands.entity(task_entity).remove::<Pending>();
-                                self.update_task.send(UpdateTask {
+                                // Add to the current scenario
+                                self.update_scenario_task.send(UpdateScenarioTask {
                                     scenario: current_scenario_entity,
-                                    update_type: UpdateTaskType::Include(task_entity),
+                                    task: task_entity,
+                                    update_type: UpdateScenarioTaskType::Add,
                                 });
                                 reset_edit = true;
                             }
@@ -357,12 +347,23 @@ impl<'w, 's> ViewTasks<'w, 's> {
     }
 }
 
-pub fn count_scenarios(
+pub fn count_scenarios_for_tasks(
     scenarios: &Query<(Entity, &NameInSite, &mut Scenario<Entity>), With<ScenarioMarker>>,
     task: Entity,
+    children: &Query<&Children>,
+    scenario_entities: &Query<(&mut ScenarioTask, &ScenarioTaskId, &Affiliation<Entity>)>,
 ) -> i32 {
-    scenarios.iter().fold(0, |x, (_, _, s)| {
-        if s.tasks.iter().any(|e| *e == task) {
+    scenarios.iter().fold(0, |x, (e, _, _)| {
+        let scenario_task_entities = get_scenario_task_entities(e, &children, scenario_entities);
+        if scenario_task_entities
+            .iter()
+            .find(|(_, i)| *i == task)
+            .and_then(|(c_entity, _)| scenario_entities.get(*c_entity).ok())
+            .is_some_and(|(t, _, _)| match t {
+                ScenarioTask::Hidden => false,
+                _ => true,
+            })
+        {
             x + 1
         } else {
             x
@@ -376,6 +377,7 @@ fn show_task(
     task: &Task,
     scenario: Entity,
     update_task: &mut EventWriter<UpdateTask>,
+    update_scenario_task: &mut EventWriter<UpdateScenarioTask>,
     delete: &mut EventWriter<Delete>,
     id: &mut usize,
     present: bool,
@@ -410,9 +412,10 @@ fn show_task(
                             .on_hover_text("Remove task from this scenario")
                             .clicked()
                         {
-                            update_task.send(UpdateTask {
+                            update_scenario_task.send(UpdateScenarioTask {
                                 scenario,
-                                update_type: UpdateTaskType::Hide(entity),
+                                task: entity,
+                                update_type: UpdateScenarioTaskType::Hide,
                             })
                         }
                         if ui
@@ -431,9 +434,10 @@ fn show_task(
                             .on_hover_text("Add task to this scenario")
                             .clicked()
                         {
-                            update_task.send(UpdateTask {
+                            update_scenario_task.send(UpdateScenarioTask {
                                 scenario,
-                                update_type: UpdateTaskType::Include(entity),
+                                task: entity,
+                                update_type: UpdateScenarioTaskType::Include,
                             })
                         }
                     }
@@ -760,23 +764,12 @@ fn edit_task(
 
 fn handle_task_updates(
     mut commands: Commands,
-    mut scenarios: Query<&mut Scenario<Entity>>,
     mut update_task: EventReader<UpdateTask>,
     mut edit_task: ResMut<EditTask>,
     current_workspace: Res<CurrentWorkspace>,
     pending_tasks: Query<(Entity, &mut Task), With<Pending>>,
-    parents: Query<&Parent>,
 ) {
     for update in update_task.read() {
-        let parent_tasks = parents
-            .get(update.scenario)
-            .and_then(|p| scenarios.get(p.get()))
-            .map(|ps| ps.tasks.clone());
-
-        let Ok(mut scenario) = scenarios.get_mut(update.scenario) else {
-            return;
-        };
-
         match update.update_type {
             UpdateTaskType::New(task_entity) => {
                 if let Some(site_entity) = current_workspace.root {
@@ -784,23 +777,159 @@ fn handle_task_updates(
                 }
                 edit_task.0 = Some(task_entity);
             }
-            UpdateTaskType::Include(task_entity) => {
-                scenario.tasks.push(task_entity);
-            }
-            UpdateTaskType::Hide(task_entity) => {
-                scenario.tasks.retain(|e| *e != task_entity);
-            }
             UpdateTaskType::Edit(task_entity) => {
                 if let Some(pending_task) = edit_task.0.filter(|e| pending_tasks.get(*e).is_ok()) {
                     commands.entity(pending_task).despawn_recursive();
                 }
                 edit_task.0 = task_entity;
             }
-            UpdateTaskType::Reset => {
-                if let Ok(parent_tasks) = parent_tasks {
-                    if scenario.tasks != parent_tasks {
-                        scenario.tasks = parent_tasks;
+        }
+    }
+}
+
+fn scenario_task_has_parent(
+    scenario_task_entity: Entity,
+    scenario_entity: Entity,
+    children: &Query<&Children>,
+    scenarios: &Query<(Entity, &mut Scenario<Entity>)>,
+    scenario_entities: &Query<(&mut ScenarioTask, &ScenarioTaskId, &Affiliation<Entity>)>,
+) -> bool {
+    let mut parent_exists: bool = false;
+
+    let Ok((_, scenario)) = scenarios.get(scenario_entity) else {
+        return parent_exists;
+    };
+    let Some((parent_entity, _)) = scenario
+        .parent_scenario
+        .0
+        .and_then(|e| scenarios.get(e).ok())
+    else {
+        return parent_exists;
+    };
+
+    // Check if parent scenario has ST children entities that point to this scenario_task_entity
+    let parent_scenario_task_entities =
+        get_scenario_task_entities(parent_entity, children, scenario_entities);
+    parent_exists = parent_scenario_task_entities
+        .iter()
+        .find(|(_, i)| *i == scenario_task_entity)
+        .is_some();
+    parent_exists
+}
+
+/// This system current searches for scenario children entities with the ScenarioTask component
+pub fn get_scenario_task_entities(
+    entity: Entity,
+    children: &Query<&Children>,
+    scenario_entities: &Query<(&mut ScenarioTask, &ScenarioTaskId, &Affiliation<Entity>)>,
+) -> Vec<(Entity, Entity)> {
+    let mut scenario_tasks: Vec<(Entity, Entity)> = Vec::new();
+    let mut max_id = i32::MIN;
+    if let Ok(scenario_children) = children.get(entity) {
+        scenario_tasks = vec![(Entity::PLACEHOLDER, Entity::PLACEHOLDER); scenario_children.len()];
+        for child in scenario_children.iter() {
+            let Ok((_, id, affiliation)) = scenario_entities.get(*child) else {
+                continue;
+            };
+            if let Some(affiliated_entity) = affiliation.0 {
+                scenario_tasks[id.0] = (*child, affiliated_entity);
+                if id.0 as i32 > max_id {
+                    max_id = id.0 as i32 + 1;
+                }
+            }
+        }
+        // TODO(@xiyuoh) Check if max_id is valid, and check that there are no empty spaces
+        // Resize vector to length of max_id
+        if max_id > 0 {
+            scenario_tasks.resize(max_id as usize, (Entity::PLACEHOLDER, Entity::PLACEHOLDER));
+        } else {
+            scenario_tasks = Vec::new();
+        }
+    };
+    scenario_tasks
+}
+
+fn handle_scenario_task_updates(
+    mut commands: Commands,
+    mut scenario_tasks: Query<(&mut ScenarioTask, &ScenarioTaskId, &Affiliation<Entity>)>,
+    mut update_scenario_task: EventReader<UpdateScenarioTask>,
+    children: Query<&Children>,
+    scenarios: Query<(Entity, &mut Scenario<Entity>)>,
+) {
+    for update in update_scenario_task.read() {
+        let has_parent = scenario_task_has_parent(
+            update.task,
+            update.scenario,
+            &children,
+            &scenarios,
+            &scenario_tasks,
+        );
+        let scenario_task_entities =
+            get_scenario_task_entities(update.scenario, &children, &scenario_tasks);
+
+        match update.update_type {
+            UpdateScenarioTaskType::Add => {
+                let new_id = if scenario_task_entities.is_empty() {
+                    0
+                } else {
+                    scenario_task_entities.len() + 1
+                };
+                commands
+                    .spawn(ScenarioTask::Added)
+                    .insert(ScenarioTaskId(new_id))
+                    .insert(Affiliation(Some(update.task)))
+                    .set_parent(update.scenario);
+                // Insert this new scenario task into children scenarios as Inherited
+                let mut subtree_dependents = HashSet::<Entity>::new();
+                let mut queue = vec![update.scenario];
+                while let Some(scenario_entity) = queue.pop() {
+                    if let Ok(children) = children.get(scenario_entity) {
+                        children.iter().for_each(|e| {
+                            subtree_dependents.insert(*e);
+                            queue.push(*e);
+                        });
                     }
+                }
+                // Only insert new scenario task in children scenarios. Other parent/root
+                // scenarios will not have access to this scenario task
+                for dependent in subtree_dependents.drain() {
+                    if scenarios.get(dependent).is_ok() {
+                        let num_scenario_tasks =
+                            get_scenario_task_entities(dependent, &children, &scenario_tasks).len();
+                        commands
+                            .spawn(ScenarioTask::Inherited)
+                            .insert(ScenarioTaskId(num_scenario_tasks + 1))
+                            .insert(Affiliation(Some(update.task)))
+                            .set_parent(dependent);
+                    }
+                }
+            }
+            _ => {
+                let Some((mut scenario_task, _, _)) = scenario_task_entities
+                    .iter()
+                    .find(|(_, i)| *i == update.task)
+                    .and_then(|(c_entity, _)| scenario_tasks.get_mut(*c_entity).ok())
+                else {
+                    continue;
+                };
+                let scenario_task = scenario_task.as_mut();
+
+                match update.update_type {
+                    UpdateScenarioTaskType::Include => {
+                        *scenario_task = if has_parent {
+                            ScenarioTask::Inherited
+                        } else {
+                            ScenarioTask::Added
+                        };
+                    }
+                    UpdateScenarioTaskType::Hide => {
+                        *scenario_task = ScenarioTask::Hidden;
+                    }
+                    //
+                    UpdateScenarioTaskType::Reset => {
+                        // TODO(@xiyuoh) Brainstorm how to properly implement this and accommodate newly added tasks.
+                    }
+                    _ => {}
                 }
             }
         }

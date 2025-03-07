@@ -99,6 +99,18 @@ pub struct HiddenInstance {
     pub pose: Option<Pose>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub enum ScenarioTask {
+    Added,
+    Inherited,
+    Hidden,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct ScenarioTaskId(pub usize);
+
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
@@ -109,7 +121,7 @@ pub struct ScenarioMarker;
 pub struct Scenario<T: RefTrait> {
     pub parent_scenario: Affiliation<T>,
     pub instances: BTreeMap<T, Instance>,
-    pub tasks: BTreeMap<T, Task>,
+    pub tasks: BTreeMap<T, ScenarioTask>,
 }
 
 impl<T: RefTrait> Scenario<T> {

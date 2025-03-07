@@ -20,7 +20,7 @@ use crate::{
     site::{
         Affiliation, CurrentScenario, Delete, Dependents, Group, Instance, InstanceMarker,
         IssueKey, ModelMarker, NameInSite, Pending, Pose, RecallInstance, Scenario, ScenarioBundle,
-        ScenarioMarker,
+        ScenarioMarker, Task,
     },
     widgets::view_model_instances::count_scenarios,
     CurrentWorkspace, Issue, ValidateWorkspace,
@@ -458,6 +458,7 @@ pub fn handle_create_scenarios(
     children: Query<&Children>,
     current_workspace: Res<CurrentWorkspace>,
     instances: Query<(&Instance, &Affiliation<Entity>)>,
+    tasks: Query<(&Task, &Affiliation<Entity>)>,
 ) {
     for new in new_scenarios.read() {
         let mut cmd = if let Some(name) = &new.name {
@@ -473,9 +474,10 @@ pub fn handle_create_scenarios(
         if let Some(parent_scenario_entity) = new.parent {
             cmd.set_parent(parent_scenario_entity);
 
-            // Inherit any children entities with Instance component from the parent scenario
+            // Inherit any children entities from the parent scenario
             if let Ok(children) = children.get(parent_scenario_entity) {
                 children.iter().for_each(|e| {
+                    // Check for Instance entities
                     if let Ok((instance, affiliation)) = instances.get(*e).map(|(i, a)| match i {
                         Instance::Added(_) | Instance::Inherited(_) => {
                             (Instance::new_inherited(None), a.clone())
@@ -485,6 +487,13 @@ pub fn handle_create_scenarios(
                         commands
                             .spawn(instance)
                             .insert(affiliation)
+                            .set_parent(scenario_entity);
+                    }
+                    // Check for Task entities
+                    if let Ok((task, affiliation)) = tasks.get(*e) {
+                        commands
+                            .spawn(task.clone())
+                            .insert(affiliation.clone())
                             .set_parent(scenario_entity);
                     }
                 });
