@@ -410,15 +410,23 @@ fn generate_site_entities(
                 model_instance.name.0,
             );
         }
-        if let Some(tasks) = site_data.tasks.get(model_instance_id) {
-            commands.entity(model_instance_entity).insert(tasks.clone());
-        }
     }
 
     for (model_description_entity, dependents) in model_description_dependents {
         commands
             .entity(model_description_entity)
             .insert(Dependents(dependents));
+    }
+
+    for (task_id, task_data) in &site_data.tasks {
+        let task_entity = commands
+            .spawn(task_data.clone())
+            .insert(SiteID(*task_id))
+            .insert(Category::Task)
+            .set_parent(site_id)
+            .id();
+        id_to_entity.insert(*task_id, task_entity);
+        consider_id(*task_id);
     }
 
     for (scenario_id, scenario_bundle_data) in &site_data.scenarios {
@@ -436,6 +444,22 @@ fn generate_site_entities(
             .id();
         id_to_entity.insert(*scenario_id, scenario_entity);
         consider_id(*scenario_id);
+
+        // Spawn scenario children entities
+        for (instance_id, instance) in scenario_bundle_data.scenario.instances.iter() {
+            if let Some(instance_entity) = id_to_entity.get(&instance_id) {
+                commands
+                    .spawn(instance.clone())
+                    .insert(Affiliation(Some(*instance_entity)))
+                    .set_parent(scenario_entity);
+            } else {
+                error!(
+                    "Model instance {} referenced by scenario {} is missing! This should \
+                    not happen, please report this bug to the maintainers of rmf_site_editor.",
+                    instance_id, scenario_bundle.name.0
+                );
+            }
+        }
     }
 
     let nav_graph_rankings = match RecencyRanking::<NavGraphMarker>::from_u32(

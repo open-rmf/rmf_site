@@ -104,6 +104,9 @@ pub use sdf_export_menu::*;
 pub mod selector_widget;
 pub use selector_widget::*;
 
+pub mod tasks;
+pub use tasks::*;
+
 pub mod user_camera_display;
 pub use user_camera_display::*;
 
@@ -116,6 +119,9 @@ use view_layers::*;
 pub mod view_levels;
 use view_levels::*;
 
+pub mod view_model_instances;
+use view_model_instances::*;
+
 pub mod view_scenarios;
 use view_scenarios::*;
 
@@ -127,9 +133,6 @@ use view_nav_graphs::*;
 
 pub mod view_occupancy;
 use view_occupancy::*;
-
-pub mod view_tasks;
-use view_tasks::*;
 
 pub mod workspace;
 use workspace::*;

@@ -19,12 +19,97 @@ use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Bundle, Component, Reflect, ReflectComponent};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct InstanceMarker;
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub enum Instance {
+    Added(AddedInstance),
+    Inherited(InheritedInstance),
+    Hidden,
+}
+
+impl Instance {
+    pub fn new_added(pose: Pose) -> Self {
+        Self::Added(AddedInstance { pose: pose })
+    }
+
+    pub fn new_inherited(pose: Option<Pose>) -> Self {
+        Self::Inherited(InheritedInstance {
+            modified_pose: pose,
+        })
+    }
+
+    pub fn new_hidden() -> Self {
+        Self::Hidden
+    }
+
+    pub fn pose(&self) -> Option<Pose> {
+        match self {
+            Instance::Added(added) => Some(added.pose.clone()),
+            Instance::Inherited(inherited) => inherited.modified_pose.clone(),
+            Instance::Hidden => None,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct RecallInstance {
+    pub pose: Option<Pose>,
+}
+
+impl Recall for RecallInstance {
+    type Source = Instance;
+
+    fn remember(&mut self, source: &Instance) {
+        match source {
+            Instance::Added(_) | Instance::Inherited(_) => {
+                self.pose = source.pose();
+            }
+            Instance::Hidden => {
+                // We don't update the pose if this Instance is hidden
+            }
+        };
+    }
+}
+
+/// The instance was added by this scenario
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
+pub struct AddedInstance {
+    pub pose: Pose,
+}
+
+/// The instance was inherited from a parent scenario
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
+pub struct InheritedInstance {
+    pub modified_pose: Option<Pose>,
+}
+
+/// The instance doesn't exist in this scenario
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
+pub struct HiddenInstance {
+    /// This is the pose of the instance before it was hidden if it was added or modified
+    /// Set to None if the instance pose was inherited without modification
+    pub pose: Option<Pose>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub enum ScenarioTask {
+    Added,
+    Inherited,
+    Hidden,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct ScenarioTaskId(pub usize);
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
@@ -35,18 +120,16 @@ pub struct ScenarioMarker;
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct Scenario<T: RefTrait> {
     pub parent_scenario: Affiliation<T>,
-    pub added_instances: Vec<(T, Pose)>,
-    pub removed_instances: Vec<T>,
-    pub moved_instances: Vec<(T, Pose)>,
+    pub instances: BTreeMap<T, Instance>,
+    pub tasks: BTreeMap<T, ScenarioTask>,
 }
 
 impl<T: RefTrait> Scenario<T> {
     pub fn from_parent(parent: T) -> Scenario<T> {
         Scenario {
             parent_scenario: Affiliation(Some(parent)),
-            added_instances: Vec::new(),
-            removed_instances: Vec::new(),
-            moved_instances: Vec::new(),
+            instances: BTreeMap::new(),
+            tasks: BTreeMap::new(),
         }
     }
 }
@@ -56,9 +139,8 @@ impl<T: RefTrait> Default for Scenario<T> {
     fn default() -> Self {
         Self {
             parent_scenario: Affiliation::default(),
-            added_instances: Vec::new(),
-            removed_instances: Vec::new(),
-            moved_instances: Vec::new(),
+            instances: BTreeMap::new(),
+            tasks: BTreeMap::new(),
         }
     }
 }
@@ -67,28 +149,22 @@ impl<T: RefTrait> Scenario<T> {
     pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Scenario<U>, T> {
         Ok(Scenario {
             parent_scenario: self.parent_scenario.convert(id_map)?,
-            added_instances: self
-                .added_instances
+            instances: self
+                .instances
                 .clone()
                 .into_iter()
-                .map(|(id, pose)| {
+                .map(|(id, instance)| {
                     let converted_id = id_map.get(&id).cloned().ok_or(id)?;
-                    Ok((converted_id, pose))
+                    Ok((converted_id, instance))
                 })
                 .collect::<Result<_, _>>()?,
-            removed_instances: self
-                .removed_instances
+            tasks: self
+                .tasks
                 .clone()
                 .into_iter()
-                .map(|id| id_map.get(&id).cloned().ok_or(id))
-                .collect::<Result<_, _>>()?,
-            moved_instances: self
-                .moved_instances
-                .clone()
-                .into_iter()
-                .map(|(id, pose)| {
+                .map(|(id, task)| {
                     let converted_id = id_map.get(&id).cloned().ok_or(id)?;
-                    Ok((converted_id, pose))
+                    Ok((converted_id, task))
                 })
                 .collect::<Result<_, _>>()?,
         })
@@ -109,9 +185,8 @@ impl<T: RefTrait> ScenarioBundle<T> {
             name: NameInSite(name),
             scenario: Scenario {
                 parent_scenario: Affiliation(parent),
-                added_instances: Vec::new(),
-                removed_instances: Vec::new(),
-                moved_instances: Vec::new(),
+                instances: BTreeMap::new(),
+                tasks: BTreeMap::new(),
             },
             marker: ScenarioMarker,
         }
