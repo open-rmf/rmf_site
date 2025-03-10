@@ -128,6 +128,7 @@ pub enum UpdateScenarioTaskType {
     Include,
     Hide,
     Add,
+    Reorder(bool),
     Reset,
 }
 
@@ -158,6 +159,7 @@ pub struct ViewTasks<'w, 's> {
         'w,
         's,
         (
+            Entity,
             &'static mut ScenarioTask,
             &'static ScenarioTaskId,
             &'static Affiliation<Entity>,
@@ -217,7 +219,6 @@ impl<'w, 's> ViewTasks<'w, 's> {
             .show(ui, |ui| {
                 ui.set_min_width(ui.available_width());
 
-                let mut id: usize = 0;
                 let scenario_task_entities = get_scenario_task_entities(
                     current_scenario_entity,
                     &self.children,
@@ -227,13 +228,18 @@ impl<'w, 's> ViewTasks<'w, 's> {
                     let Ok((_, task)) = self.tasks.get(*task_entity) else {
                         continue;
                     };
-                    let task_included =
-                        self.scenario_tasks
-                            .get(*scenario_task_entity)
-                            .is_ok_and(|(st, _, _)| match st {
-                                ScenarioTask::Hidden => false,
-                                _ => true,
-                            });
+                    let Ok((task_included, task_id)) = self
+                        .scenario_tasks
+                        .get(*scenario_task_entity)
+                        .map(|(_, st, id, _)| match st {
+                            ScenarioTask::Hidden => (false, id.0),
+                            _ => (true, id.0),
+                        })
+                    else {
+                        continue;
+                    };
+                    let enable_reorder_buttons =
+                        (task_id > 0, task_id < scenario_task_entities.len() - 1);
                     let scenario_count = count_scenarios_for_tasks(
                         &self.scenarios,
                         *task_entity,
@@ -248,14 +254,14 @@ impl<'w, 's> ViewTasks<'w, 's> {
                         &mut self.update_task,
                         &mut self.update_scenario_task,
                         &mut self.delete,
-                        &mut id,
                         task_included,
+                        enable_reorder_buttons,
                         scenario_count,
                         &self.icons,
                     );
                 }
-                if id == 0 {
-                    ui.label("No tasks");
+                if scenario_task_entities.len() == 0 {
+                    ui.label("No tasks in this scenario");
                 }
             });
         ui.add_space(10.0);
@@ -350,7 +356,12 @@ pub fn count_scenarios_for_tasks(
     scenarios: &Query<(Entity, &NameInSite, &mut Scenario<Entity>), With<ScenarioMarker>>,
     task: Entity,
     children: &Query<&Children>,
-    scenario_entities: &Query<(&mut ScenarioTask, &ScenarioTaskId, &Affiliation<Entity>)>,
+    scenario_entities: &Query<(
+        Entity,
+        &mut ScenarioTask,
+        &ScenarioTaskId,
+        &Affiliation<Entity>,
+    )>,
 ) -> i32 {
     scenarios.iter().fold(0, |x, (e, _, _)| {
         let scenario_task_entities = get_scenario_task_entities(e, &children, scenario_entities);
@@ -358,7 +369,7 @@ pub fn count_scenarios_for_tasks(
             .iter()
             .find(|(_, i)| *i == task)
             .and_then(|(c_entity, _)| scenario_entities.get(*c_entity).ok())
-            .is_some_and(|(t, _, _)| match t {
+            .is_some_and(|(_, t, _, _)| match t {
                 ScenarioTask::Hidden => false,
                 _ => true,
             })
@@ -378,8 +389,8 @@ fn show_task(
     update_task: &mut EventWriter<UpdateTask>,
     update_scenario_task: &mut EventWriter<UpdateScenarioTask>,
     delete: &mut EventWriter<Delete>,
-    id: &mut usize,
     present: bool,
+    enable_reorder_buttons: (bool, bool),
     scenario_count: i32,
     icons: &Res<Icons>,
 ) {
@@ -394,10 +405,10 @@ fn show_task(
         .rounding(2.0)
         .show(ui, |ui| {
             ui.set_min_width(ui.available_width());
-            let id_string = id.to_string();
 
             ui.horizontal(|ui| {
-                ui.label("Task ".to_owned() + &entity.index().to_string()); // TODO(@xiyuoh) better identifier
+                ui.label("Task ".to_owned() + &entity.index().to_string())  // TODO(@xiyuoh) better identifier
+                    .on_hover_text(format!("Task is included in {} scenarios", scenario_count));
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     if ui
                         .add(ImageButton::new(icons.trash.egui()))
@@ -418,6 +429,34 @@ fn show_task(
                                 update_type: UpdateScenarioTaskType::Hide,
                             })
                         }
+                        ui.add_enabled_ui(enable_reorder_buttons.1, |ui| {
+                            if ui
+                                .add(ImageButton::new(icons.layer_down.egui()))
+                                .on_hover_text("Reorder task to be dispatched after the next task")
+                                .clicked()
+                            {
+                                update_scenario_task.send(UpdateScenarioTask {
+                                    scenario,
+                                    task: entity,
+                                    update_type: UpdateScenarioTaskType::Reorder(false),
+                                })
+                            }
+                        });
+                        ui.add_enabled_ui(enable_reorder_buttons.0, |ui| {
+                            if ui
+                                .add(ImageButton::new(icons.layer_up.egui()))
+                                .on_hover_text(
+                                    "Reorder task to be dispatched before the previous task",
+                                )
+                                .clicked()
+                            {
+                                update_scenario_task.send(UpdateScenarioTask {
+                                    scenario,
+                                    task: entity,
+                                    update_type: UpdateScenarioTaskType::Reorder(true),
+                                })
+                            }
+                        });
                         // Do not allow edit if not in current scenario
                         if ui
                             .add(ImageButton::new(icons.edit.egui()))
@@ -442,18 +481,15 @@ fn show_task(
                             })
                         }
                     }
-                    ui.label(format!("[{}]", scenario_count))
-                        .on_hover_text("Number of scenarios this task is included in");
                 });
             });
             if !present {
-                *id += 1;
                 return;
             }
             ui.separator();
 
             let task_request = task.request();
-            Grid::new("show_task_".to_owned() + &id_string)
+            Grid::new("show_task_".to_owned() + &entity.index().to_string())
                 .num_columns(2)
                 .show(ui, |ui| {
                     match task {
@@ -487,10 +523,10 @@ fn show_task(
                 });
 
             CollapsingHeader::new("More details")
-                .id_source("task_details_".to_owned() + &id_string)
+                .id_source("task_details_".to_owned() + &entity.index().to_string())
                 .default_open(false)
                 .show(ui, |ui| {
-                    Grid::new("task_details_".to_owned() + &id_string)
+                    Grid::new("task_details_".to_owned() + &entity.index().to_string())
                         .num_columns(2)
                         .show(ui, |ui| {
                             // TODO(@xiyuoh) Add status/queued information
@@ -534,7 +570,6 @@ fn show_task(
                         });
                 });
         });
-    *id += 1;
 }
 
 fn edit_task(
@@ -792,12 +827,18 @@ fn handle_task_updates(
     }
 }
 
+/// This system checks if this Task is inherited or added
 fn scenario_task_has_parent(
     scenario_task_entity: Entity,
     scenario_entity: Entity,
     children: &Query<&Children>,
     scenarios: &Query<(Entity, &mut Scenario<Entity>)>,
-    scenario_entities: &Query<(&mut ScenarioTask, &ScenarioTaskId, &Affiliation<Entity>)>,
+    scenario_entities: &Query<(
+        Entity,
+        &mut ScenarioTask,
+        &ScenarioTaskId,
+        &Affiliation<Entity>,
+    )>,
 ) -> bool {
     let mut parent_exists: bool = false;
 
@@ -822,31 +863,38 @@ fn scenario_task_has_parent(
     parent_exists
 }
 
-/// This system current searches for scenario children entities with the ScenarioTask component
+/// This system searches for scenario children entities with the ScenarioTask component
 pub fn get_scenario_task_entities(
     entity: Entity,
     children: &Query<&Children>,
-    scenario_entities: &Query<(&mut ScenarioTask, &ScenarioTaskId, &Affiliation<Entity>)>,
+    scenario_entities: &Query<(
+        Entity,
+        &mut ScenarioTask,
+        &ScenarioTaskId,
+        &Affiliation<Entity>,
+    )>,
 ) -> Vec<(Entity, Entity)> {
     let mut scenario_tasks: Vec<(Entity, Entity)> = Vec::new();
     let mut max_id = i32::MIN;
     if let Ok(scenario_children) = children.get(entity) {
         scenario_tasks = vec![(Entity::PLACEHOLDER, Entity::PLACEHOLDER); scenario_children.len()];
         for child in scenario_children.iter() {
-            let Ok((_, id, affiliation)) = scenario_entities.get(*child) else {
+            let Ok((_, _, id, affiliation)) = scenario_entities.get(*child) else {
                 continue;
             };
             if let Some(affiliated_entity) = affiliation.0 {
                 scenario_tasks[id.0] = (*child, affiliated_entity);
                 if id.0 as i32 > max_id {
-                    max_id = id.0 as i32 + 1;
+                    max_id = id.0 as i32;
                 }
             }
         }
-        // TODO(@xiyuoh) Check if max_id is valid, and check that there are no empty spaces
-        // Resize vector to length of max_id
-        if max_id > 0 {
-            scenario_tasks.resize(max_id as usize, (Entity::PLACEHOLDER, Entity::PLACEHOLDER));
+        // Resize vector
+        if max_id >= 0 {
+            scenario_tasks.resize(
+                (max_id + 1) as usize,
+                (Entity::PLACEHOLDER, Entity::PLACEHOLDER),
+            );
         } else {
             scenario_tasks = Vec::new();
         }
@@ -854,9 +902,110 @@ pub fn get_scenario_task_entities(
     scenario_tasks
 }
 
+fn reassign_scenario_task_id(
+    children: &Query<&Children>,
+    scenario: Entity,
+    task: Entity,
+    scenarios: &Query<(Entity, &mut Scenario<Entity>)>,
+    scenario_task_entity: Entity,
+    scenario_task_entities: Vec<(Entity, Entity)>,
+    scenario_tasks: &Query<(
+        Entity,
+        &mut ScenarioTask,
+        &ScenarioTaskId,
+        &Affiliation<Entity>,
+    )>,
+    up: bool,
+) -> HashMap<Entity, usize> {
+    let mut updated_task_ids = HashMap::<Entity, usize>::new();
+    let Ok(scenario_task_id) = scenario_tasks
+        .get(scenario_task_entity)
+        .map(|(_, _, id, _)| id.0.clone())
+    else {
+        return updated_task_ids;
+    };
+    let relative_index = if up {
+        scenario_task_id - 1
+    } else {
+        scenario_task_id + 1
+    };
+    if (relative_index > scenario_task_entities.len() - 1) || (up && scenario_task_id == 0) {
+        return updated_task_ids;
+    }
+    // ScenarioTask entities in Vec are ordered
+    let (relative_entity, relative_task) = scenario_task_entities[relative_index];
+    updated_task_ids.insert(scenario_task_entity, relative_index);
+    updated_task_ids.insert(relative_entity, scenario_task_id);
+
+    // Move the scenario task in all children relative to the reference task
+    let mut subtree_dependents = HashSet::<Entity>::new();
+    let mut queue = vec![scenario];
+    while let Some(scenario_entity) = queue.pop() {
+        if let Ok(children) = children.get(scenario_entity) {
+            children.iter().for_each(|e| {
+                if scenarios.get(*e).is_ok() {
+                    subtree_dependents.insert(*e);
+                    queue.push(*e);
+                }
+            });
+        }
+    }
+    for dependent in subtree_dependents.drain() {
+        // Find task in child scenario
+        let child_scenario_task_entities =
+            get_scenario_task_entities(dependent, &children, &scenario_tasks);
+        let Some((child_entity, child_task_id)) = child_scenario_task_entities
+            .iter()
+            .find(|(_, i)| *i == task)
+            .and_then(|(c_entity, _)| scenario_tasks.get(*c_entity).ok())
+            .map(|(e, _, c_id, _)| (e, c_id.0.clone()))
+        else {
+            continue;
+        };
+        // Find relative task in child scenario
+        let Some(child_relative_task_id) = child_scenario_task_entities
+            .iter()
+            .find(|(_, i)| *i == relative_task)
+            .and_then(|(c_entity, _)| scenario_tasks.get(*c_entity).ok())
+            .map(|(_, _, c_id, _)| c_id.0.clone())
+        else {
+            continue;
+        };
+        updated_task_ids.insert(child_entity, child_relative_task_id);
+        // Loop over each in-between tasks to move them one task up/down
+        let relative_increment = if up && child_task_id > child_relative_task_id {
+            1
+        } else if !up && child_task_id < child_relative_task_id {
+            -1
+        } else {
+            return updated_task_ids;
+        };
+        let lower = std::cmp::min(child_relative_task_id, child_task_id);
+        let upper = std::cmp::max(child_relative_task_id, child_task_id);
+        for (c_entity, _) in child_scenario_task_entities.iter() {
+            if let Some((_, _, c_id, _)) = child_scenario_task_entities
+                .iter()
+                .find(|(c, _)| *c == *c_entity)
+                .and_then(|(st, _)| scenario_tasks.get(*st).ok())
+            {
+                if lower <= c_id.0 && c_id.0 <= upper && c_id.0 != child_task_id {
+                    let new_c_id = c_id.0 as i32 + relative_increment;
+                    updated_task_ids.insert(*c_entity, new_c_id as usize);
+                }
+            }
+        }
+    }
+    updated_task_ids
+}
+
 fn handle_scenario_task_updates(
     mut commands: Commands,
-    mut scenario_tasks: Query<(&mut ScenarioTask, &ScenarioTaskId, &Affiliation<Entity>)>,
+    mut scenario_tasks: Query<(
+        Entity,
+        &mut ScenarioTask,
+        &ScenarioTaskId,
+        &Affiliation<Entity>,
+    )>,
     mut update_scenario_task: EventReader<UpdateScenarioTask>,
     children: Query<&Children>,
     scenarios: Query<(Entity, &mut Scenario<Entity>)>,
@@ -874,14 +1023,9 @@ fn handle_scenario_task_updates(
 
         match update.update_type {
             UpdateScenarioTaskType::Add => {
-                let new_id = if scenario_task_entities.is_empty() {
-                    0
-                } else {
-                    scenario_task_entities.len() + 1
-                };
                 commands
                     .spawn(ScenarioTask::Added)
-                    .insert(ScenarioTaskId(new_id))
+                    .insert(ScenarioTaskId(scenario_task_entities.len()))
                     .insert(Affiliation(Some(update.task)))
                     .set_parent(update.scenario);
                 // Insert this new scenario task into children scenarios as Inherited
@@ -899,18 +1043,18 @@ fn handle_scenario_task_updates(
                 // scenarios will not have access to this scenario task
                 for dependent in subtree_dependents.drain() {
                     if scenarios.get(dependent).is_ok() {
-                        let num_scenario_tasks =
-                            get_scenario_task_entities(dependent, &children, &scenario_tasks).len();
+                        let child_scenario_task_entities =
+                            get_scenario_task_entities(dependent, &children, &scenario_tasks);
                         commands
                             .spawn(ScenarioTask::Inherited)
-                            .insert(ScenarioTaskId(num_scenario_tasks + 1))
+                            .insert(ScenarioTaskId(child_scenario_task_entities.len()))
                             .insert(Affiliation(Some(update.task)))
                             .set_parent(dependent);
                     }
                 }
             }
             _ => {
-                let Some((mut scenario_task, _, _)) = scenario_task_entities
+                let Some((scenario_task_entity, mut scenario_task, _, _)) = scenario_task_entities
                     .iter()
                     .find(|(_, i)| *i == update.task)
                     .and_then(|(c_entity, _)| scenario_tasks.get_mut(*c_entity).ok())
@@ -930,7 +1074,21 @@ fn handle_scenario_task_updates(
                     UpdateScenarioTaskType::Hide => {
                         *scenario_task = ScenarioTask::Hidden;
                     }
-                    //
+                    UpdateScenarioTaskType::Reorder(up) => {
+                        let updated_task_ids = reassign_scenario_task_id(
+                            &children,
+                            update.scenario,
+                            update.task,
+                            &scenarios,
+                            scenario_task_entity,
+                            scenario_task_entities,
+                            &scenario_tasks,
+                            up,
+                        );
+                        for (e, id) in updated_task_ids.iter() {
+                            commands.entity(*e).insert(ScenarioTaskId(*id));
+                        }
+                    }
                     UpdateScenarioTaskType::Reset => {
                         // TODO(@xiyuoh) Brainstorm how to properly implement this and accommodate newly added tasks.
                     }
