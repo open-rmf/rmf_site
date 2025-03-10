@@ -20,7 +20,7 @@ use crate::{
     site::{
         Affiliation, CurrentScenario, Delete, Dependents, Group, Instance, InstanceMarker,
         IssueKey, ModelMarker, NameInSite, Pending, Pose, RecallInstance, Scenario, ScenarioBundle,
-        ScenarioMarker, Task,
+        ScenarioMarker, ScenarioTask, ScenarioTaskId,
     },
     widgets::view_model_instances::count_scenarios,
     CurrentWorkspace, Issue, ValidateWorkspace,
@@ -458,7 +458,7 @@ pub fn handle_create_scenarios(
     children: Query<&Children>,
     current_workspace: Res<CurrentWorkspace>,
     instances: Query<(&Instance, &Affiliation<Entity>)>,
-    tasks: Query<(&Task, &Affiliation<Entity>)>,
+    scenario_tasks: Query<(&ScenarioTask, &ScenarioTaskId, &Affiliation<Entity>)>,
 ) {
     for new in new_scenarios.read() {
         let mut cmd = if let Some(name) = &new.name {
@@ -489,10 +489,13 @@ pub fn handle_create_scenarios(
                             .insert(affiliation)
                             .set_parent(scenario_entity);
                     }
-                    // Check for Task entities
-                    if let Ok((task, affiliation)) = tasks.get(*e) {
+                    // Check for ScenarioTask entities
+                    if let Ok((scenario_task, scenario_task_id, affiliation)) =
+                        scenario_tasks.get(*e)
+                    {
                         commands
-                            .spawn(task.clone())
+                            .spawn(scenario_task.clone())
+                            .insert(scenario_task_id.clone())
                             .insert(affiliation.clone())
                             .set_parent(scenario_entity);
                     }

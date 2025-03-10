@@ -21,15 +21,15 @@ use crate::{
         Task,
     },
     widgets::prelude::*,
-    CurrentWorkspace, Tile, WidgetSystem,
+    CurrentWorkspace, Icons, Tile, WidgetSystem,
 };
 use bevy::{
     ecs::system::{EntityCommands, SystemParam, SystemState},
     prelude::*,
 };
 use bevy_egui::egui::{
-    Align, CollapsingHeader, Color32, ComboBox, DragValue, Frame, Grid, Layout, Stroke, TextEdit,
-    Ui,
+    Align, CollapsingHeader, Color32, ComboBox, DragValue, Frame, Grid, ImageButton, Layout,
+    Stroke, TextEdit, Ui,
 };
 use serde_json::Value;
 use smallvec::SmallVec;
@@ -145,6 +145,7 @@ pub struct ViewTasks<'w, 's> {
     current_scenario: ResMut<'w, CurrentScenario>,
     delete: EventWriter<'w, Delete>,
     edit_task: ResMut<'w, EditTask>,
+    icons: Res<'w, Icons>,
     pending_tasks: Query<'w, 's, (Entity, &'static mut Task), With<Pending>>,
     robots: Query<'w, 's, (Entity, &'static NameInSite), (With<Robot>, Without<Group>)>,
     scenarios: Query<
@@ -207,9 +208,6 @@ impl<'w, 's> ViewTasks<'w, 's> {
             ui.label("No scenario selected, unable to display or create tasks.");
             return;
         };
-        let Ok((_, scenario_name, _)) = self.scenarios.get(current_scenario_entity) else {
-            return;
-        };
 
         // View and modify tasks in current scenario
         Frame::default()
@@ -253,6 +251,7 @@ impl<'w, 's> ViewTasks<'w, 's> {
                         &mut id,
                         task_included,
                         scenario_count,
+                        &self.icons,
                     );
                 }
                 if id == 0 {
@@ -382,6 +381,7 @@ fn show_task(
     id: &mut usize,
     present: bool,
     scenario_count: i32,
+    icons: &Res<Icons>,
 ) {
     let color = if present {
         Color32::DARK_GRAY
@@ -400,16 +400,16 @@ fn show_task(
                 ui.label("Task ".to_owned() + &entity.index().to_string()); // TODO(@xiyuoh) better identifier
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     if ui
-                        .button("❌")
-                        .on_hover_text("Delete task from site")
+                        .add(ImageButton::new(icons.trash.egui()))
+                        .on_hover_text("Remove task from all scenarios")
                         .clicked()
                     {
                         delete.send(Delete::new(entity));
                     }
                     if present {
                         if ui
-                            .button("Remove")
-                            .on_hover_text("Remove task from this scenario")
+                            .add(ImageButton::new(icons.show.egui()))
+                            .on_hover_text("Exclude task from current scenario")
                             .clicked()
                         {
                             update_scenario_task.send(UpdateScenarioTask {
@@ -418,8 +418,9 @@ fn show_task(
                                 update_type: UpdateScenarioTaskType::Hide,
                             })
                         }
+                        // Do not allow edit if not in current scenario
                         if ui
-                            .button("Edit") // Do not allow edit if not in this scenario
+                            .add(ImageButton::new(icons.edit.egui()))
                             .on_hover_text("Edit task parameters")
                             .clicked()
                         {
@@ -430,8 +431,8 @@ fn show_task(
                         }
                     } else {
                         if ui
-                            .button("Add")
-                            .on_hover_text("Add task to this scenario")
+                            .add(ImageButton::new(icons.hide.egui()))
+                            .on_hover_text("Include task in current scenario")
                             .clicked()
                         {
                             update_scenario_task.send(UpdateScenarioTask {
@@ -445,6 +446,10 @@ fn show_task(
                         .on_hover_text("Number of scenarios this task is included in");
                 });
             });
+            if !present {
+                *id += 1;
+                return;
+            }
             ui.separator();
 
             let task_request = task.request();
