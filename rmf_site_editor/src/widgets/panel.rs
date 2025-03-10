@@ -103,6 +103,57 @@ pub fn render_panels(
     }
 }
 
+/// Configuration options for panel
+#[derive(Clone, Copy, Debug, Component)]
+pub struct PanelConfig {
+    pub resizable: bool,
+    pub default_dimension: f32,
+    pub horizontal_scrolling: ScrollConfig,
+    pub vertical_scrolling: ScrollConfig,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct ScrollConfig {
+    pub enable_scroll: bool,
+    pub auto_shrink: bool,
+}
+
+impl Default for PanelConfig {
+    fn default() -> Self {
+        Self {
+            resizable: true,
+            default_dimension: 300.0,
+            horizontal_scrolling: ScrollConfig::default(),
+            vertical_scrolling: ScrollConfig::default(),
+        }
+    }
+}
+
+impl PanelConfig {
+    pub fn enable_scroll(&self) -> [bool; 2] {
+        [
+            self.horizontal_scrolling.enable_scroll,
+            self.vertical_scrolling.enable_scroll,
+        ]
+    }
+
+    pub fn auto_shrink(&self) -> [bool; 2] {
+        [
+            self.horizontal_scrolling.auto_shrink,
+            self.vertical_scrolling.auto_shrink,
+        ]
+    }
+}
+
+impl Default for ScrollConfig {
+    fn default() -> Self {
+        ScrollConfig {
+            enable_scroll: true,
+            auto_shrink: false,
+        }
+    }
+}
+
 /// Indicate which side a panel is on
 #[derive(Clone, Copy, Debug, Component)]
 pub enum PanelSide {

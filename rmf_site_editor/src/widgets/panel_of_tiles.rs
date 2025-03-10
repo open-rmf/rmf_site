@@ -16,6 +16,7 @@
 */
 
 use crate::widgets::prelude::*;
+
 use bevy::prelude::*;
 use bevy_egui::egui;
 use smallvec::SmallVec;
@@ -57,27 +58,40 @@ pub fn show_panel_of_tiles(
     };
 
     let side = *side;
+
+    let config = world.get::<PanelConfig>(id).cloned().unwrap_or_default();
+
     side.get_panel()
         .map_vertical(|panel| {
-            // TODO(@mxgrey): Make this configurable via a component
-            panel.resizable(true).default_width(300.0)
+            panel
+                .resizable(config.resizable)
+                .default_width(config.default_dimension)
+        })
+        .map_horizontal(|panel| {
+            panel
+                .resizable(config.resizable)
+                .default_height(config.default_dimension)
         })
         .show(&context, |ui| {
-            egui::ScrollArea::both()
-                .auto_shrink([false, false])
+            egui::ScrollArea::new(config.enable_scroll())
+                .auto_shrink(config.auto_shrink())
                 .show(ui, |ui| {
-                    for child in children {
-                        let tile = Tile {
-                            id: child,
-                            panel: side,
-                        };
-                        if let Err(err) = world.try_show_in(child, tile, ui) {
-                            error!(
-                                "Could not render child widget {child:?} in \
-                                tile panel {id:?} on side {side:?}: {err:?}"
-                            );
-                        }
-                    }
+                    side.align(ui, |ui| render_tiles(ui, world, &children, side, id));
                 });
         });
+}
+
+fn render_tiles(ui: &mut Ui, world: &mut World, children: &[Entity], side: PanelSide, id: Entity) {
+    for &child in children {
+        let tile = Tile {
+            id: child,
+            panel: side,
+        };
+        if let Err(err) = world.try_show_in(child, tile, ui) {
+            error!(
+                "Could not render child widget {child:?} in \
+                                tile panel {id:?} on side {side:?}: {err:?}"
+            );
+        }
+    }
 }

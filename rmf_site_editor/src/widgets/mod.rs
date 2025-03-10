@@ -77,6 +77,9 @@ use diagnostics::*;
 pub mod fuel_asset_browser;
 pub use fuel_asset_browser::*;
 
+pub mod header_panel;
+pub use header_panel::*;
+
 pub mod icons;
 pub use icons::*;
 
@@ -140,10 +143,10 @@ pub mod prelude {
     //! implementing and inserting their own widgets.
 
     pub use super::{
-        properties_panel::*, CanvasTooltips, Inspect, InspectionPlugin, PanelSide, PanelWidget,
-        PanelWidgetInput, PropertiesPanel, PropertiesTilePlugin, ShareableWidget, ShowError,
-        ShowResult, ShowSharedWidget, Tile, TryShowWidgetEntity, TryShowWidgetWorld, Widget,
-        WidgetSystem,
+        header_panel::*, properties_panel::*, CanvasTooltips, HeaderPanel, Inspect,
+        InspectionPlugin, PanelConfig, PanelSide, PanelWidget, PanelWidgetInput, PropertiesPanel,
+        PropertiesTilePlugin, ShareableWidget, ShowError, ShowResult, ShowSharedWidget, Tile,
+        TryShowWidgetEntity, TryShowWidgetWorld, Widget, WidgetSystem,
     };
     pub use bevy::ecs::{
         system::{SystemParam, SystemState},

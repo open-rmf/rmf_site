@@ -16,6 +16,7 @@
 */
 
 use crate::widgets::prelude::*;
+use crate::widgets::{HeaderPanelPlugin, HeaderTilePlugin, StandardCreationPlugin};
 
 use bevy::ecs::query::Has;
 use bevy::prelude::*;
@@ -27,13 +28,80 @@ pub struct MenuBarPlugin {}
 
 impl Plugin for MenuBarPlugin {
     fn build(&self, app: &mut App) {
-        let widget = PanelWidget::new(top_menu_bar, &mut app.world);
-        app.world.spawn(widget);
+        app.add_plugins((
+            HeaderPanelPlugin::default(),
+            MenuDropdownPlugin::default(),
+            StandardCreationPlugin::default(),
+        ))
+        .add_event::<MenuEvent>()
+        .init_resource::<FileMenu>()
+        .init_resource::<ToolMenu>()
+        .init_resource::<ViewMenu>();
+    }
+}
 
-        app.add_event::<MenuEvent>()
-            .init_resource::<FileMenu>()
-            .init_resource::<ToolMenu>()
-            .init_resource::<ViewMenu>();
+/// Add a widget housing all the menu dropdown options
+#[derive(Default)]
+pub struct MenuDropdownPlugin {}
+
+impl Plugin for MenuDropdownPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_plugins(HeaderTilePlugin::<MenuDropdowns>::new());
+    }
+}
+
+#[derive(SystemParam)]
+struct MenuDropdowns<'w, 's> {
+    menus: Query<'w, 's, (&'static Menu, Entity)>,
+    menu_items: Query<'w, 's, (&'static mut MenuItem, Has<MenuDisabled>)>,
+    extension_events: EventWriter<'w, MenuEvent>,
+    view_menu: Res<'w, ViewMenu>,
+    file_menu: Res<'w, FileMenu>,
+    children: Query<'w, 's, &'static Children>,
+    top_level_components: Query<'w, 's, ((), Without<Parent>)>,
+}
+
+impl<'w, 's> WidgetSystem<Tile> for MenuDropdowns<'w, 's> {
+    fn show(_: Tile, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) {
+        let mut params = state.get_mut(world);
+        ui.menu_button("File", |ui| {
+            render_sub_menu(
+                ui,
+                &params.file_menu.get(),
+                &params.children,
+                &params.menus,
+                &params.menu_items,
+                &mut params.extension_events,
+                true,
+            );
+        });
+        ui.menu_button("View", |ui| {
+            render_sub_menu(
+                ui,
+                &params.view_menu.get(),
+                &params.children,
+                &params.menus,
+                &params.menu_items,
+                &mut params.extension_events,
+                true,
+            );
+        });
+
+        for (_, entity) in params.menus.iter().filter(|(_, entity)| {
+            params.top_level_components.contains(*entity)
+                && (*entity != params.file_menu.get() && *entity != params.view_menu.get())
+        }) {
+            render_sub_menu(
+                ui,
+                &entity,
+                &params.children,
+                &params.menus,
+                &params.menu_items,
+                &mut params.extension_events,
+                false,
+            );
+        }
+        ui.separator();
     }
 }
 
@@ -274,62 +342,4 @@ pub fn render_sub_menu(
             );
         }
     }
-}
-
-#[derive(SystemParam)]
-struct MenuParams<'w, 's> {
-    menus: Query<'w, 's, (&'static Menu, Entity)>,
-    menu_items: Query<'w, 's, (&'static mut MenuItem, Has<MenuDisabled>)>,
-    extension_events: EventWriter<'w, MenuEvent>,
-    view_menu: Res<'w, ViewMenu>,
-}
-
-fn top_menu_bar(
-    In(input): In<PanelWidgetInput>,
-    file_menu: Res<FileMenu>,
-    top_level_components: Query<(), Without<Parent>>,
-    children: Query<&Children>,
-    mut menu_params: MenuParams,
-) {
-    egui::TopBottomPanel::top("top_panel").show(&input.context, |ui| {
-        egui::menu::bar(ui, |ui| {
-            ui.menu_button("File", |ui| {
-                render_sub_menu(
-                    ui,
-                    &file_menu.get(),
-                    &children,
-                    &menu_params.menus,
-                    &menu_params.menu_items,
-                    &mut menu_params.extension_events,
-                    true,
-                );
-            });
-            ui.menu_button("View", |ui| {
-                render_sub_menu(
-                    ui,
-                    &menu_params.view_menu.get(),
-                    &children,
-                    &menu_params.menus,
-                    &menu_params.menu_items,
-                    &mut menu_params.extension_events,
-                    true,
-                );
-            });
-
-            for (_, entity) in menu_params.menus.iter().filter(|(_, entity)| {
-                top_level_components.contains(*entity)
-                    && (*entity != file_menu.get() && *entity != menu_params.view_menu.get())
-            }) {
-                render_sub_menu(
-                    ui,
-                    &entity,
-                    &children,
-                    &menu_params.menus,
-                    &menu_params.menu_items,
-                    &mut menu_params.extension_events,
-                    false,
-                );
-            }
-        });
-    });
 }

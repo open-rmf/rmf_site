@@ -314,13 +314,21 @@ fn handle_model_loading_errors(
                 commands.entity(parent).remove::<ModelScene>();
             }
             error!("{err}");
-            commands
-                .entity(parent)
-                .insert(ModelFailedLoading(err.clone()));
+            if let Some(mut entity_mut) = commands.get_entity(parent) {
+                // The parent entity might not exist any longer after the loading
+                // failed, so we check for its existence before inserting to it.
+                entity_mut.insert(ModelFailedLoading(err.clone()));
+            }
+
             parent
         }
     };
-    commands.entity(parent).remove::<ModelLoadingState>();
+
+    if let Some(mut entity_mut) = commands.get_entity(parent) {
+        // The parent entity might not exist any longer after the loading failed,
+        // so we check for its existence before removing from it.
+        entity_mut.remove::<ModelLoadingState>();
+    }
     result
 }
 
