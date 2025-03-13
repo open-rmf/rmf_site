@@ -16,10 +16,10 @@
 */
 
 use crate::widgets::{
-    show_panel_of_tiles, BuildingPreviewPlugin, CreationPlugin, PanelSide, PanelWidget,
-    StandardInspectorPlugin, Tile, ViewGroupsPlugin, ViewLayersPlugin, ViewLevelsPlugin,
-    ViewLightsPlugin, ViewModelInstancesPlugin, ViewNavGraphsPlugin, ViewOccupancyPlugin,
-    ViewScenariosPlugin, ViewTasks, Widget, WidgetSystem,
+    show_panel_of_tiles, BuildingPreviewPlugin, PanelSide, PanelWidget, StandardInspectorPlugin,
+    Tile, ViewGroupsPlugin, ViewLayersPlugin, ViewLevelsPlugin, ViewLightsPlugin,
+    ViewModelInstancesPlugin, ViewNavGraphsPlugin, ViewOccupancyPlugin, ViewScenariosPlugin,
+    ViewTasks, Widget, WidgetSystem,
 };
 use bevy::prelude::*;
 
@@ -39,7 +39,6 @@ impl Plugin for StandardPropertiesPanelPlugin {
             ViewNavGraphsPlugin::default(),
             ViewLayersPlugin::default(),
             StandardInspectorPlugin::default(),
-            CreationPlugin::default(),
             ViewGroupsPlugin::default(),
             PropertiesTilePlugin::<ViewTasks>::new(),
             ViewLightsPlugin::default(),

@@ -68,6 +68,7 @@ impl<'a> InspectAssetSourceComponent<'a> {
                     ui.end_row();
                 });
         });
+        ui.add_space(4.0);
         match &mut new_source {
             AssetSource::Local(name) => {
                 let is_relative = if let Some(default_file) = self.default_file {
