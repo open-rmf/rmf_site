@@ -535,6 +535,75 @@ impl Site {
                 // TODO(luca) this will duplicate multiple instances of the model since it uses
                 // NameInSite instead of AssetSource for the URI, fix
                 else if !model_description_bundle.is_static.0 .0 {
+                    let mut model_plugins: Vec<SdfPlugin> = Vec::new();
+                    if let Some(robot) = self.robots.get(&model_description_id) {
+                        // Export slotcar plugin
+                        if let Some(mobility_config) = robot.properties.get("Mobility") {
+                            if let serde_json::Value::Object(mobility_map) = mobility_config {
+                                if let Some(diff_drive_config) = mobility_map
+                                    .get("kind")
+                                    .filter(|k_val| {
+                                        if let serde_json::Value::String(kind) = k_val {
+                                            if *kind == "Differential Drive".to_string() {
+                                                return true;
+                                            }
+                                        }
+                                        false
+                                    })
+                                    .and_then(|_| mobility_map.get("config"))
+                                {
+                                    // DifferentialDrive exists for this model,
+                                    let mut slotcar_plugin = SdfPlugin {
+                                        name: "slotcar".to_string(),
+                                        filename: "libslotcar.so".to_string(),
+                                        ..Default::default()
+                                    };
+                                    if let Some(reversible) = diff_drive_config
+                                        .get("bidirectional")
+                                        .and_then(|b| match b {
+                                            serde_json::Value::Bool(rev) => Some(rev),
+                                            _ => None,
+                                        })
+                                    {
+                                        slotcar_plugin.elements.push(XmlElement {
+                                            name: "reversible".into(),
+                                            data: ElementData::String(format!("{}", reversible)),
+                                            ..Default::default()
+                                        })
+                                    }
+                                    if let Some(translational_speed) = diff_drive_config
+                                        .get("translational_speed")
+                                        .and_then(|b| match b {
+                                            serde_json::Value::Number(speed) => speed.as_f64(),
+                                            _ => None,
+                                        })
+                                    {
+                                        slotcar_plugin.elements.push(XmlElement {
+                                            name: "translational_speed".into(),
+                                            data: ElementData::String(
+                                                translational_speed.to_string(),
+                                            ),
+                                            ..Default::default()
+                                        })
+                                    }
+                                    if let Some(rotational_speed) = diff_drive_config
+                                        .get("rotational_speed")
+                                        .and_then(|b| match b {
+                                            serde_json::Value::Number(speed) => speed.as_f64(),
+                                            _ => None,
+                                        })
+                                    {
+                                        slotcar_plugin.elements.push(XmlElement {
+                                            name: "rotational_speed".into(),
+                                            data: ElementData::String(rotational_speed.to_string()),
+                                            ..Default::default()
+                                        })
+                                    }
+                                    model_plugins.push(slotcar_plugin);
+                                }
+                            }
+                        }
+                    }
                     world.model.push(SdfModel {
                         name: parented_model_instance.bundle.name.0.clone(),
                         r#static: Some(model_description_bundle.is_static.0 .0),
@@ -565,6 +634,7 @@ impl Site {
                             }],
                             ..Default::default()
                         }],
+                        plugin: model_plugins,
                         ..Default::default()
                     });
                     added = true;

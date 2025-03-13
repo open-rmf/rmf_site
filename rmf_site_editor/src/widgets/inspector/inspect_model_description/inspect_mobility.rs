@@ -223,14 +223,13 @@ impl Recall for RecallDifferentialDrive {
 
 #[derive(SystemParam)]
 pub struct InspectDifferentialDrive<'w, 's> {
-    commands: Commands<'w, 's>,
-    children: Query<'w, 's, &'static Children>,
-    differential_drive: Query<'w, 's, &'static DifferentialDrive>,
-    is_static: Query<'w, 's, &'static ModelProperty<IsStatic>, (With<ModelMarker>, With<Group>)>,
-    mobility: Query<'w, 's, &'static Mobility, (With<ModelMarker>, With<Group>)>,
     model_instances: ModelPropertyQuery<'w, 's, Robot>,
-    model_descriptions:
-        Query<'w, 's, &'static ModelProperty<Robot>, (With<ModelMarker>, With<Group>)>,
+    model_descriptions: Query<
+        'w,
+        's,
+        (&'static ModelProperty<Robot>, &'static DifferentialDrive),
+        (With<ModelMarker>, With<Group>),
+    >,
     change_robot_property: EventWriter<'w, Change<ModelProperty<Robot>>>,
 }
 
@@ -249,47 +248,9 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectDifferentialDrive<'w, 's> {
         ) else {
             return;
         };
-        let Ok(ModelProperty(robot)) = params.model_descriptions.get_mut(description_entity) else {
-            return;
-        };
-        let Ok(differential_drive) = params.differential_drive.get_mut(description_entity) else {
-            if params.mobility.get(description_entity).is_ok()
-                || params
-                    .is_static
-                    .get(description_entity)
-                    .is_ok_and(|is_static| is_static.0 .0)
-            {
-                return;
-            }
-            // If DifferentialDrive has been inserted for any of this model instance's children entities,
-            // update Mobility/DifferentialDrive for this model description
-            // TODO(@xiyuoh) this assumes that we always have Robot component inserted, account for if there's a mismatch
-            let mut descendent: Option<(Entity, DifferentialDrive)> = None;
-            let mut queue = vec![selection];
-            while let Some(top) = queue.pop() {
-                if let Ok(model_diff_drive) = params.differential_drive.get(top) {
-                    descendent = Some((top, model_diff_drive.clone()));
-                    queue.clear();
-                    break;
-                };
-                if let Ok(children) = params.children.get(top) {
-                    for child in children {
-                        queue.push(*child);
-                    }
-                }
-            }
-            if let Some((descendent, model_diff_drive)) = descendent {
-                serialize_and_change_robot_property::<Mobility, DifferentialDrive>(
-                    params.change_robot_property,
-                    model_diff_drive.clone(),
-                    robot,
-                    description_entity,
-                );
-                params
-                    .commands
-                    .entity(descendent)
-                    .remove::<DifferentialDrive>();
-            }
+        let Ok((ModelProperty(robot), differential_drive)) =
+            params.model_descriptions.get_mut(description_entity)
+        else {
             return;
         };
 
@@ -348,6 +309,52 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectDifferentialDrive<'w, 's> {
                 robot,
                 description_entity,
             );
+        }
+    }
+}
+
+pub fn insert_slotcar_differential_drive(
+    mut commands: Commands,
+    change_robot_property: EventWriter<Change<ModelProperty<Robot>>>,
+    differential_drive: Query<(Entity, &DifferentialDrive)>,
+    is_static: Query<&ModelProperty<IsStatic>, (With<ModelMarker>, With<Group>)>,
+    mobility: Query<&Mobility, (With<ModelMarker>, With<Group>)>,
+    model_descriptions: Query<&ModelProperty<Robot>, (With<ModelMarker>, With<Group>)>,
+    model_instances: ModelPropertyQuery<Robot>,
+    parents: Query<&Parent>,
+) {
+    for (e, diff_drive) in differential_drive.iter() {
+        if !model_descriptions.get(e).is_ok() {
+            // A non-description entity has the DifferentialDrive component, it could have been inserted into a
+            // model instance descendent when processing importing robot plugins
+            // Insert this component in the affiliated description and remove it from the original entity
+            let mut description_entity: Option<Entity> = None;
+            let mut target_entity: Entity = e;
+            while let Ok(parent) = parents.get(target_entity).map(|p| p.get()) {
+                if let Some(desc) = model_instances.get(parent).ok().and_then(|a| a.0) {
+                    if !mobility.get(desc).is_ok() && is_static.get(desc).is_ok_and(|is| !is.0 .0) {
+                        description_entity = Some(desc);
+                    }
+                    break;
+                }
+                target_entity = parent;
+            }
+
+            if let Some(desc) = description_entity {
+                let robot = match model_descriptions.get(desc) {
+                    Ok(ModelProperty(r)) => r.clone(),
+                    Err(_) => Robot::default(),
+                };
+                serialize_and_change_robot_property::<Mobility, DifferentialDrive>(
+                    change_robot_property,
+                    diff_drive.clone(),
+                    &robot,
+                    desc,
+                );
+            }
+            commands.entity(e).remove::<DifferentialDrive>();
+            // TODO(@xiyuoh) Fix having to return on each loop - currently here to prevent move for change_robot_property
+            return;
         }
     }
 }

@@ -15,7 +15,10 @@
  *
 */
 
-use super::{get_selected_description_entity, ModelDescriptionInspector, ModelPropertyQuery};
+use super::{
+    get_selected_description_entity, insert_slotcar_differential_drive, ModelDescriptionInspector,
+    ModelPropertyQuery,
+};
 use crate::{
     site::{
         recall_plugin::UpdateRecallSet, update_model_instances, Change, ChangePlugin, Group,
@@ -96,9 +99,12 @@ impl Plugin for InspectRobotPropertiesPlugin {
         app.world.init_resource::<RobotPropertyWidgetRegistry>();
         app.add_event::<UpdateRobotPropertyKinds>().add_systems(
             PreUpdate,
-            check_for_missing_robot_property_kinds
-                .after(SiteUpdateSet::ProcessChangesFlush)
-                .run_if(AppState::in_displaying_mode()),
+            (
+                check_for_missing_robot_property_kinds
+                    .after(SiteUpdateSet::ProcessChangesFlush)
+                    .run_if(AppState::in_displaying_mode()),
+                insert_slotcar_differential_drive,
+            ),
         );
     }
 }
