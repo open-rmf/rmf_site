@@ -25,7 +25,10 @@ use thiserror::Error;
 
 use sdformat_rs::{SdfGeometry, SdfPose, Vector3d};
 
-use crate::site::{CollisionMeshMarker, VisualMeshMarker};
+use crate::{
+    site::{CollisionMeshMarker, VisualMeshMarker},
+    widgets::DifferentialDrive,
+};
 use rmf_site_format::{
     Angle, AssetSource, Category, IsStatic, Model, ModelMarker, NameInSite, Pose, PrimitiveShape,
     Rotation, Scale,
@@ -48,6 +51,7 @@ impl Plugin for SdfPlugin {
             .register_type::<VisualMeshMarker>()
             .register_type::<CollisionMeshMarker>()
             .register_type::<Category>()
+            .register_type::<DifferentialDrive>()
             .register_type::<PrimitiveShape>();
     }
 }
@@ -316,6 +320,47 @@ fn load_model<'a, 'b>(
                                 warn!("Found unhandled geometry type {:?}", &collision.geometry)
                             }
                         }
+                    }
+                }
+                // Load DifferentialDrive from slotcar plugin
+                for plugin in &model.plugin {
+                    if plugin.name == "slotcar".to_string()
+                        || plugin.filename == "libslotcar.so".to_string()
+                    {
+                        let mut diff_drive = DifferentialDrive::default();
+                        if let Some(reversible) = plugin.elements.get("reversible") {
+                            if let sdformat_rs::ElementData::String(reversible_str) =
+                                &reversible.data
+                            {
+                                diff_drive.bidirectional = if reversible_str == "true" {
+                                    true
+                                } else if reversible_str == "false" {
+                                    false
+                                } else {
+                                    warn!(
+                                        "Found invalid slotcar reversibility data {:?}, 
+                                        setting DifferentialDrive reversibility to false.",
+                                        reversible_str
+                                    );
+                                    false
+                                };
+                            }
+                        }
+                        if let Some(translational_speed) = plugin
+                            .elements
+                            .get("nominal_drive_speed")
+                            .and_then(|speed| f64::try_from(speed.data.clone()).ok())
+                        {
+                            diff_drive.translational_speed = translational_speed as f32;
+                        }
+                        if let Some(rotational_speed) = plugin
+                            .elements
+                            .get("nominal_turn_speed")
+                            .and_then(|speed| f64::try_from(speed.data.clone()).ok())
+                        {
+                            diff_drive.rotational_speed = rotational_speed as f32;
+                        }
+                        world.entity_mut(e).insert(diff_drive);
                     }
                 }
                 Ok(bevy::scene::Scene::new(world))
