@@ -99,15 +99,16 @@ pub struct ScenarioMarker;
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct Scenario<T: RefTrait> {
-    pub parent_scenario: Affiliation<T>,
     pub instances: BTreeMap<T, InstanceModifier>,
+    #[serde(flatten)]
+    pub properties: ScenarioBundle<T>,
 }
 
 impl<T: RefTrait> Scenario<T> {
-    pub fn from_parent(parent: T) -> Scenario<T> {
+    pub fn from_name_parent(name: String, parent: Option<T>) -> Scenario<T> {
         Scenario {
-            parent_scenario: Affiliation(Some(parent)),
             instances: BTreeMap::new(),
+            properties: ScenarioBundle::from_name_parent(name, parent),
         }
     }
 }
@@ -116,8 +117,8 @@ impl<T: RefTrait> Scenario<T> {
 impl<T: RefTrait> Default for Scenario<T> {
     fn default() -> Self {
         Self {
-            parent_scenario: Affiliation::default(),
             instances: BTreeMap::new(),
+            properties: ScenarioBundle::default(),
         }
     }
 }
@@ -125,7 +126,6 @@ impl<T: RefTrait> Default for Scenario<T> {
 impl<T: RefTrait> Scenario<T> {
     pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Scenario<U>, T> {
         Ok(Scenario {
-            parent_scenario: self.parent_scenario.convert(id_map)?,
             instances: self
                 .instances
                 .clone()
@@ -135,6 +135,7 @@ impl<T: RefTrait> Scenario<T> {
                     Ok((converted_id, instance))
                 })
                 .collect::<Result<_, _>>()?,
+            properties: self.properties.convert(id_map)?,
         })
     }
 }
@@ -143,7 +144,7 @@ impl<T: RefTrait> Scenario<T> {
 #[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct ScenarioBundle<T: RefTrait> {
     pub name: NameInSite,
-    pub scenario: Scenario<T>,
+    pub parent_scenario: Affiliation<T>,
     pub marker: ScenarioMarker,
 }
 
@@ -151,10 +152,7 @@ impl<T: RefTrait> ScenarioBundle<T> {
     pub fn from_name_parent(name: String, parent: Option<T>) -> ScenarioBundle<T> {
         ScenarioBundle {
             name: NameInSite(name),
-            scenario: Scenario {
-                parent_scenario: Affiliation(parent),
-                instances: BTreeMap::new(),
-            },
+            parent_scenario: Affiliation(parent),
             marker: ScenarioMarker,
         }
     }
@@ -164,7 +162,7 @@ impl<T: RefTrait> Default for ScenarioBundle<T> {
     fn default() -> Self {
         Self {
             name: NameInSite("Default Scenario".to_string()),
-            scenario: Scenario::default(),
+            parent_scenario: Affiliation::default(),
             marker: ScenarioMarker,
         }
     }
@@ -174,7 +172,7 @@ impl<T: RefTrait> ScenarioBundle<T> {
     pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<ScenarioBundle<U>, T> {
         Ok(ScenarioBundle {
             name: self.name.clone(),
-            scenario: self.scenario.convert(id_map)?,
+            parent_scenario: self.parent_scenario.convert(id_map)?,
             marker: ScenarioMarker,
         })
     }

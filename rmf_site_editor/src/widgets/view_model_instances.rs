@@ -19,8 +19,8 @@ use crate::{
     interaction::Selection,
     site::{
         scenario::get_instance_modifier_entities, Affiliation, CurrentScenario, Delete, Group,
-        InstanceModifier, Members, ModelMarker, NameInSite, Scenario, ScenarioMarker,
-        UpdateInstance, UpdateInstanceEvent,
+        InstanceModifier, Members, ModelMarker, NameInSite, ScenarioMarker, UpdateInstance,
+        UpdateInstanceEvent,
     },
     widgets::{prelude::*, SelectorWidget},
     Icons,
@@ -47,7 +47,7 @@ pub struct ViewModelInstances<'w, 's> {
     scenarios: Query<
         'w,
         's,
-        (Entity, &'static NameInSite, &'static mut Scenario<Entity>),
+        (Entity, &'static NameInSite, &'static Affiliation<Entity>),
         With<ScenarioMarker>,
     >,
     children: Query<'w, 's, &'static Children>,
@@ -191,7 +191,7 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
 }
 
 pub fn count_scenarios(
-    scenarios: &Query<(Entity, &NameInSite, &mut Scenario<Entity>), With<ScenarioMarker>>,
+    scenarios: &Query<(Entity, &NameInSite, &Affiliation<Entity>), With<ScenarioMarker>>,
     instance: Entity,
     children: &Query<&Children>,
     instance_modifiers: &Query<(&mut InstanceModifier, &Affiliation<Entity>)>,

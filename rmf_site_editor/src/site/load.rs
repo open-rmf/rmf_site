@@ -421,24 +421,22 @@ fn generate_site_entities(
             .insert(Dependents(dependents));
     }
 
-    for (scenario_id, scenario_bundle_data) in &site_data.scenarios {
-        let parent = match scenario_bundle_data.scenario.parent_scenario.0 {
+    for (scenario_id, scenario_data) in &site_data.scenarios {
+        let parent = match scenario_data.properties.parent_scenario.0 {
             Some(parent_id) => *id_to_entity.get(&parent_id).unwrap_or(&site_id),
             None => site_id,
         };
-        let scenario_bundle = scenario_bundle_data
-            .convert(&id_to_entity)
-            .for_site(site_id)?;
+        let scenario = scenario_data.convert(&id_to_entity).for_site(site_id)?;
         let scenario_entity = commands
-            .spawn(scenario_bundle.clone())
+            .spawn(scenario.properties.clone())
             .insert(SiteID(*scenario_id))
             .set_parent(parent)
             .id();
         id_to_entity.insert(*scenario_id, scenario_entity);
         consider_id(*scenario_id);
 
-        // Spawn scenario children entities
-        for (instance_id, instance) in scenario_bundle_data.scenario.instances.iter() {
+        // Spawn instance modifier entities
+        for (instance_id, instance) in scenario_data.instances.iter() {
             if let Some(instance_entity) = id_to_entity.get(&instance_id) {
                 commands
                     .spawn(instance.clone())
@@ -448,7 +446,7 @@ fn generate_site_entities(
                 error!(
                     "Model instance {} referenced by scenario {} is missing! This should \
                     not happen, please report this bug to the maintainers of rmf_site_editor.",
-                    instance_id, scenario_bundle.name.0
+                    instance_id, scenario.properties.name.0
                 );
             }
         }

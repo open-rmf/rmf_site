@@ -19,7 +19,7 @@ use crate::{
     interaction::{Select, Selection},
     site::{
         Affiliation, CurrentScenario, Delete, Dependents, Group, InstanceMarker, InstanceModifier,
-        IssueKey, ModelMarker, NameInSite, Pending, Pose, RecallInstance, Scenario, ScenarioBundle,
+        IssueKey, ModelMarker, NameInSite, Pending, Pose, RecallInstance, ScenarioBundle,
         ScenarioMarker,
     },
     widgets::view_model_instances::count_scenarios,
@@ -61,7 +61,7 @@ pub fn update_current_scenario(
     children: Query<&Children>,
     instance_modifiers: Query<(&mut InstanceModifier, &Affiliation<Entity>)>,
     recall_instance: Query<&RecallInstance>,
-    scenarios: Query<(Entity, &mut Scenario<Entity>)>,
+    scenarios: Query<(Entity, &Affiliation<Entity>), With<ScenarioMarker>>,
     selection: Res<Selection>,
 ) {
     if let Some(ChangeCurrentScenario(scenario_entity)) = change_current_scenario.read().last() {
@@ -154,20 +154,16 @@ fn retrieve_parent_pose(
     scenario_entity: Entity,
     children: &Query<&Children>,
     recall_instance: &Query<&RecallInstance>,
-    scenarios: &Query<(Entity, &mut Scenario<Entity>)>,
+    scenarios: &Query<(Entity, &Affiliation<Entity>), With<ScenarioMarker>>,
     instance_modifiers: &Query<(&mut InstanceModifier, &Affiliation<Entity>)>,
 ) -> Option<Pose> {
     let mut parent_pose: Option<Pose> = None;
     let mut entity = scenario_entity;
     while parent_pose.is_none() {
-        let Ok((_, scenario)) = scenarios.get(entity) else {
+        let Ok((_, parent_scenario)) = scenarios.get(entity) else {
             break;
         };
-        let Some((parent_entity, _)) = scenario
-            .parent_scenario
-            .0
-            .and_then(|e| scenarios.get(e).ok())
-        else {
+        let Some((parent_entity, _)) = parent_scenario.0.and_then(|e| scenarios.get(e).ok()) else {
             break;
         };
 
@@ -217,7 +213,7 @@ pub fn insert_new_instance_modifiers(
     mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
     mut instance_modifiers: Query<(&mut InstanceModifier, &Affiliation<Entity>)>,
     added_instances: Query<(Entity, &Pose), (Added<InstanceMarker>, Without<Pending>)>,
-    added_scenarios: Query<(Entity, &Scenario<Entity>), Added<ScenarioMarker>>,
+    added_scenarios: Query<(Entity, &Affiliation<Entity>), Added<ScenarioMarker>>,
     children: Query<&Children>,
     current_scenario: Res<CurrentScenario>,
     scenarios: Query<Entity, With<ScenarioMarker>>,
@@ -226,8 +222,8 @@ pub fn insert_new_instance_modifiers(
         return;
     };
     // Insert instance modifier entities when new scenarios are created
-    for (scenario_entity, scenario) in added_scenarios.iter() {
-        if let Some(parent_scenario_entity) = scenario.parent_scenario.0 {
+    for (scenario_entity, parent_scenario) in added_scenarios.iter() {
+        if let Some(parent_scenario_entity) = parent_scenario.0 {
             // Inherit any instance modifiers from the parent scenario
             if let Ok(children) = children.get(parent_scenario_entity) {
                 children.iter().for_each(|e| {
@@ -321,7 +317,7 @@ pub fn handle_instance_updates(
     mut update_instance: EventReader<UpdateInstanceEvent>,
     children: Query<&Children>,
     current_scenario: Res<CurrentScenario>,
-    scenarios: Query<(Entity, &mut Scenario<Entity>)>,
+    scenarios: Query<(Entity, &Affiliation<Entity>), With<ScenarioMarker>>,
     model_instances: Query<&NameInSite, With<InstanceMarker>>,
     recall_instance: Query<&RecallInstance>,
 ) {
@@ -412,7 +408,7 @@ pub fn handle_remove_scenarios(
     mut create_new_scenario: EventWriter<CreateScenario>,
     mut delete: EventWriter<Delete>,
     mut scenarios: Query<
-        (Entity, &Scenario<Entity>, Option<&mut Dependents>),
+        (Entity, &Affiliation<Entity>, Option<&mut Dependents>),
         With<ScenarioMarker>,
     >,
     children: Query<&Children>,
@@ -431,16 +427,13 @@ pub fn handle_remove_scenarios(
         }
 
         // Change to parent scenario, else root, else create an empty scenario and switch to it
-        if let Some(parent_scenario_entity) = scenarios
-            .get(request.0)
-            .map(|(_, s, _)| s.parent_scenario.0)
-            .ok()
-            .flatten()
+        if let Some(parent_scenario_entity) =
+            scenarios.get(request.0).map(|(_, a, _)| a.0).ok().flatten()
         {
             change_current_scenario.send(ChangeCurrentScenario(parent_scenario_entity));
         } else if let Some((root_scenario_entity, _, _)) = scenarios
             .iter()
-            .filter(|(e, s, _)| request.0 != *e && s.parent_scenario.0.is_none())
+            .filter(|(e, a, _)| request.0 != *e && a.0.is_none())
             .next()
         {
             change_current_scenario.send(ChangeCurrentScenario(root_scenario_entity));
@@ -478,7 +471,7 @@ pub fn check_for_hidden_model_instances(
         (Entity, &NameInSite, &Affiliation<Entity>),
         (With<ModelMarker>, Without<Group>),
     >,
-    scenarios: Query<(Entity, &NameInSite, &mut Scenario<Entity>), With<ScenarioMarker>>,
+    scenarios: Query<(Entity, &NameInSite, &Affiliation<Entity>), With<ScenarioMarker>>,
     instance_modifiers: Query<(&mut InstanceModifier, &Affiliation<Entity>)>,
 ) {
     for root in validate_events.read() {
