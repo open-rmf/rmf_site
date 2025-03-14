@@ -1320,11 +1320,11 @@ fn generate_scenarios(
 ) -> Result<BTreeMap<u32, ScenarioBundle<u32>>, SiteGenerationError> {
     let mut state: SystemState<(
         Query<(Entity, &NameInSite, &SiteID, &Scenario<Entity>), With<ScenarioMarker>>,
-        Query<(&Instance, &Affiliation<Entity>)>,
+        Query<(&InstanceModifier, &Affiliation<Entity>)>,
         Query<&SiteID, With<InstanceMarker>>,
         Query<&Children>,
     )> = SystemState::new(world);
-    let (scenarios, scenario_instances, instances, children) = state.get(world);
+    let (scenarios, instance_modifiers, instances, children) = state.get(world);
     let mut res = BTreeMap::<u32, ScenarioBundle<u32>>::new();
 
     if let Ok(site_children) = children.get(site) {
@@ -1333,13 +1333,13 @@ fn generate_scenarios(
                 let mut queue = vec![entity];
 
                 while let Some(scenario) = queue.pop() {
-                    let mut scenario_children_instances = Vec::new();
+                    let mut scenario_instance_modifiers = Vec::new();
                     if let Ok(scenario_children) = children.get(scenario) {
                         for scenario_child in scenario_children.iter() {
-                            if scenarios.get(*scenario_child).is_ok() {
+                            if scenarios.contains(*scenario_child) {
                                 queue.push(*scenario_child);
-                            } else {
-                                scenario_children_instances.push(*scenario_child);
+                            } else if instance_modifiers.contains(*scenario_child) {
+                                scenario_instance_modifiers.push(*scenario_child);
                             }
                         }
                     }
@@ -1359,20 +1359,19 @@ fn generate_scenarios(
                                         ),
                                         None => Affiliation(None),
                                     },
-                                    instances: scenario_children_instances
+                                    instances: scenario_instance_modifiers
                                         .iter()
-                                        .map(|child_entity| {
-                                            scenario_instances.get(*child_entity).unwrap()
+                                        .filter_map(|child_entity| {
+                                            instance_modifiers.get(*child_entity).ok()
                                         })
-                                        .map(|(instance, affiliation)| {
-                                            (
+                                        .filter_map(|(instance, affiliation)| {
+                                            Some((
                                                 affiliation
                                                     .0
-                                                    .and_then(|e| instances.get(e).ok())
-                                                    .unwrap()
+                                                    .and_then(|e| instances.get(e).ok())?
                                                     .0,
                                                 instance.clone(),
-                                            )
+                                            ))
                                         })
                                         .collect(),
                                 },

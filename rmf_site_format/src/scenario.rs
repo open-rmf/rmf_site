@@ -28,13 +28,13 @@ pub struct InstanceMarker;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
-pub enum Instance {
+pub enum InstanceModifier {
     Added(AddedInstance),
     Inherited(InheritedInstance),
     Hidden,
 }
 
-impl Instance {
+impl InstanceModifier {
     pub fn new_added(pose: Pose) -> Self {
         Self::Added(AddedInstance { pose: pose })
     }
@@ -51,9 +51,9 @@ impl Instance {
 
     pub fn pose(&self) -> Option<Pose> {
         match self {
-            Instance::Added(added) => Some(added.pose.clone()),
-            Instance::Inherited(inherited) => inherited.modified_pose.clone(),
-            Instance::Hidden => None,
+            InstanceModifier::Added(added) => Some(added.pose.clone()),
+            InstanceModifier::Inherited(inherited) => inherited.modified_pose.clone(),
+            InstanceModifier::Hidden => None,
         }
     }
 }
@@ -65,38 +65,30 @@ pub struct RecallInstance {
 }
 
 impl Recall for RecallInstance {
-    type Source = Instance;
+    type Source = InstanceModifier;
 
-    fn remember(&mut self, source: &Instance) {
+    fn remember(&mut self, source: &InstanceModifier) {
         match source {
-            Instance::Added(_) | Instance::Inherited(_) => {
+            InstanceModifier::Added(_) | InstanceModifier::Inherited(_) => {
                 self.pose = source.pose();
             }
-            Instance::Hidden => {
-                // We don't update the pose if this Instance is hidden
+            InstanceModifier::Hidden => {
+                // We don't update the pose if this InstanceModifier is hidden
             }
         };
     }
 }
 
-/// The instance was added by this scenario
+/// The instance modifier was added by this scenario
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 pub struct AddedInstance {
     pub pose: Pose,
 }
 
-/// The instance was inherited from a parent scenario
+/// The instance modifier was inherited from a parent scenario
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 pub struct InheritedInstance {
     pub modified_pose: Option<Pose>,
-}
-
-/// The instance doesn't exist in this scenario
-#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
-pub struct HiddenInstance {
-    /// This is the pose of the instance before it was hidden if it was added or modified
-    /// Set to None if the instance pose was inherited without modification
-    pub pose: Option<Pose>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -108,7 +100,7 @@ pub struct ScenarioMarker;
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct Scenario<T: RefTrait> {
     pub parent_scenario: Affiliation<T>,
-    pub instances: BTreeMap<T, Instance>,
+    pub instances: BTreeMap<T, InstanceModifier>,
 }
 
 impl<T: RefTrait> Scenario<T> {

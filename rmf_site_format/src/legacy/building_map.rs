@@ -5,7 +5,7 @@ use crate::{
     alignment::align_legacy_building, legacy::model::Model, AddedInstance, Affiliation, Anchor,
     Angle, AssetSource, AssociatedGraphs, Category, DisplayColor, Dock as SiteDock,
     Drawing as SiteDrawing, DrawingProperties, Fiducial as SiteFiducial, FiducialGroup,
-    FiducialMarker, Guided, Instance, Lane as SiteLane, LaneMarker, Level as SiteLevel,
+    FiducialMarker, Guided, InstanceModifier, Lane as SiteLane, LaneMarker, Level as SiteLevel,
     LevelElevation, LevelProperties as SiteLevelProperties, ModelDescriptionBundle, ModelInstance,
     Motion, NameInSite, NameOfSite, NavGraph, Navigation, OrientationConstraint, Parented,
     PixelsPerMeter, Pose, PreferredSemiTransparency, RankingsInLevel, ReverseLane, Robot, Rotation,
@@ -536,7 +536,7 @@ impl BuildingMap {
                     .instances
                     .insert(
                         model_instance_id,
-                        Instance::Added(AddedInstance { pose: model_pose }),
+                        InstanceModifier::Added(AddedInstance { pose: model_pose }),
                     );
             }
             // Spawn robots (for legacy imports)
@@ -556,7 +556,7 @@ impl BuildingMap {
                     .instances
                     .insert(
                         model_instance_id,
-                        Instance::Added(AddedInstance { pose: model_pose }),
+                        InstanceModifier::Added(AddedInstance { pose: model_pose }),
                     );
             }
 

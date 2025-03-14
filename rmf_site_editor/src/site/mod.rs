@@ -201,7 +201,7 @@ impl Plugin for SitePlugin {
         .add_event::<ChangeCurrentScenario>()
         .add_event::<CreateScenario>()
         .add_event::<RemoveScenario>()
-        .add_event::<UpdateInstance>()
+        .add_event::<UpdateInstanceEvent>()
         .add_event::<SaveSite>()
         .add_event::<SaveNavGraphs>()
         .add_event::<ExportLights>()

@@ -17,8 +17,8 @@
 
 use crate::{
     site::{
-        scenario::get_scenario_instance_entities, Affiliation, Change, CurrentScenario, Instance,
-        UpdateInstance, UpdateInstanceType,
+        scenario::get_instance_modifier_entities, Affiliation, Change, CurrentScenario,
+        InstanceModifier, UpdateInstance, UpdateInstanceEvent,
     },
     widgets::{inspector::InspectAngle, prelude::*, Inspect},
 };
@@ -32,8 +32,9 @@ pub struct InspectPose<'w, 's> {
     change_pose: EventWriter<'w, Change<Pose>>,
     children: Query<'w, 's, &'static Children>,
     current_scenario: Res<'w, CurrentScenario>,
-    scenario_entities: Query<'w, 's, (&'static mut Instance, &'static Affiliation<Entity>)>,
-    update_instance: EventWriter<'w, UpdateInstance>,
+    instance_modifiers:
+        Query<'w, 's, (&'static mut InstanceModifier, &'static Affiliation<Entity>)>,
+    update_instance: EventWriter<'w, UpdateInstanceEvent>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectPose<'w, 's> {
@@ -53,28 +54,27 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPose<'w, 's> {
 
         // Reset model instance pose to parent scenario pose (if any)
         if let Some(scenario_entity) = params.current_scenario.0 {
-            let instance_entities = get_scenario_instance_entities(
+            let instance_modifier_entities = get_instance_modifier_entities(
                 scenario_entity,
                 &params.children,
-                &params.scenario_entities,
+                &params.instance_modifiers,
             );
-            if let Some((instance, _)) = instance_entities
-                .iter()
-                .find(|(_, i)| *i == selection)
-                .and_then(|(c_entity, _)| params.scenario_entities.get(*c_entity).ok())
+            if let Some((instance_modifier, _)) = instance_modifier_entities
+                .get(&selection)
+                .and_then(|modifier_entity| params.instance_modifiers.get(*modifier_entity).ok())
             {
-                match instance {
-                    Instance::Inherited(inherited) => {
+                match instance_modifier {
+                    InstanceModifier::Inherited(inherited) => {
                         if inherited.modified_pose.is_some() {
                             if ui
                                 .button("Reset pose")
                                 .on_hover_text("Reset to parent scenario pose")
                                 .clicked()
                             {
-                                params.update_instance.send(UpdateInstance {
+                                params.update_instance.send(UpdateInstanceEvent {
                                     scenario: scenario_entity,
                                     instance: selection,
-                                    update_type: UpdateInstanceType::ResetPose,
+                                    update: UpdateInstance::ResetPose,
                                 });
                             }
                         }
