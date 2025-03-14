@@ -18,11 +18,11 @@
 use crate::{interaction::CameraControls, CurrentWorkspace};
 use bevy::prelude::*;
 use rmf_site_format::{
-    LevelElevation, LevelProperties, NameInSite, NameOfSite, Pose, ScenarioBundle, ScenarioMarker,
+    LevelElevation, LevelProperties, NameInSite, NameOfSite, Pose, ScenarioMarker,
     UserCameraPoseMarker,
 };
 
-use super::ChangeCurrentScenario;
+use super::{ChangeCurrentScenario, CreateScenario};
 
 /// Used as an event to command that a new site should be made the current one
 #[derive(Clone, Copy, Debug, Event)]
@@ -57,6 +57,7 @@ pub fn change_site(
     mut commands: Commands,
     mut change_current_site: EventReader<ChangeCurrentSite>,
     mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
+    mut create_new_scenario: EventWriter<CreateScenario>,
     mut current_workspace: ResMut<CurrentWorkspace>,
     mut current_level: ResMut<CurrentLevel>,
     current_scenario: ResMut<CurrentScenario>,
@@ -163,11 +164,10 @@ pub fn change_site(
                 if let Some(new_scenario) = any_scenario {
                     change_current_scenario.send(ChangeCurrentScenario(*new_scenario));
                 } else {
-                    let new_scenario = commands
-                        .spawn(ScenarioBundle::<Entity>::default())
-                        .set_parent(cmd.site)
-                        .id();
-                    change_current_scenario.send(ChangeCurrentScenario(new_scenario));
+                    create_new_scenario.send(CreateScenario {
+                        name: None,
+                        parent: Some(cmd.site),
+                    });
                 }
             }
         }
