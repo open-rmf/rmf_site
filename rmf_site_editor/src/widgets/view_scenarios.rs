@@ -25,6 +25,7 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Align, Button, CollapsingHeader, Color32, Layout, Ui};
+use std::collections::HashMap;
 
 /// Add a plugin for viewing and editing a list of all levels
 #[derive(Default)]
@@ -39,7 +40,6 @@ impl Plugin for ViewScenariosPlugin {
 
 #[derive(SystemParam)]
 pub struct ViewScenarios<'w, 's> {
-    children: Query<'w, 's, &'static Children>,
     parent: Query<'w, 's, &'static Parent>,
     scenarios: Query<
         'w,
@@ -144,6 +144,18 @@ impl<'w, 's> ViewScenarios<'w, 's> {
         ui.separator();
         // A version string is used to differentiate scenarios, and to allow
         // egui to distinguish between collapsing headers with the same name
+
+        // Construct scenario children
+        let mut scenario_children = HashMap::<Entity, Vec<Entity>>::new();
+        for (e, _, parent_scenario) in self.scenarios.iter() {
+            if let Some(parent_entity) = parent_scenario.0 {
+                if let Some(children) = scenario_children.get_mut(&parent_entity) {
+                    children.push(e);
+                } else {
+                    scenario_children.insert(parent_entity, vec![e]);
+                }
+            }
+        }
         let mut version = 1;
         self.scenarios
             .iter()
@@ -161,7 +173,7 @@ impl<'w, 's> ViewScenarios<'w, 's> {
                     &mut self.current_scenario,
                     scenario_entity,
                     vec![version],
-                    &self.children,
+                    &scenario_children,
                     &self.scenarios,
                     &self.icons,
                 );
@@ -177,7 +189,7 @@ fn show_scenario_widget(
     current_scenario: &mut CurrentScenario,
     scenario_entity: Entity,
     scenario_version: Vec<u32>,
-    q_children: &Query<&'static Children>,
+    scenario_children: &HashMap<Entity, Vec<Entity>>,
     q_scenario: &Query<
         (Entity, &'static NameInSite, &'static Affiliation<Entity>),
         With<ScenarioMarker>,
@@ -207,35 +219,28 @@ fn show_scenario_widget(
     // The subversion is used as an id_source so that egui does not
     // generate errors when collapsing headers of the same name are created
     let mut subversion = 1;
-    let children = q_children.get(scenario_entity);
-    let num_children = match children {
-        Ok(children) => children
-            .iter()
-            .fold(0, |x, c| if q_scenario.get(*c).is_ok() { x + 1 } else { x }),
-        Err(_) => 0,
-    };
+    let children = scenario_children.get(&scenario_entity);
+    let num_children = children.map(|c| c.len()).unwrap_or(0);
     CollapsingHeader::new(format!("Child Scenarios:  {}", num_children))
         .default_open(true)
         .id_source(scenario_version_str.clone())
         .show(ui, |ui| {
-            if let Ok(children) = children {
+            if let Some(children) = children {
                 for child in children.iter() {
-                    if let Ok(_) = q_scenario.get(*child) {
-                        let mut version = scenario_version.clone();
-                        version.push(subversion);
-                        show_scenario_widget(
-                            ui,
-                            change_name,
-                            change_current_scenario,
-                            current_scenario,
-                            *child,
-                            version,
-                            q_children,
-                            q_scenario,
-                            icons,
-                        );
-                        subversion += 1;
-                    }
+                    let mut version = scenario_version.clone();
+                    version.push(subversion);
+                    show_scenario_widget(
+                        ui,
+                        change_name,
+                        change_current_scenario,
+                        current_scenario,
+                        *child,
+                        version,
+                        &scenario_children,
+                        q_scenario,
+                        icons,
+                    );
+                    subversion += 1;
                 }
             } else {
                 ui.label("No Child Scenarios");

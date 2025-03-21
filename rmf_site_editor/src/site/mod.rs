@@ -355,12 +355,12 @@ impl Plugin for SitePlugin {
                 add_location_visuals,
                 add_fiducial_visuals,
                 update_level_visibility,
-                handle_remove_scenarios.before(insert_new_instance_modifiers),
-                insert_new_instance_modifiers.before(update_current_scenario),
+                handle_remove_scenarios.before(update_current_scenario),
                 update_current_scenario.before(update_scenario_properties),
                 update_scenario_properties.before(handle_instance_updates),
                 handle_instance_updates.before(handle_create_scenarios),
-                handle_create_scenarios,
+                handle_create_scenarios.before(insert_new_instance_modifiers),
+                insert_new_instance_modifiers,
             )
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenVisibilityAndTransform),
