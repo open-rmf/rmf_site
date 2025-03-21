@@ -230,7 +230,7 @@ pub fn insert_new_instance_modifiers(
                     if let Ok((instance_modifier, affiliation)) =
                         instance_modifiers.get(*e).map(|(i, a)| match i {
                             InstanceModifier::Added(_) | InstanceModifier::Inherited(_) => {
-                                (InstanceModifier::new_inherited(None), a.clone())
+                                (InstanceModifier::inherited(None), a.clone())
                             }
                             InstanceModifier::Hidden => (i.clone(), a.clone()),
                         })
@@ -264,17 +264,17 @@ pub fn insert_new_instance_modifiers(
             let instance_modifier = instance_modifier.as_mut();
             match instance_modifier {
                 InstanceModifier::Added(_) => {
-                    *instance_modifier = InstanceModifier::new_added(new_pose.clone())
+                    *instance_modifier = InstanceModifier::added(new_pose.clone())
                 }
                 InstanceModifier::Inherited(_) => {
-                    *instance_modifier = InstanceModifier::new_inherited(Some(new_pose.clone()))
+                    *instance_modifier = InstanceModifier::inherited(Some(new_pose.clone()))
                 }
-                _ => {}
+                InstanceModifier::Hidden => {}
             }
         } else {
             // If instance modifier entity does not exist in this scenario, spawn one
             commands
-                .spawn(InstanceModifier::new_added(new_pose.clone()))
+                .spawn(InstanceModifier::added(new_pose.clone()))
                 .insert(Affiliation(Some(instance_entity)))
                 .set_parent(current_scenario_entity);
         }
@@ -300,7 +300,7 @@ pub fn insert_new_instance_modifiers(
                     // If instance modifier entity does not exist in this child scenario, spawn one
                     // Do nothing if it already exists, as it may be modified
                     commands
-                        .spawn(InstanceModifier::new_inherited(None))
+                        .spawn(InstanceModifier::inherited(None))
                         .insert(Affiliation(Some(instance_entity)))
                         .set_parent(child_entity);
                 }
@@ -352,9 +352,9 @@ pub fn handle_instance_updates(
                         .and_then(|r| r.pose));
 
                     if parent_pose.is_some() {
-                        *instance_modifier = InstanceModifier::new_inherited(instance_pose)
+                        *instance_modifier = InstanceModifier::inherited(instance_pose)
                     } else if let Some(instance_pose) = instance_pose {
-                        *instance_modifier = InstanceModifier::new_added(instance_pose);
+                        *instance_modifier = InstanceModifier::added(instance_pose);
                     } else {
                         let instance_id = model_instances
                             .get(update.instance)
@@ -365,28 +365,27 @@ pub fn handle_instance_updates(
                                 setting to default pose as AddedInstance in current scenario",
                             instance_id
                         );
-                        *instance_modifier = InstanceModifier::new_added(Pose::default());
+                        *instance_modifier = InstanceModifier::added(Pose::default());
                     }
                 }
                 UpdateInstance::Hide => {
-                    *instance_modifier = InstanceModifier::new_hidden();
+                    *instance_modifier = InstanceModifier::Hidden;
                 }
                 UpdateInstance::Modify(new_pose) => {
                     // Update Pose changes
                     match instance_modifier {
                         InstanceModifier::Added(_) => {
-                            *instance_modifier = InstanceModifier::new_added(new_pose.clone())
+                            *instance_modifier = InstanceModifier::added(new_pose.clone())
                         }
                         InstanceModifier::Inherited(_) => {
-                            *instance_modifier =
-                                InstanceModifier::new_inherited(Some(new_pose.clone()))
+                            *instance_modifier = InstanceModifier::inherited(Some(new_pose.clone()))
                         }
-                        _ => {}
+                        InstanceModifier::Hidden => {}
                     }
                 }
                 UpdateInstance::ResetPose => {
                     if parent_pose.is_some() {
-                        *instance_modifier = InstanceModifier::new_inherited(None)
+                        *instance_modifier = InstanceModifier::inherited(None)
                     }
                 }
             }
@@ -506,20 +505,16 @@ pub fn handle_create_scenarios(
     current_workspace: Res<CurrentWorkspace>,
 ) {
     for new in new_scenarios.read() {
-        let mut cmd = if let Some(name) = &new.name {
-            commands.spawn(ScenarioBundle::<Entity>::from_name_parent(
-                name.clone(),
-                new.parent,
-            ))
-        } else {
-            commands.spawn(ScenarioBundle::<Entity>::default())
-        };
+        let mut cmd = commands.spawn(ScenarioBundle::<Entity>::new(
+            new.name.clone(),
+            new.parent.clone(),
+        ));
         let scenario_entity = cmd.id();
 
-        if let Some(parent_scenario_entity) = new.parent {
-            cmd.set_parent(parent_scenario_entity);
-        } else if let Some(site_entity) = current_workspace.root {
-            cmd.set_parent(site_entity);
+        if let Some(parent) = new.parent.or(current_workspace.root) {
+            cmd.set_parent(parent);
+        } else {
+            error!("Missing workspace for a new root scenario!");
         }
 
         change_current_scenario.send(ChangeCurrentScenario(scenario_entity));

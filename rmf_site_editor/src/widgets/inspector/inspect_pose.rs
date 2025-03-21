@@ -79,7 +79,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPose<'w, 's> {
                             }
                         }
                     }
-                    _ => {}
+                    InstanceModifier::Added(_) | InstanceModifier::Hidden => {}
                 };
             }
         }

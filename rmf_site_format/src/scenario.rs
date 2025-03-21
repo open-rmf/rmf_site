@@ -35,18 +35,14 @@ pub enum InstanceModifier {
 }
 
 impl InstanceModifier {
-    pub fn new_added(pose: Pose) -> Self {
+    pub fn added(pose: Pose) -> Self {
         Self::Added(AddedInstance { pose: pose })
     }
 
-    pub fn new_inherited(pose: Option<Pose>) -> Self {
+    pub fn inherited(pose: Option<Pose>) -> Self {
         Self::Inherited(InheritedInstance {
             modified_pose: pose,
         })
-    }
-
-    pub fn new_hidden() -> Self {
-        Self::Hidden
     }
 
     pub fn pose(&self) -> Option<Pose> {
@@ -105,10 +101,10 @@ pub struct Scenario<T: RefTrait> {
 }
 
 impl<T: RefTrait> Scenario<T> {
-    pub fn from_name_parent(name: String, parent: Option<T>) -> Scenario<T> {
+    pub fn from_name_parent(name: Option<String>, parent: Option<T>) -> Scenario<T> {
         Scenario {
             instances: BTreeMap::new(),
-            properties: ScenarioBundle::from_name_parent(name, parent),
+            properties: ScenarioBundle::new(name, parent),
         }
     }
 }
@@ -140,6 +136,8 @@ impl<T: RefTrait> Scenario<T> {
     }
 }
 
+const DEFAULT_SCENARIO_NAME: &'static str = "Default Scenario";
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct ScenarioBundle<T: RefTrait> {
@@ -149,9 +147,9 @@ pub struct ScenarioBundle<T: RefTrait> {
 }
 
 impl<T: RefTrait> ScenarioBundle<T> {
-    pub fn from_name_parent(name: String, parent: Option<T>) -> ScenarioBundle<T> {
+    pub fn new(name: Option<String>, parent: Option<T>) -> ScenarioBundle<T> {
         ScenarioBundle {
-            name: NameInSite(name),
+            name: NameInSite(name.unwrap_or(DEFAULT_SCENARIO_NAME.to_string())),
             parent_scenario: Affiliation(parent),
             marker: ScenarioMarker,
         }
@@ -161,7 +159,7 @@ impl<T: RefTrait> ScenarioBundle<T> {
 impl<T: RefTrait> Default for ScenarioBundle<T> {
     fn default() -> Self {
         Self {
-            name: NameInSite("Default Scenario".to_string()),
+            name: NameInSite(DEFAULT_SCENARIO_NAME.to_string()),
             parent_scenario: Affiliation::default(),
             marker: ScenarioMarker,
         }

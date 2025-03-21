@@ -246,7 +246,7 @@ fn show_model_instance(
                         });
                     }
                 }
-                _ => {
+                InstanceModifier::Added(_) | InstanceModifier::Inherited(_) => {
                     if ui
                         .add(ImageButton::new(icons.show.egui()))
                         .on_hover_text("Hide model instance from this scenario")
