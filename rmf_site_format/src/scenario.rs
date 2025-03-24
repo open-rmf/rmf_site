@@ -39,9 +39,10 @@ impl InstanceModifier {
         Self::Added(AddedInstance { pose: pose })
     }
 
-    pub fn inherited(pose: Option<Pose>) -> Self {
+    pub fn inherited() -> Self {
         Self::Inherited(InheritedInstance {
-            modified_pose: pose,
+            modified_pose: None,
+            explicit_inclusion: false,
         })
     }
 
@@ -50,6 +51,20 @@ impl InstanceModifier {
             InstanceModifier::Added(added) => Some(added.pose.clone()),
             InstanceModifier::Inherited(inherited) => inherited.modified_pose.clone(),
             InstanceModifier::Hidden => None,
+        }
+    }
+
+    pub fn visibility(&self) -> Option<bool> {
+        match self {
+            InstanceModifier::Added(_) => Some(true),
+            InstanceModifier::Inherited(inherited) => {
+                if inherited.explicit_inclusion {
+                    Some(true)
+                } else {
+                    None
+                }
+            }
+            InstanceModifier::Hidden => Some(false),
         }
     }
 }
@@ -85,6 +100,7 @@ pub struct AddedInstance {
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 pub struct InheritedInstance {
     pub modified_pose: Option<Pose>,
+    pub explicit_inclusion: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]

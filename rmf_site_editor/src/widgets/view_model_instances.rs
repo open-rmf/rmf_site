@@ -141,6 +141,7 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                             &mut self.update_instance,
                                             scenario_instance_modifiers.get(&instance_entity),
                                             current_scenario_entity,
+                                            &self.scenarios,
                                             scenario_count,
                                             &self.icons,
                                         );
@@ -179,6 +180,7 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                         &mut self.update_instance,
                                         scenario_instance_modifiers.get(instance_entity),
                                         current_scenario_entity,
+                                        &self.scenarios,
                                         scenario_count,
                                         &self.icons,
                                     );
@@ -218,44 +220,84 @@ pub fn count_scenarios(
 fn show_model_instance(
     ui: &mut Ui,
     name: &NameInSite,
-    entity: Entity,
+    instance: Entity,
     selector: &mut SelectorWidget,
     delete: &mut EventWriter<Delete>,
     update_instance: &mut EventWriter<UpdateInstanceEvent>,
     instance_modifier: Option<&InstanceModifier>,
     scenario: Entity,
+    scenarios: &Query<(Entity, &NameInSite, &Affiliation<Entity>), With<ScenarioMarker>>,
     scenario_count: i32,
     icons: &Res<Icons>,
 ) {
     if let Some(instance_modifier) = instance_modifier {
         ui.horizontal(|ui| {
             // Selector widget
-            selector.show_widget(entity, ui);
+            selector.show_widget(instance, ui);
             // Include/hide model instance
+            // Toggle between 3 visibility modes: Include -> Inherited -> Hidden
+            // If this is a root scenario, we won't include the Inherited option
             match instance_modifier {
-                InstanceModifier::Hidden => {
+                InstanceModifier::Added(_) => {
                     if ui
-                        .add(ImageButton::new(icons.hide.egui()))
-                        .on_hover_text("Include model instance in this scenario")
+                        .add(ImageButton::new(icons.show.egui()))
+                        .on_hover_text("Model instance is included in this scenario")
                         .clicked()
                     {
+                        // If this is a root scenario, toggle to Hidden modifier
+                        // If this is not a root scenario, toggle to Inherited modifier
+                        let update = if scenarios.get(scenario).is_ok_and(|(_, _, a)| a.0.is_none())
+                        {
+                            UpdateInstance::Hide
+                        } else {
+                            UpdateInstance::ResetVisibility
+                        };
                         update_instance.send(UpdateInstanceEvent {
                             scenario,
-                            instance: entity,
-                            update: UpdateInstance::Include,
+                            instance,
+                            update,
                         });
                     }
                 }
-                InstanceModifier::Added(_) | InstanceModifier::Inherited(_) => {
+                InstanceModifier::Inherited(inherited) => {
+                    if inherited.explicit_inclusion {
+                        if ui
+                            .add(ImageButton::new(icons.show.egui()))
+                            .on_hover_text("Model instance is included in this scenario")
+                            .clicked()
+                        {
+                            update_instance.send(UpdateInstanceEvent {
+                                scenario,
+                                instance,
+                                update: UpdateInstance::ResetVisibility,
+                            });
+                        }
+                    } else {
+                        if ui
+                            .add(ImageButton::new(icons.link.egui()))
+                            .on_hover_text(
+                                "Model instance visibility is inherited in this scenario",
+                            )
+                            .clicked()
+                        {
+                            update_instance.send(UpdateInstanceEvent {
+                                scenario,
+                                instance,
+                                update: UpdateInstance::Hide,
+                            });
+                        }
+                    }
+                }
+                InstanceModifier::Hidden => {
                     if ui
-                        .add(ImageButton::new(icons.show.egui()))
-                        .on_hover_text("Hide model instance from this scenario")
+                        .add(ImageButton::new(icons.hide.egui()))
+                        .on_hover_text("Model instance is hidden in this scenario")
                         .clicked()
                     {
                         update_instance.send(UpdateInstanceEvent {
                             scenario,
-                            instance: entity,
-                            update: UpdateInstance::Hide,
+                            instance,
+                            update: UpdateInstance::Include,
                         });
                     }
                 }
@@ -266,7 +308,7 @@ fn show_model_instance(
                 .on_hover_text("Remove instance from all scenarios")
                 .clicked()
             {
-                delete.send(Delete::new(entity));
+                delete.send(Delete::new(instance));
             }
             // Name of model instance and scenario count
             ui.label(format!("{}", name.0)).on_hover_text(format!(

@@ -18,9 +18,9 @@
 use crate::{
     interaction::{Select, Selection},
     site::{
-        Affiliation, CurrentScenario, Delete, Dependents, Group, InstanceMarker, InstanceModifier,
-        IssueKey, ModelMarker, NameInSite, Pending, Pose, RecallInstance, ScenarioBundle,
-        ScenarioMarker,
+        Affiliation, CurrentScenario, Delete, Dependents, Group, InheritedInstance, InstanceMarker,
+        InstanceModifier, IssueKey, ModelMarker, NameInSite, Pending, Pose, RecallInstance,
+        ScenarioBundle, ScenarioMarker,
     },
     widgets::view_model_instances::count_scenarios,
     CurrentWorkspace, Issue, ValidateWorkspace,
@@ -43,6 +43,7 @@ pub enum UpdateInstance {
     Hide,
     Modify(Pose),
     ResetPose,
+    ResetVisibility,
 }
 
 #[derive(Clone, Debug, Event)]
@@ -103,7 +104,30 @@ pub fn update_current_scenario(
                             },
                             |p| p.clone(),
                         );
-                    *visibility = Visibility::Inherited;
+                    *visibility = if inherited.explicit_inclusion {
+                        Visibility::Inherited
+                    } else {
+                        if let Some(v) = retrieve_parent_visibility(
+                            entity,
+                            *scenario_entity,
+                            &children,
+                            &scenarios,
+                            &instance_modifiers,
+                        ) {
+                            if v {
+                                Visibility::Inherited
+                            } else {
+                                Visibility::Hidden
+                            }
+                        } else {
+                            error!(
+                                "Instance {:?} is included in the current scenario, but no visibility found! \
+                                Setting instance to included in current scenario.",
+                                name.0
+                            );
+                            Visibility::Inherited
+                        }
+                    };
                 }
                 InstanceModifier::Hidden => {
                     *visibility = Visibility::Hidden;
@@ -185,6 +209,34 @@ fn retrieve_parent_pose(
     parent_pose
 }
 
+fn retrieve_parent_visibility(
+    instance_entity: Entity,
+    scenario_entity: Entity,
+    children: &Query<&Children>,
+    scenarios: &Query<(Entity, &Affiliation<Entity>), With<ScenarioMarker>>,
+    instance_modifiers: &Query<(&mut InstanceModifier, &Affiliation<Entity>)>,
+) -> Option<bool> {
+    let mut parent_visibility: Option<bool> = None;
+    let mut entity = scenario_entity;
+    while parent_visibility.is_none() {
+        let Some(parent_entity) = scenarios.get(entity).ok().and_then(|(_, a)| a.0) else {
+            break;
+        };
+
+        let instance_modifier_entities =
+            get_instance_modifier_entities(parent_entity, children, instance_modifiers);
+
+        if let Some(modifier_entity) = instance_modifier_entities.get(&instance_entity) {
+            parent_visibility = instance_modifiers
+                .get(*modifier_entity)
+                .ok()
+                .and_then(|(i, _)| i.visibility());
+        }
+        entity = parent_entity;
+    }
+    parent_visibility
+}
+
 /// This system searches for scenario children entities with the InstanceModifier component
 /// and maps the affiliated model instance entity to the corresponding instance modifier entity
 pub fn get_instance_modifier_entities(
@@ -224,13 +276,9 @@ pub fn insert_new_instance_modifiers(
                 // Inherit any instance modifiers from the parent scenario
                 if let Ok(children) = children.get(parent_scenario_entity) {
                     children.iter().for_each(|e| {
-                        if let Ok((instance_modifier, affiliation)) =
-                            instance_modifiers.get(*e).map(|(i, a)| match i {
-                                InstanceModifier::Added(_) | InstanceModifier::Inherited(_) => {
-                                    (InstanceModifier::inherited(None), a.clone())
-                                }
-                                InstanceModifier::Hidden => (i.clone(), a.clone()),
-                            })
+                        if let Ok((instance_modifier, affiliation)) = instance_modifiers
+                            .get(*e)
+                            .map(|(_, a)| (InstanceModifier::inherited(), a.clone()))
                         {
                             commands
                                 .spawn(instance_modifier)
@@ -268,9 +316,8 @@ pub fn insert_new_instance_modifiers(
                     InstanceModifier::Added(_) => {
                         *instance_modifier = InstanceModifier::added(instance_pose.clone())
                     }
-                    InstanceModifier::Inherited(_) => {
-                        *instance_modifier =
-                            InstanceModifier::inherited(Some(instance_pose.clone()))
+                    InstanceModifier::Inherited(inherited) => {
+                        inherited.modified_pose = Some(instance_pose.clone())
                     }
                     InstanceModifier::Hidden => {}
                 }
@@ -308,7 +355,7 @@ pub fn insert_new_instance_modifiers(
                         // If instance modifier entity does not exist in this child scenario, spawn one
                         // Do nothing if it already exists, as it may be modified
                         commands
-                            .spawn(InstanceModifier::inherited(None))
+                            .spawn(InstanceModifier::inherited())
                             .insert(Affiliation(Some(instance_entity)))
                             .set_parent(scenario_entity);
                     }
@@ -360,15 +407,18 @@ pub fn handle_instance_updates(
         {
             let instance_modifier = instance_modifier.as_mut();
 
+            let instance_pose = instance_modifier.pose().or(recall_instance
+                .get(*modifier_entity)
+                .ok()
+                .and_then(|r| r.pose));
+
             match update.update {
                 UpdateInstance::Include => {
-                    let instance_pose = instance_modifier.pose().or(recall_instance
-                        .get(*modifier_entity)
-                        .ok()
-                        .and_then(|r| r.pose));
-
                     if parent_pose.is_some() {
-                        *instance_modifier = InstanceModifier::inherited(instance_pose)
+                        *instance_modifier = InstanceModifier::Inherited(InheritedInstance {
+                            modified_pose: instance_pose,
+                            explicit_inclusion: true,
+                        });
                     } else if let Some(instance_pose) = instance_pose {
                         *instance_modifier = InstanceModifier::added(instance_pose);
                     } else {
@@ -393,15 +443,30 @@ pub fn handle_instance_updates(
                         InstanceModifier::Added(_) => {
                             *instance_modifier = InstanceModifier::added(new_pose.clone())
                         }
-                        InstanceModifier::Inherited(_) => {
-                            *instance_modifier = InstanceModifier::inherited(Some(new_pose.clone()))
+                        InstanceModifier::Inherited(inherited) => {
+                            inherited.modified_pose = Some(new_pose.clone())
                         }
                         InstanceModifier::Hidden => {}
                     }
                 }
                 UpdateInstance::ResetPose => {
                     if parent_pose.is_some() {
-                        *instance_modifier = InstanceModifier::inherited(None)
+                        match instance_modifier {
+                            InstanceModifier::Inherited(inherited) => {
+                                inherited.modified_pose = None
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                UpdateInstance::ResetVisibility => {
+                    if parent_pose.is_some() {
+                        match instance_modifier {
+                            InstanceModifier::Inherited(inherited) => {
+                                inherited.explicit_inclusion = false
+                            }
+                            _ => {}
+                        }
                     }
                 }
             }

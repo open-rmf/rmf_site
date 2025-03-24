@@ -78,6 +78,7 @@ pub struct Icons {
     pub layer_down: Icon,
     pub layer_to_top: Icon,
     pub layer_to_bottom: Icon,
+    pub link: Icon,
     pub opaque: Icon,
     pub alpha: Icon,
     pub hidden: Icon,
@@ -105,6 +106,7 @@ impl FromWorld for Icons {
         let layer_down = IconBuilder::new("widgets/icons/down.png", &asset_server);
         let layer_to_top = IconBuilder::new("widgets/icons/to_top.png", &asset_server);
         let layer_to_bottom = IconBuilder::new("widgets/icons/to_bottom.png", &asset_server);
+        let link = IconBuilder::new("widgets/icons/link.png", &asset_server);
         let opaque = IconBuilder::new("widgets/icons/opaque.png", &asset_server);
         let alpha = IconBuilder::new("widgets/icons/alpha.png", &asset_server);
         let hidden = IconBuilder::new("widgets/icons/hidden.png", &asset_server);
@@ -134,6 +136,7 @@ impl FromWorld for Icons {
             layer_down: layer_down.build(&mut egui_context),
             layer_to_top: layer_to_top.build(&mut egui_context),
             layer_to_bottom: layer_to_bottom.build(&mut egui_context),
+            link: link.build(&mut egui_context),
             opaque: opaque.build(&mut egui_context),
             alpha: alpha.build(&mut egui_context),
             hidden: hidden.build(&mut egui_context),
@@ -187,6 +190,7 @@ fn add_widgets_icons(app: &mut App) {
         embedded_asset!(app, "src/", "icons/global.png");
         embedded_asset!(app, "src/", "icons/hidden.png");
         embedded_asset!(app, "src/", "icons/hide.png");
+        embedded_asset!(app, "src/", "icons/link.png");
         embedded_asset!(app, "src/", "icons/merge.png");
         embedded_asset!(app, "src/", "icons/opaque.png");
         embedded_asset!(app, "src/", "icons/reject.png");
@@ -212,6 +216,7 @@ fn add_widgets_icons(app: &mut App) {
         embedded_asset!(app, "src\\", "icons\\global.png");
         embedded_asset!(app, "src\\", "icons\\hidden.png");
         embedded_asset!(app, "src\\", "icons\\hide.png");
+        embedded_asset!(app, "src\\", "icons\\link.png");
         embedded_asset!(app, "src\\", "icons\\merge.png");
         embedded_asset!(app, "src\\", "icons\\opaque.png");
         embedded_asset!(app, "src\\", "icons\\reject.png");
