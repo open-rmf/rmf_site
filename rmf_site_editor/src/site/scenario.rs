@@ -235,8 +235,7 @@ fn retrieve_parent_visibility(
     parent_visibility
 }
 
-/// This system searches for scenario children entities with the InstanceModifier component
-/// that is affiliated with a specific model instance
+/// This system searches for the InstanceModifier affiliated with a specific model instance if any
 pub fn find_modifier_for_instance(
     instance: Entity,
     scenario: Entity,
