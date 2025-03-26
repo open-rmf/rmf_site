@@ -18,9 +18,8 @@
 use crate::{
     interaction::Selection,
     site::{
-        scenario::get_instance_modifier_entities, Affiliation, CurrentScenario, Delete, Group,
-        InstanceModifier, Members, ModelMarker, NameInSite, ScenarioMarker, UpdateInstance,
-        UpdateInstanceEvent,
+        scenario::*, Affiliation, CurrentScenario, Delete, Group, InstanceModifier, Members,
+        ModelMarker, NameInSite, ScenarioMarker, UpdateInstance, UpdateInstanceEvent,
     },
     widgets::{prelude::*, SelectorWidget},
     Icons,
@@ -199,11 +198,8 @@ pub fn count_scenarios(
     instance_modifiers: &Query<(&mut InstanceModifier, &Affiliation<Entity>)>,
 ) -> i32 {
     scenarios.iter().fold(0, |x, (e, _, _)| {
-        let instance_modifier_entities =
-            get_instance_modifier_entities(e, &children, instance_modifiers);
-        if instance_modifier_entities
-            .get(&instance)
-            .and_then(|modifier_entity| instance_modifiers.get(*modifier_entity).ok())
+        if find_modifier_for_instance(instance, e, &children, &instance_modifiers)
+            .and_then(|modifier_entity| instance_modifiers.get(modifier_entity).ok())
             .is_some_and(|(i, _)| match i {
                 InstanceModifier::Hidden => false,
                 _ => true,

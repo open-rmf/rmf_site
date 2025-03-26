@@ -17,8 +17,8 @@
 
 use crate::{
     site::{
-        scenario::get_instance_modifier_entities, Affiliation, Change, CurrentScenario,
-        InstanceModifier, UpdateInstance, UpdateInstanceEvent,
+        scenario::*, Affiliation, Change, CurrentScenario, InstanceModifier, UpdateInstance,
+        UpdateInstanceEvent,
     },
     widgets::{inspector::InspectAngle, prelude::*, Inspect},
 };
@@ -54,14 +54,13 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPose<'w, 's> {
 
         // Reset model instance pose to parent scenario pose (if any)
         if let Some(scenario_entity) = params.current_scenario.0 {
-            let instance_modifier_entities = get_instance_modifier_entities(
+            if let Some((instance_modifier, _)) = find_modifier_for_instance(
+                selection,
                 scenario_entity,
                 &params.children,
                 &params.instance_modifiers,
-            );
-            if let Some((instance_modifier, _)) = instance_modifier_entities
-                .get(&selection)
-                .and_then(|modifier_entity| params.instance_modifiers.get(*modifier_entity).ok())
+            )
+            .and_then(|modifier_entity| params.instance_modifiers.get(modifier_entity).ok())
             {
                 match instance_modifier {
                     InstanceModifier::Inherited(inherited) => {

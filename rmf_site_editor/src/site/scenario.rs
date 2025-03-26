@@ -188,17 +188,16 @@ fn retrieve_parent_pose(
             break;
         };
 
-        let instance_modifier_entities =
-            get_instance_modifier_entities(parent_entity, children, instance_modifiers);
-
-        if let Some(modifier_entity) = instance_modifier_entities.get(&instance_entity) {
+        if let Some(modifier_entity) =
+            find_modifier_for_instance(instance_entity, parent_entity, children, instance_modifiers)
+        {
             parent_pose = instance_modifiers
-                .get(*modifier_entity)
+                .get(modifier_entity)
                 .ok()
                 .and_then(|(i, _)| {
                     i.pose().or_else(|| {
                         recall_instance
-                            .get(*modifier_entity)
+                            .get(modifier_entity)
                             .ok()
                             .and_then(|r| r.pose)
                     })
@@ -223,12 +222,11 @@ fn retrieve_parent_visibility(
             break;
         };
 
-        let instance_modifier_entities =
-            get_instance_modifier_entities(parent_entity, children, instance_modifiers);
-
-        if let Some(modifier_entity) = instance_modifier_entities.get(&instance_entity) {
+        if let Some(modifier_entity) =
+            find_modifier_for_instance(instance_entity, parent_entity, children, instance_modifiers)
+        {
             parent_visibility = instance_modifiers
-                .get(*modifier_entity)
+                .get(modifier_entity)
                 .ok()
                 .and_then(|(i, _)| i.visibility());
         }
@@ -238,14 +236,35 @@ fn retrieve_parent_visibility(
 }
 
 /// This system searches for scenario children entities with the InstanceModifier component
+/// that is affiliated with a specific model instance
+pub fn find_modifier_for_instance(
+    instance: Entity,
+    scenario: Entity,
+    children: &Query<&Children>,
+    instance_modifiers: &Query<(&mut InstanceModifier, &Affiliation<Entity>)>,
+) -> Option<Entity> {
+    if let Ok(scenario_children) = children.get(scenario) {
+        for child in scenario_children.iter() {
+            if instance_modifiers
+                .get(*child)
+                .is_ok_and(|(_, a)| a.0.is_some_and(|e| e == instance))
+            {
+                return Some(*child);
+            }
+        }
+    };
+    None
+}
+
+/// This system searches for scenario children entities with the InstanceModifier component
 /// and maps the affiliated model instance entity to the corresponding instance modifier entity
 pub fn get_instance_modifier_entities(
-    entity: Entity,
+    scenario: Entity,
     children: &Query<&Children>,
     instance_modifiers: &Query<(&mut InstanceModifier, &Affiliation<Entity>)>,
 ) -> HashMap<Entity, Entity> {
     let mut instance_to_modifier_entities = HashMap::<Entity, Entity>::new();
-    if let Ok(scenario_children) = children.get(entity) {
+    if let Ok(scenario_children) = children.get(scenario) {
         for child in scenario_children.iter() {
             if let Some(affiliated_entity) =
                 instance_modifiers.get(*child).ok().and_then(|(_, a)| a.0)
@@ -301,14 +320,15 @@ pub fn insert_new_instance_modifiers(
     }
 
     // Insert instance modifier entities when new model instances are spawned and placed
-    let instance_modifier_entities =
-        get_instance_modifier_entities(current_scenario_entity, &children, &instance_modifiers);
-
     for (instance_entity, instance_pose) in model_instances.iter() {
         if instance_pose.is_added() {
-            if let Some((mut instance_modifier, _)) = instance_modifier_entities
-                .get(&instance_entity)
-                .and_then(|modifier_entity| instance_modifiers.get_mut(*modifier_entity).ok())
+            if let Some((mut instance_modifier, _)) = find_modifier_for_instance(
+                instance_entity,
+                current_scenario_entity,
+                &children,
+                &instance_modifiers,
+            )
+            .and_then(|modifier_entity| instance_modifiers.get_mut(modifier_entity).ok())
             {
                 // If an instance modifier entity already exists for this scenario, update it
                 let instance_modifier = instance_modifier.as_mut();
@@ -346,27 +366,29 @@ pub fn insert_new_instance_modifiers(
                         .and_then(|(_, a)| a.0);
                 }
 
-                let scenario_instance_modifier_entities =
-                    get_instance_modifier_entities(scenario_entity, &children, &instance_modifiers);
-
-                // Insert this new instance modifier into children scenarios as Inherited
-                if parent_entity.is_some_and(|e| e == current_scenario_entity) {
-                    if !scenario_instance_modifier_entities.contains_key(&instance_entity) {
-                        // If instance modifier entity does not exist in this child scenario, spawn one
-                        // Do nothing if it already exists, as it may be modified
+                // If instance modifier entity does not exist in this child scenario, spawn one
+                // Do nothing if it already exists, as it may be modified
+                if find_modifier_for_instance(
+                    instance_entity,
+                    scenario_entity,
+                    &children,
+                    &instance_modifiers,
+                )
+                .is_none()
+                {
+                    if parent_entity.is_some_and(|e| e == current_scenario_entity) {
+                        // Insert this new instance modifier into children scenarios as Inherited
                         commands
                             .spawn(InstanceModifier::inherited())
                             .insert(Affiliation(Some(instance_entity)))
                             .set_parent(scenario_entity);
+                    } else {
+                        // Insert this new instance modifier into other scenarios as Hidden
+                        commands
+                            .spawn(InstanceModifier::Hidden)
+                            .insert(Affiliation(Some(instance_entity)))
+                            .set_parent(scenario_entity);
                     }
-                    continue;
-                }
-                // Insert this new instance modifier into other scenarios as Hidden
-                if !scenario_instance_modifier_entities.contains_key(&instance_entity) {
-                    commands
-                        .spawn(InstanceModifier::Hidden)
-                        .insert(Affiliation(Some(instance_entity)))
-                        .set_parent(scenario_entity);
                 }
             }
         }
@@ -393,22 +415,23 @@ pub fn handle_instance_updates(
             &scenarios,
             &instance_modifiers,
         );
-        let instance_modifier_entities =
-            get_instance_modifier_entities(update.scenario, &children, &instance_modifiers);
 
-        if let Some(((mut instance_modifier, _), modifier_entity)) = instance_modifier_entities
-            .get(&update.instance)
-            .and_then(|modifier_entity| {
-                instance_modifiers
-                    .get_mut(*modifier_entity)
-                    .ok()
-                    .zip(Some(modifier_entity))
-            })
-        {
+        if let Some(((mut instance_modifier, _), modifier_entity)) = find_modifier_for_instance(
+            update.instance,
+            update.scenario,
+            &children,
+            &instance_modifiers,
+        )
+        .and_then(|modifier_entity| {
+            instance_modifiers
+                .get_mut(modifier_entity)
+                .ok()
+                .zip(Some(modifier_entity))
+        }) {
             let instance_modifier = instance_modifier.as_mut();
 
             let instance_pose = instance_modifier.pose().or(recall_instance
-                .get(*modifier_entity)
+                .get(modifier_entity)
                 .ok()
                 .and_then(|r| r.pose));
 
