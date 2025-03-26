@@ -240,18 +240,12 @@ fn show_model_instance(
                         .on_hover_text("Model instance is included in this scenario")
                         .clicked()
                     {
-                        // If this is a root scenario, toggle to Hidden modifier
-                        // If this is not a root scenario, toggle to Inherited modifier
-                        let update = if scenarios.get(scenario).is_ok_and(|(_, _, a)| a.0.is_none())
-                        {
-                            UpdateInstance::Hide
-                        } else {
-                            UpdateInstance::ResetVisibility
-                        };
+                        // If this is a root scenario or Added modifier, toggle to Hidden
+                        // Note: all modifiers are Added in root scenarios
                         update_instance.send(UpdateInstanceEvent {
                             scenario,
                             instance,
-                            update,
+                            update: UpdateInstance::Hide,
                         });
                     }
                 }

@@ -73,6 +73,7 @@ impl InstanceModifier {
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct RecallInstance {
     pub pose: Option<Pose>,
+    pub modifier: Option<InstanceModifier>,
 }
 
 impl Recall for RecallInstance {
@@ -82,6 +83,7 @@ impl Recall for RecallInstance {
         match source {
             InstanceModifier::Added(_) | InstanceModifier::Inherited(_) => {
                 self.pose = source.pose();
+                self.modifier = Some(source.clone());
             }
             InstanceModifier::Hidden => {
                 // We don't update the pose if this InstanceModifier is hidden

@@ -406,15 +406,6 @@ pub fn handle_instance_updates(
     recall_instance: Query<&RecallInstance>,
 ) {
     for update in update_instance.read() {
-        let parent_pose = retrieve_parent_pose(
-            update.instance,
-            update.scenario,
-            &children,
-            &recall_instance,
-            &scenarios,
-            &instance_modifiers,
-        );
-
         if let Some(((mut instance_modifier, _), modifier_entity)) = find_modifier_for_instance(
             update.instance,
             update.scenario,
@@ -428,15 +419,22 @@ pub fn handle_instance_updates(
                 .zip(Some(modifier_entity))
         }) {
             let instance_modifier = instance_modifier.as_mut();
-
-            let instance_pose = instance_modifier.pose().or(recall_instance
-                .get(modifier_entity)
-                .ok()
-                .and_then(|r| r.pose));
+            let has_parent = scenarios
+                .get(update.scenario)
+                .is_ok_and(|(_, a)| a.0.is_some());
 
             match update.update {
                 UpdateInstance::Include => {
-                    if parent_pose.is_some() {
+                    let recall_modifier = recall_instance.get(modifier_entity).ok();
+                    let instance_pose = instance_modifier
+                        .pose()
+                        .or(recall_modifier.and_then(|r| r.pose));
+                    if has_parent
+                        && recall_modifier.is_some_and(|m| match m.modifier {
+                            Some(InstanceModifier::Inherited(_)) => true,
+                            _ => false,
+                        })
+                    {
                         *instance_modifier = InstanceModifier::Inherited(InheritedInstance {
                             modified_pose: instance_pose,
                             explicit_inclusion: true,
@@ -472,7 +470,7 @@ pub fn handle_instance_updates(
                     }
                 }
                 UpdateInstance::ResetPose => {
-                    if parent_pose.is_some() {
+                    if has_parent {
                         match instance_modifier {
                             InstanceModifier::Inherited(inherited) => {
                                 inherited.modified_pose = None
@@ -482,7 +480,7 @@ pub fn handle_instance_updates(
                     }
                 }
                 UpdateInstance::ResetVisibility => {
-                    if parent_pose.is_some() {
+                    if has_parent {
                         match instance_modifier {
                             InstanceModifier::Inherited(inherited) => {
                                 inherited.explicit_inclusion = false
