@@ -16,7 +16,10 @@
 */
 
 use crate::{
-    site::Change,
+    site::{
+        scenario::*, Affiliation, Change, CurrentScenario, InstanceModifier, UpdateInstance,
+        UpdateInstanceEvent,
+    },
     widgets::{inspector::InspectAngle, prelude::*, Inspect},
 };
 use bevy::{math::Quat, prelude::*};
@@ -27,6 +30,11 @@ use rmf_site_format::{Pose, Rotation};
 pub struct InspectPose<'w, 's> {
     poses: Query<'w, 's, &'static Pose>,
     change_pose: EventWriter<'w, Change<Pose>>,
+    children: Query<'w, 's, &'static Children>,
+    current_scenario: Res<'w, CurrentScenario>,
+    instance_modifiers:
+        Query<'w, 's, (&'static mut InstanceModifier, &'static Affiliation<Entity>)>,
+    update_instance: EventWriter<'w, UpdateInstanceEvent>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectPose<'w, 's> {
@@ -43,6 +51,38 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPose<'w, 's> {
         if let Some(new_pose) = InspectPoseComponent::new(pose).show(ui) {
             params.change_pose.send(Change::new(new_pose, selection));
         }
+
+        // Reset model instance pose to parent scenario pose (if any)
+        if let Some(scenario_entity) = params.current_scenario.0 {
+            if let Some((instance_modifier, _)) = find_modifier_for_instance(
+                selection,
+                scenario_entity,
+                &params.children,
+                &params.instance_modifiers,
+            )
+            .and_then(|modifier_entity| params.instance_modifiers.get(modifier_entity).ok())
+            {
+                match instance_modifier {
+                    InstanceModifier::Inherited(inherited) => {
+                        if inherited.modified_pose.is_some() {
+                            if ui
+                                .button("Reset pose")
+                                .on_hover_text("Reset to parent scenario pose")
+                                .clicked()
+                            {
+                                params.update_instance.send(UpdateInstanceEvent {
+                                    scenario: scenario_entity,
+                                    instance: selection,
+                                    update: UpdateInstance::ResetPose,
+                                });
+                            }
+                        }
+                    }
+                    InstanceModifier::Added(_) | InstanceModifier::Hidden => {}
+                };
+            }
+        }
+
         ui.add_space(10.0);
     }
 }

@@ -166,7 +166,6 @@ impl Plugin for SitePlugin {
             )
                 .chain(),
         )
-        .add_systems(Startup, setup_instance_deletion_filter)
         .add_systems(
             PreUpdate,
             apply_deferred.in_set(SiteUpdateSet::ProcessChangesFlush),
@@ -200,7 +199,9 @@ impl Plugin for SitePlugin {
         .add_event::<ImportNavGraphs>()
         .add_event::<ChangeCurrentSite>()
         .add_event::<ChangeCurrentScenario>()
+        .add_event::<CreateScenario>()
         .add_event::<RemoveScenario>()
+        .add_event::<UpdateInstanceEvent>()
         .add_event::<SaveSite>()
         .add_event::<SaveNavGraphs>()
         .add_event::<ExportLights>()
@@ -259,6 +260,7 @@ impl Plugin for SitePlugin {
             ChangePlugin::<ModelProperty<AssetSource>>::default(),
             ChangePlugin::<ModelProperty<Scale>>::default(),
             ChangePlugin::<ModelProperty<IsStatic>>::default(),
+            RecallPlugin::<RecallInstance>::default(),
         ))
         .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
         .add_issue_type(&DUPLICATED_LIFT_NAME_ISSUE_UUID, "Duplicate lift name")
@@ -282,6 +284,7 @@ impl Plugin for SitePlugin {
                 check_for_fiducials_without_affiliation,
                 check_for_close_unconnected_anchors,
                 check_for_orphan_model_instances,
+                check_for_hidden_model_instances,
                 fetch_image_for_texture,
                 detect_last_selected_texture::<FloorMarker>,
                 apply_last_selected_texture::<FloorMarker>
@@ -352,11 +355,12 @@ impl Plugin for SitePlugin {
                 add_location_visuals,
                 add_fiducial_visuals,
                 update_level_visibility,
-                update_scenario_properties,
                 handle_remove_scenarios.before(update_current_scenario),
                 update_current_scenario.before(update_scenario_properties),
-                update_changed_lane,
-                update_lane_for_moved_anchor,
+                update_scenario_properties.before(handle_instance_updates),
+                handle_instance_updates.before(handle_create_scenarios),
+                handle_create_scenarios.before(insert_new_instance_modifiers),
+                insert_new_instance_modifiers,
             )
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenVisibilityAndTransform),
@@ -364,6 +368,8 @@ impl Plugin for SitePlugin {
         .add_systems(
             PostUpdate,
             (
+                update_changed_lane,
+                update_lane_for_moved_anchor,
                 remove_association_for_deleted_graphs,
                 add_unused_fiducial_tracker,
                 update_fiducial_usage_tracker,
