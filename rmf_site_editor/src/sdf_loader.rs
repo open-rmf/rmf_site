@@ -353,12 +353,27 @@ fn load_model<'a, 'b>(
                         {
                             diff_drive.translational_speed = translational_speed as f32;
                         }
+                        if let Some(translational_acceleration) = plugin
+                            .elements
+                            .get("nominal_drive_acceleration")
+                            .and_then(|acceleration| f64::try_from(acceleration.data.clone()).ok())
+                        {
+                            diff_drive.translational_acceleration =
+                                translational_acceleration as f32;
+                        }
                         if let Some(rotational_speed) = plugin
                             .elements
                             .get("nominal_turn_speed")
                             .and_then(|speed| f64::try_from(speed.data.clone()).ok())
                         {
                             diff_drive.rotational_speed = rotational_speed as f32;
+                        }
+                        if let Some(rotational_acceleration) = plugin
+                            .elements
+                            .get("nominal_turn_acceleration")
+                            .and_then(|acceleration| f64::try_from(acceleration.data.clone()).ok())
+                        {
+                            diff_drive.rotational_acceleration = rotational_acceleration as f32;
                         }
                         world.entity_mut(e).insert(diff_drive);
                     }

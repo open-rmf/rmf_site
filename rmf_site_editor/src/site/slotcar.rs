@@ -120,54 +120,146 @@ pub fn setup_slotcar_export_handler(mut export_handlers: ResMut<ExportHandlers>)
     );
 }
 
-fn slotcar_export_handler(In(input): In<(Entity, serde_json::Value)>) -> sdformat_rs::XmlElement {
-    let (_entity, diff_drive_config) = input;
-    let mut element_map = ElementMap::default();
+#[derive(Clone, Debug)]
+pub struct SlotcarParams {
+    pub nominal_drive_speed: f32,
+    pub nominal_drive_acceleration: f32,
+    pub nominal_turn_speed: f32,
+    pub nominal_turn_acceleration: f32,
+    pub reversible: bool,
+    pub nominal_voltage: f32,
+    pub nominal_capacity: f32,
+    pub charging_current: f32,
+    pub friction_coefficient: f32,
+    pub nominal_power: f32,
+}
 
-    if let Some(reversible) = diff_drive_config
-        .get("bidirectional")
-        .and_then(|b| match b {
+impl Default for SlotcarParams {
+    fn default() -> Self {
+        Self {
+            nominal_drive_speed: 0.5,
+            nominal_drive_acceleration: 0.25,
+            nominal_turn_speed: 1.0,
+            nominal_turn_acceleration: 1.5,
+            reversible: false,
+            nominal_voltage: 12.0,
+            nominal_capacity: 24.0,
+            charging_current: 5.0,
+            friction_coefficient: 0.22,
+            nominal_power: 20.0,
+        }
+    }
+}
+
+impl SlotcarParams {
+    fn from_differential_drive(diff_drive: serde_json::Value) -> Self {
+        let mut slotcar_params = Self::default();
+
+        if let Some(reversible) = diff_drive.get("bidirectional").and_then(|b| match b {
             serde_json::Value::Bool(rev) => Some(rev),
             _ => None,
-        })
-    {
+        }) {
+            slotcar_params.reversible = reversible.clone();
+        }
+        if let Some(translational_speed) =
+            diff_drive.get("translational_speed").and_then(|b| match b {
+                serde_json::Value::Number(speed) => speed.as_f64(),
+                _ => None,
+            })
+        {
+            slotcar_params.nominal_drive_speed = translational_speed as f32;
+        }
+        if let Some(translational_acceleration) = diff_drive
+            .get("translational_acceleration")
+            .and_then(|b| match b {
+                serde_json::Value::Number(acceleration) => acceleration.as_f64(),
+                _ => None,
+            })
+        {
+            slotcar_params.nominal_drive_acceleration = translational_acceleration as f32;
+        }
+        if let Some(rotational_speed) = diff_drive.get("rotational_speed").and_then(|b| match b {
+            serde_json::Value::Number(speed) => speed.as_f64(),
+            _ => None,
+        }) {
+            slotcar_params.nominal_turn_speed = rotational_speed as f32;
+        }
+        if let Some(rotational_acceleration) =
+            diff_drive
+                .get("rotational_acceleration")
+                .and_then(|b| match b {
+                    serde_json::Value::Number(acceleration) => acceleration.as_f64(),
+                    _ => None,
+                })
+        {
+            slotcar_params.nominal_turn_acceleration = rotational_acceleration as f32;
+        }
+
+        slotcar_params
+    }
+
+    fn into_xml(&self) -> XmlElement {
+        let mut element_map = ElementMap::default();
+
+        element_map.push(XmlElement {
+            name: "nominal_drive_speed".into(),
+            data: ElementData::String(self.nominal_drive_speed.to_string()),
+            ..Default::default()
+        });
+        element_map.push(XmlElement {
+            name: "nominal_drive_acceleration".into(),
+            data: ElementData::String(self.nominal_drive_acceleration.to_string()),
+            ..Default::default()
+        });
+        element_map.push(XmlElement {
+            name: "nominal_turn_speed".into(),
+            data: ElementData::String(self.nominal_turn_speed.to_string()),
+            ..Default::default()
+        });
+        element_map.push(XmlElement {
+            name: "nominal_turn_acceleration".into(),
+            data: ElementData::String(self.nominal_turn_acceleration.to_string()),
+            ..Default::default()
+        });
         element_map.push(XmlElement {
             name: "reversible".into(),
-            data: ElementData::String(format!("{}", reversible)),
+            data: ElementData::String(format!("{}", self.reversible)),
             ..Default::default()
-        })
-    }
-    if let Some(translational_speed) =
-        diff_drive_config
-            .get("translational_speed")
-            .and_then(|b| match b {
-                serde_json::Value::Number(speed) => speed.as_f64(),
-                _ => None,
-            })
-    {
+        });
         element_map.push(XmlElement {
-            name: "translational_speed".into(),
-            data: ElementData::String(translational_speed.to_string()),
+            name: "nominal_voltage".into(),
+            data: ElementData::String(self.nominal_voltage.to_string()),
             ..Default::default()
-        })
-    }
-    if let Some(rotational_speed) =
-        diff_drive_config
-            .get("rotational_speed")
-            .and_then(|b| match b {
-                serde_json::Value::Number(speed) => speed.as_f64(),
-                _ => None,
-            })
-    {
+        });
         element_map.push(XmlElement {
-            name: "rotational_speed".into(),
-            data: ElementData::String(rotational_speed.to_string()),
+            name: "nominal_capacity".into(),
+            data: ElementData::String(self.nominal_capacity.to_string()),
             ..Default::default()
-        })
+        });
+        element_map.push(XmlElement {
+            name: "charging_current".into(),
+            data: ElementData::String(self.charging_current.to_string()),
+            ..Default::default()
+        });
+        element_map.push(XmlElement {
+            name: "friction_coefficient".into(),
+            data: ElementData::String(self.friction_coefficient.to_string()),
+            ..Default::default()
+        });
+        element_map.push(XmlElement {
+            name: "nominal_power".into(),
+            data: ElementData::String(self.nominal_power.to_string()),
+            ..Default::default()
+        });
+
+        XmlElement {
+            data: ElementData::Nested(element_map),
+            ..Default::default()
+        }
     }
-    // Add all elements to ElementData -> XmlElement
-    XmlElement {
-        data: ElementData::Nested(element_map),
-        ..Default::default()
-    }
+}
+
+fn slotcar_export_handler(In(input): In<(Entity, serde_json::Value)>) -> sdformat_rs::XmlElement {
+    let (_, diff_drive_config) = input;
+    SlotcarParams::from_differential_drive(diff_drive_config).into_xml()
 }

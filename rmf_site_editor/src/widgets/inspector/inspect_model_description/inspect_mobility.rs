@@ -169,7 +169,9 @@ pub struct DifferentialDrive {
     pub bidirectional: bool,
     pub rotation_center_offset: [f32; 2],
     pub translational_speed: f32,
+    pub translational_acceleration: f32,
     pub rotational_speed: f32,
+    pub rotational_acceleration: f32,
 }
 
 impl Default for DifferentialDrive {
@@ -178,7 +180,9 @@ impl Default for DifferentialDrive {
             bidirectional: false,
             rotation_center_offset: [0.0, 0.0],
             translational_speed: 0.5,
+            translational_acceleration: 0.25,
             rotational_speed: 1.0,
+            rotational_acceleration: 1.5,
         }
     }
 }
@@ -194,7 +198,9 @@ pub struct RecallDifferentialDrive {
     pub bidirectional: Option<bool>,
     pub rotation_center_offset: Option<[f32; 2]>,
     pub translational_speed: Option<f32>,
+    pub translational_acceleration: Option<f32>,
     pub rotational_speed: Option<f32>,
+    pub rotational_acceleration: Option<f32>,
 }
 
 impl RecallPropertyKind for RecallDifferentialDrive {
@@ -205,7 +211,9 @@ impl RecallPropertyKind for RecallDifferentialDrive {
             bidirectional: self.bidirectional.clone().unwrap_or_default(),
             rotation_center_offset: self.rotation_center_offset.clone().unwrap_or_default(),
             translational_speed: self.translational_speed.clone().unwrap_or_default(),
+            translational_acceleration: self.translational_acceleration.clone().unwrap_or_default(),
             rotational_speed: self.rotational_speed.clone().unwrap_or_default(),
+            rotational_acceleration: self.rotational_acceleration.clone().unwrap_or_default(),
         }
     }
 }
@@ -217,7 +225,9 @@ impl Recall for RecallDifferentialDrive {
         self.bidirectional = Some(source.bidirectional);
         self.rotation_center_offset = Some(source.rotation_center_offset);
         self.translational_speed = Some(source.translational_speed);
+        self.translational_acceleration = Some(source.translational_acceleration);
         self.rotational_speed = Some(source.rotational_speed);
+        self.rotational_acceleration = Some(source.rotational_acceleration);
     }
 }
 
@@ -282,7 +292,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectDifferentialDrive<'w, 's> {
                     ui.checkbox(&mut new_differential_drive.bidirectional, "");
                     ui.end_row();
 
-                    ui.label("Max Velocity");
+                    ui.label("Nominal Velocity");
                     ui.add(
                         DragValue::new(&mut new_differential_drive.translational_speed)
                             .clamp_range(0_f32..=std::f32::INFINITY)
@@ -291,13 +301,31 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectDifferentialDrive<'w, 's> {
                     ui.label("m/s");
                     ui.end_row();
 
-                    ui.label("Max Angular");
+                    ui.label("Nominal Acceleration");
+                    ui.add(
+                        DragValue::new(&mut new_differential_drive.translational_acceleration)
+                            .clamp_range(0_f32..=std::f32::INFINITY)
+                            .speed(0.01),
+                    );
+                    ui.label("m/s2");
+                    ui.end_row();
+
+                    ui.label("Nominal Angular Velocity");
                     ui.add(
                         DragValue::new(&mut new_differential_drive.rotational_speed)
                             .clamp_range(0_f32..=std::f32::INFINITY)
                             .speed(0.01),
                     );
                     ui.label("rad/s");
+                    ui.end_row();
+
+                    ui.label("Nominal Angular Acceleration");
+                    ui.add(
+                        DragValue::new(&mut new_differential_drive.rotational_acceleration)
+                            .clamp_range(0_f32..=std::f32::INFINITY)
+                            .speed(0.01),
+                    );
+                    ui.label("rad/s2");
                     ui.end_row();
                 });
         });
