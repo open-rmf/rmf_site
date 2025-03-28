@@ -21,7 +21,7 @@ use crate::{
         Affiliation, AssetSource, Category, FuelClient, ModelDescriptionBundle, ModelInstance,
         ModelLoader, ModelProperty, NameInSite, SetFuelApiKey, UpdateFuelCache,
     },
-    widgets::{prelude::*, GetNextInstanceName, PendingModelDescription},
+    widgets::{prelude::*, PendingModelDescription},
     AppState, CurrentWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};

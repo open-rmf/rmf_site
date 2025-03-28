@@ -1365,14 +1365,15 @@ fn generate_model_instances(
 fn generate_scenarios(
     site: Entity,
     world: &mut World,
-) -> Result<BTreeMap<u32, ScenarioBundle<u32>>, SiteGenerationError> {
+) -> Result<BTreeMap<u32, Scenario<u32>>, SiteGenerationError> {
     let mut state: SystemState<(
-        Query<(Entity, &NameInSite, &SiteID, &Scenario<Entity>), With<ScenarioMarker>>,
+        Query<(Entity, &NameInSite, &SiteID, &Affiliation<Entity>), With<ScenarioMarker>>,
+        Query<(&InstanceModifier, &Affiliation<Entity>)>,
         Query<&SiteID, With<InstanceMarker>>,
         Query<&Children>,
     )> = SystemState::new(world);
-    let (scenarios, instances, children) = state.get(world);
-    let mut res = BTreeMap::<u32, ScenarioBundle<u32>>::new();
+    let (scenarios, instance_modifiers, instances, children) = state.get(world);
+    let mut res = BTreeMap::<u32, Scenario<u32>>::new();
 
     if let Ok(site_children) = children.get(site) {
         for site_child in site_children.iter() {
@@ -1380,19 +1381,36 @@ fn generate_scenarios(
                 let mut queue = vec![entity];
 
                 while let Some(scenario) = queue.pop() {
+                    let mut scenario_instance_modifiers = Vec::new();
                     if let Ok(scenario_children) = children.get(scenario) {
                         for scenario_child in scenario_children.iter() {
-                            queue.push(*scenario_child);
+                            if scenarios.contains(*scenario_child) {
+                                queue.push(*scenario_child);
+                            } else if instance_modifiers.contains(*scenario_child) {
+                                scenario_instance_modifiers.push(*scenario_child);
+                            }
                         }
                     }
 
-                    if let Ok((_, name, site_id, scenario)) = scenarios.get(scenario) {
+                    if let Ok((_, name, site_id, parent_scenario)) = scenarios.get(scenario) {
                         res.insert(
                             site_id.0,
-                            ScenarioBundle {
-                                name: name.clone(),
-                                scenario: Scenario {
-                                    parent_scenario: match scenario.parent_scenario.0 {
+                            Scenario {
+                                instances: scenario_instance_modifiers
+                                    .iter()
+                                    .filter_map(|child_entity| {
+                                        instance_modifiers.get(*child_entity).ok()
+                                    })
+                                    .filter_map(|(instance, affiliation)| {
+                                        Some((
+                                            affiliation.0.and_then(|e| instances.get(e).ok())?.0,
+                                            instance.clone(),
+                                        ))
+                                    })
+                                    .collect(),
+                                properties: ScenarioBundle {
+                                    name: name.clone(),
+                                    parent_scenario: match parent_scenario.0 {
                                         Some(parent) => Affiliation(
                                             scenarios
                                                 .get(parent)
@@ -1401,27 +1419,8 @@ fn generate_scenarios(
                                         ),
                                         None => Affiliation(None),
                                     },
-                                    added_instances: scenario
-                                        .added_instances
-                                        .iter()
-                                        .map(|(entity, pose)| {
-                                            (instances.get(*entity).unwrap().0, pose.clone())
-                                        })
-                                        .collect(),
-                                    moved_instances: scenario
-                                        .moved_instances
-                                        .iter()
-                                        .map(|(entity, pose)| {
-                                            (instances.get(*entity).unwrap().0, pose.clone())
-                                        })
-                                        .collect(),
-                                    removed_instances: scenario
-                                        .removed_instances
-                                        .iter()
-                                        .map(|entity| instances.get(*entity).unwrap().0)
-                                        .collect(),
+                                    marker: ScenarioMarker,
                                 },
-                                marker: ScenarioMarker,
                             },
                         );
                     }

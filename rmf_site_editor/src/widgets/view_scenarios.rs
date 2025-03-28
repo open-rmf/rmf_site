@@ -16,19 +16,16 @@
 */
 
 use crate::{
-    interaction::{Select, Selection},
     site::{
-        Category, Change, ChangeCurrentScenario, CurrentScenario, Delete, NameInSite,
-        RemoveScenario, Scenario, ScenarioMarker,
+        Affiliation, Change, ChangeCurrentScenario, CreateScenario, CurrentScenario, NameInSite,
+        RemoveScenario, ScenarioMarker,
     },
     widgets::prelude::*,
     CurrentWorkspace, Icons,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{Align, Button, CollapsingHeader, Color32, Layout, ScrollArea, Ui};
-use rmf_site_format::{Angle, InstanceMarker, Pose, ScenarioBundle, SiteID};
-
-const INSTANCES_VIEWER_HEIGHT: f32 = 200.0;
+use bevy_egui::egui::{Align, Button, CollapsingHeader, Color32, Layout, Ui};
+use std::collections::HashMap;
 
 /// Add a plugin for viewing and editing a list of all levels
 #[derive(Default)]
@@ -43,35 +40,20 @@ impl Plugin for ViewScenariosPlugin {
 
 #[derive(SystemParam)]
 pub struct ViewScenarios<'w, 's> {
-    commands: Commands<'w, 's>,
-    children: Query<'w, 's, &'static Children>,
     parent: Query<'w, 's, &'static Parent>,
     scenarios: Query<
         'w,
         's,
-        (Entity, &'static NameInSite, &'static mut Scenario<Entity>),
+        (Entity, &'static NameInSite, &'static Affiliation<Entity>),
         With<ScenarioMarker>,
     >,
     change_name: EventWriter<'w, Change<NameInSite>>,
     change_current_scenario: EventWriter<'w, ChangeCurrentScenario>,
+    create_new_scenario: EventWriter<'w, CreateScenario>,
     remove_scenario: EventWriter<'w, RemoveScenario>,
     display_scenarios: ResMut<'w, ScenarioDisplay>,
     current_scenario: ResMut<'w, CurrentScenario>,
     current_workspace: Res<'w, CurrentWorkspace>,
-    instances: Query<
-        'w,
-        's,
-        (
-            Entity,
-            &'static NameInSite,
-            &'static Category,
-            Option<&'static SiteID>,
-        ),
-        With<InstanceMarker>,
-    >,
-    selection: Res<'w, Selection>,
-    select: EventWriter<'w, Select>,
-    delete: EventWriter<'w, Delete>,
     icons: Res<'w, Icons>,
 }
 
@@ -90,7 +72,7 @@ impl<'w, 's> ViewScenarios<'w, 's> {
     pub fn show_widget(&mut self, ui: &mut Ui) {
         // Current Selection Info
         if let Some(current_scenario_entity) = self.current_scenario.0 {
-            if let Ok((_, name, mut scenario)) = self.scenarios.get_mut(current_scenario_entity) {
+            if let Ok((_, name, _)) = self.scenarios.get_mut(current_scenario_entity) {
                 ui.horizontal(|ui| {
                     ui.label("Selected: ");
                     let mut new_name = name.0.clone();
@@ -109,109 +91,6 @@ impl<'w, 's> ViewScenarios<'w, 's> {
                         }
                     });
                 });
-                ui.label("From Previous:");
-                // Added
-                collapsing_instance_viewer(
-                    &format!("Added: {}", scenario.added_instances.len()),
-                    "scenario_added_instances",
-                    ui,
-                    |ui| {
-                        for (entity, pose) in scenario.added_instances.iter() {
-                            if let Ok((_, name, category, site_id)) = self.instances.get(*entity) {
-                                ui.horizontal(|ui| {
-                                    instance_selector(
-                                        ui,
-                                        name,
-                                        site_id,
-                                        category,
-                                        entity,
-                                        &self.selection,
-                                        &mut self.select,
-                                    );
-                                    if ui.button("❌").on_hover_text("Remove instance").clicked() {
-                                        self.delete.send(Delete::new(*entity));
-                                    }
-                                });
-                                formatted_pose(ui, pose);
-                            } else {
-                                warn!("Instance entity {:?} does not exist, or has invalid components", entity);
-                            }
-                        }
-                    },
-                );
-                // Moved
-                let mut undo_moved_ids = Vec::new();
-                collapsing_instance_viewer(
-                    &format!("Moved: {}", scenario.moved_instances.len()),
-                    "scenario_moved_instances",
-                    ui,
-                    |ui| {
-                        for (id, (entity, pose)) in scenario.moved_instances.iter().enumerate() {
-                            if let Ok((_, name, category, site_id)) = self.instances.get(*entity) {
-                                ui.horizontal(|ui| {
-                                    instance_selector(
-                                        ui,
-                                        name,
-                                        site_id,
-                                        category,
-                                        entity,
-                                        &self.selection,
-                                        &mut self.select,
-                                    );
-                                    if ui.button("↩").on_hover_text("Undo move").clicked() {
-                                        undo_moved_ids.push(id);
-                                    }
-                                });
-                                formatted_pose(ui, pose);
-                            } else {
-                                warn!("Instance entity {:?} does not exist, or has invalid components", entity);
-                            }
-                        }
-                    },
-                );
-                // Removed
-                let mut undo_removed_ids = Vec::new();
-                collapsing_instance_viewer(
-                    &format!("Removed: {}", scenario.removed_instances.len()),
-                    "scenario_removed_instances",
-                    ui,
-                    |ui| {
-                        for (id, entity) in scenario.removed_instances.iter().enumerate() {
-                            if let Ok((_, name, category, site_id)) = self.instances.get(*entity) {
-                                ui.horizontal(|ui| {
-                                    instance_selector(
-                                        ui,
-                                        name,
-                                        site_id,
-                                        category,
-                                        entity,
-                                        &self.selection,
-                                        &mut self.select,
-                                    );
-                                    if ui.button("↺").on_hover_text("Restore instance").clicked()
-                                    {
-                                        undo_removed_ids.push(id);
-                                    }
-                                });
-                            } else {
-                                warn!("Instance entity {:?} does not exist, or has invalid components", entity);
-                            }
-                        }
-                    },
-                );
-
-                // Trigger an update if the scenario has been modified
-                let modified = !undo_removed_ids.is_empty() || !undo_moved_ids.is_empty();
-                for id in undo_removed_ids {
-                    scenario.removed_instances.remove(id);
-                }
-                for id in undo_moved_ids {
-                    scenario.moved_instances.remove(id);
-                }
-                if modified {
-                    self.change_current_scenario
-                        .send(ChangeCurrentScenario(current_scenario_entity));
-                }
             }
         } else {
             ui.label("No scenario selected");
@@ -243,30 +122,13 @@ impl<'w, 's> ViewScenarios<'w, 's> {
         });
         ui.horizontal(|ui| {
             if ui.add(Button::image(self.icons.add.egui())).clicked() {
-                let mut cmd = self
-                    .commands
-                    .spawn(ScenarioBundle::<Entity>::from_name_parent(
-                        self.display_scenarios.new_scenario_name.clone(),
-                        match self.display_scenarios.is_new_scenario_root {
-                            true => None,
-                            false => self.current_scenario.0,
-                        },
-                    ));
-                match self.display_scenarios.is_new_scenario_root {
-                    true => {
-                        if let Some(site_entity) = self.current_workspace.root {
-                            cmd.set_parent(site_entity);
-                        }
-                    }
-                    false => {
-                        if let Some(current_scenario_entity) = self.current_scenario.0 {
-                            cmd.set_parent(current_scenario_entity);
-                        }
-                    }
-                }
-                let scenario_entity = cmd.id();
-                self.change_current_scenario
-                    .send(ChangeCurrentScenario(scenario_entity));
+                self.create_new_scenario.send(CreateScenario {
+                    name: Some(self.display_scenarios.new_scenario_name.clone()),
+                    parent: match self.display_scenarios.is_new_scenario_root {
+                        true => None,
+                        false => self.current_scenario.0,
+                    },
+                });
             }
             let mut new_name = self.display_scenarios.new_scenario_name.clone();
             if ui
@@ -282,10 +144,22 @@ impl<'w, 's> ViewScenarios<'w, 's> {
         ui.separator();
         // A version string is used to differentiate scenarios, and to allow
         // egui to distinguish between collapsing headers with the same name
+
+        // Construct scenario children
+        let mut scenario_children = HashMap::<Entity, Vec<Entity>>::new();
+        for (e, _, parent_scenario) in self.scenarios.iter() {
+            if let Some(parent_entity) = parent_scenario.0 {
+                if let Some(children) = scenario_children.get_mut(&parent_entity) {
+                    children.push(e);
+                } else {
+                    scenario_children.insert(parent_entity, vec![e]);
+                }
+            }
+        }
         let mut version = 1;
         self.scenarios
             .iter()
-            .filter(|(_, _, scenario)| scenario.parent_scenario.0.is_none())
+            .filter(|(_, _, parent_scenario)| parent_scenario.0.is_none())
             .filter(|(scenario_entity, _, _)| {
                 self.current_workspace
                     .root
@@ -299,7 +173,7 @@ impl<'w, 's> ViewScenarios<'w, 's> {
                     &mut self.current_scenario,
                     scenario_entity,
                     vec![version],
-                    &self.children,
+                    &scenario_children,
                     &self.scenarios,
                     &self.icons,
                 );
@@ -315,9 +189,9 @@ fn show_scenario_widget(
     current_scenario: &mut CurrentScenario,
     scenario_entity: Entity,
     scenario_version: Vec<u32>,
-    q_children: &Query<&'static Children>,
+    scenario_children: &HashMap<Entity, Vec<Entity>>,
     q_scenario: &Query<
-        (Entity, &'static NameInSite, &'static mut Scenario<Entity>),
+        (Entity, &'static NameInSite, &'static Affiliation<Entity>),
         With<ScenarioMarker>,
     >,
     icons: &Res<Icons>,
@@ -345,17 +219,14 @@ fn show_scenario_widget(
     // The subversion is used as an id_source so that egui does not
     // generate errors when collapsing headers of the same name are created
     let mut subversion = 1;
-    let children = q_children.get(scenario_entity);
-    CollapsingHeader::new(format!(
-        "Child Scenarios:  {}",
-        children.map(|c| c.len()).unwrap_or(0)
-    ))
-    .default_open(true)
-    .id_source(scenario_version_str.clone())
-    .show(ui, |ui| {
-        if let Ok(children) = children {
-            for child in children.iter() {
-                if let Ok(_) = q_scenario.get(*child) {
+    let children = scenario_children.get(&scenario_entity);
+    let num_children = children.map(|c| c.len()).unwrap_or(0);
+    CollapsingHeader::new(format!("Child Scenarios:  {}", num_children))
+        .default_open(true)
+        .id_source(scenario_version_str.clone())
+        .show(ui, |ui| {
+            if let Some(children) = children {
+                for child in children.iter() {
                     let mut version = scenario_version.clone();
                     version.push(subversion);
                     show_scenario_widget(
@@ -365,79 +236,16 @@ fn show_scenario_widget(
                         current_scenario,
                         *child,
                         version,
-                        q_children,
+                        &scenario_children,
                         q_scenario,
                         icons,
                     );
                     subversion += 1;
                 }
+            } else {
+                ui.label("No Child Scenarios");
             }
-        } else {
-            ui.label("No Child Scenarios");
-        }
-    });
-}
-
-/// Creates a collapsible header exposing a scroll area for viewing instances
-fn collapsing_instance_viewer<R>(
-    header_name: &str,
-    id: &str,
-    ui: &mut Ui,
-    add_contents: impl FnOnce(&mut Ui) -> R,
-) {
-    CollapsingHeader::new(header_name)
-        .id_source(id)
-        .default_open(false)
-        .show(ui, |ui| {
-            ScrollArea::vertical()
-                .max_height(INSTANCES_VIEWER_HEIGHT)
-                .show(ui, add_contents);
         });
-}
-
-/// Creates a selectable label for an instance
-fn instance_selector(
-    ui: &mut Ui,
-    name: &NameInSite,
-    site_id: Option<&SiteID>,
-    category: &Category,
-    entity: &Entity,
-    selection: &Selection,
-    select: &mut EventWriter<Select>,
-) {
-    if ui
-        .selectable_label(
-            selection.0.is_some_and(|s| s == *entity),
-            format!(
-                "{} #{}",
-                category.label(),
-                site_id
-                    .map(|s| s.0.to_string())
-                    .unwrap_or("unsaved".to_string()),
-            ),
-        )
-        .clicked()
-    {
-        select.send(Select::new(Some(*entity)));
-    };
-    ui.label(format!("[{}]", name.0));
-}
-
-/// Creates a formatted label for a pose
-fn formatted_pose(ui: &mut Ui, pose: &Pose) {
-    ui.colored_label(
-        Color32::GRAY,
-        format!(
-            "[x: {:.3}, y: {:.3}, z: {:.3}, yaw: {:.3}]",
-            pose.trans[0],
-            pose.trans[1],
-            pose.trans[2],
-            match pose.rot.yaw() {
-                Angle::Rad(r) => r,
-                Angle::Deg(d) => d.to_radians(),
-            }
-        ),
-    );
 }
 
 #[derive(Resource)]
