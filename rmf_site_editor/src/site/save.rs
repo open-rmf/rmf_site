@@ -20,7 +20,7 @@ use bevy::{
     prelude::*,
 };
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, HashMap},
     path::PathBuf,
 };
 use thiserror::Error as ThisError;
@@ -1263,7 +1263,7 @@ fn generate_model_instances(
     world: &mut World,
 ) -> Result<BTreeMap<u32, Parented<u32, ModelInstance<u32>>>, SiteGenerationError> {
     let mut state: SystemState<(
-        Query<&SiteID, (With<ModelMarker>, With<Group>, Without<Pending>)>,
+        Query<(&SiteID, &ExportWith), (With<ModelMarker>, With<Group>, Without<Pending>)>,
         Query<
             (Entity, &SiteID, &NameInSite, &Pose, &Affiliation<Entity>),
             (With<ModelMarker>, Without<Group>, Without<Pending>),
@@ -1273,13 +1273,24 @@ fn generate_model_instances(
     )> = SystemState::new(world);
     let (model_descriptions, model_instances, levels, parents) = state.get(world);
 
-    let mut site_levels_ids = std::collections::HashMap::<Entity, u32>::new();
+    let mut site_levels_ids = HashMap::<Entity, u32>::new();
     for (level_entity, site_id) in levels.iter() {
         if parents.get(level_entity).is_ok_and(|p| p.get() == site) {
             site_levels_ids.insert(level_entity, site_id.0);
         }
     }
-    let mut res = BTreeMap::<u32, Parented<u32, ModelInstance<u32>>>::new();
+    // Store model instance data in a HashMap for later access with mutable World
+    let mut model_instances_data = HashMap::<
+        Entity,
+        (
+            SiteID,
+            NameInSite,
+            Pose,
+            u32,
+            Option<SiteID>,
+            HashMap<String, serde_json::Value>,
+        ),
+    >::new();
     for (instance_entity, instance_id, instance_name, instance_pose, instance_affiliation) in
         model_instances.iter()
     {
@@ -1292,21 +1303,58 @@ fn generate_model_instances(
             error!("Unable to find parent for instance [{}]", instance_name.0);
             continue;
         };
-        let model_instance = ModelInstance::<u32> {
-            name: instance_name.clone(),
-            pose: instance_pose.clone(),
-            description: Affiliation(
-                instance_affiliation
-                    .0
-                    .map(|e| model_descriptions.get(e).ok().map(|d| d.0))
-                    .flatten(),
+        let (description_id, description_export) = instance_affiliation
+            .0
+            .and_then(|e| model_descriptions.get(e).ok())
+            .unzip();
+
+        model_instances_data.insert(
+            instance_entity,
+            (
+                instance_id.clone(),
+                instance_name.clone(),
+                instance_pose.clone(),
+                level_id.clone(),
+                description_id.cloned(),
+                description_export
+                    .map(|e| e.0.clone())
+                    .unwrap_or(HashMap::new()),
             ),
+        );
+    }
+
+    let mut res = BTreeMap::<u32, Parented<u32, ModelInstance<u32>>>::new();
+    for (entity, (id, name, pose, level_id, description_id, description_export)) in
+        model_instances_data.iter()
+    {
+        let mut export_data = HashMap::<String, sdformat_rs::XmlElement>::new();
+        for (label, value) in description_export.iter() {
+            if let Some(data) = world
+                .resource_scope::<ExportHandlers, Option<sdformat_rs::XmlElement>>(
+                    move |world, mut export_handlers| {
+                        if let Some(export_handler) = export_handlers.get_mut(label) {
+                            let data_xml = export_handler.export(*entity, value.clone(), world);
+                            Some(data_xml)
+                        } else {
+                            None
+                        }
+                    },
+                )
+            {
+                export_data.insert(label.clone(), data);
+            }
+        }
+        let model_instance = ModelInstance::<u32> {
+            name: name.clone(),
+            pose: pose.clone(),
+            description: Affiliation(description_id.map(|d| d.0)),
+            export_data: ExportData(export_data),
             ..Default::default()
         };
         res.insert(
-            instance_id.0,
+            id.0,
             Parented {
-                parent: level_id,
+                parent: *level_id,
                 bundle: model_instance,
             },
         );
