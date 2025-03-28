@@ -92,9 +92,9 @@ impl Plugin for InspectRobotPropertiesPlugin {
         app.world.init_resource::<RobotPropertyWidgetRegistry>();
         app.add_event::<UpdateRobotPropertyKinds>().add_systems(
             PreUpdate,
-            (check_for_missing_robot_property_kinds
+            check_for_missing_robot_property_kinds
                 .after(SiteUpdateSet::ProcessChangesFlush)
-                .run_if(AppState::in_displaying_mode()),),
+                .run_if(AppState::in_displaying_mode()),
         );
     }
 }

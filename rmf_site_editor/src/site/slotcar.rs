@@ -89,7 +89,6 @@ pub fn update_slotcar_export_with(
     mut export_with: Query<&mut ExportWith, (With<ModelMarker>, With<Group>)>,
     mut removals: RemovedComponents<DifferentialDrive>,
 ) {
-    // Remove from ExportWith
     for desc_entity in removals.read() {
         if let Ok(mut desc_export) = export_with.get_mut(desc_entity) {
             let slotcar_label = "slotcar".to_string();
@@ -97,12 +96,9 @@ pub fn update_slotcar_export_with(
         }
     }
 
-    // Add to ExportWith
     for (desc_entity, diff_drive) in differential_drive.iter() {
         if diff_drive.is_changed() {
-            // check ExportWith of this description
             if let Ok(mut desc_export) = export_with.get_mut(desc_entity) {
-                // Serialize DifferentialDrive
                 if let Ok(diff_drive_value) = serde_json::to_value(diff_drive.clone()) {
                     desc_export
                         .0
