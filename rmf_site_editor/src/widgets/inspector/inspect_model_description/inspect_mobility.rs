@@ -24,7 +24,7 @@ use super::{
     ModelPropertyQuery,
 };
 use crate::{
-    site::{Change, Group, IsStatic, ModelMarker, ModelProperty, Robot},
+    site::{Change, Group, ModelMarker, ModelProperty, Robot},
     widgets::{prelude::*, Inspect},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -304,57 +304,11 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectDifferentialDrive<'w, 's> {
 
         if new_differential_drive != *differential_drive {
             serialize_and_change_robot_property::<Mobility, DifferentialDrive>(
-                params.change_robot_property,
+                &mut params.change_robot_property,
                 new_differential_drive,
                 robot,
                 description_entity,
             );
-        }
-    }
-}
-
-pub fn insert_slotcar_differential_drive(
-    mut commands: Commands,
-    change_robot_property: EventWriter<Change<ModelProperty<Robot>>>,
-    differential_drive: Query<(Entity, &DifferentialDrive)>,
-    is_static: Query<&ModelProperty<IsStatic>, (With<ModelMarker>, With<Group>)>,
-    mobility: Query<&Mobility, (With<ModelMarker>, With<Group>)>,
-    model_descriptions: Query<&ModelProperty<Robot>, (With<ModelMarker>, With<Group>)>,
-    model_instances: ModelPropertyQuery<Robot>,
-    parents: Query<&Parent>,
-) {
-    for (e, diff_drive) in differential_drive.iter() {
-        if !model_descriptions.get(e).is_ok() {
-            // A non-description entity has the DifferentialDrive component, it could have been inserted into a
-            // model instance descendent when processing importing robot plugins
-            // Insert this component in the affiliated description and remove it from the original entity
-            let mut description_entity: Option<Entity> = None;
-            let mut target_entity: Entity = e;
-            while let Ok(parent) = parents.get(target_entity).map(|p| p.get()) {
-                if let Some(desc) = model_instances.get(parent).ok().and_then(|a| a.0) {
-                    if !mobility.get(desc).is_ok() && is_static.get(desc).is_ok_and(|is| !is.0 .0) {
-                        description_entity = Some(desc);
-                    }
-                    break;
-                }
-                target_entity = parent;
-            }
-
-            if let Some(desc) = description_entity {
-                let robot = match model_descriptions.get(desc) {
-                    Ok(ModelProperty(r)) => r.clone(),
-                    Err(_) => Robot::default(),
-                };
-                serialize_and_change_robot_property::<Mobility, DifferentialDrive>(
-                    change_robot_property,
-                    diff_drive.clone(),
-                    &robot,
-                    desc,
-                );
-            }
-            commands.entity(e).remove::<DifferentialDrive>();
-            // TODO(@xiyuoh) Fix having to return on each loop - currently here to prevent move for change_robot_property
-            return;
         }
     }
 }

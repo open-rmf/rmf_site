@@ -111,6 +111,9 @@ pub use site::*;
 pub mod site_visualizer;
 pub use site_visualizer::*;
 
+pub mod slotcar;
+pub use slotcar::*;
+
 pub mod texture;
 pub use texture::*;
 
@@ -195,6 +198,7 @@ impl Plugin for SitePlugin {
         .init_resource::<SiteAssets>()
         .init_resource::<CurrentLevel>()
         .init_resource::<CurrentScenario>()
+        .init_resource::<ExportHandlers>()
         .init_resource::<PhysicalLightToggle>()
         .add_event::<LoadSite>()
         .add_event::<ImportNavGraphs>()
@@ -259,6 +263,7 @@ impl Plugin for SitePlugin {
             ChangePlugin::<ModelProperty<AssetSource>>::default(),
             ChangePlugin::<ModelProperty<Scale>>::default(),
             ChangePlugin::<ModelProperty<IsStatic>>::default(),
+            SlotcarSdfPlugin,
         ))
         .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
         .add_issue_type(&DUPLICATED_LIFT_NAME_ISSUE_UUID, "Duplicate lift name")

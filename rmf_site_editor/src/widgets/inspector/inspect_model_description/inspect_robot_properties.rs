@@ -15,24 +15,17 @@
  *
 */
 
-use super::{
-    get_selected_description_entity, insert_slotcar_differential_drive, ModelDescriptionInspector,
-    ModelPropertyQuery,
-};
+use super::*;
 use crate::{
     site::{
         recall_plugin::UpdateRecallSet, update_model_instances, Change, ChangePlugin, Group,
         IssueKey, ModelMarker, ModelProperty, NameInSite, Recall, RecallPlugin, Robot,
         SiteUpdateSet,
     },
-    widgets::{prelude::*, Inspect},
+    widgets::Inspect,
     AppState, Issue, ModelPropertyData, ValidateWorkspace,
 };
-use bevy::{
-    ecs::system::SystemParam,
-    prelude::{Component, *},
-    utils::Uuid,
-};
+use bevy::{ecs::system::SystemParam, prelude::Component, utils::Uuid};
 use bevy_egui::egui::{ComboBox, Ui};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{Error, Map, Value};
@@ -99,12 +92,9 @@ impl Plugin for InspectRobotPropertiesPlugin {
         app.world.init_resource::<RobotPropertyWidgetRegistry>();
         app.add_event::<UpdateRobotPropertyKinds>().add_systems(
             PreUpdate,
-            (
-                check_for_missing_robot_property_kinds
-                    .after(SiteUpdateSet::ProcessChangesFlush)
-                    .run_if(AppState::in_displaying_mode()),
-                insert_slotcar_differential_drive,
-            ),
+            (check_for_missing_robot_property_kinds
+                .after(SiteUpdateSet::ProcessChangesFlush)
+                .run_if(AppState::in_displaying_mode()),),
         );
     }
 }
@@ -519,7 +509,7 @@ pub fn show_robot_property_widget<T: RobotProperty>(
 
 /// This system updates ModelProperty<Robot> based on updates to the property components
 pub fn serialize_and_change_robot_property<Property: RobotProperty, Kind: RobotPropertyKind>(
-    mut change_robot_property: EventWriter<Change<ModelProperty<Robot>>>,
+    change_robot_property: &mut EventWriter<Change<ModelProperty<Robot>>>,
     property_kind: Kind,
     robot: &Robot,
     description_entity: Entity,
