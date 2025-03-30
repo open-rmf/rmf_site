@@ -23,12 +23,19 @@ use once_cell::sync::Lazy;
 use sdformat_rs::*;
 use std::collections::BTreeMap;
 use thiserror::Error;
+use bevy::{prelude::*, utils::tracing};
+use tracing::error;
 
 const DEFAULT_CABIN_MASS: f64 = 1200.0;
 
 static WORLD_TEMPLATE: Lazy<SdfRoot> = Lazy::new(|| {
-    yaserde::de::from_str(include_str!("templates/gz_world.sdf"))
-        .expect("Failed deserializing template")
+    match yaserde::de::from_str(include_str!("templates/gz_world.sdf")) {
+        Ok(sdf_root) => sdf_root,
+        Err(err) => {
+            error!("Failed deserializing template {:?}", err);
+            Default::default()
+        }
+    }
 });
 
 #[derive(Debug, Error)]
@@ -854,7 +861,7 @@ impl Site {
 
 #[cfg(test)]
 mod tests {
-
+    use bevy::utils::tracing::error;
     use crate::legacy::building_map::BuildingMap;
 
     #[test]
@@ -870,6 +877,8 @@ mod tests {
             ..Default::default()
         };
         let s = yaserde::ser::to_string_with_config(&sdf, &config).unwrap();
-        std::fs::write("test.sdf", s).unwrap();
+        if let Err(e) = std::fs::write("test.sdf", s) {
+            error!("Unable to write test.sdf {:?}", e);
+        };
     }
 }

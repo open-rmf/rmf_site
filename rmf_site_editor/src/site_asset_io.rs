@@ -153,7 +153,9 @@ fn save_to_cache(name: &str, bytes: &[u8]) {
     asset_path.push(PathBuf::from(name));
     fs::create_dir_all(asset_path.parent().unwrap()).unwrap();
     if bytes.len() > 0 {
-        fs::write(asset_path, bytes).expect("unable to write to file");
+        if let Err(err) = std::fs::write(asset_path, bytes) {
+            error!("Unable to write to file {:?}", err);
+        };
     }
 }
 

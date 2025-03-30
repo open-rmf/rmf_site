@@ -23,6 +23,7 @@ use bevy::{
 };
 use glam::{Vec2, Vec3};
 use serde::{Deserialize, Serialize};
+use bevy::utils::tracing::error;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 // TODO(MXG): Change this to untagged for a cleaner looking format once this
@@ -42,7 +43,14 @@ impl From<[f32; 2]> for Anchor {
 }
 
 fn to_slice(p: &[f32]) -> &[f32; 2] {
-    p.try_into().expect("Wrong array size")
+    match p.try_into() {
+        Ok(p) => p,
+        Err(e) => {
+            error!("Wrong array size {:?}", e);
+            // TODO what should this return be?
+            return &[0.0;2];
+        }
+    }
 }
 
 impl Anchor {
