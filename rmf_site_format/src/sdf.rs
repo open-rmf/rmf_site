@@ -18,13 +18,11 @@
 use crate::{
     Anchor, Angle, AssetSource, Category, DoorType, Level, LiftCabin, Pose, Rotation, Site, Swing,
 };
-use bevy::{prelude::*, utils::tracing};
 use glam::Vec3;
 use once_cell::sync::Lazy;
 use sdformat_rs::*;
 use std::collections::BTreeMap;
 use thiserror::Error;
-use tracing::error;
 
 const DEFAULT_CABIN_MASS: f64 = 1200.0;
 
