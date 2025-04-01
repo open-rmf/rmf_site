@@ -111,9 +111,9 @@ pub fn align_site_drawings(
                         };
                         let in_meters = in_meters as f64;
                         let p0 =
-                            Vec2::from_slice(anchor0.translation_for_category(Category::Fiducial));
+                            Vec2::from_array(anchor0.translation_for_category(Category::Fiducial));
                         let p1 =
-                            Vec2::from_slice(anchor1.translation_for_category(Category::Fiducial));
+                            Vec2::from_array(anchor1.translation_for_category(Category::Fiducial));
                         let in_pixels = (p1 - p0).length() as f64;
                         drawing_variables.measurements.push(MeasurementVariables {
                             in_pixels,
