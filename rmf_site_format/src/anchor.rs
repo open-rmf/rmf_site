@@ -16,7 +16,6 @@
 */
 
 use crate::{Categorized, Category, Pose};
-use bevy::utils::tracing::error;
 #[cfg(feature = "bevy")]
 use bevy::{
     ecs::{query::QueryEntityError, system::SystemParam},
@@ -42,7 +41,7 @@ impl From<[f32; 2]> for Anchor {
     }
 }
 
-fn to_slice(p: &[f32; 3]) -> [f32; 2] {
+fn to_array2(p: &[f32; 3]) -> [f32; 2] {
     [p[0], p[1]]
 }
 
@@ -51,7 +50,7 @@ impl Anchor {
         match self {
             Self::Translate2D(v) => *v,
             Self::CategorizedTranslate2D(v) => *v.for_category(category),
-            Self::Pose3D(p) => to_slice(&p.trans),
+            Self::Pose3D(p) => to_array2(&p.trans),
         }
     }
 
@@ -74,7 +73,7 @@ impl Anchor {
                         return true;
                     }
                     Self::Pose3D(p) => {
-                        let p_right = Vec2::from_array(to_slice(&p.trans));
+                        let p_right = Vec2::from_array(to_array2(&p.trans));
                         return (p_left - p_right).length() <= dist;
                     }
                 }
@@ -97,7 +96,7 @@ impl Anchor {
                 }
                 Self::Pose3D(p) => {
                     let p_left = Vec2::from_array(*left_categories.for_general());
-                    let p_right = Vec2::from_array(to_slice(&p.trans));
+                    let p_right = Vec2::from_array(to_array2(&p.trans));
                     return (p_left - p_right).length() <= dist;
                 }
             },

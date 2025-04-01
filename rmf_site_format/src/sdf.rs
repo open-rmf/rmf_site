@@ -49,8 +49,8 @@ pub enum SdfConversionError {
     BrokenModelInstanceReference(u32),
     #[error("Entity [{0}] referenced a non existing model description")]
     BrokenModelDescriptionReference(u32),
-    #[error("Failed deserializing world template")]
-    CorruptedWorldTemplate,
+    #[error("Failed deserializing world template: {0}")]
+    CorruptedWorldTemplate(String),
 }
 
 impl Pose {
@@ -433,8 +433,9 @@ impl Site {
                 .get(&id)
                 .ok_or(SdfConversionError::BrokenLevelReference(id))
         };
-        let Ok(mut root) = WORLD_TEMPLATE.clone() else {
-            return Err(SdfConversionError::CorruptedWorldTemplate);
+        let mut root = match WORLD_TEMPLATE.clone() {
+            Ok(root) => root,
+            Err(err) => return Err(SdfConversionError::CorruptedWorldTemplate(err)),
         };
         let world = &mut root.world[0];
         let mut min_elevation = f32::MAX;
