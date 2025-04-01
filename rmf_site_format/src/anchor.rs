@@ -16,6 +16,7 @@
 */
 
 use crate::{Categorized, Category, Pose};
+use bevy::utils::tracing::error;
 #[cfg(feature = "bevy")]
 use bevy::{
     ecs::{query::QueryEntityError, system::SystemParam},
@@ -23,7 +24,6 @@ use bevy::{
 };
 use glam::{Vec2, Vec3};
 use serde::{Deserialize, Serialize};
-use bevy::utils::tracing::error;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 // TODO(MXG): Change this to untagged for a cleaner looking format once this
@@ -42,7 +42,9 @@ impl From<[f32; 2]> for Anchor {
     }
 }
 
-fn to_slice(p: &[f32; 3]) -> [f32; 2] { [p[0], p[1]] }
+fn to_slice(p: &[f32; 3]) -> [f32; 2] {
+    [p[0], p[1]]
+}
 
 impl Anchor {
     pub fn translation_for_category(&self, category: Category) -> [f32; 2] {

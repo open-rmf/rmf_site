@@ -205,14 +205,13 @@ pub fn check_for_close_unconnected_anchors(
                     let poses = anchor_poses.entry(level).or_default();
                     poses.push((
                         e,
-                        match anchors
-                            .point_in_parent_frame_of(e, Category::General, level) {
-                                Ok(p) => p,
-                                Err(err) => {
-                                    error!("Failed fetching anchor pose {:?}", err);
-                                    continue;
-                                }
+                        match anchors.point_in_parent_frame_of(e, Category::General, level) {
+                            Ok(p) => p,
+                            Err(err) => {
+                                error!("Failed fetching anchor pose {:?}", err);
+                                continue;
                             }
+                        },
                     ));
                 }
             }
