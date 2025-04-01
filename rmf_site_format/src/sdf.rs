@@ -538,6 +538,21 @@ impl Site {
                 // TODO(luca) this will duplicate multiple instances of the model since it uses
                 // NameInSite instead of AssetSource for the URI, fix
                 else if !model_description_bundle.is_static.0 .0 {
+                    let mut model_plugins: Vec<SdfPlugin> = Vec::new();
+                    for (label, export_data) in parented_model_instance.bundle.export_data.0.iter()
+                    {
+                        let mut sdf_plugin = SdfPlugin {
+                            name: label.clone(),
+                            filename: "lib".to_string() + label + ".so",
+                            ..Default::default()
+                        };
+                        if let ElementData::Nested(element_map) = export_data.data.clone() {
+                            for element in element_map.all() {
+                                sdf_plugin.elements.push(element.clone());
+                            }
+                        }
+                        model_plugins.push(sdf_plugin);
+                    }
                     world.model.push(SdfModel {
                         name: parented_model_instance.bundle.name.0.clone(),
                         r#static: Some(model_description_bundle.is_static.0 .0),
@@ -568,6 +583,7 @@ impl Site {
                             }],
                             ..Default::default()
                         }],
+                        plugin: model_plugins,
                         ..Default::default()
                     });
                     added = true;

@@ -294,7 +294,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectCircleCollision<'w, 's> {
 
         if new_circle_collision != *circle_collision {
             serialize_and_change_robot_property::<Collision, CircleCollision>(
-                params.change_robot_property,
+                &mut params.change_robot_property,
                 new_circle_collision,
                 robot,
                 description_entity,

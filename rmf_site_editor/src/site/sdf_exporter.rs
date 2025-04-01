@@ -1,8 +1,8 @@
-use bevy::ecs::system::SystemState;
+use bevy::ecs::system::{BoxedSystem, SystemState};
 use bevy::prelude::*;
 use bevy_gltf_export::{export_meshes, CompressGltfOptions, MeshData};
 
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 
 use crate::WorkspaceSaver;
 
@@ -39,6 +39,30 @@ impl HeadlessSdfExportState {
             save_requested: false,
             target_path: path.into(),
         }
+    }
+}
+
+#[derive(Deref, DerefMut)]
+pub struct ExportHandler(pub BoxedSystem<(Entity, serde_json::Value), sdformat_rs::XmlElement>);
+
+impl ExportHandler {
+    pub fn export(
+        &mut self,
+        entity: Entity,
+        value: serde_json::Value,
+        world: &mut World,
+    ) -> sdformat_rs::XmlElement {
+        self.0.initialize(world);
+        self.0.run((entity, value), world)
+    }
+}
+
+#[derive(Default, Resource, Deref, DerefMut)]
+pub struct ExportHandlers(pub HashMap<String, ExportHandler>);
+
+impl ExportHandlers {
+    pub fn insert(&mut self, label: String, handler: ExportHandler) {
+        self.0.insert(label, handler);
     }
 }
 
