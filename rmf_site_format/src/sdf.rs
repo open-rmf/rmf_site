@@ -28,14 +28,8 @@ use tracing::error;
 
 const DEFAULT_CABIN_MASS: f64 = 1200.0;
 
-static WORLD_TEMPLATE: Lazy<SdfRoot> = Lazy::new(|| {
-    match yaserde::de::from_str(include_str!("templates/gz_world.sdf")) {
-        Ok(sdf_root) => sdf_root,
-        Err(err) => {
-            error!("Failed deserializing template {:?}", err);
-            Default::default()
-        }
-    }
+static WORLD_TEMPLATE: Lazy<Result<SdfRoot, String>> = Lazy::new(|| {
+    yaserde::de::from_str(include_str!("templates/gz_world.sdf"))
 });
 
 #[derive(Debug, Error)]
@@ -56,6 +50,8 @@ pub enum SdfConversionError {
     BrokenModelInstanceReference(u32),
     #[error("Entity [{0}] referenced a non existing model description")]
     BrokenModelDescriptionReference(u32),
+    #[error("Failed deserializing world template")]
+    CorruptedWorldTemplate,
 }
 
 impl Pose {
@@ -438,7 +434,9 @@ impl Site {
                 .get(&id)
                 .ok_or(SdfConversionError::BrokenLevelReference(id))
         };
-        let mut root = WORLD_TEMPLATE.clone();
+        let Ok(mut root) = WORLD_TEMPLATE.clone() else {
+            return Err(SdfConversionError::CorruptedWorldTemplate);
+        };
         let world = &mut root.world[0];
         let mut min_elevation = f32::MAX;
         let mut max_elevation = f32::MIN;
@@ -861,7 +859,6 @@ impl Site {
 
 #[cfg(test)]
 mod tests {
-    use bevy::utils::tracing::error;
     use crate::legacy::building_map::BuildingMap;
 
     #[test]
@@ -877,8 +874,6 @@ mod tests {
             ..Default::default()
         };
         let s = yaserde::ser::to_string_with_config(&sdf, &config).unwrap();
-        if let Err(e) = std::fs::write("test.sdf", s) {
-            error!("Unable to write test.sdf {:?}", e);
-        };
+        std::fs::write("test.sdf", s).unwrap();
     }
 }
