@@ -215,14 +215,16 @@ pub fn view_reference(
                     offset.anchor.0, offset.anchor.1
                 ));
                 let zone = lat_lon_to_zone_number(offset.anchor.0.into(), offset.anchor.1.into());
-                let zone_letter = lat_to_zone_letter(offset.anchor.0.into());
+                let zone_letter =
+                    if let Some(zone_letter) = lat_to_zone_letter(offset.anchor.0.into()) {
+                        zone_letter.to_string()
+                    } else {
+                        String::with_capacity(0)
+                    };
                 let utm_offset = to_utm_wgs84(offset.anchor.0.into(), offset.anchor.1.into(), zone);
                 ui.label(format!(
                     "Equivalent UTM offset is Zone {}{} with eastings and northings {}, {}",
-                    zone,
-                    zone_letter.unwrap(),
-                    utm_offset.1,
-                    utm_offset.0
+                    zone, zone_letter, utm_offset.1, utm_offset.0
                 ));
                 if ui.button("Close").clicked() {
                     window.visible = false;

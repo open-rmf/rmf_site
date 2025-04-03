@@ -1308,15 +1308,20 @@ pub(crate) fn make_finite_grid(
         }
     }
 
-    result.extend(polylines.into_iter().map(|(n, polyline)| {
-        let width = *weights.get(&n).unwrap();
+    result.extend(polylines.into_iter().map_while(|(n, polyline)| {
+        let width = match weights.get(&n) {
+            Some(width_ref) => *width_ref,
+            None => {
+                return None;
+            }
+        };
         let material = PolylineMaterial {
             width,
             color,
             depth_bias,
             perspective,
         };
-        (polyline, material)
+        Some((polyline, material))
     }));
     result
 }

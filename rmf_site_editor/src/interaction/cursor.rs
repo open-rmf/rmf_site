@@ -146,8 +146,10 @@ impl Cursor {
 
 impl FromWorld for Cursor {
     fn from_world(world: &mut World) -> Self {
+        // startup
         let interaction_assets = world.get_resource::<InteractionAssets>()
             .expect("make sure that the InteractionAssets resource is initialized before the Cursor resource");
+        // startup
         let site_assets = world.get_resource::<SiteAssets>().expect(
             "make sure that the SiteAssets resource is initialized before the Cursor resource",
         );

@@ -182,12 +182,12 @@ impl LogHistory {
             .take(self.display_limit)
     }
 
-    pub fn category_present(&self, category: &LogCategory) -> &bool {
-        self.category_filter.get(category).unwrap()
+    pub fn category_present(&self, category: &LogCategory) -> Option<&bool> {
+        self.category_filter.get(category)
     }
 
-    pub fn category_present_mut(&mut self, category: LogCategory) -> &mut bool {
-        self.category_filter.get_mut(&category).unwrap()
+    pub fn category_present_mut(&mut self, category: LogCategory) -> Option<&mut bool> {
+        self.category_filter.get_mut(&category)
     }
 
     pub fn display_limit(&self) -> usize {
@@ -261,12 +261,16 @@ impl Visit for LogRecorder {
         } else {
             if self.1 {
                 // following args
-                write!(self.0, " ").unwrap();
+                if let Err(e) = write!(self.0, " ") {
+                    error!("Error while writing {:?}", e);
+                }
             } else {
                 // first arg
                 self.1 = true;
             }
-            write!(self.0, "{} = {:?};", field.name(), value).unwrap();
+            if let Err(e) = write!(self.0, "{} = {:?};", field.name(), value) {
+                error!("Error while writing {:?}", e);
+            }
         }
     }
 }
@@ -315,8 +319,11 @@ where
         let log = Log { category, message };
         let send_message = self.sender.send(log);
         match send_message {
-            Ok(()) => send_message.unwrap(),
-            Err(SendError(e)) => println!("Unable to send log: {:?}", e),
+            Ok(()) => match send_message {
+                Ok(()) => (),
+                Err(e) => error!("Unable to send log: {:?}", e),
+            },
+            Err(SendError(e)) => error!("Unable to send log: {:?}", e),
         }
     }
 }

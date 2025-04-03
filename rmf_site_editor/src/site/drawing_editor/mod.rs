@@ -230,11 +230,12 @@ fn make_drawing_default_selected(
 ) {
     if selection.is_changed() {
         if selection.0.is_none() {
-            let drawing_entity = current
-                .target()
-                .expect("No drawing while spawning drawing anchor")
-                .drawing;
-            selection.0 = Some(drawing_entity);
+            if let Some(c) = current.target() {
+                let drawing_entity = c.drawing;
+                selection.0 = Some(drawing_entity);
+            } else {
+                error!("No drawing while spawning drawing anchor");
+            };
         }
     }
 }
