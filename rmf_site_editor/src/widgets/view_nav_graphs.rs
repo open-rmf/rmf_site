@@ -22,6 +22,7 @@ use crate::{
         NavGraphMarker, SaveNavGraphs, DEFAULT_NAV_GRAPH_COLORS,
     },
     widgets::{inspector::color_edit, prelude::*, Icons, MoveLayerButton, SelectorWidget},
+    workspace::{FileDialogFilter, FileDialogServices},
     AppState, Autoload, ChangeRank, CurrentWorkspace,
 };
 use bevy::{
@@ -30,6 +31,7 @@ use bevy::{
     tasks::{AsyncComputeTaskPool, Task},
 };
 use bevy_egui::egui::{CollapsingHeader, ImageButton, Ui};
+use bevy_impulse::RequestExt;
 use futures_lite::future;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -42,6 +44,7 @@ pub struct ViewNavGraphsPlugin {}
 impl Plugin for ViewNavGraphsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<NavGraphDisplay>()
+            .init_resource::<FileDialogServices>()
             .add_plugins(PropertiesTilePlugin::<ViewNavGraphs>::new());
     }
 }
@@ -72,6 +75,7 @@ pub struct ViewNavGraphs<'w, 's> {
     selector: SelectorWidget<'w, 's>,
     commands: Commands<'w, 's>,
     app_state: Res<'w, State<AppState>>,
+    file_dialog_services: ResMut<'w, FileDialogServices>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for ViewNavGraphs<'w, 's> {
@@ -214,17 +218,28 @@ impl<'w, 's> ViewNavGraphs<'w, 's> {
                             warn!("A file is already being chosen!");
                         }
                         None => {
+                            let file_dialog_filters = vec![FileDialogFilter {
+                                name: "Site".into(),
+                                extensions: vec!["site.ron".into(), "site.json".into()],
+                            }];
+
+                            let promise = self
+                                .commands
+                                .request(
+                                    file_dialog_filters,
+                                    self.file_dialog_services.pick_file_and_load,
+                                )
+                                .take_response();
                             let future = AsyncComputeTaskPool::get().spawn(async move {
-                                // TODO(luca) change this to use FileDialogServices
-                                // https://github.com/open-rmf/rmf_site/issues/248
-                                let file = match AsyncFileDialog::new().pick_file().await {
-                                    Some(file) => file,
-                                    None => return None,
+                                let Some((file_path, file_buffer)) =
+                                    promise.await.take().available()
+                                else {
+                                    return None;
                                 };
 
-                                match rmf_site_format::Site::from_bytes_ron(&file.read().await) {
+                                match rmf_site_format::Site::from_bytes_ron(&file_buffer) {
                                     Ok(from_site) => Some((
-                                        file.path().to_owned(),
+                                        file_path,
                                         ImportNavGraphs {
                                             into_site,
                                             from_site,
