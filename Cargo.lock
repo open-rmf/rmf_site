@@ -4079,9 +4079,12 @@ dependencies = [
 name = "rmf_scene_composer"
 version = "0.1.0"
 dependencies = [
+ "bevy",
  "pkg-config",
  "prost",
  "prost-build",
+ "rmf_site_editor",
+ "thiserror",
 ]
 
 [[package]]
