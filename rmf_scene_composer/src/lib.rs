@@ -21,5 +21,9 @@ use generate_scene::*;
 mod protos;
 pub use protos::*;
 
+mod scene_subscription;
+use scene_subscription::*;
+
 mod scene_loading;
 use scene_loading::*;
+

@@ -20,7 +20,7 @@ use crate::protos::gz::msgs::Scene;
 use librmf_site_editor::site::ModelLoader;
 use bevy::prelude::*;
 
-fn generate_scene(
+pub(crate) fn generate_scene(
     root: Entity,
     scene: Scene,
     commands: &mut Commands,
