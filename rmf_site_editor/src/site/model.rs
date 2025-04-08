@@ -347,6 +347,7 @@ fn instance_spawn_request_into_model_load_request(
     Ok(ModelLoadingRequest {
         parent: request.parent,
         source: source.0.clone(),
+        interaction: Some(DragPlaneBundle::new(request.parent, Vec3::Z)),
     })
 }
 
@@ -399,8 +400,14 @@ impl<'w, 's> ModelLoader<'w, 's> {
     }
 
     /// Run a basic workflow to update the asset source of an existing entity
-    pub fn update_asset_source(&mut self, entity: Entity, source: AssetSource) {
-        self.update_asset_source_impulse(entity, source).detach();
+    pub fn update_asset_source(
+        &mut self,
+        entity: Entity,
+        source: AssetSource,
+        interaction: Option<DragPlaneBundle>,
+    ) {
+        self.update_asset_source_impulse(entity, source, interaction)
+            .detach();
     }
 
     /// Update an asset source and then keep attaching impulses to its outcome.
@@ -410,9 +417,10 @@ impl<'w, 's> ModelLoader<'w, 's> {
         &mut self,
         entity: Entity,
         source: AssetSource,
+        interaction: Option<DragPlaneBundle>,
     ) -> Impulse<'w, 's, '_, ModelLoadingResult, ()> {
         self.commands.request(
-            ModelLoadingRequest::new(entity, source),
+            ModelLoadingRequest::new(entity, source, interaction),
             self.services
                 .load_model
                 .clone()
@@ -422,7 +430,12 @@ impl<'w, 's> ModelLoader<'w, 's> {
 
     /// Update the asset source of all model instances affiliated with the provided
     /// model description
-    pub fn update_description_asset_source(&mut self, entity: Entity, source: AssetSource) {
+    pub fn update_description_asset_source(
+        &mut self,
+        entity: Entity,
+        source: AssetSource,
+        interaction: Option<DragPlaneBundle>,
+    ) {
         let mut instance_entities = HashSet::new();
         for (e, affiliation) in self.model_instances.iter() {
             if let Some(description_entity) = affiliation.0 {
@@ -432,7 +445,7 @@ impl<'w, 's> ModelLoader<'w, 's> {
             }
         }
         for e in instance_entities.iter() {
-            self.update_asset_source_impulse(*e, source.clone())
+            self.update_asset_source_impulse(*e, source.clone(), interaction.clone())
                 .detach();
         }
     }
@@ -453,7 +466,10 @@ fn load_model_dependencies(
     async move {
         for (model_entity, source) in models {
             channel
-                .query(ModelLoadingRequest::new(model_entity, source), load_model)
+                .query(
+                    ModelLoadingRequest::new(model_entity, source, request.interaction.clone()),
+                    load_model,
+                )
                 .await
                 .available()
                 .ok_or_else(|| {
@@ -566,11 +582,17 @@ pub struct ModelLoadingRequest {
     pub parent: Entity,
     /// AssetSource pointing to which asset we want to load
     pub source: AssetSource,
+    /// Indicates if model should be made selectable
+    pub interaction: Option<DragPlaneBundle>,
 }
 
 impl ModelLoadingRequest {
-    pub fn new(parent: Entity, source: AssetSource) -> Self {
-        Self { parent, source }
+    pub fn new(parent: Entity, source: AssetSource, interaction: Option<DragPlaneBundle>) -> Self {
+        Self {
+            parent,
+            source,
+            interaction,
+        }
     }
 }
 
@@ -671,6 +693,9 @@ pub fn make_models_selectable(
 ) -> ModelLoadingRequest {
     // Pending items (i.e. mouse previews) should not be selectable
     if pending_or_previews.get(req.parent).is_ok() {
+        return req;
+    }
+    if req.interaction.is_none() {
         return req;
     }
     // Use a small vec here to try to dodge heap allocation if possible.

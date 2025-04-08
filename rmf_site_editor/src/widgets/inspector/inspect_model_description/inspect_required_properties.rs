@@ -17,6 +17,7 @@
 
 use super::{get_selected_description_entity, ModelPropertyQuery};
 use crate::{
+    interaction::DragPlaneBundle,
     site::{
         AssetSource, Change, DefaultFile, Group, ModelLoader, ModelMarker, ModelProperty,
         RecallAssetSource, Scale,
@@ -107,9 +108,12 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelAssetSource<'w, 's> {
                 ModelProperty(new_source.clone()),
                 description_entity,
             ));
-            params
-                .model_loader
-                .update_description_asset_source(description_entity, new_source);
+            let interaction = DragPlaneBundle::new(description_entity, Vec3::Z);
+            params.model_loader.update_description_asset_source(
+                description_entity,
+                new_source,
+                Some(interaction),
+            );
         }
     }
 }

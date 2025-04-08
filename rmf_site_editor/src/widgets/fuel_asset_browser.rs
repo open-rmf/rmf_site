@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    interaction::{ModelPreviewCamera, ObjectPlacement},
+    interaction::{DragPlaneBundle, ModelPreviewCamera, ObjectPlacement},
     site::{
         Affiliation, AssetSource, Category, FuelClient, ModelDescriptionBundle, ModelInstance,
         ModelLoader, ModelProperty, NameInSite, SetFuelApiKey, UpdateFuelCache,
@@ -269,7 +269,12 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                         let source = AssetSource::Remote(
                             selected.owner.clone() + "/" + &selected.name + "/model.sdf",
                         );
-                        self.model_loader.update_asset_source(model_entity, source);
+                        let interaction = DragPlaneBundle::new(model_entity, Vec3::Z);
+                        self.model_loader.update_asset_source(
+                            model_entity,
+                            source,
+                            Some(interaction),
+                        );
                         gallery_status.selected = Some(selected.clone());
                     }
                 }
