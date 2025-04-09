@@ -38,7 +38,7 @@ pub enum SceneLoadingError {
     GeometryNotFound(String),
 }
 
-fn generate_scene(
+pub(crate) fn generate_scene(
     root: Entity,
     scene: Scene,
     commands: &mut Commands,
