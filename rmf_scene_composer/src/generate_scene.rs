@@ -107,7 +107,7 @@ pub(crate) fn generate_scene(
                             .clone()
                             .or(light.specular.clone())
                             .map(|color| [color.r, color.g, color.b, color.a])
-                            .unwrap_or([0.0; 4]),
+                            .unwrap_or([1.0; 4]),
                         intensity: light.intensity.clone(),
                         range: light.range.clone(),
                         radius: 0.0,
@@ -126,7 +126,7 @@ pub(crate) fn generate_scene(
                             .clone()
                             .or(light.specular.clone())
                             .map(|color| [color.r, color.g, color.b, color.a])
-                            .unwrap_or([0.0; 4]),
+                            .unwrap_or([1.0; 4]),
                         intensity: light.intensity.clone(),
                         range: light.range.clone(),
                         radius: 0.0,
