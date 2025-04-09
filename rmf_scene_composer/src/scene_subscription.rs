@@ -46,7 +46,7 @@ use librmf_site_editor::site::ModelLoader;
 pub struct SceneSubscriber<'w, 's> {
     commands: Commands<'w, 's>,
     workflow: Res<'w, SceneSubscriptionWorkflow>,
-    interaction_assets: Res<'w, InteractionAssets>,
+    subscriptions: Query<'w, 's, &'static mut SceneSubscription>,
 }
 
 impl<'w, 's> SceneSubscriber<'w, 's> {
@@ -61,26 +61,10 @@ impl<'w, 's> SceneSubscriber<'w, 's> {
             VisualCue::outline(),
         )).id();
 
-        // Make an initial set of axes to visualize the scene while we wait for
-        // the data to arrive.
-        let axes = self.interaction_assets.make_orientation_cue_meshes(
-            &mut self.commands,
-            scene_root,
-            1.0,
-        );
-        // Allow the axes to be selected and dragged to move the scene around
-        for axis in axes {
-            self.commands.entity(axis).insert((
-                DragPlaneBundle::new(scene_root, Vec3::Z).globally(),
-                OutlineVisualization::default(),
-                VisualCue::outline(),
-            ));
-        }
-
         let subscription = self.commands.request(
             SceneSubscriptionRequest {
                 topic_name: topic_name.clone(),
-                root: scene_root,
+                scene_root,
             },
             self.workflow.service,
         ).take_response();
@@ -91,6 +75,49 @@ impl<'w, 's> SceneSubscriber<'w, 's> {
         });
 
         scene_root
+    }
+
+    pub fn change_subscription(
+        &mut self,
+        scene_root: Entity,
+        new_topic_name: String,
+    ) {
+        if let Ok(mut scene) = self.subscriptions.get_mut(scene_root) {
+            if scene.topic_name == new_topic_name {
+                // Topic name has not changed, so there is no need to do anything
+                return;
+            }
+
+            let new_subscription = self.commands.request(
+                SceneSubscriptionRequest {
+                    topic_name: new_topic_name.clone(),
+                    scene_root,
+                },
+                self.workflow.service,
+            ).take_response();
+
+            scene.topic_name = new_topic_name;
+            scene.subscription = new_subscription;
+        } else {
+            // Somehow this entity wasn't already a scene... this is suspicious,
+            // but we'll just spawn a new subscription for it.
+            let subscription = self.commands.request(
+                SceneSubscriptionRequest {
+                    topic_name: new_topic_name.clone(),
+                    scene_root,
+                },
+                self.workflow.service,
+            ).take_response();
+
+            self.commands.entity(scene_root).insert(SceneSubscription {
+                topic_name: new_topic_name,
+                subscription,
+            });
+        }
+    }
+
+    pub fn get_subscription(&self, scene_root: Entity) -> Option<&SceneSubscription> {
+        self.subscriptions.get(scene_root).ok()
     }
 }
 
@@ -163,12 +190,18 @@ impl Plugin for SceneSubscribingPlugin {
                 error!("{error}");
             });
 
+            let basic_scene_visual = builder.commands().spawn_service(
+                set_basic_scene_visual.into_blocking_service()
+            );
+
             let on_error = error_node.input;
             builder.connect(error_node.output, scope.terminate);
 
             let subscription_node = scope
                 .input
                 .chain(builder)
+                .then(basic_scene_visual)
+                .branch_for_err(|err: Chain<()>| err.connect(scope.terminate))
                 .fork_clone((
                     |chain: Chain<_>| chain.output(),
                     |chain: Chain<_>| {
@@ -186,14 +219,14 @@ impl Plugin for SceneSubscribingPlugin {
                 .map_node(|input: AsyncMap<(SceneSubscriptionRequest, Arc<Session>), StreamOf<SceneUpdate>>| {
                     async move {
                         let (request, session) = input.request;
-                        let SceneSubscriptionRequest { topic_name, root } = request;
+                        let SceneSubscriptionRequest { topic_name, scene_root: root } = request;
                         let subscriber = session.declare_subscriber(&topic_name).await?;
                         loop {
                             match subscriber.recv_async().await {
                                 Ok(sample) => {
                                     match Scene::decode(&*sample.payload().to_bytes()) {
                                         Ok(scene) => {
-                                            input.streams.send(StreamOf(SceneUpdate { root, scene }));
+                                            input.streams.send(StreamOf(SceneUpdate { scene_root: root, scene }));
                                         }
                                         Err(err) => {
                                             error!("Error decoding incoming scene message on topic [{topic_name}]: {err}");
@@ -230,9 +263,42 @@ impl Plugin for SceneSubscribingPlugin {
     }
 }
 
+fn set_basic_scene_visual(
+    In(request): In<SceneSubscriptionRequest>,
+    world: &mut World,
+) -> Result<SceneSubscriptionRequest, ()> {
+    let scene_root = request.scene_root;
+
+    // Clear any pre-existing children
+    world.get_entity_mut(request.scene_root).ok_or(())?.despawn_descendants();
+
+    // Insert the basic axes
+    world.resource_scope::<InteractionAssets, _>(|world, interaction_assets| {
+        world.command(|mut commands| {
+            // Make an initial set of axes to visualize the scene while we wait for
+            // the data to arrive.
+            let axes = interaction_assets.make_orientation_cue_meshes(
+                &mut commands,
+                scene_root,
+                1.0,
+            );
+            // Allow the axes to be selected and dragged to move the scene around
+            for axis in axes {
+                commands.entity(axis).insert((
+                    DragPlaneBundle::new(scene_root, Vec3::Z).globally(),
+                    OutlineVisualization::default(),
+                    VisualCue::outline(),
+                ));
+            }
+        });
+    });
+
+    Ok(request)
+}
+
 // TODO(@mxgrey): Replace this with a direct call to generate_scene
 fn generate_scene_sys(
-    In(SceneUpdate { root, scene }): In<SceneUpdate>,
+    In(SceneUpdate { scene_root: root, scene }): In<SceneUpdate>,
     mut commands: Commands,
     mut model_loader: ModelLoader,
     children: Query<&Children>,
@@ -287,10 +353,10 @@ pub(crate) struct SceneSubscriptionWorkflow {
 #[derive(Clone, Debug)]
 struct SceneSubscriptionRequest {
     topic_name: String,
-    root: Entity,
+    scene_root: Entity,
 }
 
 struct SceneUpdate {
-    root: Entity,
+    scene_root: Entity,
     scene: Scene,
 }

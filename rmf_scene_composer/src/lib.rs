@@ -33,6 +33,9 @@ use scene_loading::*;
 mod scene_placement;
 pub use scene_placement::*;
 
+mod scene_inspection_widget;
+pub use scene_inspection_widget::*;
+
 use bevy::prelude::*;
 
 #[derive(Default)]
@@ -44,6 +47,7 @@ impl Plugin for SceneComposerPlugin {
             SceneSubscribingPlugin::default(),
             ScenePlacementPlugin::default(),
             SceneCreationPlugin::default(),
+            SceneInspectionPlugin::default(),
         ));
     }
 }
