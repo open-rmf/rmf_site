@@ -5121,16 +5121,21 @@ dependencies = [
 name = "rmf_scene_composer"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "bevy",
+ "bevy_egui",
  "bevy_impulse",
  "clap",
+ "futures",
  "glam",
  "pkg-config",
  "prost",
  "prost-build",
  "rmf_site_editor",
+ "rmf_site_format",
  "sdformat_rs",
  "thiserror 2.0.12",
+ "tokio",
  "zenoh",
 ]
 

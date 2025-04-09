@@ -15,7 +15,10 @@
  *
 */
 
-use crate::protos::gz::msgs::{Geometry, Model, Pose, Scene, geometry::Type, light::LightType};
+use crate::{
+    protos::gz::msgs::{Geometry, Model, Pose, geometry::Type, light::LightType},
+    SceneUpdate,
+};
 
 use thiserror::Error;
 
@@ -39,14 +42,23 @@ pub enum SceneLoadingError {
 }
 
 pub(crate) fn generate_scene(
-    root: Entity,
-    scene: Scene,
-    commands: &mut Commands,
-    model_loader: &mut ModelLoader,
+    In(SceneUpdate{ scene_root, scene }): In<SceneUpdate>,
+    mut commands: Commands,
+    mut model_loader: ModelLoader,
+    children: Query<&Children>,
 ) {
+    // Despawn any old children to clear space for the new scene
+    if let Ok(children) = children.get(scene_root) {
+        for child in children {
+            if let Some(e) = commands.get_entity(*child) {
+                e.despawn_recursive();
+            }
+        }
+    }
+
     for scene_model in &scene.model {
         let mut queue = VecDeque::<(Entity, &Model)>::new();
-        queue.push_back((root, scene_model));
+        queue.push_back((scene_root, scene_model));
         while let Some((parent, model)) = queue.pop_front() {
             let model_pose = parse_pose(&model.pose);
             let model_entity = commands
@@ -63,13 +75,13 @@ pub(crate) fn generate_scene(
 
                 for visual in &link.visual {
                     if let Ok(id) = spawn_geometry(
-                        commands,
+                        &mut commands,
                         &visual.geometry,
                         &visual.pose,
                         &visual.name,
                         model.is_static,
-                        root, // If any link is selected, the root scene will be selected
-                        model_loader,
+                        scene_root, // If any link is selected, the root scene will be selected
+                        &mut model_loader,
                     ) {
                         match id {
                             Some(id) => {
@@ -114,7 +126,7 @@ pub(crate) fn generate_scene(
                         enable_shadows: light.cast_shadows,
                     }),
                 })
-                .set_parent(root)
+                .set_parent(scene_root)
                 .id();
         } else if light_type == LightType::Spot as i32 {
             let _ = commands
@@ -133,7 +145,7 @@ pub(crate) fn generate_scene(
                         enable_shadows: light.cast_shadows,
                     }),
                 })
-                .set_parent(root)
+                .set_parent(scene_root)
                 .id();
         } else if light_type == LightType::Directional as i32 {
             let _ = commands
@@ -148,7 +160,7 @@ pub(crate) fn generate_scene(
                         enable_shadows: light.cast_shadows,
                     }),
                 })
-                .set_parent(root)
+                .set_parent(scene_root)
                 .id();
         }
     }
@@ -210,9 +222,9 @@ fn spawn_geometry(
                             marker: ModelMarker,
                         })
                         .id();
-                    let interaction = DragPlaneBundle::new(root, Vec3::Z);
+                    let interaction = DragPlaneBundle::new(root, Vec3::Z).globally();
                     model_loader
-                        .update_asset_source_impulse(mesh_entity, asset_source, Some(interaction))
+                        .update_asset_source_impulse(mesh_entity, asset_source, Some(interaction.clone()))
                         .detach();
                     return Ok(Some(mesh_entity));
                 }

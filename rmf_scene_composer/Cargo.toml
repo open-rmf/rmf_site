@@ -15,10 +15,14 @@ name = "rmf_scene_composer"
 prost = "0.13.5"
 bevy = "0.12"
 rmf_site_editor = { path = "../rmf_site_editor" }
-zenoh = "1.3.2"
+rmf_site_format = { path = "../rmf_site_format" }
+zenoh = { version = "1.3.2", features = ["unstable"] }
 bevy_impulse = { git = "https://github.com/open-rmf/bevy_impulse", branch = "main" }
 thiserror = "*"
 glam = "*"
+bevy_egui = "0.23"
+anyhow = "*"
+futures = "0.3.31"
 
 [build-dependencies]
 pkg-config = "0.3.32"
@@ -28,3 +32,4 @@ thiserror = "*"
 [dev-dependencies]
 sdformat_rs = { git = "https://github.com/open-rmf/sdf_rust_experimental", rev = "9fc35f2"}
 clap = { version = "4.0.10", features = ["color", "derive", "help", "usage", "suggestions"] }
+tokio = "*"

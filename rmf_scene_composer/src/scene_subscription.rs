@@ -20,19 +20,141 @@ use crate::{
     generate_scene,
 };
 
+use rmf_site_format::*;
+
+use librmf_site_editor::interaction::{
+    InteractionAssets, DragPlaneBundle, OutlineVisualization, VisualCue,
+};
+
 use bevy::{
     prelude::*,
     ecs::system::SystemParam,
 };
+
 use bevy_impulse::*;
 use std::{
+    borrow::Cow,
     error::Error,
     sync::Arc,
 };
 use thiserror::Error as ThisError;
 use zenoh::Session;
 use prost::Message;
-use librmf_site_editor::site::ModelLoader;
+
+use futures::channel::oneshot::{channel, Sender, Receiver};
+
+#[derive(SystemParam)]
+pub struct SceneSubscriber<'w, 's> {
+    commands: Commands<'w, 's>,
+    workflow: Res<'w, SceneSubscriptionWorkflow>,
+    subscriptions: Query<'w, 's, &'static mut SceneSubscription>,
+}
+
+impl<'w, 's> SceneSubscriber<'w, 's> {
+    pub fn spawn_subscriber(
+        &mut self,
+        topic_name: String,
+    ) -> Entity {
+        let scene_root = self.commands.spawn((
+            SpatialBundle::INHERITED_IDENTITY,
+            Category::Custom(Cow::Borrowed("Scene")),
+            OutlineVisualization::default(),
+            VisualCue::outline(),
+        )).id();
+
+        self.commands.entity(scene_root).insert(
+            DragPlaneBundle::new(scene_root, Vec3::Z).globally()
+        );
+
+        let (drop_last_subscription, subscription_dropped) = channel();
+
+        let subscription = self.commands.request(
+            SceneSubscriptionRequest {
+                topic_name: topic_name.clone(),
+                scene_root,
+                subscription_dropped,
+            },
+            self.workflow.service,
+        ).take_response();
+
+        self.commands.entity(scene_root).insert(SceneSubscription {
+            topic_name,
+            subscription,
+            drop_last_subscription: Some(drop_last_subscription),
+        });
+
+        scene_root
+    }
+
+    pub fn change_subscription(
+        &mut self,
+        scene_root: Entity,
+        new_topic_name: String,
+    ) {
+        if let Ok(mut scene) = self.subscriptions.get_mut(scene_root) {
+            if scene.topic_name == new_topic_name {
+                // Topic name has not changed, so there is no need to do anything
+                return;
+            }
+
+            scene.drop_last_subscription.take().map(|s| s.send(()));
+
+            let (drop_last_subscription, subscription_dropped) = channel();
+
+            let new_subscription = self.commands.request(
+                SceneSubscriptionRequest {
+                    topic_name: new_topic_name.clone(),
+                    scene_root,
+                    subscription_dropped,
+                },
+                self.workflow.service,
+            ).take_response();
+
+            scene.topic_name = new_topic_name;
+            scene.subscription = new_subscription;
+            scene.drop_last_subscription = Some(drop_last_subscription);
+        } else {
+            let (drop_last_subscription, subscription_dropped) = channel();
+
+            // Somehow this entity wasn't already a scene... this is suspicious,
+            // but we'll just spawn a new subscription for it.
+            let subscription = self.commands.request(
+                SceneSubscriptionRequest {
+                    topic_name: new_topic_name.clone(),
+                    scene_root,
+                    subscription_dropped,
+                },
+                self.workflow.service,
+            ).take_response();
+
+            self.commands.entity(scene_root).insert(SceneSubscription {
+                topic_name: new_topic_name,
+                subscription,
+                drop_last_subscription: Some(drop_last_subscription),
+            });
+        }
+    }
+
+    pub fn get_subscription(&self, scene_root: Entity) -> Option<&SceneSubscription> {
+        self.subscriptions.get(scene_root).ok()
+    }
+}
+
+#[derive(Component)]
+pub struct SceneSubscription {
+    topic_name: String,
+    #[allow(unused)]
+    subscription: Promise<()>,
+    // TODO(@mxgrey): This should not be necessary
+    // when https://github.com/open-rmf/bevy_impulse/issues/64 is resolved
+    drop_last_subscription: Option<Sender<()>>,
+}
+
+impl SceneSubscription {
+    pub fn topic_name(&self) -> &str {
+        &self.topic_name
+    }
+}
 
 #[derive(Default)]
 pub(crate) struct SceneSubscribingPlugin {}
@@ -90,37 +212,57 @@ impl Plugin for SceneSubscribingPlugin {
                 error!("{error}");
             });
 
+            let basic_scene_visual = builder.commands().spawn_service(
+                set_basic_scene_visual.into_blocking_service()
+            );
+
             let on_error = error_node.input;
             builder.connect(error_node.output, scope.terminate);
 
             let subscription_node = scope
                 .input
                 .chain(builder)
-                .fork_clone((
-                    |chain: Chain<_>| chain.output(),
-                    |chain: Chain<_>| {
-                        chain
-                            .trigger()
-                            .then(get_session)
-                            .fork_result(
-                                |ok| ok.output(),
-                                |err| err.connect(on_error),
-                            )
-                            .0
-                    }
-                ))
+                .then(basic_scene_visual)
+                .branch_for_err(|err: Chain<()>| err.connect(scope.terminate))
+                .map_block(|r| (r, ()))
+                .fork_unzip(
+                    (
+                        |chain: Chain<_>| chain.output(),
+                        |chain: Chain<_>| {
+                            chain
+                                .then(get_session)
+                                .fork_result(
+                                    |ok| ok.output(),
+                                    |err| err.connect(on_error),
+                                )
+                                .0
+                        }
+                    )
+                )
                 .join(builder)
                 .map_node(|input: AsyncMap<(SceneSubscriptionRequest, Arc<Session>), StreamOf<SceneUpdate>>| {
                     async move {
                         let (request, session) = input.request;
-                        let SceneSubscriptionRequest { topic_name, root } = request;
+                        let SceneSubscriptionRequest { topic_name, scene_root, subscription_dropped: mut drop_subscription } = request;
+
                         let subscriber = session.declare_subscriber(&topic_name).await?;
                         loop {
-                            match subscriber.recv_async().await {
+                            let sample = match futures::future::select(
+                                subscriber.recv_async(),
+                                drop_subscription,
+                            ).await {
+                                futures::future::Either::Left((sample, d)) => {
+                                    drop_subscription = d;
+                                    sample
+                                }
+                                futures::future::Either::Right(_) => return Ok(()),
+                            };
+
+                            match sample {
                                 Ok(sample) => {
                                     match Scene::decode(&*sample.payload().to_bytes()) {
                                         Ok(scene) => {
-                                            input.streams.send(StreamOf(SceneUpdate { root, scene }));
+                                            input.streams.send(StreamOf(SceneUpdate { scene_root, scene }));
                                         }
                                         Err(err) => {
                                             error!("Error decoding incoming scene message on topic [{topic_name}]: {err}");
@@ -147,7 +289,7 @@ impl Plugin for SceneSubscribingPlugin {
                 .streams
                 .chain(builder)
                 .inner()
-                .then(generate_scene_sys.into_blocking_callback())
+                .then(generate_scene.into_blocking_callback())
                 .unused();
         });
 
@@ -157,13 +299,37 @@ impl Plugin for SceneSubscribingPlugin {
     }
 }
 
-// TODO(@mxgrey): Replace this with a direct call to generate_scene
-fn generate_scene_sys(
-    In(SceneUpdate { root, scene }): In<SceneUpdate>,
-    mut commands: Commands,
-    mut model_loader: ModelLoader,
-) {
-    generate_scene(root, scene, &mut commands, &mut model_loader);
+fn set_basic_scene_visual(
+    In(request): In<SceneSubscriptionRequest>,
+    world: &mut World,
+) -> Result<SceneSubscriptionRequest, ()> {
+    let scene_root = request.scene_root;
+
+    // Clear any pre-existing children
+    world.get_entity_mut(request.scene_root).ok_or(())?.despawn_descendants();
+
+    // Insert the basic axes
+    world.resource_scope::<InteractionAssets, _>(|world, interaction_assets| {
+        world.command(|mut commands| {
+            // Make an initial set of axes to visualize the scene while we wait for
+            // the data to arrive.
+            let axes = interaction_assets.make_orientation_cue_meshes(
+                &mut commands,
+                scene_root,
+                1.0,
+            );
+            // Allow the axes to be selected and dragged to move the scene around
+            for axis in axes {
+                commands.entity(axis).insert((
+                    DragPlaneBundle::new(scene_root, Vec3::Z).globally(),
+                    OutlineVisualization::default(),
+                    VisualCue::outline(),
+                ));
+            }
+        });
+    });
+
+    Ok(request)
 }
 
 #[derive(ThisError, Debug)]
@@ -172,12 +338,6 @@ enum SessionPromiseError {
     Disposed,
     #[error("Zenoh session was taken")]
     Taken,
-}
-
-#[derive(SystemParam)]
-pub struct SceneSubscriber<'w, 's> {
-    commands: Commands<'w, 's>,
-    workflow: Res<'w, SceneSubscriptionWorkflow>,
 }
 
 #[derive(Resource)]
@@ -203,24 +363,18 @@ impl FromWorld for ZenohSession {
 }
 
 #[derive(Resource)]
-struct SceneSubscriptionWorkflow {
+pub(crate) struct SceneSubscriptionWorkflow {
     service: Service<SceneSubscriptionRequest, ()>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 struct SceneSubscriptionRequest {
     topic_name: String,
-    root: Entity,
+    scene_root: Entity,
+    subscription_dropped: Receiver<()>,
 }
 
-struct SceneUpdate {
-    root: Entity,
-    scene: Scene,
+pub(crate) struct SceneUpdate {
+    pub(crate) scene_root: Entity,
+    pub(crate) scene: Scene,
 }
-
-#[derive(Component)]
-pub struct SceneSubscription {
-    topic_name: String,
-    subscription: Promise<()>,
-}
-
