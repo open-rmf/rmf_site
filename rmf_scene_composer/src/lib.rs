@@ -27,9 +27,6 @@ pub use protos::*;
 mod scene_subscription;
 pub use scene_subscription::*;
 
-mod scene_loading;
-use scene_loading::*;
-
 mod scene_placement;
 pub use scene_placement::*;
 
