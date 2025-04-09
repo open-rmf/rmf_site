@@ -23,7 +23,7 @@ use crate::{
 use rmf_site_format::*;
 
 use librmf_site_editor::interaction::{
-    InteractionAssets, DragPlaneBundle,
+    InteractionAssets, DragPlaneBundle, OutlineVisualization, VisualCue,
 };
 
 use bevy::{
@@ -57,6 +57,8 @@ impl<'w, 's> SceneSubscriber<'w, 's> {
         let scene_root = self.commands.spawn((
             SpatialBundle::INHERITED_IDENTITY,
             Category::Custom(Cow::Borrowed("Scene")),
+            OutlineVisualization::default(),
+            VisualCue::outline(),
         )).id();
 
         // Make an initial set of axes to visualize the scene while we wait for
@@ -68,10 +70,11 @@ impl<'w, 's> SceneSubscriber<'w, 's> {
         );
         // Allow the axes to be selected and dragged to move the scene around
         for axis in axes {
-            self.commands.entity(axis).insert(
-                DragPlaneBundle::new(scene_root, Vec3::Z)
-                .globally()
-            );
+            self.commands.entity(axis).insert((
+                DragPlaneBundle::new(scene_root, Vec3::Z).globally(),
+                OutlineVisualization::default(),
+                VisualCue::outline(),
+            ));
         }
 
         let subscription = self.commands.request(

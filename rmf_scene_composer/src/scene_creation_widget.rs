@@ -68,7 +68,7 @@ impl<'w, 's> WidgetSystem<Tile> for SceneCreationWidget<'w, 's> {
                             ui.text_edit_singleline(&mut params.pending.scene_topic);
                         });
 
-                        if ui.button("Subscribe").on_hover_text("Add Scene").clicked() {
+                        if ui.button("Subscribe").on_hover_text("Create the scene").clicked() {
                             let scene_root = params.subscriber.spawn_subscriber(
                                 params.pending.scene_topic.clone()
                             );
@@ -78,7 +78,9 @@ impl<'w, 's> WidgetSystem<Tile> for SceneCreationWidget<'w, 's> {
                         }
                     });
             });
-        });
+        })
+        .response
+        .on_hover_text("Add Scene");
     }
 }
 

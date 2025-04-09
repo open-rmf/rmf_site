@@ -21,6 +21,7 @@ use bevy_polyline::{
     material::PolylineMaterial,
     polyline::{Polyline, PolylineBundle},
 };
+use bevy_mod_outline::OutlineMeshExt;
 use shape::UVSphere;
 
 #[derive(Clone, Debug, Resource)]
@@ -236,7 +237,11 @@ impl FromWorld for InteractionAssets {
             radius: 0.02,
             ..Default::default()
         }));
-        let arrow_mesh = meshes.add(make_cylinder_arrow_mesh());
+        let mut arrow_mesh = make_cylinder_arrow_mesh();
+        if let Err(err) = arrow_mesh.generate_outline_normals() {
+            error!("Unable to generate outline for arrow mesh: {err}");
+        }
+        let arrow_mesh = meshes.add(arrow_mesh);
         let point_light_socket_mesh = meshes.add(
             make_cylinder(0.06, 0.02)
                 .transform_by(Affine3A::from_translation(0.04 * Vec3::Z))
