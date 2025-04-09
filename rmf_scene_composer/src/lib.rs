@@ -15,6 +15,9 @@
  *
 */
 
+mod scene_creation_widget;
+use scene_creation_widget::*;
+
 mod generate_scene;
 use generate_scene::*;
 
@@ -22,8 +25,35 @@ mod protos;
 pub use protos::*;
 
 mod scene_subscription;
-use scene_subscription::*;
+pub use scene_subscription::*;
 
 mod scene_loading;
 use scene_loading::*;
 
+mod scene_placement;
+pub use scene_placement::*;
+
+use bevy::prelude::*;
+
+#[derive(Default)]
+pub struct SceneComposerPlugin {}
+
+impl Plugin for SceneComposerPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_plugins((
+            SceneSubscribingPlugin::default(),
+            ScenePlacementPlugin::default(),
+            SceneCreationPlugin::default(),
+        ));
+    }
+}
+
+pub fn run(command_line_args: Vec<String>) {
+    let mut app = App::new();
+    app.add_plugins((
+        librmf_site_editor::SiteEditor::from_cli_args(command_line_args),
+        SceneComposerPlugin::default(),
+    ));
+
+    app.run();
+}

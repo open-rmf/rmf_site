@@ -20,12 +20,20 @@ use crate::{
     generate_scene,
 };
 
+use rmf_site_format::*;
+
+use librmf_site_editor::interaction::{
+    InteractionAssets, DragPlaneBundle,
+};
+
 use bevy::{
     prelude::*,
     ecs::system::SystemParam,
 };
+
 use bevy_impulse::*;
 use std::{
+    borrow::Cow,
     error::Error,
     sync::Arc,
 };
@@ -33,6 +41,68 @@ use thiserror::Error as ThisError;
 use zenoh::Session;
 use prost::Message;
 use librmf_site_editor::site::ModelLoader;
+
+#[derive(SystemParam)]
+pub struct SceneSubscriber<'w, 's> {
+    commands: Commands<'w, 's>,
+    workflow: Res<'w, SceneSubscriptionWorkflow>,
+    interaction_assets: Res<'w, InteractionAssets>,
+}
+
+impl<'w, 's> SceneSubscriber<'w, 's> {
+    pub fn spawn_subscriber(
+        &mut self,
+        topic_name: String,
+    ) -> Entity {
+        let scene_root = self.commands.spawn((
+            SpatialBundle::INHERITED_IDENTITY,
+            Category::Custom(Cow::Borrowed("Scene")),
+        )).id();
+
+        // Make an initial set of axes to visualize the scene while we wait for
+        // the data to arrive.
+        let axes = self.interaction_assets.make_orientation_cue_meshes(
+            &mut self.commands,
+            scene_root,
+            1.0,
+        );
+        // Allow the axes to be selected and dragged to move the scene around
+        for axis in axes {
+            self.commands.entity(axis).insert(
+                DragPlaneBundle::new(scene_root, Vec3::Z)
+                .globally()
+            );
+        }
+
+        let subscription = self.commands.request(
+            SceneSubscriptionRequest {
+                topic_name: topic_name.clone(),
+                root: scene_root,
+            },
+            self.workflow.service,
+        ).take_response();
+
+        self.commands.entity(scene_root).insert(SceneSubscription {
+            topic_name,
+            subscription,
+        });
+
+        scene_root
+    }
+}
+
+#[derive(Component)]
+pub struct SceneSubscription {
+    topic_name: String,
+    #[allow(unused)]
+    subscription: Promise<()>,
+}
+
+impl SceneSubscription {
+    pub fn topic_name(&self) -> &str {
+        &self.topic_name
+    }
+}
 
 #[derive(Default)]
 pub(crate) struct SceneSubscribingPlugin {}
@@ -162,7 +232,17 @@ fn generate_scene_sys(
     In(SceneUpdate { root, scene }): In<SceneUpdate>,
     mut commands: Commands,
     mut model_loader: ModelLoader,
+    children: Query<&Children>,
 ) {
+    // Despawn any old children to clear space for the new scene
+    if let Ok(children) = children.get(root) {
+        for child in children {
+            if let Some(e) = commands.get_entity(*child) {
+                e.despawn_recursive();
+            }
+        }
+    }
+
     generate_scene(root, scene, &mut commands, &mut model_loader);
 }
 
@@ -172,12 +252,6 @@ enum SessionPromiseError {
     Disposed,
     #[error("Zenoh session was taken")]
     Taken,
-}
-
-#[derive(SystemParam)]
-pub struct SceneSubscriber<'w, 's> {
-    commands: Commands<'w, 's>,
-    workflow: Res<'w, SceneSubscriptionWorkflow>,
 }
 
 #[derive(Resource)]
@@ -203,7 +277,7 @@ impl FromWorld for ZenohSession {
 }
 
 #[derive(Resource)]
-struct SceneSubscriptionWorkflow {
+pub(crate) struct SceneSubscriptionWorkflow {
     service: Service<SceneSubscriptionRequest, ()>,
 }
 
@@ -217,10 +291,3 @@ struct SceneUpdate {
     root: Entity,
     scene: Scene,
 }
-
-#[derive(Component)]
-pub struct SceneSubscription {
-    topic_name: String,
-    subscription: Promise<()>,
-}
-

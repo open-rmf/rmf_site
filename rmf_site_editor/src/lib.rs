@@ -95,21 +95,7 @@ impl AppState {
 
 pub fn run(command_line_args: Vec<String>) {
     let mut app = App::new();
-    let mut _headless_export = None;
-
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        let command_line_args = CommandLineArgs::parse_from(command_line_args);
-        if let Some(path) = command_line_args.filename {
-            app.insert_resource(Autoload::file(
-                path.into(),
-                command_line_args.import.map(Into::into),
-            ));
-        }
-        _headless_export = command_line_args.headless_export;
-    }
-
-    app.add_plugins(SiteEditor::default().headless_export(_headless_export));
+    app.add_plugins(SiteEditor::from_cli_args(command_line_args));
     app.run();
 }
 
@@ -117,11 +103,31 @@ pub fn run(command_line_args: Vec<String>) {
 pub struct SiteEditor {
     /// Contains Some(path) if the site editor is running in headless mode exporting its site.
     headless_export: Option<String>,
+    autoload: Option<Autoload>,
 }
 
 impl SiteEditor {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn from_cli_args(command_line_args: Vec<String>) -> Self {
+        let mut _headless_export = None;
+        let mut autoload = None;
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let command_line_args = CommandLineArgs::parse_from(command_line_args);
+            if let Some(path) = command_line_args.filename {
+                autoload = Some(Autoload::file(
+                    path.into(),
+                    command_line_args.import.map(Into::into),
+                ));
+            }
+            _headless_export = command_line_args.headless_export;
+        }
+
+        Self { headless_export: _headless_export, autoload }
     }
 
     pub fn headless_export(mut self, export_to_file: Option<String>) -> Self {
@@ -132,6 +138,10 @@ impl SiteEditor {
 
 impl Plugin for SiteEditor {
     fn build(&self, app: &mut App) {
+        if let Some(autoload) = self.autoload.clone() {
+            app.insert_resource(autoload);
+        }
+
         let mut plugins = DefaultPlugins.build();
         let headless = {
             #[cfg(not(target_arch = "wasm32"))]

@@ -35,7 +35,7 @@ pub struct ChildCabinAnchorGroup(pub Entity);
 #[derive(Clone, Copy, Debug, Component, Default)]
 pub struct CabinAnchorGroup;
 
-#[derive(Clone, Copy, Debug, Bundle)]
+#[derive(Clone, Debug, Bundle)]
 pub struct CabinAnchorGroupBundle {
     tag: CabinAnchorGroup,
     category: Category,
