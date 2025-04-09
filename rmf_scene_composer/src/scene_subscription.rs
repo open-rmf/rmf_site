@@ -40,7 +40,8 @@ use std::{
 use thiserror::Error as ThisError;
 use zenoh::Session;
 use prost::Message;
-use librmf_site_editor::site::ModelLoader;
+
+use futures::channel::oneshot::{channel, Sender, Receiver};
 
 #[derive(SystemParam)]
 pub struct SceneSubscriber<'w, 's> {
@@ -61,10 +62,17 @@ impl<'w, 's> SceneSubscriber<'w, 's> {
             VisualCue::outline(),
         )).id();
 
+        self.commands.entity(scene_root).insert(
+            DragPlaneBundle::new(scene_root, Vec3::Z).globally()
+        );
+
+        let (drop_last_subscription, subscription_dropped) = channel();
+
         let subscription = self.commands.request(
             SceneSubscriptionRequest {
                 topic_name: topic_name.clone(),
                 scene_root,
+                subscription_dropped,
             },
             self.workflow.service,
         ).take_response();
@@ -72,6 +80,7 @@ impl<'w, 's> SceneSubscriber<'w, 's> {
         self.commands.entity(scene_root).insert(SceneSubscription {
             topic_name,
             subscription,
+            drop_last_subscription: Some(drop_last_subscription),
         });
 
         scene_root
@@ -88,23 +97,32 @@ impl<'w, 's> SceneSubscriber<'w, 's> {
                 return;
             }
 
+            scene.drop_last_subscription.take().map(|s| s.send(()));
+
+            let (drop_last_subscription, subscription_dropped) = channel();
+
             let new_subscription = self.commands.request(
                 SceneSubscriptionRequest {
                     topic_name: new_topic_name.clone(),
                     scene_root,
+                    subscription_dropped,
                 },
                 self.workflow.service,
             ).take_response();
 
             scene.topic_name = new_topic_name;
             scene.subscription = new_subscription;
+            scene.drop_last_subscription = Some(drop_last_subscription);
         } else {
+            let (drop_last_subscription, subscription_dropped) = channel();
+
             // Somehow this entity wasn't already a scene... this is suspicious,
             // but we'll just spawn a new subscription for it.
             let subscription = self.commands.request(
                 SceneSubscriptionRequest {
                     topic_name: new_topic_name.clone(),
                     scene_root,
+                    subscription_dropped,
                 },
                 self.workflow.service,
             ).take_response();
@@ -112,6 +130,7 @@ impl<'w, 's> SceneSubscriber<'w, 's> {
             self.commands.entity(scene_root).insert(SceneSubscription {
                 topic_name: new_topic_name,
                 subscription,
+                drop_last_subscription: Some(drop_last_subscription),
             });
         }
     }
@@ -126,6 +145,9 @@ pub struct SceneSubscription {
     topic_name: String,
     #[allow(unused)]
     subscription: Promise<()>,
+    // TODO(@mxgrey): This should not be necessary
+    // when https://github.com/open-rmf/bevy_impulse/issues/64 is resolved
+    drop_last_subscription: Option<Sender<()>>,
 }
 
 impl SceneSubscription {
@@ -202,31 +224,45 @@ impl Plugin for SceneSubscribingPlugin {
                 .chain(builder)
                 .then(basic_scene_visual)
                 .branch_for_err(|err: Chain<()>| err.connect(scope.terminate))
-                .fork_clone((
-                    |chain: Chain<_>| chain.output(),
-                    |chain: Chain<_>| {
-                        chain
-                            .trigger()
-                            .then(get_session)
-                            .fork_result(
-                                |ok| ok.output(),
-                                |err| err.connect(on_error),
-                            )
-                            .0
-                    }
-                ))
+                .map_block(|r| (r, ()))
+                .fork_unzip(
+                    (
+                        |chain: Chain<_>| chain.output(),
+                        |chain: Chain<_>| {
+                            chain
+                                .then(get_session)
+                                .fork_result(
+                                    |ok| ok.output(),
+                                    |err| err.connect(on_error),
+                                )
+                                .0
+                        }
+                    )
+                )
                 .join(builder)
                 .map_node(|input: AsyncMap<(SceneSubscriptionRequest, Arc<Session>), StreamOf<SceneUpdate>>| {
                     async move {
                         let (request, session) = input.request;
-                        let SceneSubscriptionRequest { topic_name, scene_root: root } = request;
+                        let SceneSubscriptionRequest { topic_name, scene_root, subscription_dropped: mut drop_subscription } = request;
+
                         let subscriber = session.declare_subscriber(&topic_name).await?;
                         loop {
-                            match subscriber.recv_async().await {
+                            let sample = match futures::future::select(
+                                subscriber.recv_async(),
+                                drop_subscription,
+                            ).await {
+                                futures::future::Either::Left((sample, d)) => {
+                                    drop_subscription = d;
+                                    sample
+                                }
+                                futures::future::Either::Right(_) => return Ok(()),
+                            };
+
+                            match sample {
                                 Ok(sample) => {
                                     match Scene::decode(&*sample.payload().to_bytes()) {
                                         Ok(scene) => {
-                                            input.streams.send(StreamOf(SceneUpdate { scene_root: root, scene }));
+                                            input.streams.send(StreamOf(SceneUpdate { scene_root, scene }));
                                         }
                                         Err(err) => {
                                             error!("Error decoding incoming scene message on topic [{topic_name}]: {err}");
@@ -331,10 +367,11 @@ pub(crate) struct SceneSubscriptionWorkflow {
     service: Service<SceneSubscriptionRequest, ()>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 struct SceneSubscriptionRequest {
     topic_name: String,
     scene_root: Entity,
+    subscription_dropped: Receiver<()>,
 }
 
 pub(crate) struct SceneUpdate {

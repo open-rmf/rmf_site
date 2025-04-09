@@ -45,7 +45,17 @@ pub(crate) fn generate_scene(
     In(SceneUpdate{ scene_root, scene }): In<SceneUpdate>,
     mut commands: Commands,
     mut model_loader: ModelLoader,
+    children: Query<&Children>,
 ) {
+    // Despawn any old children to clear space for the new scene
+    if let Ok(children) = children.get(scene_root) {
+        for child in children {
+            if let Some(e) = commands.get_entity(*child) {
+                e.despawn_recursive();
+            }
+        }
+    }
+
     for scene_model in &scene.model {
         let mut queue = VecDeque::<(Entity, &Model)>::new();
         queue.push_back((scene_root, scene_model));
@@ -212,9 +222,9 @@ fn spawn_geometry(
                             marker: ModelMarker,
                         })
                         .id();
-                    let interaction = DragPlaneBundle::new(root, Vec3::Z);
+                    let interaction = DragPlaneBundle::new(root, Vec3::Z).globally();
                     model_loader
-                        .update_asset_source_impulse(mesh_entity, asset_source, Some(interaction))
+                        .update_asset_source_impulse(mesh_entity, asset_source, Some(interaction.clone()))
                         .detach();
                     return Ok(Some(mesh_entity));
                 }
