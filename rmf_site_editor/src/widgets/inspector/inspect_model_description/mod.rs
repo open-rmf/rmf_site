@@ -28,7 +28,6 @@ use smallvec::SmallVec;
 use std::{collections::HashMap, fmt::Debug};
 
 use crate::{
-    interaction::DragPlaneBundle,
     site::{
         update_model_instances, Affiliation, AssetSource, Change, Group, IsStatic, ModelLoader,
         ModelMarker, ModelProperty, NameInSite, Scale,
@@ -413,9 +412,8 @@ impl<'w, 's> InspectSelectedModelDescription<'w, 's> {
             self.change_affiliation
                 .send(Change::new(Affiliation(Some(new_description_entity)), id));
             let (_, _, new_source) = self.model_descriptions.get(new_description_entity).unwrap();
-            let interaction = DragPlaneBundle::new(id, Vec3::Z);
             self.model_loader
-                .update_asset_source(id, new_source.0.clone(), Some(interaction));
+                .update_asset_source(id, new_source.0.clone());
         }
     }
 }

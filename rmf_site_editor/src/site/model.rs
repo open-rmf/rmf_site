@@ -400,13 +400,9 @@ impl<'w, 's> ModelLoader<'w, 's> {
     }
 
     /// Run a basic workflow to update the asset source of an existing entity
-    pub fn update_asset_source(
-        &mut self,
-        entity: Entity,
-        source: AssetSource,
-        interaction: Option<DragPlaneBundle>,
-    ) {
-        self.update_asset_source_impulse(entity, source, interaction)
+    pub fn update_asset_source(&mut self, entity: Entity, source: AssetSource) {
+        let interaction = DragPlaneBundle::new(entity, Vec3::Z);
+        self.update_asset_source_impulse(entity, source, Some(interaction))
             .detach();
     }
 
@@ -430,12 +426,7 @@ impl<'w, 's> ModelLoader<'w, 's> {
 
     /// Update the asset source of all model instances affiliated with the provided
     /// model description
-    pub fn update_description_asset_source(
-        &mut self,
-        entity: Entity,
-        source: AssetSource,
-        interaction: Option<DragPlaneBundle>,
-    ) {
+    pub fn update_description_asset_source(&mut self, entity: Entity, source: AssetSource) {
         let mut instance_entities = HashSet::new();
         for (e, affiliation) in self.model_instances.iter() {
             if let Some(description_entity) = affiliation.0 {
@@ -445,7 +436,8 @@ impl<'w, 's> ModelLoader<'w, 's> {
             }
         }
         for e in instance_entities.iter() {
-            self.update_asset_source_impulse(*e, source.clone(), interaction.clone())
+            let interaction = DragPlaneBundle::new(*e, Vec3::Z);
+            self.update_asset_source_impulse(*e, source.clone(), Some(interaction))
                 .detach();
         }
     }
@@ -582,7 +574,7 @@ pub struct ModelLoadingRequest {
     pub parent: Entity,
     /// AssetSource pointing to which asset we want to load
     pub source: AssetSource,
-    /// Indicates if model should be made selectable
+    /// Indicates if and which entity should be made selectable
     pub interaction: Option<DragPlaneBundle>,
 }
 
@@ -695,9 +687,6 @@ pub fn make_models_selectable(
     if pending_or_previews.get(req.parent).is_ok() {
         return req;
     }
-    if req.interaction.is_none() {
-        return req;
-    }
     // Use a small vec here to try to dodge heap allocation if possible.
     // TODO(MXG): Run some tests to see if an allocation of 16 is typically
     // sufficient.
@@ -709,12 +698,13 @@ pub fn make_models_selectable(
     {
         return req;
     }
+    let Some(interaction) = req.interaction.clone() else {
+        return req;
+    };
     queue.push(req.parent);
 
     while let Some(e) = queue.pop() {
-        commands
-            .entity(e)
-            .insert(DragPlaneBundle::new(req.parent, Vec3::Z));
+        commands.entity(e).insert(interaction.clone());
 
         if let Ok(mesh_handle) = mesh_handles.get(e) {
             if let Some(mesh) = mesh_assets.get_mut(mesh_handle) {

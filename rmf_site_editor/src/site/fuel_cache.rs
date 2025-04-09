@@ -15,7 +15,6 @@
  *
 */
 
-use crate::interaction::DragPlaneBundle;
 use crate::site::{AssetSource, ModelFailedLoading, ModelLoader};
 use crate::site_asset_io::FUEL_API_KEY;
 use crate::widgets::AssetGalleryStatus;
@@ -159,8 +158,7 @@ pub fn reload_failed_models_with_new_api_key(
         };
         *key_guard = Some((**key).clone());
         for (e, source) in &failed_models {
-            let interaction = DragPlaneBundle::new(e, Vec3::Z);
-            model_loader.update_asset_source(e, source.clone(), Some(interaction));
+            model_loader.update_asset_source(e, source.clone());
         }
     }
 }

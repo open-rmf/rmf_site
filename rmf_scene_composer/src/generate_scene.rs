@@ -15,19 +15,20 @@
  *
 */
 
-use crate::protos::gz::msgs::{Geometry, Pose, Scene, geometry::Type, light::LightType};
+use crate::protos::gz::msgs::{Geometry, Model, Pose, Scene, geometry::Type, light::LightType};
 
 use thiserror::Error;
 
 use bevy::prelude::*;
 use librmf_site_editor::interaction::DragPlaneBundle;
+use librmf_site_editor::site::Model as SiteModel;
+use librmf_site_editor::site::Pose as SitePose;
 use librmf_site_editor::site::{
-    AssetSource, Category, CollisionMeshMarker, DirectionalLight, IsStatic, Light, LightKind,
-    Model, ModelLoader, ModelMarker, NameInSite, PointLight, PrimitiveShape, Rotation, Scale,
-    SpotLight, VisualMeshMarker,
+    AssetSource, Category, DirectionalLight, IsStatic, Light, LightKind, ModelLoader, ModelMarker,
+    NameInSite, PointLight, PrimitiveShape, Rotation, Scale, SpotLight, VisualMeshMarker,
 };
 
-use librmf_site_editor::site::Pose as SitePose;
+use std::collections::VecDeque;
 
 #[derive(Error, Debug)]
 pub enum SceneLoadingError {
@@ -43,63 +44,49 @@ fn generate_scene(
     commands: &mut Commands,
     model_loader: &mut ModelLoader,
 ) {
-    for model in &scene.model {
-        let model_entity = commands
-            .spawn(SpatialBundle::INHERITED_IDENTITY)
-            .set_parent(root)
-            .id();
-
-        for link in &model.link {
-            let link_pose = parse_pose(&link.pose);
-            let link_id = commands
-                .spawn(SpatialBundle::from_transform(link_pose.transform()))
-                .set_parent(model_entity)
+    for scene_model in &scene.model {
+        let mut queue = VecDeque::<(Entity, &Model)>::new();
+        queue.push_back((root, scene_model));
+        while let Some((parent, model)) = queue.pop_front() {
+            let model_pose = parse_pose(&model.pose);
+            let model_entity = commands
+                .spawn(SpatialBundle::from_transform(model_pose.transform()))
+                .set_parent(parent)
                 .id();
 
-            for visual in &link.visual {
-                if let Ok(id) = spawn_geometry(
-                    commands,
-                    &visual.geometry,
-                    &visual.pose,
-                    &visual.name,
-                    model.is_static,
-                    root,
-                    model_loader,
-                ) {
-                    match id {
-                        Some(id) => {
-                            commands
-                                .entity(id)
-                                .insert(VisualMeshMarker)
-                                .insert(Category::Visual)
-                                .set_parent(link_id);
+            for link in &model.link {
+                let link_pose = parse_pose(&link.pose);
+                let link_id = commands
+                    .spawn(SpatialBundle::from_transform(link_pose.transform()))
+                    .set_parent(model_entity)
+                    .id();
+
+                for visual in &link.visual {
+                    if let Ok(id) = spawn_geometry(
+                        commands,
+                        &visual.geometry,
+                        &visual.pose,
+                        &visual.name,
+                        model.is_static,
+                        root, // If any link is selected, the root scene will be selected
+                        model_loader,
+                    ) {
+                        match id {
+                            Some(id) => {
+                                commands
+                                    .entity(id)
+                                    .insert(VisualMeshMarker)
+                                    .insert(Category::Visual)
+                                    .set_parent(link_id);
+                            }
+                            None => warn!("Found unhandled geometry type {:?}", &visual.geometry),
                         }
-                        None => warn!("Found unhandled geometry type {:?}", &visual.geometry),
                     }
                 }
             }
 
-            for collision in &link.collision {
-                if let Ok(id) = spawn_geometry(
-                    commands,
-                    &collision.geometry,
-                    &collision.pose,
-                    &collision.name,
-                    model.is_static,
-                    root,
-                    model_loader,
-                ) {
-                    match id {
-                        Some(id) => {
-                            commands
-                                .entity(id)
-                                .insert(CollisionMeshMarker)
-                                .insert(Category::Visual)
-                                .set_parent(link_id);
-                        }
-                        None => warn!("Found unhandled geometry type {:?}", &collision.geometry),
-                    }
-                }
+            for submodel in &model.model {
+                queue.push_back((model_entity, submodel));
             }
         }
     }
@@ -115,14 +102,15 @@ fn generate_scene(
                 .spawn(Light {
                     pose,
                     kind: LightKind::Point(PointLight {
-                        // NOTE(@xiyuoh) assume specular
-                        color: match &light.specular {
-                            Some(color) => [color.r, color.g, color.b, color.a],
-                            None => [0.0; 4],
-                        },
+                        color: light
+                            .diffuse
+                            .clone()
+                            .or(light.specular.clone())
+                            .map(|color| [color.r, color.g, color.b, color.a])
+                            .unwrap_or([0.0; 4]),
                         intensity: light.intensity.clone(),
                         range: light.range.clone(),
-                        radius: 0.0, // TODO(@xiyuoh)
+                        radius: 0.0,
                         enable_shadows: light.cast_shadows,
                     }),
                 })
@@ -133,13 +121,15 @@ fn generate_scene(
                 .spawn(Light {
                     pose,
                     kind: LightKind::Spot(SpotLight {
-                        color: match &light.specular {
-                            Some(color) => [color.r, color.g, color.b, color.a],
-                            None => [0.0; 4],
-                        },
+                        color: light
+                            .diffuse
+                            .clone()
+                            .or(light.specular.clone())
+                            .map(|color| [color.r, color.g, color.b, color.a])
+                            .unwrap_or([0.0; 4]),
                         intensity: light.intensity.clone(),
                         range: light.range.clone(),
-                        radius: 0.0, // TODO(@xiyuoh)
+                        radius: 0.0,
                         enable_shadows: light.cast_shadows,
                     }),
                 })
@@ -154,7 +144,7 @@ fn generate_scene(
                             Some(color) => [color.r, color.g, color.b, color.a],
                             None => [0.0; 4],
                         },
-                        illuminance: light.intensity.clone(), // TODO(@xiyuoh) check this
+                        illuminance: light.intensity.clone(), // Assume area is small
                         enable_shadows: light.cast_shadows,
                     }),
                 })
@@ -162,9 +152,6 @@ fn generate_scene(
                 .id();
         }
     }
-
-    // TODO(@xiyuoh) check if we need this; if scene is not for editing then maybe not
-    for joint in scene.joint {}
 }
 
 fn parse_pose(scene_pose: &Option<Pose>) -> SitePose {
@@ -209,7 +196,7 @@ fn spawn_geometry(
                             SceneLoadingError::MeshFilenameNotFound(mesh.filename.clone())
                         })?;
                     let mesh_entity = commands
-                        .spawn(Model {
+                        .spawn(SiteModel {
                             name: NameInSite(name.to_owned()),
                             source: asset_source.clone(),
                             pose,
@@ -224,7 +211,9 @@ fn spawn_geometry(
                         })
                         .id();
                     let interaction = DragPlaneBundle::new(root, Vec3::Z);
-                    model_loader.update_asset_source(mesh_entity, asset_source, Some(interaction));
+                    model_loader
+                        .update_asset_source_impulse(mesh_entity, asset_source, Some(interaction))
+                        .detach();
                     return Ok(Some(mesh_entity));
                 }
             } else if geom_type == Type::Box as i32 {
@@ -234,9 +223,8 @@ fn spawn_geometry(
                             .spawn(PrimitiveShape::Box {
                                 size: [box_size.x as f32, box_size.y as f32, box_size.z as f32],
                             })
-                            .insert(pose)
                             .insert(NameInSite(name.to_owned()))
-                            .insert(SpatialBundle::INHERITED_IDENTITY)
+                            .insert(SpatialBundle::from_transform(pose.transform()))
                             .id(),
                     ));
                 }
@@ -251,7 +239,7 @@ fn spawn_geometry(
                             })
                             .insert(pose)
                             .insert(NameInSite(name.to_owned()))
-                            .insert(SpatialBundle::INHERITED_IDENTITY)
+                            .insert(SpatialBundle::from_transform(pose.transform()))
                             .id(),
                     ));
                 }
@@ -265,7 +253,7 @@ fn spawn_geometry(
                             })
                             .insert(pose)
                             .insert(NameInSite(name.to_owned()))
-                            .insert(SpatialBundle::INHERITED_IDENTITY)
+                            .insert(SpatialBundle::from_transform(pose.transform()))
                             .id(),
                     ));
                 }
@@ -278,7 +266,7 @@ fn spawn_geometry(
                             })
                             .insert(pose)
                             .insert(NameInSite(name.to_owned()))
-                            .insert(SpatialBundle::INHERITED_IDENTITY)
+                            .insert(SpatialBundle::from_transform(pose.transform()))
                             .id(),
                     ));
                 }
