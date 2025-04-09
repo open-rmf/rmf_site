@@ -253,7 +253,7 @@ impl Plugin for SceneSubscribingPlugin {
                 .streams
                 .chain(builder)
                 .inner()
-                .then(generate_scene_sys.into_blocking_callback())
+                .then(generate_scene.into_blocking_callback())
                 .unused();
         });
 
@@ -294,25 +294,6 @@ fn set_basic_scene_visual(
     });
 
     Ok(request)
-}
-
-// TODO(@mxgrey): Replace this with a direct call to generate_scene
-fn generate_scene_sys(
-    In(SceneUpdate { scene_root: root, scene }): In<SceneUpdate>,
-    mut commands: Commands,
-    mut model_loader: ModelLoader,
-    children: Query<&Children>,
-) {
-    // Despawn any old children to clear space for the new scene
-    if let Ok(children) = children.get(root) {
-        for child in children {
-            if let Some(e) = commands.get_entity(*child) {
-                e.despawn_recursive();
-            }
-        }
-    }
-
-    generate_scene(root, scene, &mut commands, &mut model_loader);
 }
 
 #[derive(ThisError, Debug)]
@@ -356,7 +337,7 @@ struct SceneSubscriptionRequest {
     scene_root: Entity,
 }
 
-struct SceneUpdate {
-    scene_root: Entity,
-    scene: Scene,
+pub(crate) struct SceneUpdate {
+    pub(crate) scene_root: Entity,
+    pub(crate) scene: Scene,
 }
