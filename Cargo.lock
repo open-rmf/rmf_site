@@ -5120,10 +5120,12 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bevy_impulse",
+ "clap",
  "pkg-config",
  "prost",
  "prost-build",
  "rmf_site_editor",
+ "sdformat_rs",
  "thiserror 2.0.12",
  "zenoh",
 ]

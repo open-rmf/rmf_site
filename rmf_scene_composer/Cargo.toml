@@ -5,7 +5,7 @@ edition = "2024"
 
 [lib]
 crate-type = ["rlib"]
-name = "librmf_scene_composer"
+name = "rmf_scene_composer"
 
 [[bin]]
 path = "src/main.rs"
@@ -23,3 +23,7 @@ thiserror = "*"
 pkg-config = "0.3.32"
 prost-build = "0.13.5"
 thiserror = "*"
+
+[dev-dependencies]
+sdformat_rs = { git = "https://github.com/open-rmf/sdf_rust_experimental", rev = "9fc35f2"}
+clap = { version = "4.0.10", features = ["color", "derive", "help", "usage", "suggestions"] }
