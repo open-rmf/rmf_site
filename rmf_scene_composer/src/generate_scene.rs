@@ -203,36 +203,37 @@ fn spawn_geometry(
             let geom_type = geom.r#type;
             if geom_type == Type::Mesh as i32 {
                 if let Some(mesh) = &geom.mesh {
-                    if let Some(stripped) = mesh.filename.strip_prefix("model://") {
-                        let asset_source = AssetSource::Local(stripped.to_string());
-                        println!("Generated AssetSource: {:?}", asset_source);
-                        let mesh_entity = commands
-                            .spawn(SiteModel {
-                                name: NameInSite(name.to_owned()),
-                                source: asset_source.clone(),
-                                pose,
-                                is_static: IsStatic(is_static),
-                                scale: match &mesh.scale {
-                                    Some(scale) => Scale(Vec3::new(
-                                        scale.x as f32,
-                                        scale.y as f32,
-                                        scale.z as f32,
-                                    )),
-                                    None => Scale::default(),
-                                },
-                                marker: ModelMarker,
-                            })
-                            .id();
-                        let interaction = DragPlaneBundle::new(root, Vec3::Z).globally();
-                        model_loader
-                            .update_asset_source_impulse(
-                                mesh_entity,
-                                asset_source,
-                                Some(interaction.clone()),
-                            )
-                            .detach();
-                        return Ok(Some(mesh_entity));
-                    }
+                    let uri = if let Some(stripped) = mesh.filename.strip_prefix("model://") {
+                        stripped
+                    } else {
+                        mesh.filename.as_str()
+                    };
+                    let asset_source = AssetSource::Local(uri.to_string());
+                    println!("Generated AssetSource: {:?}", asset_source);
+                    let mesh_entity = commands
+                        .spawn(SiteModel {
+                            name: NameInSite(name.to_owned()),
+                            source: asset_source.clone(),
+                            pose,
+                            is_static: IsStatic(is_static),
+                            scale: match &mesh.scale {
+                                Some(scale) => {
+                                    Scale(Vec3::new(scale.x as f32, scale.y as f32, scale.z as f32))
+                                }
+                                None => Scale::default(),
+                            },
+                            marker: ModelMarker,
+                        })
+                        .id();
+                    let interaction = DragPlaneBundle::new(root, Vec3::Z).globally();
+                    model_loader
+                        .update_asset_source_impulse(
+                            mesh_entity,
+                            asset_source,
+                            Some(interaction.clone()),
+                        )
+                        .detach();
+                    return Ok(Some(mesh_entity));
                 }
             } else if geom_type == Type::Box as i32 {
                 if let Some(box_size) = geom.r#box.clone().and_then(|b| b.size) {

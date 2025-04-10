@@ -16,13 +16,14 @@
 */
 
 use clap::Parser;
-use glam::{EulerRot, Quat};
+use glam::{EulerRot, Quat, Vec3};
 use prost::Message;
 use rmf_scene_composer::gz::msgs::{
     BoxGeom, CapsuleGeom, Color, CylinderGeom, Geometry, Light, Link, MeshGeom, Model, Pose,
     Quaternion, Scene, SphereGeom, Vector3d, Visual, geometry, light::LightType, visual,
 };
 use sdformat_rs::{SdfGeometry, SdfLight, SdfLink, SdfModel, SdfPose, SdfRoot};
+use std::collections::HashMap;
 
 /// Broadcast the data of an .sdf or .world file as a gz-msgs Scene message
 /// over a zenoh topic.
@@ -66,21 +67,22 @@ async fn main() {
 fn convert_sdf_to_proto(sdf: SdfRoot) -> Scene {
     let mut scene_models = Vec::<Model>::new();
     let mut scene_lights = Vec::<Light>::new();
+    let mut scene_poses = HashMap::<String, Pose>::new();
 
     if let Some(model) = sdf.model {
-        scene_models.push(parse_model(&model));
+        scene_models.push(parse_model(&model, &mut scene_poses));
     }
     if let Some(light) = sdf.light {
-        scene_lights.push(parse_light(&light));
+        scene_lights.push(parse_light(&light, &mut scene_poses));
     }
 
     for world in sdf.world {
         // Add models and lights in SdfWorld to Scene directly
         for world_model in world.model {
-            scene_models.push(parse_model(&world_model));
+            scene_models.push(parse_model(&world_model, &mut scene_poses));
         }
         for world_light in world.light {
-            scene_lights.push(parse_light(&world_light));
+            scene_lights.push(parse_light(&world_light, &mut scene_poses));
         }
     }
 
@@ -92,7 +94,7 @@ fn convert_sdf_to_proto(sdf: SdfRoot) -> Scene {
     }
 }
 
-fn parse_pose(pose: &Option<SdfPose>) -> Option<Pose> {
+fn parse_pose(pose: &Option<SdfPose>, scene_poses: &HashMap<String, Pose>) -> Option<Pose> {
     let Some(pose) = pose else {
         return None;
     };
@@ -106,8 +108,8 @@ fn parse_pose(pose: &Option<SdfPose>) -> Option<Pose> {
         .filter_map(|s| s.parse::<f64>().ok())
         .collect::<Vec<f64>>();
 
-    if rotation_format == "quat_xyzw" && position.len() == 7 {
-        return Some(Pose {
+    let mut scene_pose = if rotation_format == "quat_xyzw" && position.len() == 7 {
+        Some(Pose {
             position: Some(Vector3d {
                 x: position[0],
                 y: position[1],
@@ -122,7 +124,7 @@ fn parse_pose(pose: &Option<SdfPose>) -> Option<Pose> {
                 ..Default::default()
             }),
             ..Default::default()
-        });
+        })
     } else if rotation_format == "euler_rpy" && position.len() == 6 {
         let euler_angles: Vec<f32> = if pose.degrees.is_some_and(|d| d) {
             // Convert euler angles from degrees to radians
@@ -140,7 +142,7 @@ fn parse_pose(pose: &Option<SdfPose>) -> Option<Pose> {
             euler_angles[1],
             euler_angles[0],
         );
-        return Some(Pose {
+        Some(Pose {
             position: Some(Vector3d {
                 x: position[0],
                 y: position[1],
@@ -155,10 +157,69 @@ fn parse_pose(pose: &Option<SdfPose>) -> Option<Pose> {
                 ..Default::default()
             }),
             ..Default::default()
-        });
+        })
+    } else {
+        None
+    };
+
+    // If pose is relative to another Pose in the scene, apply transform
+    if let Some(parent_pose) = pose
+        .relative_to
+        .clone()
+        .and_then(|name| scene_poses.get(&name))
+    {
+        scene_pose = apply_relative_transform(parent_pose, scene_pose);
     }
 
-    None
+    scene_pose
+}
+
+fn apply_relative_transform(parent_pose: &Pose, transform: Option<Pose>) -> Option<Pose> {
+    let position = parent_pose
+        .clone()
+        .position
+        .map(|p| Vec3::new(p.x as f32, p.y as f32, p.z as f32))
+        .unwrap_or_default();
+    let orientation = parent_pose
+        .clone()
+        .orientation
+        .map(|q| Quat::from_array([q.x as f32, q.y as f32, q.z as f32, q.w as f32]))
+        .unwrap_or_default();
+
+    let transformed_pose = transform
+        .clone()
+        .and_then(|t| {
+            t.position
+                .map(|p| Vec3::new(p.x as f32, p.y as f32, p.z as f32))
+        })
+        .map(|translation| position + orientation.mul_vec3(translation))
+        .unwrap_or(position.clone());
+
+    let transformed_ori = transform
+        .clone()
+        .and_then(|t| {
+            t.orientation
+                .map(|q| Quat::from_array([q.x as f32, q.y as f32, q.z as f32, q.w as f32]))
+        })
+        .map(|rotation| orientation * rotation)
+        .unwrap_or(orientation.clone());
+
+    Some(Pose {
+        position: Some(Vector3d {
+            x: transformed_pose.x as f64,
+            y: transformed_pose.y as f64,
+            z: transformed_pose.z as f64,
+            ..Default::default()
+        }),
+        orientation: Some(Quaternion {
+            x: transformed_ori.x as f64,
+            y: transformed_ori.y as f64,
+            z: transformed_ori.z as f64,
+            w: transformed_ori.w as f64,
+            ..Default::default()
+        }),
+        ..Default::default()
+    })
 }
 
 fn parse_light_color(color: &Option<String>) -> Option<Color> {
@@ -180,7 +241,7 @@ fn parse_light_color(color: &Option<String>) -> Option<Color> {
     None
 }
 
-fn parse_light(light: &SdfLight) -> Light {
+fn parse_light(light: &SdfLight, scene_poses: &mut HashMap<String, Pose>) -> Light {
     Light {
         r#type: if light.r#type == "spot".to_string() {
             LightType::Spot.into()
@@ -189,7 +250,7 @@ fn parse_light(light: &SdfLight) -> Light {
         } else {
             LightType::Point.into() // Default for SdfLight is "point"
         },
-        pose: parse_pose(&light.pose),
+        pose: parse_pose(&light.pose, scene_poses),
         diffuse: parse_light_color(&light.diffuse),
         specular: parse_light_color(&light.specular),
         attenuation_constant: light
@@ -236,16 +297,21 @@ fn parse_light(light: &SdfLight) -> Light {
     }
 }
 
-fn parse_link(link: &SdfLink) -> Link {
+fn parse_link(link: &SdfLink, scene_poses: &mut HashMap<String, Pose>) -> Link {
+    let link_pose = parse_pose(&link.pose, scene_poses);
+    if let Some(pose) = link_pose.clone() {
+        scene_poses.insert(link.name.clone(), pose);
+    }
+
     Link {
-        pose: parse_pose(&link.pose),
+        pose: link_pose,
         visual: link
             .visual
             .iter()
             .map(|v| Visual {
                 cast_shadows: v.cast_shadows.unwrap_or_default(),
                 transparency: v.transparency.unwrap_or_default(),
-                pose: parse_pose(&v.pose),
+                pose: parse_pose(&v.pose, scene_poses),
                 geometry: match &v.geometry {
                     SdfGeometry::Mesh(mesh) => Some(Geometry {
                         r#type: geometry::Type::Mesh as i32,
@@ -314,57 +380,36 @@ fn parse_link(link: &SdfLink) -> Link {
         light: link
             .light
             .iter()
-            .map(|l| parse_light(&l))
+            .map(|l| parse_light(&l, scene_poses))
             .collect::<Vec<Light>>(),
         ..Default::default()
     }
 }
 
-fn parse_model(model: &SdfModel) -> Model {
+fn parse_model(model: &SdfModel, scene_poses: &mut HashMap<String, Pose>) -> Model {
+    let model_pose = parse_pose(&model.pose, scene_poses);
+    if let Some(pose) = model_pose.clone() {
+        scene_poses.insert(model.name.clone(), pose);
+    }
+
     Model {
         is_static: model.r#static.unwrap_or(false),
-        pose: parse_pose(&model.pose),
+        pose: model_pose,
         link: model
             .link
             .iter()
-            .map(|l| parse_link(&l))
+            .map(|l| parse_link(&l, scene_poses))
             .collect::<Vec<Link>>(),
         model: model
             .model
             .iter()
             .map(|m| {
                 let inner_model: &SdfModel = &*m;
-                parse_model(inner_model)
+                parse_model(inner_model, scene_poses)
             })
             .collect(),
         ..Default::default()
     }
-}
-
-fn add_pose(pose_a: Option<Pose>, pose_b: Option<Pose>) -> Option<Pose> {
-    let Some((position_a, quat_a)) = pose_a.and_then(|a| a.position.zip(a.orientation)) else {
-        return None;
-    };
-    let Some((position_b, quat_b)) = pose_b.and_then(|b| b.position.zip(b.orientation)) else {
-        return None;
-    };
-
-    Some(Pose {
-        position: Some(Vector3d {
-            x: position_a.x + position_b.x,
-            y: position_a.y + position_b.y,
-            z: position_a.z + position_b.z,
-            ..Default::default()
-        }),
-        orientation: Some(Quaternion {
-            x: quat_a.x + quat_b.x,
-            y: quat_a.y + quat_b.y,
-            z: quat_a.z + quat_b.z,
-            w: quat_a.w + quat_b.w,
-            ..Default::default()
-        }),
-        ..Default::default()
-    })
 }
 
 fn simple_box_test() -> Scene {
