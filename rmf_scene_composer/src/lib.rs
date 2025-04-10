@@ -48,6 +48,7 @@ impl Plugin for SceneComposerPlugin {
             ScenePlacementPlugin::default(),
             SceneCreationPlugin::default(),
             SceneInspectionPlugin::default(),
+            SceneSiteExtensionPlugin::default(),
         ));
     }
 }
