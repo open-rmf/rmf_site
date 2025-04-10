@@ -39,6 +39,7 @@ use std::{
 };
 use thiserror::Error as ThisError;
 use zenoh::Session;
+use zenoh_ext::{AdvancedSubscriberBuilderExt, HistoryConfig, RecoveryConfig};
 use prost::Message;
 
 use futures::channel::oneshot::{channel, Sender, Receiver};
@@ -245,7 +246,11 @@ impl Plugin for SceneSubscribingPlugin {
                         let (request, session) = input.request;
                         let SceneSubscriptionRequest { topic_name, scene_root, subscription_dropped: mut drop_subscription } = request;
 
-                        let subscriber = session.declare_subscriber(&topic_name).await?;
+                        let subscriber = session
+                            .declare_subscriber(&topic_name)
+                            .history(HistoryConfig::default().detect_late_publishers())
+                            .recovery(RecoveryConfig::default())
+                            .await?;
                         loop {
                             let sample = match futures::future::select(
                                 subscriber.recv_async(),

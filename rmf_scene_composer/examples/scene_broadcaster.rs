@@ -25,6 +25,8 @@ use rmf_scene_composer::gz::msgs::{
 use sdformat_rs::{SdfGeometry, SdfLight, SdfLink, SdfModel, SdfPose, SdfRoot};
 use std::collections::HashMap;
 
+use zenoh_ext::{AdvancedPublisherBuilderExt, CacheConfig};
+
 /// Broadcast the data of an .sdf or .world file as a gz-msgs Scene message
 /// over a zenoh topic.
 #[derive(Parser, Debug)]
@@ -37,6 +39,9 @@ struct Args {
     /// Topic name to publish the scene to
     #[arg(short, long)]
     topic: String,
+
+    #[arg(long)]
+    once: bool,
 }
 
 #[tokio::main]
@@ -48,7 +53,13 @@ async fn main() {
     let proto = convert_sdf_to_proto(root);
 
     let session = zenoh::open(zenoh::Config::default()).await.unwrap();
-    let publisher = session.declare_publisher(&args.topic).await.unwrap();
+    let publisher = session
+        .declare_publisher(&args.topic)
+        .cache(CacheConfig::default().max_samples(1))
+        .sample_miss_detection(Default::default())
+        .publisher_detection()
+        .await
+        .unwrap();
 
     let matching_listener = publisher.matching_listener().await.unwrap();
     println!("Waiting for listener...");
@@ -59,8 +70,18 @@ async fn main() {
                 .await
                 .unwrap();
             println!("Done putting");
-            return;
+
+            if args.once {
+                return;
+            }
+
+            break;
         }
+    }
+
+    loop {
+        // Just keep sleeping to keep the publisher alive
+        std::thread::sleep(std::time::Duration::from_secs(1));
     }
 }
 

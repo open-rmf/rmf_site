@@ -209,7 +209,6 @@ fn spawn_geometry(
                         mesh.filename.as_str()
                     };
                     let asset_source = AssetSource::Local(uri.to_string());
-                    println!("Generated AssetSource: {:?}", asset_source);
                     let mesh_entity = commands
                         .spawn(SiteModel {
                             name: NameInSite(name.to_owned()),

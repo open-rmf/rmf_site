@@ -343,7 +343,7 @@ impl<'w, 's, 'a> SiteIDAssigner<'w, 's, 'a> {
         }
 
         let n = **self.next;
-        self.commands.entity(entity).insert(NextSiteID(n));
+        self.commands.entity(entity).insert(SiteID(n));
         **self.next += 1;
         return n;
     }

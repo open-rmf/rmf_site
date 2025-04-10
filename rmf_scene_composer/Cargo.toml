@@ -17,6 +17,7 @@ bevy = "0.12"
 rmf_site_editor = { path = "../rmf_site_editor" }
 rmf_site_format = { path = "../rmf_site_format" }
 zenoh = { version = "1.3.2", features = ["unstable"] }
+zenoh-ext = { version = "*", features = ["unstable"] }
 bevy_impulse = { git = "https://github.com/open-rmf/bevy_impulse", branch = "main" }
 thiserror = "*"
 glam = "*"
