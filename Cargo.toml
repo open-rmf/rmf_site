@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "rmf_scene_composer",
     "rmf_site_editor",
     "rmf_site_editor_web",
     "rmf_site_format",

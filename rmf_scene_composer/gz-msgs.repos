@@ -1,0 +1,21 @@
+repositories:
+  gz/gz-cmake4:
+    type: git
+    url: https://github.com/gazebosim/gz-cmake
+    version: gz-cmake4
+  gz/gz-tools2:
+    type: git
+    url: https://github.com/gazebosim/gz-tools
+    version: gz-tools2
+  gz/gz-utils3:
+    type: git
+    url: https://github.com/gazebosim/gz-utils
+    version: gz-utils3
+  gz/gz-math8:
+    type: git
+    url: https://github.com/gazebosim/gz-math
+    version: gz-math8
+  gz/gz-msgs11:
+    type: git
+    url: https://github.com/gazebosim/gz-msgs
+    version: gz-msgs11

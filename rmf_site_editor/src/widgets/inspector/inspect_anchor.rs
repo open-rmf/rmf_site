@@ -206,7 +206,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectAnchorDependents<'w, 's> {
         let mut category_map: BTreeMap<Category, BTreeSet<Entity>> = BTreeMap::new();
         for e in &dependents.0 {
             if let Ok(category) = params.category.get(*e) {
-                category_map.entry(*category).or_default().insert(*e);
+                category_map.entry(category.clone()).or_default().insert(*e);
             } else {
                 error!("Broken reference to entity {e:?}");
             }

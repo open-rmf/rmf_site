@@ -39,6 +39,9 @@ pub use door::*;
 pub mod drawing;
 pub use drawing::*;
 
+pub mod extension_hooks;
+pub use extension_hooks::*;
+
 pub mod fiducial;
 pub use fiducial::*;
 
@@ -195,6 +198,7 @@ impl Plugin for SitePlugin {
         .init_resource::<CurrentLevel>()
         .init_resource::<CurrentScenario>()
         .init_resource::<PhysicalLightToggle>()
+        .init_resource::<ExtensionHooks>()
         .add_event::<LoadSite>()
         .add_event::<ImportNavGraphs>()
         .add_event::<ChangeCurrentSite>()
