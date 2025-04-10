@@ -18,7 +18,7 @@
 use bevy::{
     ecs::{
         event::Events,
-        system::{BoxedSystem, SystemState},
+        system::{BoxedSystem, SystemState, SystemParam},
     },
     prelude::*,
 };
@@ -165,9 +165,9 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
         Query<(), With<DrawingMarker>>,
         Query<&ChildCabinAnchorGroup>,
         Query<Entity, (With<Anchor>, Without<Pending>)>,
-        Query<&NextSiteID>,
         Query<&SiteID>,
         Query<&Children>,
+        AssignSiteID,
     )> = SystemState::new(world);
 
     let (
@@ -182,9 +182,9 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
         drawings,
         cabin_anchor_groups,
         cabin_anchor_group_children,
-        sites,
         site_ids,
         children,
+        mut assign_site_id,
     ) = state.get_mut(world);
 
     let mut new_entities = Vec::new();
@@ -298,21 +298,55 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
         }
     }
 
-    let mut next_site_id = sites
-        .get(site)
-        .map(|n| n.0)
-        .map_err(|_| SiteGenerationError::InvalidSiteEntity(site))?..;
+    let mut next_site_id = assign_site_id
+        .assign_for(site)
+        .ok_or(SiteGenerationError::InvalidSiteEntity(site))?;
     for e in &new_entities {
-        world
-            .entity_mut(*e)
-            .insert(SiteID(next_site_id.next().unwrap()));
+        next_site_id.assign_to(*e);
     }
 
-    world
-        .entity_mut(site)
-        .insert(NextSiteID(next_site_id.next().unwrap()));
+    state.apply(world);
 
     Ok(())
+}
+
+#[derive(SystemParam)]
+pub struct AssignSiteID<'w, 's> {
+    next: Query<'w, 's, &'static mut NextSiteID>,
+    existing: Query<'w, 's, &'static SiteID>,
+    commands: Commands<'w, 's>,
+}
+
+impl<'w, 's> AssignSiteID<'w, 's> {
+    pub fn assign_for(&mut self, site: Entity) -> Option<SiteIDAssigner<'w, 's, '_>> {
+        self.next.get_mut(site).ok().map(
+            |next| SiteIDAssigner {
+                next,
+                existing: &self.existing,
+                commands: &mut self.commands,
+            }
+        )
+    }
+}
+
+pub struct SiteIDAssigner<'w, 's, 'a> {
+    next: Mut<'a, NextSiteID>,
+    existing: &'a Query<'w, 's, &'static SiteID>,
+    commands: &'a mut Commands<'w, 's>,
+}
+
+impl<'w, 's, 'a> SiteIDAssigner<'w, 's, 'a> {
+    pub fn assign_to(&mut self, entity: Entity) -> u32 {
+        if let Ok(id) = self.existing.get(entity) {
+            // Skip the assignment if the entity already has a SiteID
+            return id.0;
+        }
+
+        let n = **self.next;
+        self.commands.entity(entity).insert(NextSiteID(n));
+        **self.next += 1;
+        return n;
+    }
 }
 
 fn collect_site_anchors(world: &mut World, site: Entity) -> BTreeMap<u32, Anchor> {

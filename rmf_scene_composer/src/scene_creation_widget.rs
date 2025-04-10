@@ -69,7 +69,7 @@ impl<'w, 's> WidgetSystem<Tile> for SceneCreationWidget<'w, 's> {
                         });
 
                         if ui.button("Subscribe").on_hover_text("Create the scene").clicked() {
-                            let scene_root = params.subscriber.spawn_subscriber(
+                            let scene_root = params.subscriber.spawn_scene(
                                 params.pending.scene_topic.clone()
                             );
 

@@ -33,40 +33,6 @@ pub struct ExtensionHooks {
     pub(crate) hooks: HashMap<Arc<str>, ExtensionHook>,
 }
 
-impl ExtensionHooks {
-    pub fn set_hook<SaveM, LoadM, SavingError: Error + 'static, LoadingError: Error + 'static>(
-        &mut self,
-        extension: &str,
-        default_settings: ExtensionSettings,
-        saving: impl IntoSystem<SavingArgs, SavingResult<SavingError>, SaveM>,
-        loading: impl IntoSystem<LoadingArgs, LoadingResult<LoadingError>, LoadM>,
-    ) {
-        let hook = match self.hooks.entry(extension.into()) {
-            Entry::Occupied(occupied) => occupied.into_mut(),
-            Entry::Vacant(vacant) => vacant.insert(ExtensionHook {
-                default_settings,
-                ..Default::default()
-            }),
-        };
-
-        let saving = Box::new(IntoSystem::into_system(saving.pipe(
-            |In(result): In<SavingResult<SavingError>>| result.map_err(into_extension_error),
-        )));
-
-        if hook.saving.replace(saving).is_some() {
-            warn!("Replacing the saving hook for [{extension}] extension");
-        }
-
-        let loading = Box::new(IntoSystem::into_system(loading.pipe(
-            |In(result): In<LoadingResult<LoadingError>>| result.map_err(into_extension_error),
-        )));
-
-        if hook.loading.replace(loading).is_some() {
-            warn!("Replacing the loading hook for [{extension}] extension");
-        }
-    }
-}
-
 fn into_extension_error<E: Error + 'static>(error: E) -> Arc<dyn Error> {
     Arc::new(error)
 }
@@ -76,4 +42,53 @@ pub(crate) struct ExtensionHook {
     pub(crate) saving: Option<SavingSystem>,
     pub(crate) loading: Option<LoadingSystem>,
     pub(crate) default_settings: ExtensionSettings,
+}
+
+pub trait SetSiteExtensionHook {
+    fn set_site_extension_hook<SaveM, LoadM, SavingError: Error + 'static, LoadingError: Error + 'static>(
+        &mut self,
+        extension: &str,
+        default_settings: ExtensionSettings,
+        saving: impl IntoSystem<SavingArgs, SavingResult<SavingError>, SaveM>,
+        loading: impl IntoSystem<LoadingArgs, LoadingResult<LoadingError>, LoadM>,
+    );
+}
+
+impl SetSiteExtensionHook for World {
+    fn set_site_extension_hook<SaveM, LoadM, SavingError: Error + 'static, LoadingError: Error + 'static>(
+        &mut self,
+        extension: &str,
+        default_settings: ExtensionSettings,
+        saving: impl IntoSystem<SavingArgs, SavingResult<SavingError>, SaveM>,
+        loading: impl IntoSystem<LoadingArgs, LoadingResult<LoadingError>, LoadM>,
+    ) {
+        self.get_resource_or_insert_with(|| ExtensionHooks::default());
+        self.resource_scope::<ExtensionHooks, _>(|world, mut extensions| {
+            let hook = match extensions.hooks.entry(extension.into()) {
+                Entry::Occupied(occupied) => occupied.into_mut(),
+                Entry::Vacant(vacant) => vacant.insert(ExtensionHook {
+                    default_settings,
+                    ..Default::default()
+                }),
+            };
+
+            let mut saving = Box::new(IntoSystem::into_system(saving.pipe(
+                |In(result): In<SavingResult<SavingError>>| result.map_err(into_extension_error),
+            )));
+            saving.initialize(world);
+
+            if hook.saving.replace(saving).is_some() {
+                warn!("Replacing the saving hook for [{extension}] extension");
+            }
+
+            let mut loading = Box::new(IntoSystem::into_system(loading.pipe(
+                |In(result): In<LoadingResult<LoadingError>>| result.map_err(into_extension_error),
+            )));
+            loading.initialize(world);
+
+            if hook.loading.replace(loading).is_some() {
+                warn!("Replacing the loading hook for [{extension}] extension");
+            }
+        });
+    }
 }

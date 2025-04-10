@@ -51,7 +51,7 @@ pub struct SceneSubscriber<'w, 's> {
 }
 
 impl<'w, 's> SceneSubscriber<'w, 's> {
-    pub fn spawn_subscriber(
+    pub fn spawn_scene(
         &mut self,
         topic_name: String,
     ) -> Entity {

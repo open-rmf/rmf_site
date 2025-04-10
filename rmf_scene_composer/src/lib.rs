@@ -30,6 +30,9 @@ pub use scene_subscription::*;
 mod scene_placement;
 pub use scene_placement::*;
 
+mod scene_site_extension;
+pub use scene_site_extension::*;
+
 mod scene_inspection_widget;
 pub use scene_inspection_widget::*;
 
@@ -45,6 +48,7 @@ impl Plugin for SceneComposerPlugin {
             ScenePlacementPlugin::default(),
             SceneCreationPlugin::default(),
             SceneInspectionPlugin::default(),
+            SceneSiteExtensionPlugin::default(),
         ));
     }
 }
