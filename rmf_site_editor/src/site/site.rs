@@ -50,7 +50,7 @@ pub struct CachedLevel(Entity);
 
 /// This component is placed on the Site entity to keep track of what the next
 /// SiteID should be when saving.
-#[derive(Component, Clone, Copy, Debug)]
+#[derive(Component, Clone, Copy, Debug, Deref, DerefMut)]
 pub struct NextSiteID(pub u32);
 
 pub fn change_site(

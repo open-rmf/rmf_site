@@ -5133,6 +5133,8 @@ dependencies = [
  "rmf_site_editor",
  "rmf_site_format",
  "sdformat_rs",
+ "serde",
+ "serde_json",
  "thiserror 2.0.12",
  "tokio",
  "zenoh",
