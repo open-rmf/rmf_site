@@ -1,0 +1,22 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+  <model name="conveyor_block">
+    <link name="conveyor_block_link">
+      <visual name="conveyor_block_visual">
+        <geometry>
+          <mesh>
+            <uri>conveyor_block/meshes/conveyor_block_visual.glb</uri>
+          </mesh>
+        </geometry>
+      </visual>
+      <collision name="conveyor_block_collider_box">
+        <pose>0.0 0.0 0.251262 0.0 0.0 0.0</pose>
+        <geometry>
+          <box>
+            <size>0.501994 0.505 0.504526</size>
+          </box>
+        </geometry>
+      </collision>
+    </link>
+  </model>
+</sdf>

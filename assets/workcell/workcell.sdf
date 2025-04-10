@@ -1,0 +1,102 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+  <world name="workcell">
+
+    <!-- Minimal enclosure -->
+    <model name="enclosure">
+      <link name="enclosure_link">
+        <visual name="enclosure_visual">
+          <geometry>
+            <mesh>
+              <uri>enclosure/meshes/enclosure_visual.obj</uri>
+            </mesh>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Minimal panda Arm -->
+    <model name="panda">
+    <pose>0 0 0.5 0 0 0</pose>
+    <link name="panda_link0">
+      <visual name="panda_link0_visual">
+        <geometry>
+          <mesh>
+            <uri>panda/meshes/visual/link0.obj</uri>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+    <link name="panda_link1">
+      <pose relative_to="panda_link0">0 0 0.333 0 0 0</pose>
+      <visual name="panda_link1_visual">
+        <geometry>
+          <mesh>
+            <uri>panda/meshes/visual/link1.obj</uri>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+    <link name="panda_link2">
+      <pose relative_to="panda_link1">0 0 0 -1.570796326794897 0 0</pose>
+      <visual name="panda_link2_visual">
+        <geometry>
+          <mesh>
+            <uri>panda/meshes/visual/link2.obj</uri>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+    <link name="panda_link3">
+      <pose relative_to="panda_link2">0 -0.316 0 1.570796326794897 0 0</pose>
+      <visual name="panda_link3_visual">
+        <geometry>
+          <mesh>
+            <uri>panda/meshes/visual/link3.obj</uri>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+    <link name="panda_link4">
+      <pose relative_to="panda_link3">0.0825 0 0 1.570796326794897 0 0</pose>
+      <visual name="panda_link4_visual">
+        <geometry>
+          <mesh>
+            <uri>panda/meshes/visual/link4.obj</uri>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+    <link name="panda_link5">
+      <pose relative_to="panda_link4">-0.0825 0.384 0 -1.570796326794897 0 0</pose>
+      <visual name="panda_link5_visual">
+        <geometry>
+          <mesh>
+            <uri>panda/meshes/visual/link5.obj</uri>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+    <link name="panda_link6">
+      <pose relative_to="panda_link5">0 0 0 1.570796326794897 0 0.0</pose>
+      <visual name="panda_link6_visual">
+        <geometry>
+          <mesh>
+            <uri>panda/meshes/visual/link6.obj</uri>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+    <link name="panda_link7">
+      <pose relative_to="panda_link6">0.088 0 0 1.570796326794897 -0.8 0.0</pose>
+      <visual name="panda_link7_visual">
+        <geometry>
+          <mesh>
+            <uri>panda/meshes/visual/link7.obj</uri>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+  </model>
+  </world>
+</sdf>
