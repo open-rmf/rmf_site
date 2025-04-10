@@ -44,7 +44,7 @@ async fn main() {
 
     let data = std::fs::read_to_string(args.file).unwrap();
     let root = sdformat_rs::from_str::<SdfRoot>(&data).unwrap();
-    let proto = simple_box_test();
+    let proto = convert_sdf_to_proto(root);
 
     let session = zenoh::open(zenoh::Config::default()).await.unwrap();
     let publisher = session.declare_publisher(&args.topic).await.unwrap();
@@ -86,8 +86,8 @@ fn convert_sdf_to_proto(sdf: SdfRoot) -> Scene {
 
     // We only need model and light data for generate_scene
     Scene {
-        model: Vec::new(),
-        light: Vec::new(),
+        model: scene_models,
+        light: scene_lights,
         ..Default::default()
     }
 }
@@ -136,9 +136,9 @@ fn parse_pose(pose: &Option<SdfPose>) -> Option<Pose> {
         };
         let quat = Quat::from_euler(
             EulerRot::ZYX,
-            euler_angles[0],
-            euler_angles[1],
             euler_angles[2],
+            euler_angles[1],
+            euler_angles[0],
         );
         return Some(Pose {
             position: Some(Vector3d {
