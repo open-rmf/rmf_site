@@ -68,8 +68,7 @@ fn convert_sdf_to_proto(sdf: SdfRoot) -> Scene {
     let mut scene_lights = Vec::<Light>::new();
 
     if let Some(model) = sdf.model {
-        let mut models = parse_model(&model);
-        scene_models.append(&mut models);
+        scene_models.push(parse_model(&model));
     }
     if let Some(light) = sdf.light {
         scene_lights.push(parse_light(&light));
@@ -78,8 +77,7 @@ fn convert_sdf_to_proto(sdf: SdfRoot) -> Scene {
     for world in sdf.world {
         // Add models and lights in SdfWorld to Scene directly
         for world_model in world.model {
-            let mut models = parse_model(&world_model);
-            scene_models.append(&mut models);
+            scene_models.push(parse_model(&world_model));
         }
         for world_light in world.light {
             scene_lights.push(parse_light(&world_light));
@@ -322,59 +320,25 @@ fn parse_link(link: &SdfLink) -> Link {
     }
 }
 
-fn parse_model(model: &SdfModel) -> Vec<Model> {
-    let mut model_vec = Vec::<Model>::new();
-    let mut model_links = model
-        .link
-        .iter()
-        .map(|l| parse_link(&l))
-        .collect::<Vec<Link>>();
-    let model_pose = parse_pose(&model.pose);
-
-    for included_model in &model.include {
-        let link = Link {
-            visual: vec![Visual {
-                geometry: Some(Geometry {
-                    r#type: geometry::Type::Mesh as i32,
-                    mesh: Some(MeshGeom {
-                        filename: included_model.uri.clone(),
-                        ..Default::default()
-                    }),
-                    ..Default::default()
-                }),
-                ..Default::default()
-            }],
-            ..Default::default()
-        };
-        if included_model.merge.is_some_and(|merge| merge) {
-            // Merge nested model into the top model - flatten included model's links
-            model_links.push(link);
-        } else {
-            // Add included model to the vec as its own entity, with pose relative to top model
-            model_vec.push(Model {
-                is_static: included_model.r#static.unwrap_or_default(),
-                pose: add_pose(model_pose.clone(), parse_pose(&included_model.pose)),
-                link: vec![link],
-                ..Default::default()
-            });
-        }
-    }
-
-    // Push the top model
-    model_vec.push(Model {
+fn parse_model(model: &SdfModel) -> Model {
+    Model {
         is_static: model.r#static.unwrap_or(false),
-        pose: model_pose,
-        link: model_links,
-        model: model.model.iter().fold(Vec::<Model>::new(), |mut v, m| {
-            let inner_model: &SdfModel = &*m;
-            let mut models = parse_model(inner_model);
-            v.append(&mut models);
-            v
-        }),
+        pose: parse_pose(&model.pose),
+        link: model
+            .link
+            .iter()
+            .map(|l| parse_link(&l))
+            .collect::<Vec<Link>>(),
+        model: model
+            .model
+            .iter()
+            .map(|m| {
+                let inner_model: &SdfModel = &*m;
+                parse_model(inner_model)
+            })
+            .collect(),
         ..Default::default()
-    });
-
-    model_vec
+    }
 }
 
 fn add_pose(pose_a: Option<Pose>, pose_b: Option<Pose>) -> Option<Pose> {
