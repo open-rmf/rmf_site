@@ -35,7 +35,7 @@ use bevy_egui::egui::{
 use rmf_site_format::InheritedTask;
 use serde_json::Value;
 use smallvec::SmallVec;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 pub mod go_to_place;
 pub use go_to_place::*;
@@ -220,14 +220,13 @@ impl<'w, 's> ViewTasks<'w, 's> {
             .show(ui, |ui| {
                 ui.set_min_width(ui.available_width());
 
-                // TODO(@xiyuoh) Use ordered structure instead to prevent glitching
                 let task_modifier_entities = get_task_modifier_entities(
                     current_scenario_entity,
                     &self.children,
                     &self.task_modifiers,
                 );
                 let scenario_task_modifiers = task_modifier_entities.iter().fold(
-                    HashMap::new(),
+                    BTreeMap::new(),
                     |mut x, (task_entity, modifier_entity)| {
                         if let Some((modifier, _)) = self
                             .task_modifiers
@@ -870,8 +869,9 @@ fn get_task_modifier_entities(
     scenario: Entity,
     children: &Query<&Children>,
     task_modifiers: &Query<(&mut TaskModifier, &Affiliation<Entity>)>,
-) -> HashMap<Entity, Entity> {
-    let mut task_to_modifier_entities = HashMap::<Entity, Entity>::new();
+) -> BTreeMap<Entity, Entity> {
+    let mut task_to_modifier_entities = BTreeMap::<Entity, Entity>::new();
+    // TODO(@xiyuoh) Introduce task ordering based on TaskParams
     if let Ok(scenario_children) = children.get(scenario) {
         for child in scenario_children.iter() {
             if let Some(affiliated_entity) = task_modifiers.get(*child).ok().and_then(|(_, a)| a.0)
