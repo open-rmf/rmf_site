@@ -244,20 +244,20 @@ impl<'w, 's> ViewTasks<'w, 's> {
                 );
                 for (task_entity, task_modifier) in scenario_task_modifiers.iter() {
                     let scenario_count = count_scenarios_for_tasks(
-                        &mut self.update_task_modifier,
-                        &self.scenarios,
                         *task_entity,
                         &self.children,
+                        &self.scenarios,
                         &self.task_modifiers,
+                        &mut self.update_task_modifier,
                     );
                     let present = check_modifier_inclusion(
-                        &mut self.update_task_modifier,
                         &task_modifier,
                         *task_entity,
                         current_scenario_entity,
                         &self.children,
                         &self.scenarios,
                         &self.task_modifiers,
+                        &mut self.update_task_modifier,
                     );
                     show_task(
                         ui,
@@ -379,8 +379,8 @@ fn check_modifier_inclusion(
     scenario_entity: Entity,
     children: &Query<&Children>,
     scenarios: &Query<(Entity, &Affiliation<Entity>), With<ScenarioMarker>>,
-    update_task_modifier: &mut EventWriter<UpdateTaskModifierEvent>,
     task_modifiers: &Query<(&mut TaskModifier, &Affiliation<Entity>)>,
+    update_task_modifier: &mut EventWriter<UpdateTaskModifierEvent>,
 ) -> bool {
     task_modifier.is_included().unwrap_or_else(|| {
         retrieve_parent_inclusion(
@@ -408,24 +408,24 @@ fn check_modifier_inclusion(
 
 /// Count the number of scenarios a Task is present in
 fn count_scenarios_for_tasks(
-    scenarios: &Query<(Entity, &Affiliation<Entity>), With<ScenarioMarker>>,
     task: Entity,
     children: &Query<&Children>,
-    update_task_modifier: &mut EventWriter<UpdateTaskModifierEvent>,
+    scenarios: &Query<(Entity, &Affiliation<Entity>), With<ScenarioMarker>>,
     task_modifiers: &Query<(&mut TaskModifier, &Affiliation<Entity>)>,
+    update_task_modifier: &mut EventWriter<UpdateTaskModifierEvent>,
 ) -> i32 {
     scenarios.iter().fold(0, |x, (e, _)| {
         if find_modifier_for_task(task, e, children, task_modifiers)
             .and_then(|modifier_entity| task_modifiers.get(modifier_entity).ok())
             .is_some_and(|(modifier, _)| {
                 check_modifier_inclusion(
-                    &mut update_task_modifier,
                     modifier,
                     task,
                     e,
                     children,
                     scenarios,
                     task_modifiers,
+                    update_task_modifier,
                 )
             })
         {
