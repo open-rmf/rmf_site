@@ -82,9 +82,8 @@ impl Plugin for MainTasksPlugin {
                 (
                     handle_task_modifier_updates,
                     handle_task_updates,
-                    insert_new_task_modifiers,
+                    manage_task_modifiers,
                     update_current_scenario_tasks,
-                    handle_invalid_modifiers,
                 ),
             );
     }
@@ -885,9 +884,11 @@ fn get_task_modifier_entities(
 }
 
 // TODO(@xiyuoh) Generalize this system to all modifiers
-fn insert_new_task_modifiers(
+fn manage_task_modifiers(
     mut commands: Commands,
     mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
+    mut delete: EventWriter<Delete>,
+    mut removals: RemovedComponents<Task>,
     mut task_modifiers: Query<(&mut TaskModifier, &Affiliation<Entity>)>,
     children: Query<&Children>,
     current_scenario: Res<CurrentScenario>,
@@ -993,6 +994,20 @@ fn insert_new_task_modifiers(
                             .insert(Affiliation(Some(task_entity)))
                             .set_parent(scenario_entity);
                     }
+                }
+            }
+        }
+    }
+
+    /// Check for modifiers affiliated with deleted Task or missing valid affiliations.
+    if !removals.is_empty() {
+        for task_entity in removals.read() {
+            for (scenario_entity, _) in scenarios.iter() {
+                if let Some(modifier_entity) =
+                    find_modifier_for_task(task_entity, scenario_entity, &children, &task_modifiers)
+                {
+                    // Task modifier is affiliated to a non-existing Task
+                    delete.send(Delete::new(modifier_entity));
                 }
             }
         }
@@ -1147,31 +1162,6 @@ fn update_current_scenario_tasks(
             ) {
                 commands.entity(task_entity).insert(task_params.clone());
             }
-        }
-    }
-}
-
-// TODO(@xiyuoh) Generalize this system to all modifiers
-/// Check for modifiers affiliated with deleted Task or missing valid affiliations.
-pub fn handle_invalid_modifiers(
-    mut delete: EventWriter<Delete>,
-    parent: Query<&Parent>,
-    scenarios: Query<(Entity, &NameInSite), With<ScenarioMarker>>,
-    tasks: Query<Entity, With<Task>>,
-    task_modifiers: Query<(Entity, &Affiliation<Entity>), With<TaskModifier>>,
-) {
-    for (modifier_entity, affiliation) in task_modifiers.iter() {
-        if affiliation.0.is_some_and(|e| !tasks.get(e).is_ok()) || affiliation.0.is_none() {
-            // Task modifier has no affiliated Task or is affiliated to non-existing Task
-            delete.send(Delete::new(modifier_entity));
-        } else if !parent
-            .get(modifier_entity)
-            .map(|p| p.get())
-            .and_then(|e| scenarios.get(e))
-            .is_ok()
-        {
-            // Task modifier does not have a valid parent scenario
-            delete.send(Delete::new(modifier_entity));
         }
     }
 }

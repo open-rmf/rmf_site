@@ -360,8 +360,8 @@ impl Plugin for SitePlugin {
                 update_current_scenario.before(update_scenario_properties),
                 update_scenario_properties.before(handle_instance_updates),
                 handle_instance_updates.before(handle_create_scenarios),
-                handle_create_scenarios.before(insert_new_instance_modifiers),
-                insert_new_instance_modifiers,
+                handle_create_scenarios.before(manage_instance_modifiers),
+                manage_instance_modifiers,
             )
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenVisibilityAndTransform),
