@@ -121,6 +121,7 @@ impl TaskModifier {
     pub fn inherited() -> Self {
         Self::Inherited(InheritedTask {
             modified_params: None,
+            explicit_inclusion: false,
         })
     }
 
@@ -129,6 +130,20 @@ impl TaskModifier {
             TaskModifier::Added(added) => Some(added.params.clone()),
             TaskModifier::Inherited(inherited) => inherited.modified_params.clone(),
             TaskModifier::Hidden => None,
+        }
+    }
+
+    pub fn is_included(&self) -> Option<bool> {
+        match self {
+            TaskModifier::Added(_) => Some(true),
+            TaskModifier::Inherited(inherited) => {
+                if inherited.explicit_inclusion {
+                    Some(true)
+                } else {
+                    None
+                }
+            }
+            TaskModifier::Hidden => Some(false),
         }
     }
 }
@@ -166,6 +181,7 @@ pub struct AddedTask {
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 pub struct InheritedTask {
     pub modified_params: Option<TaskParams>,
+    pub explicit_inclusion: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
