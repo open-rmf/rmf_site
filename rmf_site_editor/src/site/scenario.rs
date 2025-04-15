@@ -275,10 +275,12 @@ pub fn get_instance_modifier_entities(
     instance_to_modifier_entities
 }
 
-pub fn insert_new_instance_modifiers(
+pub fn manage_instance_modifiers(
     mut commands: Commands,
     mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
+    mut delete: EventWriter<Delete>,
     mut instance_modifiers: Query<(&mut InstanceModifier, &Affiliation<Entity>)>,
+    mut removals: RemovedComponents<Pose>,
     children: Query<&Children>,
     current_scenario: Res<CurrentScenario>,
     model_instances: Query<(Entity, Ref<Pose>), Without<Pending>>,
@@ -388,6 +390,23 @@ pub fn insert_new_instance_modifiers(
                             .insert(Affiliation(Some(instance_entity)))
                             .set_parent(scenario_entity);
                     }
+                }
+            }
+        }
+    }
+
+    // Check for modifiers affiliated with deleted Instance or missing valid affiliations.
+    if !removals.is_empty() {
+        for instance_entity in removals.read() {
+            for (scenario_entity, _) in scenarios.iter() {
+                if let Some(modifier_entity) = find_modifier_for_instance(
+                    instance_entity,
+                    scenario_entity,
+                    &children,
+                    &instance_modifiers,
+                ) {
+                    // Instance modifier is affiliated to a non-existing instance
+                    delete.send(Delete::new(modifier_entity));
                 }
             }
         }

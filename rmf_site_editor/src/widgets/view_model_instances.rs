@@ -140,7 +140,6 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                             &mut self.update_instance,
                                             scenario_instance_modifiers.get(&instance_entity),
                                             current_scenario_entity,
-                                            &self.scenarios,
                                             scenario_count,
                                             &self.icons,
                                         );
@@ -179,7 +178,6 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                         &mut self.update_instance,
                                         scenario_instance_modifiers.get(instance_entity),
                                         current_scenario_entity,
-                                        &self.scenarios,
                                         scenario_count,
                                         &self.icons,
                                     );
@@ -222,7 +220,6 @@ fn show_model_instance(
     update_instance: &mut EventWriter<UpdateInstanceEvent>,
     instance_modifier: Option<&InstanceModifier>,
     scenario: Entity,
-    scenarios: &Query<(Entity, &NameInSite, &Affiliation<Entity>), With<ScenarioMarker>>,
     scenario_count: i32,
     icons: &Res<Icons>,
 ) {
