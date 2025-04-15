@@ -105,6 +105,69 @@ pub struct InheritedInstance {
     pub explicit_inclusion: bool,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub enum TaskModifier {
+    Added(AddedTask),
+    Inherited(InheritedTask),
+    Hidden,
+}
+
+impl TaskModifier {
+    pub fn added(params: TaskParams) -> Self {
+        Self::Added(AddedTask { params })
+    }
+
+    pub fn inherited() -> Self {
+        Self::Inherited(InheritedTask {
+            modified_params: None,
+        })
+    }
+
+    pub fn params(&self) -> Option<TaskParams> {
+        match self {
+            TaskModifier::Added(added) => Some(added.params.clone()),
+            TaskModifier::Inherited(inherited) => inherited.modified_params.clone(),
+            TaskModifier::Hidden => None,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct RecallTask {
+    pub params: Option<TaskParams>,
+    pub modifier: Option<TaskModifier>,
+}
+
+impl Recall for RecallTask {
+    type Source = TaskModifier;
+
+    fn remember(&mut self, source: &TaskModifier) {
+        match source {
+            TaskModifier::Added(_) | TaskModifier::Inherited(_) => {
+                self.params = source.params();
+                self.modifier = Some(source.clone());
+            }
+            TaskModifier::Hidden => {
+                // We don't update if this TaskModifier is hidden
+            }
+        };
+    }
+}
+
+/// The task modifier was added by this scenario
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
+pub struct AddedTask {
+    pub params: TaskParams,
+}
+
+/// The task modifier was inherited from a parent scenario
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
+pub struct InheritedTask {
+    pub modified_params: Option<TaskParams>,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
@@ -114,6 +177,7 @@ pub struct ScenarioMarker;
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct Scenario<T: RefTrait> {
     pub instances: BTreeMap<T, InstanceModifier>,
+    pub tasks: BTreeMap<T, TaskModifier>,
     #[serde(flatten)]
     pub properties: ScenarioBundle<T>,
 }
@@ -122,6 +186,7 @@ impl<T: RefTrait> Scenario<T> {
     pub fn from_name_parent(name: Option<String>, parent: Option<T>) -> Scenario<T> {
         Scenario {
             instances: BTreeMap::new(),
+            tasks: BTreeMap::new(),
             properties: ScenarioBundle::new(name, parent),
         }
     }
@@ -132,6 +197,7 @@ impl<T: RefTrait> Default for Scenario<T> {
     fn default() -> Self {
         Self {
             instances: BTreeMap::new(),
+            tasks: BTreeMap::new(),
             properties: ScenarioBundle::default(),
         }
     }
@@ -147,6 +213,15 @@ impl<T: RefTrait> Scenario<T> {
                 .map(|(id, instance)| {
                     let converted_id = id_map.get(&id).cloned().ok_or(id)?;
                     Ok((converted_id, instance))
+                })
+                .collect::<Result<_, _>>()?,
+            tasks: self
+                .tasks
+                .clone()
+                .into_iter()
+                .map(|(id, task)| {
+                    let converted_id = id_map.get(&id).cloned().ok_or(id)?;
+                    Ok((converted_id, task))
                 })
                 .collect::<Result<_, _>>()?,
             properties: self.properties.convert(id_map)?,

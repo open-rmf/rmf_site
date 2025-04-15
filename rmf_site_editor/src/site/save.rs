@@ -118,6 +118,7 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
         Query<Entity, (With<ModelMarker>, With<Group>)>,
         Query<Entity, (With<ModelMarker>, Without<Group>, Without<Preview>)>,
         Query<Entity, With<ScenarioMarker>>,
+        Query<Entity, (With<Task>, Without<Pending>)>,
         Query<
             Entity,
             (
@@ -152,6 +153,7 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
         model_descriptions,
         model_instances,
         scenarios,
+        tasks,
         nav_graph_elements,
         levels,
         lifts,
@@ -228,6 +230,12 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
                         queue.push(*child);
                     }
                 }
+            }
+        }
+
+        if let Ok(task) = tasks.get(*site_child) {
+            if !site_ids.contains(task) {
+                new_entities.push(task);
             }
         }
 
@@ -1322,9 +1330,12 @@ fn generate_scenarios(
         Query<(Entity, &NameInSite, &SiteID, &Affiliation<Entity>), With<ScenarioMarker>>,
         Query<(&InstanceModifier, &Affiliation<Entity>)>,
         Query<&SiteID, With<InstanceMarker>>,
+        Query<(&TaskModifier, &Affiliation<Entity>)>,
+        Query<&SiteID, (With<Task>, Without<Pending>)>,
         Query<&Children>,
     )> = SystemState::new(world);
-    let (scenarios, instance_modifiers, instances, children) = state.get(world);
+    let (scenarios, instance_modifiers, instances, task_modifiers, tasks, children) =
+        state.get(world);
     let mut res = BTreeMap::<u32, Scenario<u32>>::new();
 
     if let Ok(site_children) = children.get(site) {
@@ -1334,12 +1345,15 @@ fn generate_scenarios(
 
                 while let Some(scenario) = queue.pop() {
                     let mut scenario_instance_modifiers = Vec::new();
+                    let mut scenario_task_modifiers = Vec::new();
                     if let Ok(scenario_children) = children.get(scenario) {
                         for scenario_child in scenario_children.iter() {
                             if scenarios.contains(*scenario_child) {
                                 queue.push(*scenario_child);
                             } else if instance_modifiers.contains(*scenario_child) {
                                 scenario_instance_modifiers.push(*scenario_child);
+                            } else if task_modifiers.contains(*scenario_child) {
+                                scenario_task_modifiers.push(*scenario_child);
                             }
                         }
                     }
@@ -1357,6 +1371,18 @@ fn generate_scenarios(
                                         Some((
                                             affiliation.0.and_then(|e| instances.get(e).ok())?.0,
                                             instance.clone(),
+                                        ))
+                                    })
+                                    .collect(),
+                                tasks: scenario_task_modifiers
+                                    .iter()
+                                    .filter_map(|child_entity| {
+                                        task_modifiers.get(*child_entity).ok()
+                                    })
+                                    .filter_map(|(scenario_task, affiliation)| {
+                                        Some((
+                                            affiliation.0.and_then(|e| tasks.get(e).ok())?.0,
+                                            scenario_task.clone(),
                                         ))
                                     })
                                     .collect(),
@@ -1387,25 +1413,15 @@ fn generate_scenarios(
 fn generate_tasks(
     site: Entity,
     world: &mut World,
-) -> Result<BTreeMap<u32, Tasks>, SiteGenerationError> {
-    let mut state: SystemState<(
-        Query<(&SiteID, &Tasks), (With<ModelMarker>, Without<Group>, Without<Pending>)>,
-        Query<(Entity, &SiteID), With<LevelElevation>>,
-        Query<&Children>,
-        Query<&Parent>,
-    )> = SystemState::new(world);
-    let (tasks, levels, children, parents) = state.get(world);
-    let mut res = BTreeMap::<u32, Tasks>::new();
-    for (level_entity, _) in levels.iter() {
-        if !parents.get(level_entity).is_ok_and(|p| p.get() == site) {
-            continue;
-        }
-        let Ok(children) = children.get(level_entity) else {
-            continue;
-        };
+) -> Result<BTreeMap<u32, Task>, SiteGenerationError> {
+    let mut state: SystemState<(Query<(&SiteID, &Task), Without<Pending>>, Query<&Children>)> =
+        SystemState::new(world);
+    let (tasks, children) = state.get(world);
+    let mut res = BTreeMap::<u32, Task>::new();
+    if let Ok(children) = children.get(site) {
         for child in children.iter() {
-            if let Ok((site_id, tasks_data)) = tasks.get(*child) {
-                res.insert(site_id.0, tasks_data.clone());
+            if let Ok((site_id, task)) = tasks.get(*child) {
+                res.insert(site_id.0, task.clone());
             }
         }
     }
@@ -1454,8 +1470,6 @@ pub fn generate_site(
                 locations,
             },
         },
-        // TODO(MXG): Parse agent information once the spec is figured out
-        agents: Default::default(),
         model_descriptions,
         robots,
         model_instances,
