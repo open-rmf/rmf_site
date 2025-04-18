@@ -219,8 +219,8 @@ impl<'w, 's> ViewNavGraphs<'w, 's> {
                         }
                         None => {
                             let file_dialog_filters = vec![FileDialogFilter {
-                                name: "Site".into(),
-                                extensions: vec!["site.ron".into(), "site.json".into()],
+                                name: "Nav Graph".into(),
+                                extensions: vec!["nav.yaml".into()],
                             }];
 
                             let promise = self
