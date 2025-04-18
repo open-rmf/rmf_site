@@ -30,7 +30,6 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Button, CollapsingHeader, Ui};
-#[cfg(not(target_arch = "wasm32"))]
 use std::cmp::Reverse;
 use std::collections::BTreeMap;
 
