@@ -18,25 +18,19 @@
 use crate::{
     interaction::{HeadlightToggle, Select},
     site::{
-        Angle, Category, ExportLights, Light, LightKind, PhysicalLightToggle, Pose, Recall,
-        RecallLightKind, Rotation, SiteID,
+        Angle, Category, Light, LightKind, PhysicalLightToggle, Pose, Recall, RecallLightKind,
+        Rotation, SiteID,
     },
     widgets::{
         inspector::{InspectLightKind, InspectPoseComponent},
         prelude::*,
         SelectorWidget,
     },
-    AppState,
+    AppState, Icons,
 };
-use bevy::{
-    ecs::system::SystemParam,
-    prelude::*,
-    tasks::{AsyncComputeTaskPool, Task},
-};
-use bevy_egui::egui::{CollapsingHeader, Ui};
-use futures_lite::future;
+use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy_egui::egui::{Button, CollapsingHeader, Ui};
 #[cfg(not(target_arch = "wasm32"))]
-use rfd::AsyncFileDialog;
 use std::cmp::Reverse;
 use std::collections::BTreeMap;
 
@@ -56,11 +50,11 @@ pub struct ViewLights<'w, 's> {
     lights: Query<'w, 's, (Entity, &'static LightKind, Option<&'static SiteID>)>,
     toggle_headlights: ResMut<'w, HeadlightToggle>,
     toggle_physical_lights: ResMut<'w, PhysicalLightToggle>,
-    export_lights: EventWriter<'w, ExportLights>,
     display_light: ResMut<'w, LightDisplay>,
     selector: SelectorWidget<'w, 's>,
     commands: Commands<'w, 's>,
     app_state: Res<'w, State<AppState>>,
+    icons: Res<'w, Icons>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for ViewLights<'w, 's> {
@@ -93,51 +87,6 @@ impl<'w, 's> ViewLights<'w, 's> {
 
         ui.separator();
 
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            ui.horizontal(|ui| {
-                if let Some(export_file) = &self.display_light.export_file {
-                    if ui.button("Export").clicked() {
-                        self.export_lights.send(ExportLights(export_file.clone()));
-                    }
-                }
-                if ui.button("Export Lights As...").clicked() {
-                    match &self.display_light.choosing_file_for_export {
-                        Some(_) => {
-                            warn!("A file is already being chosen!");
-                        }
-                        None => {
-                            let future = AsyncComputeTaskPool::get().spawn(async move {
-                                // TODO(luca) change this to use FileDialogServices
-                                // https://github.com/open-rmf/rmf_site/issues/248
-                                let file = match AsyncFileDialog::new().save_file().await {
-                                    Some(file) => file,
-                                    None => return None,
-                                };
-
-                                Some(file.path().to_path_buf())
-                            });
-                            self.display_light.choosing_file_for_export = Some(future);
-                        }
-                    }
-                }
-            });
-            match &self.display_light.export_file {
-                Some(path) => match path.to_str() {
-                    Some(s) => {
-                        ui.label(s);
-                    }
-                    None => {
-                        ui.label("unable to render path");
-                    }
-                },
-                None => {
-                    ui.label("<no file chosen>");
-                }
-            }
-            ui.separator();
-        }
-
         ui.heading("Create new light");
         if let Some(new_pose) = InspectPoseComponent::new(&self.display_light.pose).show(ui) {
             self.display_light.pose = new_pose;
@@ -153,7 +102,10 @@ impl<'w, 's> ViewLights<'w, 's> {
         });
 
         // TODO(MXG): Add a + icon to this button to make it more visible
-        if ui.button("Add").clicked() {
+        if ui
+            .add(Button::image_and_text(self.icons.add.egui(), "Add"))
+            .clicked()
+        {
             let new_light = self
                 .commands
                 .spawn(Light {
@@ -198,8 +150,6 @@ pub struct LightDisplay {
     pub pose: Pose,
     pub kind: LightKind,
     pub recall: RecallLightKind,
-    pub choosing_file_for_export: Option<Task<Option<std::path::PathBuf>>>,
-    pub export_file: Option<std::path::PathBuf>,
 }
 
 impl Default for LightDisplay {
@@ -215,29 +165,6 @@ impl Default for LightDisplay {
             },
             kind: Default::default(),
             recall: Default::default(),
-            choosing_file_for_export: None,
-            export_file: None,
         }
-    }
-}
-
-pub fn resolve_light_export_file(
-    mut light_display: ResMut<LightDisplay>,
-    mut export_lights: EventWriter<ExportLights>,
-) {
-    let mut resolved = false;
-    if let Some(task) = &mut light_display.choosing_file_for_export {
-        if let Some(result) = future::block_on(future::poll_once(task)) {
-            resolved = true;
-
-            if let Some(result) = result {
-                export_lights.send(ExportLights(result.clone()));
-                light_display.export_file = Some(result);
-            }
-        }
-    }
-
-    if resolved {
-        light_display.choosing_file_for_export = None;
     }
 }
