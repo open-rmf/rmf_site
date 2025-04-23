@@ -206,13 +206,13 @@ fn check_instance_modifier_inclusion(
         .unwrap_or_else(|| {
             error!(
                 "Unable to retrieve inherited visibility for instance {:?}.
-                Setting instance to be included in current scenario.",
+                Setting instance to be hidden in current scenario.",
                 instance_entity.index()
             );
             update_instance.send(UpdateInstanceEvent {
                 scenario: scenario_entity,
                 instance: instance_entity,
-                update: UpdateInstance::Include,
+                update: UpdateInstance::Hide,
             });
             true
         })

@@ -123,13 +123,13 @@ pub fn update_current_scenario(
                         } else {
                             error!(
                                 "Instance {:?} is included in the current scenario, but no visibility found! \
-                                Setting instance to included in current scenario.",
+                                Setting instance to hidden in current scenario.",
                                 name.0
                             );
                             update_instance.send(UpdateInstanceEvent {
                                 scenario: *scenario_entity,
                                 instance: entity,
-                                update: UpdateInstance::Include,
+                                update: UpdateInstance::Hide,
                             });
                             Visibility::Inherited
                         }
