@@ -59,6 +59,7 @@ pub fn update_current_scenario(
     mut change_current_scenario: EventReader<ChangeCurrentScenario>,
     mut current_scenario: ResMut<CurrentScenario>,
     mut instances: Query<(Entity, &NameInSite, &mut Pose, &mut Visibility), With<InstanceMarker>>,
+    mut update_instance: EventWriter<UpdateInstanceEvent>,
     children: Query<&Children>,
     instance_modifiers: Query<(&mut InstanceModifier, &Affiliation<Entity>)>,
     recall_instance: Query<&RecallInstance>,
@@ -122,9 +123,14 @@ pub fn update_current_scenario(
                         } else {
                             error!(
                                 "Instance {:?} is included in the current scenario, but no visibility found! \
-                                Setting instance to included in current scenario.",
+                                Setting instance to hidden in current scenario.",
                                 name.0
                             );
+                            update_instance.send(UpdateInstanceEvent {
+                                scenario: *scenario_entity,
+                                instance: entity,
+                                update: UpdateInstance::Hide,
+                            });
                             Visibility::Inherited
                         }
                     };
@@ -208,7 +214,7 @@ fn retrieve_parent_pose(
     parent_pose
 }
 
-fn retrieve_parent_visibility(
+pub fn retrieve_parent_visibility(
     instance_entity: Entity,
     scenario_entity: Entity,
     children: &Query<&Children>,
@@ -562,18 +568,26 @@ pub const HIDDEN_MODEL_INSTANCE_ISSUE_UUID: Uuid =
 
 pub fn check_for_hidden_model_instances(
     mut commands: Commands,
+    mut update_instance: EventWriter<UpdateInstanceEvent>,
     mut validate_events: EventReader<ValidateWorkspace>,
     children: Query<&Children>,
     instances: Query<
         (Entity, &NameInSite, &Affiliation<Entity>),
         (With<ModelMarker>, Without<Group>),
     >,
-    scenarios: Query<(Entity, &NameInSite, &Affiliation<Entity>), With<ScenarioMarker>>,
+    scenarios: Query<(Entity, &Affiliation<Entity>), With<ScenarioMarker>>,
     instance_modifiers: Query<(&mut InstanceModifier, &Affiliation<Entity>)>,
 ) {
     for root in validate_events.read() {
         for (instance_entity, instance_name, _) in instances.iter() {
-            if count_scenarios(&scenarios, instance_entity, &children, &instance_modifiers) > 0 {
+            if count_scenarios(
+                &scenarios,
+                instance_entity,
+                &children,
+                &instance_modifiers,
+                &mut update_instance,
+            ) > 0
+            {
                 continue;
             }
             let issue = Issue {

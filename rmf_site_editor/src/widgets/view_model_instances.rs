@@ -43,12 +43,7 @@ impl Plugin for ViewModelInstancesPlugin {
 
 #[derive(SystemParam)]
 pub struct ViewModelInstances<'w, 's> {
-    scenarios: Query<
-        'w,
-        's,
-        (Entity, &'static NameInSite, &'static Affiliation<Entity>),
-        With<ScenarioMarker>,
-    >,
+    scenarios: Query<'w, 's, (Entity, &'static Affiliation<Entity>), With<ScenarioMarker>>,
     children: Query<'w, 's, &'static Children>,
     current_scenario: ResMut<'w, CurrentScenario>,
     icons: Res<'w, Icons>,
@@ -130,6 +125,7 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                             instance_entity,
                                             &self.children,
                                             &self.instance_modifiers,
+                                            &mut self.update_instance,
                                         );
                                         show_model_instance(
                                             ui,
@@ -140,7 +136,6 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                             &mut self.update_instance,
                                             scenario_instance_modifiers.get(&instance_entity),
                                             current_scenario_entity,
-                                            &self.scenarios,
                                             scenario_count,
                                             &self.icons,
                                         );
@@ -169,6 +164,7 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                         *instance_entity,
                                         &self.children,
                                         &self.instance_modifiers,
+                                        &mut self.update_instance,
                                     );
                                     show_model_instance(
                                         ui,
@@ -179,7 +175,6 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                         &mut self.update_instance,
                                         scenario_instance_modifiers.get(instance_entity),
                                         current_scenario_entity,
-                                        &self.scenarios,
                                         scenario_count,
                                         &self.icons,
                                     );
@@ -191,18 +186,60 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
     }
 }
 
+fn check_instance_modifier_inclusion(
+    instance_modifier: &InstanceModifier,
+    instance_entity: Entity,
+    scenario_entity: Entity,
+    children: &Query<&Children>,
+    scenarios: &Query<(Entity, &Affiliation<Entity>), With<ScenarioMarker>>,
+    update_instance: &mut EventWriter<UpdateInstanceEvent>,
+    instance_modifiers: &Query<(&mut InstanceModifier, &Affiliation<Entity>)>,
+) -> bool {
+    instance_modifier.visibility().unwrap_or_else(|| {
+        retrieve_parent_visibility(
+            instance_entity,
+            scenario_entity,
+            children,
+            scenarios,
+            instance_modifiers,
+        )
+        .unwrap_or_else(|| {
+            error!(
+                "Unable to retrieve inherited visibility for instance {:?}.
+                Setting instance to be hidden in current scenario.",
+                instance_entity.index()
+            );
+            update_instance.send(UpdateInstanceEvent {
+                scenario: scenario_entity,
+                instance: instance_entity,
+                update: UpdateInstance::Hide,
+            });
+            true
+        })
+    })
+}
+
+/// Count the number of scenarios a model instance is included in
 pub fn count_scenarios(
-    scenarios: &Query<(Entity, &NameInSite, &Affiliation<Entity>), With<ScenarioMarker>>,
+    scenarios: &Query<(Entity, &Affiliation<Entity>), With<ScenarioMarker>>,
     instance: Entity,
     children: &Query<&Children>,
     instance_modifiers: &Query<(&mut InstanceModifier, &Affiliation<Entity>)>,
+    update_instance: &mut EventWriter<UpdateInstanceEvent>,
 ) -> i32 {
-    scenarios.iter().fold(0, |x, (e, _, _)| {
+    scenarios.iter().fold(0, |x, (e, _)| {
         if find_modifier_for_instance(instance, e, &children, &instance_modifiers)
             .and_then(|modifier_entity| instance_modifiers.get(modifier_entity).ok())
-            .is_some_and(|(i, _)| match i {
-                InstanceModifier::Hidden => false,
-                _ => true,
+            .is_some_and(|(i, _)| {
+                check_instance_modifier_inclusion(
+                    i,
+                    instance,
+                    e,
+                    children,
+                    scenarios,
+                    update_instance,
+                    instance_modifiers,
+                )
             })
         {
             x + 1
@@ -222,7 +259,6 @@ fn show_model_instance(
     update_instance: &mut EventWriter<UpdateInstanceEvent>,
     instance_modifier: Option<&InstanceModifier>,
     scenario: Entity,
-    scenarios: &Query<(Entity, &NameInSite, &Affiliation<Entity>), With<ScenarioMarker>>,
     scenario_count: i32,
     icons: &Res<Icons>,
 ) {
