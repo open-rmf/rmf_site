@@ -161,10 +161,10 @@ impl<'a> InspectPoseComponent<'a> {
                     ui.label("w");
                     ui.end_row();
 
-                    ui.add(DragValue::new(x).speed(0.01).clamp_range(-1.0..=1.0));
-                    ui.add(DragValue::new(y).speed(0.01).clamp_range(-1.0..=1.0));
-                    ui.add(DragValue::new(z).speed(0.01).clamp_range(-1.0..=1.0));
-                    ui.add(DragValue::new(w).speed(0.01).clamp_range(-1.0..=1.0));
+                    ui.add(DragValue::new(x).speed(0.01).range(-1.0..=1.0));
+                    ui.add(DragValue::new(y).speed(0.01).range(-1.0..=1.0));
+                    ui.add(DragValue::new(z).speed(0.01).range(-1.0..=1.0));
+                    ui.add(DragValue::new(w).speed(0.01).range(-1.0..=1.0));
                     ui.end_row();
                 });
 

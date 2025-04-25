@@ -44,9 +44,9 @@ where
     W: WidgetSystem<Tile> + 'static + Send + Sync,
 {
     fn build(&self, app: &mut App) {
-        let widget = Widget::<Tile>::new::<W>(&mut app.world);
-        let header_panel = app.world.resource::<HeaderPanel>().id;
-        app.world.spawn(widget).set_parent(header_panel);
+        let widget = Widget::<Tile>::new::<W>(app.world_mut());
+        let header_panel = app.world().resource::<HeaderPanel>().id;
+        app.world_mut().spawn(widget).set_parent(header_panel);
     }
 }
 
@@ -85,9 +85,9 @@ impl Default for HeaderPanelPlugin {
 
 impl Plugin for HeaderPanelPlugin {
     fn build(&self, app: &mut App) {
-        let widget = PanelWidget::new(show_panel_of_tiles, &mut app.world);
+        let widget = PanelWidget::new(show_panel_of_tiles, app.world_mut());
         let id = app
-            .world
+            .world_mut()
             .spawn((
                 widget,
                 self.side,
@@ -105,7 +105,7 @@ impl Plugin for HeaderPanelPlugin {
                 },
             ))
             .id();
-        app.world.insert_resource(HeaderPanel {
+        app.world_mut().insert_resource(HeaderPanel {
             side: self.side,
             id,
         });

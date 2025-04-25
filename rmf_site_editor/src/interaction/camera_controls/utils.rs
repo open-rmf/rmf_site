@@ -15,11 +15,9 @@
  *
 */
 
+use bevy::math::Ray3d;
 use bevy::prelude::*;
-use bevy_mod_raycast::{
-    immediate::{Raycast, RaycastSettings, RaycastVisibility},
-    primitives::Ray3d,
-};
+use bevy_mod_raycast::immediate::{Raycast, RaycastSettings, RaycastVisibility};
 
 use super::{MAX_PITCH, MAX_SELECTION_DIST, MIN_SELECTION_DIST};
 use crate::UserCameraDisplay;
@@ -84,7 +82,7 @@ pub fn get_camera_selected_point(
 
     let camera_ray =
         camera.viewport_to_world(camera_global_transform, available_viewport_center)?;
-    let camera_ray = Ray3d::new(camera_ray.origin, camera_ray.direction);
+    let camera_ray = Ray3d::new(camera_ray.origin, camera_ray.direction.as_vec3());
     let raycast_setting = RaycastSettings::default()
         .always_early_exit()
         .with_visibility(RaycastVisibility::MustBeVisible);
@@ -96,9 +94,9 @@ pub fn get_camera_selected_point(
         return Some(intersection_data.position());
     } else {
         return Some(get_groundplane_else_default_selection(
-            camera_ray.origin(),
-            camera_ray.direction(),
-            camera_ray.direction(),
+            camera_ray.origin.clone(),
+            camera_ray.direction.as_vec3(),
+            camera_ray.direction.as_vec3(),
         ));
     }
 }

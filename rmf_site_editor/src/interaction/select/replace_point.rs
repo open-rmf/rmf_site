@@ -43,7 +43,7 @@ pub fn spawn_replace_point_service(
         update_current,
         handle_key_code,
         cleanup_state,
-        &mut app.world,
+        app.world_mut(),
     )
 }
 

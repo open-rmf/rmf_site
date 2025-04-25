@@ -69,17 +69,17 @@ impl<'a> InspectScaleComponent<'a> {
             ui.label("");
             ui.add(
                 DragValue::new(&mut new_scale.0[0])
-                    .clamp_range(0_f32..=std::f32::INFINITY)
+                    .range(0_f32..=std::f32::INFINITY)
                     .speed(0.01),
             );
             ui.add(
                 DragValue::new(&mut new_scale.0[1])
-                    .clamp_range(0_f32..=std::f32::INFINITY)
+                    .range(0_f32..=std::f32::INFINITY)
                     .speed(0.01),
             );
             ui.add(
                 DragValue::new(&mut new_scale.0[2])
-                    .clamp_range(0_f32..=std::f32::INFINITY)
+                    .range(0_f32..=std::f32::INFINITY)
                     .speed(0.01),
             );
             ui.end_row();

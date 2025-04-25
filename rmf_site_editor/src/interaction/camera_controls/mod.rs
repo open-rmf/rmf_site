@@ -16,12 +16,11 @@
 */
 use crate::interaction::{InteractionAssets, PickingBlockers};
 use bevy::{
-    core_pipeline::{
-        clear_color::ClearColorConfig, core_3d::Camera3dBundle, tonemapping::Tonemapping,
-    },
+    color::palettes::css as Colors,
+    core_pipeline::{core_3d::Camera3dBundle, tonemapping::Tonemapping},
     prelude::*,
     render::{
-        camera::{Camera, Projection, ScalingMode},
+        camera::{Camera, ClearColorConfig, Projection, ScalingMode},
         view::RenderLayers,
     },
 };
@@ -285,7 +284,7 @@ impl FromWorld for CameraControls {
                     visibility: Visibility::Inherited,
                     ..default()
                 })
-                .insert(RenderLayers::layer(layer))
+                .insert(RenderLayers::layer(layer.into()))
                 .id()
         });
 
@@ -301,8 +300,8 @@ impl FromWorld for CameraControls {
                 ..default()
             })
             .insert(RenderLayers::from_layers(&[
-                GENERAL_RENDER_LAYER,
-                VISUAL_CUE_RENDER_LAYER,
+                GENERAL_RENDER_LAYER.into(),
+                VISUAL_CUE_RENDER_LAYER.into(),
             ]))
             .push_children(&[perspective_headlight])
             .push_children(&perspective_child_cameras)
@@ -355,7 +354,7 @@ impl FromWorld for CameraControls {
                     visibility: Visibility::Inherited,
                     ..default()
                 })
-                .insert(RenderLayers::layer(layer))
+                .insert(RenderLayers::layer(layer.into()))
                 .id()
         });
 
@@ -375,8 +374,8 @@ impl FromWorld for CameraControls {
                 ..default()
             })
             .insert(RenderLayers::from_layers(&[
-                GENERAL_RENDER_LAYER,
-                VISUAL_CUE_RENDER_LAYER,
+                GENERAL_RENDER_LAYER.into(),
+                VISUAL_CUE_RENDER_LAYER.into(),
             ]))
             .push_children(&[orthographic_headlight])
             .push_children(&orthographic_child_cameras)
@@ -522,7 +521,7 @@ fn update_orbit_center_marker(
                 *marker_visibility = Visibility::Visible;
                 *marker_material = interaction_assets.camera_control_orbit_material.clone();
                 marker_transform.translation = orbit_center;
-                gizmo.sphere(orbit_center, Quat::IDENTITY, 0.1, Color::GREEN);
+                gizmo.sphere(orbit_center, Quat::IDENTITY, 0.1, Colors::LIME);
             }
         // Panning
         } else if cursor_command.command_type == CameraCommandType::Pan {
@@ -530,7 +529,7 @@ fn update_orbit_center_marker(
                 *marker_visibility = Visibility::Visible;
                 *marker_material = interaction_assets.camera_control_pan_material.clone();
                 marker_transform.translation = cursor_selection;
-                gizmo.sphere(cursor_selection, Quat::IDENTITY, 0.1, Color::WHITE);
+                gizmo.sphere(cursor_selection, Quat::IDENTITY, 0.1, Colors::WHITE);
             }
         } else {
             *marker_visibility = Visibility::Hidden;

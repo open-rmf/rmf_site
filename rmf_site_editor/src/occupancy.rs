@@ -289,7 +289,7 @@ fn calculate_grid(
             commands.entity(level).with_children(|level| {
                 level
                     .spawn(PbrBundle {
-                        mesh: meshes.add(mesh.into()),
+                        mesh: meshes.add(mesh),
                         material: assets.occupied_material.clone(),
                         ..default()
                     })

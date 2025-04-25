@@ -27,6 +27,7 @@ use crate::{
     site::{Change, Group, ModelMarker, ModelProperty, Pose, Robot},
     widgets::{prelude::*, Inspect},
 };
+use bevy::color::palettes::css as Colors;
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{DragValue, Grid, Ui};
 use rmf_site_format::Recall;
@@ -220,7 +221,7 @@ pub struct InspectCircleCollision<'w, 's> {
         (With<ModelMarker>, With<Group>),
     >,
     poses: Query<'w, 's, &'static Pose>,
-    gizmos: Gizmos<'s>,
+    gizmos: Gizmos<'w, 's>,
     change_robot_property: EventWriter<'w, Change<ModelProperty<Robot>>>,
 }
 
@@ -255,7 +256,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectCircleCollision<'w, 's> {
                     if ui
                         .add(
                             DragValue::new(&mut new_circle_collision.radius)
-                                .clamp_range(0_f32..=std::f32::INFINITY)
+                                .range(0_f32..=std::f32::INFINITY)
                                 .speed(0.01),
                         )
                         .is_pointer_button_down_on()
@@ -263,9 +264,9 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectCircleCollision<'w, 's> {
                         if let Ok(pose) = params.poses.get(selection) {
                             params.gizmos.circle(
                                 Vec3::new(pose.trans[0], pose.trans[1], pose.trans[2] + 0.01),
-                                Vec3::Z,
+                                Dir3::Z,
                                 new_circle_collision.radius,
-                                Color::RED,
+                                Colors::RED,
                             );
                         }
                     };
@@ -280,12 +281,12 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectCircleCollision<'w, 's> {
                     ui.label("");
                     ui.add(
                         DragValue::new(&mut new_circle_collision.offset[0])
-                            .clamp_range(std::f32::NEG_INFINITY..=std::f32::INFINITY)
+                            .range(std::f32::NEG_INFINITY..=std::f32::INFINITY)
                             .speed(0.01),
                     );
                     ui.add(
                         DragValue::new(&mut new_circle_collision.offset[1])
-                            .clamp_range(std::f32::NEG_INFINITY..=std::f32::INFINITY)
+                            .range(std::f32::NEG_INFINITY..=std::f32::INFINITY)
                             .speed(0.01),
                     );
                     ui.end_row();

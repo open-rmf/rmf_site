@@ -190,7 +190,7 @@ impl Plugin for SitePlugin {
             PostUpdate,
             apply_deferred.in_set(SiteUpdateSet::AssignOrphansFlush),
         )
-        .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
+        .insert_resource(ClearColor(Color::srgb(0., 0., 0.)))
         .init_resource::<SiteAssets>()
         .init_resource::<CurrentLevel>()
         .init_resource::<CurrentScenario>()

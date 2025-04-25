@@ -24,12 +24,13 @@ use crate::{
 use anyhow::{anyhow, Error as Anyhow};
 use bevy::{
     ecs::system::{StaticSystemParam, SystemParam},
-    prelude::{Input, *},
+    math::Ray3d,
+    prelude::*,
 };
 use bevy_impulse::*;
 use bevy_mod_raycast::{
     deferred::{RaycastMesh, RaycastSource},
-    primitives::rays::Ray3d,
+    primitives::rays,
 };
 use rmf_site_format::{
     Category, Door, Edge, Lane, LiftProperties, Measurement, NameOfSite, Pending, PixelsPerMeter,
@@ -106,15 +107,15 @@ impl Plugin for SelectionPlugin {
             ObjectPlacementPlugin::default(),
         ));
 
-        let inspector_service = app.world.resource::<InspectorService>().inspector_service;
+        let inspector_service = app.world().resource::<InspectorService>().inspector_service;
         let new_selector_service = app.spawn_event_streaming_service::<RunSelector>(Update);
-        let selection_workflow = app.world.spawn_io_workflow(build_selection_workflow(
+        let selection_workflow = app.world_mut().spawn_io_workflow(build_selection_workflow(
             inspector_service,
             new_selector_service,
         ));
 
         // Get the selection workflow running
-        app.world.command(|commands| {
+        app.world_mut().command(|commands| {
             commands.request((), selection_workflow).detach();
         });
     }
@@ -445,7 +446,7 @@ impl SpawnSelectionServiceExt for App {
                 .configure(|config: SystemConfigs| config.in_set(SelectionServiceStages::Select)),
         );
 
-        self.world
+        self.world_mut()
             .spawn_workflow::<_, _, (Hover, Select), _>(|scope, builder| {
                 let hover = builder.create_node(hover_service);
                 builder.connect(hover.streams, scope.streams.0);
@@ -518,11 +519,11 @@ impl Plugin for InspectorServicePlugin {
         );
         let selection_update = app.spawn_service(selection_update);
         let keyboard_just_pressed = app
-            .world
+            .world()
             .resource::<KeyboardServices>()
             .keyboard_just_pressed;
 
-        let inspector_service = app.world.spawn_workflow(|scope, builder| {
+        let inspector_service = app.world_mut().spawn_workflow(|scope, builder| {
             let fork_input = scope.input.fork_clone(builder);
             fork_input
                 .clone_chain(builder)
@@ -548,7 +549,7 @@ impl Plugin for InspectorServicePlugin {
             builder.connect(selection.output, scope.terminate);
         });
 
-        app.world.insert_resource(InspectorService {
+        app.world_mut().insert_resource(InspectorService {
             inspector_service,
             inspector_select_service,
             inspector_cursor_transform,
@@ -733,7 +734,7 @@ pub fn hover_service<Filter: SystemParam + 'static>(
     mut hovered: Query<&mut Hovered>,
     mut hovering: ResMut<Hovering>,
     mut hover: EventReader<Hover>,
-    mouse_button_input: Res<Input<MouseButton>>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
     touch_input: Res<Touches>,
     mut select: EventWriter<Select>,
     blockers: Option<Res<PickingBlockers>>,
@@ -925,5 +926,5 @@ pub fn inspector_cursor_transform(
     };
 
     let ray = Ray3d::new(intersection.position(), intersection.normal());
-    *transform = Transform::from_matrix(ray.to_aligned_transform([0., 0., 1.].into()));
+    *transform = Transform::from_matrix(rays::to_aligned_transform(ray, [0., 0., 1.].into()));
 }

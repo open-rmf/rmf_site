@@ -87,21 +87,19 @@ impl<'a> InspectLightKind<'a> {
                     ui.label("Intensity");
                     ui.add(
                         DragValue::new(&mut point.intensity)
-                            .clamp_range(0_f32..=std::f32::INFINITY)
+                            .range(0_f32..=std::f32::INFINITY)
                             .speed(10),
                     );
                 });
                 ui.horizontal(|ui| {
                     ui.label("Range");
-                    ui.add(
-                        DragValue::new(&mut point.range).clamp_range(0_f32..=std::f32::INFINITY),
-                    );
+                    ui.add(DragValue::new(&mut point.range).range(0_f32..=std::f32::INFINITY));
                 });
                 ui.horizontal(|ui| {
                     ui.label("Radius");
                     ui.add(
                         DragValue::new(&mut point.radius)
-                            .clamp_range(0_f32..=std::f32::INFINITY)
+                            .range(0_f32..=std::f32::INFINITY)
                             .speed(0.1),
                     );
                 });
@@ -116,19 +114,19 @@ impl<'a> InspectLightKind<'a> {
                     ui.label("Intensity");
                     ui.add(
                         DragValue::new(&mut spot.intensity)
-                            .clamp_range(0_f32..=std::f32::INFINITY)
+                            .range(0_f32..=std::f32::INFINITY)
                             .speed(10),
                     );
                 });
                 ui.horizontal(|ui| {
                     ui.label("Range");
-                    ui.add(DragValue::new(&mut spot.range).clamp_range(0_f32..=std::f32::INFINITY));
+                    ui.add(DragValue::new(&mut spot.range).range(0_f32..=std::f32::INFINITY));
                 });
                 ui.horizontal(|ui| {
                     ui.label("Radius");
                     ui.add(
                         DragValue::new(&mut spot.radius)
-                            .clamp_range(0_f32..=std::f32::INFINITY)
+                            .range(0_f32..=std::f32::INFINITY)
                             .speed(0.1),
                     );
                 });
@@ -143,7 +141,7 @@ impl<'a> InspectLightKind<'a> {
                     ui.label("Illuminance");
                     ui.add(
                         DragValue::new(&mut dir.illuminance)
-                            .clamp_range(0_f32..=std::f32::INFINITY)
+                            .range(0_f32..=std::f32::INFINITY)
                             .speed(1000),
                     );
                 });

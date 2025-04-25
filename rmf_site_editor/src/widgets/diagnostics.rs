@@ -38,9 +38,9 @@ impl Plugin for DiagnosticsPlugin {
             .init_resource::<DiagnosticsDisplay>()
             .add_systems(Update, handle_diagnostic_panel_visibility);
 
-        let panel = PanelWidget::new(diagnostics_panel, &mut app.world);
-        let widget = Widget::new::<Diagnostics>(&mut app.world);
-        app.world.spawn((panel, widget));
+        let panel = PanelWidget::new(diagnostics_panel, app.world_mut());
+        let widget = Widget::new::<Diagnostics>(app.world_mut());
+        app.world_mut().spawn((panel, widget));
     }
 }
 

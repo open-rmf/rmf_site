@@ -253,7 +253,7 @@ impl<'w, 's> ViewNavGraphs<'w, 's> {
                             self.save_nav_graphs.send(SaveNavGraphs {
                                 site: current_site,
                                 to_file: export_file.clone(),
-                            })
+                            });
                         } else {
                             error!("No current site??");
                         }

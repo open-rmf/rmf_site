@@ -16,12 +16,12 @@
 */
 
 use crate::{interaction::*, shapes::*};
-use bevy::{math::Affine3A, prelude::*};
+use bevy::color::palettes::css as Colors;
+use bevy::{math::primitives, math::Affine3A, prelude::*};
 use bevy_polyline::{
     material::PolylineMaterial,
     polyline::{Polyline, PolylineBundle},
 };
-use shape::UVSphere;
 
 #[derive(Clone, Debug, Resource)]
 pub struct InteractionAssets {
@@ -231,47 +231,36 @@ impl FromWorld for InteractionAssets {
         let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
         let dagger_mesh = meshes.add(make_dagger_mesh());
         let halo_mesh = meshes.add(make_halo_mesh());
-        let camera_control_mesh = meshes.add(Mesh::from(UVSphere {
-            radius: 0.02,
-            ..Default::default()
-        }));
+        let camera_control_mesh = meshes.add(Mesh::from(primitives::Sphere::new(0.02)));
         let arrow_mesh = meshes.add(make_cylinder_arrow_mesh());
         let point_light_socket_mesh = meshes.add(
-            make_cylinder(0.06, 0.02)
-                .transform_by(Affine3A::from_translation(0.04 * Vec3::Z))
-                .into(),
+            make_cylinder(0.06, 0.02).transform_by(Affine3A::from_translation(0.04 * Vec3::Z)),
         );
-        let point_light_shine_mesh = meshes.add(Mesh::from(shape::UVSphere {
-            radius: 0.05,
-            ..Default::default()
-        }));
-        let spot_light_cover_mesh = meshes.add(
-            make_smooth_wrap(
-                [
-                    Circle {
-                        radius: 0.05,
-                        height: 0.0,
-                    },
-                    Circle {
-                        radius: 0.01,
-                        height: 0.04,
-                    },
-                ],
-                32,
-            )
-            .into(),
-        );
+        let point_light_shine_mesh = meshes.add(Mesh::from(primitives::Sphere::new(0.05)));
+        let spot_light_cover_mesh = meshes.add(make_smooth_wrap(
+            [
+                OffsetCircle {
+                    radius: 0.05,
+                    height: 0.0,
+                },
+                OffsetCircle {
+                    radius: 0.01,
+                    height: 0.04,
+                },
+            ],
+            32,
+        ));
         let spot_light_shine_mesh = meshes.add(
             Mesh::from(
                 make_bottom_circle(
-                    Circle {
+                    OffsetCircle {
                         radius: 0.05,
                         height: 0.0,
                     },
                     32,
                 )
                 .merge_with(make_top_circle(
-                    Circle {
+                    OffsetCircle {
                         radius: 0.01,
                         height: 0.04,
                     },
@@ -300,7 +289,7 @@ impl FromWorld for InteractionAssets {
             .get_resource_mut::<Assets<StandardMaterial>>()
             .unwrap();
         let halo_material = materials.add(StandardMaterial {
-            base_color: Color::WHITE,
+            base_color: Colors::WHITE.into(),
             alpha_mode: AlphaMode::Blend,
             unlit: true,
             perceptual_roughness: 0.089,
@@ -308,26 +297,26 @@ impl FromWorld for InteractionAssets {
             ..default()
         });
         let dagger_material = materials.add(StandardMaterial {
-            base_color: Color::WHITE,
-            emissive: Color::WHITE,
+            base_color: Colors::WHITE.into(),
+            emissive: Colors::WHITE.into(),
             perceptual_roughness: 0.089,
             metallic: 0.01,
             ..default()
         });
         let camera_control_orbit_material = materials.add(StandardMaterial {
-            base_color: Color::GREEN,
-            emissive: Color::GREEN,
+            base_color: Colors::GREEN.into(),
+            emissive: Colors::LIME.into(),
             depth_bias: f32::MAX,
             unlit: true,
             ..default()
         });
         let camera_control_pan_material = materials.add(StandardMaterial {
-            base_color: Color::WHITE,
-            emissive: Color::WHITE,
+            base_color: Colors::WHITE.into(),
+            emissive: Colors::WHITE.into(),
             unlit: true,
             ..default()
         });
-        let light_cover_color = Color::rgb(0.6, 0.7, 0.8);
+        let light_cover_color = Color::srgb(0.6, 0.7, 0.8);
         let physical_light_cover_material = materials.add(StandardMaterial {
             base_color: light_cover_color,
             perceptual_roughness: 0.089,
@@ -347,7 +336,7 @@ impl FromWorld for InteractionAssets {
         let z_plane_materials = GizmoMaterialSet::make_z_plane(&mut materials);
         let lift_doormat_available_materials = GizmoMaterialSet {
             passive: materials.add(StandardMaterial {
-                base_color: Color::rgba(0.1, 0.9, 0.1, 0.1),
+                base_color: Color::srgba(0.1, 0.9, 0.1, 0.1),
                 alpha_mode: AlphaMode::Blend,
                 unlit: true,
                 perceptual_roughness: 0.089,
@@ -355,7 +344,7 @@ impl FromWorld for InteractionAssets {
                 ..default()
             }),
             hover: materials.add(StandardMaterial {
-                base_color: Color::rgba(0.1, 0.9, 0.1, 0.9),
+                base_color: Color::srgba(0.1, 0.9, 0.1, 0.9),
                 alpha_mode: AlphaMode::Blend,
                 unlit: true,
                 perceptual_roughness: 0.089,
@@ -363,7 +352,7 @@ impl FromWorld for InteractionAssets {
                 ..default()
             }),
             drag: materials.add(StandardMaterial {
-                base_color: Color::rgba(0.1, 0.9, 0.1, 0.9),
+                base_color: Color::srgba(0.1, 0.9, 0.1, 0.9),
                 alpha_mode: AlphaMode::Blend,
                 unlit: true,
                 perceptual_roughness: 0.089,
@@ -373,7 +362,7 @@ impl FromWorld for InteractionAssets {
         };
         let lift_doormat_unavailable_materials = GizmoMaterialSet {
             passive: materials.add(StandardMaterial {
-                base_color: Color::rgba(0.9, 0.1, 0.1, 0.1),
+                base_color: Color::srgba(0.9, 0.1, 0.1, 0.1),
                 alpha_mode: AlphaMode::Blend,
                 unlit: true,
                 perceptual_roughness: 0.089,
@@ -381,7 +370,7 @@ impl FromWorld for InteractionAssets {
                 ..default()
             }),
             hover: materials.add(StandardMaterial {
-                base_color: Color::rgba(0.9, 0.1, 0.1, 0.9),
+                base_color: Color::srgba(0.9, 0.1, 0.1, 0.9),
                 alpha_mode: AlphaMode::Blend,
                 unlit: true,
                 perceptual_roughness: 0.089,
@@ -389,7 +378,7 @@ impl FromWorld for InteractionAssets {
                 ..default()
             }),
             drag: materials.add(StandardMaterial {
-                base_color: Color::rgba(0.9, 0.1, 0.1, 0.9),
+                base_color: Color::srgba(0.9, 0.1, 0.1, 0.9),
                 alpha_mode: AlphaMode::Blend,
                 unlit: true,
                 perceptual_roughness: 0.089,
@@ -400,7 +389,7 @@ impl FromWorld for InteractionAssets {
 
         let centimeter_finite_grid = {
             let (polylines, polyline_mats): (Vec<_>, Vec<_>) =
-                make_metric_finite_grid(0.01, 100, Color::WHITE)
+                make_metric_finite_grid(0.01, 100, Colors::WHITE.into())
                     .into_iter()
                     .unzip();
             let mut polyline_assets = world.get_resource_mut::<Assets<Polyline>>().unwrap();

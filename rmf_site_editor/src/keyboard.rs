@@ -20,10 +20,7 @@ use crate::{
     site::{AlignSiteDrawings, Delete},
     CreateNewWorkspace, CurrentWorkspace, WorkspaceLoader, WorkspaceSaver,
 };
-use bevy::{
-    prelude::{Input as UserInput, *},
-    window::PrimaryWindow,
-};
+use bevy::{prelude::*, window::PrimaryWindow};
 use bevy_egui::EguiContexts;
 use bevy_impulse::*;
 
@@ -53,7 +50,7 @@ impl Plugin for KeyboardInputPlugin {
 }
 
 fn handle_keyboard_input(
-    keyboard_input: Res<UserInput<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     selection: Res<Selection>,
     mut egui_context: EguiContexts,
     mut delete: EventWriter<Delete>,
@@ -89,7 +86,9 @@ fn handle_keyboard_input(
         change_camera_mode.send(ChangeProjectionMode::to_perspective());
     }
 
-    if keyboard_input.just_pressed(KeyCode::Delete) || keyboard_input.just_pressed(KeyCode::Back) {
+    if keyboard_input.just_pressed(KeyCode::Delete)
+        || keyboard_input.just_pressed(KeyCode::Backspace)
+    {
         if let Some(selection) = selection.0 {
             delete.send(Delete::new(selection));
         } else {
@@ -97,14 +96,14 @@ fn handle_keyboard_input(
         }
     }
 
-    if keyboard_input.just_pressed(KeyCode::D) {
+    if keyboard_input.just_pressed(KeyCode::KeyD) {
         debug_mode.0 = !debug_mode.0;
         info!("Toggling debug mode: {debug_mode:?}");
     }
 
     // Ctrl keybindings
     if keyboard_input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) {
-        if keyboard_input.just_pressed(KeyCode::S) {
+        if keyboard_input.just_pressed(KeyCode::KeyS) {
             if keyboard_input.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]) {
                 workspace_saver.save_to_dialog();
             } else {
@@ -112,23 +111,23 @@ fn handle_keyboard_input(
             }
         }
 
-        if keyboard_input.just_pressed(KeyCode::T) {
+        if keyboard_input.just_pressed(KeyCode::KeyT) {
             if let Some(site) = current_workspace.root {
                 align_site.send(AlignSiteDrawings(site));
             }
         }
 
-        if keyboard_input.just_pressed(KeyCode::E) {
+        if keyboard_input.just_pressed(KeyCode::KeyE) {
             workspace_saver.export_sdf_to_dialog();
         }
 
         // TODO(luca) pop up a confirmation prompt if the current file is not saved, or create a
         // gui to switch between open workspaces
-        if keyboard_input.just_pressed(KeyCode::N) {
+        if keyboard_input.just_pressed(KeyCode::KeyN) {
             new_workspace.send(CreateNewWorkspace);
         }
 
-        if keyboard_input.just_pressed(KeyCode::O) {
+        if keyboard_input.just_pressed(KeyCode::KeyO) {
             workspace_loader.load_from_dialog();
         }
     }
@@ -137,7 +136,7 @@ fn handle_keyboard_input(
 pub fn keyboard_just_pressed_stream(
     In(ContinuousService { key }): ContinuousServiceInput<(), (), StreamOf<KeyCode>>,
     mut orders: ContinuousQuery<(), (), StreamOf<KeyCode>>,
-    keyboard_input: Res<UserInput<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
     let Some(mut orders) = orders.get_mut(&key) else {
         return;

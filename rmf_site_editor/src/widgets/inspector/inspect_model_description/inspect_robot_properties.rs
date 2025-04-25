@@ -28,7 +28,6 @@ use crate::{
 use bevy::{
     ecs::system::SystemParam,
     prelude::{Component, *},
-    utils::Uuid,
 };
 use bevy_egui::egui::{ComboBox, Ui};
 use serde::{de::DeserializeOwned, Serialize};
@@ -36,6 +35,7 @@ use serde_json::{Error, Map, Value};
 use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::fmt::Debug;
+use uuid::Uuid;
 
 type InsertDefaultValueFn = fn() -> Result<Value, Error>;
 
@@ -65,16 +65,16 @@ impl Plugin for InspectRobotPropertiesPlugin {
     fn build(&self, app: &mut App) {
         // Allows us to toggle Robot as a configurable property
         // from the model description inspector
-        app.world.init_component::<ModelProperty<Robot>>();
+        app.world_mut().init_component::<ModelProperty<Robot>>();
         let component_id = app
-            .world
+            .world()
             .components()
             .component_id::<ModelProperty<Robot>>()
             .unwrap();
         app.add_plugins(ChangePlugin::<ModelProperty<Robot>>::default())
             .add_systems(PreUpdate, update_model_instances::<Robot>)
             .init_resource::<ModelPropertyData>()
-            .world
+            .world_mut()
             .resource_mut::<ModelPropertyData>()
             .optional
             .insert(
@@ -89,11 +89,13 @@ impl Plugin for InspectRobotPropertiesPlugin {
                     },
                 ),
             );
-        let inspector = app.world.resource::<ModelDescriptionInspector>().id;
-        let widget = Widget::<Inspect>::new::<InspectRobotProperties>(&mut app.world);
-        let id = app.world.spawn(widget).set_parent(inspector).id();
-        app.world.insert_resource(RobotPropertiesInspector { id });
-        app.world.init_resource::<RobotPropertyWidgetRegistry>();
+        let inspector = app.world().resource::<ModelDescriptionInspector>().id;
+        let widget = Widget::<Inspect>::new::<InspectRobotProperties>(app.world_mut());
+        let id = app.world_mut().spawn(widget).set_parent(inspector).id();
+        app.world_mut()
+            .insert_resource(RobotPropertiesInspector { id });
+        app.world_mut()
+            .init_resource::<RobotPropertyWidgetRegistry>();
         app.add_event::<UpdateRobotPropertyKinds>().add_systems(
             PreUpdate,
             check_for_missing_robot_property_kinds
@@ -229,10 +231,10 @@ where
     RecallProperty::Source: RobotProperty,
 {
     fn build(&self, app: &mut App) {
-        let inspector = app.world.resource::<RobotPropertiesInspector>().id;
-        let widget = Widget::<Inspect>::new::<W>(&mut app.world);
-        let id = app.world.spawn(widget).set_parent(inspector).id();
-        app.world
+        let inspector = app.world().resource::<RobotPropertiesInspector>().id;
+        let widget = Widget::<Inspect>::new::<W>(app.world_mut());
+        let id = app.world_mut().spawn(widget).set_parent(inspector).id();
+        app.world_mut()
             .resource_mut::<RobotPropertyWidgetRegistry>()
             .0
             .insert(
@@ -290,7 +292,7 @@ where
     fn build(&self, app: &mut App) {
         let property_label = Property::label();
         let Some(inspector) = app
-            .world
+            .world()
             .resource::<RobotPropertyWidgetRegistry>()
             .0
             .get(&property_label)
@@ -298,9 +300,9 @@ where
         else {
             return;
         };
-        let widget = Widget::<Inspect>::new::<W>(&mut app.world);
-        app.world.spawn(widget).set_parent(inspector);
-        app.world
+        let widget = Widget::<Inspect>::new::<W>(app.world_mut());
+        app.world_mut().spawn(widget).set_parent(inspector);
+        app.world_mut()
             .resource_mut::<RobotPropertyWidgetRegistry>()
             .0
             .get_mut(&property_label)

@@ -87,7 +87,7 @@ impl<'a> InspectDoorType<'a> {
                 ui.add(
                     DragValue::new(ratio)
                         .speed(0.01)
-                        .clamp_range(0.01..=std::f32::INFINITY),
+                        .range(0.01..=std::f32::INFINITY),
                 )
                 .on_hover_text("(Left Door Length)/(Right Door Length)");
             });

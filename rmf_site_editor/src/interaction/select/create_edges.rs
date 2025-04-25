@@ -43,7 +43,7 @@ pub fn spawn_create_edges_service(
         update_current,
         handle_key_code,
         cleanup_state,
-        &mut app.world,
+        app.world_mut(),
     )
 }
 

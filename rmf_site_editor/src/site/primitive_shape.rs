@@ -16,8 +16,8 @@
 */
 
 use bevy::ecs::system::EntityCommands;
+use bevy::math::primitives;
 use bevy::prelude::*;
-use bevy::render::mesh::shape::{Capsule, UVSphere};
 use bevy::render::view::RenderLayers;
 
 use crate::interaction::{DragPlaneBundle, Selectable, MODEL_PREVIEW_LAYER};
@@ -47,19 +47,14 @@ pub fn handle_new_primitive_shapes(
 ) {
     for (e, primitive) in primitives.iter() {
         let mesh = match primitive {
-            PrimitiveShape::Box { size } => Mesh::from(shape::Box::new(size[0], size[1], size[2])),
+            PrimitiveShape::Box { size } => Mesh::from(Cuboid::new(size[0], size[1], size[2])),
             PrimitiveShape::Cylinder { radius, length } => {
                 Mesh::from(make_cylinder(*length, *radius))
             }
-            PrimitiveShape::Capsule { radius, length } => Mesh::from(Capsule {
-                radius: *radius,
-                depth: *length,
-                ..default()
-            }),
-            PrimitiveShape::Sphere { radius } => Mesh::from(UVSphere {
-                radius: *radius,
-                ..default()
-            }),
+            PrimitiveShape::Capsule { radius, length } => {
+                Mesh::from(primitives::Capsule3d::new(*radius, *length))
+            }
+            PrimitiveShape::Sphere { radius } => Mesh::from(primitives::Sphere::new(*radius)),
         };
         // If there is a parent with a Selectable component, use it to make this primitive
         // point to it. Otherwise set the Selectable to point to itself.
@@ -89,7 +84,10 @@ pub fn handle_new_primitive_shapes(
             .last()
         {
             entity_commands.insert(render_layer.clone());
-            if !render_layer.iter().all(|l| l == MODEL_PREVIEW_LAYER) {
+            if !render_layer
+                .iter()
+                .all(|l| l == MODEL_PREVIEW_LAYER as usize)
+            {
                 spawn_selectable(entity_commands);
             }
         } else {

@@ -43,7 +43,7 @@ impl fmt::Display for LogCategory {
     }
 }
 
-#[derive(Debug, Clone, Component, PartialEq, Eq, Event)]
+#[derive(Debug, Clone, PartialEq, Eq, Event)]
 pub struct Log {
     pub category: LogCategory,
     pub message: String,

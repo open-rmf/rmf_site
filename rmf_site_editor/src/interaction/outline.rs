@@ -16,6 +16,7 @@
 */
 
 use crate::{interaction::*, site::DrawingMarker};
+use bevy::color::palettes::css as Colors;
 use bevy::render::view::RenderLayers;
 use bevy_mod_outline::{OutlineBundle, OutlineMode, OutlineRenderLayers, OutlineVolume};
 use rmf_site_format::{
@@ -45,20 +46,20 @@ impl OutlineVisualization {
                 if !hovered.cue() && !selected.cue() {
                     None
                 } else if hovered.cue() && selected.cue() {
-                    Some(Color::rgb(1.0, 0.0, 0.3))
+                    Some(Color::srgb(1.0, 0.0, 0.3))
                 } else if selected.cue() {
-                    Some(Color::rgb(1.0, 0.3, 1.0))
+                    Some(Color::srgb(1.0, 0.3, 1.0))
                 } else
                 /* only hovered */
                 {
-                    Some(Color::WHITE)
+                    Some(Colors::WHITE.into())
                 }
             }
             OutlineVisualization::Anchor { .. } => {
                 if hovered.is_hovered {
-                    Some(Color::WHITE)
+                    Some(Colors::WHITE.into())
                 } else {
-                    Some(Color::BLACK)
+                    Some(Colors::BLACK.into())
                 }
             }
         }
@@ -68,15 +69,15 @@ impl OutlineVisualization {
         match self {
             OutlineVisualization::Ordinary => {
                 if hovered.cue() {
-                    OutlineRenderLayers(RenderLayers::layer(HOVERED_OUTLINE_LAYER))
+                    OutlineRenderLayers(RenderLayers::layer(HOVERED_OUTLINE_LAYER.into()))
                 } else if selected.cue() {
-                    OutlineRenderLayers(RenderLayers::layer(SELECTED_OUTLINE_LAYER))
+                    OutlineRenderLayers(RenderLayers::layer(SELECTED_OUTLINE_LAYER.into()))
                 } else {
                     OutlineRenderLayers(RenderLayers::none())
                 }
             }
             OutlineVisualization::Anchor { .. } => {
-                OutlineRenderLayers(RenderLayers::layer(XRAY_RENDER_LAYER))
+                OutlineRenderLayers(RenderLayers::layer(XRAY_RENDER_LAYER.into()))
             }
         }
     }
@@ -181,7 +182,7 @@ pub fn update_outline_visualization(
                             ..default()
                         })
                         .insert(depth.clone())
-                        .insert(layers);
+                        .insert(layers.clone());
                 } else {
                     commands
                         .entity(top)

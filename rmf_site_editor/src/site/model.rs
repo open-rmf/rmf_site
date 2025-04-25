@@ -27,7 +27,6 @@ use bevy::{
     prelude::*,
     render::view::RenderLayers,
     scene::SceneInstance,
-    utils::Uuid,
 };
 use bevy_impulse::*;
 use bevy_mod_outline::OutlineMeshExt;
@@ -38,6 +37,7 @@ use rmf_site_format::{
 use smallvec::SmallVec;
 use std::{any::TypeId, collections::HashSet, fmt, future::Future};
 use thiserror::Error;
+use uuid::Uuid;
 
 /// Denotes the properties of the current spawned scene for the model, to despawn when updating AssetSource
 /// and avoid spurious reloading if the new `AssetSource` is equal to the old one
@@ -371,7 +371,7 @@ impl<'w, 's> ModelLoader<'w, 's> {
         &mut self,
         parent: Entity,
         instance: ModelInstance<Entity>,
-    ) -> EntityCommands<'w, 's, '_> {
+    ) -> EntityCommands<'_> {
         self.spawn_model_instance_impulse(parent, instance, move |impulse| {
             impulse.detach();
         })
@@ -384,7 +384,7 @@ impl<'w, 's> ModelLoader<'w, 's> {
         parent: Entity,
         instance: ModelInstance<Entity>,
         impulse: impl FnOnce(Impulse<InstanceSpawningResult, ()>),
-    ) -> EntityCommands<'w, 's, '_> {
+    ) -> EntityCommands<'_> {
         let affiliation = instance.description.clone();
         let id = self.commands.spawn(instance).set_parent(parent).id();
         let spawning_impulse = self.commands.request(
@@ -502,11 +502,11 @@ impl ModelLoadingServices {
             }),
         );
         let skip_if_unchanged = cleanup_if_asset_source_changed.into_blocking_callback();
-        let load_model_dependencies = app.world.spawn_service(load_model_dependencies);
-        let model_loading_service = app.world.spawn_service(handle_model_loading);
+        let load_model_dependencies = app.world_mut().spawn_service(load_model_dependencies);
+        let model_loading_service = app.world_mut().spawn_service(handle_model_loading);
         // This workflow tries to load the model without doing any error handling
         let try_load_model: Service<ModelLoadingRequest, ModelLoadingResult, ()> =
-            app.world.spawn_workflow(|scope, builder| {
+            app.world_mut().spawn_workflow(|scope, builder| {
                 scope
                     .input
                     .chain(builder)
@@ -531,7 +531,7 @@ impl ModelLoadingServices {
 
         // Complete model loading with error handling, by having it as a separate
         // workflow we can easily capture all the early returns on error
-        let load_model = app.world.spawn_workflow(|scope, builder| {
+        let load_model = app.world_mut().spawn_workflow(|scope, builder| {
             scope
                 .input
                 .chain(builder)
@@ -541,7 +541,7 @@ impl ModelLoadingServices {
         });
 
         // Model instance spawning workflow
-        let spawn_instance = app.world.spawn_workflow(|scope, builder| {
+        let spawn_instance = app.world_mut().spawn_workflow(|scope, builder| {
             scope
                 .input
                 .chain(builder)
@@ -680,7 +680,7 @@ pub fn make_models_selectable(
     // If layer should not be visible, don't make it selectable
     if scene_roots
         .get(req.parent)
-        .is_ok_and(|r| r.iter().all(|l| l == MODEL_PREVIEW_LAYER))
+        .is_ok_and(|r| r.iter().all(|l| l == MODEL_PREVIEW_LAYER as usize))
     {
         return req;
     }

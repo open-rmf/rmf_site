@@ -16,6 +16,7 @@
 */
 
 use crate::{interaction::*, site::DrawingMarker};
+use bevy::color::palettes::css as Colors;
 use bevy::prelude::*;
 
 #[derive(Component)]
@@ -31,9 +32,9 @@ pub struct SuppressHighlight;
 impl Highlight {
     pub fn for_drawing() -> Self {
         Self {
-            select: Color::rgb(1., 0.7, 1.),
-            hover: Color::rgb(0.7, 1., 1.),
-            hover_select: Color::rgb(1.0, 0.5, 0.7),
+            select: Color::srgb(1., 0.7, 1.),
+            hover: Color::srgb(0.7, 1., 1.),
+            hover_select: Color::srgb(1.0, 0.5, 0.7),
         }
     }
 }
@@ -68,7 +69,7 @@ pub fn update_highlight_visualization(
     for (hovered, selected, m, highlight, suppress) in &highlightable {
         if let Some(material) = materials.get_mut(m) {
             let mut color = if suppress.is_some() {
-                Color::WHITE
+                Colors::WHITE.into()
             } else if hovered.cue() && selected.cue() {
                 highlight.hover_select
             } else if hovered.cue() {
@@ -76,9 +77,9 @@ pub fn update_highlight_visualization(
             } else if selected.cue() {
                 highlight.select
             } else {
-                Color::WHITE
+                Colors::WHITE.into()
             };
-            color.set_a(material.base_color.a());
+            color.set_alpha(material.base_color.alpha());
 
             material.base_color = color;
         }

@@ -77,11 +77,11 @@ impl FromWorld for ModelPreviewCamera {
                 tonemapping: Tonemapping::ReinhardLuminance,
                 ..default()
             })
-            .insert(RenderLayers::from_layers(&[MODEL_PREVIEW_LAYER]))
+            .insert(RenderLayers::from_layers(&[MODEL_PREVIEW_LAYER.into()]))
             .id();
         let model_entity = world
             .spawn((
-                RenderLayers::from_layers(&[MODEL_PREVIEW_LAYER]),
+                RenderLayers::from_layers(&[MODEL_PREVIEW_LAYER.into()]),
                 Preview,
                 Model::default(),
             ))
