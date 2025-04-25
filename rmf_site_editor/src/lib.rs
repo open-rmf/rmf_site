@@ -12,6 +12,9 @@ pub use autoload::*;
 pub mod asset_loaders;
 use asset_loaders::*;
 
+pub mod exit_confirmation;
+use exit_confirmation::QuitPlugin;
+
 // Bevy plugins that are public dependencies, mixing versions won't work for downstream users
 pub use bevy_egui;
 pub use bevy_mod_raycast;
@@ -163,6 +166,7 @@ impl Plugin for SiteEditor {
                     fit_canvas_to_parent: true,
                     ..default()
                 }),
+                close_when_requested: false,
                 ..default()
             })
         };
@@ -197,6 +201,7 @@ impl Plugin for SiteEditor {
                 LogHistoryPlugin,
                 AabbUpdatePlugin,
                 EguiPlugin,
+                QuitPlugin,
                 KeyboardInputPlugin,
                 SitePlugin,
                 InteractionPlugin::new().headless(self.headless_export.is_some()),
