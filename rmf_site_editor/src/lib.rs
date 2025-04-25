@@ -13,7 +13,7 @@ pub mod asset_loaders;
 use asset_loaders::*;
 
 pub mod exit_confirmation;
-use exit_confirmation::QuitPlugin;
+use exit_confirmation::ExitConfirmationPlugin;
 
 // Bevy plugins that are public dependencies, mixing versions won't work for downstream users
 pub use bevy_egui;
@@ -201,7 +201,7 @@ impl Plugin for SiteEditor {
                 LogHistoryPlugin,
                 AabbUpdatePlugin,
                 EguiPlugin,
-                QuitPlugin,
+                ExitConfirmationPlugin,
                 KeyboardInputPlugin,
                 SitePlugin,
                 InteractionPlugin::new().headless(self.headless_export.is_some()),
