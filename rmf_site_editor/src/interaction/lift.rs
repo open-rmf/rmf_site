@@ -28,7 +28,7 @@ pub fn make_lift_doormat_gizmo(
             Entity,
             &LiftDoormat,
             &mut Visibility,
-            &mut Handle<StandardMaterial>,
+            &mut MeshMaterial3d<StandardMaterial>,
         ),
         Added<LiftDoormat>,
     >,
@@ -37,7 +37,7 @@ pub fn make_lift_doormat_gizmo(
 ) {
     for (e, doormat, mut visible, mut material) in &mut new_doormats {
         let materials = assets.lift_doormat_materials(doormat.door_available);
-        *material = materials.passive.clone();
+        *material = MeshMaterial3d(materials.passive.clone());
         commands
             .entity(e)
             .insert(Gizmo::new().with_materials(materials));

@@ -264,7 +264,7 @@ pub fn update_gizmo_click_start(
     mut gizmos: Query<(
         &Gizmo,
         Option<&mut Draggable>,
-        &mut Handle<StandardMaterial>,
+        &mut MeshMaterial3d<StandardMaterial>,
     )>,
     mut selection_blocker: ResMut<SelectionBlockers>,
     gizmo_blocker: Res<GizmoBlockers>,
@@ -298,7 +298,7 @@ pub fn update_gizmo_click_start(
             if *gizmo_state == GizmoState::Hovering(previous_pick) {
                 if let Ok((gizmo, _, mut material)) = gizmos.get_mut(previous_pick) {
                     if let Some(gizmo_materials) = &gizmo.materials {
-                        *material = gizmo_materials.passive.clone();
+                        *material = MeshMaterial3d(gizmo_materials.passive.clone());
                     }
                 }
 
@@ -311,7 +311,7 @@ pub fn update_gizmo_click_start(
                 if let Ok((gizmo, _, mut material)) = gizmos.get_mut(new_pick) {
                     cursor.add_blocker(new_pick, &mut visibility);
                     if let Some(gizmo_materials) = &gizmo.materials {
-                        *material = gizmo_materials.hover.clone();
+                        *material = MeshMaterial3d(gizmo_materials.hover.clone());
                     }
 
                     *gizmo_state = GizmoState::Hovering(new_pick);
@@ -344,7 +344,7 @@ pub fn update_gizmo_click_start(
                             tf_for_entity_parent_inv,
                         });
                         if let Some(drag_materials) = &gizmo.materials {
-                            *material = drag_materials.drag.clone();
+                            *material = MeshMaterial3d(drag_materials.drag.clone());
                         }
                         *gizmo_state = GizmoState::Dragging(e);
                     } else {
@@ -361,7 +361,11 @@ pub fn update_gizmo_click_start(
 }
 
 pub fn update_gizmo_release(
-    mut draggables: Query<(&Gizmo, &mut Draggable, &mut Handle<StandardMaterial>)>,
+    mut draggables: Query<(
+        &Gizmo,
+        &mut Draggable,
+        &mut MeshMaterial3d<StandardMaterial>,
+    )>,
     mut selection_blockers: ResMut<SelectionBlockers>,
     gizmo_blockers: Res<GizmoBlockers>,
     mut gizmo_state: ResMut<GizmoState>,
@@ -375,7 +379,7 @@ pub fn update_gizmo_release(
             if let Ok((gizmo, mut draggable, mut material)) = draggables.get_mut(e) {
                 draggable.drag = None;
                 if let Some(gizmo_materials) = &gizmo.materials {
-                    *material = gizmo_materials.passive.clone();
+                    *material = MeshMaterial3d(gizmo_materials.passive.clone());
                 }
             }
 

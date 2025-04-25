@@ -105,7 +105,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
         Query<(Entity, &IsStatic, &NameInSite), With<ModelMarker>>,
         Query<(), With<CollisionMeshMarker>>,
         Query<(), With<VisualMeshMarker>>,
-        Query<(&Handle<Mesh>, &Handle<StandardMaterial>)>,
+        Query<(&Mesh3d, &MeshMaterial3d<StandardMaterial>)>,
         Query<(&NameInSite, &LiftCabin<Entity>, &ChildLiftCabinGroup)>,
         Query<(), With<LiftDoormat>>,
         Query<&GlobalTransform>,

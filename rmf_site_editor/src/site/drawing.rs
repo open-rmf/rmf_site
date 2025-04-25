@@ -207,7 +207,7 @@ pub fn handle_loaded_drawing(
                     .entity(entity)
                     // Put a handle for the material into the main entity
                     // so that we can modify it during interactions.
-                    .insert(material)
+                    .insert(MeshMaterial3d(material))
                     .remove::<LoadingDrawing>();
             }
             LoadState::Failed(e) => {
@@ -328,7 +328,7 @@ fn iter_update_drawing_visibility<'a>(
             &'a DrawingSegments,
         ),
     >,
-    material_handles: &Query<&Handle<StandardMaterial>>,
+    material_handles: &Query<&MeshMaterial3d<StandardMaterial>>,
     material_assets: &mut ResMut<Assets<StandardMaterial>>,
     default_drawing_vis: &Query<&GlobalDrawingVisibility>,
 ) {
@@ -363,7 +363,7 @@ pub fn update_drawing_visibility(
         Option<&RecencyRank<DrawingMarker>>,
         &DrawingSegments,
     )>,
-    material_handles: Query<&Handle<StandardMaterial>>,
+    material_handles: Query<&MeshMaterial3d<StandardMaterial>>,
     mut material_assets: ResMut<Assets<StandardMaterial>>,
     default_drawing_vis: Query<&GlobalDrawingVisibility>,
     changed_default_drawing_vis: Query<&Children, Changed<GlobalDrawingVisibility>>,

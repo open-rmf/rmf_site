@@ -53,7 +53,7 @@ pub fn update_highlight_visualization(
         (
             &Hovered,
             &Selected,
-            &Handle<StandardMaterial>,
+            &MeshMaterial3d<StandardMaterial>,
             &Highlight,
             Option<&SuppressHighlight>,
         ),
@@ -61,7 +61,7 @@ pub fn update_highlight_visualization(
             Changed<Hovered>,
             Changed<Selected>,
             Changed<SuppressHighlight>,
-            Changed<Handle<StandardMaterial>>,
+            Changed<MeshMaterial3d<StandardMaterial>>,
         )>,
     >,
     mut materials: ResMut<Assets<StandardMaterial>>,

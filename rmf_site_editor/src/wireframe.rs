@@ -51,7 +51,7 @@ fn handle_wireframe_menu_events(
     mut menu_events: EventReader<MenuEvent>,
     mut menu_items: Query<&mut MenuItem>,
     wireframe_menu: Res<WireframeMenu>,
-    meshes: Query<Entity, With<Handle<Mesh>>>,
+    meshes: Query<Entity, With<Mesh3d>>,
     children: Query<&Children>,
     models: Query<Entity, Or<(With<ModelMarker>, With<PrimitiveShape>)>>,
 ) {
@@ -84,7 +84,7 @@ fn handle_wireframe_menu_events(
 
 fn add_wireframe_to_new_models(
     mut commands: Commands,
-    new_meshes: Query<Entity, Added<Handle<Mesh>>>,
+    new_meshes: Query<Entity, Added<Mesh3d>>,
     parents: Query<&Parent>,
     models: Query<Entity, Or<(With<ModelMarker>, With<PrimitiveShape>)>>,
     wireframe_menu: Res<WireframeMenu>,

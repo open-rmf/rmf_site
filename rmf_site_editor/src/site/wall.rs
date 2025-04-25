@@ -59,7 +59,7 @@ pub fn add_wall_visual(
     mut commands: Commands,
     walls: Query<(Entity, &Edge<Entity>, &Affiliation<Entity>), Added<WallMarker>>,
     anchors: AnchorParams,
-    textures: Query<(Option<&Handle<Image>>, &Texture)>,
+    textures: Query<(Option<&TextureImage>, &Texture)>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -99,17 +99,9 @@ pub fn add_wall_visual(
 }
 
 pub fn update_walls_for_moved_anchors(
-    mut walls: Query<
-        (
-            Entity,
-            &Edge<Entity>,
-            &Affiliation<Entity>,
-            &mut Handle<Mesh>,
-        ),
-        With<WallMarker>,
-    >,
+    mut walls: Query<(Entity, &Edge<Entity>, &Affiliation<Entity>, &mut Mesh3d), With<WallMarker>>,
     anchors: AnchorParams,
-    textures: Query<(Option<&Handle<Image>>, &Texture)>,
+    textures: Query<(Option<&TextureImage>, &Texture)>,
     changed_anchors: Query<
         &Dependents,
         (
@@ -123,7 +115,7 @@ pub fn update_walls_for_moved_anchors(
         for dependent in dependents.iter() {
             if let Some((e, edge, texture_source, mut mesh)) = walls.get_mut(*dependent).ok() {
                 let (_, texture) = from_texture_source(texture_source, &textures);
-                *mesh = meshes.add(make_wall(e, edge, &texture, &anchors));
+                *mesh = Mesh3d(meshes.add(make_wall(e, edge, &texture, &anchors)));
             }
         }
     }
@@ -134,8 +126,8 @@ pub fn update_walls(
         (
             &Edge<Entity>,
             &Affiliation<Entity>,
-            &mut Handle<Mesh>,
-            &Handle<StandardMaterial>,
+            &mut Mesh3d,
+            &MeshMaterial3d<StandardMaterial>,
         ),
         With<WallMarker>,
     >,
@@ -148,12 +140,12 @@ pub fn update_walls(
     >,
     changed_texture_sources: Query<
         &Members,
-        (With<Group>, Or<(Changed<Handle<Image>>, Changed<Texture>)>),
+        (With<Group>, Or<(Changed<TextureImage>, Changed<Texture>)>),
     >,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     anchors: AnchorParams,
-    textures: Query<(Option<&Handle<Image>>, &Texture)>,
+    textures: Query<(Option<&TextureImage>, &Texture)>,
 ) {
     for e in changed_walls.iter().chain(
         changed_texture_sources
@@ -164,7 +156,7 @@ pub fn update_walls(
             continue;
         };
         let (base_color_texture, texture) = from_texture_source(texture_source, &textures);
-        *mesh = meshes.add(make_wall(e, edge, &texture, &anchors));
+        *mesh = Mesh3d(meshes.add(make_wall(e, edge, &texture, &anchors)));
         if let Some(material) = materials.get_mut(material) {
             let (base_color, alpha_mode) = if let Some(alpha) = texture.alpha.filter(|a| a < &1.0) {
                 (Color::default().with_alpha(alpha), AlphaMode::Blend)

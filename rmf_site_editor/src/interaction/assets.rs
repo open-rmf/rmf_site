@@ -18,6 +18,7 @@
 use crate::{interaction::*, shapes::*};
 use bevy::color::palettes::css as Colors;
 use bevy::{math::primitives, math::Affine3A, prelude::*};
+use bevy_polyline::prelude::PolylineMaterialHandle;
 use bevy_polyline::{
     material::PolylineMaterial,
     polyline::{Polyline, PolylineBundle},
@@ -206,7 +207,7 @@ impl InteractionAssets {
                 parent.spawn((
                     PolylineBundle {
                         polyline: polyline.clone(),
-                        material: material.clone(),
+                        material: PolylineMaterialHandle(material.clone()),
                         ..default()
                     },
                     DisableXray,

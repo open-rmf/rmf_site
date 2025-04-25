@@ -160,7 +160,7 @@ pub fn add_physical_light_visual_cues(
 
         commands
             .entity(e)
-            .insert(light_material.clone())
+            .insert(MeshMaterial3d(light_material.clone()))
             .insert(LightBodies {
                 point,
                 spot,
@@ -171,7 +171,10 @@ pub fn add_physical_light_visual_cues(
 }
 
 pub fn update_physical_light_visual_cues(
-    changed: Query<(&LightKind, &LightBodies, &Handle<StandardMaterial>), Changed<LightKind>>,
+    changed: Query<
+        (&LightKind, &LightBodies, &MeshMaterial3d<StandardMaterial>),
+        Changed<LightKind>,
+    >,
     mut material_assets: ResMut<Assets<StandardMaterial>>,
     mut visibilities: Query<&mut Visibility>,
     mut headlight_toggle: ResMut<HeadlightToggle>,

@@ -364,7 +364,7 @@ fn update_door_visuals(
     segments: &DoorSegments,
     anchors: &AnchorParams,
     transforms: &mut Query<&mut Transform>,
-    mesh_handles: &mut Query<&mut Handle<Mesh>>,
+    mesh_handles: &mut Query<&mut Mesh3d>,
     mesh_assets: &mut ResMut<Assets<Mesh>>,
     assets: &Res<SiteAssets>,
 ) -> Option<DoorBodyType> {
@@ -396,9 +396,9 @@ fn update_door_visuals(
         commands.entity(*e).despawn_recursive();
     }
     let mut cue_inner = mesh_handles.get_mut(segments.cue_inner).unwrap();
-    *cue_inner = mesh_assets.add(cue_inner_mesh);
+    *cue_inner = Mesh3d(mesh_assets.add(cue_inner_mesh));
     let mut cue_outline = mesh_handles.get_mut(segments.cue_outline).unwrap();
-    *cue_outline = mesh_assets.add(cue_outline_mesh);
+    *cue_outline = Mesh3d(mesh_assets.add(cue_outline_mesh));
     let new_segments = DoorBodyType::from_door_type(kind, &entities);
     if new_segments != segments.body {
         Some(new_segments)
@@ -421,7 +421,7 @@ pub fn update_changed_door(
     >,
     anchors: AnchorParams,
     mut transforms: Query<&mut Transform>,
-    mut mesh_handles: Query<&mut Handle<Mesh>>,
+    mut mesh_handles: Query<&mut Mesh3d>,
     mut mesh_assets: ResMut<Assets<Mesh>>,
     assets: Res<SiteAssets>,
 ) {
@@ -461,7 +461,7 @@ pub fn update_door_for_moved_anchors(
         ),
     >,
     mut transforms: Query<&mut Transform>,
-    mut mesh_handles: Query<&mut Handle<Mesh>>,
+    mut mesh_handles: Query<&mut Mesh3d>,
     mut mesh_assets: ResMut<Assets<Mesh>>,
     assets: Res<SiteAssets>,
 ) {

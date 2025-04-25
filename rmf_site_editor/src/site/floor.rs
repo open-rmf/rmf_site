@@ -236,7 +236,7 @@ pub fn add_floor_visuals(
         Added<FloorMarker>,
     >,
     anchors: AnchorParams,
-    textures: Query<(Option<&Handle<Image>>, &Texture)>,
+    textures: Query<(Option<&TextureImage>, &Texture)>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -302,7 +302,7 @@ pub fn update_changed_floor_ranks(
 pub fn update_floors_for_moved_anchors(
     floors: Query<(Entity, &FloorSegments, &Path<Entity>, &Affiliation<Entity>), With<FloorMarker>>,
     anchors: AnchorParams,
-    textures: Query<(Option<&Handle<Image>>, &Texture)>,
+    textures: Query<(Option<&TextureImage>, &Texture)>,
     changed_anchors: Query<
         &Dependents,
         (
@@ -311,7 +311,7 @@ pub fn update_floors_for_moved_anchors(
         ),
     >,
     mut mesh_assets: ResMut<Assets<Mesh>>,
-    mut mesh_handles: Query<&mut Handle<Mesh>>,
+    mut mesh_handles: Query<&mut Mesh3d>,
     lifts: Query<(&Transform, &LiftCabin<Entity>)>,
 ) {
     for dependents in &changed_anchors {
@@ -319,7 +319,9 @@ pub fn update_floors_for_moved_anchors(
             if let Some((e, segments, path, texture_source)) = floors.get(*dependent).ok() {
                 let (_, texture) = from_texture_source(texture_source, &textures);
                 if let Ok(mut mesh) = mesh_handles.get_mut(segments.mesh) {
-                    *mesh = mesh_assets.add(make_floor_mesh(e, path, &texture, &anchors, &lifts));
+                    *mesh = Mesh3d(
+                        mesh_assets.add(make_floor_mesh(e, path, &texture, &anchors, &lifts)),
+                    );
                 }
             }
         }
@@ -337,14 +339,14 @@ pub fn update_floors(
     >,
     changed_texture_sources: Query<
         &Members,
-        (With<Group>, Or<(Changed<Handle<Image>>, Changed<Texture>)>),
+        (With<Group>, Or<(Changed<TextureImage>, Changed<Texture>)>),
     >,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut mesh_handles: Query<&mut Handle<Mesh>>,
-    material_handles: Query<&Handle<StandardMaterial>>,
+    mut mesh_handles: Query<&mut Mesh3d>,
+    material_handles: Query<&MeshMaterial3d<StandardMaterial>>,
     anchors: AnchorParams,
-    textures: Query<(Option<&Handle<Image>>, &Texture)>,
+    textures: Query<(Option<&TextureImage>, &Texture)>,
     lifts: Query<(&Transform, &LiftCabin<Entity>)>,
 ) {
     for e in changed_floors.iter().chain(
@@ -358,7 +360,7 @@ pub fn update_floors(
         let (base_color_texture, texture) = from_texture_source(texture_source, &textures);
         if let Ok(mut mesh) = mesh_handles.get_mut(segment.mesh) {
             if let Ok(material) = material_handles.get(segment.mesh) {
-                *mesh = meshes.add(make_floor_mesh(e, path, &texture, &anchors, &lifts));
+                *mesh = Mesh3d(meshes.add(make_floor_mesh(e, path, &texture, &anchors, &lifts)));
                 if let Some(material) = materials.get_mut(material) {
                     material.base_color_texture = base_color_texture;
                 }
@@ -379,9 +381,9 @@ pub fn update_floors_for_changed_lifts(
     removed_lifts: RemovedComponents<LiftCabin<Entity>>,
     floors: Query<(Entity, &FloorSegments, &Path<Entity>, &Affiliation<Entity>), With<FloorMarker>>,
     anchors: AnchorParams,
-    textures: Query<(Option<&Handle<Image>>, &Texture)>,
+    textures: Query<(Option<&TextureImage>, &Texture)>,
     mut mesh_assets: ResMut<Assets<Mesh>>,
-    mut mesh_handles: Query<&mut Handle<Mesh>>,
+    mut mesh_handles: Query<&mut Mesh3d>,
 ) {
     if changed_lifts.is_empty() && removed_lifts.is_empty() {
         return;
@@ -389,7 +391,7 @@ pub fn update_floors_for_changed_lifts(
     for (e, segments, path, texture_source) in floors.iter() {
         let (_, texture) = from_texture_source(texture_source, &textures);
         if let Ok(mut mesh) = mesh_handles.get_mut(segments.mesh) {
-            *mesh = mesh_assets.add(make_floor_mesh(e, path, &texture, &anchors, &lifts));
+            *mesh = Mesh3d(mesh_assets.add(make_floor_mesh(e, path, &texture, &anchors, &lifts)));
         }
     }
 }
@@ -403,7 +405,7 @@ fn iter_update_floor_visibility<'a>(
             &'a FloorSegments,
         ),
     >,
-    material_handles: &Query<&Handle<StandardMaterial>>,
+    material_handles: &Query<&MeshMaterial3d<StandardMaterial>>,
     material_assets: &mut ResMut<Assets<StandardMaterial>>,
     default_floor_vis: &Query<(&GlobalFloorVisibility, &RecencyRanking<DrawingMarker>)>,
 ) {
@@ -426,7 +428,7 @@ pub fn update_floor_visibility(
     changed_floors: Query<Entity, Or<(Changed<LayerVisibility>, Changed<Parent>)>>,
     mut removed_vis: RemovedComponents<LayerVisibility>,
     all_floors: Query<(Option<&LayerVisibility>, Option<&Parent>, &FloorSegments)>,
-    material_handles: Query<&Handle<StandardMaterial>>,
+    material_handles: Query<&MeshMaterial3d<StandardMaterial>>,
     mut material_assets: ResMut<Assets<StandardMaterial>>,
     default_floor_vis: Query<(&GlobalFloorVisibility, &RecencyRanking<DrawingMarker>)>,
     changed_default_floor_vis: Query<

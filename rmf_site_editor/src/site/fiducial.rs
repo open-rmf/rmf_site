@@ -226,8 +226,8 @@ pub fn add_fiducial_visuals(
 
         commands
             .entity(e)
-            .insert(assets.fiducial_mesh.clone())
-            .insert(assets.fiducial_material.clone())
+            .insert(Mesh3d(assets.fiducial_mesh.clone()))
+            .insert(MeshMaterial3d(assets.fiducial_material.clone()))
             .insert(Visibility::default())
             .insert(Category::Fiducial)
             .insert(VisualCue::outline());

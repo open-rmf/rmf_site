@@ -145,7 +145,7 @@ pub fn add_lane_visuals(
             let outline = commands
                 .spawn((
                     Mesh3d(outline_mesh),
-                    MeshMaterial3d::default(),
+                    MeshMaterial3d::<StandardMaterial>::default(),
                     Transform::from_translation(-0.000_5 * Vec3::Z),
                     Visibility::Hidden,
                 ))
@@ -308,7 +308,7 @@ pub fn update_visibility_for_lanes(
         (Entity, &AssociatedGraphs<Entity>, &LaneSegments),
         (With<LaneMarker>, Changed<AssociatedGraphs<Entity>>),
     >,
-    mut materials: Query<&mut Handle<StandardMaterial>, Without<NavGraphMarker>>,
+    mut materials: Query<&mut MeshMaterial3d<StandardMaterial>, Without<NavGraphMarker>>,
     mut transforms: Query<&mut Transform>,
     graph_changed_visibility: Query<
         (),
@@ -366,7 +366,7 @@ pub fn update_visibility_for_lanes(
             let (mat, height) = graphs.display_style(associated_graphs);
             for e in segments.iter() {
                 if let Ok(mut m) = materials.get_mut(e) {
-                    *m = mat.clone();
+                    *m = MeshMaterial3d(mat.clone());
                 }
             }
 
@@ -379,7 +379,7 @@ pub fn update_visibility_for_lanes(
             let (mat, height) = graphs.display_style(associated_graphs);
             for e in segments.iter() {
                 if let Ok(mut m) = materials.get_mut(e) {
-                    *m = mat.clone();
+                    *m = MeshMaterial3d(mat.clone());
                 }
             }
 

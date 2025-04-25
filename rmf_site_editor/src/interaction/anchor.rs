@@ -198,7 +198,7 @@ pub fn update_anchor_visual_cues(
         Or<(Changed<Hovered>, Changed<Selected>, Changed<Dependents>)>,
     >,
     mut visibility: Query<&mut Visibility>,
-    mut materials: Query<&mut Handle<StandardMaterial>>,
+    mut materials: Query<&mut MeshMaterial3d<StandardMaterial>>,
     deps: Query<&Dependents>,
     mut cursor: ResMut<Cursor>,
     site_assets: Res<SiteAssets>,

@@ -278,9 +278,9 @@ pub fn set_visibility(entity: Entity, q_visibility: &mut Query<&mut Visibility>,
 fn set_material(
     entity: Entity,
     to_material: &Handle<StandardMaterial>,
-    q_materials: &mut Query<&mut Handle<StandardMaterial>>,
+    q_materials: &mut Query<&mut MeshMaterial3d<StandardMaterial>>,
 ) {
     if let Some(mut m) = q_materials.get_mut(entity).ok() {
-        *m = to_material.clone();
+        *m = MeshMaterial3d(to_material.clone());
     }
 }

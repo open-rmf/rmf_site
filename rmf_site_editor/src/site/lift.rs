@@ -236,8 +236,8 @@ pub fn update_lift_cabin(
                                 let mesh = make_flat_mesh_for_aabb(aabb);
                                 parent
                                     .spawn((
-                                        Mesh3d(meshes.add(mesh.into())),
-                                        MeshMaterial3d::default(),
+                                        Mesh3d(meshes.add(mesh)),
+                                        MeshMaterial3d::<StandardMaterial>::default(),
                                         Transform::default(),
                                         // Doormats are not visible by default.
                                         // Other plugins should make them visible

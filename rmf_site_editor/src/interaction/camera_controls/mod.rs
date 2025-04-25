@@ -265,7 +265,7 @@ impl FromWorld for CameraControls {
                 Mesh3d(selection_mesh),
                 Visibility::Visible,
                 Transform::default(),
-                MeshMaterial3d::default(),
+                MeshMaterial3d::<StandardMaterial>::default(),
             ))
             .id();
 
@@ -522,7 +522,7 @@ fn update_orbit_center_marker(
         (
             &mut Transform,
             &mut Visibility,
-            &mut Handle<StandardMaterial>,
+            &mut MeshMaterial3d<StandardMaterial>,
         ),
         Without<Projection>,
     >,
@@ -537,7 +537,8 @@ fn update_orbit_center_marker(
         {
             if let Some(orbit_center) = controls.orbit_center {
                 *marker_visibility = Visibility::Visible;
-                *marker_material = interaction_assets.camera_control_orbit_material.clone();
+                *marker_material =
+                    MeshMaterial3d(interaction_assets.camera_control_orbit_material.clone());
                 marker_transform.translation = orbit_center;
                 gizmo.sphere(orbit_center, Quat::IDENTITY, 0.1, Colors::LIME);
             }
@@ -545,7 +546,8 @@ fn update_orbit_center_marker(
         } else if cursor_command.command_type == CameraCommandType::Pan {
             if let Some(cursor_selection) = cursor_command.cursor_selection {
                 *marker_visibility = Visibility::Visible;
-                *marker_material = interaction_assets.camera_control_pan_material.clone();
+                *marker_material =
+                    MeshMaterial3d(interaction_assets.camera_control_pan_material.clone());
                 marker_transform.translation = cursor_selection;
                 gizmo.sphere(cursor_selection, Quat::IDENTITY, 0.1, Colors::WHITE);
             }
