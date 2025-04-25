@@ -16,7 +16,11 @@
 */
 
 use crate::{interaction::Selectable, shapes::*, site::*, RecencyRanking};
-use bevy::{math::Affine3A, prelude::*, render::mesh::PrimitiveTopology};
+use bevy::{
+    math::Affine3A,
+    prelude::*,
+    render::{mesh::PrimitiveTopology, render_asset::RenderAssetUsages},
+};
 use geo::{
     geometry::{LineString, MultiPolygon, Polygon},
     BooleanOps, CoordsIter, TriangulateSpade,
@@ -68,7 +72,10 @@ fn make_floor_mesh(
     lifts: &Query<(&Transform, &LiftCabin<Entity>)>,
 ) -> Mesh {
     if anchor_path.len() == 0 {
-        return Mesh::new(PrimitiveTopology::TriangleList);
+        return Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        );
     } else if anchor_path.len() == 1 {
         let p = anchors
             .point_in_parent_frame_of(anchor_path[0], Category::Floor, entity)

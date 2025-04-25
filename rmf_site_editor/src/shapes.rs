@@ -21,6 +21,7 @@ use bevy::{
     render::{
         mesh::{Indices, PrimitiveTopology, VertexAttributeValues},
         primitives::Aabb,
+        render_asset::RenderAssetUsages,
     },
 };
 use bevy_mod_outline::ATTRIBUTE_OUTLINE_NORMAL;
@@ -235,7 +236,7 @@ impl MeshBuffer {
     }
 
     pub(crate) fn into_outline(self) -> Mesh {
-        let mut mesh = Mesh::new(PrimitiveTopology::LineList);
+        let mut mesh = Mesh::new(PrimitiveTopology::LineList, RenderAssetUsages::default());
         mesh.insert_indices(Indices::U32(self.outline));
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, self.positions);
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, self.normals);
@@ -250,7 +251,10 @@ impl MeshBuffer {
 
 impl From<MeshBuffer> for Mesh {
     fn from(buffer: MeshBuffer) -> Self {
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+        let mut mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        );
         mesh.insert_indices(Indices::U32(buffer.indices));
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, buffer.positions);
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, buffer.normals);
@@ -631,7 +635,10 @@ pub(crate) fn make_dagger_mesh() -> Mesh {
     let top_height = 0.42;
     let segments = 4u32;
 
-    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+    let mut mesh = Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::default(),
+    );
     make_boxy_wrap([lower_ring, upper_ring], segments).merge_into(&mut mesh);
     make_pyramid(upper_ring, [0., 0., top_height], segments).merge_into(&mut mesh);
     make_pyramid(lower_ring.flip_height(), [0., 0., 0.], segments)
@@ -686,7 +693,10 @@ pub(crate) fn make_cylinder_arrow_mesh() -> Mesh {
     };
     let resolution = 32u32;
 
-    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+    let mut mesh = Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::default(),
+    );
     make_cone(head_base, tip, resolution).merge_into(&mut mesh);
     make_smooth_wrap([cylinder_top, cylinder_bottom], resolution).merge_into(&mut mesh);
     make_smooth_wrap([head_base, cylinder_top], resolution).merge_into(&mut mesh);
@@ -1025,7 +1035,10 @@ pub(crate) fn make_halo_mesh() -> Mesh {
             .collect(),
     );
 
-    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+    let mut mesh = Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::default(),
+    );
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
     mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
     mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
