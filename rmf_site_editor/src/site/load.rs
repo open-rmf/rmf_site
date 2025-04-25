@@ -88,7 +88,7 @@ fn generate_site_entities(
     };
 
     let site_id = commands
-        .spawn(SpatialBundle::HIDDEN_IDENTITY)
+        .spawn((Transform::IDENTITY, Visibility::Hidden))
         .insert(Category::Site)
         .insert(WorkspaceMarker)
         .id();
@@ -204,7 +204,7 @@ fn generate_site_entities(
 
         commands
             .entity(level_entity)
-            .insert(SpatialBundle::HIDDEN_IDENTITY)
+            .insert((Transform::IDENTITY, Visibility::Hidden))
             .insert(level_data.properties.clone())
             .insert(Category::Level)
             .with_children(|level| {
@@ -251,7 +251,7 @@ fn generate_site_entities(
         let lift_entity = commands.spawn(SiteID(*lift_id)).set_parent(site_id).id();
 
         commands.entity(lift_entity).with_children(|lift| {
-            lift.spawn(SpatialBundle::default())
+            lift.spawn((Transform::default(), Visibility::default()))
                 .insert(CabinAnchorGroupBundle::default())
                 .with_children(|anchor_group| {
                     for (anchor_id, anchor) in &lift_data.cabin_anchors {
@@ -298,7 +298,7 @@ fn generate_site_entities(
 
     for (nav_graph_id, nav_graph_data) in &site_data.navigation.guided.graphs {
         let nav_graph = commands
-            .spawn(SpatialBundle::default())
+            .spawn((Transform::default(), Visibility::default()))
             .insert(nav_graph_data.clone())
             .insert(SiteID(*nav_graph_id))
             .set_parent(site_id)
@@ -721,7 +721,7 @@ fn generate_imported_nav_graphs(
     for (nav_graph_id, nav_graph_data) in &from_site_data.navigation.guided.graphs {
         params.commands.entity(into_site).with_children(|site| {
             let e = site
-                .spawn(SpatialBundle::default())
+                .spawn((Transform::default(), Visibility::default()))
                 .insert(nav_graph_data.clone())
                 .id();
             id_to_entity.insert(*nav_graph_id, e);

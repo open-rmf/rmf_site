@@ -120,7 +120,7 @@ pub fn add_tags_to_lift(
     for (e, edge) in &new_lifts {
         let mut lift_cmds = commands.entity(e);
         lift_cmds
-            .insert(SpatialBundle::default())
+            .insert((Transform::default(), Visibility::default()))
             .insert(EdgeLabels::LeftRight)
             .insert(Category::Lift);
 
@@ -197,22 +197,24 @@ pub fn update_lift_cabin(
                     .into();
 
                 let cabin_entity = commands
-                    .spawn(SpatialBundle::from_transform(cabin_tf))
+                    .spawn((cabin_tf, Visibility::Inherited))
                     .with_children(|parent| {
                         parent
-                            .spawn(PbrBundle {
-                                mesh: meshes.add(floor_mesh),
-                                material: assets.lift_floor_material.clone(),
-                                ..default()
-                            })
+                            .spawn((
+                                Mesh3d(meshes.add(floor_mesh)),
+                                MeshMaterial3d(assets.lift_floor_material.clone()),
+                                Transform::default(),
+                                Visibility::default(),
+                            ))
                             .insert(Selectable::new(e));
 
                         parent
-                            .spawn(PbrBundle {
-                                mesh: meshes.add(wall_mesh),
-                                material: assets.lift_wall_material.clone(),
-                                ..default()
-                            })
+                            .spawn((
+                                Mesh3d(meshes.add(wall_mesh)),
+                                MeshMaterial3d(assets.lift_wall_material.clone()),
+                                Transform::default(),
+                                Visibility::default(),
+                            ))
                             .insert(Selectable::new(e));
 
                         for (level, level_site) in &levels {
@@ -233,14 +235,15 @@ pub fn update_lift_cabin(
                                 aabb.center.z = LANE_LAYER_LIMIT;
                                 let mesh = make_flat_mesh_for_aabb(aabb);
                                 parent
-                                    .spawn(PbrBundle {
-                                        mesh: meshes.add(mesh),
+                                    .spawn((
+                                        Mesh3d(meshes.add(mesh.into())),
+                                        MeshMaterial3d::default(),
+                                        Transform::default(),
                                         // Doormats are not visible by default.
                                         // Other plugins should make them visible
                                         // if using them as a visual cue.
-                                        visibility: Visibility::Hidden,
-                                        ..default()
-                                    })
+                                        Visibility::Hidden,
+                                    ))
                                     .insert(LiftDoormat {
                                         for_lift: e,
                                         on_level: level,
@@ -301,7 +304,7 @@ pub fn update_lift_cabin(
             }
             None => {
                 let group = commands
-                    .spawn(SpatialBundle::from_transform(cabin_tf))
+                    .spawn((cabin_tf, Visibility::Inherited))
                     .insert(CabinAnchorGroupBundle::default())
                     .id();
                 commands

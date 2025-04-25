@@ -399,7 +399,7 @@ fn perform_deletions(all_to_delete: HashSet<Entity>, params: &mut DeletionParams
                 // level because all the existing levels are being deleted.
                 let new_level = params
                     .commands
-                    .spawn(SpatialBundle::default())
+                    .spawn((Transform::default(), Visibility::default()))
                     .insert(LevelProperties {
                         name: NameInSite("<Unnamed>".to_owned()),
                         elevation: LevelElevation(0.0),

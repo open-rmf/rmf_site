@@ -17,7 +17,7 @@
 use crate::interaction::{InteractionAssets, PickingBlockers};
 use bevy::{
     color::palettes::css as Colors,
-    core_pipeline::{core_3d::Camera3dBundle, tonemapping::Tonemapping},
+    core_pipeline::tonemapping::Tonemapping,
     prelude::*,
     render::{
         camera::{Camera, ClearColorConfig, Exposure, Projection, ScalingMode},
@@ -261,20 +261,18 @@ impl FromWorld for CameraControls {
         );
         let selection_mesh = interaction_assets.camera_control_mesh.clone();
         let selection_marker = world
-            .spawn(PbrBundle {
-                mesh: selection_mesh,
-                visibility: Visibility::Visible,
-                ..default()
-            })
+            .spawn((
+                Mesh3d(selection_mesh),
+                Visibility::Visible,
+                Transform::default(),
+                MeshMaterial3d::default(),
+            ))
             .id();
 
         let perspective_headlight = world
-            .spawn(DirectionalLightBundle {
-                directional_light: DirectionalLight {
-                    shadows_enabled: false,
-                    illuminance: 50.,
-                    ..default()
-                },
+            .spawn(DirectionalLight {
+                shadows_enabled: false,
+                illuminance: 20000.,
                 ..default()
             })
             .insert(main_view_render_layers())
@@ -287,41 +285,35 @@ impl FromWorld for CameraControls {
         ]
         .map(|(order, layer)| {
             world
-                .spawn(Camera3dBundle {
-                    projection: Projection::Perspective(Default::default()),
-                    camera: Camera {
+                .spawn(Camera3d::default())
+                .insert((
+                    Projection::Perspective(Default::default()),
+                    Camera {
                         order,
                         clear_color: ClearColorConfig::None,
                         ..default()
                     },
-                    tonemapping: Tonemapping::ReinhardLuminance,
-                    exposure: Exposure {
+                    Tonemapping::ReinhardLuminance,
+                    Exposure {
                         ev100: DEFAULT_CAMERA_EV100,
                     },
-                    ..default()
-                })
-                .insert(VisibilityBundle {
-                    visibility: Visibility::Inherited,
-                    ..default()
-                })
+                ))
+                .insert(Visibility::Inherited)
                 .insert(RenderLayers::layer(layer.into()))
                 .id()
         });
 
         let perspective_base_camera = world
-            .spawn(Camera3dBundle {
-                transform: Transform::from_xyz(-10., -10., 10.).looking_at(Vec3::ZERO, Vec3::Z),
-                projection: Projection::Perspective(Default::default()),
-                exposure: Exposure {
+            .spawn(Camera3d::default())
+            .insert((
+                Transform::from_xyz(-10., -10., 10.).looking_at(Vec3::ZERO, Vec3::Z),
+                Projection::Perspective(Default::default()),
+                Exposure {
                     ev100: DEFAULT_CAMERA_EV100,
                 },
-                tonemapping: Tonemapping::ReinhardLuminance,
-                ..default()
-            })
-            .insert(VisibilityBundle {
-                visibility: Visibility::Inherited,
-                ..default()
-            })
+                Tonemapping::ReinhardLuminance,
+            ))
+            .insert(Visibility::Inherited)
             .insert(RenderLayers::from_layers(&[
                 GENERAL_RENDER_LAYER.into(),
                 VISUAL_CUE_RENDER_LAYER.into(),
@@ -331,18 +323,17 @@ impl FromWorld for CameraControls {
             .id();
 
         let orthographic_headlight = world
-            .spawn(DirectionalLightBundle {
-                transform: Transform::from_rotation(Quat::from_axis_angle(
+            .spawn((
+                DirectionalLight {
+                    shadows_enabled: false,
+                    illuminance: 20000.,
+                    ..default()
+                },
+                Transform::from_rotation(Quat::from_axis_angle(
                     Vec3::new(1., 1., 0.).normalize(),
                     35_f32.to_radians(),
                 )),
-                directional_light: DirectionalLight {
-                    shadows_enabled: false,
-                    illuminance: 50.,
-                    ..default()
-                },
-                ..default()
-            })
+            ))
             .insert(main_view_render_layers())
             .id();
 
@@ -360,46 +351,40 @@ impl FromWorld for CameraControls {
         ]
         .map(|(order, layer)| {
             world
-                .spawn(Camera3dBundle {
-                    camera: Camera {
+                .spawn(Camera3d::default())
+                .insert((
+                    Camera {
                         is_active: false,
                         order,
                         clear_color: ClearColorConfig::None,
                         ..default()
                     },
-                    projection: Projection::Orthographic(ortho_projection.clone()),
-                    exposure: Exposure {
+                    Projection::Orthographic(ortho_projection.clone()),
+                    Exposure {
                         ev100: DEFAULT_CAMERA_EV100,
                     },
-                    tonemapping: Tonemapping::ReinhardLuminance,
-                    ..default()
-                })
-                .insert(VisibilityBundle {
-                    visibility: Visibility::Inherited,
-                    ..default()
-                })
+                    Tonemapping::ReinhardLuminance,
+                ))
+                .insert(Visibility::Inherited)
                 .insert(RenderLayers::layer(layer.into()))
                 .id()
         });
 
         let orthographic_camera_entity = world
-            .spawn(Camera3dBundle {
-                camera: Camera {
+            .spawn(Camera3d::default())
+            .insert((
+                Camera {
                     is_active: false,
                     ..default()
                 },
-                transform: Transform::from_xyz(0., 0., 20.).looking_at(Vec3::ZERO, Vec3::Y),
-                projection: Projection::Orthographic(ortho_projection),
-                exposure: Exposure {
+                Transform::from_xyz(0., 0., 20.).looking_at(Vec3::ZERO, Vec3::Y),
+                Projection::Orthographic(ortho_projection),
+                Exposure {
                     ev100: DEFAULT_CAMERA_EV100,
                 },
-                tonemapping: Tonemapping::ReinhardLuminance,
-                ..default()
-            })
-            .insert(VisibilityBundle {
-                visibility: Visibility::Inherited,
-                ..default()
-            })
+                Tonemapping::ReinhardLuminance,
+            ))
+            .insert(Visibility::Inherited)
             .insert(RenderLayers::from_layers(&[
                 GENERAL_RENDER_LAYER.into(),
                 VISUAL_CUE_RENDER_LAYER.into(),

@@ -91,7 +91,8 @@ impl<'w, 's> ViewLevels<'w, 's> {
                     let new_level = self
                         .commands
                         .spawn((
-                            SpatialBundle::default(),
+                            Transform::default(),
+                            Visibility::default(),
                             LevelProperties {
                                 elevation: LevelElevation(show_elevation),
                                 name: NameInSite(show_name.clone()),

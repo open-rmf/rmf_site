@@ -73,18 +73,19 @@ pub fn add_wall_visual(
         };
         commands
             .entity(e)
-            .insert(PbrBundle {
-                mesh: meshes.add(make_wall(e, edge, &texture, &anchors)),
-                material: materials.add(StandardMaterial {
+            .insert((
+                Mesh3d(meshes.add(make_wall(e, edge, &texture, &anchors))),
+                MeshMaterial3d(materials.add(StandardMaterial {
                     base_color_texture,
                     base_color,
                     alpha_mode,
                     perceptual_roughness: 0.089,
                     metallic: 0.01,
                     ..default()
-                }),
-                ..default()
-            })
+                })),
+                Transform::default(),
+                Visibility::default(),
+            ))
             .insert(Selectable::new(e))
             .insert(Category::Wall)
             .insert(EdgeLabels::StartEnd);

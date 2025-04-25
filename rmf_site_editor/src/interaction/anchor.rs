@@ -53,11 +53,12 @@ pub fn add_anchor_visual_cues(
         };
 
         let body = commands
-            .spawn(PbrBundle {
-                mesh: body_mesh,
-                material: site_assets.passive_anchor_material.clone(),
-                ..default()
-            })
+            .spawn((
+                Mesh3d(body_mesh),
+                MeshMaterial3d(site_assets.passive_anchor_material.clone()),
+                Transform::default(),
+                Visibility::default(),
+            ))
             .insert(Selectable::new(e))
             .id();
         if subordinate.is_none() {

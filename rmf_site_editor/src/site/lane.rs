@@ -127,31 +127,28 @@ pub fn add_lane_visuals(
         // Create a "layer" entity that manages the height of the lane,
         // determined by the DisplayHeight of the graph.
         let layer = commands
-            .spawn(SpatialBundle {
-                transform: Transform::from_xyz(0.0, 0.0, height),
-                ..default()
-            })
+            .spawn((Transform::from_xyz(0.0, 0.0, height), Visibility::default()))
             .set_parent(e)
             .id();
 
         let mut spawn_lane_mesh_and_outline = |lane_tf, lane_mesh, outline_mesh| {
             let mesh = commands
-                .spawn(PbrBundle {
-                    mesh: lane_mesh,
-                    material: lane_material.clone(),
-                    transform: lane_tf,
-                    ..default()
-                })
+                .spawn((
+                    Mesh3d(lane_mesh),
+                    MeshMaterial3d(lane_material.clone()),
+                    lane_tf,
+                    Visibility::default(),
+                ))
                 .set_parent(layer)
                 .id();
 
             let outline = commands
-                .spawn(PbrBundle {
-                    mesh: outline_mesh,
-                    transform: Transform::from_translation(-0.000_5 * Vec3::Z),
-                    visibility: Visibility::Hidden,
-                    ..default()
-                })
+                .spawn((
+                    Mesh3d(outline_mesh),
+                    MeshMaterial3d::default(),
+                    Transform::from_translation(-0.000_5 * Vec3::Z),
+                    Visibility::Hidden,
+                ))
                 .set_parent(mesh)
                 .id();
 
@@ -185,11 +182,10 @@ pub fn add_lane_visuals(
                 end,
                 outlines: [start_outline, mid_outline, end_outline],
             })
-            .insert(SpatialBundle {
-                transform: Transform::from_translation([0., 0., LANE_LAYER_START].into()),
+            .insert((
+                Transform::from_translation([0., 0., LANE_LAYER_START].into()),
                 visibility,
-                ..default()
-            })
+            ))
             .insert(Category::Lane)
             .insert(EdgeLabels::StartEnd);
     }

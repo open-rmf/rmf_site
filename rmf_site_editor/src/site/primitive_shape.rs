@@ -59,11 +59,12 @@ pub fn handle_new_primitive_shapes(
         // If there is a parent with a Selectable component, use it to make this primitive
         // point to it. Otherwise set the Selectable to point to itself.
         let id = commands
-            .spawn(PbrBundle {
-                mesh: meshes.add(mesh),
-                material: site_assets.default_mesh_grey_material.clone(),
-                ..default()
-            })
+            .spawn((
+                Mesh3d(meshes.add(mesh)),
+                MeshMaterial3d(site_assets.default_mesh_grey_material.clone()),
+                Transform::default(),
+                Visibility::default(),
+            ))
             .set_parent(e)
             .id();
 

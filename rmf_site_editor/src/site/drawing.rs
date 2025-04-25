@@ -181,9 +181,14 @@ pub fn handle_loaded_drawing(
                     commands
                         .entity(entity)
                         .insert(DrawingSegments { leaf })
-                        .insert(SpatialBundle::from_transform(pose.transform().with_scale(
-                            Vec3::new(1.0 / pixels_per_meter.0, 1.0 / pixels_per_meter.0, 1.),
-                        )))
+                        .insert((
+                            pose.transform().with_scale(Vec3::new(
+                                1.0 / pixels_per_meter.0,
+                                1.0 / pixels_per_meter.0,
+                                1.,
+                            )),
+                            Visibility::Inherited,
+                        ))
                         .insert(Selectable::new(entity))
                         .push_children(&[leaf]);
                     leaf
@@ -191,12 +196,12 @@ pub fn handle_loaded_drawing(
                 let z = drawing_layer_height(rank);
                 commands
                     .entity(leaf)
-                    .insert(PbrBundle {
-                        mesh,
-                        material: material.clone(),
-                        transform: Transform::from_xyz(0.0, 0.0, z),
-                        ..Default::default()
-                    })
+                    .insert((
+                        Mesh3d(mesh),
+                        MeshMaterial3d(material.clone()),
+                        Transform::from_xyz(0.0, 0.0, z),
+                        Visibility::default(),
+                    ))
                     .insert(Selectable::new(entity));
                 commands
                     .entity(entity)
@@ -269,11 +274,14 @@ pub fn update_drawing_children_to_pixel_coordinates(
                 if let Ok(mut tf) = transforms.get_mut(*child) {
                     tf.scale = Vec3::new(pixels_per_meter.0, pixels_per_meter.0, 1.0);
                 } else {
-                    commands
-                        .entity(*child)
-                        .insert(SpatialBundle::from_transform(Transform::from_scale(
-                            Vec3::new(pixels_per_meter.0, pixels_per_meter.0, 1.0),
-                        )));
+                    commands.entity(*child).insert((
+                        Transform::from_scale(Vec3::new(
+                            pixels_per_meter.0,
+                            pixels_per_meter.0,
+                            1.0,
+                        )),
+                        Visibility::Inherited,
+                    ));
                 }
             }
         }

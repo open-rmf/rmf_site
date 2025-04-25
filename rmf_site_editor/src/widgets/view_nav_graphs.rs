@@ -133,7 +133,7 @@ impl<'w, 's> ViewNavGraphs<'w, 's> {
             ui.text_edit_singleline(&mut self.display_nav_graph.name);
             if add {
                 self.commands
-                    .spawn(SpatialBundle::default())
+                    .spawn((Transform::default(), Visibility::default()))
                     .insert(NavGraph {
                         name: NameInSite(self.display_nav_graph.name.clone()),
                         color: DisplayColor(self.display_nav_graph.color.unwrap().clone()),

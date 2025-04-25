@@ -162,24 +162,23 @@ impl FromWorld for Cursor {
         let preview_frame_material = site_assets.preview_anchor_material.clone();
 
         let halo = world
-            .spawn(PbrBundle {
-                transform: Transform::from_scale([0.2, 0.2, 1.].into()),
-                mesh: halo_mesh,
-                material: halo_material,
-                visibility: Visibility::Inherited,
-                ..default()
-            })
+            .spawn((
+                Transform::from_scale([0.2, 0.2, 1.].into()),
+                Mesh3d(halo_mesh),
+                MeshMaterial3d(halo_material),
+                Visibility::Inherited,
+            ))
             .insert(Spinning::default())
             .insert(VisualCue::no_outline())
             .id();
 
         let dagger = world
-            .spawn(PbrBundle {
-                mesh: dagger_mesh,
-                material: dagger_material,
-                visibility: Visibility::Inherited,
-                ..default()
-            })
+            .spawn((
+                Mesh3d(dagger_mesh),
+                MeshMaterial3d(dagger_material),
+                Transform::default(),
+                Visibility::Inherited,
+            ))
             .insert(Spinning::default())
             .insert(Bobbing::default())
             .insert(VisualCue::no_outline())
@@ -191,11 +190,12 @@ impl FromWorld for Cursor {
             .insert(Preview)
             .insert(VisualCue::no_outline())
             .with_children(|parent| {
-                parent.spawn(PbrBundle {
-                    mesh: level_anchor_mesh,
-                    material: preview_anchor_material.clone(),
-                    ..default()
-                });
+                parent.spawn((
+                    Mesh3d(level_anchor_mesh),
+                    MeshMaterial3d(preview_anchor_material.clone()),
+                    Transform::default(),
+                    Visibility::default(),
+                ));
             })
             .id();
 
@@ -205,11 +205,12 @@ impl FromWorld for Cursor {
             .insert(Preview)
             .insert(VisualCue::no_outline())
             .with_children(|parent| {
-                parent.spawn(PbrBundle {
-                    mesh: site_anchor_mesh,
-                    material: preview_anchor_material,
-                    ..default()
-                });
+                parent.spawn((
+                    Mesh3d(site_anchor_mesh),
+                    MeshMaterial3d(preview_anchor_material),
+                    Transform::default(),
+                    Visibility::default(),
+                ));
             })
             .id();
 
@@ -219,12 +220,12 @@ impl FromWorld for Cursor {
             .insert(Preview)
             .insert(VisualCue::no_outline())
             .with_children(|parent| {
-                parent.spawn(PbrBundle {
-                    mesh: frame_mesh,
-                    material: preview_frame_material,
-                    transform: Transform::from_scale(Vec3::new(0.2, 0.2, 0.2)),
-                    ..default()
-                });
+                parent.spawn((
+                    Mesh3d(frame_mesh),
+                    MeshMaterial3d(preview_frame_material),
+                    Transform::from_scale(Vec3::new(0.2, 0.2, 0.2)),
+                    Visibility::default(),
+                ));
             })
             .id();
 
@@ -237,10 +238,7 @@ impl FromWorld for Cursor {
                 site_anchor_placement,
                 frame_placement,
             ])
-            .insert(SpatialBundle {
-                visibility: Visibility::Hidden,
-                ..default()
-            })
+            .insert((Transform::default(), Visibility::Hidden))
             .id();
 
         Self {

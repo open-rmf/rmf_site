@@ -132,7 +132,7 @@ pub fn change_site(
                     if !found_level {
                         // Create a new blank level for the user
                         let new_level = commands
-                            .spawn(SpatialBundle::default())
+                            .spawn((Transform::default(), Visibility::default()))
                             .insert(LevelProperties {
                                 name: NameInSite("<unnamed level>".to_owned()),
                                 elevation: LevelElevation(0.),

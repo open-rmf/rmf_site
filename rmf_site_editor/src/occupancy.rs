@@ -288,11 +288,12 @@ fn calculate_grid(
 
             commands.entity(level).with_children(|level| {
                 level
-                    .spawn(PbrBundle {
-                        mesh: meshes.add(mesh),
-                        material: assets.occupied_material.clone(),
-                        ..default()
-                    })
+                    .spawn((
+                        Mesh3d(meshes.add(mesh.into())),
+                        MeshMaterial3d(assets.occupied_material.clone()),
+                        Transform::default(),
+                        Visibility::default(),
+                    ))
                     .insert(Grid {
                         occupied: level_occupied,
                         cell_size,

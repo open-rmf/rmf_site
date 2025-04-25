@@ -72,18 +72,18 @@ impl FromWorld for ModelPreviewCamera {
         // Attach the bevy image to the egui image
         let egui_handle = egui_context.add_image(preview_image.clone());
         let camera_entity = world
-            .spawn(Camera3dBundle {
-                transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Z),
-                camera: Camera {
+            .spawn(Camera3d::default())
+            .insert((
+                Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Z),
+                Camera {
                     target: RenderTarget::Image(preview_image),
                     ..default()
                 },
-                tonemapping: Tonemapping::ReinhardLuminance,
-                exposure: Exposure {
+                Tonemapping::ReinhardLuminance,
+                Exposure {
                     ev100: DEFAULT_CAMERA_EV100,
                 },
-                ..default()
-            })
+            ))
             .insert(RenderLayers::from_layers(&[MODEL_PREVIEW_LAYER.into()]))
             .id();
         let model_entity = world
@@ -95,14 +95,13 @@ impl FromWorld for ModelPreviewCamera {
             .id();
         let light_entity = world
             .spawn(RenderLayers::from_layers(&[MODEL_PREVIEW_LAYER.into()]))
-            .insert(DirectionalLightBundle {
-                directional_light: DirectionalLight {
+            .insert((
+                DirectionalLight {
                     illuminance: 50.0,
                     ..default()
                 },
-                transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Z),
-                ..default()
-            })
+                Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Z),
+            ))
             .id();
 
         Self {

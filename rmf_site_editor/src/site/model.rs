@@ -156,20 +156,39 @@ pub fn spawn_scene_for_loaded_model(
             .as_ref()
             .or_else(|| gltf.scenes.get(0))
             .cloned()?;
-        Some((world.spawn(SceneBundle { scene, ..default() }).id(), true))
+        Some((
+            world
+                .spawn((
+                    SceneRoot(scene),
+                    Transform::default(),
+                    GlobalTransform::default(),
+                ))
+                .id(),
+            true,
+        ))
     } else if type_id == TypeId::of::<Scene>() {
         let scene = h.typed::<Scene>();
-        Some((world.spawn(SceneBundle { scene, ..default() }).id(), true))
+        Some((
+            world
+                .spawn((
+                    SceneRoot(scene),
+                    Transform::default(),
+                    GlobalTransform::default(),
+                ))
+                .id(),
+            true,
+        ))
     } else if type_id == TypeId::of::<Mesh>() {
         let site_assets = world.resource::<SiteAssets>();
         let mesh = h.typed::<Mesh>();
         Some((
             world
-                .spawn(PbrBundle {
-                    mesh,
-                    material: site_assets.default_mesh_grey_material.clone(),
-                    ..default()
-                })
+                .spawn((
+                    Mesh3d(mesh),
+                    MeshMaterial3d(site_assets.default_mesh_grey_material.clone()),
+                    Transform::default(),
+                    Visibility::default(),
+                ))
                 .id(),
             false,
         ))
@@ -185,7 +204,7 @@ pub fn spawn_scene_for_loaded_model(
         })
         .add_child(model_id);
     if world.get::<Visibility>(parent).is_none() {
-        world.entity_mut(parent).insert(VisibilityBundle::default());
+        world.entity_mut(parent).insert(Visibility::default());
     }
     Some((model_id, is_scene))
 }

@@ -123,25 +123,24 @@ pub fn add_location_visuals(
                 // Workcells are not visualized
                 LocationTag::Workcell(_) => continue,
             };
-            commands.entity(id).insert(PbrBundle {
-                mesh: assets.location_tag_mesh.clone(),
-                material,
-                transform: location_halo_tf(tag),
-                ..default()
-            });
+            commands.entity(id).insert((
+                Mesh3d(assets.location_tag_mesh.clone()),
+                MeshMaterial3d(material),
+                location_halo_tf(tag),
+                Visibility::default(),
+            ));
             commands.entity(e).add_child(id);
         }
 
         // TODO(MXG): Put icons on the different visual squares based on the location tags
         commands
             .entity(e)
-            .insert(PbrBundle {
-                mesh: assets.location_mesh.clone(),
-                transform: Transform::from_translation(position),
-                material,
+            .insert((
+                Mesh3d(assets.location_mesh.clone()),
+                Transform::from_translation(position),
+                MeshMaterial3d(material),
                 visibility,
-                ..default()
-            })
+            ))
             .insert(Spinning::new(-10.0))
             .insert(Category::Location)
             .insert(tag_meshes)
@@ -273,12 +272,12 @@ pub fn update_location_for_changed_location_tags(
                 // Workcells are not visualized
                 LocationTag::Workcell(_) => continue,
             };
-            commands.entity(id).insert(PbrBundle {
-                mesh: assets.location_tag_mesh.clone(),
-                material,
-                transform: location_halo_tf(tag),
-                ..default()
-            });
+            commands.entity(id).insert((
+                Mesh3d(assets.location_tag_mesh.clone()),
+                MeshMaterial3d(material),
+                location_halo_tf(tag),
+                Visibility::default(),
+            ));
             commands.entity(e).add_child(id);
         }
     }

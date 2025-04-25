@@ -301,31 +301,33 @@ pub fn add_door_visuals(
             .iter()
             .map(|tf| {
                 commands
-                    .spawn(PbrBundle {
-                        mesh: assets.box_mesh.clone(),
-                        material: assets.door_body_material.clone(),
-                        transform: *tf,
-                        ..default()
-                    })
+                    .spawn((
+                        Mesh3d(assets.box_mesh.clone()),
+                        MeshMaterial3d(assets.door_body_material.clone()),
+                        *tf,
+                        Visibility::default(),
+                    ))
                     .insert(Selectable::new(e))
                     .id()
             })
             .collect::<Vec<_>>();
         let body = DoorBodyType::from_door_type(kind, &bodies);
         let cue_inner = commands
-            .spawn(PbrBundle {
-                mesh: meshes.add(cue_inner_mesh),
-                material: assets.translucent_white.clone(),
-                ..default()
-            })
+            .spawn((
+                Mesh3d(meshes.add(cue_inner_mesh)),
+                MeshMaterial3d(assets.translucent_white.clone()),
+                Transform::default(),
+                Visibility::default(),
+            ))
             .id();
 
         let cue_outline = commands
-            .spawn(PbrBundle {
-                mesh: meshes.add(cue_outline_mesh),
-                material: assets.translucent_black.clone(),
-                ..default()
-            })
+            .spawn((
+                Mesh3d(meshes.add(cue_outline_mesh)),
+                MeshMaterial3d(assets.translucent_black.clone()),
+                Transform::default(),
+                Visibility::default(),
+            ))
             .id();
 
         // Level doors for lifts may have already been given a Visibility
@@ -335,11 +337,7 @@ pub fn add_door_visuals(
 
         commands
             .entity(e)
-            .insert(SpatialBundle {
-                transform: pose_tf,
-                visibility,
-                ..default()
-            })
+            .insert((pose_tf, visibility))
             .insert(DoorSegments {
                 body,
                 cue_inner,
@@ -382,12 +380,12 @@ fn update_door_visuals(
     for door_tf in door_tfs.iter().skip(entities.len()) {
         // New doors were added, we need to spawn them
         let id = commands
-            .spawn(PbrBundle {
-                mesh: assets.box_mesh.clone(),
-                material: assets.door_body_material.clone(),
-                transform: *door_tf,
-                ..default()
-            })
+            .spawn((
+                Mesh3d(assets.box_mesh.clone()),
+                MeshMaterial3d(assets.door_body_material.clone()),
+                *door_tf,
+                Visibility::default(),
+            ))
             .insert(Selectable::new(entity))
             .id();
         entities.push(id);

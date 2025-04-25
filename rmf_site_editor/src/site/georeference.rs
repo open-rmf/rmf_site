@@ -304,12 +304,12 @@ fn spawn_tile(
 
     let tile_offset = latlon_to_world(coordinates.0, coordinates.1, reference);
     commands
-        .spawn(PbrBundle {
-            mesh: quad_handle,
-            material: material_handle,
-            transform: Transform::from_xyz(tile_offset.x, tile_offset.y, -0.005),
-            ..default()
-        })
+        .spawn((
+            Mesh3d(quad_handle),
+            MeshMaterial3d(material_handle),
+            Transform::from_xyz(tile_offset.x, tile_offset.y, -0.005),
+            Visibility::default(),
+        ))
         .insert(MapTile(tile));
 }
 

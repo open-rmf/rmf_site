@@ -219,14 +219,16 @@ pub fn add_fiducial_visuals(
         }
 
         if tf.is_none() {
-            commands.entity(e).insert(SpatialBundle::INHERITED_IDENTITY);
+            commands
+                .entity(e)
+                .insert((Transform::IDENTITY, Visibility::Inherited));
         }
 
         commands
             .entity(e)
             .insert(assets.fiducial_mesh.clone())
             .insert(assets.fiducial_material.clone())
-            .insert(VisibilityBundle::default())
+            .insert(Visibility::default())
             .insert(Category::Fiducial)
             .insert(VisualCue::outline());
     }

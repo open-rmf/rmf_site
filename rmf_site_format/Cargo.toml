@@ -17,7 +17,7 @@ thiserror = "*"
 glam = { version = "0.27", features = ["serde"] }
 uuid = { version = "1.1", features = ["v4", "serde"] }
 # add features=["bevy"] to a dependent Cargo.toml to get the bevy-related features
-bevy = { version = "0.14", optional = true }
+bevy = { version = "0.15", optional = true }
 sdformat_rs = { git = "https://github.com/open-rmf/sdf_rust_experimental", rev = "9fc35f2"}
 yaserde = "0.7"
 # We depend on a bugfix released specifically in 0.7.3
