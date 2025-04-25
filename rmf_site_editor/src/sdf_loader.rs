@@ -58,11 +58,11 @@ impl AssetLoader for SdfLoader {
     type Asset = bevy::scene::Scene;
     type Settings = ();
     type Error = SdfError;
-    async fn load<'a>(
-        &'a self,
-        reader: &'a mut Reader<'_>,
-        _settings: &'a (),
-        load_context: &'a mut LoadContext<'_>,
+    async fn load(
+        &self,
+        reader: &mut dyn Reader,
+        _settings: &(),
+        load_context: &mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
         let mut bytes = Vec::new();
         // TODO(luca) remove unwrap
