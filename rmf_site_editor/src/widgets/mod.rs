@@ -187,11 +187,7 @@ impl Plugin for StandardUiPlugin {
             )
             .add_systems(
                 PostUpdate,
-                (
-                    resolve_light_export_file,
-                    resolve_nav_graph_import_export_files,
-                )
-                    .run_if(AppState::in_displaying_mode()),
+                (resolve_nav_graph_import_export_files,).run_if(AppState::in_displaying_mode()),
             );
     }
 }
