@@ -15,7 +15,7 @@
  *
 */
 
-use crate::interaction::{Preview, MODEL_PREVIEW_LAYER};
+use crate::interaction::{Preview, DEFAULT_CAMERA_EV100, MODEL_PREVIEW_LAYER};
 use bevy::render::render_resource::{
     Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
@@ -23,7 +23,10 @@ use bevy::{
     core_pipeline::tonemapping::Tonemapping,
     ecs::system::SystemState,
     prelude::*,
-    render::{camera::RenderTarget, view::RenderLayers},
+    render::{
+        camera::{Exposure, RenderTarget},
+        view::RenderLayers,
+    },
 };
 use bevy_egui::{egui::TextureId, EguiContexts};
 use rmf_site_format::Model;
@@ -33,6 +36,7 @@ pub struct ModelPreviewCamera {
     pub camera_entity: Entity,
     pub egui_handle: TextureId,
     pub model_entity: Entity,
+    pub light_entity: Entity,
 }
 
 pub struct ModelPreviewPlugin;
@@ -75,6 +79,9 @@ impl FromWorld for ModelPreviewCamera {
                     ..default()
                 },
                 tonemapping: Tonemapping::ReinhardLuminance,
+                exposure: Exposure {
+                    ev100: DEFAULT_CAMERA_EV100,
+                },
                 ..default()
             })
             .insert(RenderLayers::from_layers(&[MODEL_PREVIEW_LAYER.into()]))
@@ -86,11 +93,23 @@ impl FromWorld for ModelPreviewCamera {
                 Model::default(),
             ))
             .id();
+        let light_entity = world
+            .spawn(RenderLayers::from_layers(&[MODEL_PREVIEW_LAYER.into()]))
+            .insert(DirectionalLightBundle {
+                directional_light: DirectionalLight {
+                    illuminance: 50.0,
+                    ..default()
+                },
+                transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Z),
+                ..default()
+            })
+            .id();
 
         Self {
             camera_entity,
             egui_handle,
             model_entity,
+            light_entity,
         }
     }
 }
