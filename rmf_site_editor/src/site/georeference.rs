@@ -525,10 +525,10 @@ pub fn render_map_tiles(
 
 fn ray_groundplane_intersection(ray: &Option<Ray3d>) -> Vec3 {
     if let Some(ray) = ray {
-        let t = -ray.origin.clone().z / ray.direction.clone().z;
+        let t = -ray.origin.z / ray.direction.z;
         Vec3::new(
-            ray.origin.clone().x + t * ray.direction.clone().x,
-            ray.origin.clone().y + t * ray.direction.clone().y,
+            ray.origin.x + t * ray.direction.x,
+            ray.origin.y + t * ray.direction.y,
             0.0,
         )
     } else {

@@ -442,9 +442,9 @@ pub fn update_drag_motions(
                 } else {
                     axis.along.normalize_or_zero()
                 };
-                let dp = ray.origin.clone() - initial.click_point;
-                let a = ray.direction.clone().dot(n);
-                let b = ray.direction.clone().dot(dp);
+                let dp = ray.origin - initial.click_point;
+                let a = ray.direction.dot(n);
+                let b = ray.direction.dot(dp);
                 let c = n.dot(dp);
 
                 let denom = a.powi(2) - 1.;
@@ -479,15 +479,15 @@ pub fn update_drag_motions(
                     plane.in_plane.normalize_or_zero()
                 };
 
-                let n_r = ray.direction.as_vec3();
-                let denom = n_p.dot(n_r);
+                let n_r = ray.direction;
+                let denom = n_p.dot(*n_r);
                 if denom.abs() < 1e-3 {
                     // The rays are nearly parallel so we should not attempt
                     // moving because the motion will be too extreme
                     return;
                 }
 
-                let t = (initial.click_point - ray.origin.clone()).dot(n_p) / denom;
+                let t = (initial.click_point - ray.origin).dot(n_p) / denom;
                 let delta = ray.get_point(t) - initial.click_point;
                 let tf_goal = initial
                     .tf_for_entity_global

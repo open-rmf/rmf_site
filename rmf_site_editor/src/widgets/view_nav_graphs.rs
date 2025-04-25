@@ -291,7 +291,7 @@ impl<'w, 's> ViewNavGraphs<'w, 's> {
 
 #[derive(Resource)]
 pub struct NavGraphDisplay {
-    pub color: Option<[f32; 4]>,
+    pub color: Option<[f32; 3]>,
     pub name: String,
     pub removing: bool,
     pub choosing_file_for_export: Option<Task<Option<std::path::PathBuf>>>,

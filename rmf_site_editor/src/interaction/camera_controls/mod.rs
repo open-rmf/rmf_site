@@ -294,7 +294,6 @@ impl FromWorld for CameraControls {
                         clear_color: ClearColorConfig::None,
                         ..default()
                     },
-                    camera_3d: Camera3d::default(),
                     tonemapping: Tonemapping::ReinhardLuminance,
                     exposure: Exposure {
                         ev100: DEFAULT_CAMERA_EV100,
@@ -368,7 +367,6 @@ impl FromWorld for CameraControls {
                         clear_color: ClearColorConfig::None,
                         ..default()
                     },
-                    camera_3d: Camera3d::default(),
                     projection: Projection::Orthographic(ortho_projection.clone()),
                     exposure: Exposure {
                         ev100: DEFAULT_CAMERA_EV100,
@@ -497,7 +495,7 @@ fn camera_controls(
 
             // Ensure upright
             let forward = persp_transform.forward();
-            persp_transform.look_to(forward, Vec3::Z);
+            persp_transform.look_to(*forward, Vec3::Z);
         }
 
         let proj = persp_proj.clone();

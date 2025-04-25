@@ -67,9 +67,8 @@ pub fn add_physical_light_visual_cues(
     mut headlight_toggle: ResMut<HeadlightToggle>,
 ) {
     for (e, kind) in &new_lights {
-        let color = kind.color();
         let light_material = materials.add(StandardMaterial {
-            base_color: Color::srgba(color[0], color[1], color[2], color[3]),
+            base_color: Color::srgb_from_array(kind.color()),
             unlit: true,
             perceptual_roughness: 0.089,
             ..default()
@@ -180,8 +179,7 @@ pub fn update_physical_light_visual_cues(
     for (kind, bodies, material) in &changed {
         bodies.switch(kind, &mut visibilities);
         if let Some(m) = material_assets.get_mut(material) {
-            let color = kind.color();
-            m.base_color = Color::srgba(color[0], color[1], color[2], color[3]);
+            m.base_color = Color::srgb_from_array(kind.color());
         } else {
             error!("Unable to get material asset for light");
         }

@@ -132,7 +132,7 @@ pub fn update_cursor_command(
             Some(selection) => selection,
             None => cursor_selection_new,
         };
-        let cursor_direction = cursor_ray.direction.clone().normalize();
+        let cursor_direction = cursor_ray.direction.normalize();
         let cursor_direction_camera_frame = camera_transform.rotation.inverse() * cursor_direction;
         let cursor_direction_camera_frame_prev = cursor_command
             .cursor_direction_camera_frame
@@ -375,9 +375,9 @@ fn get_cursor_selected_point(
     match cursor_raycast_source.get_nearest_intersection() {
         Some((_, intersection)) => intersection.position(),
         None => get_groundplane_else_default_selection(
-            cursor_ray.origin.clone(),
-            cursor_ray.direction.as_vec3(),
-            camera_transform.forward().as_vec3(),
+            cursor_ray.origin,
+            *cursor_ray.direction,
+            *camera_transform.forward(),
         ),
     }
 }

@@ -94,9 +94,9 @@ pub fn get_camera_selected_point(
         return Some(intersection_data.position());
     } else {
         return Some(get_groundplane_else_default_selection(
-            camera_ray.origin.clone(),
-            camera_ray.direction.as_vec3(),
-            camera_ray.direction.as_vec3(),
+            camera_ray.origin,
+            *camera_ray.direction,
+            *camera_ray.direction,
         ));
     }
 }
