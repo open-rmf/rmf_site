@@ -191,7 +191,7 @@ impl Plugin for SiteEditor {
         ));
 
         app.insert_resource(DirectionalLightShadowMap { size: 2048 })
-            .add_state::<AppState>()
+            .init_state::<AppState>()
             .add_plugins((
                 AssetLoadersPlugin,
                 LogHistoryPlugin,

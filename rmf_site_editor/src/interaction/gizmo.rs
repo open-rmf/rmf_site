@@ -479,7 +479,7 @@ pub fn update_drag_motions(
                     plane.in_plane.normalize_or_zero()
                 };
 
-                let n_r = ray.direction.clone();
+                let n_r = ray.direction.as_vec3();
                 let denom = n_p.dot(n_r);
                 if denom.abs() < 1e-3 {
                     // The rays are nearly parallel so we should not attempt

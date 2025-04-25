@@ -72,7 +72,8 @@ impl CanvasTooltips {
 
         let text = self.tips.join("\n");
 
-        egui::containers::popup::show_tooltip_text(ctx, "cursor_tooltip".into(), text);
+        //TODO(@xiyuoh)
+        // egui::containers::popup::show_tooltip_text(ctx, "cursor_tooltip".into(), text);
 
         self.previous = self.tips.drain(..).collect();
     }

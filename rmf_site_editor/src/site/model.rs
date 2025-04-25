@@ -149,7 +149,7 @@ pub fn spawn_scene_for_loaded_model(
         // Note we can't do an `if let Some()` because get(Handle) panics if the type is
         // not the stored type
         let gltfs = world.resource::<Assets<Gltf>>();
-        let gltf = gltfs.get(&h)?;
+        let gltf = gltfs.get(h.typed::<Gltf>().id())?;
         // Get default scene if present, otherwise index 0
         let scene = gltf
             .default_scene
