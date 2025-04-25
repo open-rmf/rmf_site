@@ -16,12 +16,17 @@
 */
 
 use bevy::{
-    ecs::{event::Events, system::SystemState},
+    ecs::{
+        event::Events,
+        system::{BoxedSystem, SystemState, SystemParam},
+    },
     prelude::*,
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
+    error::Error,
     path::PathBuf,
+    sync::Arc,
 };
 use thiserror::Error as ThisError;
 
@@ -40,6 +45,19 @@ pub struct SaveNavGraphs {
     pub site: Entity,
     pub to_file: PathBuf,
 }
+
+#[derive(Debug, Clone)]
+pub struct SavingArgs {
+    /// ID of the site which is being saved.
+    pub site: Entity,
+}
+
+/// The result of trying to save data for an extension.
+pub type SavingResult<E> = Result<serde_json::Value, E>;
+
+/// A system used to extend saving behavior which can generate a [`serde_json::Value`]
+/// to serialize the data related to this extension that needs to be saved.
+pub(crate) type SavingSystem = BoxedSystem<SavingArgs, Result<serde_json::Value, Arc<dyn Error>>>;
 
 // TODO(MXG): Change all these errors to use u32 SiteIDs instead of entities
 #[derive(ThisError, Debug, Clone)]
@@ -66,6 +84,11 @@ pub enum SiteGenerationError {
         "lift door {door:?} is referencing an anchor that does not belong to its lift {anchor:?}"
     )]
     InvalidLiftDoorReference { door: Entity, anchor: Entity },
+    #[error("Extension [{extension}] encountered an error: {error}")]
+    ExtensionError {
+        extension: Arc<str>,
+        error: Arc<dyn Error>,
+    },
 }
 
 /// This is used when a drawing is being edited to fix its parenting before we
@@ -142,9 +165,9 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
         Query<(), With<DrawingMarker>>,
         Query<&ChildCabinAnchorGroup>,
         Query<Entity, (With<Anchor>, Without<Pending>)>,
-        Query<&NextSiteID>,
         Query<&SiteID>,
         Query<&Children>,
+        AssignSiteID,
     )> = SystemState::new(world);
 
     let (
@@ -159,9 +182,9 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
         drawings,
         cabin_anchor_groups,
         cabin_anchor_group_children,
-        sites,
         site_ids,
         children,
+        mut assign_site_id,
     ) = state.get_mut(world);
 
     let mut new_entities = Vec::new();
@@ -275,21 +298,55 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
         }
     }
 
-    let mut next_site_id = sites
-        .get(site)
-        .map(|n| n.0)
-        .map_err(|_| SiteGenerationError::InvalidSiteEntity(site))?..;
+    let mut next_site_id = assign_site_id
+        .assign_for(site)
+        .ok_or(SiteGenerationError::InvalidSiteEntity(site))?;
     for e in &new_entities {
-        world
-            .entity_mut(*e)
-            .insert(SiteID(next_site_id.next().unwrap()));
+        next_site_id.assign_to(*e);
     }
 
-    world
-        .entity_mut(site)
-        .insert(NextSiteID(next_site_id.next().unwrap()));
+    state.apply(world);
 
     Ok(())
+}
+
+#[derive(SystemParam)]
+pub struct AssignSiteID<'w, 's> {
+    next: Query<'w, 's, &'static mut NextSiteID>,
+    existing: Query<'w, 's, &'static SiteID>,
+    commands: Commands<'w, 's>,
+}
+
+impl<'w, 's> AssignSiteID<'w, 's> {
+    pub fn assign_for(&mut self, site: Entity) -> Option<SiteIDAssigner<'w, 's, '_>> {
+        self.next.get_mut(site).ok().map(
+            |next| SiteIDAssigner {
+                next,
+                existing: &self.existing,
+                commands: &mut self.commands,
+            }
+        )
+    }
+}
+
+pub struct SiteIDAssigner<'w, 's, 'a> {
+    next: Mut<'a, NextSiteID>,
+    existing: &'a Query<'w, 's, &'static SiteID>,
+    commands: &'a mut Commands<'w, 's>,
+}
+
+impl<'w, 's, 'a> SiteIDAssigner<'w, 's, 'a> {
+    pub fn assign_to(&mut self, entity: Entity) -> u32 {
+        if let Ok(id) = self.existing.get(entity) {
+            // Skip the assignment if the entity already has a SiteID
+            return id.0;
+        }
+
+        let n = **self.next;
+        self.commands.entity(entity).insert(SiteID(n));
+        **self.next += 1;
+        return n;
+    }
 }
 
 fn collect_site_anchors(world: &mut World, site: Entity) -> BTreeMap<u32, Anchor> {
@@ -1111,13 +1168,16 @@ fn generate_site_properties(
             &FilteredIssues<Entity>,
             &FilteredIssueKinds,
             &GeographicComponent,
+            &SiteExtensionSettings,
         )>,
         Query<&SiteID>,
     )> = SystemState::new(world);
 
     let (q_properties, q_ids) = state.get(world);
 
-    let Ok((name, issues, issue_kinds, geographic_offset)) = q_properties.get(site) else {
+    let Ok((name, issues, issue_kinds, geographic_offset, extension_settings)) =
+        q_properties.get(site)
+    else {
         return Err(SiteGenerationError::InvalidSiteEntity(site));
     };
 
@@ -1141,6 +1201,7 @@ fn generate_site_properties(
         geographic_offset: geographic_offset.clone(),
         filtered_issues: FilteredIssues(converted_issues),
         filtered_issue_kinds: issue_kinds.clone(),
+        extension_settings: extension_settings.clone(),
     })
 }
 
@@ -1436,6 +1497,43 @@ pub fn generate_site(
     let scenarios = generate_scenarios(site, world)?;
     let tasks = generate_tasks(site, world)?;
 
+    let extensions = world.resource_scope::<ExtensionHooks, _>(|world, mut hooks| {
+        let mut extensions = Extensions::default();
+        for (extension, hook) in &mut hooks.hooks {
+            let settings = properties
+                .extension_settings
+                .get(extension)
+                .unwrap_or(&hook.default_settings);
+
+            if settings.skip_during_save {
+                continue;
+            }
+
+            if let Some(saving) = &mut hook.saving {
+                let r = saving.run(SavingArgs { site }, world);
+                saving.apply_deferred(world);
+
+                match r {
+                    Ok(data) => {
+                        extensions.data.insert(Arc::clone(extension), data);
+                    }
+                    Err(error) => {
+                        if settings.prevent_saving_on_error {
+                            return Err(SiteGenerationError::ExtensionError {
+                                extension: Arc::clone(extension),
+                                error,
+                            });
+                        } else {
+                            warn!("Error in extension [{extension}] while saving: {error}");
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(extensions)
+    })?;
+
     disassemble_edited_drawing(world);
     return Ok(Site {
         format_version: rmf_site_format::SemVer::default(),
@@ -1461,6 +1559,7 @@ pub fn generate_site(
         model_instances,
         scenarios,
         tasks,
+        extensions,
     });
 }
 

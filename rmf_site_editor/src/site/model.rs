@@ -347,6 +347,7 @@ fn instance_spawn_request_into_model_load_request(
     Ok(ModelLoadingRequest {
         parent: request.parent,
         source: source.0.clone(),
+        interaction: Some(DragPlaneBundle::new(request.parent, Vec3::Z)),
     })
 }
 
@@ -400,7 +401,9 @@ impl<'w, 's> ModelLoader<'w, 's> {
 
     /// Run a basic workflow to update the asset source of an existing entity
     pub fn update_asset_source(&mut self, entity: Entity, source: AssetSource) {
-        self.update_asset_source_impulse(entity, source).detach();
+        let interaction = DragPlaneBundle::new(entity, Vec3::Z);
+        self.update_asset_source_impulse(entity, source, Some(interaction))
+            .detach();
     }
 
     /// Update an asset source and then keep attaching impulses to its outcome.
@@ -410,9 +413,10 @@ impl<'w, 's> ModelLoader<'w, 's> {
         &mut self,
         entity: Entity,
         source: AssetSource,
+        interaction: Option<DragPlaneBundle>,
     ) -> Impulse<'w, 's, '_, ModelLoadingResult, ()> {
         self.commands.request(
-            ModelLoadingRequest::new(entity, source),
+            ModelLoadingRequest::new(entity, source, interaction),
             self.services
                 .load_model
                 .clone()
@@ -432,7 +436,8 @@ impl<'w, 's> ModelLoader<'w, 's> {
             }
         }
         for e in instance_entities.iter() {
-            self.update_asset_source_impulse(*e, source.clone())
+            let interaction = DragPlaneBundle::new(*e, Vec3::Z);
+            self.update_asset_source_impulse(*e, source.clone(), Some(interaction))
                 .detach();
         }
     }
@@ -453,7 +458,10 @@ fn load_model_dependencies(
     async move {
         for (model_entity, source) in models {
             channel
-                .query(ModelLoadingRequest::new(model_entity, source), load_model)
+                .query(
+                    ModelLoadingRequest::new(model_entity, source, request.interaction.clone()),
+                    load_model,
+                )
                 .await
                 .available()
                 .ok_or_else(|| {
@@ -566,11 +574,17 @@ pub struct ModelLoadingRequest {
     pub parent: Entity,
     /// AssetSource pointing to which asset we want to load
     pub source: AssetSource,
+    /// Indicates if and which entity should be made selectable
+    pub interaction: Option<DragPlaneBundle>,
 }
 
 impl ModelLoadingRequest {
-    pub fn new(parent: Entity, source: AssetSource) -> Self {
-        Self { parent, source }
+    pub fn new(parent: Entity, source: AssetSource, interaction: Option<DragPlaneBundle>) -> Self {
+        Self {
+            parent,
+            source,
+            interaction,
+        }
     }
 }
 
@@ -684,12 +698,13 @@ pub fn make_models_selectable(
     {
         return req;
     }
+    let Some(interaction) = req.interaction.clone() else {
+        return req;
+    };
     queue.push(req.parent);
 
     while let Some(e) = queue.pop() {
-        commands
-            .entity(e)
-            .insert(DragPlaneBundle::new(req.parent, Vec3::Z));
+        commands.entity(e).insert(interaction.clone());
 
         if let Ok(mesh_handle) = mesh_handles.get(e) {
             if let Some(mesh) = mesh_assets.get_mut(mesh_handle) {
