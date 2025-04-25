@@ -67,8 +67,9 @@ impl AssetLoader for SdfLoader {
     ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
         Box::pin(async move {
             let mut bytes = Vec::new();
-            // TODO(luca) remove unwrap
-            reader.read_to_end(&mut bytes).await.unwrap();
+            if let Err(err) = reader.read_to_end(&mut bytes).await {
+                return Err(Self::Error::SdfReadBytesError(err.to_string()));
+            };
             Ok(load_model(bytes, load_context)?)
         })
     }
@@ -89,6 +90,10 @@ pub enum SdfError {
     MissingModelTag,
     #[error("Failed parsing asset source: {0}")]
     UnsupportedAssetSource(String),
+    #[error("Failed reading bytes from Sdf str : {0}")]
+    SdfReadBytesError(String),
+    #[error("Unable to get parent asset path : {0}")]
+    GetParentAssetPathError(String),
 }
 
 /// Combines the path from the SDF that is currently being processed with the path of a mesh
@@ -146,12 +151,15 @@ fn compute_model_source<'a, 'b>(
         // It's a path relative to this model, concatenate it to the current context path.
         // Note that since the current path is the file (i.e. path/subfolder/model.sdf) we need to
         // concatenate to its parent
-        let path = load_context
-            .asset_path()
-            .parent()
-            .unwrap()
-            .resolve(subasset_uri)
-            .or_else(|e| Err(SdfError::UnsupportedAssetSource(e.to_string())))?;
+        let asset_path = load_context.asset_path();
+        let path = match asset_path.parent() {
+            Some(parent_asset_path) => parent_asset_path
+                .resolve(subasset_uri)
+                .or_else(|e| Err(SdfError::UnsupportedAssetSource(e.to_string())))?,
+            None => {
+                return Err(SdfError::GetParentAssetPathError(asset_path.to_string()));
+            }
+        };
         AssetSource::try_from(path.to_string().as_str()).map_err(SdfError::UnsupportedAssetSource)
     }?;
     Ok(asset_source)
@@ -260,7 +268,10 @@ fn load_model<'a, 'b>(
     bytes: Vec<u8>,
     load_context: &'a mut LoadContext<'b>,
 ) -> Result<bevy::scene::Scene, SdfError> {
-    let sdf_str = std::str::from_utf8(&bytes).unwrap();
+    let sdf_str = match std::str::from_utf8(&bytes) {
+        Ok(sdf_str) => sdf_str,
+        Err(err) => return Err(SdfError::SdfReadBytesError(err.to_string())),
+    };
     let root = sdformat_rs::from_str::<sdformat_rs::SdfRoot>(sdf_str);
     match root {
         Ok(root) => {
