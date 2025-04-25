@@ -418,7 +418,7 @@ impl<'w, 's> InspectSelectedModelDescription<'w, 's> {
     }
 }
 
-type ModelPropertyQuery<'w, 's, P> =
+pub type ModelPropertyQuery<'w, 's, P> =
     Query<'w, 's, &'static Affiliation<Entity>, (With<ModelMarker>, Without<Group>, With<P>)>;
 
 /// Helper function to get the corresponding description entity for a given model instance entity
