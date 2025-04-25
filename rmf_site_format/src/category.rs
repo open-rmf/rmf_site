@@ -60,6 +60,7 @@ pub enum Category {
     Workcell,
     GeoReference,
     NavigationGraph,
+    Task,
     Visual,
 }
 
@@ -92,6 +93,7 @@ impl Category {
             Self::Workcell => "Workcell",
             Self::GeoReference => "Georeference",
             Self::NavigationGraph => "Navigation Graph",
+            Self::Task => "Task",
             Self::Visual => "Visual",
         }
     }
