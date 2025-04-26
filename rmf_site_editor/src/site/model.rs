@@ -29,7 +29,7 @@ use bevy::{
     scene::SceneInstance,
 };
 use bevy_impulse::*;
-use bevy_mod_outline::OutlineMeshExt;
+use bevy_mod_outline::{GenerateOutlineNormalsSettings, OutlineMeshExt};
 use rmf_site_format::{
     Affiliation, AssetSource, Group, IssueKey, ModelInstance, ModelMarker, ModelProperty,
     NameInSite, Pending, Scale,
@@ -712,7 +712,10 @@ pub fn make_models_selectable(
 
         if let Ok(mesh_handle) = mesh_handles.get(e) {
             if let Some(mesh) = mesh_assets.get_mut(mesh_handle) {
-                if mesh.generate_outline_normals().is_err() {
+                if mesh
+                    .generate_outline_normals(&GenerateOutlineNormalsSettings::default())
+                    .is_err()
+                {
                     warn!(
                         "WARNING: Unable to generate outline normals for \
                         a model mesh"
