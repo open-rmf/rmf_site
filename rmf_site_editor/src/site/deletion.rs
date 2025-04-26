@@ -25,7 +25,7 @@ use crate::{
     Issue,
 };
 use bevy::{
-    ecs::system::{BoxedSystem, SystemParam, SystemState},
+    ecs::system::{BoxedSystem, SystemId, SystemParam, SystemState},
     prelude::*,
 };
 use rmf_site_format::{Edge, Path, Point};
@@ -115,11 +115,11 @@ impl Plugin for DeletionPlugin {
 }
 
 #[derive(Deref, DerefMut)]
-pub struct DeletionBox(pub BoxedSystem<HashSet<Delete>, HashSet<Delete>>);
+pub struct DeletionBox(pub BoxedSystem<In<HashSet<Delete>>, HashSet<Delete>>);
 
 #[derive(Default, Resource)]
 pub struct DeletionFilters {
-    boxed_systems: Vec<DeletionBox>,
+    boxed_systems: Vec<SystemId<In<HashSet<Delete>>, HashSet<Delete>>>,
     pending_insertion: Vec<DeletionBox>,
 }
 
@@ -131,7 +131,9 @@ impl DeletionFilters {
     fn insert_boxes(&mut self, world: &mut World) {
         for mut inserted in self.pending_insertion.drain(..) {
             inserted.initialize(world);
-            self.boxed_systems.push(inserted);
+            let id: SystemId<In<HashSet<Delete>>, HashSet<Delete>> =
+                world.register_boxed_system(inserted.0);
+            self.boxed_systems.push(id);
         }
     }
 
@@ -140,8 +142,11 @@ impl DeletionFilters {
         mut pending_delete: HashSet<Delete>,
         world: &mut World,
     ) -> HashSet<Delete> {
-        for boxed_system in self.boxed_systems.iter_mut() {
-            pending_delete = boxed_system.0.run(pending_delete, world);
+        for system_id in self.boxed_systems.iter() {
+            let old_pending_delete = pending_delete.clone();
+            pending_delete = world
+                .run_system_with_input(*system_id, pending_delete)
+                .unwrap_or(old_pending_delete);
         }
         pending_delete
     }
