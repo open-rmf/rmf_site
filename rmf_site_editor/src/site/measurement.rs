@@ -71,7 +71,7 @@ pub fn add_measurement_visuals(
             .insert(Category::Measurement)
             .insert(MeasurementSegment(child_id))
             .insert(EdgeLabels::StartEnd)
-            .push_children(&[child_id]);
+            .add_children(&[child_id]);
 
         for anchor in &edge.array() {
             if let Ok(mut deps) = dependents.get_mut(*anchor) {

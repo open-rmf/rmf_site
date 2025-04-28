@@ -65,7 +65,7 @@ impl<'w, 's> InspectAssociatedGraphs<'w, 's> {
         let mut new_associated = associated.clone();
         ui.horizontal(|ui| {
             ui.label("Associated Graphs");
-            ComboBox::from_id_source("Associated Graphs")
+            ComboBox::from_id_salt("Associated Graphs")
                 .selected_text(new_associated.label())
                 .show_ui(ui, |ui| {
                     for variant in &[
@@ -106,7 +106,7 @@ impl<'w, 's> InspectAssociatedGraphs<'w, 's> {
                             .get(&choice)
                             .map(|n| n.0.clone())
                             .unwrap_or_else(|| "<ERROR>".to_string());
-                        ComboBox::from_id_source("Add Associated Graph")
+                        ComboBox::from_id_salt("Add Associated Graph")
                             .selected_text(choice_text)
                             .show_ui(ui, |ui| {
                                 for (e, name) in unused_graphs.iter() {

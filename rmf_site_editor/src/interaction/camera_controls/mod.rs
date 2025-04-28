@@ -37,39 +37,39 @@ use keyboard::{update_keyboard_command, KeyboardCommand};
 /// RenderLayers are used to inform cameras which entities they should render.
 /// The General render layer is for things that should be visible to all
 /// cameras.
-pub const GENERAL_RENDER_LAYER: u8 = 0;
+pub const GENERAL_RENDER_LAYER: usize = 0;
 /// The Physical render layer is for things that should be visible to any camera
 /// that needs to capture the physical world (e.g. the physical camera sensor
 /// simulator) but should not be rendered by the user's view. This allows us to
 /// toggle off complex PBR lights for the user's view (which can severely slow
 /// down performance) while keeping them for camera sensors.
-pub const PHYSICAL_RENDER_LAYER: u8 = 1;
+pub const PHYSICAL_RENDER_LAYER: usize = 1;
 /// The Visual Cue layer is for things that should be shown to the user but
 /// should never appear in a physical camera.
-pub const VISUAL_CUE_RENDER_LAYER: u8 = 2;
+pub const VISUAL_CUE_RENDER_LAYER: usize = 2;
 /// The Selected Outline layer is where the outline of the currently selected
 /// entity is shown.
-pub const SELECTED_OUTLINE_LAYER: u8 = 3;
+pub const SELECTED_OUTLINE_LAYER: usize = 3;
 /// The Hovered Outline layer is where the outline of the currently hovered
 /// entity is shown.
-pub const HOVERED_OUTLINE_LAYER: u8 = 4;
+pub const HOVERED_OUTLINE_LAYER: usize = 4;
 /// The X-Ray layer is used to show visual cues that need to be rendered
 /// above anything that would be obstructing them.
-pub const XRAY_RENDER_LAYER: u8 = 5;
+pub const XRAY_RENDER_LAYER: usize = 5;
 /// The Model Preview layer is used by model previews to spawn and render
 /// models in the engine without having them being visible to general cameras
-pub const MODEL_PREVIEW_LAYER: u8 = 6;
+pub const MODEL_PREVIEW_LAYER: usize = 6;
 
 // Creates all the layers visible in the main camera view (excluding, for example
 // the model preview which is on a separate view). The main lights will affect these.
 pub fn main_view_render_layers() -> RenderLayers {
     RenderLayers::from_layers(&[
-        GENERAL_RENDER_LAYER.into(),
-        PHYSICAL_RENDER_LAYER.into(),
-        VISUAL_CUE_RENDER_LAYER.into(),
-        SELECTED_OUTLINE_LAYER.into(),
-        HOVERED_OUTLINE_LAYER.into(),
-        XRAY_RENDER_LAYER.into(),
+        GENERAL_RENDER_LAYER,
+        PHYSICAL_RENDER_LAYER,
+        VISUAL_CUE_RENDER_LAYER,
+        SELECTED_OUTLINE_LAYER,
+        HOVERED_OUTLINE_LAYER,
+        XRAY_RENDER_LAYER,
     ])
 }
 
@@ -272,7 +272,7 @@ impl FromWorld for CameraControls {
         let perspective_headlight = world
             .spawn(DirectionalLight {
                 shadows_enabled: false,
-                illuminance: 20000.,
+                illuminance: 50.,
                 ..default()
             })
             .insert(main_view_render_layers())
@@ -299,7 +299,7 @@ impl FromWorld for CameraControls {
                     },
                 ))
                 .insert(Visibility::Inherited)
-                .insert(RenderLayers::layer(layer.into()))
+                .insert(RenderLayers::layer(layer))
                 .id()
         });
 
@@ -315,18 +315,18 @@ impl FromWorld for CameraControls {
             ))
             .insert(Visibility::Inherited)
             .insert(RenderLayers::from_layers(&[
-                GENERAL_RENDER_LAYER.into(),
-                VISUAL_CUE_RENDER_LAYER.into(),
+                GENERAL_RENDER_LAYER,
+                VISUAL_CUE_RENDER_LAYER,
             ]))
-            .push_children(&[perspective_headlight])
-            .push_children(&perspective_child_cameras)
+            .add_children(&[perspective_headlight])
+            .add_children(&perspective_child_cameras)
             .id();
 
         let orthographic_headlight = world
             .spawn((
                 DirectionalLight {
                     shadows_enabled: false,
-                    illuminance: 20000.,
+                    illuminance: 50.,
                     ..default()
                 },
                 Transform::from_rotation(Quat::from_axis_angle(
@@ -339,9 +339,11 @@ impl FromWorld for CameraControls {
 
         let ortho_projection = OrthographicProjection {
             viewport_origin: Vec2::new(0.5, 0.5),
-            scaling_mode: ScalingMode::FixedVertical(1.0),
+            scaling_mode: ScalingMode::FixedVertical {
+                viewport_height: 1.0,
+            },
             scale: 10.0,
-            ..default()
+            ..OrthographicProjection::default_3d()
         };
 
         let orthographic_child_cameras = [
@@ -366,7 +368,7 @@ impl FromWorld for CameraControls {
                     Tonemapping::ReinhardLuminance,
                 ))
                 .insert(Visibility::Inherited)
-                .insert(RenderLayers::layer(layer.into()))
+                .insert(RenderLayers::layer(layer))
                 .id()
         });
 
@@ -386,11 +388,11 @@ impl FromWorld for CameraControls {
             ))
             .insert(Visibility::Inherited)
             .insert(RenderLayers::from_layers(&[
-                GENERAL_RENDER_LAYER.into(),
-                VISUAL_CUE_RENDER_LAYER.into(),
+                GENERAL_RENDER_LAYER,
+                VISUAL_CUE_RENDER_LAYER,
             ]))
-            .push_children(&[orthographic_headlight])
-            .push_children(&orthographic_child_cameras)
+            .add_children(&[orthographic_headlight])
+            .add_children(&orthographic_child_cameras)
             .id();
 
         let mut ambient_light = world
@@ -540,7 +542,11 @@ fn update_orbit_center_marker(
                 *marker_material =
                     MeshMaterial3d(interaction_assets.camera_control_orbit_material.clone());
                 marker_transform.translation = orbit_center;
-                gizmo.sphere(orbit_center, Quat::IDENTITY, 0.1, Colors::LIME);
+                gizmo.sphere(
+                    Isometry3d::new(orbit_center, Quat::IDENTITY),
+                    0.1,
+                    Colors::LIME,
+                );
             }
         // Panning
         } else if cursor_command.command_type == CameraCommandType::Pan {
@@ -549,7 +555,11 @@ fn update_orbit_center_marker(
                 *marker_material =
                     MeshMaterial3d(interaction_assets.camera_control_pan_material.clone());
                 marker_transform.translation = cursor_selection;
-                gizmo.sphere(cursor_selection, Quat::IDENTITY, 0.1, Colors::WHITE);
+                gizmo.sphere(
+                    Isometry3d::new(cursor_selection, Quat::IDENTITY),
+                    0.1,
+                    Colors::WHITE,
+                );
             }
         } else {
             *marker_visibility = Visibility::Hidden;

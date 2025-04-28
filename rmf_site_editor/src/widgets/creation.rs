@@ -461,7 +461,7 @@ impl<'w, 's> WidgetSystem<Tile> for ModelCreation<'w, 's> {
                                         };
 
                                     let mut selected_new_description = None;
-                                    ComboBox::from_id_source("choose_model_description")
+                                    ComboBox::from_id_salt("choose_model_description")
                                         .selected_text(selected_description_text)
                                         .show_ui(ui, |ui| {
                                             let Ok(children) = params.children.get(site_entity)

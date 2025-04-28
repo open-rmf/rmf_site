@@ -66,7 +66,7 @@ fn handle_keyboard_input(
     let Some(egui_context) = primary_windows
         .get_single()
         .ok()
-        .and_then(|w| egui_context.try_ctx_for_window_mut(w))
+        .and_then(|w| egui_context.try_ctx_for_entity_mut(w))
     else {
         return;
     };

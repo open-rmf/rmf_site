@@ -125,10 +125,10 @@ impl VisualCue {
     pub fn layers(&self) -> RenderLayers {
         let mut layers = RenderLayers::none();
         if self.regular.any() {
-            layers = layers.with(VISUAL_CUE_RENDER_LAYER.into());
+            layers = layers.with(VISUAL_CUE_RENDER_LAYER);
         }
         if self.xray.any() {
-            layers = layers.with(XRAY_RENDER_LAYER.into());
+            layers = layers.with(XRAY_RENDER_LAYER);
         }
         layers
     }

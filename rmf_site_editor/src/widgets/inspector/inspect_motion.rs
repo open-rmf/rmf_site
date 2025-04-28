@@ -108,7 +108,7 @@ impl<'w, 's> InspectReverseMotion<'w, 's> {
 
         let mut new_reverse = reverse.clone();
         ui.label(RichText::new("Reverse Motion").size(18.0));
-        ComboBox::from_id_source("Reverse Lane")
+        ComboBox::from_id_salt("Reverse Lane")
             .selected_text(new_reverse.label())
             .show_ui(ui, |ui| {
                 for variant in &[
@@ -168,7 +168,7 @@ impl<'a> InspectMotionComponent<'a> {
 
                 ui.label("Orientation Constraint");
                 let mut orientation = self.motion.orientation_constraint.clone();
-                ComboBox::from_id_source("Orientation Constraint")
+                ComboBox::from_id_salt("Orientation Constraint")
                     .selected_text(orientation.label())
                     .show_ui(ui, |ui| {
                         for variant in &[

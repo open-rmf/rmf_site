@@ -166,7 +166,7 @@ pub fn add_physical_light_visual_cues(
                 spot,
                 directional,
             })
-            .push_children(&[point, spot, directional]);
+            .add_children(&[point, spot, directional]);
     }
 }
 

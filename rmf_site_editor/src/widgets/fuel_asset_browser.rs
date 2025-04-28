@@ -141,7 +141,7 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                                     .clone()
                                     .unwrap_or(owners[0].clone()),
                             };
-                            ComboBox::from_id_source("Asset Owner Filter")
+                            ComboBox::from_id_salt("Asset Owner Filter")
                                 .selected_text(selected.clone())
                                 .show_ui(ui, |ui| {
                                     for owner in owners.into_iter() {
@@ -175,7 +175,7 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                                     .clone()
                                     .unwrap_or(tags[0].clone()),
                             };
-                            ComboBox::from_id_source("Asset Tag Filter")
+                            ComboBox::from_id_salt("Asset Tag Filter")
                                 .selected_text(selected.clone())
                                 .show_ui(ui, |ui| {
                                     for tag in tags.into_iter() {
@@ -200,7 +200,7 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                                 Some(s) => s.clone(),
                                 None => gallery_status.filters.recall_private.unwrap_or(false),
                             };
-                            ComboBox::from_id_source("Asset Private Filter")
+                            ComboBox::from_id_salt("Asset Private Filter")
                                 .selected_text(selected.to_string())
                                 .show_ui(ui, |ui| {
                                     for private in [true, false].into_iter() {

@@ -77,10 +77,10 @@ fn assemble_edited_drawing(world: &mut World) {
         return;
     };
     let Some(c) = c.target() else { return };
-    let Some(mut level) = world.get_entity_mut(c.level) else {
+    let Ok(mut level) = world.get_entity_mut(c.level) else {
         return;
     };
-    level.push_children(&[c.drawing]);
+    level.add_children(&[c.drawing]);
 }
 
 /// Revert the drawing back to the root so it can continue to be edited.
@@ -89,7 +89,7 @@ fn disassemble_edited_drawing(world: &mut World) {
         return;
     };
     let Some(c) = c.target() else { return };
-    let Some(mut level) = world.get_entity_mut(c.level) else {
+    let Ok(mut level) = world.get_entity_mut(c.level) else {
         return;
     };
     level.remove_children(&[c.drawing]);

@@ -55,6 +55,6 @@ pub fn add_physical_camera_visuals(
                 Tonemapping::ReinhardLuminance,
             ))
             .id();
-        commands.entity(e).push_children(&[child]);
+        commands.entity(e).add_children(&[child]);
     }
 }

@@ -61,7 +61,7 @@ impl<'a> InspectLightKind<'a> {
         let mut new_kind = self.kind.clone();
         ui.horizontal(|ui| {
             ui.label("Light Kind:");
-            ComboBox::from_id_source("Inspect Light Kind ComboBox")
+            ComboBox::from_id_salt("Inspect Light Kind ComboBox")
                 .selected_text(self.kind.label())
                 .show_ui(ui, |ui| {
                     for variant in [

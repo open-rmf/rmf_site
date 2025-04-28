@@ -345,8 +345,8 @@ pub fn add_door_visuals(
             })
             .insert(Category::Door)
             .insert(EdgeLabels::LeftRight)
-            .push_children(&[cue_inner, cue_outline])
-            .push_children(&bodies);
+            .add_children(&[cue_inner, cue_outline])
+            .add_children(&bodies);
 
         for anchor in edge.array() {
             if let Ok(mut deps) = dependents.get_mut(anchor) {

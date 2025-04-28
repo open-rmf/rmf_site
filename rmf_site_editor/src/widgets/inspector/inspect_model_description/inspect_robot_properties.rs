@@ -65,7 +65,7 @@ impl Plugin for InspectRobotPropertiesPlugin {
     fn build(&self, app: &mut App) {
         // Allows us to toggle Robot as a configurable property
         // from the model description inspector
-        app.world_mut().init_component::<ModelProperty<Robot>>();
+        app.world_mut().register_component::<ModelProperty<Robot>>();
         let component_id = app
             .world()
             .components()
@@ -478,7 +478,7 @@ pub fn show_robot_property_widget<T: RobotProperty>(
             ui.indent("configure_".to_owned() + &property_label, |ui| {
                 ui.horizontal(|ui| {
                     ui.label(property_label.to_owned() + " Kind");
-                    ComboBox::from_id_source("select_".to_owned() + &property_label + "_kind")
+                    ComboBox::from_id_salt("select_".to_owned() + &property_label + "_kind")
                         .selected_text(selected_property_kind)
                         .show_ui(ui, |ui| {
                             for (kind, kind_registration) in widget_registration.kinds.iter() {

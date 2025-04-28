@@ -70,7 +70,7 @@ impl<'w, 's> ObjectPlacement<'w, 's> {
     }
 
     fn send(&mut self, run: RunSelector) {
-        self.commands.add(move |world: &mut World| {
+        self.commands.queue(move |world: &mut World| {
             world.send_event(run);
         });
     }
@@ -83,7 +83,7 @@ pub trait ObjectPlacementExt<'w, 's> {
 
 impl<'w, 's> ObjectPlacementExt<'w, 's> for Commands<'w, 's> {
     fn place_object_2d(&mut self, object: ModelInstance<Entity>) {
-        self.add(ObjectPlaceCommand(object));
+        self.queue(ObjectPlaceCommand(object));
     }
 }
 

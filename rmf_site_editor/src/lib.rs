@@ -14,7 +14,6 @@ use asset_loaders::*;
 
 // Bevy plugins that are public dependencies, mixing versions won't work for downstream users
 pub use bevy_egui;
-pub use bevy_mod_raycast;
 
 pub mod keyboard;
 use keyboard::*;

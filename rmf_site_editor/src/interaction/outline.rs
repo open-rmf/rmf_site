@@ -71,23 +71,21 @@ impl OutlineVisualization {
         match self {
             OutlineVisualization::Ordinary => {
                 if hovered.cue() {
-                    OutlineRenderLayers(RenderLayers::layer(HOVERED_OUTLINE_LAYER.into()))
+                    OutlineRenderLayers(RenderLayers::layer(HOVERED_OUTLINE_LAYER))
                 } else if selected.cue() {
-                    OutlineRenderLayers(RenderLayers::layer(SELECTED_OUTLINE_LAYER.into()))
+                    OutlineRenderLayers(RenderLayers::layer(SELECTED_OUTLINE_LAYER))
                 } else {
                     OutlineRenderLayers(RenderLayers::none())
                 }
             }
             OutlineVisualization::Anchor { .. } => {
-                OutlineRenderLayers(RenderLayers::layer(XRAY_RENDER_LAYER.into()))
+                OutlineRenderLayers(RenderLayers::layer(XRAY_RENDER_LAYER))
             }
         }
     }
 
     pub fn depth(&self) -> OutlineMode {
-        OutlineMode::FlatVertex {
-            model_origin: Vec3::ZERO,
-        }
+        OutlineMode::ExtrudeFlat
     }
 
     /// If this element should use a different entity as its root for

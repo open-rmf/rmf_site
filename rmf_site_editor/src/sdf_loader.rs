@@ -264,7 +264,7 @@ fn load_model<'a, 'b>(
             if let Some(model) = root.model {
                 let mut world = World::default();
                 let e = world
-                    .insert((Transform::IDENTITY, Visibility::Inherited))
+                    .spawn((Transform::IDENTITY, Visibility::Inherited))
                     .id();
                 // TODO(luca) hierarchies and joints, rather than flat link importing
                 // All Open-RMF assets have no hierarchy, for now.

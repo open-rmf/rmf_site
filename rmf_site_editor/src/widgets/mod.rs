@@ -318,7 +318,7 @@ impl TryShowWidgetWorld for World {
         Input: 'static + Send + Sync,
         Output: 'static + Send + Sync,
     {
-        let Some(mut entity_mut) = self.get_entity_mut(entity) else {
+        let Ok(mut entity_mut) = self.get_entity_mut(entity) else {
             return Err(ShowError::EntityMissing);
         };
         entity_mut.try_show_out(input, ui)

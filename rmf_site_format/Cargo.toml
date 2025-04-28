@@ -15,7 +15,7 @@ serde_json = "*"
 ron = { git = "https://github.com/ron-rs/ron", branch = "master" }
 thiserror = "*"
 glam = { version = "0.29", features = ["serde"] }
-uuid = { version = "1.1", features = ["v4", "serde"] }
+uuid = { version = "1.13", features = ["v4", "serde"] }
 # add features=["bevy"] to a dependent Cargo.toml to get the bevy-related features
 bevy = { version = "0.15", optional = true }
 sdformat_rs = { git = "https://github.com/open-rmf/sdf_rust_experimental", rev = "9fc35f2"}

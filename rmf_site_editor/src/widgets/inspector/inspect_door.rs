@@ -66,7 +66,7 @@ impl<'a> InspectDoorType<'a> {
         let mut new_kind = self.kind.clone();
         ui.horizontal(|ui| {
             ui.label("Door Type:");
-            ComboBox::from_id_source("Door Type")
+            ComboBox::from_id_salt("Door Type")
                 .selected_text(self.kind.label())
                 .show_ui(ui, |ui| {
                     for variant in &[
@@ -141,7 +141,7 @@ impl<'a> InspectSwing<'a> {
     pub fn show(self, ui: &mut Ui) {
         ui.horizontal(|ui| {
             ui.label("Swing:");
-            ComboBox::from_id_source("Door Swing")
+            ComboBox::from_id_salt("Door Swing")
                 .selected_text(self.swing.label())
                 .show_ui(ui, |ui| {
                     for variant in &[

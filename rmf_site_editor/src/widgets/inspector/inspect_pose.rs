@@ -124,7 +124,7 @@ impl<'a> InspectPoseComponent<'a> {
 
         ui.horizontal(|ui| {
             ui.label("Rotation");
-            ComboBox::from_id_source("pose_rotation")
+            ComboBox::from_id_salt("pose_rotation")
                 .selected_text(new_pose.rot.label())
                 .show_ui(ui, |ui| {
                     for variant in &[

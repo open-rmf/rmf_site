@@ -228,7 +228,7 @@ impl<'w, 's> InspectTextureAffiliation<'w, 's> {
             }
 
             let mut clear_filter = false;
-            ComboBox::from_id_source("texture_affiliation")
+            ComboBox::from_id_salt("texture_affiliation")
                 .selected_text(current_texture_name)
                 .show_ui(ui, |ui| {
                     for child in children {

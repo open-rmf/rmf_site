@@ -263,8 +263,10 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectCircleCollision<'w, 's> {
                     {
                         if let Ok(pose) = params.poses.get(selection) {
                             params.gizmos.circle(
-                                Vec3::new(pose.trans[0], pose.trans[1], pose.trans[2] + 0.01),
-                                Dir3::Z,
+                                Isometry3d::new(
+                                    Vec3::new(pose.trans[0], pose.trans[1], pose.trans[2] + 0.01),
+                                    Quat::IDENTITY, // TODO(@xiyuoh) ensure it is facing Vec3::Z
+                                ),
                                 new_circle_collision.radius,
                                 Colors::RED,
                             );

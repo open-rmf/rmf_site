@@ -54,7 +54,7 @@ impl<'a> InspectAssetSourceComponent<'a> {
         };
         ui.horizontal(|ui| {
             ui.label("Source");
-            ComboBox::from_id_source("Asset Source")
+            ComboBox::from_id_salt("Asset Source")
                 .selected_text(new_source.label())
                 .show_ui(ui, |ui| {
                     for variant in &[

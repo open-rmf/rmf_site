@@ -216,14 +216,14 @@ fn show_scenario_widget(
     });
 
     // Display children recursively
-    // The subversion is used as an id_source so that egui does not
+    // The subversion is used as an id_salt so that egui does not
     // generate errors when collapsing headers of the same name are created
     let mut subversion = 1;
     let children = scenario_children.get(&scenario_entity);
     let num_children = children.map(|c| c.len()).unwrap_or(0);
     CollapsingHeader::new(format!("Child Scenarios:  {}", num_children))
         .default_open(true)
-        .id_source(scenario_version_str.clone())
+        .id_salt(scenario_version_str.clone())
         .show(ui, |ui| {
             if let Some(children) = children {
                 for child in children.iter() {

@@ -84,17 +84,17 @@ impl FromWorld for ModelPreviewCamera {
                     ev100: DEFAULT_CAMERA_EV100,
                 },
             ))
-            .insert(RenderLayers::from_layers(&[MODEL_PREVIEW_LAYER.into()]))
+            .insert(RenderLayers::from_layers(&[MODEL_PREVIEW_LAYER]))
             .id();
         let model_entity = world
             .spawn((
-                RenderLayers::from_layers(&[MODEL_PREVIEW_LAYER.into()]),
+                RenderLayers::from_layers(&[MODEL_PREVIEW_LAYER]),
                 Preview,
                 Model::default(),
             ))
             .id();
         let light_entity = world
-            .spawn(RenderLayers::from_layers(&[MODEL_PREVIEW_LAYER.into()]))
+            .spawn(RenderLayers::from_layers(&[MODEL_PREVIEW_LAYER]))
             .insert((
                 DirectionalLight {
                     illuminance: 50.0,

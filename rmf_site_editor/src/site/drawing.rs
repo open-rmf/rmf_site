@@ -190,7 +190,7 @@ pub fn handle_loaded_drawing(
                             Visibility::Inherited,
                         ))
                         .insert(Selectable::new(entity))
-                        .push_children(&[leaf]);
+                        .add_children(&[leaf]);
                     leaf
                 };
                 let z = drawing_layer_height(rank);

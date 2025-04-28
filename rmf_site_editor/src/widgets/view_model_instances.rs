@@ -110,7 +110,7 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                             continue;
                         };
                         CollapsingHeader::new(desc_name.0.clone())
-                            .id_source(desc_name.0.clone())
+                            .id_salt(desc_name.0.clone())
                             .default_open(self.selection.0.is_some_and(|e| members.contains(&e)))
                             .show(ui, |ui| {
                                 for member in members.iter() {

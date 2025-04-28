@@ -40,7 +40,7 @@ impl FromWorld for WireframeMenu {
         let view_header = world.resource::<ViewMenu>().get();
         world
             .entity_mut(view_header)
-            .push_children(&[toggle_wireframe]);
+            .add_children(&[toggle_wireframe]);
 
         WireframeMenu { toggle_wireframe }
     }
