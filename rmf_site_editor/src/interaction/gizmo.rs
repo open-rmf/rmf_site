@@ -16,8 +16,11 @@
 */
 
 use crate::interaction::*;
-use bevy::{math::Affine3A, prelude::*, window::PrimaryWindow};
-use bevy_mod_raycast::{deferred::RaycastMesh, deferred::RaycastSource, primitives::rays};
+use bevy::{
+    math::Affine3A,
+    picking::pointer::{PointerId, PointerInteraction},
+    prelude::*,
+};
 use rmf_site_format::Pose;
 
 #[derive(Debug, Clone, Copy)]
@@ -254,9 +257,8 @@ pub struct MoveTo {
 
 pub fn make_gizmos_pickable(mut commands: Commands, new_gizmos: Query<Entity, Added<Gizmo>>) {
     for e in &new_gizmos {
-        commands
-            .entity(e)
-            .insert(RaycastMesh::<SiteRaycastSet>::default());
+        commands.entity(e).insert(RayCastPickable);
+        // TODO(@xiyuuoh) Maybe set MeshPickingSettings::require_markers to true, then insert RayCastPickable to these entities.
     }
 }
 
@@ -269,9 +271,10 @@ pub fn update_gizmo_click_start(
     mut selection_blocker: ResMut<SelectionBlockers>,
     gizmo_blocker: Res<GizmoBlockers>,
     mut visibility: Query<&mut Visibility>,
+    camera_controls: Res<CameraControls>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     transforms: Query<(&Transform, &GlobalTransform)>,
-    raycast_sources: Query<&RaycastSource<SiteRaycastSet>>,
+    pointers: Query<(&PointerId, &PointerInteraction)>,
     mut cursor: ResMut<Cursor>,
     mut gizmo_state: ResMut<GizmoState>,
     mut picks: EventReader<ChangePick>,
@@ -328,10 +331,16 @@ pub fn update_gizmo_click_start(
     if clicking {
         if let GizmoState::Hovering(e) = *gizmo_state {
             click.send(GizmoClicked(e));
-            let Ok(source) = raycast_sources.get_single() else {
+            let Some((_, interactions)) =
+                pointers.get_single().ok().filter(|(id, _)| id.is_mouse())
+            else {
                 return;
             };
-            if let Some(intersection) = source.get_nearest_intersection().map(|(_, i)| i.position())
+            let active_camera = camera_controls.active_camera();
+            if let Some(intersection) = interactions
+                .iter()
+                .find(|(_, hit_data)| hit_data.camera == active_camera)
+                .and_then(|(_, hit_data)| hit_data.position)
             {
                 if let Ok((gizmo, Some(mut draggable), mut material)) = gizmos.get_mut(e) {
                     if let Ok((local_tf, global_tf)) = transforms.get(draggable.for_entity) {
@@ -426,7 +435,17 @@ pub fn update_drag_motions(
             let Ok(primary_window) = primary_window.get_single() else {
                 return;
             };
-            match rays::ray_from_screenspace(cursor_position, camera, &camera_tf, primary_window) {
+            let viewport_pos = if let Some(viewport) = &camera.viewport {
+                cursor_position
+                    - viewport.physical_position.as_vec2() / primary_window.scale_factor()
+            } else {
+                cursor_position
+            };
+            match camera
+                .viewport_to_world(&camera_tf, viewport_pos)
+                .ok()
+                .map(Ray3d::from)
+            {
                 Some(ray) => ray,
                 None => {
                     return;

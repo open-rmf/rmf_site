@@ -16,8 +16,7 @@
 */
 
 use crate::interaction::*;
-use bevy::prelude::*;
-use bevy_mod_raycast::{deferred::RaycastSource, immediate::RaycastVisibility};
+use bevy::{picking::pointer::PointerInteraction, prelude::*};
 
 /// A resource to track what kind of picking blockers are currently active
 #[derive(Resource)]
@@ -60,34 +59,6 @@ pub struct ChangePick {
     pub to: Option<Entity>,
 }
 
-pub fn update_picking_cam(
-    mut commands: Commands,
-    camera_controls: Res<CameraControls>,
-    picking_cams: Query<Entity, With<RaycastSource<SiteRaycastSet>>>,
-) {
-    if camera_controls.is_changed() {
-        let active_camera = camera_controls.active_camera();
-        if picking_cams
-            .get_single()
-            .ok()
-            .filter(|current| *current == active_camera)
-            .is_none()
-        {
-            for cam in picking_cams.iter() {
-                commands
-                    .entity(cam)
-                    .remove::<RaycastSource<SiteRaycastSet>>();
-            }
-
-            commands.entity(camera_controls.active_camera()).insert(
-                RaycastSource::<SiteRaycastSet>::new_cursor()
-                    .with_early_exit(false)
-                    .with_visibility(RaycastVisibility::MustBeVisible),
-            );
-        }
-    }
-}
-
 fn pick_topmost(
     picks: impl Iterator<Item = Entity>,
     selectable: &Query<&Selectable>,
@@ -111,7 +82,8 @@ fn pick_topmost(
 pub fn update_picked(
     selectable: Query<&Selectable>,
     blockers: Option<Res<PickingBlockers>>,
-    pick_source_query: Query<&RaycastSource<SiteRaycastSet>>,
+    camera_controls: Res<CameraControls>,
+    pointers: Query<&PointerInteraction>,
     visual_cues: Query<&ComputedVisualCue>,
     mut picked: ResMut<Picked>,
     mut change_pick: EventWriter<ChangePick>,
@@ -131,13 +103,14 @@ pub fn update_picked(
         }
     }
 
+    let active_camera = camera_controls.active_camera();
     let current_picked = 'current_picked: {
-        for pick_source in &pick_source_query {
-            let picks = pick_source.intersections();
+        for interactions in &pointers {
             // First only look at the visual cues that are being xrayed
             if let Some(topmost) = pick_topmost(
-                picks
+                interactions
                     .iter()
+                    .filter(|(_, hit_data)| hit_data.camera == active_camera)
                     .filter(|(e, _)| {
                         visual_cues
                             .get(*e)
@@ -152,7 +125,13 @@ pub fn update_picked(
             }
 
             // Now look at all possible pickables
-            if let Some(topmost) = pick_topmost(picks.iter().map(|(e, _)| *e), &selectable) {
+            if let Some(topmost) = pick_topmost(
+                interactions
+                    .iter()
+                    .filter(|(_, hit_data)| hit_data.camera == active_camera)
+                    .map(|(e, _)| *e),
+                &selectable,
+            ) {
                 break 'current_picked Some(topmost);
             }
         }

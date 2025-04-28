@@ -25,13 +25,13 @@ use anyhow::{anyhow, Error as Anyhow};
 use bevy::{
     ecs::system::{StaticSystemParam, SystemParam},
     math::Ray3d,
+    picking::{
+        mesh_picking::RayCastPickable,
+        pointer::{PointerId, PointerInteraction},
+    },
     prelude::*,
 };
 use bevy_impulse::*;
-use bevy_mod_raycast::{
-    deferred::{RaycastMesh, RaycastSource},
-    primitives::rays,
-};
 use rmf_site_format::{
     Category, Door, Edge, Lane, LiftProperties, Measurement, NameOfSite, Pending, PixelsPerMeter,
     Pose, Side, Wall,
@@ -389,9 +389,7 @@ pub fn make_selectable_entities_pickable(
     targets: Query<(Option<&Hovered>, Option<&Selected>)>,
 ) {
     for (entity, selectable) in &new_selectables {
-        commands
-            .entity(entity)
-            .insert(RaycastMesh::<SiteRaycastSet>::default());
+        commands.entity(entity).insert(RayCastPickable);
 
         if let Ok((hovered, selected)) = targets.get(selectable.element) {
             if hovered.is_none() {
@@ -897,7 +895,8 @@ pub fn inspector_cursor_transform(
     In(ContinuousService { key }): ContinuousServiceInput<(), ()>,
     orders: ContinuousQuery<(), ()>,
     cursor: Res<Cursor>,
-    raycast_sources: Query<&RaycastSource<SiteRaycastSet>>,
+    camera_controls: Res<CameraControls>,
+    pointers: Query<(&PointerId, &PointerInteraction)>,
     mut transforms: Query<&mut Transform>,
 ) {
     let Some(orders) = orders.view(&key) else {
@@ -908,14 +907,20 @@ pub fn inspector_cursor_transform(
         return;
     }
 
-    let Ok(source) = raycast_sources.get_single() else {
+    let Some((_, interactions)) = pointers.get_single().ok().filter(|(id, _)| id.is_mouse()) else {
         return;
     };
-    let intersection = match source.get_nearest_intersection() {
-        Some((_, intersection)) => intersection,
-        None => {
-            return;
-        }
+    let active_camera = camera_controls.active_camera();
+    let Some((position, normal)) = interactions
+        .iter()
+        .find(|(_, hit_data)| hit_data.camera == active_camera)
+        .and_then(|(_, hit_data)| {
+            hit_data
+                .position
+                .zip(hit_data.normal.and_then(|n| Dir3::new(n).ok()))
+        })
+    else {
+        return;
     };
 
     let mut transform = match transforms.get_mut(cursor.frame) {
@@ -925,6 +930,9 @@ pub fn inspector_cursor_transform(
         }
     };
 
-    let ray = Ray3d::new(intersection.position(), intersection.normal());
-    *transform = Transform::from_matrix(rays::to_aligned_transform(ray, [0., 0., 1.].into()));
+    let ray = Ray3d::new(position, normal);
+    *transform = Transform::from_matrix(Mat4::from_rotation_translation(
+        Quat::from_rotation_arc(Vec3::new(0., 0., 1.), *ray.direction),
+        ray.origin,
+    ));
 }

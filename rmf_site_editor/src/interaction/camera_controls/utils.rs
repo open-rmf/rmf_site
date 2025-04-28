@@ -16,8 +16,8 @@
 */
 
 use bevy::math::Ray3d;
+use bevy::picking::mesh_picking::ray_cast::{MeshRayCast, RayCastSettings, RayCastVisibility};
 use bevy::prelude::*;
-use bevy_mod_raycast::immediate::{Raycast, RaycastSettings, RaycastVisibility};
 
 use super::{MAX_PITCH, MAX_SELECTION_DIST, MIN_SELECTION_DIST};
 use crate::UserCameraDisplay;
@@ -71,7 +71,7 @@ pub fn get_camera_selected_point(
     camera: &Camera,
     camera_global_transform: &GlobalTransform,
     user_camera_display: Option<Res<UserCameraDisplay>>,
-    mut immediate_raycast: Raycast,
+    mut mesh_ray_cast: MeshRayCast,
 ) -> Option<Vec3> {
     let available_viewport_center = user_camera_display
         // Assume that the camera spans the full window, covered by egui panels
@@ -80,18 +80,19 @@ pub fn get_camera_selected_point(
         .or_else(|| camera.logical_viewport_rect())?
         .center();
 
-    let camera_ray =
-        camera.viewport_to_world(camera_global_transform, available_viewport_center)?;
-    let camera_ray = Ray3d::new(camera_ray.origin, camera_ray.direction.as_vec3());
-    let raycast_setting = RaycastSettings::default()
+    let camera_ray = camera
+        .viewport_to_world(camera_global_transform, available_viewport_center)
+        .ok()?;
+    let camera_ray = Ray3d::new(camera_ray.origin, camera_ray.direction);
+    let ray_cast_setting = RayCastSettings::default()
         .always_early_exit()
-        .with_visibility(RaycastVisibility::MustBeVisible);
+        .with_visibility(RayCastVisibility::Visible);
 
     //TODO(@reuben-thomas) Filter for selectable entities
-    let intersections = immediate_raycast.cast_ray(camera_ray, &raycast_setting);
+    let intersections = mesh_ray_cast.cast_ray(camera_ray, &ray_cast_setting);
     if intersections.len() > 0 {
-        let (_, intersection_data) = &intersections[0];
-        return Some(intersection_data.position());
+        let (_, ray_mesh_hit) = &intersections[0];
+        return Some(ray_mesh_hit.point);
     } else {
         return Some(get_groundplane_else_default_selection(
             camera_ray.origin,

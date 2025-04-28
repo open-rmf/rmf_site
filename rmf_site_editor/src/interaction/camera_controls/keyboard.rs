@@ -20,8 +20,7 @@ use super::{
     MIN_SCALE,
 };
 use crate::widgets::UserCameraDisplay;
-use bevy::{prelude::*, window::PrimaryWindow};
-use bevy_mod_raycast::immediate::Raycast;
+use bevy::{picking::mesh_picking::ray_cast::MeshRayCast, prelude::*, window::PrimaryWindow};
 
 // Keyboard control limits
 pub const MIN_RESPONSE_TIME: f32 = 0.25; // [s] time taken to reach minimum input, or to reset
@@ -82,7 +81,7 @@ pub fn update_keyboard_command(
     mut keyboard_command: ResMut<KeyboardCommand>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     cameras: Query<(&Camera, &Projection, &Transform, &GlobalTransform)>,
-    immediate_raycast: Raycast,
+    mesh_ray_cast: MeshRayCast,
     time: Res<Time>,
     primary_windows: Query<&Window, With<PrimaryWindow>>,
     uncovered_window_area: Option<Res<UserCameraDisplay>>,
@@ -117,7 +116,7 @@ pub fn update_keyboard_command(
         }
 
         // Smooth and normalize keyboard
-        let delta_seconds = time.delta_seconds();
+        let delta_seconds = time.delta_secs();
         let prev_keyboard_motion = keyboard_command.keyboard_motion;
         let keyboard_motion_delta =
             (target_keyboard_motion - prev_keyboard_motion).normalize_or_zero();
@@ -192,7 +191,7 @@ pub fn update_keyboard_command(
                 &camera,
                 &camera_global_transform,
                 uncovered_window_area,
-                immediate_raycast,
+                mesh_ray_cast,
             ),
         };
 

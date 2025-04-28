@@ -20,8 +20,9 @@ use crate::{
     interaction::*,
     site::{AnchorBundle, ModelLoader, Pending, SiteAssets},
 };
-use bevy::{ecs::system::SystemParam, prelude::*, window::PrimaryWindow};
-use bevy_mod_raycast::primitives::rays;
+use bevy::{
+    ecs::system::SystemParam, picking::backend::ray::RayMap, prelude::*, window::PrimaryWindow,
+};
 
 use rmf_site_format::{FloorMarker, ModelInstance, WallMarker};
 use std::collections::HashSet;
@@ -231,7 +232,7 @@ impl FromWorld for Cursor {
 
         let cursor = world
             .spawn(VisualCue::no_outline())
-            .push_children(&[
+            .add_children(&[
                 halo,
                 dagger,
                 level_anchor_placement,
@@ -269,6 +270,7 @@ pub struct IntersectGroundPlaneParams<'w, 's> {
     cameras: Query<'w, 's, &'static Camera>,
     global_transforms: Query<'w, 's, &'static GlobalTransform>,
     primary_window: Query<'w, 's, &'static Window, With<PrimaryWindow>>,
+    ray_map: Res<'w, RayMap>,
 }
 
 impl<'w, 's> IntersectGroundPlaneParams<'w, 's> {
@@ -295,8 +297,11 @@ impl<'w, 's> IntersectGroundPlaneParams<'w, 's> {
         let active_camera = self.cameras.get(e_active_camera).ok()?;
         let camera_tf = self.global_transforms.get(e_active_camera).ok()?;
         let primary_window = self.primary_window.get_single().ok()?;
-        let ray =
-            rays::ray_from_screenspace(cursor_position, active_camera, camera_tf, primary_window)?;
+
+        let (_, ray) = self
+            .ray_map
+            .iter()
+            .find(|(id, _)| id.camera == e_active_camera && id.pointer.is_mouse())?;
 
         let p = ray
             .intersect_plane(plane_origin, plane)
