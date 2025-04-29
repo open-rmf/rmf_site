@@ -907,7 +907,7 @@ pub fn inspector_cursor_transform(
         return;
     }
 
-    let Some((_, interactions)) = pointers.get_single().ok().filter(|(id, _)| id.is_mouse()) else {
+    let Some((_, interactions)) = pointers.get_single().ok() else {
         return;
     };
     let active_camera = camera_controls.active_camera();

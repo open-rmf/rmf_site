@@ -82,7 +82,6 @@ fn pick_topmost(
 pub fn update_picked(
     selectable: Query<&Selectable>,
     blockers: Option<Res<PickingBlockers>>,
-    camera_controls: Res<CameraControls>,
     pointers: Query<&PointerInteraction>,
     visual_cues: Query<&ComputedVisualCue>,
     mut picked: ResMut<Picked>,
@@ -103,14 +102,12 @@ pub fn update_picked(
         }
     }
 
-    let active_camera = camera_controls.active_camera();
     let current_picked = 'current_picked: {
         for interactions in &pointers {
             // First only look at the visual cues that are being xrayed
             if let Some(topmost) = pick_topmost(
                 interactions
                     .iter()
-                    .filter(|(_, hit_data)| hit_data.camera == active_camera)
                     .filter(|(e, _)| {
                         visual_cues
                             .get(*e)
@@ -125,13 +122,7 @@ pub fn update_picked(
             }
 
             // Now look at all possible pickables
-            if let Some(topmost) = pick_topmost(
-                interactions
-                    .iter()
-                    .filter(|(_, hit_data)| hit_data.camera == active_camera)
-                    .map(|(e, _)| *e),
-                &selectable,
-            ) {
+            if let Some(topmost) = pick_topmost(interactions.iter().map(|(e, _)| *e), &selectable) {
                 break 'current_picked Some(topmost);
             }
         }

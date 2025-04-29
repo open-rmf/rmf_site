@@ -18,7 +18,10 @@
 use crate::interaction::*;
 use bevy::{
     math::Affine3A,
-    picking::pointer::{PointerId, PointerInteraction},
+    picking::{
+        backend::ray::RayMap,
+        pointer::{PointerId, PointerInteraction},
+    },
     prelude::*,
 };
 use rmf_site_format::Pose;
@@ -271,7 +274,6 @@ pub fn update_gizmo_click_start(
     mut selection_blocker: ResMut<SelectionBlockers>,
     gizmo_blocker: Res<GizmoBlockers>,
     mut visibility: Query<&mut Visibility>,
-    camera_controls: Res<CameraControls>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     transforms: Query<(&Transform, &GlobalTransform)>,
     pointers: Query<(&PointerId, &PointerInteraction)>,
@@ -336,10 +338,8 @@ pub fn update_gizmo_click_start(
             else {
                 return;
             };
-            let active_camera = camera_controls.active_camera();
             if let Some(intersection) = interactions
-                .iter()
-                .find(|(_, hit_data)| hit_data.camera == active_camera)
+                .get_nearest_hit()
                 .and_then(|(_, hit_data)| hit_data.position)
             {
                 if let Ok((gizmo, Some(mut draggable), mut material)) = gizmos.get_mut(e) {
@@ -407,16 +407,14 @@ pub fn update_gizmo_release(
 pub fn update_drag_motions(
     drag_axis: Query<(&DragAxis, &Draggable, &GlobalTransform), Without<DragPlane>>,
     drag_plane: Query<(&DragPlane, &Draggable, &GlobalTransform), Without<DragAxis>>,
-    transforms: Query<(&Transform, &GlobalTransform)>,
-    cameras: Query<&Camera>,
     camera_controls: Res<CameraControls>,
     drag_state: Res<GizmoState>,
     mut cursor_motion: EventReader<CursorMoved>,
     mut move_to: EventWriter<MoveTo>,
-    primary_window: Query<&Window, With<PrimaryWindow>>,
+    ray_map: Res<RayMap>,
 ) {
     if let GizmoState::Dragging(dragging) = *drag_state {
-        let cursor_position = match cursor_motion.read().last() {
+        let _cursor_position = match cursor_motion.read().last() {
             Some(m) => m.position,
             None => {
                 return;
@@ -424,34 +422,7 @@ pub fn update_drag_motions(
         };
 
         let active_camera = camera_controls.active_camera();
-        let ray = if let Some(camera) = cameras.get(active_camera).ok() {
-            let camera_tf = match transforms.get(active_camera).ok() {
-                Some(tf) => tf.1.clone(),
-                None => {
-                    return;
-                }
-            };
-
-            let Ok(primary_window) = primary_window.get_single() else {
-                return;
-            };
-            let viewport_pos = if let Some(viewport) = &camera.viewport {
-                cursor_position
-                    - viewport.physical_position.as_vec2() / primary_window.scale_factor()
-            } else {
-                cursor_position
-            };
-            match camera
-                .viewport_to_world(&camera_tf, viewport_pos)
-                .ok()
-                .map(Ray3d::from)
-            {
-                Some(ray) => ray,
-                None => {
-                    return;
-                }
-            }
-        } else {
+        let Some((_, ray)) = ray_map.iter().find(|(id, _)| id.camera == active_camera) else {
             return;
         };
 

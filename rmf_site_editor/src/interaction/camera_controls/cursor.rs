@@ -124,20 +124,15 @@ pub fn update_cursor_command(
         // Get selection under cursor, cursor direction
         let Some((_, cursor_ray)) = ray_map
             .iter()
-            .find(|(id, ray)| id.camera == active_camera_entity && id.pointer.is_mouse())
+            .find(|(id, _)| id.camera == active_camera_entity)
         else {
             return;
         };
-        let Some((_, hit_data)) = pointers
-            .get_single()
-            .ok()
-            .filter(|(id, _)| id.is_mouse())
-            .and_then(|(_, interactions)| {
-                interactions
-                    .iter()
-                    .find(|(_, hit)| hit.camera == active_camera_entity)
-            })
-        else {
+        let Some((_, hit_data)) = pointers.get_single().ok().and_then(|(_, interactions)| {
+            interactions
+                .iter()
+                .find(|(_, hit)| hit.camera == active_camera_entity)
+        }) else {
             return;
         };
         let cursor_selection_new =

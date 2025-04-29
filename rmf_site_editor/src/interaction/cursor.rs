@@ -20,9 +20,7 @@ use crate::{
     interaction::*,
     site::{AnchorBundle, ModelLoader, Pending, SiteAssets},
 };
-use bevy::{
-    ecs::system::SystemParam, picking::backend::ray::RayMap, prelude::*, window::PrimaryWindow,
-};
+use bevy::{ecs::system::SystemParam, picking::backend::ray::RayMap, prelude::*};
 
 use rmf_site_format::{FloorMarker, ModelInstance, WallMarker};
 use std::collections::HashSet;
@@ -265,11 +263,8 @@ pub struct Preview;
 
 #[derive(SystemParam)]
 pub struct IntersectGroundPlaneParams<'w, 's> {
-    primary_windows: Query<'w, 's, &'static Window, With<PrimaryWindow>>,
     camera_controls: Res<'w, CameraControls>,
-    cameras: Query<'w, 's, &'static Camera>,
     global_transforms: Query<'w, 's, &'static GlobalTransform>,
-    primary_window: Query<'w, 's, &'static Window, With<PrimaryWindow>>,
     ray_map: Res<'w, RayMap>,
 }
 
@@ -291,12 +286,7 @@ impl<'w, 's> IntersectGroundPlaneParams<'w, 's> {
         plane_origin: Vec3,
         plane: InfinitePlane3d,
     ) -> Option<Transform> {
-        let window = self.primary_windows.get_single().ok()?;
-        let cursor_position = window.cursor_position()?;
         let e_active_camera = self.camera_controls.active_camera();
-        let active_camera = self.cameras.get(e_active_camera).ok()?;
-        let camera_tf = self.global_transforms.get(e_active_camera).ok()?;
-        let primary_window = self.primary_window.get_single().ok()?;
 
         let (_, ray) = self
             .ray_map
