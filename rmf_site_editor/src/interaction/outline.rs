@@ -79,7 +79,11 @@ impl OutlineVisualization {
                 }
             }
             OutlineVisualization::Anchor { .. } => {
-                OutlineRenderLayers(RenderLayers::layer(XRAY_RENDER_LAYER))
+                if hovered.cue() || selected.cue() {
+                    OutlineRenderLayers(RenderLayers::layer(XRAY_RENDER_LAYER))
+                } else {
+                    OutlineRenderLayers(RenderLayers::none())
+                }
             }
         }
     }
