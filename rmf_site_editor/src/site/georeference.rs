@@ -555,7 +555,7 @@ fn ray_groundplane_intersection(ray: &Option<Ray3d>) -> Vec3 {
 fn test_groundplane() {
     let ray = Ray3d::new(
         Vec3::new(1.0, 1.0, 1.0),
-        Dir3::from_xyz_unchecked(1.0, 1.0, 1.0),
+        Dir3::from_xyz(1.0, 1.0, 1.0).unwrap(),
     );
 
     // Ground plane should be at (0,0,0)
