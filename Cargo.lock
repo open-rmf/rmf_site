@@ -936,7 +936,7 @@ dependencies = [
 [[package]]
 name = "bevy_impulse"
 version = "0.3.0"
-source = "git+https://github.com/open-rmf/bevy_impulse?branch=xiyu%2Frelease-0.3#3d5d44310dd092c56eb8bed373da61bad87ed796"
+source = "git+https://github.com/open-rmf/bevy_impulse?branch=xiyu%2Frelease-0.3#03b6e63007960d27a104f01d5f34f8bd455ac8e9"
 dependencies = [
  "anyhow",
  "async-task",
@@ -962,7 +962,7 @@ dependencies = [
 [[package]]
 name = "bevy_impulse_derive"
 version = "0.0.2"
-source = "git+https://github.com/open-rmf/bevy_impulse?branch=xiyu%2Frelease-0.3#3d5d44310dd092c56eb8bed373da61bad87ed796"
+source = "git+https://github.com/open-rmf/bevy_impulse?branch=xiyu%2Frelease-0.3#03b6e63007960d27a104f01d5f34f8bd455ac8e9"
 dependencies = [
  "proc-macro2",
  "quote",
