@@ -142,7 +142,6 @@ impl Plugin for InteractionPlugin {
                 apply_deferred.in_set(InteractionUpdateSet::CommandFlush),
             )
             .add_plugins(PolylinePlugin)
-            // .add_plugins(DeferredRaycastingPlugin::<SiteRaycastSet>::default())
             .add_plugins(MeshPickingPlugin)
             .init_resource::<InteractionAssets>()
             .init_resource::<Cursor>()

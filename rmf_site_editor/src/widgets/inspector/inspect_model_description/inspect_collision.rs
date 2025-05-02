@@ -265,7 +265,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectCircleCollision<'w, 's> {
                             params.gizmos.circle(
                                 Isometry3d::new(
                                     Vec3::new(pose.trans[0], pose.trans[1], pose.trans[2] + 0.01),
-                                    Quat::IDENTITY, // TODO(@xiyuoh) ensure it is facing Vec3::Z
+                                    Quat::IDENTITY,
                                 ),
                                 new_circle_collision.radius,
                                 Colors::RED,
