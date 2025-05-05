@@ -16,7 +16,7 @@
 */
 
 use bevy::{
-    ecs::{event::Events, system::SystemState},
+    ecs::{event::Events, hierarchy::ChildOf, system::SystemState},
     prelude::*,
 };
 use std::{
@@ -641,7 +641,7 @@ type QueryLift<'w, 's> = Query<
         &'static IsStatic,
         &'static InitialLevel<Entity>,
         &'static SiteID,
-        &'static Parent,
+        &'static ChildOf,
     ),
     Without<Pending>,
 >;
@@ -656,7 +656,7 @@ fn generate_lifts(
         Query<&SiteID, (With<LevelElevation>, Without<Pending>)>,
         QueryLift,
         Query<Entity, With<CabinAnchorGroup>>,
-        Query<&Parent, Without<Pending>>,
+        Query<&ChildOf, Without<Pending>>,
         Query<&Children>,
         Query<&SiteID>,
     )> = SystemState::new(world);
@@ -667,7 +667,7 @@ fn generate_lifts(
         q_levels,
         q_lifts,
         q_cabin_anchor_groups,
-        q_parents,
+        q_child_of,
         q_children,
         q_site_id,
     ) = state.get(world);
@@ -695,8 +695,8 @@ fn generate_lifts(
     };
 
     let confirm_entity_parent = |intended_parent, child| {
-        if let Ok(actual_parent) = q_parents.get(child) {
-            if actual_parent.get() == intended_parent {
+        if let Ok(actual_parent) = q_child_of.get(child) {
+            if actual_parent.parent() == intended_parent {
                 return true;
             }
         }
@@ -721,8 +721,9 @@ fn generate_lifts(
         Ok(())
     };
 
-    for (lift_entity, name, edge, o_edge, cabin, is_static, initial_level, id, parent) in &q_lifts {
-        if parent.get() != site {
+    for (lift_entity, name, edge, o_edge, cabin, is_static, initial_level, id, child_of) in &q_lifts
+    {
+        if child_of.parent() != site {
             continue;
         }
 
@@ -931,7 +932,7 @@ fn generate_nav_graphs(
 ) -> Result<BTreeMap<u32, NavGraph>, SiteGenerationError> {
     let mut state: SystemState<
         Query<
-            (&NameInSite, &DisplayColor, &SiteID, &Parent),
+            (&NameInSite, &DisplayColor, &SiteID, &ChildOf),
             (With<NavGraphMarker>, Without<Pending>),
         >,
     > = SystemState::new(world);
@@ -939,8 +940,8 @@ fn generate_nav_graphs(
     let q_nav_graphs = state.get(world);
 
     let mut nav_graphs = BTreeMap::new();
-    for (name, color, id, parent) in &q_nav_graphs {
-        if parent.get() != site {
+    for (name, color, id, child_of) in &q_nav_graphs {
+        if child_of.parent() != site {
             continue;
         }
 
@@ -970,7 +971,7 @@ fn generate_lanes(
                 &ReverseLane,
                 &AssociatedGraphs<Entity>,
                 &SiteID,
-                &Parent,
+                &ChildOf,
             ),
             (With<LaneMarker>, Without<Pending>),
         >,
@@ -994,8 +995,8 @@ fn generate_lanes(
     };
 
     let mut lanes = BTreeMap::new();
-    for (edge, o_edge, forward, reverse, graphs, lane_id, parent) in &q_lanes {
-        if parent.get() != site {
+    for (edge, o_edge, forward, reverse, graphs, lane_id, child_of) in &q_lanes {
+        if child_of.parent() != site {
             continue;
         }
 
@@ -1033,7 +1034,7 @@ fn generate_locations(
                 &NameInSite,
                 &AssociatedGraphs<Entity>,
                 &SiteID,
-                &Parent,
+                &ChildOf,
             ),
             Without<Pending>,
         >,
@@ -1051,8 +1052,8 @@ fn generate_locations(
     };
 
     let mut locations = BTreeMap::new();
-    for (point, o_point, tags, name, graphs, location_id, parent) in &q_locations {
-        if parent.get() != site {
+    for (point, o_point, tags, name, graphs, location_id, child_of) in &q_locations {
+        if child_of.parent() != site {
             continue;
         }
 
@@ -1152,7 +1153,7 @@ fn migrate_relative_paths(
     // mut assets: Query<(Entity, &mut AssetSource)>,
     // mut default_files: Query<&mut DefaultFile>,
     // mut commands: Commands,
-    // parents: Query<&Parent>,
+    // child_of: Query<&ChildOf>,
 ) {
     let old_path = if let Some(mut default_file) = world.get_mut::<DefaultFile>(site) {
         let old_path = default_file.0.clone();
@@ -1166,10 +1167,10 @@ fn migrate_relative_paths(
         return;
     };
 
-    let mut state: SystemState<(Query<(Entity, &mut AssetSource)>, Query<&Parent>)> =
+    let mut state: SystemState<(Query<(Entity, &mut AssetSource)>, Query<&ChildOf>)> =
         SystemState::new(world);
 
-    let (mut assets, parents) = state.get_mut(world);
+    let (mut assets, child_of) = state.get_mut(world);
 
     for (mut e, mut source) in &mut assets {
         let asset_entity = e;
@@ -1188,8 +1189,8 @@ fn migrate_relative_paths(
                 }
             }
 
-            if let Ok(parent) = parents.get(e) {
-                e = parent.get();
+            if let Ok(child_of) = child_of.get(e) {
+                e = child_of.parent();
             } else {
                 break;
             }
@@ -1269,13 +1270,16 @@ fn generate_model_instances(
             (With<ModelMarker>, Without<Group>, Without<Pending>),
         >,
         Query<(Entity, &SiteID), With<LevelElevation>>,
-        Query<&Parent>,
+        Query<&ChildOf>,
     )> = SystemState::new(world);
-    let (model_descriptions, model_instances, levels, parents) = state.get(world);
+    let (model_descriptions, model_instances, levels, child_of) = state.get(world);
 
     let mut site_levels_ids = std::collections::HashMap::<Entity, u32>::new();
     for (level_entity, site_id) in levels.iter() {
-        if parents.get(level_entity).is_ok_and(|p| p.get() == site) {
+        if child_of
+            .get(level_entity)
+            .is_ok_and(|co| co.parent() == site)
+        {
             site_levels_ids.insert(level_entity, site_id.0);
         }
     }
@@ -1283,10 +1287,10 @@ fn generate_model_instances(
     for (instance_entity, instance_id, instance_name, instance_pose, instance_affiliation) in
         model_instances.iter()
     {
-        let Some(level_id) = parents
+        let Some(level_id) = child_of
             .get(instance_entity)
             .ok()
-            .map(|p| site_levels_ids.get(&p.get()).copied())
+            .map(|co| site_levels_ids.get(&co.parent()).copied())
             .flatten()
         else {
             error!("Unable to find parent for instance [{}]", instance_name.0);
@@ -1392,12 +1396,15 @@ fn generate_tasks(
         Query<(&SiteID, &Tasks), (With<ModelMarker>, Without<Group>, Without<Pending>)>,
         Query<(Entity, &SiteID), With<LevelElevation>>,
         Query<&Children>,
-        Query<&Parent>,
+        Query<&ChildOf>,
     )> = SystemState::new(world);
-    let (tasks, levels, children, parents) = state.get(world);
+    let (tasks, levels, children, child_of) = state.get(world);
     let mut res = BTreeMap::<u32, Tasks>::new();
     for (level_entity, _) in levels.iter() {
-        if !parents.get(level_entity).is_ok_and(|p| p.get() == site) {
+        if !child_of
+            .get(level_entity)
+            .is_ok_and(|co| co.parent() == site)
+        {
             continue;
         }
         let Ok(children) = children.get(level_entity) else {

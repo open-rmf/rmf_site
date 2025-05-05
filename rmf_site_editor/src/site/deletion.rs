@@ -25,7 +25,10 @@ use crate::{
     Issue,
 };
 use bevy::{
-    ecs::system::{BoxedSystem, SystemId, SystemParam, SystemState},
+    ecs::{
+        hierarchy::ChildOf,
+        system::{BoxedSystem, SystemId, SystemParam, SystemState},
+    },
     prelude::*,
 };
 use rmf_site_format::{Edge, Path, Point};
@@ -85,7 +88,7 @@ struct DeletionParams<'w, 's> {
     edges: Query<'w, 's, &'static Edge<Entity>>,
     points: Query<'w, 's, &'static Point<Entity>>,
     paths: Query<'w, 's, &'static Path<Entity>>,
-    parents: Query<'w, 's, &'static mut Parent>,
+    child_of: Query<'w, 's, &'static mut ChildOf>,
     dependents: Query<'w, 's, &'static mut Dependents>,
     children: Query<'w, 's, &'static Children>,
     selection: Res<'w, Selection>,
@@ -285,8 +288,8 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
 
     // Fetch the parent and delete this dependent
     // TODO(luca) should we add this snippet to the recursive delete also?
-    if let Ok(parent) = params.parents.get(element) {
-        if let Ok(mut parent_dependents) = params.dependents.get_mut(**parent) {
+    if let Ok(child_of) = params.child_of.get(element) {
+        if let Ok(mut parent_dependents) = params.dependents.get_mut(child_of.parent()) {
             parent_dependents.remove(&element);
         }
     }

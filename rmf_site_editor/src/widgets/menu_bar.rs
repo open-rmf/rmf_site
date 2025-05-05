@@ -18,7 +18,7 @@
 use crate::widgets::prelude::*;
 use crate::widgets::{HeaderPanelPlugin, HeaderTilePlugin, StandardCreationPlugin};
 
-use bevy::ecs::query::Has;
+use bevy::ecs::{hierarchy::ChildOf, query::Has};
 use bevy::prelude::*;
 use bevy_egui::egui::{self, Button, Ui};
 
@@ -58,7 +58,7 @@ struct MenuDropdowns<'w, 's> {
     view_menu: Res<'w, ViewMenu>,
     file_menu: Res<'w, FileMenu>,
     children: Query<'w, 's, &'static Children>,
-    top_level_components: Query<'w, 's, (), Without<Parent>>,
+    top_level_components: Query<'w, 's, (), Without<ChildOf>>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for MenuDropdowns<'w, 's> {

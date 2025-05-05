@@ -16,6 +16,7 @@
 */
 
 use crate::{interaction::CameraControls, CurrentWorkspace};
+use bevy::ecs::hierarchy::ChildOf;
 use bevy::prelude::*;
 use rmf_site_format::{
     LevelElevation, LevelProperties, NameInSite, NameOfSite, Pose, ScenarioMarker,
@@ -65,7 +66,7 @@ pub fn change_site(
     mut visibility: Query<&mut Visibility>,
     open_sites: Query<Entity, With<NameOfSite>>,
     children: Query<&Children>,
-    parents: Query<&Parent>,
+    child_of: Query<&ChildOf>,
     levels: Query<Entity, With<LevelElevation>>,
     scenarios: Query<Entity, With<ScenarioMarker>>,
 ) {
@@ -85,10 +86,10 @@ pub fn change_site(
         }
 
         if let Some(chosen_level) = cmd.level {
-            if parents
+            if child_of
                 .get(chosen_level)
                 .ok()
-                .filter(|parent| parent.get() == cmd.site)
+                .filter(|child_of| child_of.parent() == cmd.site)
                 .is_none()
             {
                 warn!(
@@ -139,7 +140,7 @@ pub fn change_site(
                                 global_floor_visibility: default(),
                                 global_drawing_visibility: default(),
                             })
-                            .set_parent(cmd.site)
+                            .insert(ChildOf(cmd.site))
                             .id();
 
                         commands.entity(cmd.site).insert(CachedLevel(new_level));

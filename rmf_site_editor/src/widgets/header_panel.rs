@@ -19,7 +19,7 @@ use crate::widgets::{
     show_panel_of_tiles, PanelConfig, PanelSide, PanelWidget, ScrollConfig, Tile, Widget,
     WidgetSystem,
 };
-use bevy::prelude::*;
+use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 
 pub struct HeaderTilePlugin<W>
 where
@@ -46,7 +46,7 @@ where
     fn build(&self, app: &mut App) {
         let widget = Widget::<Tile>::new::<W>(app.world_mut());
         let header_panel = app.world().resource::<HeaderPanel>().id;
-        app.world_mut().spawn(widget).set_parent(header_panel);
+        app.world_mut().spawn(widget).insert(ChildOf(header_panel));
     }
 }
 

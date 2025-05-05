@@ -23,7 +23,10 @@ use crate::{
     widgets::prelude::*,
     CurrentWorkspace, Icons,
 };
-use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy::{
+    ecs::{hierarchy::ChildOf, system::SystemParam},
+    prelude::*,
+};
 use bevy_egui::egui::{Align, Button, CollapsingHeader, Color32, Layout, Ui};
 use std::collections::HashMap;
 
@@ -40,7 +43,7 @@ impl Plugin for ViewScenariosPlugin {
 
 #[derive(SystemParam)]
 pub struct ViewScenarios<'w, 's> {
-    parent: Query<'w, 's, &'static Parent>,
+    child_of: Query<'w, 's, &'static ChildOf>,
     scenarios: Query<
         'w,
         's,
@@ -161,9 +164,11 @@ impl<'w, 's> ViewScenarios<'w, 's> {
             .iter()
             .filter(|(_, _, parent_scenario)| parent_scenario.0.is_none())
             .filter(|(scenario_entity, _, _)| {
-                self.current_workspace
-                    .root
-                    .is_some_and(|e| e == **self.parent.get(*scenario_entity).ok().unwrap())
+                self.current_workspace.root.is_some_and(|e| {
+                    self.child_of
+                        .get(*scenario_entity)
+                        .is_ok_and(|co| e == co.parent())
+                })
             })
             .for_each(|(scenario_entity, _, _)| {
                 show_scenario_widget(

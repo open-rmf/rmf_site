@@ -24,7 +24,10 @@ use crate::{
     widgets::{prelude::*, PendingModelDescription},
     AppState, CurrentWorkspace,
 };
-use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy::{
+    ecs::{hierarchy::ChildOf, system::SystemParam},
+    prelude::*,
+};
 use bevy_egui::egui::{self, Button, ComboBox, ImageSource, RichText, ScrollArea, Ui, Window};
 use gz_fuel::FuelModel;
 
@@ -293,7 +296,7 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                                 .commands
                                 .spawn(model_description)
                                 .insert(Category::ModelDescription)
-                                .set_parent(site_entity)
+                                .insert(ChildOf(site_entity))
                                 .id();
 
                             if let Some(pending) = &mut self.pending_model_description {

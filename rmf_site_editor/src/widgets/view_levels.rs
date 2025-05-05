@@ -23,7 +23,10 @@ use crate::{
     widgets::{prelude::*, Icons},
     AppState, CurrentWorkspace, RecencyRanking,
 };
-use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy::{
+    ecs::{hierarchy::ChildOf, system::SystemParam},
+    prelude::*,
+};
 use bevy_egui::egui::{CollapsingHeader, DragValue, ImageButton, Ui};
 use std::cmp::{Ordering, Reverse};
 
@@ -41,7 +44,7 @@ impl Plugin for ViewLevelsPlugin {
 #[derive(SystemParam)]
 pub struct ViewLevels<'w, 's> {
     levels: Query<'w, 's, (Entity, &'static NameInSite, &'static LevelElevation)>,
-    parents: Query<'w, 's, &'static Parent>,
+    child_of: Query<'w, 's, &'static ChildOf>,
     icons: Res<'w, Icons>,
     display_levels: ResMut<'w, LevelDisplay>,
     current_level: ResMut<'w, CurrentLevel>,
@@ -116,7 +119,7 @@ impl<'w, 's> ViewLevels<'w, 's> {
                 .levels
                 .iter()
                 .filter(|(e, _, _)| {
-                    AncestorIter::new(&self.parents, *e)
+                    AncestorIter::new(&self.child_of, *e)
                         .any(|e| Some(e) == self.current_workspace.root)
                 })
                 .map(|(e, _, elevation)| (Reverse(elevation.0), e))

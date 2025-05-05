@@ -17,6 +17,7 @@
 
 use crate::site::*;
 use crate::{CurrentWorkspace, Issue, ValidateWorkspace};
+use bevy::ecs::hierarchy::ChildOf;
 use bevy::prelude::*;
 use rmf_site_format::{Edge, LaneMarker};
 use std::collections::{BTreeSet, HashMap};
@@ -50,14 +51,14 @@ impl LaneSegments {
 fn should_display_lane(
     edge: &Edge<Entity>,
     associated: &AssociatedGraphs<Entity>,
-    parents: &Query<&Parent>,
+    child_of: &Query<&ChildOf>,
     levels: &Query<(), With<LevelElevation>>,
     current_level: &Res<CurrentLevel>,
     graphs: &GraphSelect,
 ) -> bool {
     for anchor in edge.array() {
-        if let Ok(parent) = parents.get(anchor) {
-            if levels.contains(parent.get()) && Some(parent.get()) != ***current_level {
+        if let Ok(child_of) = child_of.get(anchor) {
+            if levels.contains(child_of.parent()) && Some(child_of.parent()) != ***current_level {
                 return false;
             }
         }
@@ -71,7 +72,7 @@ pub fn assign_orphan_nav_elements_to_site(
     elements: Query<
         Entity,
         (
-            Without<Parent>,
+            Without<ChildOf>,
             Or<(With<LaneMarker>, With<LocationTags>, With<NavGraphMarker>)>,
         ),
     >,
@@ -90,7 +91,7 @@ pub fn add_lane_visuals(
     lanes: Query<(Entity, &Edge<Entity>, &AssociatedGraphs<Entity>), Added<LaneMarker>>,
     graphs: GraphSelect,
     anchors: AnchorParams,
-    parents: Query<&Parent>,
+    child_of: Query<&ChildOf>,
     levels: Query<(), With<LevelElevation>>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
@@ -107,7 +108,7 @@ pub fn add_lane_visuals(
         let visibility = if should_display_lane(
             edge,
             associated_graphs,
-            &parents,
+            &child_of,
             &levels,
             &current_level,
             &graphs,
@@ -128,7 +129,7 @@ pub fn add_lane_visuals(
         // determined by the DisplayHeight of the graph.
         let layer = commands
             .spawn((Transform::from_xyz(0.0, 0.0, height), Visibility::default()))
-            .set_parent(e)
+            .insert(ChildOf(e))
             .id();
 
         let mut spawn_lane_mesh_and_outline = |lane_tf, lane_mesh, outline_mesh| {
@@ -139,7 +140,7 @@ pub fn add_lane_visuals(
                     lane_tf,
                     Visibility::default(),
                 ))
-                .set_parent(layer)
+                .insert(ChildOf(layer))
                 .id();
 
             let outline = commands
@@ -149,7 +150,7 @@ pub fn add_lane_visuals(
                     Transform::from_translation(-0.000_5 * Vec3::Z),
                     Visibility::Hidden,
                 ))
-                .set_parent(mesh)
+                .insert(ChildOf(mesh))
                 .id();
 
             (mesh, outline)
@@ -228,7 +229,7 @@ pub fn update_changed_lane(
         (Changed<Edge<Entity>>, Without<NavGraphMarker>),
     >,
     anchors: AnchorParams,
-    parents: Query<&Parent>,
+    child_of: Query<&ChildOf>,
     levels: Query<(), With<LevelElevation>>,
     graphs: GraphSelect,
     mut transforms: Query<&mut Transform>,
@@ -237,12 +238,18 @@ pub fn update_changed_lane(
     for (e, edge, associated, segments, mut visibility) in &mut lanes {
         update_lane_visuals(e, edge, segments, &anchors, &mut transforms);
 
-        let new_visibility =
-            if should_display_lane(edge, associated, &parents, &levels, &current_level, &graphs) {
-                Visibility::Inherited
-            } else {
-                Visibility::Hidden
-            };
+        let new_visibility = if should_display_lane(
+            edge,
+            associated,
+            &child_of,
+            &levels,
+            &current_level,
+            &graphs,
+        ) {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
         if *visibility != new_visibility {
             *visibility = new_visibility;
         }
@@ -300,7 +307,7 @@ pub fn update_visibility_for_lanes(
         ),
         (With<LaneMarker>, Without<NavGraphMarker>),
     >,
-    parents: Query<&Parent>,
+    child_of: Query<&ChildOf>,
     levels: Query<(), With<LevelElevation>>,
     current_level: Res<CurrentLevel>,
     graphs: GraphSelect,
@@ -326,7 +333,7 @@ pub fn update_visibility_for_lanes(
             let new_visibility = if should_display_lane(
                 edge,
                 associated,
-                &parents,
+                &child_of,
                 &levels,
                 &current_level,
                 &graphs,
@@ -345,7 +352,7 @@ pub fn update_visibility_for_lanes(
                 let new_visibility = if should_display_lane(
                     edge,
                     associated,
-                    &parents,
+                    &child_of,
                     &levels,
                     &current_level,
                     &graphs,
@@ -422,7 +429,7 @@ pub const DUPLICATED_DOCK_NAME_ISSUE_UUID: Uuid =
 pub fn check_for_duplicated_dock_names(
     mut commands: Commands,
     mut validate_events: EventReader<ValidateWorkspace>,
-    parents: Query<&Parent>,
+    child_of: Query<&ChildOf>,
     lane_properties: Query<(Entity, &Motion, Option<&ReverseLane>), With<LaneMarker>>,
 ) {
     const ISSUE_HINT: &str = "RMF uses the dock name parameter to trigger special behavior from \
@@ -432,7 +439,7 @@ pub fn check_for_duplicated_dock_names(
     for root in validate_events.read() {
         let mut names: HashMap<String, BTreeSet<Entity>> = HashMap::new();
         for (e, motion, reverse) in &lane_properties {
-            if AncestorIter::new(&parents, e).any(|p| p == **root) {
+            if AncestorIter::new(&child_of, e).any(|co| co == **root) {
                 if let Some(dock) = &motion.dock {
                     let entities_with_name = names.entry(dock.name.clone()).or_default();
                     entities_with_name.insert(e);

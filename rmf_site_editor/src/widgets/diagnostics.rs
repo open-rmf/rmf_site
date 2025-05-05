@@ -24,7 +24,10 @@ use crate::{
     },
     CurrentWorkspace, Icons, Issue, IssueDictionary, ValidateWorkspace,
 };
-use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy::{
+    ecs::{hierarchy::ChildOf, system::SystemParam},
+    prelude::*,
+};
 use bevy_egui::egui::{self, Button, Checkbox, Grid, ImageButton, ScrollArea, Ui};
 
 /// Add a [`Diagnostics`] widget to your application.
@@ -66,7 +69,7 @@ pub struct Diagnostics<'w, 's> {
     icons: Res<'w, Icons>,
     filters: Query<'w, 's, (&'static FilteredIssues<Entity>, &'static FilteredIssueKinds)>,
     issue_dictionary: Res<'w, IssueDictionary>,
-    issues: Query<'w, 's, (&'static Issue, &'static Parent)>,
+    issues: Query<'w, 's, (&'static Issue, &'static ChildOf)>,
     display_diagnostics: ResMut<'w, DiagnosticsDisplay>,
     current_workspace: ResMut<'w, CurrentWorkspace>,
     validate_workspace: EventWriter<'w, ValidateWorkspace>,
@@ -150,10 +153,10 @@ impl<'w, 's> Diagnostics<'w, 's> {
                     if self.issues.is_empty() {
                         ui.label("No issues found");
                     }
-                    for (issue, parent) in &self.issues {
+                    for (issue, child_of) in &self.issues {
                         if new_filtered_issue_kinds.contains(&issue.key.kind)
                             || new_filtered_issues.contains(&issue.key)
-                            || **parent != root
+                            || child_of.parent() != root
                         {
                             continue;
                         }
@@ -242,7 +245,7 @@ impl FromWorld for IssueMenu {
         let tool_header = world.resource::<ToolMenu>().get();
         let diagnostic_tool = world
             .spawn(MenuItem::Text("Diagnostic Tool".into()))
-            .set_parent(tool_header)
+            .insert(ChildOf(tool_header))
             .id();
 
         IssueMenu { diagnostic_tool }

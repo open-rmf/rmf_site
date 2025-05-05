@@ -117,7 +117,10 @@ use crate::{
     widgets::prelude::*,
 };
 use bevy::{
-    ecs::system::{SystemParam, SystemState},
+    ecs::{
+        hierarchy::ChildOf,
+        system::{SystemParam, SystemState},
+    },
     prelude::*,
 };
 use bevy_egui::egui::{CollapsingHeader, Ui};
@@ -265,7 +268,7 @@ where
     fn build(&self, app: &mut App) {
         let inspector = app.world().resource::<MainInspector>().id;
         let widget = Widget::<Inspect>::new::<W>(app.world_mut());
-        app.world_mut().spawn(widget).set_parent(inspector);
+        app.world_mut().spawn(widget).insert(ChildOf(inspector));
     }
 }
 
@@ -297,7 +300,7 @@ impl FromWorld for MainInspector {
     fn from_world(world: &mut World) -> Self {
         let widget = Widget::new::<Inspector>(world);
         let properties_panel = world.resource::<PropertiesPanel>().id();
-        let id = world.spawn(widget).set_parent(properties_panel).id();
+        let id = world.spawn(widget).insert(ChildOf(properties_panel)).id();
         Self { id }
     }
 }

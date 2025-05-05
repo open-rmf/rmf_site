@@ -25,7 +25,7 @@ use crate::{
     },
     CurrentWorkspace,
 };
-use bevy::{asset::LoadState, math::Affine3A, prelude::*};
+use bevy::{asset::LoadState, ecs::hierarchy::ChildOf, math::Affine3A, prelude::*};
 use rmf_site_format::{AssetSource, Category, DrawingProperties, PixelsPerMeter, Pose};
 use std::path::PathBuf;
 
@@ -131,7 +131,7 @@ pub fn handle_loaded_drawing(
         &PixelsPerMeter,
         &LoadingDrawing,
         Option<&LayerVisibility>,
-        Option<&Parent>,
+        Option<&ChildOf>,
         Option<&RecencyRank<DrawingMarker>>,
     )>,
     mut mesh_assets: ResMut<Assets<Mesh>>,
@@ -140,7 +140,7 @@ pub fn handle_loaded_drawing(
     segments: Query<&DrawingSegments>,
     default_drawing_vis: Query<&GlobalDrawingVisibility>,
 ) {
-    for (entity, source, pose, pixels_per_meter, handle, vis, parent, rank) in
+    for (entity, source, pose, pixels_per_meter, handle, vis, child_of, rank) in
         loading_drawings.iter()
     {
         let Some(load_state) = asset_server.get_load_state(handle.id()) else {
@@ -158,8 +158,8 @@ pub fn handle_loaded_drawing(
                     Affine3A::from_translation(Vec3::new(width / 2.0, -height / 2.0, 0.0)),
                 );
                 let mesh = mesh_assets.add(mesh);
-                let default = parent
-                    .map(|p| default_drawing_vis.get(p.get()).ok())
+                let default = child_of
+                    .map(|co| default_drawing_vis.get(co.parent()).ok())
                     .flatten();
                 let (alpha, alpha_mode) = drawing_alpha(vis, rank, default);
                 let material = materials.add(StandardMaterial {
@@ -323,7 +323,7 @@ fn iter_update_drawing_visibility<'a>(
     iter: impl Iterator<
         Item = (
             Option<&'a LayerVisibility>,
-            Option<&'a Parent>,
+            Option<&'a ChildOf>,
             Option<&'a RecencyRank<DrawingMarker>>,
             &'a DrawingSegments,
         ),
@@ -332,11 +332,11 @@ fn iter_update_drawing_visibility<'a>(
     material_assets: &mut ResMut<Assets<StandardMaterial>>,
     default_drawing_vis: &Query<&GlobalDrawingVisibility>,
 ) {
-    for (vis, parent, rank, segments) in iter {
+    for (vis, child_of, rank, segments) in iter {
         if let Ok(handle) = material_handles.get(segments.leaf) {
             if let Some(mat) = material_assets.get_mut(handle) {
-                let default = parent
-                    .map(|p| default_drawing_vis.get(p.get()).ok())
+                let default = child_of
+                    .map(|co| default_drawing_vis.get(co.parent()).ok())
                     .flatten();
                 let (alpha, alpha_mode) = drawing_alpha(vis, rank, default);
                 mat.base_color = mat.base_color.with_alpha(alpha);
@@ -352,14 +352,14 @@ pub fn update_drawing_visibility(
         Entity,
         Or<(
             Changed<LayerVisibility>,
-            Changed<Parent>,
+            Changed<ChildOf>,
             Changed<RecencyRank<DrawingMarker>>,
         )>,
     >,
     mut removed_vis: RemovedComponents<LayerVisibility>,
     all_drawings: Query<(
         Option<&LayerVisibility>,
-        Option<&Parent>,
+        Option<&ChildOf>,
         Option<&RecencyRank<DrawingMarker>>,
         &DrawingSegments,
     )>,

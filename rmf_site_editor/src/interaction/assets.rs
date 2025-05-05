@@ -17,6 +17,7 @@
 
 use crate::{interaction::*, shapes::*};
 use bevy::color::palettes::css as Colors;
+use bevy::ecs::hierarchy::ChildOf;
 use bevy::{math::primitives, math::Affine3A, prelude::*};
 use bevy_polyline::prelude::{PolylineHandle, PolylineMaterialHandle};
 use bevy_polyline::{
@@ -87,7 +88,7 @@ impl InteractionAssets {
                 MeshMaterial3d(material_set.passive.clone()),
                 Visibility::default(),
             ))
-            .set_parent(parent)
+            .insert(ChildOf(parent))
             .id();
 
         if let Some(for_entity) = for_entity_opt {
@@ -131,7 +132,7 @@ impl InteractionAssets {
         let drag_parent = commands
             .spawn((Transform::default(), Visibility::default()))
             .insert(VisualCue::no_outline().irregular().always_xray())
-            .set_parent(anchor)
+            .insert(ChildOf(anchor))
             .id();
 
         let height = 0.0;

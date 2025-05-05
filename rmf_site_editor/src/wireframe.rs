@@ -16,6 +16,7 @@
 */
 
 use crate::widgets::menu_bar::{MenuEvent, MenuItem, ViewMenu};
+use bevy::ecs::hierarchy::ChildOf;
 use bevy::pbr::wireframe::{Wireframe, WireframePlugin};
 use bevy::prelude::*;
 
@@ -85,7 +86,7 @@ fn handle_wireframe_menu_events(
 fn add_wireframe_to_new_models(
     mut commands: Commands,
     new_meshes: Query<Entity, Added<Mesh3d>>,
-    parents: Query<&Parent>,
+    child_of: Query<&ChildOf>,
     models: Query<Entity, Or<(With<ModelMarker>, With<PrimitiveShape>)>>,
     wireframe_menu: Res<WireframeMenu>,
     menu_items: Query<&MenuItem>,
@@ -100,7 +101,7 @@ fn add_wireframe_to_new_models(
     };
     if enable {
         for e in new_meshes.iter() {
-            for ancestor in AncestorIter::new(&parents, e) {
+            for ancestor in AncestorIter::new(&child_of, e) {
                 if let Ok(_) = models.get(ancestor) {
                     commands.entity(e).insert(Wireframe);
                 }

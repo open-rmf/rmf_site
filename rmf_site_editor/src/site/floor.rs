@@ -17,6 +17,7 @@
 
 use crate::{interaction::Selectable, shapes::*, site::*, RecencyRanking};
 use bevy::{
+    ecs::hierarchy::ChildOf,
     math::Affine3A,
     prelude::*,
     render::{mesh::PrimitiveTopology, render_asset::RenderAssetUsages},
@@ -231,7 +232,7 @@ pub fn add_floor_visuals(
             &Affiliation<Entity>,
             Option<&RecencyRank<FloorMarker>>,
             Option<&LayerVisibility>,
-            Option<&Parent>,
+            Option<&ChildOf>,
         ),
         Added<FloorMarker>,
     >,
@@ -243,13 +244,13 @@ pub fn add_floor_visuals(
     default_floor_vis: Query<(&GlobalFloorVisibility, &RecencyRanking<DrawingMarker>)>,
     lifts: Query<(&Transform, &LiftCabin<Entity>)>,
 ) {
-    for (e, new_floor, texture_source, rank, vis, parent) in &floors {
+    for (e, new_floor, texture_source, rank, vis, child_of) in &floors {
         let (base_color_texture, texture) = from_texture_source(texture_source, &textures);
 
         let mesh = make_floor_mesh(e, new_floor, &texture, &anchors, &lifts);
         let height = floor_height(rank);
-        let default_vis = parent
-            .map(|p| default_floor_vis.get(p.get()).ok())
+        let default_vis = child_of
+            .map(|co| default_floor_vis.get(co.parent()).ok())
             .flatten();
         let (base_color, alpha_mode) = floor_transparency(vis, default_vis);
         let material = materials.add(StandardMaterial {
@@ -401,7 +402,7 @@ fn iter_update_floor_visibility<'a>(
     iter: impl Iterator<
         Item = (
             Option<&'a LayerVisibility>,
-            Option<&'a Parent>,
+            Option<&'a ChildOf>,
             &'a FloorSegments,
         ),
     >,
@@ -409,11 +410,11 @@ fn iter_update_floor_visibility<'a>(
     material_assets: &mut ResMut<Assets<StandardMaterial>>,
     default_floor_vis: &Query<(&GlobalFloorVisibility, &RecencyRanking<DrawingMarker>)>,
 ) {
-    for (vis, parent, segments) in iter {
+    for (vis, child_of, segments) in iter {
         if let Ok(handle) = material_handles.get(segments.mesh) {
             if let Some(mat) = material_assets.get_mut(handle) {
-                let default_vis = parent
-                    .map(|p| default_floor_vis.get(p.get()).ok())
+                let default_vis = child_of
+                    .map(|co| default_floor_vis.get(co.parent()).ok())
                     .flatten();
                 let (base_color, alpha_mode) = floor_transparency(vis, default_vis);
                 mat.base_color = base_color;
@@ -425,9 +426,9 @@ fn iter_update_floor_visibility<'a>(
 
 // TODO(luca) RemovedComponents is brittle, maybe wrap component in an option?
 pub fn update_floor_visibility(
-    changed_floors: Query<Entity, Or<(Changed<LayerVisibility>, Changed<Parent>)>>,
+    changed_floors: Query<Entity, Or<(Changed<LayerVisibility>, Changed<ChildOf>)>>,
     mut removed_vis: RemovedComponents<LayerVisibility>,
-    all_floors: Query<(Option<&LayerVisibility>, Option<&Parent>, &FloorSegments)>,
+    all_floors: Query<(Option<&LayerVisibility>, Option<&ChildOf>, &FloorSegments)>,
     material_handles: Query<&MeshMaterial3d<StandardMaterial>>,
     mut material_assets: ResMut<Assets<StandardMaterial>>,
     default_floor_vis: Query<(&GlobalFloorVisibility, &RecencyRanking<DrawingMarker>)>,

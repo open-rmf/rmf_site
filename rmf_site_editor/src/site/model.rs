@@ -23,6 +23,7 @@ use crate::{
 };
 use bevy::{
     ecs::{
+        hierarchy::ChildOf,
         schedule::ScheduleConfigs,
         system::{EntityCommands, ScheduleSystem, SystemParam},
     },
@@ -408,7 +409,7 @@ impl<'w, 's> ModelLoader<'w, 's> {
         impulse: impl FnOnce(Impulse<InstanceSpawningResult, ()>),
     ) -> EntityCommands<'_> {
         let affiliation = instance.description.clone();
-        let id = self.commands.spawn(instance).set_parent(parent).id();
+        let id = self.commands.spawn(instance).insert(ChildOf(parent)).id();
         let spawning_impulse = self.commands.request(
             InstanceSpawningRequest::new(id, affiliation),
             self.services
@@ -828,7 +829,7 @@ pub fn check_for_orphan_model_instances(
     mut validate_events: EventReader<ValidateWorkspace>,
     mut orphan_instances: Query<
         (Entity, &NameInSite, &Affiliation<Entity>),
-        (With<ModelMarker>, Without<Group>, Without<Parent>),
+        (With<ModelMarker>, Without<Group>, Without<ChildOf>),
     >,
     model_descriptions: Query<&NameInSite, (With<ModelMarker>, With<Group>)>,
 ) {

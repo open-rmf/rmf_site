@@ -21,7 +21,10 @@ use crate::{
     widgets::{prelude::*, Inspect, InspectionPlugin},
     Icons, WorkspaceMarker,
 };
-use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy::{
+    ecs::{hierarchy::ChildOf, system::SystemParam},
+    prelude::*,
+};
 use bevy_egui::egui::{ComboBox, Grid, ImageButton, Ui};
 use rmf_site_format::{
     Affiliation, FloorMarker, Group, NameInSite, RecallAssetSource, Texture, TextureGroup,
@@ -47,7 +50,7 @@ pub struct InspectTextureAffiliation<'w, 's> {
         Or<(With<FloorMarker>, With<WallMarker>)>,
     >,
     texture_groups: Query<'w, 's, (&'static NameInSite, &'static Texture), With<Group>>,
-    parents: Query<'w, 's, &'static Parent>,
+    child_of: Query<'w, 's, &'static ChildOf>,
     sites: Query<'w, 's, &'static Children, With<WorkspaceMarker>>,
     icons: Res<'w, Icons>,
     search_for_texture: ResMut<'w, SearchForTexture>,
@@ -78,8 +81,8 @@ impl<'w, 's> InspectTextureAffiliation<'w, 's> {
                 break children;
             }
 
-            if let Ok(parent) = self.parents.get(site) {
-                site = parent.get();
+            if let Ok(child_of) = self.child_of.get(site) {
+                site = child_of.parent();
             } else {
                 return;
             }
@@ -176,7 +179,7 @@ impl<'w, 's> InspectTextureAffiliation<'w, 's> {
                                 texture: new_texture,
                                 group: default(),
                             })
-                            .set_parent(site)
+                            .insert(ChildOf(site))
                             .id();
                         self.change_affiliation
                             .write(Change::new(Affiliation(Some(new_texture_group)), id));

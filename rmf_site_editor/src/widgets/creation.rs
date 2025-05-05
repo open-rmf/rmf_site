@@ -29,7 +29,10 @@ use crate::{
     AppState, CurrentWorkspace,
 };
 
-use bevy::ecs::system::{SystemParam, SystemState};
+use bevy::ecs::{
+    hierarchy::ChildOf,
+    system::{SystemParam, SystemState},
+};
 use bevy::prelude::*;
 use bevy_egui::egui::{self, Button, ComboBox, Ui};
 
@@ -547,7 +550,7 @@ impl<'w, 's> WidgetSystem<Tile> for ModelCreation<'w, 's> {
                                         .commands
                                         .spawn(description)
                                         .insert(Category::ModelDescription)
-                                        .set_parent(site_entity)
+                                        .insert(ChildOf(site_entity))
                                         .id();
 
                                     params.pending.selected = Some(description_entity);

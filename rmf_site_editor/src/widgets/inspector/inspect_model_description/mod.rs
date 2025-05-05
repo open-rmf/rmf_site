@@ -18,6 +18,7 @@
 use bevy::{
     ecs::{
         component::{ComponentId, ComponentInfo},
+        hierarchy::ChildOf,
         query::QueryData,
         system::{EntityCommands, SystemParam},
     },
@@ -58,7 +59,7 @@ impl Plugin for InspectModelDescriptionPlugin {
         let id = app
             .world_mut()
             .spawn(widget)
-            .set_parent(main_inspector)
+            .insert(ChildOf(main_inspector))
             .id();
         app.world_mut()
             .insert_resource(ModelDescriptionInspector { id });
@@ -204,7 +205,7 @@ where
 
         let inspector = app.world().resource::<ModelDescriptionInspector>().id;
         let widget = Widget::<Inspect>::new::<W>(app.world_mut());
-        app.world_mut().spawn(widget).set_parent(inspector);
+        app.world_mut().spawn(widget).insert(ChildOf(inspector));
     }
 }
 

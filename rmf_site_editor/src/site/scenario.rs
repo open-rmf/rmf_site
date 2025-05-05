@@ -25,6 +25,7 @@ use crate::{
     widgets::view_model_instances::count_scenarios,
     CurrentWorkspace, Issue, ValidateWorkspace,
 };
+use bevy::ecs::hierarchy::ChildOf;
 use bevy::prelude::*;
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -308,7 +309,7 @@ pub fn insert_new_instance_modifiers(
                             commands
                                 .spawn(instance_modifier)
                                 .insert(affiliation)
-                                .set_parent(scenario_entity);
+                                .insert(ChildOf(scenario_entity));
                         }
                     });
                 }
@@ -318,7 +319,7 @@ pub fn insert_new_instance_modifiers(
                     commands
                         .spawn(InstanceModifier::Hidden)
                         .insert(Affiliation(Some(instance_entity)))
-                        .set_parent(scenario_entity);
+                        .insert(ChildOf(scenario_entity));
                 }
             }
             change_current_scenario.write(ChangeCurrentScenario(scenario_entity));
@@ -352,7 +353,7 @@ pub fn insert_new_instance_modifiers(
                 commands
                     .spawn(InstanceModifier::added(instance_pose.clone()))
                     .insert(Affiliation(Some(instance_entity)))
-                    .set_parent(current_scenario_entity);
+                    .insert(ChildOf(current_scenario_entity));
             }
 
             // Insert instance modifier into remaining scenarios
@@ -387,13 +388,13 @@ pub fn insert_new_instance_modifiers(
                         commands
                             .spawn(InstanceModifier::inherited())
                             .insert(Affiliation(Some(instance_entity)))
-                            .set_parent(scenario_entity);
+                            .insert(ChildOf(scenario_entity));
                     } else {
                         // Insert this new instance modifier into other scenarios as Hidden
                         commands
                             .spawn(InstanceModifier::Hidden)
                             .insert(Affiliation(Some(instance_entity)))
-                            .set_parent(scenario_entity);
+                            .insert(ChildOf(scenario_entity));
                     }
                 }
             }
@@ -623,7 +624,7 @@ pub fn handle_create_scenarios(
         ));
 
         if let Some(parent) = current_workspace.root {
-            cmd.set_parent(parent);
+            cmd.insert(ChildOf(parent));
         } else {
             error!("Missing workspace for a new root scenario!");
         }

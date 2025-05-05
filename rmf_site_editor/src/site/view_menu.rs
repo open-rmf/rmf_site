@@ -65,7 +65,7 @@ impl FromWorld for ViewMenuItems {
                 "Doors".to_string(),
                 default_visibility.0,
             ))
-            .set_parent(view_header)
+            .insert(ChildOf(view_header))
             .id();
         let default_visibility = world.resource::<CategoryVisibility<FloorMarker>>();
         let floors = world
@@ -73,7 +73,7 @@ impl FromWorld for ViewMenuItems {
                 "Floors".to_string(),
                 default_visibility.0,
             ))
-            .set_parent(view_header)
+            .insert(ChildOf(view_header))
             .id();
         let default_visibility = world.resource::<CategoryVisibility<LaneMarker>>();
         let lanes = world
@@ -81,7 +81,7 @@ impl FromWorld for ViewMenuItems {
                 "Lanes".to_string(),
                 default_visibility.0,
             ))
-            .set_parent(view_header)
+            .insert(ChildOf(view_header))
             .id();
         let default_visibility = world.resource::<CategoryVisibility<LiftCabin<Entity>>>();
         let lifts = world
@@ -89,7 +89,7 @@ impl FromWorld for ViewMenuItems {
                 "Lifts".to_string(),
                 default_visibility.0,
             ))
-            .set_parent(view_header)
+            .insert(ChildOf(view_header))
             .id();
         let default_visibility = world.resource::<CategoryVisibility<LocationTags>>();
         let locations = world
@@ -97,7 +97,7 @@ impl FromWorld for ViewMenuItems {
                 "Locations".to_string(),
                 default_visibility.0,
             ))
-            .set_parent(view_header)
+            .insert(ChildOf(view_header))
             .id();
         let default_visibility = world.resource::<CategoryVisibility<FiducialMarker>>();
         let fiducials = world
@@ -105,7 +105,7 @@ impl FromWorld for ViewMenuItems {
                 "Fiducials".to_string(),
                 default_visibility.0,
             ))
-            .set_parent(view_header)
+            .insert(ChildOf(view_header))
             .id();
         let default_visibility = world.resource::<CategoryVisibility<MeasurementMarker>>();
         let measurements = world
@@ -113,7 +113,7 @@ impl FromWorld for ViewMenuItems {
                 "Measurements".to_string(),
                 default_visibility.0,
             ))
-            .set_parent(view_header)
+            .insert(ChildOf(view_header))
             .id();
         let default_visibility = world.resource::<CategoryVisibility<CollisionMeshMarker>>();
         let collisions = world
@@ -121,7 +121,7 @@ impl FromWorld for ViewMenuItems {
                 "Collision meshes".to_string(),
                 default_visibility.0,
             ))
-            .set_parent(view_header)
+            .insert(ChildOf(view_header))
             .id();
         let default_visibility = world.resource::<CategoryVisibility<VisualMeshMarker>>();
         let visuals = world
@@ -129,7 +129,7 @@ impl FromWorld for ViewMenuItems {
                 "Visual meshes".to_string(),
                 default_visibility.0,
             ))
-            .set_parent(view_header)
+            .insert(ChildOf(view_header))
             .id();
         let default_visibility = world.resource::<CategoryVisibility<WallMarker>>();
         let walls = world
@@ -137,7 +137,7 @@ impl FromWorld for ViewMenuItems {
                 "Walls".to_string(),
                 default_visibility.0,
             ))
-            .set_parent(view_header)
+            .insert(ChildOf(view_header))
             .id();
 
         ViewMenuItems {

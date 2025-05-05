@@ -26,7 +26,7 @@ use crate::{
     AppState, Issue, ModelPropertyData, ValidateWorkspace,
 };
 use bevy::{
-    ecs::system::SystemParam,
+    ecs::{hierarchy::ChildOf, system::SystemParam},
     prelude::{Component, *},
 };
 use bevy_egui::egui::{ComboBox, Ui};
@@ -91,7 +91,11 @@ impl Plugin for InspectRobotPropertiesPlugin {
             );
         let inspector = app.world().resource::<ModelDescriptionInspector>().id;
         let widget = Widget::<Inspect>::new::<InspectRobotProperties>(app.world_mut());
-        let id = app.world_mut().spawn(widget).set_parent(inspector).id();
+        let id = app
+            .world_mut()
+            .spawn(widget)
+            .insert(ChildOf(inspector))
+            .id();
         app.world_mut()
             .insert_resource(RobotPropertiesInspector { id });
         app.world_mut()
@@ -233,7 +237,11 @@ where
     fn build(&self, app: &mut App) {
         let inspector = app.world().resource::<RobotPropertiesInspector>().id;
         let widget = Widget::<Inspect>::new::<W>(app.world_mut());
-        let id = app.world_mut().spawn(widget).set_parent(inspector).id();
+        let id = app
+            .world_mut()
+            .spawn(widget)
+            .insert(ChildOf(inspector))
+            .id();
         app.world_mut()
             .resource_mut::<RobotPropertyWidgetRegistry>()
             .0
@@ -301,7 +309,7 @@ where
             return;
         };
         let widget = Widget::<Inspect>::new::<W>(app.world_mut());
-        app.world_mut().spawn(widget).set_parent(inspector);
+        app.world_mut().spawn(widget).insert(ChildOf(inspector));
         app.world_mut()
             .resource_mut::<RobotPropertyWidgetRegistry>()
             .0

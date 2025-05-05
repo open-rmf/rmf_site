@@ -16,7 +16,10 @@
 */
 
 use crate::{recency::RecencyRanking, site::*, WorkspaceMarker};
-use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy::{
+    ecs::{hierarchy::ChildOf, system::SystemParam},
+    prelude::*,
+};
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
@@ -97,7 +100,7 @@ fn generate_site_entities(
         let anchor_entity = commands
             .spawn(AnchorBundle::new(anchor.clone()))
             .insert(SiteID(*anchor_id))
-            .set_parent(site_id)
+            .insert(ChildOf(site_id))
             .id();
         id_to_entity.insert(*anchor_id, anchor_entity);
         consider_id(*anchor_id);
@@ -107,7 +110,7 @@ fn generate_site_entities(
         let group_entity = commands
             .spawn(group.clone())
             .insert(SiteID(*group_id))
-            .set_parent(site_id)
+            .insert(ChildOf(site_id))
             .id();
         id_to_entity.insert(*group_id, group_entity);
         consider_id(*group_id);
@@ -117,20 +120,23 @@ fn generate_site_entities(
         let group_entity = commands
             .spawn(group.clone())
             .insert(SiteID(*group_id))
-            .set_parent(site_id)
+            .insert(ChildOf(site_id))
             .id();
         id_to_entity.insert(*group_id, group_entity);
         consider_id(*group_id);
     }
 
     for (level_id, level_data) in &site_data.levels {
-        let level_entity = commands.spawn(SiteID(*level_id)).set_parent(site_id).id();
+        let level_entity = commands
+            .spawn(SiteID(*level_id))
+            .insert(ChildOf(site_id))
+            .id();
 
         for (anchor_id, anchor) in &level_data.anchors {
             let anchor_entity = commands
                 .spawn(AnchorBundle::new(anchor.clone()))
                 .insert(SiteID(*anchor_id))
-                .set_parent(level_entity)
+                .insert(ChildOf(level_entity))
                 .id();
             id_to_entity.insert(*anchor_id, anchor_entity);
             consider_id(*anchor_id);
@@ -140,7 +146,7 @@ fn generate_site_entities(
             let door_entity = commands
                 .spawn(door.convert(&id_to_entity).for_site(site_id)?)
                 .insert(SiteID(*door_id))
-                .set_parent(level_entity)
+                .insert(ChildOf(level_entity))
                 .id();
             id_to_entity.insert(*door_id, door_entity);
             consider_id(*door_id);
@@ -150,14 +156,14 @@ fn generate_site_entities(
             let drawing_entity = commands
                 .spawn(DrawingBundle::new(drawing.properties.clone()))
                 .insert(SiteID(*drawing_id))
-                .set_parent(level_entity)
+                .insert(ChildOf(level_entity))
                 .id();
 
             for (anchor_id, anchor) in &drawing.anchors {
                 let anchor_entity = commands
                     .spawn(AnchorBundle::new(anchor.clone()))
                     .insert(SiteID(*anchor_id))
-                    .set_parent(drawing_entity)
+                    .insert(ChildOf(drawing_entity))
                     .id();
                 id_to_entity.insert(*anchor_id, anchor_entity);
                 consider_id(*anchor_id);
@@ -167,7 +173,7 @@ fn generate_site_entities(
                 let fiducial_entity = commands
                     .spawn(fiducial.convert(&id_to_entity).for_site(site_id)?)
                     .insert(SiteID(*fiducial_id))
-                    .set_parent(drawing_entity)
+                    .insert(ChildOf(drawing_entity))
                     .id();
                 id_to_entity.insert(*fiducial_id, fiducial_entity);
                 consider_id(*fiducial_id);
@@ -177,7 +183,7 @@ fn generate_site_entities(
                 let measurement_entity = commands
                     .spawn(measurement.convert(&id_to_entity).for_site(site_id)?)
                     .insert(SiteID(*measurement_id))
-                    .set_parent(drawing_entity)
+                    .insert(ChildOf(drawing_entity))
                     .id();
                 id_to_entity.insert(*measurement_id, measurement_entity);
                 consider_id(*measurement_id);
@@ -190,7 +196,7 @@ fn generate_site_entities(
             commands
                 .spawn(floor.convert(&id_to_entity).for_site(site_id)?)
                 .insert(SiteID(*floor_id))
-                .set_parent(level_entity);
+                .insert(ChildOf(level_entity));
             consider_id(*floor_id);
         }
 
@@ -198,7 +204,7 @@ fn generate_site_entities(
             commands
                 .spawn(wall.convert(&id_to_entity).for_site(site_id)?)
                 .insert(SiteID(*wall_id))
-                .set_parent(level_entity);
+                .insert(ChildOf(level_entity));
             consider_id(*wall_id);
         }
 
@@ -248,7 +254,10 @@ fn generate_site_entities(
     }
 
     for (lift_id, lift_data) in &site_data.lifts {
-        let lift_entity = commands.spawn(SiteID(*lift_id)).set_parent(site_id).id();
+        let lift_entity = commands
+            .spawn(SiteID(*lift_id))
+            .insert(ChildOf(site_id))
+            .id();
 
         commands.entity(lift_entity).with_children(|lift| {
             lift.spawn((Transform::default(), Visibility::default()))
@@ -269,7 +278,7 @@ fn generate_site_entities(
             let door_entity = commands
                 .spawn(door.convert(&id_to_entity).for_site(site_id)?)
                 .insert(Dependents::single(lift_entity))
-                .set_parent(lift_entity)
+                .insert(ChildOf(lift_entity))
                 .id();
             id_to_entity.insert(*door_id, door_entity);
             consider_id(*door_id);
@@ -290,7 +299,7 @@ fn generate_site_entities(
         let fiducial_entity = commands
             .spawn(fiducial.convert(&id_to_entity).for_site(site_id)?)
             .insert(SiteID(*fiducial_id))
-            .set_parent(site_id)
+            .insert(ChildOf(site_id))
             .id();
         id_to_entity.insert(*fiducial_id, fiducial_entity);
         consider_id(*fiducial_id);
@@ -301,7 +310,7 @@ fn generate_site_entities(
             .spawn((Transform::default(), Visibility::default()))
             .insert(nav_graph_data.clone())
             .insert(SiteID(*nav_graph_id))
-            .set_parent(site_id)
+            .insert(ChildOf(site_id))
             .id();
         id_to_entity.insert(*nav_graph_id, nav_graph);
         consider_id(*nav_graph_id);
@@ -311,7 +320,7 @@ fn generate_site_entities(
         let lane = commands
             .spawn(lane_data.convert(&id_to_entity).for_site(site_id)?)
             .insert(SiteID(*lane_id))
-            .set_parent(site_id)
+            .insert(ChildOf(site_id))
             .id();
         id_to_entity.insert(*lane_id, lane);
         consider_id(*lane_id);
@@ -321,7 +330,7 @@ fn generate_site_entities(
         let location = commands
             .spawn(location_data.convert(&id_to_entity).for_site(site_id)?)
             .insert(SiteID(*location_id))
-            .set_parent(site_id)
+            .insert(ChildOf(site_id))
             .id();
         id_to_entity.insert(*location_id, location);
         consider_id(*location_id);
@@ -341,7 +350,7 @@ fn generate_site_entities(
             .spawn(model_description.clone())
             .insert(SiteID(*model_description_id))
             .insert(Category::ModelDescription)
-            .set_parent(site_id)
+            .insert(ChildOf(site_id))
             .id();
         id_to_entity.insert(*model_description_id, model_description_entity);
         consider_id(*model_description_id);
@@ -366,7 +375,7 @@ fn generate_site_entities(
                 .spawn(ModelDescriptionBundle::default())
                 .insert(Category::ModelDescription)
                 .insert(ModelProperty(robot_data.clone()))
-                .set_parent(site_id);
+                .insert(ChildOf(site_id));
             error!(
                 "Robot {} with properties {:?} is pointing to a non-existent \
                 model description! Assigning robot to the default model description \
@@ -430,7 +439,7 @@ fn generate_site_entities(
         let scenario_entity = commands
             .spawn(scenario.properties.clone())
             .insert(SiteID(*scenario_id))
-            .set_parent(parent)
+            .insert(ChildOf(parent))
             .id();
         id_to_entity.insert(*scenario_id, scenario_entity);
         consider_id(*scenario_id);
@@ -441,7 +450,7 @@ fn generate_site_entities(
                 commands
                     .spawn(instance.clone())
                     .insert(Affiliation(Some(*instance_entity)))
-                    .set_parent(scenario_entity);
+                    .insert(ChildOf(scenario_entity));
             } else {
                 error!(
                     "Model instance {} referenced by scenario {} is missing! This should \
@@ -553,7 +562,7 @@ pub struct ImportNavGraphParams<'w, 's> {
         (
             Entity,
             &'static NameInSite,
-            &'static Parent,
+            &'static ChildOf,
             &'static Children,
         ),
         With<LevelElevation>,
@@ -564,7 +573,7 @@ pub struct ImportNavGraphParams<'w, 's> {
         (
             Entity,
             &'static NameInSite,
-            &'static Parent,
+            &'static ChildOf,
             &'static Children,
         ),
         With<LiftCabin<Entity>>,
@@ -584,8 +593,8 @@ fn generate_imported_nav_graphs(
     };
 
     let mut level_name_to_entity = HashMap::new();
-    for (e, name, parent, _) in &params.levels {
-        if parent.get() != into_site {
+    for (e, name, child_of, _) in &params.levels {
+        if child_of.parent() != into_site {
             continue;
         }
 
@@ -593,8 +602,8 @@ fn generate_imported_nav_graphs(
     }
 
     let mut lift_name_to_entity = HashMap::new();
-    for (e, name, parent, _) in &params.lifts {
-        if parent.get() != into_site {
+    for (e, name, child_of, _) in &params.lifts {
+        if child_of.parent() != into_site {
             continue;
         }
 

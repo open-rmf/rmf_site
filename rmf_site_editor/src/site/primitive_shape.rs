@@ -15,7 +15,7 @@
  *
 */
 
-use bevy::ecs::system::EntityCommands;
+use bevy::ecs::{hierarchy::ChildOf, system::EntityCommands};
 use bevy::math::primitives;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
@@ -39,7 +39,7 @@ pub struct CollisionMeshMarker;
 pub fn handle_new_primitive_shapes(
     mut commands: Commands,
     primitives: Query<(Entity, &PrimitiveShape), Added<PrimitiveShape>>,
-    parents: Query<&Parent>,
+    child_of: Query<&ChildOf>,
     selectables: Query<&Selectable>,
     render_layers: Query<&RenderLayers>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -65,11 +65,11 @@ pub fn handle_new_primitive_shapes(
                 Transform::default(),
                 Visibility::default(),
             ))
-            .set_parent(e)
+            .insert(ChildOf(e))
             .id();
 
         let spawn_selectable = |mut cmd: EntityCommands| {
-            let selectable = if let Some(selectable) = AncestorIter::new(&parents, e)
+            let selectable = if let Some(selectable) = AncestorIter::new(&child_of, e)
                 .filter_map(|p| selectables.get(p).ok())
                 .last()
             {
@@ -80,7 +80,7 @@ pub fn handle_new_primitive_shapes(
             cmd.insert(DragPlaneBundle::new(selectable, Vec3::Z));
         };
         let mut entity_commands = commands.entity(id);
-        if let Some(render_layer) = AncestorIter::new(&parents, e)
+        if let Some(render_layer) = AncestorIter::new(&child_of, e)
             .filter_map(|p| render_layers.get(p).ok())
             .last()
         {
