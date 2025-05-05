@@ -69,7 +69,7 @@ impl<'w, 's> ViewTasks<'w, 's> {
     pub fn show_widget(&mut self, ui: &mut Ui) {
         Frame::default()
             .inner_margin(4.0)
-            .rounding(2.0)
+            .corner_radius(2.0)
             .stroke(Stroke::new(1.0, Color32::GRAY))
             .show(ui, |ui| {
                 ui.set_min_width(ui.available_width());
@@ -111,7 +111,7 @@ fn show_task(
     Frame::default()
         .inner_margin(4.0)
         .fill(Color32::DARK_GRAY)
-        .rounding(2.0)
+        .corner_radius(2.0)
         .show(ui, |ui| {
             ui.set_min_width(ui.available_width());
 

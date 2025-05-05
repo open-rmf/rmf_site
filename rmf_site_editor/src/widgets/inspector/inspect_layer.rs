@@ -179,11 +179,7 @@ impl<'w, 's> InspectLayer<'w, 's> {
 
             if let Some(LayerVisibility::Alpha(mut alpha)) = vis {
                 if ui
-                    .add(
-                        DragValue::new(&mut alpha)
-                            .clamp_range(0_f32..=1_f32)
-                            .speed(0.01),
-                    )
+                    .add(DragValue::new(&mut alpha).range(0_f32..=1_f32).speed(0.01))
                     .changed()
                 {
                     self.change_layer_visibility

@@ -81,7 +81,7 @@ impl<'w, 's> InspectLocation<'w, 's> {
                         }
                         variants.push(recall.assume_workcell());
 
-                        ComboBox::from_id_source("Add Location Tag")
+                        ComboBox::from_id_salt("Add Location Tag")
                             .selected_text(consider.label())
                             .show_ui(ui, |ui| {
                                 for variant in variants {

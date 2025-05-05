@@ -51,17 +51,19 @@ pub fn add_measurement_visuals(
         transform.translation.z = DEFAULT_MEASUREMENT_HEIGHT;
 
         let child_id = commands
-            .spawn(PbrBundle {
-                mesh: assets.lane_mid_mesh.clone(),
-                material: assets.measurement_material.clone(),
+            .spawn((
+                Mesh3d(assets.lane_mid_mesh.clone()),
+                MeshMaterial3d(assets.measurement_material.clone()),
                 transform,
-                ..default()
-            })
+                Visibility::default(),
+            ))
             .insert(Selectable::new(e))
             .id();
 
         if tf.is_none() {
-            commands.entity(e).insert(SpatialBundle::INHERITED_IDENTITY);
+            commands
+                .entity(e)
+                .insert((Transform::IDENTITY, Visibility::Inherited));
         }
 
         commands
@@ -69,7 +71,7 @@ pub fn add_measurement_visuals(
             .insert(Category::Measurement)
             .insert(MeasurementSegment(child_id))
             .insert(EdgeLabels::StartEnd)
-            .push_children(&[child_id]);
+            .add_children(&[child_id]);
 
         for anchor in &edge.array() {
             if let Ok(mut deps) = dependents.get_mut(*anchor) {

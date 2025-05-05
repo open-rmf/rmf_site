@@ -16,8 +16,11 @@
 */
 
 use crate::{interaction::*, site::DrawingMarker};
+use bevy::color::palettes::css as Colors;
 use bevy::render::view::RenderLayers;
-use bevy_mod_outline::{OutlineBundle, OutlineMode, OutlineRenderLayers, OutlineVolume};
+use bevy_mod_outline::{
+    ComputedOutline, OutlineMode, OutlineRenderLayers, OutlineStencil, OutlineVolume,
+};
 use rmf_site_format::{
     DoorType, FiducialMarker, FloorMarker, LiftCabin, LightKind, LocationTags, MeasurementMarker,
     ModelMarker, PhysicalCameraProperties, PrimitiveShape, WallMarker,
@@ -45,20 +48,20 @@ impl OutlineVisualization {
                 if !hovered.cue() && !selected.cue() {
                     None
                 } else if hovered.cue() && selected.cue() {
-                    Some(Color::rgb(1.0, 0.0, 0.3))
+                    Some(Color::srgb(1.0, 0.0, 0.3))
                 } else if selected.cue() {
-                    Some(Color::rgb(1.0, 0.3, 1.0))
+                    Some(Color::srgb(1.0, 0.3, 1.0))
                 } else
                 /* only hovered */
                 {
-                    Some(Color::WHITE)
+                    Some(Colors::WHITE.into())
                 }
             }
             OutlineVisualization::Anchor { .. } => {
                 if hovered.is_hovered {
-                    Some(Color::WHITE)
+                    Some(Colors::WHITE.into())
                 } else {
-                    Some(Color::BLACK)
+                    Some(Colors::BLACK.into())
                 }
             }
         }
@@ -76,15 +79,17 @@ impl OutlineVisualization {
                 }
             }
             OutlineVisualization::Anchor { .. } => {
-                OutlineRenderLayers(RenderLayers::layer(XRAY_RENDER_LAYER))
+                if hovered.cue() || selected.cue() {
+                    OutlineRenderLayers(RenderLayers::layer(XRAY_RENDER_LAYER))
+                } else {
+                    OutlineRenderLayers(RenderLayers::none())
+                }
             }
         }
     }
 
     pub fn depth(&self) -> OutlineMode {
-        OutlineMode::FlatVertex {
-            model_origin: Vec3::ZERO,
-        }
+        OutlineMode::ExtrudeFlat
     }
 
     /// If this element should use a different entity as its root for
@@ -172,20 +177,23 @@ pub fn update_outline_visualization(
                 if let Some(color) = color {
                     commands
                         .entity(top)
-                        .insert(OutlineBundle {
-                            outline: OutlineVolume {
+                        .insert((
+                            OutlineVolume {
                                 visible: true,
                                 width: 3.0,
                                 colour: color,
                             },
-                            ..default()
-                        })
+                            OutlineStencil::default(),
+                            ComputedOutline::default(),
+                        ))
                         .insert(depth.clone())
-                        .insert(layers);
+                        .insert(layers.clone());
                 } else {
                     commands
                         .entity(top)
-                        .remove::<OutlineBundle>()
+                        .remove::<OutlineVolume>()
+                        .remove::<OutlineStencil>()
+                        .remove::<ComputedOutline>()
                         .remove::<OutlineMode>();
                 }
 

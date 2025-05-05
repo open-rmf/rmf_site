@@ -86,7 +86,7 @@ pub fn update_spinning_animations(
 ) {
     for (mut tf, spin, visibility) in &mut spinners {
         if **visibility {
-            let angle = 2. * std::f32::consts::PI * now.elapsed_seconds() / spin.period;
+            let angle = 2. * std::f32::consts::PI * now.elapsed_secs() / spin.period;
             tf.as_mut().rotation = Quat::from_rotation_z(angle);
         }
     }
@@ -98,7 +98,7 @@ pub fn update_bobbing_animations(
 ) {
     for (mut tf, bob, visibility) in &mut bobbers {
         if **visibility {
-            let theta = 2. * std::f32::consts::PI * now.elapsed_seconds() / bob.period;
+            let theta = 2. * std::f32::consts::PI * now.elapsed_secs() / bob.period;
             let dh = bob.heights.1 - bob.heights.0;
             tf.as_mut().translation[2] = dh * (1. - theta.cos()) / 2.0 + bob.heights.0;
         }

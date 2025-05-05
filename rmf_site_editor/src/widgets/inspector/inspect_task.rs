@@ -81,7 +81,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectTasks<'w, 's> {
         ui.indent("inspect_tasks", |ui| {
             Frame::default()
                 .inner_margin(4.0)
-                .rounding(2.0)
+                .corner_radius(2.0)
                 .stroke(Stroke::new(1.0, Color32::GRAY))
                 .show(ui, |ui| {
                     ui.set_min_width(ui.available_width());
@@ -128,7 +128,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectTasks<'w, 's> {
                         }
                     },
                 );
-                ComboBox::from_id_source("select_task_kind")
+                ComboBox::from_id_salt("select_task_kind")
                     .selected_text(params.pending_task.0.kind.clone())
                     .show_ui(ui, |ui| {
                         for (kind, _) in params.tasks.0.iter() {
@@ -175,7 +175,7 @@ fn edit_task_component(
     Frame::default()
         .inner_margin(4.0)
         .fill(Color32::DARK_GRAY)
-        .rounding(2.0)
+        .corner_radius(2.0)
         .show(ui, |ui| {
             ui.set_min_width(ui.available_width());
             ui.horizontal(|ui| {

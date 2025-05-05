@@ -67,7 +67,7 @@ impl<'w> ViewOccupancy<'w> {
             if ui
                 .add(
                     DragValue::new(&mut self.display_occupancy.cell_size)
-                        .clamp_range(0.01..=f32::INFINITY)
+                        .range(0.01..=f32::INFINITY)
                         .speed(0.01),
                 )
                 .changed()

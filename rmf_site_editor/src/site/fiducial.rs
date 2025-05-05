@@ -18,8 +18,9 @@
 use crate::interaction::VisualCue;
 use crate::site::*;
 use crate::{Issue, ValidateWorkspace};
-use bevy::{prelude::*, utils::Uuid};
+use bevy::prelude::*;
 use std::collections::HashMap;
+use uuid::Uuid;
 
 #[derive(Component)]
 pub struct FiducialUsage {
@@ -218,14 +219,16 @@ pub fn add_fiducial_visuals(
         }
 
         if tf.is_none() {
-            commands.entity(e).insert(SpatialBundle::INHERITED_IDENTITY);
+            commands
+                .entity(e)
+                .insert((Transform::IDENTITY, Visibility::Inherited));
         }
 
         commands
             .entity(e)
-            .insert(assets.fiducial_mesh.clone())
-            .insert(assets.fiducial_material.clone())
-            .insert(VisibilityBundle::default())
+            .insert(Mesh3d(assets.fiducial_mesh.clone()))
+            .insert(MeshMaterial3d(assets.fiducial_material.clone()))
+            .insert(Visibility::default())
             .insert(Category::Fiducial)
             .insert(VisualCue::outline());
     }

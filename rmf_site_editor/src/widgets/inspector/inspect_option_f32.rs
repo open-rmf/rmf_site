@@ -83,7 +83,7 @@ impl<'a> InspectOptionF32<'a> {
             if has_value {
                 let response = ui.add(
                     DragValue::new(&mut assumed_value)
-                        .clamp_range(self.range)
+                        .range(self.range)
                         .min_decimals(self.min_decimals)
                         .max_decimals_opt(self.max_decimals)
                         .speed(self.speed)

@@ -21,9 +21,12 @@ use rmf_site_format::{Affiliation, Category, Group, Texture};
 #[derive(Component)]
 pub struct TextureNeedsAssignment;
 
+#[derive(Component, Clone, Debug)]
+pub struct TextureImage(pub Handle<Image>);
+
 pub fn fetch_image_for_texture(
     mut commands: Commands,
-    mut changed_textures: Query<(Entity, Option<&mut Handle<Image>>, &Texture), Changed<Texture>>,
+    mut changed_textures: Query<(Entity, Option<&mut TextureImage>, &Texture), Changed<Texture>>,
     new_textures: Query<Entity, Added<Texture>>,
     asset_server: Res<AssetServer>,
 ) {
@@ -42,10 +45,10 @@ pub fn fetch_image_for_texture(
         };
 
         if let Some(mut image) = image {
-            *image = asset_server.load(asset_path);
+            *image = TextureImage(asset_server.load(asset_path));
         } else {
             let image: Handle<Image> = asset_server.load(asset_path);
-            commands.entity(e).insert(image);
+            commands.entity(e).insert(TextureImage(image));
         }
     }
 
@@ -123,12 +126,12 @@ pub struct LastSelectedTexture<T> {
 // information.
 pub fn from_texture_source(
     texture_source: &Affiliation<Entity>,
-    textures: &Query<(Option<&Handle<Image>>, &Texture)>,
+    textures: &Query<(Option<&TextureImage>, &Texture)>,
 ) -> (Option<Handle<Image>>, Texture) {
     texture_source
         .0
         .map(|t| textures.get(t).ok())
         .flatten()
-        .map(|(i, t)| (i.cloned(), t.clone()))
+        .map(|(i, t)| (i.and_then(|img| Some(img.0.clone())), t.clone()))
         .unwrap_or_else(|| (None, Texture::default()))
 }

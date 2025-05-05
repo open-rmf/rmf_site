@@ -58,7 +58,7 @@ struct MenuDropdowns<'w, 's> {
     view_menu: Res<'w, ViewMenu>,
     file_menu: Res<'w, FileMenu>,
     children: Query<'w, 's, &'static Children>,
-    top_level_components: Query<'w, 's, ((), Without<Parent>)>,
+    top_level_components: Query<'w, 's, (), Without<Parent>>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for MenuDropdowns<'w, 's> {
