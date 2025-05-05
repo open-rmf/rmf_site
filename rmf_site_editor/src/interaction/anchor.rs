@@ -16,8 +16,7 @@
 */
 
 use crate::{
-    interaction::IntersectGroundPlaneParams,
-    interaction::*,
+    interaction::{gizmo::Gizmo, IntersectGroundPlaneParams, *},
     keyboard::DebugMode,
     site::{Anchor, Category, Delete, Dependents, SiteAssets, Subordinate},
 };
@@ -292,7 +291,7 @@ pub fn update_anchor_visual_cues(
                     }
                 } else {
                     if let Some(drag) = shapes.drag {
-                        commands.entity(drag).despawn_recursive();
+                        commands.entity(drag).despawn();
                     }
                     shapes.drag = None;
                 }
@@ -305,7 +304,7 @@ pub fn update_anchor_visual_cues(
                     }
                 } else {
                     if let Some(drag) = shapes.drag {
-                        commands.entity(drag).despawn_recursive();
+                        commands.entity(drag).despawn();
                     }
                     shapes.drag = None;
                 }

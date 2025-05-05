@@ -325,9 +325,8 @@ pub fn update_gizmo_click_start(
 
     if clicking {
         if let GizmoState::Hovering(e) = *gizmo_state {
-            click.send(GizmoClicked(e));
-            let Some((_, interactions)) =
-                pointers.get_single().ok().filter(|(id, _)| id.is_mouse())
+            click.write(GizmoClicked(e));
+            let Some((_, interactions)) = pointers.single().ok().filter(|(id, _)| id.is_mouse())
             else {
                 return;
             };
@@ -446,7 +445,7 @@ pub fn update_drag_motions(
                 let tf_goal = initial
                     .tf_for_entity_global
                     .with_translation(initial.tf_for_entity_global.translation + delta);
-                move_to.send(MoveTo {
+                move_to.write(MoveTo {
                     entity: draggable.for_entity,
                     transform: Transform::from_matrix(
                         (initial.tf_for_entity_parent_inv * tf_goal.compute_affine()).into(),
@@ -479,7 +478,7 @@ pub fn update_drag_motions(
                 let tf_goal = initial
                     .tf_for_entity_global
                     .with_translation(initial.tf_for_entity_global.translation + delta);
-                move_to.send(MoveTo {
+                move_to.write(MoveTo {
                     entity: draggable.for_entity,
                     transform: Transform::from_matrix(
                         (initial.tf_for_entity_parent_inv * tf_goal.compute_affine()).into(),

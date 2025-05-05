@@ -195,7 +195,7 @@ impl<'w, 's> Diagnostics<'w, 's> {
             }
 
             if ui.add(Button::new("Validate")).clicked() {
-                self.validate_workspace.send(ValidateWorkspace(root));
+                self.validate_workspace.write(ValidateWorkspace(root));
             }
             if ui.add(Button::new("Close")).clicked() {
                 state.show = false;
@@ -203,11 +203,11 @@ impl<'w, 's> Diagnostics<'w, 's> {
         });
         if new_filtered_issues != *filtered_issues {
             self.change_filtered_issues
-                .send(Change::new(new_filtered_issues, root));
+                .write(Change::new(new_filtered_issues, root));
         }
         if new_filtered_issue_kinds != *filtered_issue_kinds {
             self.change_filtered_issue_kinds
-                .send(Change::new(new_filtered_issue_kinds, root));
+                .write(Change::new(new_filtered_issue_kinds, root));
         }
         *self.display_diagnostics = state;
     }

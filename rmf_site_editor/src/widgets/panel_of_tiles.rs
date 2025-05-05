@@ -42,7 +42,7 @@ pub fn show_panel_of_tiles(
 ) {
     let children: Option<SmallVec<[Entity; 16]>> = world
         .get::<Children>(id)
-        .map(|children| children.iter().copied().collect());
+        .map(|children| children.iter().collect());
 
     let Some(children) = children else {
         return;

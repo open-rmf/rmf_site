@@ -18,9 +18,10 @@
 use crate::{
     interaction::Selectable, shapes::*, site::*, CurrentWorkspace, Issue, ValidateWorkspace,
 };
-use bevy::{prelude::*, render::primitives::Aabb, utils::HashMap};
+use bevy::{prelude::*, render::primitives::Aabb};
 use rmf_site_format::{Edge, LiftCabin};
 use std::collections::BTreeSet;
+use std::collections::HashMap;
 use uuid::Uuid;
 
 #[derive(Clone, Copy, Debug, Component, Deref, DerefMut)]
@@ -167,7 +168,7 @@ pub fn update_lift_cabin(
     for (e, cabin, recall, child_anchor_group, child_cabin_group, site) in &lifts {
         // Despawn the previous cabin
         if let Some(cabin_group) = child_cabin_group {
-            commands.entity(cabin_group.0).despawn_recursive();
+            commands.entity(cabin_group.0).despawn();
         }
 
         let cabin_tf = match cabin {
@@ -284,10 +285,7 @@ pub fn update_lift_cabin(
         let cabin_anchor_group = if let Some(child_anchor_group) = child_anchor_group {
             Some(**child_anchor_group)
         } else if let Ok(children) = children.get(e) {
-            let found_group = children
-                .iter()
-                .find(|c| cabin_anchor_groups.contains(**c))
-                .copied();
+            let found_group = children.iter().find(|c| cabin_anchor_groups.contains(*c));
 
             if let Some(group) = found_group {
                 commands.entity(e).insert(ChildCabinAnchorGroup(group));

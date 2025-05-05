@@ -104,7 +104,7 @@ impl Plugin for DeletionPlugin {
             First,
             (SiteUpdateSet::Deletion, SiteUpdateSet::DeletionFlush).chain(),
         )
-        .add_systems(First, apply_deferred.in_set(SiteUpdateSet::DeletionFlush))
+        .add_systems(First, ApplyDeferred.in_set(SiteUpdateSet::DeletionFlush))
         .add_event::<Delete>()
         .init_resource::<DeletionFilters>()
         .add_systems(
@@ -145,7 +145,7 @@ impl DeletionFilters {
         for system_id in self.boxed_systems.iter() {
             let old_pending_delete = pending_delete.clone();
             pending_delete = world
-                .run_system_with_input(*system_id, pending_delete)
+                .run_system_with(*system_id, pending_delete)
                 .unwrap_or(old_pending_delete);
         }
         pending_delete
@@ -200,7 +200,7 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
     for descendent in &all_descendents {
         if let Ok(prevent) = params.preventions.get(*descendent) {
             if *descendent == element {
-                params.log.send(Log::hint(format!(
+                params.log.write(Log::hint(format!(
                     "Element {:?} cannot be deleted because: {}",
                     element,
                     prevent
@@ -209,7 +209,7 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
                         .unwrap_or(&"<.. no reason given>".to_string()),
                 )));
             } else {
-                params.log.send(Log::hint(format!(
+                params.log.write(Log::hint(format!(
                     "Element {:?} is an ancestor of {:?} which cannot be \
                     deleted because: {}",
                     element,
@@ -227,7 +227,7 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
             for dep in dependents.iter() {
                 if !all_descendents.contains(dep) {
                     if *descendent == element {
-                        params.log.send(Log::hint(format!(
+                        params.log.write(Log::hint(format!(
                             "Cannot delete {:?} because it has {} dependents. \
                             Only elements with no outside dependents can be \
                             deleted.",
@@ -235,7 +235,7 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
                             dependents.len(),
                         )));
                     } else {
-                        params.log.send(Log::hint(format!(
+                        params.log.write(Log::hint(format!(
                             "Element {:?} is an ancestor of {:?} \
                             which cannot be deleted because {:?} depends \
                             on it.",
@@ -272,14 +272,14 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
         }
 
         if **params.selection == Some(e) {
-            params.select.send(Select(None));
+            params.select.write(Select(None));
         }
     }
 
     for (e, mut issue) in &mut params.issues {
         issue.key.entities.remove(&element);
         if issue.key.entities.is_empty() {
-            params.commands.entity(e).despawn_recursive();
+            params.commands.entity(e).despawn();
         }
     }
 
@@ -291,7 +291,7 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
         }
     }
 
-    params.commands.entity(element).despawn_recursive();
+    params.commands.entity(element).despawn();
 }
 
 fn recursive_dependent_delete(element: Entity, params: &mut DeletionParams) {
@@ -301,7 +301,7 @@ fn recursive_dependent_delete(element: Entity, params: &mut DeletionParams) {
     while let Some(top) = queue.pop() {
         if let Ok(prevent) = params.preventions.get(top) {
             if top == element {
-                params.log.send(Log::hint(format!(
+                params.log.write(Log::hint(format!(
                     "Cannot delete {:?} because: {}",
                     element,
                     prevent
@@ -310,7 +310,7 @@ fn recursive_dependent_delete(element: Entity, params: &mut DeletionParams) {
                         .unwrap_or(&"<.. no reason given>".to_string()),
                 )));
             } else {
-                params.log.send(Log::hint(format!(
+                params.log.write(Log::hint(format!(
                     "Cannot delete {:?} because we would need to also delete \
                     {:?} which cannot be deleted because: {}",
                     element,
@@ -382,7 +382,7 @@ fn perform_deletions(all_to_delete: HashSet<Entity>, params: &mut DeletionParams
         }
 
         if **params.selection == Some(e) {
-            params.select.send(Select(None));
+            params.select.write(Select(None));
         }
 
         if **params.current_level == Some(e) {
@@ -417,6 +417,6 @@ fn perform_deletions(all_to_delete: HashSet<Entity>, params: &mut DeletionParams
         }
 
         // TODO(MXG): Replace this with a move to the trash bin group.
-        params.commands.entity(e).despawn();
+        params.commands.entity(e).remove::<Children>().despawn();
     }
 }

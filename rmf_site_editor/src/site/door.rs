@@ -393,7 +393,7 @@ fn update_door_visuals(
     }
     for e in entities.iter().skip(door_tfs.len()) {
         // Doors were removed, we need to despawn them
-        commands.entity(*e).despawn_recursive();
+        commands.entity(*e).despawn();
     }
     let mut cue_inner = mesh_handles.get_mut(segments.cue_inner).unwrap();
     *cue_inner = Mesh3d(mesh_assets.add(cue_inner_mesh));

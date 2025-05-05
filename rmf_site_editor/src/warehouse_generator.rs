@@ -97,7 +97,7 @@ fn warehouse_generator(
     // despawn previous instance
     if warehouse.is_changed() {
         for e in q_respawn_entities.iter() {
-            despawn.send(Despawn(e));
+            despawn.write(Despawn(e));
         }
         *need_respawn = true;
         // despawns happen at end of frame, so we need to exit now and wait for the next frame.

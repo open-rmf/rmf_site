@@ -212,7 +212,7 @@ impl<'w, 's> InspectLiftCabin<'w, 's> {
                                                     )
                                                     .changed()
                                                 {
-                                                    self.toggle_door_levels.send(
+                                                    self.toggle_door_levels.write(
                                                         ToggleLiftDoorAvailability {
                                                             for_lift: id,
                                                             on_level: *level,
@@ -227,7 +227,7 @@ impl<'w, 's> InspectLiftCabin<'w, 's> {
                             });
                     } else if let Some(current_level) = **self.current_level {
                         if ui.button(format!("Add {} Door", face.label())).clicked() {
-                            self.toggle_door_levels.send(ToggleLiftDoorAvailability {
+                            self.toggle_door_levels.write(ToggleLiftDoorAvailability {
                                 for_lift: id,
                                 on_level: current_level,
                                 cabin_door: CabinDoorId::RectFace(face),
@@ -253,7 +253,7 @@ impl<'w, 's> InspectLiftCabin<'w, 's> {
                 }
             }
 
-            self.change_lift_cabin.send(Change::new(new_cabin, id));
+            self.change_lift_cabin.write(Change::new(new_cabin, id));
         }
         ui.add_space(10.0);
     }

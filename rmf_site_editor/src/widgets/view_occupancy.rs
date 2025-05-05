@@ -57,7 +57,7 @@ impl<'w> ViewOccupancy<'w> {
     pub fn show_widget(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
             if ui.button("Calculate Occupancy").clicked() {
-                self.calculate_grid.send(CalculateGrid {
+                self.calculate_grid.write(CalculateGrid {
                     cell_size: self.display_occupancy.cell_size,
                     floor: 0.01,
                     ceiling: 1.5,
@@ -73,7 +73,7 @@ impl<'w> ViewOccupancy<'w> {
                 .changed()
             {
                 if self.display_occupancy.cell_size > 0.1 {
-                    self.calculate_grid.send(CalculateGrid {
+                    self.calculate_grid.write(CalculateGrid {
                         cell_size: self.display_occupancy.cell_size,
                         floor: 0.01,
                         ceiling: 1.5,

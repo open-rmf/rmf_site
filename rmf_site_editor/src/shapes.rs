@@ -1312,7 +1312,9 @@ pub(crate) fn make_finite_grid(
             let Some(weight_key) = weights.keys().rev().find(|k| n % **k == 0) else {
                 continue;
             };
-            polylines.entry(*weight_key).or_default()
+            polylines.entry(*weight_key).or_insert(Polyline3d {
+                vertices: vec![Vec3::default(), Vec3::default()],
+            })
         };
 
         for (i, j) in [(0, 1), (1, 0)] {

@@ -288,7 +288,7 @@ pub fn render_sub_menu(
                     button = button.shortcut_text(shortcut);
                 }
                 if ui.add_enabled(!disabled, button).clicked() {
-                    extension_events.send(MenuEvent::MenuClickEvent(*entity));
+                    extension_events.write(MenuEvent::MenuClickEvent(*entity));
                 }
             }
             MenuItem::CheckBox(title, mut value) => {
@@ -296,7 +296,7 @@ pub fn render_sub_menu(
                     .add_enabled(!disabled, egui::Checkbox::new(&mut value, title))
                     .clicked()
                 {
-                    extension_events.send(MenuEvent::MenuClickEvent(*entity));
+                    extension_events.write(MenuEvent::MenuClickEvent(*entity));
                 }
             }
         }
@@ -316,7 +316,7 @@ pub fn render_sub_menu(
             for child in child_items.iter() {
                 render_sub_menu(
                     ui,
-                    child,
+                    &child,
                     children,
                     menus,
                     menu_items,
@@ -333,7 +333,7 @@ pub fn render_sub_menu(
         for child in child_items.iter() {
             render_sub_menu(
                 ui,
-                child,
+                &child,
                 children,
                 menus,
                 menu_items,

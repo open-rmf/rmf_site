@@ -272,15 +272,12 @@ pub fn cleanup_create_path(
         }
 
         for a in state.provisional_anchors {
-            if let Some(a_mut) = commands.get_entity(a) {
-                a_mut.despawn_recursive();
+            if let Ok(mut a_mut) = commands.get_entity(a) {
+                a_mut.despawn();
             }
         }
 
-        commands
-            .get_entity(path)
-            .or_broken_query()?
-            .despawn_recursive();
+        commands.get_entity(path).or_broken_query()?.despawn();
     } else {
         if let Some(a) = path_mut.0.last() {
             // The last point in the path is always a preview point so we need
@@ -297,10 +294,7 @@ pub fn cleanup_create_path(
         if path_mut.0.is_empty() {
             // The path is empty... we shouldn't keep an empty path so let's
             // just despawn it.
-            commands
-                .get_entity(path)
-                .or_broken_query()?
-                .despawn_recursive();
+            commands.get_entity(path).or_broken_query()?.despawn();
         }
     }
 

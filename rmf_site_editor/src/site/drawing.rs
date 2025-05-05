@@ -386,7 +386,7 @@ pub fn update_drawing_visibility(
 
     for children in &changed_default_drawing_vis {
         iter_update_drawing_visibility(
-            children.iter().filter_map(|e| all_drawings.get(*e).ok()),
+            children.iter().filter_map(|e| all_drawings.get(e).ok()),
             &material_handles,
             &mut material_assets,
             &default_drawing_vis,

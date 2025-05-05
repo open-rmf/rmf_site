@@ -16,8 +16,9 @@
 */
 
 use crate::site::ChangePlugin;
-use bevy::{prelude::*, utils::HashMap};
+use bevy::prelude::*;
 use rmf_site_format::{FilteredIssueKinds, FilteredIssues, IssueKey};
+use std::collections::HashMap;
 use uuid::Uuid;
 
 #[derive(Component, Debug, Clone)]
@@ -78,7 +79,7 @@ pub fn clear_old_issues_on_new_validate_event(
         };
         for e in children {
             if issues.get(*e).is_ok() {
-                commands.entity(*e).despawn_recursive();
+                commands.entity(*e).despawn();
             }
         }
     }

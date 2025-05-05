@@ -78,7 +78,7 @@ impl<'w, 's> ViewScenarios<'w, 's> {
                     let mut new_name = name.0.clone();
                     if ui.text_edit_singleline(&mut new_name).changed() {
                         self.change_name
-                            .send(Change::new(NameInSite(new_name), current_scenario_entity));
+                            .write(Change::new(NameInSite(new_name), current_scenario_entity));
                     }
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         if ui
@@ -87,7 +87,7 @@ impl<'w, 's> ViewScenarios<'w, 's> {
                             .clicked()
                         {
                             self.remove_scenario
-                                .send(RemoveScenario(current_scenario_entity));
+                                .write(RemoveScenario(current_scenario_entity));
                         }
                     });
                 });
@@ -122,7 +122,7 @@ impl<'w, 's> ViewScenarios<'w, 's> {
         });
         ui.horizontal(|ui| {
             if ui.add(Button::image(self.icons.add.egui())).clicked() {
-                self.create_new_scenario.send(CreateScenario {
+                self.create_new_scenario.write(CreateScenario {
                     name: Some(self.display_scenarios.new_scenario_name.clone()),
                     parent: match self.display_scenarios.is_new_scenario_root {
                         true => None,
@@ -206,12 +206,12 @@ fn show_scenario_widget(
     // Scenario version and name, e.g. 1.2.3 My Scenario
     ui.horizontal(|ui| {
         if ui.radio(Some(entity) == **current_scenario, "").clicked() {
-            change_current_scenario.send(ChangeCurrentScenario(entity));
+            change_current_scenario.write(ChangeCurrentScenario(entity));
         }
         ui.colored_label(Color32::DARK_GRAY, scenario_version_str.clone());
         let mut new_name = name.0.clone();
         if ui.text_edit_singleline(&mut new_name).changed() {
-            change_name.send(Change::new(NameInSite(new_name), entity));
+            change_name.write(Change::new(NameInSite(new_name), entity));
         }
     });
 

@@ -18,8 +18,6 @@
 use bevy::asset::{io::Reader, AssetLoader, LoadContext};
 use bevy::prelude::*;
 
-use futures_lite::AsyncReadExt;
-
 use thiserror::Error;
 
 use sdformat_rs::{SdfGeometry, SdfPose, Vector3d};

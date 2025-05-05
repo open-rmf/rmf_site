@@ -49,7 +49,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPose<'w, 's> {
             return;
         };
         if let Some(new_pose) = InspectPoseComponent::new(pose).show(ui) {
-            params.change_pose.send(Change::new(new_pose, selection));
+            params.change_pose.write(Change::new(new_pose, selection));
         }
 
         // Reset model instance pose to parent scenario pose (if any)
@@ -70,7 +70,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPose<'w, 's> {
                                 .on_hover_text("Reset to parent scenario pose")
                                 .clicked()
                             {
-                                params.update_instance.send(UpdateInstanceEvent {
+                                params.update_instance.write(UpdateInstanceEvent {
                                     scenario: scenario_entity,
                                     instance: selection,
                                     update: UpdateInstance::ResetPose,

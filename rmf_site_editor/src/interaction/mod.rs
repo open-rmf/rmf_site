@@ -139,7 +139,7 @@ impl Plugin for InteractionPlugin {
             )
             .add_systems(
                 Update,
-                apply_deferred.in_set(InteractionUpdateSet::CommandFlush),
+                ApplyDeferred.in_set(InteractionUpdateSet::CommandFlush),
             )
             .add_plugins(PolylinePlugin)
             .add_plugins(MeshPickingPlugin)

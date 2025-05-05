@@ -36,12 +36,12 @@ fn show_all_levels(
         .and_then(|s| children.get(s).ok())
     {
         for child in children.iter() {
-            if let Ok((mut vis, mut tf, elevation)) = levels.get_mut(*child) {
+            if let Ok((mut vis, mut tf, elevation)) = levels.get_mut(child) {
                 *vis = Visibility::Inherited;
                 tf.translation.z = elevation.0;
             }
         }
-        lanes_visibility.send(false.into());
+        lanes_visibility.write(false.into());
     }
 }
 
@@ -58,8 +58,8 @@ fn hide_all_non_current_levels(
         .and_then(|s| children.get(s).ok())
     {
         for child in children.iter() {
-            if let Ok((mut vis, mut tf)) = levels.get_mut(*child) {
-                *vis = if Some(*child) == **current_level {
+            if let Ok((mut vis, mut tf)) = levels.get_mut(child) {
+                *vis = if Some(child) == **current_level {
                     Visibility::Inherited
                 } else {
                     Visibility::Hidden
@@ -67,7 +67,7 @@ fn hide_all_non_current_levels(
                 tf.translation.z = 0.0;
             }
         }
-        lanes_visibility.send(true.into());
+        lanes_visibility.write(true.into());
     }
 }
 

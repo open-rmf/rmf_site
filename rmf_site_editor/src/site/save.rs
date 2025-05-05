@@ -456,7 +456,7 @@ fn generate_levels(
                 level_children,
                 floor_ranking,
                 drawing_ranking,
-            )) = q_levels.get(*c)
+            )) = q_levels.get(c)
             {
                 let mut level = Level::new(
                     LevelProperties {
@@ -475,10 +475,10 @@ fn generate_levels(
                     },
                 );
                 for c in level_children.iter() {
-                    if let Ok((anchor, id)) = q_anchors.get(*c) {
+                    if let Ok((anchor, id)) = q_anchors.get(c) {
                         level.anchors.insert(id.0, anchor.clone());
                     }
-                    if let Ok((edge, o_edge, name, kind, id)) = q_doors.get(*c) {
+                    if let Ok((edge, o_edge, name, kind, id)) = q_doors.get(c) {
                         let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
                         let anchors = get_anchor_id_edge(edge)?;
                         level.doors.insert(
@@ -499,16 +499,16 @@ fn generate_levels(
                         preferred_alpha,
                         id,
                         children,
-                    )) = q_drawings.get(*c)
+                    )) = q_drawings.get(c)
                     {
                         let mut measurements = BTreeMap::new();
                         let mut fiducials = BTreeMap::new();
                         let mut anchors = BTreeMap::new();
                         for e in children.iter() {
-                            if let Ok((anchor, anchor_id)) = q_anchors.get(*e) {
+                            if let Ok((anchor, anchor_id)) = q_anchors.get(e) {
                                 anchors.insert(anchor_id.0, anchor.clone());
                             }
-                            if let Ok((edge, o_edge, distance, id)) = q_measurements.get(*e) {
+                            if let Ok((edge, o_edge, distance, id)) = q_measurements.get(e) {
                                 let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
                                 let anchors = get_anchor_id_edge(edge)?;
                                 measurements.insert(
@@ -520,7 +520,7 @@ fn generate_levels(
                                     },
                                 );
                             }
-                            if let Ok((point, o_point, affiliation, id)) = q_fiducials.get(*e) {
+                            if let Ok((point, o_point, affiliation, id)) = q_fiducials.get(e) {
                                 let point = o_point.map(|x| &x.0).unwrap_or(point);
                                 let anchor = Point(get_anchor_id(point.0)?);
                                 let affiliation = if let Affiliation(Some(e)) = affiliation {
@@ -554,7 +554,7 @@ fn generate_levels(
                             },
                         );
                     }
-                    if let Ok((path, o_path, texture, preferred_alpha, id)) = q_floors.get(*c) {
+                    if let Ok((path, o_path, texture, preferred_alpha, id)) = q_floors.get(c) {
                         let path = o_path.map(|x| &x.0).unwrap_or(path);
                         let anchors = get_anchor_id_path(&path)?;
                         let texture = if let Affiliation(Some(e)) = texture {
@@ -573,7 +573,7 @@ fn generate_levels(
                             },
                         );
                     }
-                    if let Ok((kind, pose, id)) = q_lights.get(*c) {
+                    if let Ok((kind, pose, id)) = q_lights.get(c) {
                         level.lights.insert(
                             id.0,
                             Light {
@@ -582,7 +582,7 @@ fn generate_levels(
                             },
                         );
                     }
-                    if let Ok((name, pose, properties, id)) = q_physical_cameras.get(*c) {
+                    if let Ok((name, pose, properties, id)) = q_physical_cameras.get(c) {
                         level.physical_cameras.insert(
                             id.0,
                             PhysicalCamera {
@@ -593,7 +593,7 @@ fn generate_levels(
                             },
                         );
                     }
-                    if let Ok((edge, o_edge, texture, id)) = q_walls.get(*c) {
+                    if let Ok((edge, o_edge, texture, id)) = q_walls.get(c) {
                         let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
                         let anchors = get_anchor_id_edge(edge)?;
                         let texture = if let Affiliation(Some(e)) = texture {
@@ -611,7 +611,7 @@ fn generate_levels(
                             },
                         );
                     }
-                    if let Ok((pose, name, id)) = q_user_camera_poses.get(*c) {
+                    if let Ok((pose, name, id)) = q_user_camera_poses.get(c) {
                         level.user_camera_poses.insert(
                             id.0,
                             UserCameraPose {
@@ -727,12 +727,12 @@ fn generate_lifts(
         }
 
         // TODO(MXG): Clean up this spaghetti
-        let anchor_group_entity = *match match q_children.get(lift_entity) {
+        let anchor_group_entity = match match q_children.get(lift_entity) {
             Ok(children) => children,
             Err(_) => return Err(SiteGenerationError::BrokenLift(id.0)),
         }
         .iter()
-        .find(|c| q_cabin_anchor_groups.contains(**c))
+        .find(|c| q_cabin_anchor_groups.contains(*c))
         {
             Some(c) => c,
             None => return Err(SiteGenerationError::BrokenLift(id.0)),
@@ -1219,7 +1219,7 @@ fn generate_model_descriptions(
     let mut res = BTreeMap::<u32, ModelDescriptionBundle>::new();
     if let Ok(children) = children.get(site) {
         for child in children.iter() {
-            if let Ok((site_id, name, source, is_static, scale)) = model_descriptions.get(*child) {
+            if let Ok((site_id, name, source, is_static, scale)) = model_descriptions.get(child) {
                 let desc_bundle = ModelDescriptionBundle {
                     name: name.clone(),
                     source: source.clone(),
@@ -1247,7 +1247,7 @@ fn generate_robots(
     let mut res = BTreeMap::<u32, Robot>::new();
     if let Ok(children) = children.get(site) {
         for child in children.iter() {
-            if let Ok((site_id, robot_property)) = robots.get(*child) {
+            if let Ok((site_id, robot_property)) = robots.get(child) {
                 let mut robot = robot_property.0.clone();
                 // Remove any invalid properties
                 robot.properties.retain(|k, _| !k.is_empty());
@@ -1329,17 +1329,17 @@ fn generate_scenarios(
 
     if let Ok(site_children) = children.get(site) {
         for site_child in site_children.iter() {
-            if let Ok((entity, ..)) = scenarios.get(*site_child) {
+            if let Ok((entity, ..)) = scenarios.get(site_child) {
                 let mut queue = vec![entity];
 
                 while let Some(scenario) = queue.pop() {
                     let mut scenario_instance_modifiers = Vec::new();
                     if let Ok(scenario_children) = children.get(scenario) {
                         for scenario_child in scenario_children.iter() {
-                            if scenarios.contains(*scenario_child) {
-                                queue.push(*scenario_child);
-                            } else if instance_modifiers.contains(*scenario_child) {
-                                scenario_instance_modifiers.push(*scenario_child);
+                            if scenarios.contains(scenario_child) {
+                                queue.push(scenario_child);
+                            } else if instance_modifiers.contains(scenario_child) {
+                                scenario_instance_modifiers.push(scenario_child);
                             }
                         }
                     }
@@ -1404,7 +1404,7 @@ fn generate_tasks(
             continue;
         };
         for child in children.iter() {
-            if let Ok((site_id, tasks_data)) = tasks.get(*child) {
+            if let Ok((site_id, tasks_data)) = tasks.get(child) {
                 res.insert(site_id.0, tasks_data.clone());
             }
         }

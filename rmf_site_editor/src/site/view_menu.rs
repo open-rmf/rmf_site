@@ -169,27 +169,27 @@ fn handle_view_menu_events(
     };
     for event in menu_events.read() {
         if event.clicked() && event.source() == view_menu.doors {
-            events.doors.send(toggle(event.source()).into());
+            events.doors.write(toggle(event.source()).into());
         } else if event.clicked() && event.source() == view_menu.floors {
-            events.floors.send(toggle(event.source()).into());
+            events.floors.write(toggle(event.source()).into());
         } else if event.clicked() && event.source() == view_menu.lanes {
-            events.lanes.send(toggle(event.source()).into());
+            events.lanes.write(toggle(event.source()).into());
         } else if event.clicked() && event.source() == view_menu.lifts {
             let value = toggle(event.source());
-            events.lift_cabins.send(value.into());
-            events.lift_cabin_doors.send(value.into());
+            events.lift_cabins.write(value.into());
+            events.lift_cabin_doors.write(value.into());
         } else if event.clicked() && event.source() == view_menu.locations {
-            events.locations.send(toggle(event.source()).into());
+            events.locations.write(toggle(event.source()).into());
         } else if event.clicked() && event.source() == view_menu.fiducials {
-            events.fiducials.send(toggle(event.source()).into());
+            events.fiducials.write(toggle(event.source()).into());
         } else if event.clicked() && event.source() == view_menu.measurements {
-            events.measurements.send(toggle(event.source()).into());
+            events.measurements.write(toggle(event.source()).into());
         } else if event.clicked() && event.source() == view_menu.collisions {
-            events.collisions.send(toggle(event.source()).into());
+            events.collisions.write(toggle(event.source()).into());
         } else if event.clicked() && event.source() == view_menu.visuals {
-            events.visuals.send(toggle(event.source()).into());
+            events.visuals.write(toggle(event.source()).into());
         } else if event.clicked() && event.source() == view_menu.walls {
-            events.walls.send(toggle(event.source()).into());
+            events.walls.write(toggle(event.source()).into());
         }
     }
 }

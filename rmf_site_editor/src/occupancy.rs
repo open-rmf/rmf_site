@@ -256,7 +256,7 @@ fn calculate_grid(
         info!("Occupancy calculation time: {}", delta.as_secs_f32());
 
         for grid in &grids {
-            commands.entity(grid).despawn_recursive();
+            commands.entity(grid).despawn();
         }
 
         for (site, levels) in levels_of_sites {

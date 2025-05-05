@@ -500,7 +500,7 @@ pub fn load_site(
         let site = match generate_site_entities(&mut commands, &mut model_loader, &cmd.site) {
             Ok(site) => site,
             Err(err) => {
-                commands.entity(err.site).despawn_recursive();
+                commands.entity(err.site).despawn();
                 error!(
                     "Failed to load the site entities because the file had an \
                     internal inconsistency:\n{err:#?}\n---\nSite Data:\n{:#?}",
@@ -514,7 +514,7 @@ pub fn load_site(
         }
 
         if cmd.focus {
-            change_current_site.send(ChangeCurrentSite {
+            change_current_site.write(ChangeCurrentSite {
                 site,
                 level: None,
                 scenario: None,
@@ -622,9 +622,9 @@ fn generate_imported_nav_graphs(
                 .unwrap()
                 .3
                 .iter()
-                .find(|child| params.cabin_anchor_groups.contains(**child))
+                .find(|child| params.cabin_anchor_groups.contains(*child))
             {
-                lift_to_anchor_group.insert(*e, *e_group);
+                lift_to_anchor_group.insert(*e, e_group);
             } else {
                 return Err(ImportNavGraphError::MissingCabinAnchorGroup(
                     lift_data.properties.name.0.clone(),
@@ -646,7 +646,7 @@ fn generate_imported_nav_graphs(
             .get(anchor_group)
             .unwrap()
             .iter()
-            .filter_map(|child| params.anchors.get(*child).ok())
+            .filter_map(|child| params.anchors.get(child).ok())
             .collect();
 
         for (anchor_id, anchor) in &lift_data.cabin_anchors {
@@ -675,7 +675,7 @@ fn generate_imported_nav_graphs(
             .unwrap()
             .3
             .iter()
-            .filter_map(|child| params.anchors.get(*child).ok())
+            .filter_map(|child| params.anchors.get(child).ok())
             .collect();
         for (anchor_id, anchor) in &level_data.anchors {
             let mut already_existing = false;
@@ -698,7 +698,7 @@ fn generate_imported_nav_graphs(
     {
         let existing_site_anchors: Vec<(Entity, &Anchor)> = site_children
             .iter()
-            .filter_map(|child| params.anchors.get(*child).ok())
+            .filter_map(|child| params.anchors.get(child).ok())
             .collect();
         for (anchor_id, anchor) in &from_site_data.anchors {
             let mut already_existing = false;

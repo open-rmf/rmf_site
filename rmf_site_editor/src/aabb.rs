@@ -12,9 +12,9 @@
 use bevy::{
     prelude::*,
     render::{mesh::MeshAabb, primitives::Aabb, view::VisibilitySystems},
-    utils::HashMap,
 };
 use smallvec::SmallVec;
+use std::collections::HashMap;
 
 /// Tracks which [`Entities`](Entity) have which meshes for entities whose [`Aabb`]s are managed by
 /// the [`calculate_bounds`][1] and [`update_bounds`] systems. This is needed because `update_bounds`

@@ -115,7 +115,7 @@ impl Cursor {
 
     pub fn remove_preview(&mut self, commands: &mut Commands) {
         if let Some(current_preview) = self.preview_model.take() {
-            commands.entity(current_preview).despawn_recursive();
+            commands.entity(current_preview).despawn();
         }
     }
 

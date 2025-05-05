@@ -124,7 +124,7 @@ fn switch_edit_drawing_mode(
                 // constantly hovering over it anyway.
                 .insert(SuppressHighlight);
 
-            change_camera_mode.send(ChangeProjectionMode::to_orthographic());
+            change_camera_mode.write(ChangeProjectionMode::to_orthographic());
 
             if let Ok(mut editor_tf) = local_tf.get_mut(current.editor) {
                 if let Ok(level_tf) = global_tf.get(level) {
@@ -158,7 +158,7 @@ fn switch_edit_drawing_mode(
         current.target = None;
 
         // This camera change would not be needed if we have an edit mode stack
-        change_camera_mode.send(ChangeProjectionMode::to_perspective());
+        change_camera_mode.write(ChangeProjectionMode::to_perspective());
 
         if let Some(w) = current_workspace.root {
             if let Ok(mut v) = workspace_visibility.get_mut(w) {

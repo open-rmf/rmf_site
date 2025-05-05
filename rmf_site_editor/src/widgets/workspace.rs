@@ -84,7 +84,7 @@ fn handle_workspace_menu_events(
 ) {
     for event in menu_events.read() {
         if event.clicked() && event.source() == workspace_menu.new {
-            new_workspace.send(CreateNewWorkspace);
+            new_workspace.write(CreateNewWorkspace);
         } else if event.clicked() && event.source() == workspace_menu.save {
             workspace_saver.save_to_default_file();
         } else if event.clicked() && event.source() == workspace_menu.save_as {

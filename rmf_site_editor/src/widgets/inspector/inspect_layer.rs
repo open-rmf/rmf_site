@@ -143,11 +143,11 @@ impl<'w, 's> InspectLayer<'w, 's> {
                         .on_hover_text("Edit Drawing");
 
                     if response.hovered() {
-                        self.selector.hover.send(Hover(Some(id)));
+                        self.selector.hover.write(Hover(Some(id)));
                     }
 
                     if response.clicked() {
-                        self.begin_edit_drawing.send(BeginEditDrawing(id));
+                        self.begin_edit_drawing.write(BeginEditDrawing(id));
                     }
                 }
             }
@@ -163,13 +163,13 @@ impl<'w, 's> InspectLayer<'w, 's> {
                 .add(ImageButton::new(icon))
                 .on_hover_text(format!("Change to {}", vis.next(default_alpha).label()));
             if resp.hovered() {
-                self.selector.hover.send(Hover(Some(id)));
+                self.selector.hover.write(Hover(Some(id)));
             }
             if resp.clicked() {
                 match vis.next(default_alpha) {
                     Some(v) => {
                         self.change_layer_visibility
-                            .send(Change::new(v, id).or_insert());
+                            .write(Change::new(v, id).or_insert());
                     }
                     None => {
                         self.commands.entity(id).remove::<LayerVisibility>();
@@ -183,9 +183,9 @@ impl<'w, 's> InspectLayer<'w, 's> {
                     .changed()
                 {
                     self.change_layer_visibility
-                        .send(Change::new(LayerVisibility::Alpha(alpha), id));
+                        .write(Change::new(LayerVisibility::Alpha(alpha), id));
                     self.change_preferred_alpha
-                        .send(Change::new(PreferredSemiTransparency(alpha), id));
+                        .write(Change::new(PreferredSemiTransparency(alpha), id));
                 }
             }
         });

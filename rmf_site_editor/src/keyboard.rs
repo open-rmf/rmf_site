@@ -64,7 +64,7 @@ fn handle_keyboard_input(
     mut workspace_saver: WorkspaceSaver,
 ) {
     let Some(egui_context) = primary_windows
-        .get_single()
+        .single()
         .ok()
         .and_then(|w| egui_context.try_ctx_for_entity_mut(w))
     else {
@@ -79,18 +79,18 @@ fn handle_keyboard_input(
     }
 
     if keyboard_input.just_pressed(KeyCode::F2) {
-        change_camera_mode.send(ChangeProjectionMode::to_orthographic());
+        change_camera_mode.write(ChangeProjectionMode::to_orthographic());
     }
 
     if keyboard_input.just_pressed(KeyCode::F3) {
-        change_camera_mode.send(ChangeProjectionMode::to_perspective());
+        change_camera_mode.write(ChangeProjectionMode::to_perspective());
     }
 
     if keyboard_input.just_pressed(KeyCode::Delete)
         || keyboard_input.just_pressed(KeyCode::Backspace)
     {
         if let Some(selection) = selection.0 {
-            delete.send(Delete::new(selection));
+            delete.write(Delete::new(selection));
         } else {
             warn!("No selected entity to delete");
         }
@@ -113,7 +113,7 @@ fn handle_keyboard_input(
 
         if keyboard_input.just_pressed(KeyCode::KeyT) {
             if let Some(site) = current_workspace.root {
-                align_site.send(AlignSiteDrawings(site));
+                align_site.write(AlignSiteDrawings(site));
             }
         }
 
@@ -124,7 +124,7 @@ fn handle_keyboard_input(
         // TODO(luca) pop up a confirmation prompt if the current file is not saved, or create a
         // gui to switch between open workspaces
         if keyboard_input.just_pressed(KeyCode::KeyN) {
-            new_workspace.send(CreateNewWorkspace);
+            new_workspace.write(CreateNewWorkspace);
         }
 
         if keyboard_input.just_pressed(KeyCode::KeyO) {

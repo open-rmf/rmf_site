@@ -46,7 +46,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectDoor<'w, 's> {
         };
 
         if let Some(new_door) = InspectDoorType::new(door, recall).show(ui) {
-            params.change_door.send(Change::new(new_door, selection));
+            params.change_door.write(Change::new(new_door, selection));
         }
         ui.add_space(10.0);
     }

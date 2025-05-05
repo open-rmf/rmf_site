@@ -86,7 +86,7 @@ pub fn update_cursor_command(
     cameras: Query<(&Projection, &Transform, &GlobalTransform)>,
     primary_windows: Query<&Window, With<PrimaryWindow>>,
 ) {
-    if let Ok(window) = primary_windows.get_single() {
+    if let Ok(window) = primary_windows.single() {
         // Return if cursor not within window
         if window.cursor_position().is_none() {
             return;
@@ -128,7 +128,7 @@ pub fn update_cursor_command(
         else {
             return;
         };
-        let Some((_, hit_data)) = pointers.get_single().ok().and_then(|(_, interactions)| {
+        let Some((_, hit_data)) = pointers.single().ok().and_then(|(_, interactions)| {
             interactions
                 .iter()
                 .find(|(_, hit)| hit.camera == active_camera_entity)

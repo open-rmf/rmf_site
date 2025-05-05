@@ -16,7 +16,7 @@
 */
 
 use bevy::math::Ray3d;
-use bevy::picking::mesh_picking::ray_cast::{MeshRayCast, RayCastSettings, RayCastVisibility};
+use bevy::picking::mesh_picking::ray_cast::{MeshRayCast, MeshRayCastSettings, RayCastVisibility};
 use bevy::prelude::*;
 
 use super::{MAX_PITCH, MAX_SELECTION_DIST, MIN_SELECTION_DIST};
@@ -84,7 +84,7 @@ pub fn get_camera_selected_point(
         .viewport_to_world(camera_global_transform, available_viewport_center)
         .ok()?;
     let camera_ray = Ray3d::new(camera_ray.origin, camera_ray.direction);
-    let ray_cast_setting = RayCastSettings::default()
+    let ray_cast_setting = MeshRayCastSettings::default()
         .always_early_exit()
         .with_visibility(RayCastVisibility::Visible);
 

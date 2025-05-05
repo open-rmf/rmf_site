@@ -179,7 +179,7 @@ impl<'w, 's> InspectTextureAffiliation<'w, 's> {
                             .set_parent(site)
                             .id();
                         self.change_affiliation
-                            .send(Change::new(Affiliation(Some(new_texture_group)), id));
+                            .write(Change::new(Affiliation(Some(new_texture_group)), id));
                     }
                 }
                 SearchResult::Match(group) => {
@@ -189,7 +189,7 @@ impl<'w, 's> InspectTextureAffiliation<'w, 's> {
                         .clicked()
                     {
                         self.change_affiliation
-                            .send(Change::new(Affiliation(Some(group)), id));
+                            .write(Change::new(Affiliation(Some(group)), id));
                     }
                 }
                 SearchResult::Conflict(text) => {
@@ -256,7 +256,7 @@ impl<'w, 's> InspectTextureAffiliation<'w, 's> {
 
         if new_affiliation != *affiliation {
             self.change_affiliation
-                .send(Change::new(new_affiliation, id));
+                .write(Change::new(new_affiliation, id));
         }
         ui.add_space(10.0);
     }

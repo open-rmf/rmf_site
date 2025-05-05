@@ -391,13 +391,13 @@ pub fn render_map_tiles(
                 render_settings.prev_anchor = offset;
                 // Clear all exisitng tiles
                 for (entity, _tile) in &map_tiles {
-                    commands.entity(entity).despawn();
+                    commands.entity(entity).remove::<Children>().despawn();
                 }
             }
 
             if !geo_offset.visible {
                 for (entity, _tile) in &map_tiles {
-                    commands.entity(entity).despawn();
+                    commands.entity(entity).remove::<Children>().despawn();
                 }
                 return;
             }
@@ -420,7 +420,7 @@ pub fn render_map_tiles(
                 if let Some(Rect { min, max }) = camera.logical_viewport_rect() {
                     let viewport_size = max - min;
 
-                    let Ok(primary_window) = primary_window.get_single() else {
+                    let Ok(primary_window) = primary_window.single() else {
                         return;
                     };
                     let top_left_ray = ray_from_screenspace(
@@ -510,7 +510,7 @@ pub fn render_map_tiles(
 
                 if zoom_changed {
                     for (entity, _tile) in &map_tiles {
-                        commands.entity(entity).despawn();
+                        commands.entity(entity).remove::<Children>().despawn();
                     }
                 }
             }

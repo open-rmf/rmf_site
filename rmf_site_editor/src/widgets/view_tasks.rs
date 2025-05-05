@@ -132,7 +132,7 @@ fn show_task(
                     )
                     .clicked()
                 {
-                    select.send(Select::new(Some(*robot_entity)));
+                    select.write(Select::new(Some(*robot_entity)));
                 }
             });
 
@@ -156,7 +156,7 @@ fn show_task(
                                     )
                                     .clicked()
                                 {
-                                    select.send(Select::new(Some(entity)));
+                                    select.write(Select::new(Some(entity)));
                                 }
                                 break;
                             }

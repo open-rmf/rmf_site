@@ -455,7 +455,7 @@ pub fn update_floor_visibility(
 
     for children in &changed_default_floor_vis {
         iter_update_floor_visibility(
-            children.iter().filter_map(|e| all_floors.get(*e).ok()),
+            children.iter().filter_map(|e| all_floors.get(e).ok()),
             &material_handles,
             &mut material_assets,
             &default_floor_vis,

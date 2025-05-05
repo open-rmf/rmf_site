@@ -154,7 +154,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectRobotProperties<'w, 's> {
         let children: Result<SmallVec<[_; 16]>, _> = params
             .children
             .get(params.inspect_robot_properties.id)
-            .map(|children| children.iter().copied().collect());
+            .map(|children| children.iter().collect());
         let Ok(children) = children else {
             return;
         };
@@ -342,7 +342,7 @@ pub fn update_robot_property_components<T: RobotProperty>(
     // Remove Robot property entirely
     for description_entity in removals.read() {
         commands.entity(description_entity).remove::<T>();
-        update_robot_property_kinds.send(UpdateRobotPropertyKinds {
+        update_robot_property_kinds.write(UpdateRobotPropertyKinds {
             entity: description_entity,
             label: property_label.clone(),
             value: serde_json::Value::Object(Map::new()),
@@ -370,7 +370,7 @@ pub fn update_robot_property_components<T: RobotProperty>(
                 }
             }
             // Update robot property kinds
-            update_robot_property_kinds.send(UpdateRobotPropertyKinds {
+            update_robot_property_kinds.write(UpdateRobotPropertyKinds {
                 entity,
                 label: property_label.clone(),
                 value,
@@ -510,7 +510,7 @@ pub fn show_robot_property_widget<T: RobotProperty>(
             }
         }
     }
-    change_robot_property.send(Change::new(ModelProperty(new_robot), description_entity));
+    change_robot_property.write(Change::new(ModelProperty(new_robot), description_entity));
 }
 
 /// This system updates ModelProperty<Robot> based on updates to the property components
@@ -528,7 +528,7 @@ pub fn serialize_and_change_robot_property<Property: RobotProperty, Kind: RobotP
             new_robot
                 .properties
                 .insert(Property::label(), new_property_value);
-            change_robot_property.send(Change::new(ModelProperty(new_robot), description_entity));
+            change_robot_property.write(Change::new(ModelProperty(new_robot), description_entity));
         }
     }
 }

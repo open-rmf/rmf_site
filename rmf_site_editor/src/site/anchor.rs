@@ -16,7 +16,7 @@
 */
 
 use crate::{site::*, Issue, ValidateWorkspace};
-use bevy::{ecs::world::Command, prelude::*, render::primitives::Sphere};
+use bevy::{ecs::system::Command, prelude::*, render::primitives::Sphere};
 use itertools::Itertools;
 use rmf_site_format::{Anchor, LevelElevation, LiftCabin};
 use std::collections::HashMap;

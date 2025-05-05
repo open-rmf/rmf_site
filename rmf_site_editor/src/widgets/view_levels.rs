@@ -165,7 +165,7 @@ impl<'w, 's> ViewLevels<'w, 's> {
                             .on_hover_text("Remove this level")
                             .clicked()
                         {
-                            self.delete.send(Delete::new(e).and_dependents());
+                            self.delete.write(Delete::new(e).and_dependents());
                             any_deleted = true;
                         }
                     } else if editing {
@@ -187,12 +187,12 @@ impl<'w, 's> ViewLevels<'w, 's> {
 
                 if shown_name != name.0 {
                     self.change_name
-                        .send(Change::new(NameInSite(shown_name), e));
+                        .write(Change::new(NameInSite(shown_name), e));
                 }
 
                 if shown_elevation != elevation.0 {
                     self.change_level_elevation
-                        .send(Change::new(LevelElevation(shown_elevation), e));
+                        .write(Change::new(LevelElevation(shown_elevation), e));
                 }
             }
         }

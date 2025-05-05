@@ -357,7 +357,7 @@ impl<'w, 's> WidgetSystem<Tile> for Inspector<'w, 's> {
                 let children: Result<SmallVec<[_; 16]>, _> = params
                     .children
                     .get(id)
-                    .map(|children| children.iter().copied().collect());
+                    .map(|children| children.iter().collect());
                 let Ok(children) = children else {
                     return;
                 };

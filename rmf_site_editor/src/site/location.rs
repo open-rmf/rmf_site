@@ -223,19 +223,19 @@ pub fn update_location_for_changed_location_tags(
         // Despawn the removed tags first
         if let Some(id) = tag_meshes.charger {
             if !tags.iter().any(|t| t.is_charger()) {
-                commands.entity(id).despawn_recursive();
+                commands.entity(id).despawn();
                 tag_meshes.charger = None;
             }
         }
         if let Some(id) = tag_meshes.parking_spot {
             if !tags.iter().any(|t| t.is_parking_spot()) {
-                commands.entity(id).despawn_recursive();
+                commands.entity(id).despawn();
                 tag_meshes.parking_spot = None;
             }
         }
         if let Some(id) = tag_meshes.holding_point {
             if !tags.iter().any(|t| t.is_holding_point()) {
-                commands.entity(id).despawn_recursive();
+                commands.entity(id).despawn();
                 tag_meshes.holding_point = None;
             }
         }

@@ -117,11 +117,11 @@ impl<'w, 's> InspectAssociatedGraphs<'w, 's> {
                         if add_graph {
                             set.insert(choice);
                             self.consider_graph
-                                .send(ConsiderAssociatedGraph::new(None, id));
+                                .write(ConsiderAssociatedGraph::new(None, id));
                         } else {
                             if Some(choice) != recall.consider {
                                 self.consider_graph
-                                    .send(ConsiderAssociatedGraph::new(Some(choice), id));
+                                    .write(ConsiderAssociatedGraph::new(Some(choice), id));
                             }
                         }
                     });
@@ -135,7 +135,7 @@ impl<'w, 's> InspectAssociatedGraphs<'w, 's> {
 
         if new_associated != *associated {
             self.change_associated_graphs
-                .send(Change::new(new_associated, id));
+                .write(Change::new(new_associated, id));
         }
 
         ui.add_space(10.0);

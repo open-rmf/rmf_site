@@ -15,7 +15,7 @@
  *
 */
 
-use bevy::{ecs::system::EntityCommands, ecs::world::Command, prelude::*};
+use bevy::{ecs::system::EntityCommands, prelude::*};
 use rmf_site_format::{Affiliation, Group};
 
 #[derive(Event)]
