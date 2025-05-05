@@ -16,17 +16,17 @@ name = "extending_site_editor"
 path = "examples/extending_menu.rs"
 
 [dependencies]
-bevy_mod_outline = "0.9.1"
-bevy_gltf_export = { git = "https://github.com/xiyuoh/bevy_gltf_export", branch = "xiyu/bevy_0.15"}
+bevy_mod_outline = { git = "https://github.com/komadori/bevy_mod_outline", branch = "bevy-0.16"}
+bevy_gltf_export = { git = "https://github.com/xiyuoh/bevy_gltf_export", branch = "xiyu/bevy_0.16"}
 bevy_polyline = "0.11"
-bevy_stl = "0.15"
-bevy_obj = { version = "0.15", features = ["scene"] }
+bevy_stl = "0.16"
+bevy_obj = { version = "0.16", features = ["scene"] }
 smallvec = "*"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.8.23"
 serde_json = "1.0"
 futures-lite = "1.12.0"
-bevy = { version = "0.15", features = ["pnm", "jpeg", "tga"] }
+bevy = { version = "0.16", features = ["pnm", "jpeg", "tga"] }
 dirs = "5.0"
 thread_local = "*"
 geo = "0.27"
@@ -47,13 +47,13 @@ pathdiff = "*"
 ehttp = { version = "0.4", features = ["native-async"] }
 nalgebra = "0.32.5"
 anyhow = "*"
-uuid = { version = "1.12", features = ["v4"] }
+uuid = { version = "1.13", features = ["v4"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 clap = { version = "4.0.10", features = ["color", "derive", "help", "usage", "suggestions"] }
-bevy_egui = "0.33"
-bevy_impulse = { git = "https://github.com/open-rmf/bevy_impulse", branch = "xiyu/release-0.3" }
+bevy_egui = "0.34"
+bevy_impulse = { git = "https://github.com/open-rmf/bevy_impulse", branch = "xiyu/release-0.4" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-bevy_egui = { version = "0.33", default-features = false, features = ["open_url", "default_fonts", "render"] }
-bevy_impulse = { git = "https://github.com/open-rmf/bevy_impulse", branch = "xiyu/release-0.3", features = ["single_threaded_async"]}
+bevy_egui = { version = "0.34", default-features = false, features = ["open_url", "default_fonts", "render"] }
+bevy_impulse = { git = "https://github.com/open-rmf/bevy_impulse", branch = "xiyu/release-0.4", features = ["single_threaded_async"]}
