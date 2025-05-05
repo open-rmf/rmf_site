@@ -25,10 +25,7 @@ use anyhow::{anyhow, Error as Anyhow};
 use bevy::{
     ecs::system::{StaticSystemParam, SystemParam},
     math::Ray3d,
-    picking::{
-        mesh_picking::RayCastPickable,
-        pointer::{PointerId, PointerInteraction},
-    },
+    picking::pointer::{PointerId, PointerInteraction},
     prelude::*,
 };
 use bevy_impulse::*;
@@ -389,8 +386,6 @@ pub fn make_selectable_entities_pickable(
     targets: Query<(Option<&Hovered>, Option<&Selected>)>,
 ) {
     for (entity, selectable) in &new_selectables {
-        commands.entity(entity).insert(RayCastPickable);
-
         if let Ok((hovered, selected)) = targets.get(selectable.element) {
             if hovered.is_none() {
                 commands

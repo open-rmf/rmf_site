@@ -243,11 +243,7 @@ impl Plugin for InteractionPlugin {
                 .add_systems(OnExit(InteractionState::Enable), hide_cursor)
                 .add_systems(
                     PostUpdate,
-                    (
-                        move_anchor.before(update_anchor_transforms),
-                        move_pose,
-                        make_gizmos_pickable,
-                    )
+                    (move_anchor.before(update_anchor_transforms), move_pose)
                         .run_if(in_state(InteractionState::Enable)),
                 )
                 .add_systems(First, update_picked);

@@ -258,13 +258,6 @@ pub struct MoveTo {
     pub transform: Transform,
 }
 
-pub fn make_gizmos_pickable(mut commands: Commands, new_gizmos: Query<Entity, Added<Gizmo>>) {
-    for e in &new_gizmos {
-        commands.entity(e).insert(RayCastPickable);
-        // TODO(@xiyuuoh) Maybe set MeshPickingSettings::require_markers to true, then insert RayCastPickable to these entities.
-    }
-}
-
 pub fn update_gizmo_click_start(
     mut gizmos: Query<(
         &Gizmo,
