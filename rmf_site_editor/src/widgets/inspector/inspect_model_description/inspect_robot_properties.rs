@@ -26,7 +26,7 @@ use crate::{
     AppState, Issue, ModelPropertyData, ValidateWorkspace,
 };
 use bevy::{
-    ecs::{hierarchy::ChildOf, system::SystemParam},
+    ecs::{component::Mutable, hierarchy::ChildOf, system::SystemParam},
     prelude::{Component, *},
 };
 use bevy_egui::egui::{ComboBox, Ui};
@@ -179,7 +179,15 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectRobotProperties<'w, 's> {
 }
 
 pub trait RobotProperty:
-    'static + Send + Sync + Default + Clone + Component + PartialEq + Serialize + DeserializeOwned
+    'static
+    + Send
+    + Sync
+    + Default
+    + Clone
+    + Component<Mutability = Mutable>
+    + PartialEq
+    + Serialize
+    + DeserializeOwned
 {
     fn new(kind: String, config: serde_json::Value) -> Self;
 
@@ -196,7 +204,7 @@ pub trait RobotPropertyKind:
     fn label() -> String;
 }
 
-pub trait RecallPropertyKind: Recall + Default + Component {
+pub trait RecallPropertyKind: Recall + Default + Component<Mutability = Mutable> {
     type Kind: RobotPropertyKind;
     fn assume(&self) -> Self::Kind;
 }
@@ -207,7 +215,7 @@ pub struct InspectRobotPropertyPlugin<W, Property, RecallProperty>
 where
     W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
     Property: RobotProperty,
-    RecallProperty: Recall + Component + Default,
+    RecallProperty: Recall + Component<Mutability = Mutable> + Default,
     RecallProperty::Source: RobotProperty,
 {
     _ignore: std::marker::PhantomData<(W, Property, RecallProperty)>,
@@ -217,7 +225,7 @@ impl<W, Property, RecallProperty> InspectRobotPropertyPlugin<W, Property, Recall
 where
     W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
     Property: RobotProperty,
-    RecallProperty: Recall + Component + Default,
+    RecallProperty: Recall + Component<Mutability = Mutable> + Default,
     RecallProperty::Source: RobotProperty,
 {
     pub fn new() -> Self {
@@ -231,7 +239,7 @@ impl<W, Property, RecallProperty> Plugin for InspectRobotPropertyPlugin<W, Prope
 where
     W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
     Property: RobotProperty,
-    RecallProperty: Recall + Component + Default,
+    RecallProperty: Recall + Component<Mutability = Mutable> + Default,
     RecallProperty::Source: RobotProperty,
 {
     fn build(&self, app: &mut App) {
