@@ -18,7 +18,7 @@
 use crate::interaction::VisualCue;
 use crate::site::*;
 use crate::{Issue, ValidateWorkspace};
-use bevy::ecs::hierarchy::ChildOf;
+use bevy::ecs::{hierarchy::ChildOf, relationship::AncestorIter};
 use bevy::prelude::*;
 use std::collections::HashMap;
 use uuid::Uuid;

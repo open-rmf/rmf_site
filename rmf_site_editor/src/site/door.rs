@@ -22,7 +22,7 @@ use crate::{
     site::*,
 };
 use bevy::{
-    ecs::hierarchy::ChildOf,
+    ecs::{hierarchy::ChildOf, relationship::AncestorIter},
     prelude::*,
     render::{
         mesh::{Indices, PrimitiveTopology},

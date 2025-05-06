@@ -18,7 +18,11 @@
 use crate::{
     interaction::Selectable, shapes::*, site::*, CurrentWorkspace, Issue, ValidateWorkspace,
 };
-use bevy::{ecs::hierarchy::ChildOf, prelude::*, render::primitives::Aabb};
+use bevy::{
+    ecs::{hierarchy::ChildOf, relationship::AncestorIter},
+    prelude::*,
+    render::primitives::Aabb,
+};
 use rmf_site_format::{Edge, LiftCabin};
 use std::collections::BTreeSet;
 use std::collections::HashMap;

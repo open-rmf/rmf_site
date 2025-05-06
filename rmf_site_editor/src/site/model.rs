@@ -24,6 +24,7 @@ use crate::{
 use bevy::{
     ecs::{
         hierarchy::ChildOf,
+        relationship::DescendantIter,
         schedule::ScheduleConfigs,
         system::{EntityCommands, ScheduleSystem, SystemParam},
     },

@@ -16,7 +16,10 @@
 */
 
 use crate::widgets::menu_bar::{MenuEvent, MenuItem, ViewMenu};
-use bevy::ecs::hierarchy::ChildOf;
+use bevy::ecs::{
+    hierarchy::ChildOf,
+    relationship::{AncestorIter, DescendantIter},
+};
 use bevy::pbr::wireframe::{Wireframe, WireframePlugin};
 use bevy::prelude::*;
 

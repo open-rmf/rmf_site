@@ -1,4 +1,4 @@
-use bevy::ecs::system::SystemState;
+use bevy::ecs::{relationship::DescendantIter, system::SystemState};
 use bevy::prelude::*;
 use bevy_gltf_export::{export_meshes, CompressGltfOptions, MeshData};
 

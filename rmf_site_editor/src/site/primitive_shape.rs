@@ -15,7 +15,7 @@
  *
 */
 
-use bevy::ecs::{hierarchy::ChildOf, system::EntityCommands};
+use bevy::ecs::{hierarchy::ChildOf, relationship::AncestorIter, system::EntityCommands};
 use bevy::math::primitives;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;

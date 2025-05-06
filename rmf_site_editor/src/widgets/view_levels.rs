@@ -24,7 +24,7 @@ use crate::{
     AppState, CurrentWorkspace, RecencyRanking,
 };
 use bevy::{
-    ecs::{hierarchy::ChildOf, system::SystemParam},
+    ecs::{hierarchy::ChildOf, relationship::AncestorIter, system::SystemParam},
     prelude::*,
 };
 use bevy_egui::egui::{CollapsingHeader, DragValue, ImageButton, Ui};

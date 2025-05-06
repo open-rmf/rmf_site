@@ -17,7 +17,7 @@
 
 use crate::site::*;
 use crate::{CurrentWorkspace, Issue, ValidateWorkspace};
-use bevy::ecs::hierarchy::ChildOf;
+use bevy::ecs::{hierarchy::ChildOf, relationship::AncestorIter};
 use bevy::prelude::*;
 use rmf_site_format::{Edge, LaneMarker};
 use std::collections::{BTreeSet, HashMap};
