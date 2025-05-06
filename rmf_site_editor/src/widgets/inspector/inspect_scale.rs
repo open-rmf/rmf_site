@@ -42,7 +42,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectScale<'w, 's> {
         };
 
         if let Some(new_scale) = InspectScaleComponent::new(scale).show(ui) {
-            params.change_scale.send(Change::new(new_scale, selection));
+            params.change_scale.write(Change::new(new_scale, selection));
         }
         ui.add_space(10.0);
     }

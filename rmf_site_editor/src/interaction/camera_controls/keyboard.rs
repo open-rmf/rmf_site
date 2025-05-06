@@ -86,7 +86,7 @@ pub fn update_keyboard_command(
     primary_windows: Query<&Window, With<PrimaryWindow>>,
     uncovered_window_area: Option<Res<UserCameraDisplay>>,
 ) {
-    if let Ok(_) = primary_windows.get_single() {
+    if let Ok(_) = primary_windows.single() {
         // User inputs
         let is_shifting = keyboard_input.pressed(KeyCode::ShiftLeft)
             || keyboard_input.pressed(KeyCode::ShiftRight);

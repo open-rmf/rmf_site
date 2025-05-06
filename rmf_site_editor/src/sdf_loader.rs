@@ -16,9 +16,8 @@
 */
 
 use bevy::asset::{io::Reader, AssetLoader, LoadContext};
+use bevy::ecs::hierarchy::ChildOf;
 use bevy::prelude::*;
-
-use futures_lite::AsyncReadExt;
 
 use thiserror::Error;
 
@@ -289,7 +288,7 @@ fn load_model<'a, 'b>(
                                     .entity_mut(id)
                                     .insert(VisualMeshMarker)
                                     .insert(Category::Visual)
-                                    .set_parent(link_id);
+                                    .insert(ChildOf(link_id));
                             }
                             None => warn!("Found unhandled geometry type {:?}", &visual.geometry),
                         }
@@ -309,7 +308,7 @@ fn load_model<'a, 'b>(
                                     .entity_mut(id)
                                     .insert(CollisionMeshMarker)
                                     .insert(Category::Collision)
-                                    .set_parent(link_id);
+                                    .insert(ChildOf(link_id));
                             }
                             None => {
                                 warn!("Found unhandled geometry type {:?}", &collision.geometry)

@@ -195,7 +195,9 @@ impl Plugin for SiteEditor {
                 AssetLoadersPlugin,
                 LogHistoryPlugin,
                 AabbUpdatePlugin,
-                EguiPlugin,
+                EguiPlugin {
+                    enable_multipass_for_primary_context: false,
+                },
                 KeyboardInputPlugin,
                 SitePlugin,
                 InteractionPlugin::new().headless(self.headless_export.is_some()),

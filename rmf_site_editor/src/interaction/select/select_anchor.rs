@@ -15,6 +15,7 @@
  *
 */
 
+use bevy::ecs::{hierarchy::ChildOf, schedule::ScheduleConfigs, system::ScheduleSystem};
 use bevy::prelude::*;
 use bevy_impulse::*;
 
@@ -64,8 +65,9 @@ impl AnchorSelectionHelpers {
         let anchor_select_stream = app.spawn_selection_service::<AnchorFilter>();
         let anchor_cursor_transform = app.spawn_continuous_service(
             Update,
-            select_anchor_cursor_transform
-                .configure(|config: SystemConfigs| config.in_set(SelectionServiceStages::Pick)),
+            select_anchor_cursor_transform.configure(|config: ScheduleConfigs<ScheduleSystem>| {
+                config.in_set(SelectionServiceStages::Pick)
+            }),
         );
         let cleanup_anchor_selection = app
             .world_mut()
@@ -461,7 +463,7 @@ pub fn anchor_selection_setup<State: Borrow<AnchorScope>>(
     access: BufferAccess<State>,
     anchors: Query<Entity, With<Anchor>>,
     drawings: Query<(), With<DrawingMarker>>,
-    parents: Query<&'static Parent>,
+    child_of: Query<&'static ChildOf>,
     mut visibility: Query<&'static mut Visibility>,
     mut hidden_anchors: ResMut<HiddenSelectAnchorEntities>,
     mut current_anchor_scope: ResMut<AnchorScope>,
@@ -478,10 +480,11 @@ where
     match scope {
         AnchorScope::General | AnchorScope::Site => {
             // If we are working with normal level or site requests, hide all drawing anchors
-            for e in anchors
-                .iter()
-                .filter(|e| parents.get(*e).is_ok_and(|p| drawings.get(p.get()).is_ok()))
-            {
+            for e in anchors.iter().filter(|e| {
+                child_of
+                    .get(*e)
+                    .is_ok_and(|c| drawings.get(c.parent()).is_ok())
+            }) {
                 set_visibility(e, &mut visibility, false);
                 hidden_anchors.drawing_anchors.insert(e);
             }
@@ -556,7 +559,7 @@ pub fn extract_selector_input<T: 'static + Send + Sync>(
         return Err(());
     };
 
-    e_mut.despawn_recursive();
+    e_mut.despawn();
 
     Ok(Some(input.0))
 }
@@ -573,7 +576,7 @@ pub struct AnchorFilter<'w, 's> {
     commands: Commands<'w, 's>,
     current_drawing: Res<'w, CurrentEditDrawing>,
     drawings: Query<'w, 's, &'static PixelsPerMeter, With<DrawingMarker>>,
-    parents: Query<'w, 's, &'static Parent>,
+    child_of: Query<'w, 's, &'static ChildOf>,
     levels: Query<'w, 's, (), With<LevelElevation>>,
     current_level: Res<'w, CurrentLevel>,
 }
@@ -610,7 +613,7 @@ impl<'w, 's> SelectionFilter for AnchorFilter<'w, 's> {
                 let new_anchor = self
                     .commands
                     .spawn(AnchorBundle::at_transform(tf))
-                    .set_parent(site)
+                    .insert(ChildOf(site))
                     .id();
                 new_anchor
             }
@@ -632,7 +635,7 @@ impl<'w, 's> SelectionFilter for AnchorFilter<'w, 's> {
                 self.commands
                     .spawn(AnchorBundle::new([pose.trans[0], pose.trans[1]].into()))
                     .insert(Transform::from_scale(Vec3::new(ppm, ppm, 1.0)))
-                    .set_parent(drawing)
+                    .insert(ChildOf(drawing))
                     .id()
             }
             AnchorScope::General => {
@@ -642,7 +645,7 @@ impl<'w, 's> SelectionFilter for AnchorFilter<'w, 's> {
                 };
                 self.commands
                     .spawn(AnchorBundle::at_transform(tf))
-                    .set_parent(level)
+                    .insert(ChildOf(level))
                     .id()
             }
         };
@@ -661,8 +664,8 @@ impl<'w, 's> AnchorFilter<'w, 's> {
     }
 
     fn filter_scope(&mut self, target: Entity) -> Option<Entity> {
-        let parent = match self.parents.get(target) {
-            Ok(parent) => parent.get(),
+        let parent = match self.child_of.get(target) {
+            Ok(child_of) => child_of.parent(),
             Err(err) => {
                 error!("Unable to detect parent for target anchor {target:?}: {err}");
                 return None;

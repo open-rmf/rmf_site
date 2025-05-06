@@ -16,12 +16,11 @@
 */
 
 use crate::{
-    interaction::IntersectGroundPlaneParams,
-    interaction::*,
+    interaction::{gizmo::Gizmo, IntersectGroundPlaneParams, *},
     keyboard::DebugMode,
     site::{Anchor, Category, Delete, Dependents, SiteAssets, Subordinate},
 };
-use bevy::prelude::*;
+use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 
 /// Use this resource to indicate whether anchors should be constantly highlighted.
 /// This is used during anchor selection modes to make it easier for users to know
@@ -38,15 +37,15 @@ pub struct AnchorVisualization {
 pub fn add_anchor_visual_cues(
     mut commands: Commands,
     new_anchors: Query<
-        (Entity, &Parent, Option<&Subordinate>, &Anchor),
+        (Entity, &ChildOf, Option<&Subordinate>, &Anchor),
         (Added<Anchor>, Without<Preview>),
     >,
     categories: Query<&Category>,
     site_assets: Res<SiteAssets>,
     highlight: Res<HighlightAnchors>,
 ) {
-    for (e, parent, subordinate, anchor) in &new_anchors {
-        let body_mesh = match categories.get(parent.get()).unwrap() {
+    for (e, child_of, subordinate, anchor) in &new_anchors {
+        let body_mesh = match categories.get(child_of.parent()).unwrap() {
             Category::Level => site_assets.level_anchor_mesh.clone(),
             Category::Lift => site_assets.lift_anchor_mesh.clone(),
             _ => site_assets.site_anchor_mesh.clone(),
@@ -205,6 +204,7 @@ pub fn update_anchor_visual_cues(
     interaction_assets: Res<InteractionAssets>,
     debug_mode: Option<Res<DebugMode>>,
     gizmo_blockers: Res<GizmoBlockers>,
+    mut gizmos: Gizmos,
 ) {
     for (
         a,
@@ -288,11 +288,12 @@ pub fn update_anchor_visual_cues(
                             a,
                             shapes.as_mut(),
                             subordinate.is_none(),
+                            &mut gizmos,
                         );
                     }
                 } else {
                     if let Some(drag) = shapes.drag {
-                        commands.entity(drag).despawn_recursive();
+                        commands.entity(drag).despawn();
                     }
                     shapes.drag = None;
                 }
@@ -305,7 +306,7 @@ pub fn update_anchor_visual_cues(
                     }
                 } else {
                     if let Some(drag) = shapes.drag {
-                        commands.entity(drag).despawn_recursive();
+                        commands.entity(drag).despawn();
                     }
                     shapes.drag = None;
                 }

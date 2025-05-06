@@ -41,7 +41,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectLight<'w, 's> {
         };
 
         if let Some(new_light) = InspectLightKind::new(light, recall).show(ui) {
-            params.change_light.send(Change::new(new_light, selection));
+            params.change_light.write(Change::new(new_light, selection));
         }
         ui.add_space(10.0);
     }

@@ -55,7 +55,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectDrawing<'w, 's> {
                 ))
                 .clicked()
             {
-                params.begin_edit_drawing.send(BeginEditDrawing(selection));
+                params.begin_edit_drawing.write(BeginEditDrawing(selection));
             }
             ui.add_space(10.0);
         }
@@ -72,7 +72,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectDrawing<'w, 's> {
                 .clicked()
             {
                 if let Some(site) = params.current_workspace.root {
-                    params.align_site.send(AlignSiteDrawings(site));
+                    params.align_site.write(AlignSiteDrawings(site));
                 }
             }
             ui.add_space(10.0);
@@ -85,7 +85,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectDrawing<'w, 's> {
         {
             params
                 .change_pixels_per_meter
-                .send(Change::new(PixelsPerMeter(new_ppm), selection));
+                .write(Change::new(PixelsPerMeter(new_ppm), selection));
         }
     }
 }

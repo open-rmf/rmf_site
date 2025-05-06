@@ -22,6 +22,7 @@ use crate::{
     site::*,
 };
 use bevy::{
+    ecs::{hierarchy::ChildOf, relationship::AncestorIter},
     prelude::*,
     render::{
         mesh::{Indices, PrimitiveTopology},
@@ -393,7 +394,7 @@ fn update_door_visuals(
     }
     for e in entities.iter().skip(door_tfs.len()) {
         // Doors were removed, we need to despawn them
-        commands.entity(*e).despawn_recursive();
+        commands.entity(*e).despawn();
     }
     let mut cue_inner = mesh_handles.get_mut(segments.cue_inner).unwrap();
     *cue_inner = Mesh3d(mesh_assets.add(cue_inner_mesh));
@@ -494,13 +495,13 @@ pub const DUPLICATED_DOOR_NAME_ISSUE_UUID: Uuid =
 pub fn check_for_duplicated_door_names(
     mut commands: Commands,
     mut validate_events: EventReader<ValidateWorkspace>,
-    parents: Query<&Parent>,
+    child_of: Query<&ChildOf>,
     door_names: Query<(Entity, &NameInSite), With<DoorMarker>>,
 ) {
     for root in validate_events.read() {
         let mut names: HashMap<String, BTreeSet<Entity>> = HashMap::new();
         for (e, name) in &door_names {
-            if AncestorIter::new(&parents, e).any(|p| p == **root) {
+            if AncestorIter::new(&child_of, e).any(|p| p == **root) {
                 let entities_with_name = names.entry(name.0.clone()).or_default();
                 entities_with_name.insert(e);
             }

@@ -112,7 +112,7 @@ impl<'w, 's> ViewLayers<'w, 's> {
 
                         if shown_global != *global {
                             self.global_floor_vis
-                                .send(Change::new(shown_global, current_level));
+                                .write(Change::new(shown_global, current_level));
                         }
                     });
                     ui.separator();
@@ -166,7 +166,7 @@ impl<'w, 's> ViewLayers<'w, 's> {
 
                     if shown_global != *global {
                         self.global_drawing_vis
-                            .send(Change::new(shown_global, current_level));
+                            .write(Change::new(shown_global, current_level));
                     }
 
                     if let Some(selected) = Self::show_rankings(

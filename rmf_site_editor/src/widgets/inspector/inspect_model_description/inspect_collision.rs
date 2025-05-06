@@ -145,7 +145,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectCollision<'w, 's> {
             let children_widgets: Result<SmallVec<[_; 16]>, _> = params
                 .children
                 .get(widget_registration.property_widget)
-                .map(|c| c.iter().copied().collect());
+                .map(|c| c.iter().collect());
             let Ok(children_widgets) = children_widgets else {
                 return;
             };

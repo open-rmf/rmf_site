@@ -192,10 +192,7 @@ pub fn cleanup_create_point(
 
     let point_ref = points.get(point).or_broken_query()?;
     commands.queue(ChangeDependent::remove(point_ref.0, point));
-    commands
-        .get_entity(point)
-        .or_broken_query()?
-        .despawn_recursive();
+    commands.get_entity(point).or_broken_query()?.despawn();
 
     Ok(())
 }

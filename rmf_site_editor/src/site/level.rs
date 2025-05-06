@@ -17,7 +17,7 @@
 
 use crate::site::*;
 use crate::CurrentWorkspace;
-use bevy::prelude::*;
+use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 
 pub fn update_level_visibility(
     mut levels: Query<(Entity, &mut Visibility), With<LevelElevation>>,
@@ -36,7 +36,7 @@ pub fn update_level_visibility(
 
 pub fn assign_orphan_levels_to_site(
     mut commands: Commands,
-    new_levels: Query<Entity, (Without<Parent>, Added<LevelElevation>)>,
+    new_levels: Query<Entity, (Without<ChildOf>, Added<LevelElevation>)>,
     open_sites: Query<Entity, With<NameOfSite>>,
     current_workspace: Res<CurrentWorkspace>,
 ) {
@@ -54,7 +54,7 @@ pub fn assign_orphan_levels_to_site(
 
 pub fn assign_orphan_elements_to_level<T: Component>(
     mut commands: Commands,
-    orphan_elements: Query<Entity, (With<T>, Without<Parent>)>,
+    orphan_elements: Query<Entity, (With<T>, Without<ChildOf>)>,
     current_level: Res<CurrentLevel>,
 ) {
     let current_level = match current_level.0 {

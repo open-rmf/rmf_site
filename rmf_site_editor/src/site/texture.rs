@@ -15,7 +15,7 @@
  *
 */
 
-use bevy::prelude::*;
+use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 use rmf_site_format::{Affiliation, Category, Group, Texture};
 
 #[derive(Component)]
@@ -59,22 +59,24 @@ pub fn fetch_image_for_texture(
 
 pub fn detect_last_selected_texture<T: Component>(
     mut commands: Commands,
-    parents: Query<&Parent>,
+    child_of: Query<&ChildOf>,
     mut last_selected: Query<&mut LastSelectedTexture<T>>,
     changed_affiliations: Query<&Affiliation<Entity>, (Changed<Affiliation<Entity>>, With<T>)>,
     mut removed_groups: RemovedComponents<Group>,
 ) {
     if let Some(Affiliation(Some(affiliation))) = changed_affiliations.iter().last() {
-        let Ok(parent) = parents.get(*affiliation) else {
+        let Ok(child_of) = child_of.get(*affiliation) else {
             return;
         };
-        if let Ok(mut last) = last_selected.get_mut(parent.get()) {
+        if let Ok(mut last) = last_selected.get_mut(child_of.parent()) {
             last.selection = Some(*affiliation);
         } else {
-            commands.entity(parent.get()).insert(LastSelectedTexture {
-                selection: Some(*affiliation),
-                marker: std::marker::PhantomData::<T>::default(),
-            });
+            commands
+                .entity(child_of.parent())
+                .insert(LastSelectedTexture {
+                    selection: Some(*affiliation),
+                    marker: std::marker::PhantomData::<T>::default(),
+                });
         }
     }
 
@@ -89,7 +91,7 @@ pub fn detect_last_selected_texture<T: Component>(
 
 pub fn apply_last_selected_texture<T: Component>(
     mut commands: Commands,
-    parents: Query<&Parent>,
+    child_of: Query<&ChildOf>,
     last_selected: Query<&LastSelectedTexture<T>>,
     mut unassigned: Query<
         (Entity, &mut Affiliation<Entity>),
@@ -103,8 +105,8 @@ pub fn apply_last_selected_texture<T: Component>(
                 break Some(last);
             }
 
-            if let Ok(parent) = parents.get(search) {
-                search = parent.get();
+            if let Ok(child_of) = child_of.get(search) {
+                search = child_of.parent();
             } else {
                 break None;
             }

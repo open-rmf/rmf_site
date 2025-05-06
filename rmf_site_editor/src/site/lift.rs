@@ -18,9 +18,14 @@
 use crate::{
     interaction::Selectable, shapes::*, site::*, CurrentWorkspace, Issue, ValidateWorkspace,
 };
-use bevy::{prelude::*, render::primitives::Aabb, utils::HashMap};
+use bevy::{
+    ecs::{hierarchy::ChildOf, relationship::AncestorIter},
+    prelude::*,
+    render::primitives::Aabb,
+};
 use rmf_site_format::{Edge, LiftCabin};
 use std::collections::BTreeSet;
+use std::collections::HashMap;
 use uuid::Uuid;
 
 #[derive(Clone, Copy, Debug, Component, Deref, DerefMut)]
@@ -112,7 +117,7 @@ fn make_lift_transform(
 pub fn add_tags_to_lift(
     mut commands: Commands,
     new_lifts: Query<(Entity, &Edge<Entity>), Added<LiftCabin<Entity>>>,
-    orphan_lifts: Query<Entity, (With<LiftCabin<Entity>>, Without<Parent>)>,
+    orphan_lifts: Query<Entity, (With<LiftCabin<Entity>>, Without<ChildOf>)>,
     open_sites: Query<Entity, With<NameOfSite>>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     current_workspace: Res<CurrentWorkspace>,
@@ -151,9 +156,9 @@ pub fn update_lift_cabin(
             Option<&RecallLiftCabin<Entity>>,
             Option<&ChildCabinAnchorGroup>,
             Option<&ChildLiftCabinGroup>,
-            &Parent,
+            &ChildOf,
         ),
-        Or<(Changed<LiftCabin<Entity>>, Changed<Parent>)>,
+        Or<(Changed<LiftCabin<Entity>>, Changed<ChildOf>)>,
     >,
     mut cabin_anchor_groups: Query<&mut Transform, With<CabinAnchorGroup>>,
     level_visits: Query<&LevelVisits<Entity>>,
@@ -162,12 +167,12 @@ pub fn update_lift_cabin(
     mut anchors: Query<&mut Anchor>,
     assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
-    levels: Query<(Entity, &Parent), With<LevelElevation>>,
+    levels: Query<(Entity, &ChildOf), With<LevelElevation>>,
 ) {
     for (e, cabin, recall, child_anchor_group, child_cabin_group, site) in &lifts {
         // Despawn the previous cabin
         if let Some(cabin_group) = child_cabin_group {
-            commands.entity(cabin_group.0).despawn_recursive();
+            commands.entity(cabin_group.0).despawn();
         }
 
         let cabin_tf = match cabin {
@@ -198,8 +203,8 @@ pub fn update_lift_cabin(
 
                 let cabin_entity = commands
                     .spawn((cabin_tf, Visibility::Inherited))
-                    .with_children(|parent| {
-                        parent
+                    .with_children(|child_of| {
+                        child_of
                             .spawn((
                                 Mesh3d(meshes.add(floor_mesh)),
                                 MeshMaterial3d(assets.lift_floor_material.clone()),
@@ -208,7 +213,7 @@ pub fn update_lift_cabin(
                             ))
                             .insert(Selectable::new(e));
 
-                        parent
+                        child_of
                             .spawn((
                                 Mesh3d(meshes.add(wall_mesh)),
                                 MeshMaterial3d(assets.lift_wall_material.clone()),
@@ -218,7 +223,7 @@ pub fn update_lift_cabin(
                             .insert(Selectable::new(e));
 
                         for (level, level_site) in &levels {
-                            if level_site.get() != site.get() {
+                            if level_site.parent() != site.parent() {
                                 continue;
                             }
 
@@ -234,7 +239,7 @@ pub fn update_lift_cabin(
                                     .is_some();
                                 aabb.center.z = LANE_LAYER_LIMIT;
                                 let mesh = make_flat_mesh_for_aabb(aabb);
-                                parent
+                                child_of
                                     .spawn((
                                         Mesh3d(meshes.add(mesh)),
                                         MeshMaterial3d::<StandardMaterial>::default(),
@@ -284,10 +289,7 @@ pub fn update_lift_cabin(
         let cabin_anchor_group = if let Some(child_anchor_group) = child_anchor_group {
             Some(**child_anchor_group)
         } else if let Ok(children) = children.get(e) {
-            let found_group = children
-                .iter()
-                .find(|c| cabin_anchor_groups.contains(**c))
-                .copied();
+            let found_group = children.iter().find(|c| cabin_anchor_groups.contains(*c));
 
             if let Some(group) = found_group {
                 commands.entity(e).insert(ChildCabinAnchorGroup(group));
@@ -362,7 +364,7 @@ pub fn update_lift_door_availability(
     new_levels: Query<(), Added<LevelElevation>>,
     all_levels: Query<(), With<LevelElevation>>,
     mut removed_levels: RemovedComponents<LevelElevation>,
-    parents: Query<&Parent>,
+    child_of: Query<&ChildOf>,
 ) {
     for toggle in toggles.read() {
         let (mut cabin, recall_cabin, anchor_group) = match lifts.get_mut(toggle.for_lift) {
@@ -548,7 +550,7 @@ pub fn update_lift_door_availability(
         }
 
         for e_door in doors_to_remove {
-            let e_lift = match parents.get(e_door) {
+            let e_lift = match child_of.get(e_door) {
                 Ok(e_lift) => e_lift,
                 Err(_) => {
                     error!(
@@ -558,7 +560,7 @@ pub fn update_lift_door_availability(
                     continue;
                 }
             };
-            let (mut cabin, _, _) = match lifts.get_mut(e_lift.get()) {
+            let (mut cabin, _, _) = match lifts.get_mut(e_lift.parent()) {
                 Ok(cabin) => cabin,
                 Err(_) => {
                     error!("Unable to find cabin for lift {e_lift:?}");
@@ -625,7 +627,7 @@ pub const DUPLICATED_LIFT_NAME_ISSUE_UUID: Uuid =
 pub fn check_for_duplicated_lift_names(
     mut commands: Commands,
     mut validate_events: EventReader<ValidateWorkspace>,
-    parents: Query<&Parent>,
+    child_of: Query<&ChildOf>,
     lift_names: Query<(Entity, &NameInSite), With<LiftCabin<Entity>>>,
 ) {
     const ISSUE_HINT: &str = "Lifts use their names as identifiers with RMF and each lift should \
@@ -633,7 +635,7 @@ pub fn check_for_duplicated_lift_names(
     for root in validate_events.read() {
         let mut names: HashMap<String, BTreeSet<Entity>> = HashMap::new();
         for (e, name) in &lift_names {
-            if AncestorIter::new(&parents, e).any(|p| p == **root) {
+            if AncestorIter::new(&child_of, e).any(|p| p == **root) {
                 let entities_with_name = names.entry(name.0.clone()).or_default();
                 entities_with_name.insert(e);
             }

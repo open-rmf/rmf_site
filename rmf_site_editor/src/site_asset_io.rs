@@ -5,7 +5,7 @@ use bevy::{
         VecReader,
     },
     prelude::*,
-    utils::BoxedFuture,
+    tasks::BoxedFuture,
 };
 use dirs;
 use serde::Deserialize;

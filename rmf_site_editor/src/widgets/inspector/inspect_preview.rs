@@ -40,7 +40,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPreview<'w, 's> {
             if ui.button("Preview").clicked() {
                 params
                     .spawn_preview
-                    .send(SpawnPreview::new(Some(selection)));
+                    .write(SpawnPreview::new(Some(selection)));
             }
             ui.add_space(10.0);
         }

@@ -68,7 +68,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectGeography<'w, 's> {
             ui.add(DragValue::new(&mut lon).speed(0.0));
 
             if old_lat != lat || old_lon != lon {
-                param.move_to.send(MoveTo {
+                param.move_to.write(MoveTo {
                     entity: selection,
                     transform: Transform::from_translation(latlon_to_world(
                         lat as f32,

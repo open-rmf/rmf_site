@@ -21,7 +21,7 @@ use crate::widgets::{
     ViewModelInstancesPlugin, ViewNavGraphsPlugin, ViewOccupancyPlugin, ViewScenariosPlugin,
     ViewTasks, Widget, WidgetSystem,
 };
-use bevy::prelude::*;
+use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 
 /// This plugins produces the standard properties panel. This is the panel which
 /// includes widgets to display and edit all the properties in a site that we
@@ -109,7 +109,9 @@ where
     fn build(&self, app: &mut App) {
         let widget = Widget::<Tile>::new::<W>(app.world_mut());
         let properties_panel = app.world().resource::<PropertiesPanel>().id;
-        app.world_mut().spawn(widget).set_parent(properties_panel);
+        app.world_mut()
+            .spawn(widget)
+            .insert(ChildOf(properties_panel));
     }
 }
 

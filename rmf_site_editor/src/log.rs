@@ -15,8 +15,8 @@
  *
 */
 
+use bevy::log::tracing::{field::Field, Level};
 use bevy::prelude::*;
-use bevy::utils::tracing::{field::Field, Level};
 use crossbeam_channel::{unbounded, Receiver, SendError, Sender};
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Write};

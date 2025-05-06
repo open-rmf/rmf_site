@@ -76,7 +76,7 @@ impl FromWorld for ModelPreviewCamera {
             .insert((
                 Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Z),
                 Camera {
-                    target: RenderTarget::Image(preview_image),
+                    target: RenderTarget::Image(preview_image.into()),
                     ..default()
                 },
                 Tonemapping::ReinhardLuminance,

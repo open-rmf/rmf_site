@@ -144,13 +144,10 @@ impl PreviewEdge {
             commands
                 .get_entity(edge.start())
                 .or_broken_query()?
-                .despawn_recursive();
+                .despawn();
         }
 
-        commands
-            .get_entity(self.edge)
-            .or_broken_query()?
-            .despawn_recursive();
+        commands.get_entity(self.edge).or_broken_query()?.despawn();
         Ok(())
     }
 }
@@ -361,7 +358,7 @@ pub fn on_keyboard_for_create_edges(
                 commands
                     .get_entity(edge.start())
                     .or_broken_query()?
-                    .despawn_recursive();
+                    .despawn();
             }
 
             *edge.left_mut() = cursor.level_anchor_placement;

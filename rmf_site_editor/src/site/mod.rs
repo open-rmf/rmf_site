@@ -168,7 +168,7 @@ impl Plugin for SitePlugin {
         )
         .add_systems(
             PreUpdate,
-            apply_deferred.in_set(SiteUpdateSet::ProcessChangesFlush),
+            ApplyDeferred.in_set(SiteUpdateSet::ProcessChangesFlush),
         )
         .configure_sets(
             PostUpdate,
@@ -184,11 +184,11 @@ impl Plugin for SitePlugin {
         )
         .add_systems(
             PostUpdate,
-            apply_deferred.in_set(SiteUpdateSet::BetweenTransformAndVisibilityFlush),
+            ApplyDeferred.in_set(SiteUpdateSet::BetweenTransformAndVisibilityFlush),
         )
         .add_systems(
             PostUpdate,
-            apply_deferred.in_set(SiteUpdateSet::AssignOrphansFlush),
+            ApplyDeferred.in_set(SiteUpdateSet::AssignOrphansFlush),
         )
         .insert_resource(ClearColor(Color::srgb(0., 0., 0.)))
         .init_resource::<SiteAssets>()

@@ -63,7 +63,7 @@ impl<'w> WidgetSystem<Tile> for BuildingPreview<'w> {
                 .clicked()
             {
                 if let Some(site) = params.current_workspace.root {
-                    params.align_site.send(AlignSiteDrawings(site));
+                    params.align_site.write(AlignSiteDrawings(site));
                 }
             }
 
@@ -86,7 +86,7 @@ impl<'w> WidgetSystem<Tile> for BuildingPreview<'w> {
                 ))
                 .clicked()
             {
-                params.finish_edit_drawing.send(FinishEditDrawing(None));
+                params.finish_edit_drawing.write(FinishEditDrawing(None));
             }
         }
     }

@@ -22,7 +22,12 @@ use crate::{
     Issue, ValidateWorkspace,
 };
 use bevy::{
-    ecs::system::{EntityCommands, SystemParam},
+    ecs::{
+        hierarchy::ChildOf,
+        relationship::DescendantIter,
+        schedule::ScheduleConfigs,
+        system::{EntityCommands, ScheduleSystem, SystemParam},
+    },
     gltf::Gltf,
     prelude::*,
     render::view::RenderLayers,
@@ -229,7 +234,7 @@ pub fn cleanup_if_asset_source_changed(
             unchanged: true,
         }));
     }
-    commands.entity(scene.scene_root).despawn_recursive();
+    commands.entity(scene.scene_root).despawn();
     commands.entity(request.parent).remove::<ModelScene>();
     Ok(request)
 }
@@ -329,11 +334,11 @@ fn handle_model_loading_errors(
             let parent = err.request.parent;
             // There was an actual error, cleanup the scene
             if let Ok(scene) = model_scenes.get(parent) {
-                commands.entity(scene.scene_root).despawn_recursive();
+                commands.entity(scene.scene_root).despawn();
                 commands.entity(parent).remove::<ModelScene>();
             }
             error!("{err}");
-            if let Some(mut entity_mut) = commands.get_entity(parent) {
+            if let Ok(mut entity_mut) = commands.get_entity(parent) {
                 // The parent entity might not exist any longer after the loading
                 // failed, so we check for its existence before inserting to it.
                 entity_mut.insert(ModelFailedLoading(err.clone()));
@@ -343,7 +348,7 @@ fn handle_model_loading_errors(
         }
     };
 
-    if let Some(mut entity_mut) = commands.get_entity(parent) {
+    if let Ok(mut entity_mut) = commands.get_entity(parent) {
         // The parent entity might not exist any longer after the loading failed,
         // so we check for its existence before removing from it.
         entity_mut.remove::<ModelLoadingState>();
@@ -405,7 +410,7 @@ impl<'w, 's> ModelLoader<'w, 's> {
         impulse: impl FnOnce(Impulse<InstanceSpawningResult, ()>),
     ) -> EntityCommands<'_> {
         let affiliation = instance.description.clone();
-        let id = self.commands.spawn(instance).set_parent(parent).id();
+        let id = self.commands.spawn(instance).insert(ChildOf(parent)).id();
         let spawning_impulse = self.commands.request(
             InstanceSpawningRequest::new(id, affiliation),
             self.services
@@ -512,11 +517,11 @@ impl ModelLoadingServices {
         )
         .add_systems(
             PostUpdate,
-            (apply_deferred, flush_impulses()).in_set(ModelLoadingSet::CheckSceneFlush),
+            (ApplyDeferred, flush_impulses()).in_set(ModelLoadingSet::CheckSceneFlush),
         );
         let check_scene_is_spawned = app.spawn_continuous_service(
             PostUpdate,
-            check_scenes_are_spawned.configure(|config: SystemConfigs| {
+            check_scenes_are_spawned.configure(|config: ScheduleConfigs<ScheduleSystem>| {
                 config.in_set(ModelLoadingSet::CheckSceneSystem)
             }),
         );
@@ -825,7 +830,7 @@ pub fn check_for_orphan_model_instances(
     mut validate_events: EventReader<ValidateWorkspace>,
     mut orphan_instances: Query<
         (Entity, &NameInSite, &Affiliation<Entity>),
-        (With<ModelMarker>, Without<Group>, Without<Parent>),
+        (With<ModelMarker>, Without<Group>, Without<ChildOf>),
     >,
     model_descriptions: Query<&NameInSite, (With<ModelMarker>, With<Group>)>,
 ) {

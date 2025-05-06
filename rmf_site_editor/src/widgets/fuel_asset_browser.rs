@@ -24,7 +24,10 @@ use crate::{
     widgets::{prelude::*, PendingModelDescription},
     AppState, CurrentWorkspace,
 };
-use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy::{
+    ecs::{hierarchy::ChildOf, system::SystemParam},
+    prelude::*,
+};
 use bevy_egui::egui::{self, Button, ComboBox, ImageSource, RichText, ScrollArea, Ui, Window};
 use gz_fuel::FuelModel;
 
@@ -293,7 +296,7 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                                 .commands
                                 .spawn(model_description)
                                 .insert(Category::ModelDescription)
-                                .set_parent(site_entity)
+                                .insert(ChildOf(site_entity))
                                 .id();
 
                             if let Some(pending) = &mut self.pending_model_description {
@@ -322,7 +325,7 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                 if ui.add(Button::new("Save")).clicked() {
                     // Take it to avoid leaking the information in the dialog
                     self.set_api_key
-                        .send(SetFuelApiKey(gallery_status.proposed_api_key.clone()));
+                        .write(SetFuelApiKey(gallery_status.proposed_api_key.clone()));
                     fuel_client.token = Some(std::mem::take(&mut gallery_status.proposed_api_key));
                     gallery_status.show_api_window = false;
                 } else if ui.add(Button::new("Close")).clicked() {
@@ -338,7 +341,7 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
             ui.label("Updating model cache...");
         } else {
             if ui.add(Button::new("Update model cache")).clicked() {
-                self.update_cache.send(UpdateFuelCache);
+                self.update_cache.write(UpdateFuelCache);
             }
         }
         if ui.add(Button::new("Close")).clicked() {

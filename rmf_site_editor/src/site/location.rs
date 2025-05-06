@@ -16,7 +16,7 @@
 */
 
 use crate::{animate::Spinning, interaction::VisualCue, site::*};
-use bevy::prelude::*;
+use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 
 // TODO(@mxgrey): Consider using recency rankings for Locations so they don't
 // experience z-fighting.
@@ -47,13 +47,13 @@ fn location_halo_tf(tag: &LocationTag) -> Transform {
 fn should_display_point(
     point: &Point<Entity>,
     associated: &AssociatedGraphs<Entity>,
-    parents: &Query<&Parent>,
+    child_of: &Query<&ChildOf>,
     levels: &Query<(), With<LevelElevation>>,
     current_level: &Res<CurrentLevel>,
     graphs: &GraphSelect,
 ) -> bool {
-    if let Ok(parent) = parents.get(point.0) {
-        if levels.contains(parent.get()) && Some(parent.get()) != ***current_level {
+    if let Ok(child_of) = child_of.get(point.0) {
+        if levels.contains(child_of.parent()) && Some(child_of.parent()) != ***current_level {
             return false;
         }
     }
@@ -74,7 +74,7 @@ pub fn add_location_visuals(
     >,
     graphs: GraphSelect,
     anchors: AnchorParams,
-    parents: Query<&Parent>,
+    child_of: Query<&ChildOf>,
     levels: Query<(), With<LevelElevation>>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
@@ -89,7 +89,7 @@ pub fn add_location_visuals(
         let visibility = if should_display_point(
             point,
             associated_graphs,
-            &parents,
+            &child_of,
             &levels,
             &current_level,
             &graphs,
@@ -160,7 +160,7 @@ pub fn update_changed_location(
         (Changed<Point<Entity>>, Without<NavGraphMarker>),
     >,
     anchors: AnchorParams,
-    parents: Query<&Parent>,
+    child_of: Query<&ChildOf>,
     levels: Query<(), With<LevelElevation>>,
     graphs: GraphSelect,
     current_level: Res<CurrentLevel>,
@@ -175,7 +175,7 @@ pub fn update_changed_location(
         let new_visibility = if should_display_point(
             point,
             associated,
-            &parents,
+            &child_of,
             &levels,
             &current_level,
             &graphs,
@@ -223,19 +223,19 @@ pub fn update_location_for_changed_location_tags(
         // Despawn the removed tags first
         if let Some(id) = tag_meshes.charger {
             if !tags.iter().any(|t| t.is_charger()) {
-                commands.entity(id).despawn_recursive();
+                commands.entity(id).despawn();
                 tag_meshes.charger = None;
             }
         }
         if let Some(id) = tag_meshes.parking_spot {
             if !tags.iter().any(|t| t.is_parking_spot()) {
-                commands.entity(id).despawn_recursive();
+                commands.entity(id).despawn();
                 tag_meshes.parking_spot = None;
             }
         }
         if let Some(id) = tag_meshes.holding_point {
             if !tags.iter().any(|t| t.is_holding_point()) {
-                commands.entity(id).despawn_recursive();
+                commands.entity(id).despawn();
                 tag_meshes.holding_point = None;
             }
         }
@@ -294,7 +294,7 @@ pub fn update_visibility_for_locations(
         ),
         (With<LocationTags>, Without<NavGraphMarker>),
     >,
-    parents: Query<&Parent>,
+    child_of: Query<&ChildOf>,
     levels: Query<(), With<LevelElevation>>,
     current_level: Res<CurrentLevel>,
     graphs: GraphSelect,
@@ -318,7 +318,7 @@ pub fn update_visibility_for_locations(
             let new_visibility = if should_display_point(
                 point,
                 associated,
-                &parents,
+                &child_of,
                 &levels,
                 &current_level,
                 &graphs,
@@ -337,7 +337,7 @@ pub fn update_visibility_for_locations(
                 let new_visibility = if should_display_point(
                     point,
                     associated,
-                    &parents,
+                    &child_of,
                     &levels,
                     &current_level,
                     &graphs,

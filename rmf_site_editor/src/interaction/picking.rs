@@ -91,7 +91,7 @@ pub fn update_picked(
         if blockers.blocking() {
             // If picking is masked, then nothing should be picked
             if picked.current.is_some() {
-                change_pick.send(ChangePick {
+                change_pick.write(ChangePick {
                     from: picked.current,
                     to: None,
                 });
@@ -136,7 +136,7 @@ pub fn update_picked(
     }
 
     if picked.current != current_picked || refresh {
-        change_pick.send(ChangePick {
+        change_pick.write(ChangePick {
             from: picked.current,
             to: current_picked,
         });

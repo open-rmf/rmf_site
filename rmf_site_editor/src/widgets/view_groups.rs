@@ -227,7 +227,7 @@ impl<'w, 's> ViewGroups<'w, 's> {
                                 .on_hover_text("Merge into this group")
                                 .clicked()
                             {
-                                events.merge_groups.send(MergeGroups {
+                                events.merge_groups.write(MergeGroups {
                                     from_group: merge_from,
                                     into_group: *child,
                                 });
@@ -242,9 +242,9 @@ impl<'w, 's> ViewGroups<'w, 's> {
                             .clicked()
                         {
                             if TypeId::of::<T>() == TypeId::of::<ModelMarker>() {
-                                events.delete.send(Delete::new(*child).and_dependents());
+                                events.delete.write(Delete::new(*child).and_dependents());
                             } else {
-                                events.commands.entity(*child).despawn_recursive();
+                                events.commands.entity(*child).despawn();
                                 *mode = GroupViewMode::View;
                             }
                         }
@@ -253,7 +253,7 @@ impl<'w, 's> ViewGroups<'w, 's> {
 
                 let mut new_name = name.0.clone();
                 if ui.text_edit_singleline(&mut new_name).changed() {
-                    events.name.send(Change::new(NameInSite(new_name), *child));
+                    events.name.write(Change::new(NameInSite(new_name), *child));
                 }
             });
         }

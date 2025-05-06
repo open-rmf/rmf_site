@@ -18,6 +18,7 @@
 use bevy::{
     ecs::{
         component::{ComponentId, ComponentInfo},
+        hierarchy::ChildOf,
         query::QueryData,
         system::{EntityCommands, SystemParam},
     },
@@ -58,7 +59,7 @@ impl Plugin for InspectModelDescriptionPlugin {
         let id = app
             .world_mut()
             .spawn(widget)
-            .set_parent(main_inspector)
+            .insert(ChildOf(main_inspector))
             .id();
         app.world_mut()
             .insert_resource(ModelDescriptionInspector { id });
@@ -204,7 +205,7 @@ where
 
         let inspector = app.world().resource::<ModelDescriptionInspector>().id;
         let widget = Widget::<Inspect>::new::<W>(app.world_mut());
-        app.world_mut().spawn(widget).set_parent(inspector);
+        app.world_mut().spawn(widget).insert(ChildOf(inspector));
     }
 }
 
@@ -250,11 +251,12 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelDescription<'w, 's> {
             }
         };
 
-        let components_info: Vec<ComponentInfo> = world
+        let Ok(components_info) = world
             .inspect_entity(description_entity)
-            .into_iter()
-            .cloned()
-            .collect();
+            .map(|c| c.cloned().collect::<Vec<ComponentInfo>>())
+        else {
+            return;
+        };
 
         let mut inserts_to_execute = Vec::<InsertModelPropertyFn>::new();
         let mut removals_to_execute = Vec::<RemoveModelPropertyFn>::new();
@@ -330,7 +332,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelDescription<'w, 's> {
             let children: Result<SmallVec<[_; 16]>, _> = params
                 .children
                 .get(params.inspect_model_description.id)
-                .map(|children| children.iter().copied().collect());
+                .map(|children| children.iter().collect());
             let Ok(children) = children else {
                 return;
             };
@@ -415,7 +417,7 @@ impl<'w, 's> InspectSelectedModelDescription<'w, 's> {
         });
         if new_description_entity != current_description_entity {
             self.change_affiliation
-                .send(Change::new(Affiliation(Some(new_description_entity)), id));
+                .write(Change::new(Affiliation(Some(new_description_entity)), id));
             let (_, _, new_source) = self.model_descriptions.get(new_description_entity).unwrap();
             self.model_loader
                 .update_asset_source(id, new_source.0.clone());

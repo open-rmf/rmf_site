@@ -86,7 +86,6 @@ pub use visual_cue::*;
 
 use bevy::prelude::*;
 use bevy_mod_outline::OutlinePlugin;
-use bevy_polyline::PolylinePlugin;
 
 #[derive(Default)]
 pub struct InteractionPlugin {
@@ -139,9 +138,8 @@ impl Plugin for InteractionPlugin {
             )
             .add_systems(
                 Update,
-                apply_deferred.in_set(InteractionUpdateSet::CommandFlush),
+                ApplyDeferred.in_set(InteractionUpdateSet::CommandFlush),
             )
-            .add_plugins(PolylinePlugin)
             .add_plugins(MeshPickingPlugin)
             .init_resource::<InteractionAssets>()
             .init_resource::<Cursor>()

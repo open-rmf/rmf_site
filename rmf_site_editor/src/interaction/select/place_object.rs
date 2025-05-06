@@ -20,8 +20,8 @@ use crate::{
     site::{CurrentLevel, ModelInstance},
 };
 use bevy::ecs::{
+    prelude::Command,
     system::{SystemParam, SystemState},
-    world::Command,
 };
 
 #[derive(Default)]

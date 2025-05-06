@@ -23,7 +23,10 @@ use crate::{
 };
 use anyhow::{anyhow, Error as Anyhow};
 use bevy::{
-    ecs::system::{StaticSystemParam, SystemParam},
+    ecs::{
+        schedule::ScheduleConfigs,
+        system::{ScheduleSystem, StaticSystemParam, SystemParam},
+    },
     math::Ray3d,
     picking::pointer::{PointerId, PointerInteraction},
     prelude::*,
@@ -87,13 +90,13 @@ impl Plugin for SelectionPlugin {
         .add_systems(
             Update,
             (
-                (apply_deferred, flush_impulses())
+                (ApplyDeferred, flush_impulses())
                     .chain()
                     .in_set(SelectionServiceStages::PickFlush),
-                (apply_deferred, flush_impulses())
+                (ApplyDeferred, flush_impulses())
                     .chain()
                     .in_set(SelectionServiceStages::HoverFlush),
-                (apply_deferred, flush_impulses())
+                (ApplyDeferred, flush_impulses())
                     .chain()
                     .in_set(SelectionServiceStages::SelectFlush),
             ),
@@ -382,10 +385,10 @@ impl Default for SelectionBlockers {
 
 pub fn make_selectable_entities_pickable(
     mut commands: Commands,
-    new_selectables: Query<(Entity, &Selectable), Added<Selectable>>,
+    new_selectables: Query<&Selectable, Added<Selectable>>,
     targets: Query<(Option<&Hovered>, Option<&Selected>)>,
 ) {
-    for (entity, selectable) in &new_selectables {
+    for selectable in &new_selectables {
         if let Ok((hovered, selected)) = targets.get(selectable.element) {
             if hovered.is_none() {
                 commands
@@ -423,20 +426,23 @@ impl SpawnSelectionServiceExt for App {
     {
         let picking_service = self.spawn_continuous_service(
             Update,
-            picking_service::<F>
-                .configure(|config: SystemConfigs| config.in_set(SelectionServiceStages::Pick)),
+            picking_service::<F>.configure(|config: ScheduleConfigs<ScheduleSystem>| {
+                config.in_set(SelectionServiceStages::Pick)
+            }),
         );
 
         let hover_service = self.spawn_continuous_service(
             Update,
-            hover_service::<F>
-                .configure(|config: SystemConfigs| config.in_set(SelectionServiceStages::Hover)),
+            hover_service::<F>.configure(|config: ScheduleConfigs<ScheduleSystem>| {
+                config.in_set(SelectionServiceStages::Hover)
+            }),
         );
 
         let select_service = self.spawn_continuous_service(
             Update,
-            select_service::<F>
-                .configure(|config: SystemConfigs| config.in_set(SelectionServiceStages::Select)),
+            select_service::<F>.configure(|config: ScheduleConfigs<ScheduleSystem>| {
+                config.in_set(SelectionServiceStages::Select)
+            }),
         );
 
         self.world_mut()
@@ -507,8 +513,9 @@ impl Plugin for InspectorServicePlugin {
         let inspector_select_service = app.spawn_selection_service::<InspectorFilter>();
         let inspector_cursor_transform = app.spawn_continuous_service(
             Update,
-            inspector_cursor_transform
-                .configure(|config: SystemConfigs| config.in_set(SelectionServiceStages::Pick)),
+            inspector_cursor_transform.configure(|config: ScheduleConfigs<ScheduleSystem>| {
+                config.in_set(SelectionServiceStages::Pick)
+            }),
         );
         let selection_update = app.spawn_service(selection_update);
         let keyboard_just_pressed = app
@@ -553,7 +560,7 @@ impl Plugin for InspectorServicePlugin {
 
 pub fn deselect_on_esc(In(code): In<KeyCode>, mut select: EventWriter<Select>) {
     if matches!(code, KeyCode::Escape) {
-        select.send(Select::new(None));
+        select.write(Select::new(None));
     }
 }
 
@@ -699,10 +706,10 @@ pub fn picking_service<Filter: SystemParam + 'static>(
     let mut filter = filter.into_inner();
 
     if let Some(pick) = picks.read().last() {
-        hover
-            .send(Hover(pick.to.and_then(|change_pick_to| {
-                filter.filter_pick(change_pick_to)
-            })));
+        hover.write(Hover(
+            pick.to
+                .and_then(|change_pick_to| filter.filter_pick(change_pick_to)),
+        ));
     }
 }
 
@@ -777,7 +784,7 @@ pub fn hover_service<Filter: SystemParam + 'static>(
 
     if clicked && !blocked {
         if let Some(new_select) = filter.on_click(Hover(hovering.0)) {
-            select.send(new_select);
+            select.write(new_select);
         }
     }
 }
@@ -818,8 +825,8 @@ pub fn select_service<Filter: SystemParam + 'static>(
                     if selected.provisional {
                         // The selection was provisional. Since we are not
                         // using it, we are responsible for despawning it.
-                        if let Some(entity_mut) = commands.get_entity(selected.candidate) {
-                            entity_mut.despawn_recursive();
+                        if let Ok(mut entity_mut) = commands.get_entity(selected.candidate) {
+                            entity_mut.despawn();
                         }
                     }
                     continue;
@@ -902,7 +909,7 @@ pub fn inspector_cursor_transform(
         return;
     }
 
-    let Some((_, interactions)) = pointers.get_single().ok() else {
+    let Some((_, interactions)) = pointers.single().ok() else {
         return;
     };
     let active_camera = camera_controls.active_camera();
