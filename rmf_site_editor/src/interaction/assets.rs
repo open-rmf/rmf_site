@@ -19,11 +19,6 @@ use crate::{interaction::*, shapes::*};
 use bevy::color::palettes::css as Colors;
 use bevy::ecs::hierarchy::ChildOf;
 use bevy::{math::primitives, math::Affine3A, prelude::*};
-use bevy_polyline::prelude::{PolylineHandle, PolylineMaterialHandle};
-use bevy_polyline::{
-    material::PolylineMaterial,
-    polyline::{Polyline, PolylineBundle},
-};
 
 #[derive(Clone, Debug, Resource)]
 pub struct InteractionAssets {
@@ -49,7 +44,7 @@ pub struct InteractionAssets {
     pub z_plane_materials: GizmoMaterialSet,
     pub lift_doormat_available_materials: GizmoMaterialSet,
     pub lift_doormat_unavailable_materials: GizmoMaterialSet,
-    pub centimeter_finite_grid: Vec<(Handle<Polyline>, Handle<PolylineMaterial>)>,
+    pub centimeter_finite_grid: Vec<(primitives::BoxedPolyline3d, PolylineMaterial)>,
 }
 
 impl InteractionAssets {
@@ -173,6 +168,7 @@ impl InteractionAssets {
         anchor: Entity,
         cue: &mut AnchorVisualization,
         draggable: bool,
+        gizmos: &mut Gizmos,
     ) {
         let drag_parent = commands
             .spawn((Transform::default(), Visibility::default()))
@@ -203,16 +199,19 @@ impl InteractionAssets {
             self.make_axis(commands, for_entity, drag_parent, m, p, r, scale);
         }
 
-        commands.entity(drag_parent).with_children(|parent| {
+        commands.entity(drag_parent).with_children(|_parent| {
             for (polyline, material) in &self.centimeter_finite_grid {
-                parent.spawn((
-                    PolylineBundle {
-                        polyline: PolylineHandle(polyline.clone()),
-                        material: PolylineMaterialHandle(material.clone()),
-                        ..default()
-                    },
-                    DisableXray,
-                ));
+                // TODO(@xiyuoh) As part of migrating to newer versions of Bevy,
+                // we're moving from bevy_polyline to using Bevy's own gizmos crate
+                // to generate grid lines. This is currently only used in the rmf_workcell
+                // editor, which has not been updated as quickly. Proper testing will
+                // be required to validate polyline generation with gizmos.
+                gizmos.primitive_3d(
+                    polyline,
+                    Isometry3d::new(Vec3::default(), Quat::IDENTITY),
+                    material.color,
+                );
+                // TODO(@xiyuoh) insert DisableXray
             }
         });
 
@@ -394,18 +393,6 @@ impl FromWorld for InteractionAssets {
                 make_metric_finite_grid(0.01, 100, Colors::WHITE.into())
                     .into_iter()
                     .unzip();
-            let mut polyline_assets = world.get_resource_mut::<Assets<Polyline>>().unwrap();
-            let polylines: Vec<Handle<Polyline>> = polylines
-                .into_iter()
-                .map(|p| polyline_assets.add(p))
-                .collect();
-            let mut polyline_mat_assets = world
-                .get_resource_mut::<Assets<PolylineMaterial>>()
-                .unwrap();
-            let polyline_mats: Vec<Handle<PolylineMaterial>> = polyline_mats
-                .into_iter()
-                .map(|m| polyline_mat_assets.add(m))
-                .collect();
             polylines
                 .into_iter()
                 .zip(polyline_mats.into_iter())

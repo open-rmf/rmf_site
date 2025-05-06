@@ -204,6 +204,7 @@ pub fn update_anchor_visual_cues(
     interaction_assets: Res<InteractionAssets>,
     debug_mode: Option<Res<DebugMode>>,
     gizmo_blockers: Res<GizmoBlockers>,
+    mut gizmos: Gizmos,
 ) {
     for (
         a,
@@ -287,6 +288,7 @@ pub fn update_anchor_visual_cues(
                             a,
                             shapes.as_mut(),
                             subordinate.is_none(),
+                            &mut gizmos,
                         );
                     }
                 } else {

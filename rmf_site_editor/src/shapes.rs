@@ -17,6 +17,7 @@
 
 use bevy::math::{primitives, Affine3A};
 use bevy::{
+    math::primitives::BoxedPolyline3d,
     prelude::*,
     render::{
         mesh::{Indices, PrimitiveTopology, VertexAttributeValues},
@@ -28,7 +29,7 @@ use bevy_mod_outline::ATTRIBUTE_OUTLINE_NORMAL;
 use bevy_mod_outline::{
     GenerateOutlineNormalsError, GenerateOutlineNormalsSettings, OutlineMeshExt,
 };
-use bevy_polyline::{material::PolylineMaterial, polyline::Polyline};
+// use bevy_polyline::{material::PolylineMaterial, polyline::Polyline};
 use rmf_site_format::Angle;
 use std::collections::{BTreeMap, HashMap};
 
@@ -40,6 +41,50 @@ impl WithOutlineMeshExt for Mesh {
     fn with_generated_outline_normals(mut self) -> Result<Self, GenerateOutlineNormalsError> {
         self.generate_outline_normals(&GenerateOutlineNormalsSettings::default())?;
         Ok(self)
+    }
+}
+
+// TODO(@xiyuoh) Temp only: ported from bevy_polyline, use GizmoConfig to instead
+#[derive(Asset, Debug, PartialEq, Clone, Copy, TypePath)]
+pub struct PolylineMaterial {
+    /// Width of the line.
+    ///
+    /// Corresponds to screen pixels when line is positioned nearest the
+    /// camera.
+    pub width: f32,
+    pub color: LinearRgba,
+    /// How closer to the camera than real geometry the line should be.
+    ///
+    /// Value between -1 and 1 (inclusive).
+    /// * 0 means that there is no change to the line position when rendering
+    /// * 1 means it is furthest away from camera as possible
+    /// * -1 means that it will always render in front of other things.
+    ///
+    /// This is typically useful if you are drawing wireframes on top of polygons
+    /// and your wireframe is z-fighting (flickering on/off) with your main model.
+    /// You would set this value to a negative number close to 0.0.
+    pub depth_bias: f32,
+    /// Whether to reduce line width with perspective.
+    ///
+    /// When `perspective` is `true`, `width` corresponds to screen pixels at
+    /// the near plane and becomes progressively smaller further away. This is done
+    /// by dividing `width` by the w component of the homogeneous coordinate.
+    ///
+    /// If the width where to be lower than 1, the color of the line is faded. This
+    /// prevents flickering.
+    ///
+    /// Note that `depth_bias` **does not** interact with this in any way.
+    pub perspective: bool,
+}
+
+impl Default for PolylineMaterial {
+    fn default() -> Self {
+        Self {
+            width: 10.0,
+            color: Color::WHITE.to_linear(),
+            depth_bias: 0.0,
+            perspective: false,
+        }
     }
 }
 
@@ -1262,7 +1307,7 @@ pub(crate) fn make_finite_grid(
     count: u32,
     color: Color,
     weights: BTreeMap<u32, f32>,
-) -> Vec<(Polyline, PolylineMaterial)> {
+) -> Vec<(BoxedPolyline3d, PolylineMaterial)> {
     let d_max = count as f32 * scale;
     let depth_bias = -0.0001;
     let perspective = true;
@@ -1276,12 +1321,13 @@ pub(crate) fn make_finite_grid(
 
     let make_points = |i, j, d| [make_point(i, j, d, d_max), make_point(i, j, d, -d_max)];
 
-    let mut polylines: HashMap<u32, Polyline> = HashMap::new();
+    let mut vec_of_lines: HashMap<u32, Vec<Vec3>> = HashMap::new();
+
     let mut result = {
         let Some(width) = weights.values().last().copied() else {
             return Vec::new();
         };
-        let mut axes: Vec<(Polyline, PolylineMaterial)> = Vec::new();
+        let mut axes: Vec<(BoxedPolyline3d, PolylineMaterial)> = Vec::new();
 
         for (sign, x_axis_color, y_axis_color) in [
             (1.0, X_AXIS_COLOR, Y_AXIS_COLOR),
@@ -1290,9 +1336,7 @@ pub(crate) fn make_finite_grid(
             for (i, j, color) in [(0, 1, x_axis_color), (1, 0, y_axis_color)] {
                 let p0 = Vec3::ZERO;
                 let p1 = make_point(i, j, 0.0, sign * d_max);
-                let polyline = Polyline {
-                    vertices: vec![p0, p1],
-                };
+                let polyline: BoxedPolyline3d = BoxedPolyline3d::new([p0, p1]);
                 let material = PolylineMaterial {
                     width,
                     color: color.into(),
@@ -1308,24 +1352,22 @@ pub(crate) fn make_finite_grid(
 
     for n in 1..=count {
         let d = n as f32 * scale;
-        let polylines = {
+        let polyline = {
             let Some(weight_key) = weights.keys().rev().find(|k| n % **k == 0) else {
                 continue;
             };
-            polylines.entry(*weight_key).or_insert(Polyline3d {
-                vertices: vec![Vec3::default(), Vec3::default()],
-            })
+            vec_of_lines.entry(*weight_key).or_insert(Vec::default())
         };
 
         for (i, j) in [(0, 1), (1, 0)] {
-            polylines.vertices.extend(make_points(i, j, d));
-            polylines.vertices.push(POLYLINE_SEPARATOR);
-            polylines.vertices.extend(make_points(i, j, -d));
-            polylines.vertices.push(POLYLINE_SEPARATOR);
+            polyline.extend(make_points(i, j, d));
+            polyline.push(POLYLINE_SEPARATOR);
+            polyline.extend(make_points(i, j, -d));
+            polyline.push(POLYLINE_SEPARATOR);
         }
     }
 
-    result.extend(polylines.into_iter().map(|(n, polyline)| {
+    result.extend(vec_of_lines.into_iter().map(|(n, polyline)| {
         let width = *weights.get(&n).unwrap();
         let material = PolylineMaterial {
             width,
@@ -1333,7 +1375,7 @@ pub(crate) fn make_finite_grid(
             depth_bias,
             perspective,
         };
-        (polyline, material)
+        (BoxedPolyline3d::new(polyline), material)
     }));
     result
 }
@@ -1342,6 +1384,6 @@ pub(crate) fn make_metric_finite_grid(
     scale: f32,
     count: u32,
     color: Color,
-) -> Vec<(Polyline, PolylineMaterial)> {
+) -> Vec<(BoxedPolyline3d, PolylineMaterial)> {
     make_finite_grid(scale, count, color, [(1, 0.5), (5, 1.0), (10, 1.5)].into())
 }
