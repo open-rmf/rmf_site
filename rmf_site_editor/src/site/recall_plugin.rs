@@ -56,7 +56,7 @@ fn add_recaller<Recaller: Recall + Component<Mutability = Mutable> + Default>(
     for (e, source) in &new_sources {
         let mut recaller = Recaller::default();
         recaller.remember(source);
-        commands.get_entity(e).map(|mut e_mut| {
+        let _ = commands.get_entity(e).map(|mut e_mut| {
             e_mut.insert(recaller);
         });
     }
