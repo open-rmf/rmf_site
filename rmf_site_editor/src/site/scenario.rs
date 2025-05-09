@@ -20,12 +20,12 @@ use crate::{
     site::{
         Affiliation, CurrentScenario, Delete, Dependents, Group, InheritedInstance, InstanceMarker,
         InstanceModifier, IssueKey, ModelMarker, NameInSite, Pending, PendingModel, Pose,
-        RecallInstance, ScenarioBundle, ScenarioMarker,
+        RecallInstance, ScenarioBundle, ScenarioMarker, ScenarioModifiers,
     },
     widgets::view_model_instances::count_scenarios,
     CurrentWorkspace, Issue, ValidateWorkspace,
 };
-use bevy::ecs::hierarchy::ChildOf;
+use bevy::ecs::{hierarchy::ChildOf, system::SystemParam};
 use bevy::prelude::*;
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
@@ -37,6 +37,58 @@ pub struct ChangeCurrentScenario(pub Entity);
 pub struct CreateScenario {
     pub name: Option<String>,
     pub parent: Option<Entity>,
+}
+
+#[derive(SystemParam)]
+pub struct GetModifier<'w, 's, T: Component + Clone + Default> {
+    commands: Commands<'w, 's>,
+    scenarios: Query<
+        'w,
+        's,
+        (
+            &'static mut ScenarioModifiers<Entity>,
+            &'static Affiliation<Entity>,
+        ),
+        With<ScenarioMarker>,
+    >,
+    modifiers: Query<'w, 's, &'static T>,
+}
+
+impl<'w, 's, T: Component + Clone + Default> GetModifier<'w, 's, T> {
+    fn get(&mut self, scenario: Entity, entity: Entity) -> Option<&T> {
+        let mut modifier: Option<&T> = None;
+        let mut scenario_entity = scenario;
+        while modifier.is_none() {
+            let Ok((mut scenario_modifiers, scenario_parent)) =
+                self.scenarios.get_mut(scenario_entity)
+            else {
+                break;
+            };
+
+            if let Some(target_modifier) = scenario_modifiers
+                .get(&entity)
+                .and_then(|e| self.modifiers.get(*e).ok())
+            {
+                // Modifier exists in this scenario, return and exit early
+                modifier = Some(target_modifier);
+                break;
+            }
+
+            if let Some(parent_entity) = scenario_parent.0 {
+                scenario_entity = parent_entity;
+            } else {
+                // This is a root scenario, set fallback value and exit
+                // TODO(@xiyuoh) better way to set modifier value into ScenarioModifiers via AddModifier event
+                let modifier_entity = self.commands.spawn(T::default()).id();
+                scenario_modifiers.insert(entity, modifier_entity);
+                modifier = scenario_modifiers
+                    .get(&entity)
+                    .and_then(|e| self.modifiers.get(*e).ok());
+                break;
+            }
+        }
+        modifier
+    }
 }
 
 #[derive(Clone, Debug)]
