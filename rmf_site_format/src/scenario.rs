@@ -17,7 +17,7 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Reflect, ReflectComponent};
+use bevy::prelude::{Bundle, Component, Deref, DerefMut, Reflect, ReflectComponent};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 
@@ -32,6 +32,12 @@ pub enum InstanceModifier {
     Added(AddedInstance),
     Inherited(InheritedInstance),
     Hidden,
+}
+
+impl Default for InstanceModifier {
+    fn default() -> Self {
+        Self::Hidden
+    }
 }
 
 impl InstanceModifier {
@@ -103,6 +109,22 @@ pub struct AddedInstance {
 pub struct InheritedInstance {
     pub modified_pose: Option<Pose>,
     pub explicit_inclusion: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+pub struct ScenarioModifiers<T: RefTrait>(pub HashMap<T, T>);
+
+impl<T: RefTrait> Default for ScenarioModifiers<T> {
+    fn default() -> Self {
+        Self(HashMap::new())
+    }
+}
+
+impl<T: RefTrait> ScenarioModifiers<T> {
+    pub fn get_modifiers(&self, entity: T) -> Option<T> {
+        self.0.get(&entity).copied()
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
