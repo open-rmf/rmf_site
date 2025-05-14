@@ -436,12 +436,15 @@ fn generate_site_entities(
         consider_id(*scenario_id);
 
         // Spawn instance modifier entities
+        let mut scenario_modifiers: ScenarioModifiers<Entity> = ScenarioModifiers::default();
         for (instance_id, instance) in scenario_data.instances.iter() {
             if let Some(instance_entity) = id_to_entity.get(&instance_id) {
-                commands
+                let modifier_entity = commands
                     .spawn(instance.clone())
                     .insert(Affiliation(Some(*instance_entity)))
-                    .set_parent(scenario_entity);
+                    .set_parent(scenario_entity)
+                    .id();
+                scenario_modifiers.insert(*instance_entity, modifier_entity);
             } else {
                 error!(
                     "Model instance {} referenced by scenario {} is missing! This should \
@@ -450,6 +453,7 @@ fn generate_site_entities(
                 );
             }
         }
+        commands.entity(scenario_entity).insert(scenario_modifiers);
     }
 
     let nav_graph_rankings = match RecencyRanking::<NavGraphMarker>::from_u32(
