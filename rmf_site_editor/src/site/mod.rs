@@ -202,6 +202,8 @@ impl Plugin for SitePlugin {
         .add_event::<ChangeCurrentScenario>()
         .add_event::<CreateScenario>()
         .add_event::<RemoveScenario>()
+        .add_event::<AddModifier>()
+        .add_event::<RemoveModifier>()
         .add_event::<UpdateInstanceEvent>()
         .add_event::<SaveSite>()
         .add_event::<SaveNavGraphs>()
@@ -343,7 +345,6 @@ impl Plugin for SitePlugin {
         .add_systems(
             PostUpdate,
             (
-                update_anchor_transforms,
                 add_door_visuals,
                 update_changed_door,
                 update_door_for_moved_anchors,
@@ -362,7 +363,8 @@ impl Plugin for SitePlugin {
                 update_scenario_properties.before(handle_instance_updates),
                 handle_instance_updates.before(handle_create_scenarios),
                 handle_create_scenarios.before(insert_new_instance_modifiers),
-                insert_new_instance_modifiers,
+                insert_new_instance_modifiers.before(handle_scenario_modifiers),
+                handle_scenario_modifiers,
             )
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
@@ -370,6 +372,7 @@ impl Plugin for SitePlugin {
         .add_systems(
             PostUpdate,
             (
+                update_anchor_transforms,
                 update_changed_lane,
                 update_lane_for_moved_anchor,
                 remove_association_for_deleted_graphs,

@@ -26,18 +26,13 @@ use std::collections::{BTreeMap, HashMap};
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct InstanceMarker;
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub enum InstanceModifier {
     Added(AddedInstance),
     Inherited(InheritedInstance),
+    #[default]
     Hidden,
-}
-
-impl Default for InstanceModifier {
-    fn default() -> Self {
-        Self::Hidden
-    }
 }
 
 impl InstanceModifier {
@@ -45,10 +40,17 @@ impl InstanceModifier {
         Self::Added(AddedInstance { pose: pose })
     }
 
-    pub fn inherited() -> Self {
+    pub fn inherited_with_pose(pose: Pose) -> Self {
+        Self::Inherited(InheritedInstance {
+            modified_pose: Some(pose),
+            explicit_inclusion: false,
+        })
+    }
+
+    pub fn inherited_with_inclusion() -> Self {
         Self::Inherited(InheritedInstance {
             modified_pose: None,
-            explicit_inclusion: false,
+            explicit_inclusion: true,
         })
     }
 
@@ -109,6 +111,15 @@ pub struct AddedInstance {
 pub struct InheritedInstance {
     pub modified_pose: Option<Pose>,
     pub explicit_inclusion: bool,
+}
+
+impl InheritedInstance {
+    pub fn modified(&self) -> bool {
+        if self.modified_pose.is_some() || self.explicit_inclusion {
+            return true;
+        }
+        false
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
