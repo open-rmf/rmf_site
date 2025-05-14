@@ -25,7 +25,7 @@ pub struct InspectDefaultTasksPlugin {}
 
 impl Plugin for InspectDefaultTasksPlugin {
     fn build(&self, app: &mut App) {
-        app.world.resource_mut::<TaskKinds>().0.insert(
+        app.world_mut().resource_mut::<TaskKinds>().0.insert(
             GoToPlace::label(),
             (
                 |id, task, locations, ui| {
@@ -34,7 +34,7 @@ impl Plugin for InspectDefaultTasksPlugin {
                 |task, locations| InspectGoToPlace::is_valid(task, locations),
             ),
         );
-        app.world.resource_mut::<TaskKinds>().0.insert(
+        app.world_mut().resource_mut::<TaskKinds>().0.insert(
             WaitFor::label(),
             (
                 |id, task, locations, ui| {
@@ -75,7 +75,7 @@ impl<'a> InspectGoToPlace<'a> {
         } else {
             new_go_to_place.location.clone()
         };
-        ComboBox::from_id_source(self.id.to_string() + "select_go_to_location")
+        ComboBox::from_id_salt(self.id.to_string() + "select_go_to_location")
             .selected_text(selected_location_name)
             .show_ui(ui, |ui| {
                 for location_name in self.locations.iter() {
@@ -118,7 +118,7 @@ impl<'a> InspectWaitFor<'a> {
         ui.horizontal(|ui| {
             ui.add(
                 DragValue::new(&mut new_wait_for.duration)
-                    .clamp_range(0_f32..=std::f32::INFINITY)
+                    .range(0_f32..=std::f32::INFINITY)
                     .speed(0.01),
             );
             ui.label(" seconds");

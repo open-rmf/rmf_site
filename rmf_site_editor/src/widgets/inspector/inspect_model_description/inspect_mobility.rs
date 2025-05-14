@@ -267,12 +267,12 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectDifferentialDrive<'w, 's> {
                     ui.label("");
                     ui.add(
                         DragValue::new(&mut new_differential_drive.rotation_center_offset[0])
-                            .clamp_range(std::f32::NEG_INFINITY..=std::f32::INFINITY)
+                            .range(std::f32::NEG_INFINITY..=std::f32::INFINITY)
                             .speed(0.01),
                     );
                     ui.add(
                         DragValue::new(&mut new_differential_drive.rotation_center_offset[1])
-                            .clamp_range(std::f32::NEG_INFINITY..=std::f32::INFINITY)
+                            .range(std::f32::NEG_INFINITY..=std::f32::INFINITY)
                             .speed(0.01),
                     );
                     ui.end_row();
@@ -284,7 +284,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectDifferentialDrive<'w, 's> {
                     ui.label("Max Velocity");
                     ui.add(
                         DragValue::new(&mut new_differential_drive.translational_speed)
-                            .clamp_range(0_f32..=std::f32::INFINITY)
+                            .range(0_f32..=std::f32::INFINITY)
                             .speed(0.01),
                     );
                     ui.label("m/s");
@@ -293,7 +293,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectDifferentialDrive<'w, 's> {
                     ui.label("Max Angular");
                     ui.add(
                         DragValue::new(&mut new_differential_drive.rotational_speed)
-                            .clamp_range(0_f32..=std::f32::INFINITY)
+                            .range(0_f32..=std::f32::INFINITY)
                             .speed(0.01),
                     );
                     ui.label("rad/s");

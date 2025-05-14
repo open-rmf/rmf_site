@@ -23,11 +23,14 @@ use crate::{
 };
 use bevy::{
     prelude::*,
-    render::mesh::{Indices, PrimitiveTopology},
-    utils::Uuid,
+    render::{
+        mesh::{Indices, PrimitiveTopology},
+        render_asset::RenderAssetUsages,
+    },
 };
 use rmf_site_format::{Category, DoorType, Edge, DEFAULT_LEVEL_HEIGHT};
 use std::collections::{BTreeSet, HashMap};
+use uuid::Uuid;
 
 pub const DOOR_CUE_HEIGHT: f32 = 0.004;
 pub const DOOR_STOP_LINE_THICKNESS: f32 = 0.01;
@@ -264,10 +267,13 @@ fn make_door_cues(door_width: f32, kind: &DoorType) -> (Mesh, Mesh) {
                 .into_mesh_and_outline()
         }
         _ => {
-            let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+            let mut mesh = Mesh::new(
+                PrimitiveTopology::TriangleList,
+                RenderAssetUsages::default(),
+            );
             mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, Vec::<[f32; 3]>::new());
             mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, Vec::<[f32; 3]>::new());
-            mesh.set_indices(Some(Indices::U32(vec![])));
+            mesh.insert_indices(Indices::U32(vec![]));
             (mesh.clone(), mesh)
         }
     }
@@ -295,31 +301,33 @@ pub fn add_door_visuals(
             .iter()
             .map(|tf| {
                 commands
-                    .spawn(PbrBundle {
-                        mesh: assets.box_mesh.clone(),
-                        material: assets.door_body_material.clone(),
-                        transform: *tf,
-                        ..default()
-                    })
+                    .spawn((
+                        Mesh3d(assets.box_mesh.clone()),
+                        MeshMaterial3d(assets.door_body_material.clone()),
+                        *tf,
+                        Visibility::default(),
+                    ))
                     .insert(Selectable::new(e))
                     .id()
             })
             .collect::<Vec<_>>();
         let body = DoorBodyType::from_door_type(kind, &bodies);
         let cue_inner = commands
-            .spawn(PbrBundle {
-                mesh: meshes.add(cue_inner_mesh),
-                material: assets.translucent_white.clone(),
-                ..default()
-            })
+            .spawn((
+                Mesh3d(meshes.add(cue_inner_mesh)),
+                MeshMaterial3d(assets.translucent_white.clone()),
+                Transform::default(),
+                Visibility::default(),
+            ))
             .id();
 
         let cue_outline = commands
-            .spawn(PbrBundle {
-                mesh: meshes.add(cue_outline_mesh),
-                material: assets.translucent_black.clone(),
-                ..default()
-            })
+            .spawn((
+                Mesh3d(meshes.add(cue_outline_mesh)),
+                MeshMaterial3d(assets.translucent_black.clone()),
+                Transform::default(),
+                Visibility::default(),
+            ))
             .id();
 
         // Level doors for lifts may have already been given a Visibility
@@ -329,11 +337,7 @@ pub fn add_door_visuals(
 
         commands
             .entity(e)
-            .insert(SpatialBundle {
-                transform: pose_tf,
-                visibility,
-                ..default()
-            })
+            .insert((pose_tf, visibility))
             .insert(DoorSegments {
                 body,
                 cue_inner,
@@ -341,8 +345,8 @@ pub fn add_door_visuals(
             })
             .insert(Category::Door)
             .insert(EdgeLabels::LeftRight)
-            .push_children(&[cue_inner, cue_outline])
-            .push_children(&bodies);
+            .add_children(&[cue_inner, cue_outline])
+            .add_children(&bodies);
 
         for anchor in edge.array() {
             if let Ok(mut deps) = dependents.get_mut(anchor) {
@@ -360,7 +364,7 @@ fn update_door_visuals(
     segments: &DoorSegments,
     anchors: &AnchorParams,
     transforms: &mut Query<&mut Transform>,
-    mesh_handles: &mut Query<&mut Handle<Mesh>>,
+    mesh_handles: &mut Query<&mut Mesh3d>,
     mesh_assets: &mut ResMut<Assets<Mesh>>,
     assets: &Res<SiteAssets>,
 ) -> Option<DoorBodyType> {
@@ -376,12 +380,12 @@ fn update_door_visuals(
     for door_tf in door_tfs.iter().skip(entities.len()) {
         // New doors were added, we need to spawn them
         let id = commands
-            .spawn(PbrBundle {
-                mesh: assets.box_mesh.clone(),
-                material: assets.door_body_material.clone(),
-                transform: *door_tf,
-                ..default()
-            })
+            .spawn((
+                Mesh3d(assets.box_mesh.clone()),
+                MeshMaterial3d(assets.door_body_material.clone()),
+                *door_tf,
+                Visibility::default(),
+            ))
             .insert(Selectable::new(entity))
             .id();
         entities.push(id);
@@ -392,9 +396,9 @@ fn update_door_visuals(
         commands.entity(*e).despawn_recursive();
     }
     let mut cue_inner = mesh_handles.get_mut(segments.cue_inner).unwrap();
-    *cue_inner = mesh_assets.add(cue_inner_mesh);
+    *cue_inner = Mesh3d(mesh_assets.add(cue_inner_mesh));
     let mut cue_outline = mesh_handles.get_mut(segments.cue_outline).unwrap();
-    *cue_outline = mesh_assets.add(cue_outline_mesh);
+    *cue_outline = Mesh3d(mesh_assets.add(cue_outline_mesh));
     let new_segments = DoorBodyType::from_door_type(kind, &entities);
     if new_segments != segments.body {
         Some(new_segments)
@@ -417,7 +421,7 @@ pub fn update_changed_door(
     >,
     anchors: AnchorParams,
     mut transforms: Query<&mut Transform>,
-    mut mesh_handles: Query<&mut Handle<Mesh>>,
+    mut mesh_handles: Query<&mut Mesh3d>,
     mut mesh_assets: ResMut<Assets<Mesh>>,
     assets: Res<SiteAssets>,
 ) {
@@ -457,7 +461,7 @@ pub fn update_door_for_moved_anchors(
         ),
     >,
     mut transforms: Query<&mut Transform>,
-    mut mesh_handles: Query<&mut Handle<Mesh>>,
+    mut mesh_handles: Query<&mut Mesh3d>,
     mut mesh_assets: ResMut<Assets<Mesh>>,
     assets: Res<SiteAssets>,
 ) {

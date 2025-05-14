@@ -157,14 +157,14 @@ pub fn handle_loaded_drawing(
                 let mesh = make_flat_rect_mesh(width, height).transform_by(
                     Affine3A::from_translation(Vec3::new(width / 2.0, -height / 2.0, 0.0)),
                 );
-                let mesh = mesh_assets.add(mesh.into());
+                let mesh = mesh_assets.add(mesh);
                 let default = parent
                     .map(|p| default_drawing_vis.get(p.get()).ok())
                     .flatten();
                 let (alpha, alpha_mode) = drawing_alpha(vis, rank, default);
                 let material = materials.add(StandardMaterial {
                     base_color_texture: Some(handle.0.clone()),
-                    base_color: *Color::default().set_a(alpha),
+                    base_color: Color::default().with_alpha(alpha),
                     alpha_mode,
                     perceptual_roughness: 0.089,
                     metallic: 0.01,
@@ -181,32 +181,37 @@ pub fn handle_loaded_drawing(
                     commands
                         .entity(entity)
                         .insert(DrawingSegments { leaf })
-                        .insert(SpatialBundle::from_transform(pose.transform().with_scale(
-                            Vec3::new(1.0 / pixels_per_meter.0, 1.0 / pixels_per_meter.0, 1.),
-                        )))
+                        .insert((
+                            pose.transform().with_scale(Vec3::new(
+                                1.0 / pixels_per_meter.0,
+                                1.0 / pixels_per_meter.0,
+                                1.,
+                            )),
+                            Visibility::Inherited,
+                        ))
                         .insert(Selectable::new(entity))
-                        .push_children(&[leaf]);
+                        .add_children(&[leaf]);
                     leaf
                 };
                 let z = drawing_layer_height(rank);
                 commands
                     .entity(leaf)
-                    .insert(PbrBundle {
-                        mesh,
-                        material: material.clone(),
-                        transform: Transform::from_xyz(0.0, 0.0, z),
-                        ..Default::default()
-                    })
+                    .insert((
+                        Mesh3d(mesh),
+                        MeshMaterial3d(material.clone()),
+                        Transform::from_xyz(0.0, 0.0, z),
+                        Visibility::default(),
+                    ))
                     .insert(Selectable::new(entity));
                 commands
                     .entity(entity)
                     // Put a handle for the material into the main entity
                     // so that we can modify it during interactions.
-                    .insert(material)
+                    .insert(MeshMaterial3d(material))
                     .remove::<LoadingDrawing>();
             }
-            LoadState::Failed => {
-                error!("Failed loading drawing {:?}", source);
+            LoadState::Failed(e) => {
+                error!("Failed loading drawing {:?}, reason: [{:?}]", source, e);
                 commands.entity(entity).remove::<LoadingDrawing>();
             }
             _ => {}
@@ -269,11 +274,14 @@ pub fn update_drawing_children_to_pixel_coordinates(
                 if let Ok(mut tf) = transforms.get_mut(*child) {
                     tf.scale = Vec3::new(pixels_per_meter.0, pixels_per_meter.0, 1.0);
                 } else {
-                    commands
-                        .entity(*child)
-                        .insert(SpatialBundle::from_transform(Transform::from_scale(
-                            Vec3::new(pixels_per_meter.0, pixels_per_meter.0, 1.0),
-                        )));
+                    commands.entity(*child).insert((
+                        Transform::from_scale(Vec3::new(
+                            pixels_per_meter.0,
+                            pixels_per_meter.0,
+                            1.0,
+                        )),
+                        Visibility::Inherited,
+                    ));
                 }
             }
         }
@@ -320,7 +328,7 @@ fn iter_update_drawing_visibility<'a>(
             &'a DrawingSegments,
         ),
     >,
-    material_handles: &Query<&Handle<StandardMaterial>>,
+    material_handles: &Query<&MeshMaterial3d<StandardMaterial>>,
     material_assets: &mut ResMut<Assets<StandardMaterial>>,
     default_drawing_vis: &Query<&GlobalDrawingVisibility>,
 ) {
@@ -331,7 +339,7 @@ fn iter_update_drawing_visibility<'a>(
                     .map(|p| default_drawing_vis.get(p.get()).ok())
                     .flatten();
                 let (alpha, alpha_mode) = drawing_alpha(vis, rank, default);
-                mat.base_color = *mat.base_color.set_a(alpha);
+                mat.base_color = mat.base_color.with_alpha(alpha);
                 mat.alpha_mode = alpha_mode;
             }
         }
@@ -355,7 +363,7 @@ pub fn update_drawing_visibility(
         Option<&RecencyRank<DrawingMarker>>,
         &DrawingSegments,
     )>,
-    material_handles: Query<&Handle<StandardMaterial>>,
+    material_handles: Query<&MeshMaterial3d<StandardMaterial>>,
     mut material_assets: ResMut<Assets<StandardMaterial>>,
     default_drawing_vis: Query<&GlobalDrawingVisibility>,
     changed_default_drawing_vis: Query<&Children, Changed<GlobalDrawingVisibility>>,

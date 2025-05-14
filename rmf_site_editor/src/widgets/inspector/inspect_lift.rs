@@ -75,7 +75,7 @@ impl<'w, 's> InspectLiftCabin<'w, 's> {
                     ui.add(
                         DragValue::new(&mut params.width)
                             .suffix("m")
-                            .clamp_range(0.01..=std::f32::INFINITY)
+                            .range(0.01..=std::f32::INFINITY)
                             .fixed_decimals(2)
                             .speed(0.01),
                     );
@@ -86,7 +86,7 @@ impl<'w, 's> InspectLiftCabin<'w, 's> {
                     ui.add(
                         DragValue::new(&mut params.depth)
                             .suffix("m")
-                            .clamp_range(0.01..=std::f32::INFINITY)
+                            .range(0.01..=std::f32::INFINITY)
                             .fixed_decimals(2)
                             .speed(0.01),
                     );
@@ -148,7 +148,7 @@ impl<'w, 's> InspectLiftCabin<'w, 's> {
                                     ui.add(
                                         DragValue::new(&mut placement.width)
                                             .suffix("m")
-                                            .clamp_range(0.001..=cabin_width - 0.001)
+                                            .range(0.001..=cabin_width - 0.001)
                                             .min_decimals(2)
                                             .max_decimals(4)
                                             .speed(0.005),

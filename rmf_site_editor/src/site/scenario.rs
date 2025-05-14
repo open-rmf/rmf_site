@@ -25,7 +25,9 @@ use crate::{
     widgets::view_model_instances::count_scenarios,
     CurrentWorkspace, Issue, ValidateWorkspace,
 };
-use bevy::{ecs::system::SystemParam, prelude::*, utils::Uuid};
+use bevy::{ecs::system::SystemParam, prelude::*};
+use std::collections::HashMap;
+use uuid::Uuid;
 
 #[derive(Clone, Copy, Debug, Event)]
 pub struct ChangeCurrentScenario(pub Entity);

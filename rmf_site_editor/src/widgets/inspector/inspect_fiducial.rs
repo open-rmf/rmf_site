@@ -241,7 +241,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectFiducial<'w, 's> {
                 }
 
                 let mut clear_filter = false;
-                ComboBox::from_id_source("fiducial_affiliation")
+                ComboBox::from_id_salt("fiducial_affiliation")
                     .selected_text(selected_text)
                     .show_ui(ui, |ui| {
                         if let Some(group_name) = get_group_name(new_affiliation) {

@@ -153,7 +153,7 @@ enum Group {
 fn calculate_grid(
     mut commands: Commands,
     mut request: EventReader<CalculateGrid>,
-    bodies: Query<(Entity, &Handle<Mesh>, &Aabb, &GlobalTransform)>,
+    bodies: Query<(Entity, &Mesh3d, &Aabb, &GlobalTransform)>,
     meta: Query<(
         Option<&Parent>,
         Option<&Category>,
@@ -288,11 +288,12 @@ fn calculate_grid(
 
             commands.entity(level).with_children(|level| {
                 level
-                    .spawn(PbrBundle {
-                        mesh: meshes.add(mesh.into()),
-                        material: assets.occupied_material.clone(),
-                        ..default()
-                    })
+                    .spawn((
+                        Mesh3d(meshes.add(mesh)),
+                        MeshMaterial3d(assets.occupied_material.clone()),
+                        Transform::default(),
+                        Visibility::default(),
+                    ))
                     .insert(Grid {
                         occupied: level_occupied,
                         cell_size,
@@ -344,7 +345,7 @@ fn get_group(
 }
 
 fn collect_physical_entities(
-    meshes: &Query<(Entity, &Handle<Mesh>, &Aabb, &GlobalTransform)>,
+    meshes: &Query<(Entity, &Mesh3d, &Aabb, &GlobalTransform)>,
     meta: &Query<(
         Option<&Parent>,
         Option<&Category>,

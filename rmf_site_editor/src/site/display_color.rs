@@ -24,21 +24,19 @@ pub fn add_material_for_display_colors(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     for (e, c) in &new_display {
-        commands
-            .entity(e)
-            .insert(materials.add(old_default_material(Color::rgba(
-                c.0[0], c.0[1], c.0[2], c.0[3],
-            ))));
+        commands.entity(e).insert(MeshMaterial3d(
+            materials.add(old_default_material(Color::srgb_from_array(c.0))),
+        ));
     }
 }
 
 pub fn update_material_for_display_color(
-    changed_color: Query<(&DisplayColor, &Handle<StandardMaterial>), Changed<DisplayColor>>,
+    changed_color: Query<(&DisplayColor, &MeshMaterial3d<StandardMaterial>), Changed<DisplayColor>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     for (color, material) in &changed_color {
         if let Some(m) = materials.get_mut(material) {
-            m.base_color = color.0.into();
+            m.base_color = Color::srgb_from_array(color.0);
         }
     }
 }

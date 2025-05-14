@@ -41,7 +41,7 @@ fn egui_ui(
     let Some(ctx) = primary_windows
         .get_single()
         .ok()
-        .and_then(|w| egui_context.try_ctx_for_window_mut(w))
+        .and_then(|w| egui_context.try_ctx_for_entity_mut(w))
     else {
         return;
     };
@@ -75,7 +75,7 @@ fn egui_ui(
                 ui.horizontal(|ui| {
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if ui.button("Exit").clicked() {
-                            _exit.send(AppExit);
+                            _exit.send(AppExit::Success);
                         }
                     });
                 });

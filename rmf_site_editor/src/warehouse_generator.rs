@@ -207,19 +207,21 @@ fn warehouse_generator(
             .insert(String::from("concrete_floor"), concrete_floor_handle);
     }
 
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: width as f32 })),
-        material: material_map
-            .materials
-            .get("concrete_floor")
-            .unwrap()
-            .clone(),
-        transform: Transform {
+    commands.spawn((
+        Mesh3d(meshes.add(Mesh::from(shape::Plane { size: width as f32 }))),
+        MeshMaterial3d(
+            material_map
+                .materials
+                .get("concrete_floor")
+                .unwrap()
+                .clone(),
+        ),
+        Transform {
             rotation: Quat::from_rotation_x(1.5707963),
             ..Default::default()
         },
-        ..Default::default()
-    });
+        Visibility::default(),
+    ));
 }
 
 fn add_racks(
