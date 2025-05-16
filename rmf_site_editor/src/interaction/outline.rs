@@ -71,7 +71,7 @@ impl OutlineVisualization {
         &self,
         hovered: &Hovered,
         selected: &Selected,
-        cue: Option<&ComputedVisualCue>,
+        layer: Option<&RenderLayers>,
     ) -> OutlineRenderLayers {
         match self {
             OutlineVisualization::Ordinary => {
@@ -84,11 +84,7 @@ impl OutlineVisualization {
                 }
             }
             OutlineVisualization::Anchor { .. } => {
-                if hovered.cue() || selected.cue() || cue.is_some_and(|c| c.xray.any()) {
-                    OutlineRenderLayers(RenderLayers::layer(XRAY_RENDER_LAYER))
-                } else {
-                    OutlineRenderLayers(RenderLayers::none())
-                }
+                OutlineRenderLayers(layer.cloned().unwrap_or(RenderLayers::none()))
             }
         }
     }
@@ -148,7 +144,7 @@ pub fn update_outline_visualization(
             &Selected,
             &OutlineVisualization,
             Option<&SuppressOutline>,
-            Option<&ComputedVisualCue>,
+            Option<&RenderLayers>,
         ),
         Or<(
             Changed<Hovered>,
@@ -159,13 +155,13 @@ pub fn update_outline_visualization(
     >,
     descendants: Query<(Option<&Children>, Option<&ComputedVisualCue>)>,
 ) {
-    for (e, hovered, selected, vis, suppress, cue) in &outlinable {
+    for (e, hovered, selected, vis, suppress, layer) in &outlinable {
         let color = if suppress.is_some() {
             None
         } else {
             vis.color(hovered, selected)
         };
-        let layers = vis.layers(hovered, selected, cue);
+        let layers = vis.layers(hovered, selected, layer);
         let depth = vis.depth();
         let root = vis.root().unwrap_or(e);
 
