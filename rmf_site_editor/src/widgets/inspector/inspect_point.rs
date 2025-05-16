@@ -23,7 +23,7 @@ use crate::{
         prelude::*,
     },
 };
-use bevy::prelude::*;
+use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 use bevy_egui::egui::{Grid, Ui};
 use rmf_site_format::{NameOfSite, Point};
 
@@ -33,7 +33,7 @@ pub struct InspectPoint<'w, 's> {
         'w,
         's,
         (
-            &'static Parent,
+            &'static ChildOf,
             &'static Point<Entity>,
             Option<&'static Original<Point<Entity>>>,
         ),
@@ -56,7 +56,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPoint<'w, 's> {
         world: &mut World,
     ) {
         let params = state.get_mut(world);
-        let Ok((parent, current_point, original)) = params.points.get(id) else {
+        let Ok((child_of, current_point, original)) = params.points.get(id) else {
             return;
         };
 
@@ -65,7 +65,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPoint<'w, 's> {
             None => *current_point,
         };
 
-        let parent = parent.get();
+        let parent = child_of.parent();
         let scope = match params.scopes.get(parent) {
             Ok((site, drawing)) => {
                 if site.is_some() {

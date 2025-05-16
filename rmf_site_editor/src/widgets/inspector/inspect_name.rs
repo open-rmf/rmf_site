@@ -48,7 +48,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectName<'w, 's> {
             if new_name != *name {
                 params
                     .change_name_in_site
-                    .send(Change::new(new_name, selection));
+                    .write(Change::new(new_name, selection));
             }
         }
     }

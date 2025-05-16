@@ -17,7 +17,7 @@
 
 use crate::menu_bar::{FileMenu, MenuEvent, MenuItem, TextMenuItem};
 use crate::{AppState, WorkspaceSaver};
-use bevy::prelude::*;
+use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 
 /// Keeps track of which entity is associated to the export sdf button.
 #[derive(Resource)]
@@ -38,7 +38,7 @@ impl FromWorld for SdfExportMenu {
             .spawn(MenuItem::Text(
                 TextMenuItem::new("Export Sdf").shortcut("Ctrl-E"),
             ))
-            .set_parent(file_header)
+            .insert(ChildOf(file_header))
             .id();
 
         SdfExportMenu { export_sdf }

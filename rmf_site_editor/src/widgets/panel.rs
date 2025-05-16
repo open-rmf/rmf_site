@@ -36,7 +36,7 @@ use smallvec::SmallVec;
 /// - [`egui::TopBottomPanel::bottom`]
 #[derive(Component)]
 pub struct PanelWidget {
-    inner: Option<BoxedSystem<PanelWidgetInput>>,
+    inner: Option<BoxedSystem<In<PanelWidgetInput>>>,
 }
 
 /// Input provided to panel widgets.
@@ -49,7 +49,10 @@ pub struct PanelWidgetInput {
 
 impl PanelWidget {
     /// Pass in a system that takes takes [`PanelWidgetInput`] as its input parameter.
-    pub fn new<M, S: IntoSystem<PanelWidgetInput, (), M>>(system: S, world: &mut World) -> Self {
+    pub fn new<M, S: IntoSystem<In<PanelWidgetInput>, (), M>>(
+        system: S,
+        world: &mut World,
+    ) -> Self {
         let mut system = Box::new(IntoSystem::into_system(system));
         system.initialize(world);
         Self {

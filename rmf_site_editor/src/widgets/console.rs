@@ -27,8 +27,8 @@ pub struct ConsoleWidgetPlugin {}
 impl Plugin for ConsoleWidgetPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<LogHistory>();
-        let widget = PanelWidget::new(console_widget, &mut app.world);
-        app.world.spawn(widget);
+        let widget = PanelWidget::new(console_widget, app.world_mut());
+        app.world_mut().spawn(widget);
     }
 }
 
@@ -70,9 +70,7 @@ fn console_widget(In(input): In<PanelWidgetInput>, mut log_history: ResMut<LogHi
                         ui.checkbox(log_history.category_present_mut(LogCategory::Bevy), "Bevy");
                         // Copy full log history to clipboard
                         if ui.button("Copy Log History").clicked() {
-                            ui.output_mut(|o| {
-                                o.copied_text = log_history.copy_log_history();
-                            });
+                            ui.ctx().copy_text(log_history.copy_log_history());
                         }
                         // Slider to adjust display limit
                         let history_size = log_history.log_history().len() as f64;
@@ -143,9 +141,8 @@ fn print_log(ui: &mut egui::Ui, element: &LogHistoryElement) {
         ui.label(RichText::new(element.log.category.to_string()).color(category_text_color));
         // Selecting the label allows users to copy log entry to clipboard
         if ui.selectable_label(false, msg).clicked() {
-            ui.output_mut(|o| {
-                o.copied_text = element.log.category.to_string() + &element.log.message
-            });
+            ui.ctx()
+                .copy_text(element.log.category.to_string() + &element.log.message);
         }
 
         if truncated {

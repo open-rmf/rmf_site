@@ -19,9 +19,7 @@ impl FromWorld for MyMenuHandler {
 
         // Make it a child of the "File Menu"
         let file_header = world.resource::<FileMenu>().get();
-        world
-            .entity_mut(file_header)
-            .push_children(&[unique_export]);
+        world.entity_mut(file_header).add_children(&[unique_export]);
 
         // For top level menus simply spawn a menu with no parent
         let menu = world
@@ -32,13 +30,13 @@ impl FromWorld for MyMenuHandler {
         let sub_menu = world
             .spawn(Menu::from_title("My Awesome sub menu".to_string()))
             .id();
-        world.entity_mut(menu).push_children(&[sub_menu]);
+        world.entity_mut(menu).add_children(&[sub_menu]);
 
         // Finally we can create a custom action
         let custom_nested_menu = world.spawn(MenuItem::Text("My Awesome Action".into())).id();
         world
             .entity_mut(sub_menu)
-            .push_children(&[custom_nested_menu]);
+            .add_children(&[custom_nested_menu]);
 
         // Track the entity so that we know when to handle events from it in
         Self {

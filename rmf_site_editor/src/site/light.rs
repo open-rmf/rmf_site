@@ -15,8 +15,9 @@
  *
 */
 
-use crate::site::CurrentLevel;
+use crate::{interaction::main_view_render_layers, site::CurrentLevel};
 use bevy::{
+    ecs::hierarchy::ChildOf,
     pbr::CubemapVisibleEntities,
     prelude::{
         DirectionalLight as BevyDirectionalLight, PointLight as BevyPointLight,
@@ -43,11 +44,11 @@ impl Default for PhysicalLightToggle {
 
 pub fn add_physical_lights(
     mut commands: Commands,
-    added: Query<(Entity, Option<&Parent>), Added<LightKind>>,
+    added: Query<(Entity, Option<&ChildOf>), Added<LightKind>>,
     physical_light_toggle: Res<PhysicalLightToggle>,
     current_level: Res<CurrentLevel>,
 ) {
-    for (e, parent) in &added {
+    for (e, child_of) in &added {
         // This adds all the extra components provided by all three of the
         // possible light bundles so we can easily switch between the different
         // light types
@@ -64,9 +65,10 @@ pub fn add_physical_lights(
             .insert(VisibleEntities::default())
             .insert(CubemapFrusta::default())
             .insert(CubemapVisibleEntities::default())
+            .insert(main_view_render_layers())
             .insert(Category::Light);
 
-        if parent.is_none() {
+        if child_of.is_none() {
             if let Some(current_level) = **current_level {
                 commands.entity(current_level).add_child(e);
             } else {
@@ -149,13 +151,13 @@ pub struct ExportLights(pub std::path::PathBuf);
 
 pub fn export_lights(
     mut exports: EventReader<ExportLights>,
-    lights: Query<(&Pose, &LightKind, &Parent)>,
+    lights: Query<(&Pose, &LightKind, &ChildOf)>,
     levels: Query<&NameInSite>,
 ) {
     for export in exports.read() {
         let mut lights_per_level: BTreeMap<String, Vec<Light>> = BTreeMap::new();
-        for (pose, kind, parent) in &lights {
-            if let Ok(name) = levels.get(parent.get()) {
+        for (pose, kind, child_of) in &lights {
+            if let Ok(name) = levels.get(child_of.parent()) {
                 lights_per_level
                     .entry(name.0.clone())
                     .or_default()

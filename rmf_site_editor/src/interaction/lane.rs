@@ -38,7 +38,7 @@ pub fn update_lane_visual_cues(
             Or<(Changed<Hovered>, Changed<Selected>, Changed<Edge<Entity>>)>,
         ),
     >,
-    mut materials: Query<&mut Handle<StandardMaterial>>,
+    mut materials: Query<&mut MeshMaterial3d<StandardMaterial>>,
     mut visibility: Query<&mut Visibility>,
     site_assets: Res<SiteAssets>,
     cursor: Res<Cursor>,

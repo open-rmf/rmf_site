@@ -133,7 +133,7 @@ impl<'w, 's> ViewNavGraphs<'w, 's> {
             ui.text_edit_singleline(&mut self.display_nav_graph.name);
             if add {
                 self.commands
-                    .spawn(SpatialBundle::default())
+                    .spawn((Transform::default(), Visibility::default()))
                     .insert(NavGraph {
                         name: NameInSite(self.display_nav_graph.name.clone()),
                         color: DisplayColor(self.display_nav_graph.color.unwrap().clone()),
@@ -156,7 +156,7 @@ impl<'w, 's> ViewNavGraphs<'w, 's> {
             ui.horizontal(|ui| {
                 if self.display_nav_graph.removing {
                     if ui.add(ImageButton::new(self.icons.trash.egui())).clicked() {
-                        self.delete.send(Delete::new(e));
+                        self.delete.write(Delete::new(e));
                         self.display_nav_graph.removing = false;
                     }
                 } else {
@@ -175,7 +175,7 @@ impl<'w, 's> ViewNavGraphs<'w, 's> {
                         } else {
                             Visibility::Hidden
                         };
-                        self.change_visibility.send(Change::new(visibility, e));
+                        self.change_visibility.write(Change::new(visibility, e));
                     }
                 }
 
@@ -185,12 +185,12 @@ impl<'w, 's> ViewNavGraphs<'w, 's> {
                 color_edit(ui, &mut new_color);
                 if new_color != color.0 {
                     self.change_color
-                        .send(Change::new(DisplayColor(new_color), e));
+                        .write(Change::new(DisplayColor(new_color), e));
                 }
 
                 let mut new_name = name.0.clone();
                 if ui.text_edit_singleline(&mut new_name).changed() {
-                    self.change_name.send(Change::new(NameInSite(new_name), e));
+                    self.change_name.write(Change::new(NameInSite(new_name), e));
                 }
             });
         }
@@ -250,10 +250,10 @@ impl<'w, 's> ViewNavGraphs<'w, 's> {
                     if ui.button("Export").clicked() {
                         if let Some(current_site) = self.current_workspace.to_site(&self.open_sites)
                         {
-                            self.save_nav_graphs.send(SaveNavGraphs {
+                            self.save_nav_graphs.write(SaveNavGraphs {
                                 site: current_site,
                                 to_file: export_file.clone(),
-                            })
+                            });
                         } else {
                             error!("No current site??");
                         }
@@ -291,7 +291,7 @@ impl<'w, 's> ViewNavGraphs<'w, 's> {
 
 #[derive(Resource)]
 pub struct NavGraphDisplay {
-    pub color: Option<[f32; 4]>,
+    pub color: Option<[f32; 3]>,
     pub name: String,
     pub removing: bool,
     pub choosing_file_for_export: Option<Task<Option<std::path::PathBuf>>>,
@@ -328,7 +328,7 @@ pub fn resolve_nav_graph_import_export_files(
             if let Some(result) = future::block_on(future::poll_once(task)) {
                 if let Some(result) = result {
                     if let Some(current_site) = current_workspace.to_site(&open_sites) {
-                        save_nav_graphs.send(SaveNavGraphs {
+                        save_nav_graphs.write(SaveNavGraphs {
                             site: current_site,
                             to_file: result.clone(),
                         });
@@ -348,7 +348,7 @@ pub fn resolve_nav_graph_import_export_files(
         if let Some(task) = &mut nav_graph_display.choosing_file_to_import {
             if let Some(result) = future::block_on(future::poll_once(task)) {
                 if let Some((path, request)) = result {
-                    import_nav_graphs.send(request);
+                    import_nav_graphs.write(request);
                     nav_graph_display.export_file = Some(path);
                 }
 

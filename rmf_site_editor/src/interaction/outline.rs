@@ -16,8 +16,11 @@
 */
 
 use crate::{interaction::*, site::DrawingMarker};
+use bevy::color::palettes::css as Colors;
 use bevy::render::view::RenderLayers;
-use bevy_mod_outline::{OutlineBundle, OutlineMode, OutlineRenderLayers, OutlineVolume};
+use bevy_mod_outline::{
+    ComputedOutline, OutlineMode, OutlineRenderLayers, OutlineStencil, OutlineVolume,
+};
 use rmf_site_format::{
     DoorType, FiducialMarker, FloorMarker, LiftCabin, LightKind, LocationTags, MeasurementMarker,
     ModelMarker, PhysicalCameraProperties, PrimitiveShape, WallMarker,
@@ -45,26 +48,31 @@ impl OutlineVisualization {
                 if !hovered.cue() && !selected.cue() {
                     None
                 } else if hovered.cue() && selected.cue() {
-                    Some(Color::rgb(1.0, 0.0, 0.3))
+                    Some(Color::srgb(1.0, 0.0, 0.3))
                 } else if selected.cue() {
-                    Some(Color::rgb(1.0, 0.3, 1.0))
+                    Some(Color::srgb(1.0, 0.3, 1.0))
                 } else
                 /* only hovered */
                 {
-                    Some(Color::WHITE)
+                    Some(Colors::WHITE.into())
                 }
             }
             OutlineVisualization::Anchor { .. } => {
                 if hovered.is_hovered {
-                    Some(Color::WHITE)
+                    Some(Colors::WHITE.into())
                 } else {
-                    Some(Color::BLACK)
+                    Some(Colors::BLACK.into())
                 }
             }
         }
     }
 
-    pub fn layers(&self, hovered: &Hovered, selected: &Selected) -> OutlineRenderLayers {
+    pub fn layers(
+        &self,
+        hovered: &Hovered,
+        selected: &Selected,
+        layer: Option<&RenderLayers>,
+    ) -> OutlineRenderLayers {
         match self {
             OutlineVisualization::Ordinary => {
                 if hovered.cue() {
@@ -76,15 +84,13 @@ impl OutlineVisualization {
                 }
             }
             OutlineVisualization::Anchor { .. } => {
-                OutlineRenderLayers(RenderLayers::layer(XRAY_RENDER_LAYER))
+                OutlineRenderLayers(layer.cloned().unwrap_or(RenderLayers::none()))
             }
         }
     }
 
     pub fn depth(&self) -> OutlineMode {
-        OutlineMode::FlatVertex {
-            model_origin: Vec3::ZERO,
-        }
+        OutlineMode::ExtrudeFlat
     }
 
     /// If this element should use a different entity as its root for
@@ -138,22 +144,24 @@ pub fn update_outline_visualization(
             &Selected,
             &OutlineVisualization,
             Option<&SuppressOutline>,
+            Option<&RenderLayers>,
         ),
         Or<(
             Changed<Hovered>,
             Changed<Selected>,
             Changed<SuppressOutline>,
+            Changed<ComputedVisualCue>,
         )>,
     >,
     descendants: Query<(Option<&Children>, Option<&ComputedVisualCue>)>,
 ) {
-    for (e, hovered, selected, vis, suppress) in &outlinable {
+    for (e, hovered, selected, vis, suppress, layer) in &outlinable {
         let color = if suppress.is_some() {
             None
         } else {
             vis.color(hovered, selected)
         };
-        let layers = vis.layers(hovered, selected);
+        let layers = vis.layers(hovered, selected, layer);
         let depth = vis.depth();
         let root = vis.root().unwrap_or(e);
 
@@ -172,21 +180,25 @@ pub fn update_outline_visualization(
                 if let Some(color) = color {
                     commands
                         .entity(top)
-                        .insert(OutlineBundle {
-                            outline: OutlineVolume {
+                        .insert((
+                            OutlineVolume {
                                 visible: true,
                                 width: 3.0,
                                 colour: color,
                             },
-                            ..default()
-                        })
+                            OutlineStencil::default(),
+                            ComputedOutline::default(),
+                        ))
                         .insert(depth.clone())
-                        .insert(layers);
+                        .insert(layers.clone());
                 } else {
                     commands
                         .entity(top)
-                        .remove::<OutlineBundle>()
-                        .remove::<OutlineMode>();
+                        .remove::<OutlineVolume>()
+                        .remove::<OutlineStencil>()
+                        .remove::<ComputedOutline>()
+                        .remove::<OutlineMode>()
+                        .remove::<OutlineRenderLayers>();
                 }
 
                 if let Some(children) = children {

@@ -19,7 +19,10 @@ use crate::{
     site::{Affiliation, Change, FiducialGroup, FiducialMarker, FiducialUsage, Group, NameInSite},
     widgets::{prelude::*, Icons, Inspect, InspectionPlugin},
 };
-use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy::{
+    ecs::{hierarchy::ChildOf, system::SystemParam},
+    prelude::*,
+};
 use bevy_egui::egui::{ComboBox, ImageButton, Ui};
 
 #[derive(Resource, Default)]
@@ -69,7 +72,8 @@ impl Plugin for InspectFiducialPlugin {
 
 #[derive(SystemParam)]
 pub struct InspectFiducial<'w, 's> {
-    fiducials: Query<'w, 's, (&'static Affiliation<Entity>, &'static Parent), With<FiducialMarker>>,
+    fiducials:
+        Query<'w, 's, (&'static Affiliation<Entity>, &'static ChildOf), With<FiducialMarker>>,
     group_names: Query<'w, 's, &'static NameInSite, (With<Group>, With<FiducialMarker>)>,
     usage: Query<'w, 's, &'static FiducialUsage>,
     icons: Res<'w, Icons>,
@@ -89,16 +93,16 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectFiducial<'w, 's> {
         world: &mut World,
     ) {
         let mut params = state.get_mut(world);
-        let Ok((affiliation, parent)) = params.fiducials.get(selection) else {
+        let Ok((affiliation, child_of)) = params.fiducials.get(selection) else {
             return;
         };
-        let Ok(tracker) = params.usage.get(parent.get()) else {
+        let Ok(tracker) = params.usage.get(child_of.parent()) else {
             error!(
                 "Unable to find usage tracker for parent {:?} [{}] of fiducial {:?}",
-                parent.get(),
+                child_of.parent(),
                 params
                     .names
-                    .get(parent.get())
+                    .get(child_of.parent())
                     .ok()
                     .map(|n| n.0.as_str())
                     .unwrap_or("<name missing>"),
@@ -197,11 +201,11 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectFiducial<'w, 's> {
                             let new_group = params
                                 .commands
                                 .spawn(FiducialGroup::new(NameInSite(search.clone())))
-                                .set_parent(tracker.site())
+                                .insert(ChildOf(tracker.site()))
                                 .id();
                             params
                                 .change_affiliation
-                                .send(Change::new(Affiliation(Some(new_group)), selection));
+                                .write(Change::new(Affiliation(Some(new_group)), selection));
                         }
                     }
                     SearchResult::Match(group) => {
@@ -212,7 +216,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectFiducial<'w, 's> {
                         {
                             params
                                 .change_affiliation
-                                .send(Change::new(Affiliation(Some(group)), selection));
+                                .write(Change::new(Affiliation(Some(group)), selection));
                         }
                     }
                     SearchResult::Conflict(text) => {
@@ -241,7 +245,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectFiducial<'w, 's> {
                 }
 
                 let mut clear_filter = false;
-                ComboBox::from_id_source("fiducial_affiliation")
+                ComboBox::from_id_salt("fiducial_affiliation")
                     .selected_text(selected_text)
                     .show_ui(ui, |ui| {
                         if let Some(group_name) = get_group_name(new_affiliation) {
@@ -268,7 +272,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectFiducial<'w, 's> {
             if new_affiliation != *affiliation {
                 params
                     .change_affiliation
-                    .send(Change::new(new_affiliation, selection));
+                    .write(Change::new(new_affiliation, selection));
             }
             ui.separator();
         });

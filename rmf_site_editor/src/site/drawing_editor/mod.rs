@@ -15,7 +15,7 @@
  *
 */
 
-use bevy::prelude::*;
+use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 
 pub mod alignment;
 pub use alignment::*;
@@ -50,7 +50,9 @@ pub struct CurrentEditDrawing {
 
 impl FromWorld for CurrentEditDrawing {
     fn from_world(world: &mut World) -> Self {
-        let editor = world.spawn(SpatialBundle::default()).id();
+        let editor = world
+            .spawn((Transform::default(), Visibility::default()))
+            .id();
         Self {
             editor,
             target: None,
@@ -81,7 +83,7 @@ fn switch_edit_drawing_mode(
     mut change_camera_mode: EventWriter<ChangeProjectionMode>,
     global_tf: Query<&GlobalTransform>,
     current_workspace: Res<CurrentWorkspace>,
-    parent: Query<&Parent, With<DrawingMarker>>,
+    child_of: Query<&ChildOf, With<DrawingMarker>>,
     is_site: Query<(), With<NameOfSite>>,
 ) {
     // TODO(@mxgrey): We can make this implementation much cleaner after we
@@ -102,8 +104,8 @@ fn switch_edit_drawing_mode(
                 restore_edited_drawing(c, &mut commands);
             }
 
-            let level = if let Ok(p) = parent.get(*e) {
-                p.get()
+            let level = if let Ok(co) = child_of.get(*e) {
+                co.parent()
             } else {
                 error!("Cannot edit {e:?} as a drawing");
                 current.target = None;
@@ -113,11 +115,8 @@ fn switch_edit_drawing_mode(
             current.target = Some(EditDrawing { drawing: *e, level });
             commands
                 .entity(*e)
-                .set_parent(current.editor)
-                .insert(VisibilityBundle {
-                    visibility: Visibility::Inherited,
-                    ..default()
-                })
+                .insert(ChildOf(current.editor))
+                .insert(Visibility::Inherited)
                 .insert(PreventDeletion::because(
                     "Cannot delete a drawing that is currently being edited".to_owned(),
                 ))
@@ -125,7 +124,7 @@ fn switch_edit_drawing_mode(
                 // constantly hovering over it anyway.
                 .insert(SuppressHighlight);
 
-            change_camera_mode.send(ChangeProjectionMode::to_orthographic());
+            change_camera_mode.write(ChangeProjectionMode::to_orthographic());
 
             if let Ok(mut editor_tf) = local_tf.get_mut(current.editor) {
                 if let Ok(level_tf) = global_tf.get(level) {
@@ -159,7 +158,7 @@ fn switch_edit_drawing_mode(
         current.target = None;
 
         // This camera change would not be needed if we have an edit mode stack
-        change_camera_mode.send(ChangeProjectionMode::to_perspective());
+        change_camera_mode.write(ChangeProjectionMode::to_perspective());
 
         if let Some(w) = current_workspace.root {
             if let Ok(mut v) = workspace_visibility.get_mut(w) {
@@ -188,7 +187,7 @@ fn switch_edit_drawing_mode(
 fn restore_edited_drawing(edit: &EditDrawing, commands: &mut Commands) {
     commands
         .entity(edit.drawing)
-        .set_parent(edit.level)
+        .insert(ChildOf(edit.level))
         .remove::<PreventDeletion>()
         .remove::<SuppressHighlight>();
 }
@@ -202,23 +201,23 @@ fn assign_drawing_parent_to_new_measurements(
             (With<MeasurementMarker>, Changed<Edge<Entity>>),
         ),
     >,
-    parents: Query<&Parent>,
+    child_of: Query<&ChildOf>,
 ) {
     for (e, edge) in &changed_measurement {
-        if let (Ok(p0), Ok(p1)) = (parents.get(edge.left()), parents.get(edge.right())) {
-            if p0.get() != p1.get() {
+        if let (Ok(p0), Ok(p1)) = (child_of.get(edge.left()), child_of.get(edge.right())) {
+            if p0.parent() != p1.parent() {
                 warn!(
                     "Mismatch in parents of anchors for measurement {e:?}: {:?}, {:?}",
                     p0, p1
                 );
             } else {
-                commands.entity(e).set_parent(p0.get());
+                commands.entity(e).insert(ChildOf(p0.parent()));
             }
         } else {
             warn!(
                 "Missing parents of anchors for measurement {e:?}: {:?}, {:?}",
-                parents.get(edge.left()),
-                parents.get(edge.right()),
+                child_of.get(edge.left()),
+                child_of.get(edge.right()),
             );
         }
     }

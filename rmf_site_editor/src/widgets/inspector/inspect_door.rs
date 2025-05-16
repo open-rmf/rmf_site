@@ -46,7 +46,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectDoor<'w, 's> {
         };
 
         if let Some(new_door) = InspectDoorType::new(door, recall).show(ui) {
-            params.change_door.send(Change::new(new_door, selection));
+            params.change_door.write(Change::new(new_door, selection));
         }
         ui.add_space(10.0);
     }
@@ -66,7 +66,7 @@ impl<'a> InspectDoorType<'a> {
         let mut new_kind = self.kind.clone();
         ui.horizontal(|ui| {
             ui.label("Door Type:");
-            ComboBox::from_id_source("Door Type")
+            ComboBox::from_id_salt("Door Type")
                 .selected_text(self.kind.label())
                 .show_ui(ui, |ui| {
                     for variant in &[
@@ -87,7 +87,7 @@ impl<'a> InspectDoorType<'a> {
                 ui.add(
                     DragValue::new(ratio)
                         .speed(0.01)
-                        .clamp_range(0.01..=std::f32::INFINITY),
+                        .range(0.01..=std::f32::INFINITY),
                 )
                 .on_hover_text("(Left Door Length)/(Right Door Length)");
             });
@@ -141,7 +141,7 @@ impl<'a> InspectSwing<'a> {
     pub fn show(self, ui: &mut Ui) {
         ui.horizontal(|ui| {
             ui.label("Swing:");
-            ComboBox::from_id_source("Door Swing")
+            ComboBox::from_id_salt("Door Swing")
                 .selected_text(self.swing.label())
                 .show_ui(ui, |ui| {
                     for variant in &[

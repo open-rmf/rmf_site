@@ -21,6 +21,7 @@ use crate::{
     site::{Category, LevelElevation, NameOfSite, SiteAssets, LANE_LAYER_START},
 };
 use bevy::{
+    ecs::{hierarchy::ChildOf, relationship::AncestorIter},
     math::{swizzles::*, Affine3A, Mat3A, Vec2, Vec3A},
     prelude::*,
     render::{
@@ -153,13 +154,13 @@ enum Group {
 fn calculate_grid(
     mut commands: Commands,
     mut request: EventReader<CalculateGrid>,
-    bodies: Query<(Entity, &Handle<Mesh>, &Aabb, &GlobalTransform)>,
+    bodies: Query<(Entity, &Mesh3d, &Aabb, &GlobalTransform)>,
     meta: Query<(
-        Option<&Parent>,
+        Option<&ChildOf>,
         Option<&Category>,
         Option<&ComputedVisualCue>,
     )>,
-    parents: Query<&Parent>,
+    child_of: Query<&ChildOf>,
     levels: Query<Entity, With<LevelElevation>>,
     sites: Query<(), With<NameOfSite>>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -177,13 +178,13 @@ fn calculate_grid(
         let ceiling = request.ceiling;
         let mid = (floor + ceiling) / 2.0;
         let half_height = (ceiling - floor) / 2.0;
-        let levels_of_sites = get_levels_of_sites(&levels, &parents);
+        let levels_of_sites = get_levels_of_sites(&levels, &child_of);
 
         let physical_entities = collect_physical_entities(&bodies, &meta);
         info!("Checking {:?} physical entities", physical_entities.len());
         for e in &physical_entities {
             if !request.ignore.is_empty() {
-                if AncestorIter::new(&parents, *e).any(|p| request.ignore.contains(&p)) {
+                if AncestorIter::new(&child_of, *e).any(|p| request.ignore.contains(&p)) {
                     continue;
                 }
             }
@@ -193,7 +194,7 @@ fn calculate_grid(
                 Err(_) => continue,
             };
 
-            let e_group = match get_group(*e, &parents, &levels, &sites) {
+            let e_group = match get_group(*e, &child_of, &levels, &sites) {
                 Group::Level(e) | Group::Site(e) => e,
                 Group::None => continue,
             };
@@ -256,7 +257,7 @@ fn calculate_grid(
         info!("Occupancy calculation time: {}", delta.as_secs_f32());
 
         for grid in &grids {
-            commands.entity(grid).despawn_recursive();
+            commands.entity(grid).despawn();
         }
 
         for (site, levels) in levels_of_sites {
@@ -288,11 +289,12 @@ fn calculate_grid(
 
             commands.entity(level).with_children(|level| {
                 level
-                    .spawn(PbrBundle {
-                        mesh: meshes.add(mesh.into()),
-                        material: assets.occupied_material.clone(),
-                        ..default()
-                    })
+                    .spawn((
+                        Mesh3d(meshes.add(mesh)),
+                        MeshMaterial3d(assets.occupied_material.clone()),
+                        Transform::default(),
+                        Visibility::default(),
+                    ))
                     .insert(Grid {
                         occupied: level_occupied,
                         cell_size,
@@ -307,12 +309,15 @@ fn calculate_grid(
 
 fn get_levels_of_sites(
     levels: &Query<Entity, With<LevelElevation>>,
-    parents: &Query<&Parent>,
+    child_of: &Query<&ChildOf>,
 ) -> HashMap<Entity, Vec<Entity>> {
     let mut levels_of_sites: HashMap<Entity, Vec<Entity>> = HashMap::new();
     for level in levels {
-        if let Ok(parent) = parents.get(level) {
-            levels_of_sites.entry(parent.get()).or_default().push(level);
+        if let Ok(child_of) = child_of.get(level) {
+            levels_of_sites
+                .entry(child_of.parent())
+                .or_default()
+                .push(level);
         }
     }
 
@@ -321,7 +326,7 @@ fn get_levels_of_sites(
 
 fn get_group(
     e: Entity,
-    parents: &Query<&Parent>,
+    child_of: &Query<&ChildOf>,
     levels: &Query<Entity, With<LevelElevation>>,
     sites: &Query<(), With<NameOfSite>>,
 ) -> Group {
@@ -335,8 +340,8 @@ fn get_group(
             return Group::Site(e_meta);
         }
 
-        if let Ok(parent) = parents.get(e_meta) {
-            e_meta = parent.get();
+        if let Ok(child_of) = child_of.get(e_meta) {
+            e_meta = child_of.parent();
         } else {
             return Group::None;
         }
@@ -344,9 +349,9 @@ fn get_group(
 }
 
 fn collect_physical_entities(
-    meshes: &Query<(Entity, &Handle<Mesh>, &Aabb, &GlobalTransform)>,
+    meshes: &Query<(Entity, &Mesh3d, &Aabb, &GlobalTransform)>,
     meta: &Query<(
-        Option<&Parent>,
+        Option<&ChildOf>,
         Option<&Category>,
         Option<&ComputedVisualCue>,
     )>,
@@ -355,7 +360,7 @@ fn collect_physical_entities(
     for (e, _, _, _) in meshes {
         let mut e_meta = e;
         let is_physical = loop {
-            if let Ok((parent, category, cue)) = meta.get(e_meta) {
+            if let Ok((child_of, category, cue)) = meta.get(e_meta) {
                 if cue.is_some() {
                     // This is a visual cue, making it non-physical
                     break false;
@@ -365,8 +370,8 @@ fn collect_physical_entities(
                     break category.is_physical();
                 }
 
-                if let Some(parent) = parent {
-                    e_meta = parent.get();
+                if let Some(child_of) = child_of {
+                    e_meta = child_of.parent();
                 } else {
                     // There is no parent and we have not determined a
                     // category for this mesh, so let's assume it is not

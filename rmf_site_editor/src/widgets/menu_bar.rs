@@ -18,7 +18,7 @@
 use crate::widgets::prelude::*;
 use crate::widgets::{HeaderPanelPlugin, HeaderTilePlugin, StandardCreationPlugin};
 
-use bevy::ecs::query::Has;
+use bevy::ecs::{hierarchy::ChildOf, query::Has};
 use bevy::prelude::*;
 use bevy_egui::egui::{self, Button, Ui};
 
@@ -58,7 +58,7 @@ struct MenuDropdowns<'w, 's> {
     view_menu: Res<'w, ViewMenu>,
     file_menu: Res<'w, FileMenu>,
     children: Query<'w, 's, &'static Children>,
-    top_level_components: Query<'w, 's, ((), Without<Parent>)>,
+    top_level_components: Query<'w, 's, (), Without<ChildOf>>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for MenuDropdowns<'w, 's> {
@@ -288,7 +288,7 @@ pub fn render_sub_menu(
                     button = button.shortcut_text(shortcut);
                 }
                 if ui.add_enabled(!disabled, button).clicked() {
-                    extension_events.send(MenuEvent::MenuClickEvent(*entity));
+                    extension_events.write(MenuEvent::MenuClickEvent(*entity));
                 }
             }
             MenuItem::CheckBox(title, mut value) => {
@@ -296,7 +296,7 @@ pub fn render_sub_menu(
                     .add_enabled(!disabled, egui::Checkbox::new(&mut value, title))
                     .clicked()
                 {
-                    extension_events.send(MenuEvent::MenuClickEvent(*entity));
+                    extension_events.write(MenuEvent::MenuClickEvent(*entity));
                 }
             }
         }
@@ -316,7 +316,7 @@ pub fn render_sub_menu(
             for child in child_items.iter() {
                 render_sub_menu(
                     ui,
-                    child,
+                    &child,
                     children,
                     menus,
                     menu_items,
@@ -333,7 +333,7 @@ pub fn render_sub_menu(
         for child in child_items.iter() {
             render_sub_menu(
                 ui,
-                child,
+                &child,
                 children,
                 menus,
                 menu_items,

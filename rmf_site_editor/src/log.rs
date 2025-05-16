@@ -15,8 +15,8 @@
  *
 */
 
+use bevy::log::tracing::{field::Field, Level};
 use bevy::prelude::*;
-use bevy::utils::tracing::{field::Field, Level};
 use crossbeam_channel::{unbounded, Receiver, SendError, Sender};
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Write};
@@ -43,7 +43,7 @@ impl fmt::Display for LogCategory {
     }
 }
 
-#[derive(Debug, Clone, Component, PartialEq, Eq, Event)]
+#[derive(Debug, Clone, PartialEq, Eq, Event)]
 pub struct Log {
     pub category: LogCategory,
     pub message: String,

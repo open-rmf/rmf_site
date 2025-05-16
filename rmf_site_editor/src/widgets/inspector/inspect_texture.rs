@@ -21,7 +21,10 @@ use crate::{
     widgets::{prelude::*, Inspect, InspectionPlugin},
     Icons, WorkspaceMarker,
 };
-use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy::{
+    ecs::{hierarchy::ChildOf, system::SystemParam},
+    prelude::*,
+};
 use bevy_egui::egui::{ComboBox, Grid, ImageButton, Ui};
 use rmf_site_format::{
     Affiliation, FloorMarker, Group, NameInSite, RecallAssetSource, Texture, TextureGroup,
@@ -47,7 +50,7 @@ pub struct InspectTextureAffiliation<'w, 's> {
         Or<(With<FloorMarker>, With<WallMarker>)>,
     >,
     texture_groups: Query<'w, 's, (&'static NameInSite, &'static Texture), With<Group>>,
-    parents: Query<'w, 's, &'static Parent>,
+    child_of: Query<'w, 's, &'static ChildOf>,
     sites: Query<'w, 's, &'static Children, With<WorkspaceMarker>>,
     icons: Res<'w, Icons>,
     search_for_texture: ResMut<'w, SearchForTexture>,
@@ -78,8 +81,8 @@ impl<'w, 's> InspectTextureAffiliation<'w, 's> {
                 break children;
             }
 
-            if let Ok(parent) = self.parents.get(site) {
-                site = parent.get();
+            if let Ok(child_of) = self.child_of.get(site) {
+                site = child_of.parent();
             } else {
                 return;
             }
@@ -176,10 +179,10 @@ impl<'w, 's> InspectTextureAffiliation<'w, 's> {
                                 texture: new_texture,
                                 group: default(),
                             })
-                            .set_parent(site)
+                            .insert(ChildOf(site))
                             .id();
                         self.change_affiliation
-                            .send(Change::new(Affiliation(Some(new_texture_group)), id));
+                            .write(Change::new(Affiliation(Some(new_texture_group)), id));
                     }
                 }
                 SearchResult::Match(group) => {
@@ -189,7 +192,7 @@ impl<'w, 's> InspectTextureAffiliation<'w, 's> {
                         .clicked()
                     {
                         self.change_affiliation
-                            .send(Change::new(Affiliation(Some(group)), id));
+                            .write(Change::new(Affiliation(Some(group)), id));
                     }
                 }
                 SearchResult::Conflict(text) => {
@@ -228,7 +231,7 @@ impl<'w, 's> InspectTextureAffiliation<'w, 's> {
             }
 
             let mut clear_filter = false;
-            ComboBox::from_id_source("texture_affiliation")
+            ComboBox::from_id_salt("texture_affiliation")
                 .selected_text(current_texture_name)
                 .show_ui(ui, |ui| {
                     for child in children {
@@ -256,7 +259,7 @@ impl<'w, 's> InspectTextureAffiliation<'w, 's> {
 
         if new_affiliation != *affiliation {
             self.change_affiliation
-                .send(Change::new(new_affiliation, id));
+                .write(Change::new(new_affiliation, id));
         }
         ui.add_space(10.0);
     }

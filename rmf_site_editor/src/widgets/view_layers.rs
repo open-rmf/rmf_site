@@ -112,7 +112,7 @@ impl<'w, 's> ViewLayers<'w, 's> {
 
                         if shown_global != *global {
                             self.global_floor_vis
-                                .send(Change::new(shown_global, current_level));
+                                .write(Change::new(shown_global, current_level));
                         }
                     });
                     ui.separator();
@@ -158,7 +158,7 @@ impl<'w, 's> ViewLayers<'w, 's> {
                         ui.push_id("Bottom Drawing Count", |ui| {
                             ui.add(
                                 DragValue::new(&mut shown_global.bottom_count)
-                                    .clamp_range(0..=usize::MAX)
+                                    .range(0..=usize::MAX)
                                     .speed(0.05),
                             );
                         });
@@ -166,7 +166,7 @@ impl<'w, 's> ViewLayers<'w, 's> {
 
                     if shown_global != *global {
                         self.global_drawing_vis
-                            .send(Change::new(shown_global, current_level));
+                            .write(Change::new(shown_global, current_level));
                     }
 
                     if let Some(selected) = Self::show_rankings(
@@ -206,7 +206,7 @@ impl<'w, 's> ViewLayers<'w, 's> {
 
         if let LayerVisibility::Alpha(alpha) = vis {
             if ui
-                .add(DragValue::new(alpha).clamp_range(0_f32..=1_f32).speed(0.01))
+                .add(DragValue::new(alpha).range(0_f32..=1_f32).speed(0.01))
                 .changed()
             {
                 *default_alpha = *alpha;

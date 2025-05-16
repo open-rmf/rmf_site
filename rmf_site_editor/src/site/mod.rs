@@ -143,10 +143,10 @@ pub enum SiteUpdateSet {
     Deletion,
     /// Force a command flush after deletion
     DeletionFlush,
-    /// Placed between visibility and transform propagation, to avoid one frame delays
-    BetweenVisibilityAndTransform,
+    /// Placed between transform and visibility propagation, to avoid one frame delays
+    BetweenTransformAndVisibility,
     /// Flush the set above
-    BetweenVisibilityAndTransformFlush,
+    BetweenTransformAndVisibilityFlush,
     /// Used to force a command flush after the change plugin's process changes
     ProcessChanges,
     /// Flush the set above
@@ -168,29 +168,29 @@ impl Plugin for SitePlugin {
         )
         .add_systems(
             PreUpdate,
-            apply_deferred.in_set(SiteUpdateSet::ProcessChangesFlush),
+            ApplyDeferred.in_set(SiteUpdateSet::ProcessChangesFlush),
         )
         .configure_sets(
             PostUpdate,
             (
                 SiteUpdateSet::AssignOrphans,
                 SiteUpdateSet::AssignOrphansFlush,
-                VisibilitySystems::VisibilityPropagate,
-                SiteUpdateSet::BetweenVisibilityAndTransform,
-                SiteUpdateSet::BetweenVisibilityAndTransformFlush,
                 TransformSystem::TransformPropagate,
+                SiteUpdateSet::BetweenTransformAndVisibility,
+                SiteUpdateSet::BetweenTransformAndVisibilityFlush,
+                VisibilitySystems::VisibilityPropagate,
             )
                 .chain(),
         )
         .add_systems(
             PostUpdate,
-            apply_deferred.in_set(SiteUpdateSet::BetweenVisibilityAndTransformFlush),
+            ApplyDeferred.in_set(SiteUpdateSet::BetweenTransformAndVisibilityFlush),
         )
         .add_systems(
             PostUpdate,
-            apply_deferred.in_set(SiteUpdateSet::AssignOrphansFlush),
+            ApplyDeferred.in_set(SiteUpdateSet::AssignOrphansFlush),
         )
-        .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
+        .insert_resource(ClearColor(Color::srgb(0., 0., 0.)))
         .init_resource::<SiteAssets>()
         .init_resource::<CurrentLevel>()
         .init_resource::<CurrentScenario>()
@@ -336,7 +336,7 @@ impl Plugin for SitePlugin {
                 set_camera_transform_for_changed_site,
             )
                 .run_if(AppState::in_displaying_mode())
-                .in_set(SiteUpdateSet::BetweenVisibilityAndTransform),
+                .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
         )
         .add_systems(
             PostUpdate,
@@ -363,7 +363,7 @@ impl Plugin for SitePlugin {
                 insert_new_instance_modifiers,
             )
                 .run_if(AppState::in_displaying_mode())
-                .in_set(SiteUpdateSet::BetweenVisibilityAndTransform),
+                .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
         )
         .add_systems(
             PostUpdate,
@@ -388,7 +388,7 @@ impl Plugin for SitePlugin {
                 toggle_physical_lights,
             )
                 .run_if(AppState::in_displaying_mode())
-                .in_set(SiteUpdateSet::BetweenVisibilityAndTransform),
+                .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
         )
         .add_systems(
             PostUpdate,
@@ -409,7 +409,7 @@ impl Plugin for SitePlugin {
                 add_physical_camera_visuals,
             )
                 .run_if(AppState::in_displaying_mode())
-                .in_set(SiteUpdateSet::BetweenVisibilityAndTransform),
+                .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
         );
     }
 }

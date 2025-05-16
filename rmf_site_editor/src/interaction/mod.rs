@@ -86,11 +86,6 @@ pub use visual_cue::*;
 
 use bevy::prelude::*;
 use bevy_mod_outline::OutlinePlugin;
-use bevy_mod_raycast::deferred::DeferredRaycastingPlugin;
-use bevy_polyline::PolylinePlugin;
-
-#[derive(Reflect)]
-pub struct SiteRaycastSet;
 
 #[derive(Default)]
 pub struct InteractionPlugin {
@@ -129,7 +124,7 @@ pub enum InteractionUpdateSet {
 
 impl Plugin for InteractionPlugin {
     fn build(&self, app: &mut App) {
-        app.add_state::<InteractionState>()
+        app.init_state::<InteractionState>()
             .init_resource::<GizmoBlockers>()
             .configure_sets(
                 PostUpdate,
@@ -143,10 +138,9 @@ impl Plugin for InteractionPlugin {
             )
             .add_systems(
                 Update,
-                apply_deferred.in_set(InteractionUpdateSet::CommandFlush),
+                ApplyDeferred.in_set(InteractionUpdateSet::CommandFlush),
             )
-            .add_plugins(PolylinePlugin)
-            .add_plugins(DeferredRaycastingPlugin::<SiteRaycastSet>::default())
+            .add_plugins(MeshPickingPlugin)
             .init_resource::<InteractionAssets>()
             .init_resource::<Cursor>()
             .init_resource::<CameraControls>()
@@ -184,7 +178,6 @@ impl Plugin for InteractionPlugin {
                     (
                         make_lift_doormat_gizmo,
                         update_doormats_for_level_change,
-                        update_picking_cam,
                         update_physical_light_visual_cues,
                         make_selectable_entities_pickable,
                         update_anchor_visual_cues.after(SelectionServiceStages::Select),
@@ -248,11 +241,7 @@ impl Plugin for InteractionPlugin {
                 .add_systems(OnExit(InteractionState::Enable), hide_cursor)
                 .add_systems(
                     PostUpdate,
-                    (
-                        move_anchor.before(update_anchor_transforms),
-                        move_pose,
-                        make_gizmos_pickable,
-                    )
+                    (move_anchor.before(update_anchor_transforms), move_pose)
                         .run_if(in_state(InteractionState::Enable)),
                 )
                 .add_systems(First, update_picked);
@@ -278,9 +267,9 @@ pub fn set_visibility(entity: Entity, q_visibility: &mut Query<&mut Visibility>,
 fn set_material(
     entity: Entity,
     to_material: &Handle<StandardMaterial>,
-    q_materials: &mut Query<&mut Handle<StandardMaterial>>,
+    q_materials: &mut Query<&mut MeshMaterial3d<StandardMaterial>>,
 ) {
     if let Some(mut m) = q_materials.get_mut(entity).ok() {
-        *m = to_material.clone();
+        *m = MeshMaterial3d(to_material.clone());
     }
 }

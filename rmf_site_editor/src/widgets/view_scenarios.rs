@@ -23,7 +23,10 @@ use crate::{
     widgets::prelude::*,
     CurrentWorkspace, Icons,
 };
-use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy::{
+    ecs::{hierarchy::ChildOf, system::SystemParam},
+    prelude::*,
+};
 use bevy_egui::egui::{Align, Button, CollapsingHeader, Color32, Layout, Ui};
 use std::collections::HashMap;
 
@@ -40,7 +43,7 @@ impl Plugin for ViewScenariosPlugin {
 
 #[derive(SystemParam)]
 pub struct ViewScenarios<'w, 's> {
-    parent: Query<'w, 's, &'static Parent>,
+    child_of: Query<'w, 's, &'static ChildOf>,
     scenarios: Query<
         'w,
         's,
@@ -78,7 +81,7 @@ impl<'w, 's> ViewScenarios<'w, 's> {
                     let mut new_name = name.0.clone();
                     if ui.text_edit_singleline(&mut new_name).changed() {
                         self.change_name
-                            .send(Change::new(NameInSite(new_name), current_scenario_entity));
+                            .write(Change::new(NameInSite(new_name), current_scenario_entity));
                     }
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         if ui
@@ -87,7 +90,7 @@ impl<'w, 's> ViewScenarios<'w, 's> {
                             .clicked()
                         {
                             self.remove_scenario
-                                .send(RemoveScenario(current_scenario_entity));
+                                .write(RemoveScenario(current_scenario_entity));
                         }
                     });
                 });
@@ -122,7 +125,7 @@ impl<'w, 's> ViewScenarios<'w, 's> {
         });
         ui.horizontal(|ui| {
             if ui.add(Button::image(self.icons.add.egui())).clicked() {
-                self.create_new_scenario.send(CreateScenario {
+                self.create_new_scenario.write(CreateScenario {
                     name: Some(self.display_scenarios.new_scenario_name.clone()),
                     parent: match self.display_scenarios.is_new_scenario_root {
                         true => None,
@@ -161,9 +164,11 @@ impl<'w, 's> ViewScenarios<'w, 's> {
             .iter()
             .filter(|(_, _, parent_scenario)| parent_scenario.0.is_none())
             .filter(|(scenario_entity, _, _)| {
-                self.current_workspace
-                    .root
-                    .is_some_and(|e| e == **self.parent.get(*scenario_entity).ok().unwrap())
+                self.current_workspace.root.is_some_and(|e| {
+                    self.child_of
+                        .get(*scenario_entity)
+                        .is_ok_and(|co| e == co.parent())
+                })
             })
             .for_each(|(scenario_entity, _, _)| {
                 show_scenario_widget(
@@ -206,24 +211,24 @@ fn show_scenario_widget(
     // Scenario version and name, e.g. 1.2.3 My Scenario
     ui.horizontal(|ui| {
         if ui.radio(Some(entity) == **current_scenario, "").clicked() {
-            change_current_scenario.send(ChangeCurrentScenario(entity));
+            change_current_scenario.write(ChangeCurrentScenario(entity));
         }
         ui.colored_label(Color32::DARK_GRAY, scenario_version_str.clone());
         let mut new_name = name.0.clone();
         if ui.text_edit_singleline(&mut new_name).changed() {
-            change_name.send(Change::new(NameInSite(new_name), entity));
+            change_name.write(Change::new(NameInSite(new_name), entity));
         }
     });
 
     // Display children recursively
-    // The subversion is used as an id_source so that egui does not
+    // The subversion is used as an id_salt so that egui does not
     // generate errors when collapsing headers of the same name are created
     let mut subversion = 1;
     let children = scenario_children.get(&scenario_entity);
     let num_children = children.map(|c| c.len()).unwrap_or(0);
     CollapsingHeader::new(format!("Child Scenarios:  {}", num_children))
         .default_open(true)
-        .id_source(scenario_version_str.clone())
+        .id_salt(scenario_version_str.clone())
         .show(ui, |ui| {
             if let Some(children) = children {
                 for child in children.iter() {

@@ -16,6 +16,7 @@
 */
 
 use crate::{interaction::CameraControls, CurrentWorkspace};
+use bevy::ecs::hierarchy::ChildOf;
 use bevy::prelude::*;
 use rmf_site_format::{
     LevelElevation, LevelProperties, NameInSite, NameOfSite, Pose, ScenarioMarker,
@@ -65,7 +66,7 @@ pub fn change_site(
     mut visibility: Query<&mut Visibility>,
     open_sites: Query<Entity, With<NameOfSite>>,
     children: Query<&Children>,
-    parents: Query<&Parent>,
+    child_of: Query<&ChildOf>,
     levels: Query<Entity, With<LevelElevation>>,
     scenarios: Query<Entity, With<ScenarioMarker>>,
 ) {
@@ -85,10 +86,10 @@ pub fn change_site(
         }
 
         if let Some(chosen_level) = cmd.level {
-            if parents
+            if child_of
                 .get(chosen_level)
                 .ok()
-                .filter(|parent| parent.get() == cmd.site)
+                .filter(|child_of| child_of.parent() == cmd.site)
                 .is_none()
             {
                 warn!(
@@ -132,14 +133,14 @@ pub fn change_site(
                     if !found_level {
                         // Create a new blank level for the user
                         let new_level = commands
-                            .spawn(SpatialBundle::default())
+                            .spawn((Transform::default(), Visibility::default()))
                             .insert(LevelProperties {
                                 name: NameInSite("<unnamed level>".to_owned()),
                                 elevation: LevelElevation(0.),
                                 global_floor_visibility: default(),
                                 global_drawing_visibility: default(),
                             })
-                            .set_parent(cmd.site)
+                            .insert(ChildOf(cmd.site))
                             .id();
 
                         commands.entity(cmd.site).insert(CachedLevel(new_level));
@@ -152,19 +153,19 @@ pub fn change_site(
         if let Some(new_scenario) = cmd.scenario {
             if let Some(previous_scenario) = current_scenario.0 {
                 if previous_scenario != new_scenario {
-                    change_current_scenario.send(ChangeCurrentScenario(new_scenario));
+                    change_current_scenario.write(ChangeCurrentScenario(new_scenario));
                 }
             }
         } else {
             if let Ok(children) = children.get(cmd.site) {
                 let any_scenario = children
                     .iter()
-                    .filter(|child| scenarios.get(**child).is_ok())
+                    .filter(|child| scenarios.get(*child).is_ok())
                     .next();
                 if let Some(new_scenario) = any_scenario {
-                    change_current_scenario.send(ChangeCurrentScenario(*new_scenario));
+                    change_current_scenario.write(ChangeCurrentScenario(new_scenario));
                 } else {
-                    create_new_scenario.send(CreateScenario {
+                    create_new_scenario.write(CreateScenario {
                         name: None,
                         parent: Some(cmd.site),
                     });
@@ -191,7 +192,7 @@ pub fn set_camera_transform_for_changed_site(
         if let Some(pose) = children
             .get(level)
             .ok()
-            .and_then(|children| children.iter().find_map(|c| user_camera_poses.get(*c).ok()))
+            .and_then(|children| children.iter().find_map(|c| user_camera_poses.get(c).ok()))
         {
             if let Ok(mut tf) = transforms.get_mut(camera_controls.perspective_camera_entities[0]) {
                 *tf = pose.transform();

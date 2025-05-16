@@ -22,15 +22,19 @@ use crate::{
     Issue, ValidateWorkspace,
 };
 use bevy::{
-    ecs::system::{EntityCommands, SystemParam},
+    ecs::{
+        hierarchy::ChildOf,
+        relationship::DescendantIter,
+        schedule::ScheduleConfigs,
+        system::{EntityCommands, ScheduleSystem, SystemParam},
+    },
     gltf::Gltf,
     prelude::*,
     render::view::RenderLayers,
     scene::SceneInstance,
-    utils::Uuid,
 };
 use bevy_impulse::*;
-use bevy_mod_outline::OutlineMeshExt;
+use bevy_mod_outline::{GenerateOutlineNormalsSettings, OutlineMeshExt};
 use rmf_site_format::{
     Affiliation, AssetSource, Group, IssueKey, ModelInstance, ModelMarker, ModelProperty,
     NameInSite, Pending, Scale,
@@ -38,6 +42,7 @@ use rmf_site_format::{
 use smallvec::SmallVec;
 use std::{any::TypeId, collections::HashSet, fmt, future::Future};
 use thiserror::Error;
+use uuid::Uuid;
 
 /// Denotes the properties of the current spawned scene for the model, to despawn when updating AssetSource
 /// and avoid spurious reloading if the new `AssetSource` is equal to the old one
@@ -149,27 +154,46 @@ pub fn spawn_scene_for_loaded_model(
         // Note we can't do an `if let Some()` because get(Handle) panics if the type is
         // not the stored type
         let gltfs = world.resource::<Assets<Gltf>>();
-        let gltf = gltfs.get(&h)?;
+        let gltf = gltfs.get(h.typed::<Gltf>().id())?;
         // Get default scene if present, otherwise index 0
         let scene = gltf
             .default_scene
             .as_ref()
             .or_else(|| gltf.scenes.get(0))
             .cloned()?;
-        Some((world.spawn(SceneBundle { scene, ..default() }).id(), true))
+        Some((
+            world
+                .spawn((
+                    SceneRoot(scene),
+                    Transform::default(),
+                    GlobalTransform::default(),
+                ))
+                .id(),
+            true,
+        ))
     } else if type_id == TypeId::of::<Scene>() {
         let scene = h.typed::<Scene>();
-        Some((world.spawn(SceneBundle { scene, ..default() }).id(), true))
+        Some((
+            world
+                .spawn((
+                    SceneRoot(scene),
+                    Transform::default(),
+                    GlobalTransform::default(),
+                ))
+                .id(),
+            true,
+        ))
     } else if type_id == TypeId::of::<Mesh>() {
         let site_assets = world.resource::<SiteAssets>();
         let mesh = h.typed::<Mesh>();
         Some((
             world
-                .spawn(PbrBundle {
-                    mesh,
-                    material: site_assets.default_mesh_grey_material.clone(),
-                    ..default()
-                })
+                .spawn((
+                    Mesh3d(mesh),
+                    MeshMaterial3d(site_assets.default_mesh_grey_material.clone()),
+                    Transform::default(),
+                    Visibility::default(),
+                ))
                 .id(),
             false,
         ))
@@ -185,7 +209,7 @@ pub fn spawn_scene_for_loaded_model(
         })
         .add_child(model_id);
     if world.get::<Visibility>(parent).is_none() {
-        world.entity_mut(parent).insert(VisibilityBundle::default());
+        world.entity_mut(parent).insert(Visibility::default());
     }
     Some((model_id, is_scene))
 }
@@ -210,7 +234,7 @@ pub fn cleanup_if_asset_source_changed(
             unchanged: true,
         }));
     }
-    commands.entity(scene.scene_root).despawn_recursive();
+    commands.entity(scene.scene_root).despawn();
     commands.entity(request.parent).remove::<ModelScene>();
     Ok(request)
 }
@@ -310,11 +334,11 @@ fn handle_model_loading_errors(
             let parent = err.request.parent;
             // There was an actual error, cleanup the scene
             if let Ok(scene) = model_scenes.get(parent) {
-                commands.entity(scene.scene_root).despawn_recursive();
+                commands.entity(scene.scene_root).despawn();
                 commands.entity(parent).remove::<ModelScene>();
             }
             error!("{err}");
-            if let Some(mut entity_mut) = commands.get_entity(parent) {
+            if let Ok(mut entity_mut) = commands.get_entity(parent) {
                 // The parent entity might not exist any longer after the loading
                 // failed, so we check for its existence before inserting to it.
                 entity_mut.insert(ModelFailedLoading(err.clone()));
@@ -324,7 +348,7 @@ fn handle_model_loading_errors(
         }
     };
 
-    if let Some(mut entity_mut) = commands.get_entity(parent) {
+    if let Ok(mut entity_mut) = commands.get_entity(parent) {
         // The parent entity might not exist any longer after the loading failed,
         // so we check for its existence before removing from it.
         entity_mut.remove::<ModelLoadingState>();
@@ -371,7 +395,7 @@ impl<'w, 's> ModelLoader<'w, 's> {
         &mut self,
         parent: Entity,
         instance: ModelInstance<Entity>,
-    ) -> EntityCommands<'w, 's, '_> {
+    ) -> EntityCommands<'_> {
         self.spawn_model_instance_impulse(parent, instance, move |impulse| {
             impulse.detach();
         })
@@ -384,9 +408,9 @@ impl<'w, 's> ModelLoader<'w, 's> {
         parent: Entity,
         instance: ModelInstance<Entity>,
         impulse: impl FnOnce(Impulse<InstanceSpawningResult, ()>),
-    ) -> EntityCommands<'w, 's, '_> {
+    ) -> EntityCommands<'_> {
         let affiliation = instance.description.clone();
-        let id = self.commands.spawn(instance).set_parent(parent).id();
+        let id = self.commands.spawn(instance).insert(ChildOf(parent)).id();
         let spawning_impulse = self.commands.request(
             InstanceSpawningRequest::new(id, affiliation),
             self.services
@@ -493,20 +517,20 @@ impl ModelLoadingServices {
         )
         .add_systems(
             PostUpdate,
-            (apply_deferred, flush_impulses()).in_set(ModelLoadingSet::CheckSceneFlush),
+            (ApplyDeferred, flush_impulses()).in_set(ModelLoadingSet::CheckSceneFlush),
         );
         let check_scene_is_spawned = app.spawn_continuous_service(
             PostUpdate,
-            check_scenes_are_spawned.configure(|config: SystemConfigs| {
+            check_scenes_are_spawned.configure(|config: ScheduleConfigs<ScheduleSystem>| {
                 config.in_set(ModelLoadingSet::CheckSceneSystem)
             }),
         );
         let skip_if_unchanged = cleanup_if_asset_source_changed.into_blocking_callback();
-        let load_model_dependencies = app.world.spawn_service(load_model_dependencies);
-        let model_loading_service = app.world.spawn_service(handle_model_loading);
+        let load_model_dependencies = app.world_mut().spawn_service(load_model_dependencies);
+        let model_loading_service = app.world_mut().spawn_service(handle_model_loading);
         // This workflow tries to load the model without doing any error handling
         let try_load_model: Service<ModelLoadingRequest, ModelLoadingResult, ()> =
-            app.world.spawn_workflow(|scope, builder| {
+            app.world_mut().spawn_workflow(|scope, builder| {
                 scope
                     .input
                     .chain(builder)
@@ -531,7 +555,7 @@ impl ModelLoadingServices {
 
         // Complete model loading with error handling, by having it as a separate
         // workflow we can easily capture all the early returns on error
-        let load_model = app.world.spawn_workflow(|scope, builder| {
+        let load_model = app.world_mut().spawn_workflow(|scope, builder| {
             scope
                 .input
                 .chain(builder)
@@ -541,7 +565,7 @@ impl ModelLoadingServices {
         });
 
         // Model instance spawning workflow
-        let spawn_instance = app.world.spawn_workflow(|scope, builder| {
+        let spawn_instance = app.world_mut().spawn_workflow(|scope, builder| {
             scope
                 .input
                 .chain(builder)
@@ -666,7 +690,7 @@ pub fn make_models_selectable(
     pending_or_previews: Query<(), Or<(With<Pending>, With<Preview>)>>,
     scene_roots: Query<&RenderLayers, With<ModelMarker>>,
     all_children: Query<&Children>,
-    mesh_handles: Query<&Handle<Mesh>>,
+    mesh_handles: Query<&Mesh3d>,
     mut mesh_assets: ResMut<Assets<Mesh>>,
 ) -> ModelLoadingRequest {
     // Pending items (i.e. mouse previews) should not be selectable
@@ -693,7 +717,10 @@ pub fn make_models_selectable(
 
         if let Ok(mesh_handle) = mesh_handles.get(e) {
             if let Some(mesh) = mesh_assets.get_mut(mesh_handle) {
-                if mesh.generate_outline_normals().is_err() {
+                if mesh
+                    .generate_outline_normals(&GenerateOutlineNormalsSettings::default())
+                    .is_err()
+                {
                     warn!(
                         "WARNING: Unable to generate outline normals for \
                         a model mesh"
@@ -718,7 +745,7 @@ pub fn propagate_model_properties(
     render_layers: Query<&RenderLayers>,
     previews: Query<&Preview>,
     pendings: Query<&Pending>,
-    mesh_entities: Query<(), With<Handle<Mesh>>>,
+    mesh_entities: Query<(), With<Mesh3d>>,
     children: Query<&Children>,
 ) -> ModelLoadingRequest {
     propagate_model_property(
@@ -749,7 +776,7 @@ pub fn propagate_model_property<Property: Component + Clone + std::fmt::Debug>(
     root: Entity,
     property_query: &Query<&Property>,
     children: &Query<&Children>,
-    mesh_entities: &Query<(), With<Handle<Mesh>>>,
+    mesh_entities: &Query<(), With<Mesh3d>>,
     commands: &mut Commands,
 ) {
     let Ok(property) = property_query.get(root) else {
@@ -803,7 +830,7 @@ pub fn check_for_orphan_model_instances(
     mut validate_events: EventReader<ValidateWorkspace>,
     mut orphan_instances: Query<
         (Entity, &NameInSite, &Affiliation<Entity>),
-        (With<ModelMarker>, Without<Group>, Without<Parent>),
+        (With<ModelMarker>, Without<Group>, Without<ChildOf>),
     >,
     model_descriptions: Query<&NameInSite, (With<ModelMarker>, With<Group>)>,
 ) {

@@ -117,7 +117,10 @@ use crate::{
     widgets::prelude::*,
 };
 use bevy::{
-    ecs::system::{SystemParam, SystemState},
+    ecs::{
+        hierarchy::ChildOf,
+        system::{SystemParam, SystemState},
+    },
     prelude::*,
 };
 use bevy_egui::egui::{CollapsingHeader, Ui};
@@ -263,9 +266,9 @@ where
     W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
 {
     fn build(&self, app: &mut App) {
-        let inspector = app.world.resource::<MainInspector>().id;
-        let widget = Widget::<Inspect>::new::<W>(&mut app.world);
-        app.world.spawn(widget).set_parent(inspector);
+        let inspector = app.world().resource::<MainInspector>().id;
+        let widget = Widget::<Inspect>::new::<W>(app.world_mut());
+        app.world_mut().spawn(widget).insert(ChildOf(inspector));
     }
 }
 
@@ -297,7 +300,7 @@ impl FromWorld for MainInspector {
     fn from_world(world: &mut World) -> Self {
         let widget = Widget::new::<Inspector>(world);
         let properties_panel = world.resource::<PropertiesPanel>().id();
-        let id = world.spawn(widget).set_parent(properties_panel).id();
+        let id = world.spawn(widget).insert(ChildOf(properties_panel)).id();
         Self { id }
     }
 }
@@ -357,7 +360,7 @@ impl<'w, 's> WidgetSystem<Tile> for Inspector<'w, 's> {
                 let children: Result<SmallVec<[_; 16]>, _> = params
                     .children
                     .get(id)
-                    .map(|children| children.iter().copied().collect());
+                    .map(|children| children.iter().collect());
                 let Ok(children) = children else {
                     return;
                 };

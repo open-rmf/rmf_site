@@ -16,11 +16,10 @@
 */
 
 use crate::site::ChangePlugin;
-use bevy::{
-    prelude::*,
-    utils::{HashMap, Uuid},
-};
+use bevy::prelude::*;
 use rmf_site_format::{FilteredIssueKinds, FilteredIssues, IssueKey};
+use std::collections::HashMap;
+use uuid::Uuid;
 
 #[derive(Component, Debug, Clone)]
 pub struct Issue {
@@ -38,7 +37,7 @@ pub trait RegisterIssueType {
 impl RegisterIssueType for App {
     fn add_issue_type(&mut self, type_uuid: &Uuid, name: &str) -> &mut Self {
         let mut issue_dictionary = self
-            .world
+            .world_mut()
             .get_resource_or_insert_with::<IssueDictionary>(Default::default);
         issue_dictionary.insert(type_uuid.clone(), name.into());
         self
@@ -80,7 +79,7 @@ pub fn clear_old_issues_on_new_validate_event(
         };
         for e in children {
             if issues.get(*e).is_ok() {
-                commands.entity(*e).despawn_recursive();
+                commands.entity(*e).despawn();
             }
         }
     }

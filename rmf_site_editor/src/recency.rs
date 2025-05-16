@@ -15,7 +15,7 @@
  *
 */
 
-use bevy::prelude::*;
+use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 use rmf_site_format::SiteID;
 use std::{
     collections::{HashMap, HashSet},
@@ -203,11 +203,11 @@ impl<T: Component> Plugin for RecencyRankingPlugin<T> {
 fn update_recency_rankings<T: Component>(
     mut rankings: Query<(Entity, &mut RecencyRanking<T>)>,
     new_entities: Query<Entity, (Added<T>, Without<SuppressRecencyRank>)>,
-    moved_entities: Query<Entity, (Changed<Parent>, With<T>, Without<SuppressRecencyRank>)>,
+    moved_entities: Query<Entity, (Changed<ChildOf>, With<T>, Without<SuppressRecencyRank>)>,
     newly_suppressed_entities: Query<Entity, (With<T>, Added<SuppressRecencyRank>)>,
     mut unsuppressed_entities: RemovedComponents<SuppressRecencyRank>,
     mut no_longer_relevant: RemovedComponents<T>,
-    parents: Query<&Parent>,
+    child_of: Query<&ChildOf>,
     mut rank_changes: EventReader<ChangeRank<T>>,
 ) {
     for e in new_entities.iter().chain(unsuppressed_entities.read()) {
@@ -224,7 +224,7 @@ fn update_recency_rankings<T: Component>(
                 }
             }
 
-            next = parents.get(in_scope).ok().map(|p| p.get());
+            next = child_of.get(in_scope).ok().map(|co| co.parent());
         }
     }
 
@@ -248,7 +248,7 @@ fn update_recency_rankings<T: Component>(
                 }
             }
 
-            next = parents.get(in_scope).ok().map(|p| p.get());
+            next = child_of.get(in_scope).ok().map(|co| co.parent());
         }
 
         for (e_ranking, mut ranking) in &mut rankings {
@@ -297,7 +297,7 @@ fn update_recency_rankings<T: Component>(
                 }
             }
 
-            next = parents.get(in_scope).ok().map(|p| p.get());
+            next = child_of.get(in_scope).ok().map(|co| co.parent());
         }
     }
 }
