@@ -67,7 +67,12 @@ impl OutlineVisualization {
         }
     }
 
-    pub fn layers(&self, hovered: &Hovered, selected: &Selected) -> OutlineRenderLayers {
+    pub fn layers(
+        &self,
+        hovered: &Hovered,
+        selected: &Selected,
+        cue: Option<&ComputedVisualCue>,
+    ) -> OutlineRenderLayers {
         match self {
             OutlineVisualization::Ordinary => {
                 if hovered.cue() {
@@ -79,7 +84,7 @@ impl OutlineVisualization {
                 }
             }
             OutlineVisualization::Anchor { .. } => {
-                if hovered.cue() || selected.cue() {
+                if hovered.cue() || selected.cue() || cue.is_some_and(|c| c.xray.any()) {
                     OutlineRenderLayers(RenderLayers::layer(XRAY_RENDER_LAYER))
                 } else {
                     OutlineRenderLayers(RenderLayers::none())
@@ -143,22 +148,24 @@ pub fn update_outline_visualization(
             &Selected,
             &OutlineVisualization,
             Option<&SuppressOutline>,
+            Option<&ComputedVisualCue>,
         ),
         Or<(
             Changed<Hovered>,
             Changed<Selected>,
             Changed<SuppressOutline>,
+            Changed<ComputedVisualCue>,
         )>,
     >,
     descendants: Query<(Option<&Children>, Option<&ComputedVisualCue>)>,
 ) {
-    for (e, hovered, selected, vis, suppress) in &outlinable {
+    for (e, hovered, selected, vis, suppress, cue) in &outlinable {
         let color = if suppress.is_some() {
             None
         } else {
             vis.color(hovered, selected)
         };
-        let layers = vis.layers(hovered, selected);
+        let layers = vis.layers(hovered, selected, cue);
         let depth = vis.depth();
         let root = vis.root().unwrap_or(e);
 
@@ -194,7 +201,8 @@ pub fn update_outline_visualization(
                         .remove::<OutlineVolume>()
                         .remove::<OutlineStencil>()
                         .remove::<ComputedOutline>()
-                        .remove::<OutlineMode>();
+                        .remove::<OutlineMode>()
+                        .remove::<OutlineRenderLayers>();
                 }
 
                 if let Some(children) = children {

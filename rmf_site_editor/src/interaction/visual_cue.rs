@@ -15,9 +15,7 @@
  *
 */
 
-use crate::interaction::{
-    HOVERED_OUTLINE_LAYER, SELECTED_OUTLINE_LAYER, VISUAL_CUE_RENDER_LAYER, XRAY_RENDER_LAYER,
-};
+use crate::interaction::{VISUAL_CUE_RENDER_LAYER, XRAY_RENDER_LAYER};
 use bevy::{prelude::*, render::view::visibility::RenderLayers};
 use bitfield::bitfield;
 use smallvec::SmallVec;
@@ -130,10 +128,7 @@ impl VisualCue {
             layers = layers.with(VISUAL_CUE_RENDER_LAYER);
         }
         if self.xray.any() {
-            layers = layers
-                .with(XRAY_RENDER_LAYER)
-                .with(HOVERED_OUTLINE_LAYER)
-                .with(SELECTED_OUTLINE_LAYER);
+            layers = layers.with(XRAY_RENDER_LAYER);
         }
         layers
     }
