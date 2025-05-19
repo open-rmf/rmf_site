@@ -1,4 +1,4 @@
-use crate::AppState;
+use crate::{widgets::RenderUiSet, AppState};
 use bevy::app::AppExit;
 use bevy::prelude::*;
 use bevy::window::WindowCloseRequested;
@@ -19,7 +19,7 @@ impl Plugin for ExitConfirmationPlugin {
         app.init_resource::<SiteChanged>()
             .init_resource::<ExitConfirmationDialog>()
             .add_systems(Update, handle_exit_requests)
-            .add_systems(Update, show_exit_confirmation_dialog);
+            .add_systems(Update, show_exit_confirmation_dialog.after(RenderUiSet));
     }
 }
 
@@ -37,6 +37,8 @@ fn handle_exit_requests(
 
         if site_changed.0 == true {
             exit_confirmation_dialog.visible = true;
+        } else {
+            app_exit.send(AppExit);
         }
     }
 }
@@ -54,6 +56,8 @@ fn show_exit_confirmation_dialog(
         .resizable(false)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
         .show(contexts.ctx_mut(), |ui| {
+            ui.label("You may have unsaved changes.");
+            ui.label("");
             ui.label("Are you sure you want to exit?");
             ui.separator();
             ui.horizontal(|ui| {
