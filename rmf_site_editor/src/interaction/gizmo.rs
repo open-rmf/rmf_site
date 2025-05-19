@@ -15,7 +15,7 @@
  *
 */
 
-use crate::interaction::*;
+use crate::{exit_confirmation::SiteChanged, interaction::*};
 use bevy::{math::Affine3A, prelude::*, window::PrimaryWindow};
 use bevy_mod_raycast::{deferred::RaycastMesh, deferred::RaycastSource, primitives::rays::Ray3d};
 use rmf_site_format::Pose;
@@ -503,9 +503,14 @@ pub fn update_drag_motions(
     }
 }
 
-pub fn move_pose(mut poses: Query<&mut Pose>, mut move_to: EventReader<MoveTo>) {
+pub fn move_pose(
+    mut poses: Query<&mut Pose>,
+    mut move_to: EventReader<MoveTo>,
+    mut site_changed: ResMut<SiteChanged>,
+) {
     for move_to in move_to.read() {
         if let Ok(mut pose) = poses.get_mut(move_to.entity) {
+            site_changed.0 = true;
             pose.align_with(&move_to.transform);
         }
     }
