@@ -15,6 +15,7 @@
  *
 */
 
+use crate::exit_confirmation::SiteChanged;
 use crate::site::SiteUpdateSet;
 use bevy::prelude::*;
 use std::fmt::Debug;
@@ -60,6 +61,8 @@ impl<T: Component + Clone + Debug> Default for ChangePlugin<T> {
 
 impl<T: Component + Clone + Debug> Plugin for ChangePlugin<T> {
     fn build(&self, app: &mut App) {
+        app.init_resource::<SiteChanged>();
+
         app.add_event::<Change<T>>().add_systems(
             PreUpdate,
             update_changed_values::<T>.in_set(SiteUpdateSet::ProcessChanges),
@@ -71,8 +74,11 @@ fn update_changed_values<T: Component + Clone + Debug>(
     mut commands: Commands,
     mut values: Query<&mut T>,
     mut changes: EventReader<Change<T>>,
+    mut site_changed: ResMut<SiteChanged>,
 ) {
     for change in changes.read() {
+        site_changed.0 = true;
+
         if let Ok(mut new_value) = values.get_mut(change.for_element) {
             *new_value = change.to_value.clone();
         } else {

@@ -25,7 +25,10 @@ use std::{
 };
 use thiserror::Error as ThisError;
 
-use crate::{interaction::Preview, recency::RecencyRanking, site::*, ExportFormat};
+use crate::{
+    exit_confirmation::SiteChanged, interaction::Preview, recency::RecencyRanking, site::*,
+    ExportFormat,
+};
 use rmf_site_format::*;
 
 #[derive(Event)]
@@ -1516,6 +1519,7 @@ pub fn save_site(world: &mut World) {
                                 world.entity_mut(save_event.site).insert(old_default_path);
                             }
                             error!("Save failed: {err}");
+                            continue;
                         }
                     }
                 } else {
@@ -1528,9 +1532,15 @@ pub fn save_site(world: &mut World) {
                                 world.entity_mut(save_event.site).insert(old_default_path);
                             }
                             error!("Save failed: {err}");
+                            continue;
                         }
                     }
                 }
+
+                // Indicate that the site has not changed since the last save.
+                // Note that we will need to change this logic when we start
+                // supporting multiple sites being open in one app.
+                world.resource_mut::<SiteChanged>().0 = false;
             }
             ExportFormat::Sdf => {
                 // TODO(luca) reduce code duplication with default exporting
@@ -1621,6 +1631,7 @@ pub fn save_site(world: &mut World) {
                     };
                     if let Err(err) = serde_yaml::to_writer(f, &graph) {
                         error!("Failed to save nav graph: {err}");
+                        continue;
                     }
                 }
             }
