@@ -115,7 +115,7 @@ pub fn add_drawing_visuals(
                 continue;
             }
         };
-        let texture_handle: Handle<Image> = asset_server.load(asset_path);
+        let texture_handle: Handle<Image> = asset_server.load_override(asset_path.clone());
         commands.entity(e).insert(LoadingDrawing(texture_handle));
     }
 }
@@ -144,7 +144,13 @@ pub fn handle_loaded_drawing(
         loading_drawings.iter()
     {
         let Some(load_state) = asset_server.get_load_state(handle.id()) else {
-            warn!("Handle for drawing with source {:?} not found", source);
+            error!(
+                "Handle for drawing with source {:?} not found. This suggests \
+                there is a bug in the site editor. Please report this to the \
+                maintainers.",
+                source,
+            );
+            commands.entity(entity).remove::<LoadingDrawing>();
             continue;
         };
         match load_state {

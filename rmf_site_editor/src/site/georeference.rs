@@ -293,7 +293,7 @@ fn spawn_tile(
     };
     let quad_handle = meshes.add(mesh);
 
-    let texture_handle: Handle<Image> = asset_server.load(AssetPath::from(&tile));
+    let texture_handle: Handle<Image> = asset_server.load_override(AssetPath::from(&tile));
     let material_handle = materials.add(StandardMaterial {
         base_color_texture: Some(texture_handle.clone()),
         alpha_mode: AlphaMode::Blend,

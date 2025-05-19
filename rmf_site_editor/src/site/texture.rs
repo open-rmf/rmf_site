@@ -45,9 +45,9 @@ pub fn fetch_image_for_texture(
         };
 
         if let Some(mut image) = image {
-            *image = TextureImage(asset_server.load(asset_path));
+            *image = TextureImage(asset_server.load_override(asset_path));
         } else {
-            let image: Handle<Image> = asset_server.load(asset_path);
+            let image: Handle<Image> = asset_server.load_override(asset_path);
             commands.entity(e).insert(TextureImage(image));
         }
     }

@@ -1,4 +1,7 @@
-use bevy::{app::ScheduleRunnerPlugin, log::LogPlugin, pbr::DirectionalLightShadowMap, prelude::*};
+use bevy::{
+    app::ScheduleRunnerPlugin, asset::UnapprovedPathMode, log::LogPlugin,
+    pbr::DirectionalLightShadowMap, prelude::*,
+};
 use bevy_egui::EguiPlugin;
 #[cfg(not(target_arch = "wasm32"))]
 use clap::Parser;
@@ -131,7 +134,13 @@ impl SiteEditor {
 
 impl Plugin for SiteEditor {
     fn build(&self, app: &mut App) {
-        let mut plugins = DefaultPlugins.build();
+        let mut plugins = DefaultPlugins
+            .set(AssetPlugin {
+                unapproved_path_mode: UnapprovedPathMode::Deny,
+                ..Default::default()
+            })
+            .build();
+
         let headless = {
             #[cfg(not(target_arch = "wasm32"))]
             {
