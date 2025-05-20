@@ -328,12 +328,8 @@ impl FromWorld for WorkspaceLoadingServices {
             .clone();
         let loading_filters = vec![
             FileDialogFilter {
-                name: "Legacy building".into(),
-                extensions: vec!["building.yaml".into()],
-            },
-            FileDialogFilter {
-                name: "Site".into(),
-                extensions: vec!["site.ron".into(), "site.json".into()],
+                name: "Site or Legacy building".into(),
+                extensions: vec!["building.yaml".into(), "site.ron".into(), "site.json".into()],
             },
         ];
         // Spawn all the services

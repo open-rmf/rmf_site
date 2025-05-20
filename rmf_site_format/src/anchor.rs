@@ -87,7 +87,7 @@ impl Anchor {
                 Self::CategorizedTranslate2D(right_categories) => {
                     for (category, p) in &left_categories.0 {
                         let p_left = Vec2::from_array(*p);
-                        let p_right = Vec2::from_array(*right_categories.for_category(*category));
+                        let p_right = Vec2::from_array(*right_categories.for_category(category.clone()));
                         if (p_left - p_right).length() > dist {
                             return false;
                         }

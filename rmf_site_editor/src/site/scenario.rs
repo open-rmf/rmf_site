@@ -26,7 +26,7 @@ use crate::{
     CurrentWorkspace, Issue, ValidateWorkspace,
 };
 use bevy::{prelude::*, utils::Uuid};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, Copy, Debug, Event)]
 pub struct ChangeCurrentScenario(pub Entity);
@@ -313,11 +313,24 @@ pub fn insert_new_instance_modifiers(
                 }
             } else {
                 // If root scenario, mark all instance modifiers as Hidden
+                let mut have_instance = HashSet::new();
+                if let Ok(scenario_children) = children.get(scenario_entity) {
+                    for child in scenario_children {
+                        if let Ok((_, a)) = instance_modifiers.get(*child) {
+                            if let Some(a) = a.0 {
+                                have_instance.insert(a);
+                            }
+                        }
+                    }
+                }
+
                 for (instance_entity, _) in model_instances.iter() {
-                    commands
-                        .spawn(InstanceModifier::Hidden)
-                        .insert(Affiliation(Some(instance_entity)))
-                        .set_parent(scenario_entity);
+                    if !have_instance.contains(&instance_entity) {
+                        commands
+                            .spawn(InstanceModifier::Hidden)
+                            .insert(Affiliation(Some(instance_entity)))
+                            .set_parent(scenario_entity);
+                    }
                 }
             }
             change_current_scenario.send(ChangeCurrentScenario(scenario_entity));
@@ -521,7 +534,7 @@ pub fn handle_remove_scenarios(
 ) {
     for request in remove_scenario_requests.read() {
         // Any child scenarios are considered dependents to be deleted
-        let mut subtree_dependents = std::collections::HashSet::<Entity>::new();
+        let mut subtree_dependents = HashSet::<Entity>::new();
         let mut queue = vec![request.0];
         while let Some(scenario_entity) = queue.pop() {
             if let Ok(children) = children.get(scenario_entity) {
