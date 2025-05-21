@@ -17,8 +17,8 @@
 
 use crate::{
     site::{
-        scenario::*, Affiliation, Change, CurrentScenario, InstanceModifier, ScenarioMarker,
-        ScenarioModifiers, UpdateInstance, UpdateInstanceEvent,
+        Affiliation, Change, CurrentScenario, InstanceModifier, ScenarioMarker, ScenarioModifiers,
+        UpdateInstance, UpdateInstanceEvent,
     },
     widgets::{inspector::InspectAngle, prelude::*, Inspect},
 };

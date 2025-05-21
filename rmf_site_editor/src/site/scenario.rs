@@ -27,7 +27,7 @@ use crate::{
 };
 use bevy::ecs::{hierarchy::ChildOf, system::SystemParam};
 use bevy::prelude::*;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use uuid::Uuid;
 
 #[derive(Clone, Copy, Debug, Event)]
@@ -163,7 +163,7 @@ pub fn update_current_scenario(
                 // TODO(@xiyuoh) catch this with a diagnostic
                 // Make sure that an instance modifier exists in the current scenario tree
                 let root_modifier_entity = commands.spawn(InstanceModifier::Hidden).id();
-                add_modifier.send(AddModifier::new_to_root(
+                add_modifier.write(AddModifier::new_to_root(
                     instance_entity,
                     root_modifier_entity,
                     *scenario_entity,
@@ -319,11 +319,11 @@ pub fn handle_scenario_modifiers(
             continue;
         };
         if let Some(modifier) = scenario_modifiers.remove(&remove.instance) {
-            commands.entity(modifier).despawn_recursive();
+            commands.entity(modifier).despawn();
         }
 
         if current_scenario.0.is_some_and(|e| e == remove.scenario) {
-            change_current_scenario.send(ChangeCurrentScenario(remove.scenario));
+            change_current_scenario.write(ChangeCurrentScenario(remove.scenario));
         };
     }
 
@@ -357,17 +357,17 @@ pub fn handle_scenario_modifiers(
         };
         // If a modifier entity already exists, despawn
         if let Some(current_modifier) = scenario_modifiers.remove(&add.instance) {
-            commands.entity(current_modifier).despawn_recursive();
+            commands.entity(current_modifier).despawn();
         }
 
         commands
             .entity(add.modifier)
             .insert(Affiliation(Some(add.instance)))
-            .set_parent(scenario_entity);
+            .insert(ChildOf(scenario_entity));
         scenario_modifiers.insert(add.instance, add.modifier);
 
         if current_scenario.0.is_some_and(|e| e == add.scenario) {
-            change_current_scenario.send(ChangeCurrentScenario(add.scenario));
+            change_current_scenario.write(ChangeCurrentScenario(add.scenario));
         };
     }
 }
@@ -398,7 +398,7 @@ pub fn insert_new_instance_modifiers(
             if parent_scenario.0.is_none() {
                 for (instance_entity, _) in model_instances.iter() {
                     let modifier_entity = commands.spawn(InstanceModifier::Hidden).id();
-                    add_modifier.send(AddModifier::new(
+                    add_modifier.write(AddModifier::new(
                         instance_entity,
                         modifier_entity,
                         scenario_entity,
@@ -436,7 +436,7 @@ pub fn insert_new_instance_modifiers(
                 let modifier_entity = commands
                     .spawn(InstanceModifier::added(instance_pose.clone()))
                     .id();
-                add_modifier.send(AddModifier::new(
+                add_modifier.write(AddModifier::new(
                     instance_entity,
                     modifier_entity,
                     current_scenario_entity,
@@ -459,7 +459,7 @@ pub fn insert_new_instance_modifiers(
                     continue;
                 }
                 let modifier_entity = commands.spawn(InstanceModifier::Hidden).id();
-                add_modifier.send(AddModifier::new(
+                add_modifier.write(AddModifier::new(
                     instance_entity,
                     modifier_entity,
                     scenario_entity,
@@ -530,7 +530,7 @@ pub fn handle_instance_updates(
                                 let modifier_entity = commands
                                     .spawn(InstanceModifier::inherited_with_inclusion())
                                     .id();
-                                add_modifier.send(AddModifier::new(
+                                add_modifier.write(AddModifier::new(
                                     update.instance,
                                     modifier_entity,
                                     update.scenario,
@@ -562,7 +562,8 @@ pub fn handle_instance_updates(
                         _ => continue,
                     }
                     if !inherited.modified() {
-                        remove_modifier.send(RemoveModifier::new(update.instance, update.scenario));
+                        remove_modifier
+                            .write(RemoveModifier::new(update.instance, update.scenario));
                     }
                 }
             }
@@ -576,7 +577,7 @@ pub fn handle_instance_updates(
                 }
             };
             let modifier_entity = commands.spawn(instance_modifier).id();
-            add_modifier.send(AddModifier::new(
+            add_modifier.write(AddModifier::new(
                 update.instance,
                 modifier_entity,
                 update.scenario,
@@ -584,7 +585,7 @@ pub fn handle_instance_updates(
         }
 
         if current_scenario.0.is_some_and(|e| e == update.scenario) {
-            change_current_scenario.send(ChangeCurrentScenario(update.scenario));
+            change_current_scenario.write(ChangeCurrentScenario(update.scenario));
         };
     }
 }

@@ -28,7 +28,6 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, ImageButton, ScrollArea, Ui};
 use rmf_site_format::{InstanceMarker, SiteID};
-use std::collections::HashMap;
 
 const INSTANCES_VIEWER_HEIGHT: f32 = 200.0;
 
@@ -189,7 +188,7 @@ fn check_instance_modifier_inclusion(
                 Setting instance to be hidden in current scenario.",
                     instance_entity.index()
                 );
-                update_instance.send(UpdateInstanceEvent {
+                update_instance.write(UpdateInstanceEvent {
                     scenario: scenario_entity,
                     instance: instance_entity,
                     update: UpdateInstance::Hide,
@@ -322,7 +321,7 @@ fn show_model_instance(
                 .on_hover_text("Model instance visibility is inherited in this scenario")
                 .clicked()
             {
-                update_instance.send(UpdateInstanceEvent {
+                update_instance.write(UpdateInstanceEvent {
                     scenario,
                     instance,
                     update: UpdateInstance::Hide,
@@ -335,7 +334,7 @@ fn show_model_instance(
             .on_hover_text("Remove instance from all scenarios")
             .clicked()
         {
-            delete.send(Delete::new(instance));
+            delete.write(Delete::new(instance));
         }
         // Name of model instance and scenario count
         ui.label(format!("{}", name.0)).on_hover_text(format!(
