@@ -36,8 +36,8 @@ use bevy::{
 use bevy_impulse::*;
 use bevy_mod_outline::{GenerateOutlineNormalsSettings, OutlineMeshExt};
 use rmf_site_format::{
-    Affiliation, AssetSource, Group, IssueKey, ModelInstance, ModelMarker, ModelProperty,
-    NameInSite, Pending, Scale,
+    Affiliation, AssetSource, Group, InstanceMarker, IssueKey, ModelInstance, ModelMarker,
+    ModelProperty, NameInSite, Pending, Scale,
 };
 use smallvec::SmallVec;
 use std::{any::TypeId, collections::HashSet, fmt, future::Future};
@@ -51,6 +51,10 @@ pub struct ModelScene {
     source: AssetSource,
     scene_root: Entity,
 }
+
+/// Marks a pending model that has not completely loaded
+#[derive(Component, Debug, Clone)]
+pub struct PendingModel;
 
 /// For a given `AssetSource`, return all the sources that we should try loading.
 pub fn get_all_for_source(source: &AssetSource) -> SmallVec<[AssetSource; 6]> {
@@ -192,7 +196,6 @@ pub fn spawn_scene_for_loaded_model(
                     Mesh3d(mesh),
                     MeshMaterial3d(site_assets.default_mesh_grey_material.clone()),
                     Transform::default(),
-                    Visibility::default(),
                 ))
                 .id(),
             false,
@@ -220,6 +223,8 @@ pub fn cleanup_if_asset_source_changed(
     In(request): In<ModelLoadingRequest>,
     mut commands: Commands,
     model_scenes: Query<&ModelScene>,
+    scene_roots: Query<(&SceneRoot, Option<&SceneInstance>)>,
+    mut scene_spawner: ResMut<SceneSpawner>,
 ) -> Result<ModelLoadingRequest, ModelLoadingResult> {
     commands
         .entity(request.parent)
@@ -233,6 +238,11 @@ pub fn cleanup_if_asset_source_changed(
             request,
             unchanged: true,
         }));
+    }
+    if let Ok((_, scene_instance)) = scene_roots.get(scene.scene_root) {
+        if let Some(old_instance) = scene_instance {
+            scene_spawner.despawn_instance(**old_instance);
+        }
     }
     commands.entity(scene.scene_root).despawn();
     commands.entity(request.parent).remove::<ModelScene>();
@@ -327,6 +337,8 @@ fn handle_model_loading_errors(
     In(result): In<ModelLoadingResult>,
     model_scenes: Query<&ModelScene>,
     mut commands: Commands,
+    scene_roots: Query<(&SceneRoot, Option<&SceneInstance>)>,
+    mut scene_spawner: ResMut<SceneSpawner>,
 ) -> ModelLoadingResult {
     let parent = match result {
         Ok(ref success) => success.request.parent,
@@ -334,6 +346,11 @@ fn handle_model_loading_errors(
             let parent = err.request.parent;
             // There was an actual error, cleanup the scene
             if let Ok(scene) = model_scenes.get(parent) {
+                if let Ok((_, scene_instance)) = scene_roots.get(scene.scene_root) {
+                    if let Some(old_instance) = scene_instance {
+                        scene_spawner.despawn_instance(**old_instance);
+                    }
+                }
                 commands.entity(scene.scene_root).despawn();
                 commands.entity(parent).remove::<ModelScene>();
             }
@@ -410,7 +427,13 @@ impl<'w, 's> ModelLoader<'w, 's> {
         impulse: impl FnOnce(Impulse<InstanceSpawningResult, ()>),
     ) -> EntityCommands<'_> {
         let affiliation = instance.description.clone();
-        let id = self.commands.spawn(instance).insert(ChildOf(parent)).id();
+        let id = self
+            .commands
+            .spawn(instance)
+            .insert(ChildOf(parent))
+            .insert(PendingModel) // Set instance as pending until it completes loading
+            .insert(Visibility::Hidden) // Set instance to hidden until it completes loading
+            .id();
         let spawning_impulse = self.commands.request(
             InstanceSpawningRequest::new(id, affiliation),
             self.services
@@ -544,6 +567,7 @@ impl ModelLoadingServices {
                     // render layers
                     .then(propagate_model_properties.into_blocking_callback())
                     .then(make_models_selectable.into_blocking_callback())
+                    .then(make_models_visible.into_blocking_callback())
                     .map_block(|req| {
                         Ok(ModelLoadingSuccess {
                             request: req,
@@ -734,6 +758,18 @@ pub fn make_models_selectable(
                 queue.push(*child);
             }
         }
+    }
+    req
+}
+
+pub fn make_models_visible(
+    In(req): In<ModelLoadingRequest>,
+    mut commands: Commands,
+    mut model_instances: Query<(&mut Visibility, &PendingModel), With<InstanceMarker>>,
+) -> ModelLoadingRequest {
+    if let Ok((mut visibility, _)) = model_instances.get_mut(req.parent) {
+        commands.entity(req.parent).remove::<PendingModel>();
+        *visibility = Visibility::default();
     }
     req
 }

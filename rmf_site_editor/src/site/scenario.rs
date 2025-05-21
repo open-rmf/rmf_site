@@ -19,8 +19,8 @@ use crate::{
     interaction::{Select, Selection},
     site::{
         Affiliation, CurrentScenario, Delete, Dependents, Group, InheritedInstance, InstanceMarker,
-        InstanceModifier, IssueKey, ModelMarker, NameInSite, Pending, Pose, RecallInstance,
-        ScenarioBundle, ScenarioMarker,
+        InstanceModifier, IssueKey, ModelMarker, NameInSite, Pending, PendingModel, Pose,
+        RecallInstance, ScenarioBundle, ScenarioMarker,
     },
     widgets::view_model_instances::count_scenarios,
     CurrentWorkspace, Issue, ValidateWorkspace,
@@ -60,7 +60,10 @@ pub fn update_current_scenario(
     mut select: EventWriter<Select>,
     mut change_current_scenario: EventReader<ChangeCurrentScenario>,
     mut current_scenario: ResMut<CurrentScenario>,
-    mut instances: Query<(Entity, &NameInSite, &mut Pose, &mut Visibility), With<InstanceMarker>>,
+    mut instances: Query<
+        (Entity, &NameInSite, &mut Pose, &mut Visibility),
+        (With<InstanceMarker>, Without<PendingModel>),
+    >,
     mut update_instance: EventWriter<UpdateInstanceEvent>,
     children: Query<&Children>,
     instance_modifiers: Query<(&mut InstanceModifier, &Affiliation<Entity>)>,
