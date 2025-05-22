@@ -5252,6 +5252,7 @@ name = "rmf_site_editor_web"
 version = "0.0.1"
 dependencies = [
  "console_error_panic_hook",
+ "getrandom 0.3.3",
  "rmf_site_editor",
  "wasm-bindgen",
 ]
