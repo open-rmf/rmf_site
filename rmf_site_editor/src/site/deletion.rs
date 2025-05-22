@@ -19,8 +19,8 @@ use crate::{
     interaction::{Select, Selection},
     log::Log,
     site::{
-        Category, CurrentLevel, Dependents, LevelElevation, LevelProperties, NameInSite,
-        SiteUpdateSet,
+        Category, CurrentLevel, Dependents, LevelElevation, LevelProperties, ModelTrashcan,
+        NameInSite, SiteUpdateSet,
     },
     Issue,
 };
@@ -97,6 +97,7 @@ struct DeletionParams<'w, 's> {
     select: EventWriter<'w, Select>,
     log: EventWriter<'w, Log>,
     issues: Query<'w, 's, (Entity, &'static mut Issue)>,
+    trashcan: Res<'w, ModelTrashcan>,
 }
 
 pub struct DeletionPlugin;
@@ -294,7 +295,10 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
         }
     }
 
-    params.commands.entity(element).despawn();
+    params
+        .commands
+        .entity(element)
+        .insert(ChildOf(params.trashcan.0));
 }
 
 fn recursive_dependent_delete(element: Entity, params: &mut DeletionParams) {
@@ -419,7 +423,10 @@ fn perform_deletions(all_to_delete: HashSet<Entity>, params: &mut DeletionParams
             }
         }
 
-        // TODO(MXG): Replace this with a move to the trash bin group.
-        params.commands.entity(e).remove::<Children>().despawn();
+        params
+            .commands
+            .entity(e)
+            .remove::<Children>()
+            .insert(ChildOf(params.trashcan.0));
     }
 }

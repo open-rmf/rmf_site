@@ -225,6 +225,7 @@ pub fn cleanup_if_asset_source_changed(
     model_scenes: Query<&ModelScene>,
     scene_roots: Query<(&SceneRoot, Option<&SceneInstance>)>,
     mut scene_spawner: ResMut<SceneSpawner>,
+    trashcan: Res<ModelTrashcan>,
 ) -> Result<ModelLoadingRequest, ModelLoadingResult> {
     commands
         .entity(request.parent)
@@ -244,7 +245,9 @@ pub fn cleanup_if_asset_source_changed(
             scene_spawner.despawn_instance(**old_instance);
         }
     }
-    commands.entity(scene.scene_root).despawn();
+    commands
+        .entity(scene.scene_root)
+        .insert(ChildOf(trashcan.0));
     commands.entity(request.parent).remove::<ModelScene>();
     Ok(request)
 }
@@ -339,6 +342,7 @@ fn handle_model_loading_errors(
     mut commands: Commands,
     scene_roots: Query<(&SceneRoot, Option<&SceneInstance>)>,
     mut scene_spawner: ResMut<SceneSpawner>,
+    trashcan: Res<ModelTrashcan>,
 ) -> ModelLoadingResult {
     let parent = match result {
         Ok(ref success) => success.request.parent,
@@ -351,7 +355,9 @@ fn handle_model_loading_errors(
                         scene_spawner.despawn_instance(**old_instance);
                     }
                 }
-                commands.entity(scene.scene_root).despawn();
+                commands
+                    .entity(scene.scene_root)
+                    .insert(ChildOf(trashcan.0));
                 commands.entity(parent).remove::<ModelScene>();
             }
             error!("{err}");
@@ -853,6 +859,32 @@ pub fn update_model_instances<T: Component + Default + Clone>(
                     cmd.insert(property.0.clone());
                 }
             }
+        }
+    }
+}
+
+/// There are instances where Bevy panics if an entity that is computed to be
+/// visible is deleted at a stage in the schedule that wasn't anticipated.
+/// To deal with this we defer deleting model descendants by placing them in the
+/// trash can and waiting to despawn them during a later stage after any
+/// modifier commands have been flushed.
+#[derive(Resource)]
+pub struct ModelTrashcan(pub Entity);
+
+impl FromWorld for ModelTrashcan {
+    fn from_world(world: &mut World) -> Self {
+        Self(world.spawn_empty().id())
+    }
+}
+
+pub fn clear_model_trashcan(
+    mut commands: Commands,
+    trashcan: Res<ModelTrashcan>,
+    models: Query<&Children, Changed<Children>>,
+) {
+    if let Ok(models) = models.get(trashcan.0) {
+        for trash in models {
+            commands.entity(*trash).despawn();
         }
     }
 }
