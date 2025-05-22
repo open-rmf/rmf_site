@@ -194,7 +194,7 @@ impl Plugin for SitePlugin {
         .init_resource::<SiteAssets>()
         .init_resource::<CurrentLevel>()
         .init_resource::<CurrentScenario>()
-        .init_resource::<ModelTrashcan>()
+        .init_resource::<Trashcan>()
         .init_resource::<PhysicalLightToggle>()
         .add_event::<LoadSite>()
         .add_event::<ImportNavGraphs>()
@@ -321,7 +321,7 @@ impl Plugin for SitePlugin {
                 add_tags_to_lift,
                 add_material_for_display_colors,
                 add_physical_lights,
-                clear_model_trashcan,
+                clear_trashcan,
             )
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::AssignOrphans),
