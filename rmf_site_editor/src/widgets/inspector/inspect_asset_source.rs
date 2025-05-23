@@ -15,7 +15,12 @@
  *
 */
 
-use crate::site::DefaultFile;
+use crate::{
+    site::{Change, DefaultFile},
+    widgets::prelude::*,
+    CurrentWorkspace,
+};
+use bevy::prelude::{EventWriter, Query, Res};
 use bevy_egui::egui::{ComboBox, Ui};
 use pathdiff::diff_paths;
 use rmf_site_format::{AssetSource, RecallAssetSource};
@@ -144,6 +149,41 @@ impl<'a> InspectAssetSourceComponent<'a> {
             Some(new_source)
         } else {
             None
+        }
+    }
+}
+
+#[derive(SystemParam)]
+pub struct InspectAssetSource<'w, 's> {
+    query: Query<'w, 's, (&'static AssetSource, &'static RecallAssetSource)>,
+    default_file: Query<'w, 's, &'static DefaultFile>,
+    current_workspace: Res<'w, CurrentWorkspace>,
+    change_asset_source: EventWriter<'w, Change<AssetSource>>,
+}
+
+impl<'w, 's> WidgetSystem<Inspect> for InspectAssetSource<'w, 's> {
+    fn show(
+        Inspect { selection, .. }: Inspect,
+        ui: &mut Ui,
+        state: &mut SystemState<Self>,
+        world: &mut World,
+    ) -> () {
+        let mut params = state.get_mut(world);
+        let Ok((source, recall)) = params.query.get(selection) else {
+            return;
+        };
+        let default_file = params
+            .current_workspace
+            .root
+            .map(|e| params.default_file.get(e).ok())
+            .flatten();
+
+        if let Some(new_source) =
+            InspectAssetSourceComponent::new(source, recall, default_file).show(ui)
+        {
+            params
+                .change_asset_source
+                .write(Change::new(new_source, selection));
         }
     }
 }

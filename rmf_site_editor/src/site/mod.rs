@@ -300,7 +300,7 @@ impl Plugin for SitePlugin {
         )
         .add_systems(
             Update,
-            (save_site, save_nav_graphs, change_site.before(load_site))
+            (save_site, save_nav_graphs, change_site.after(load_site))
                 .run_if(AppState::in_displaying_mode()),
         )
         .add_systems(

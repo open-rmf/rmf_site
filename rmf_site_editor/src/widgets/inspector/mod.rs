@@ -192,14 +192,15 @@ impl Plugin for StandardInspectorPlugin {
                 InspectFiducialPlugin::default(),
                 InspectionPlugin::<InspectLayer>::new(),
                 InspectionPlugin::<InspectDrawing>::new(),
+                InspectionPlugin::<InspectAssetSource>::new(),
                 InspectionPlugin::<InspectAssociatedGraphs>::new(),
                 InspectionPlugin::<InspectLocation>::new(),
                 InspectTexturePlugin::default(),
                 InspectionPlugin::<InspectMotion>::new(),
-                InspectionPlugin::<InspectPose>::new(),
                 // Reached the tuple limit
             ))
             .add_plugins((
+                InspectionPlugin::<InspectPose>::new(),
                 InspectionPlugin::<InspectScale>::new(),
                 InspectionPlugin::<InspectLight>::new(),
                 InspectionPlugin::<InspectDoor>::new(),
