@@ -124,7 +124,7 @@ pub fn dispatch_new_workspace_events(
                 error!("Sent generic new workspace while in main menu");
             }
             AppState::SiteEditor | AppState::SiteDrawingEditor | AppState::SiteVisualizer => {
-                load_site.send(LoadSite {
+                load_site.write(LoadSite {
                     site: Site::blank_L1("new".to_owned()),
                     focus: true,
                     default_file: None,
@@ -151,7 +151,7 @@ pub fn process_load_workspace_files(
                         Ok(site) => {
                             // Switch state
                             app_state.set(AppState::SiteEditor);
-                            load_site.send(LoadSite {
+                            load_site.write(LoadSite {
                                 site,
                                 focus: true,
                                 default_file,
@@ -174,7 +174,7 @@ pub fn process_load_workspace_files(
                 Ok(site) => {
                     // Switch state
                     app_state.set(AppState::SiteEditor);
-                    load_site.send(LoadSite {
+                    load_site.write(LoadSite {
                         site,
                         focus: true,
                         default_file,
@@ -192,7 +192,7 @@ pub fn process_load_workspace_files(
                 Ok(site) => {
                     // Switch state
                     app_state.set(AppState::SiteEditor);
-                    load_site.send(LoadSite {
+                    load_site.write(LoadSite {
                         site,
                         focus: true,
                         default_file,
@@ -206,7 +206,7 @@ pub fn process_load_workspace_files(
         }
         WorkspaceData::LoadSite(site) => {
             app_state.set(AppState::SiteEditor);
-            load_site.send(site);
+            load_site.write(site);
             interaction_state.set(InteractionState::Enable);
         }
     }
@@ -476,7 +476,7 @@ fn send_file_save(
     };
     match app_state.get() {
         AppState::SiteEditor | AppState::SiteDrawingEditor | AppState::SiteVisualizer => {
-            save_site.send(SaveSite {
+            save_site.write(SaveSite {
                 site: ws_root,
                 to_file: request.0,
                 format: request.1,

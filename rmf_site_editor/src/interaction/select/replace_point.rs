@@ -43,7 +43,7 @@ pub fn spawn_replace_point_service(
         update_current,
         handle_key_code,
         cleanup_state,
-        &mut app.world,
+        app.world_mut(),
     )
 }
 
@@ -78,9 +78,9 @@ impl ReplacePoint {
         commands: &mut Commands,
     ) -> SelectionNodeResult {
         let mut point_mut = points.get_mut(self.point).or_broken_query()?;
-        commands.add(ChangeDependent::remove(point_mut.0, self.point));
+        commands.queue(ChangeDependent::remove(point_mut.0, self.point));
         point_mut.0 = chosen;
-        commands.add(ChangeDependent::add(chosen, self.point));
+        commands.queue(ChangeDependent::add(chosen, self.point));
         Ok(())
     }
 }

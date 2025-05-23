@@ -17,7 +17,7 @@
 
 use crate::exit_confirmation::SiteChanged;
 use crate::site::SiteUpdateSet;
-use bevy::prelude::*;
+use bevy::{ecs::component::Mutable, prelude::*};
 use std::fmt::Debug;
 
 /// The Change component is used as an event to indicate that the value of a
@@ -47,11 +47,11 @@ impl<T: Component + Clone + Debug> Change<T> {
 
 // TODO(MXG): We could consider allowing the user to specify a query filter so
 // this plugin only targets certain types.
-pub struct ChangePlugin<T: Component + Clone + Debug> {
+pub struct ChangePlugin<T: Component<Mutability = Mutable> + Clone + Debug> {
     _ignore: std::marker::PhantomData<T>,
 }
 
-impl<T: Component + Clone + Debug> Default for ChangePlugin<T> {
+impl<T: Component<Mutability = Mutable> + Clone + Debug> Default for ChangePlugin<T> {
     fn default() -> Self {
         Self {
             _ignore: Default::default(),
@@ -59,7 +59,7 @@ impl<T: Component + Clone + Debug> Default for ChangePlugin<T> {
     }
 }
 
-impl<T: Component + Clone + Debug> Plugin for ChangePlugin<T> {
+impl<T: Component<Mutability = Mutable> + Clone + Debug> Plugin for ChangePlugin<T> {
     fn build(&self, app: &mut App) {
         app.init_resource::<SiteChanged>();
 
@@ -70,7 +70,7 @@ impl<T: Component + Clone + Debug> Plugin for ChangePlugin<T> {
     }
 }
 
-fn update_changed_values<T: Component + Clone + Debug>(
+fn update_changed_values<T: Component<Mutability = Mutable> + Clone + Debug>(
     mut commands: Commands,
     mut values: Query<&mut T>,
     mut changes: EventReader<Change<T>>,

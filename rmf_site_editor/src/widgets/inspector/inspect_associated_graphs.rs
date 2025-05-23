@@ -65,7 +65,7 @@ impl<'w, 's> InspectAssociatedGraphs<'w, 's> {
         let mut new_associated = associated.clone();
         ui.horizontal(|ui| {
             ui.label("Associated Graphs");
-            ComboBox::from_id_source("Associated Graphs")
+            ComboBox::from_id_salt("Associated Graphs")
                 .selected_text(new_associated.label())
                 .show_ui(ui, |ui| {
                     for variant in &[
@@ -106,7 +106,7 @@ impl<'w, 's> InspectAssociatedGraphs<'w, 's> {
                             .get(&choice)
                             .map(|n| n.0.clone())
                             .unwrap_or_else(|| "<ERROR>".to_string());
-                        ComboBox::from_id_source("Add Associated Graph")
+                        ComboBox::from_id_salt("Add Associated Graph")
                             .selected_text(choice_text)
                             .show_ui(ui, |ui| {
                                 for (e, name) in unused_graphs.iter() {
@@ -117,11 +117,11 @@ impl<'w, 's> InspectAssociatedGraphs<'w, 's> {
                         if add_graph {
                             set.insert(choice);
                             self.consider_graph
-                                .send(ConsiderAssociatedGraph::new(None, id));
+                                .write(ConsiderAssociatedGraph::new(None, id));
                         } else {
                             if Some(choice) != recall.consider {
                                 self.consider_graph
-                                    .send(ConsiderAssociatedGraph::new(Some(choice), id));
+                                    .write(ConsiderAssociatedGraph::new(Some(choice), id));
                             }
                         }
                     });
@@ -135,7 +135,7 @@ impl<'w, 's> InspectAssociatedGraphs<'w, 's> {
 
         if new_associated != *associated {
             self.change_associated_graphs
-                .send(Change::new(new_associated, id));
+                .write(Change::new(new_associated, id));
         }
 
         ui.add_space(10.0);

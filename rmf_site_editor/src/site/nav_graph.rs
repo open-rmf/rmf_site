@@ -25,7 +25,7 @@ pub struct GraphSelect<'w, 's> {
         's,
         (
             Entity,
-            &'static Handle<StandardMaterial>,
+            &'static MeshMaterial3d<StandardMaterial>,
             &'static Visibility,
             &'static RecencyRank<NavGraphMarker>,
         ),
@@ -78,7 +78,7 @@ impl<'w, 's> GraphSelect<'w, 's> {
         }
         .map(|(m, d)| {
             (
-                m,
+                m.0,
                 d.proportion() * (LANE_LAYER_LIMIT - LANE_LAYER_START) + LANE_LAYER_START,
             )
         })

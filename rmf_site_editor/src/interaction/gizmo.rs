@@ -16,8 +16,14 @@
 */
 
 use crate::{exit_confirmation::SiteChanged, interaction::*};
-use bevy::{math::Affine3A, prelude::*, window::PrimaryWindow};
-use bevy_mod_raycast::{deferred::RaycastMesh, deferred::RaycastSource, primitives::rays::Ray3d};
+use bevy::{
+    math::Affine3A,
+    picking::{
+        backend::ray::RayMap,
+        pointer::{PointerId, PointerInteraction},
+    },
+    prelude::*,
+};
 use rmf_site_format::Pose;
 
 #[derive(Debug, Clone, Copy)]
@@ -54,33 +60,33 @@ impl Default for GizmoBlockers {
 impl GizmoMaterialSet {
     pub fn make_x_axis(materials: &mut Mut<Assets<StandardMaterial>>) -> Self {
         Self {
-            passive: materials.add(Color::rgb(1., 0., 0.).into()),
-            hover: materials.add(Color::rgb(1.0, 0.3, 0.3).into()),
-            drag: materials.add(Color::rgb(0.7, 0., 0.).into()),
+            passive: materials.add(Color::srgb(1., 0., 0.)),
+            hover: materials.add(Color::srgb(1.0, 0.3, 0.3)),
+            drag: materials.add(Color::srgb(0.7, 0., 0.)),
         }
     }
 
     pub fn make_y_axis(materials: &mut Mut<Assets<StandardMaterial>>) -> Self {
         Self {
-            passive: materials.add(Color::rgb(0., 0.9, 0.).into()),
-            hover: materials.add(Color::rgb(0.5, 1.0, 0.5).into()),
-            drag: materials.add(Color::rgb(0., 0.6, 0.).into()),
+            passive: materials.add(Color::srgb(0., 0.9, 0.)),
+            hover: materials.add(Color::srgb(0.5, 1.0, 0.5)),
+            drag: materials.add(Color::srgb(0., 0.6, 0.)),
         }
     }
 
     pub fn make_z_axis(materials: &mut Mut<Assets<StandardMaterial>>) -> Self {
         Self {
-            passive: materials.add(Color::rgb(0., 0., 0.9).into()),
-            hover: materials.add(Color::rgb(0.5, 0.5, 1.0).into()),
-            drag: materials.add(Color::rgb(0., 0., 0.6).into()),
+            passive: materials.add(Color::srgb(0., 0., 0.9)),
+            hover: materials.add(Color::srgb(0.5, 0.5, 1.0)),
+            drag: materials.add(Color::srgb(0., 0., 0.6)),
         }
     }
 
     pub fn make_z_plane(materials: &mut Mut<Assets<StandardMaterial>>) -> Self {
         Self {
-            passive: materials.add(Color::rgba(0., 0., 1., 0.6).into()),
-            hover: materials.add(Color::rgba(0.3, 0.3, 1., 0.6).into()),
-            drag: materials.add(Color::rgba(0., 0., 0.7, 0.9).into()),
+            passive: materials.add(Color::srgba(0., 0., 1., 0.6)),
+            hover: materials.add(Color::srgba(0.3, 0.3, 1., 0.6)),
+            drag: materials.add(Color::srgba(0., 0., 0.7, 0.9)),
         }
     }
 }
@@ -252,26 +258,18 @@ pub struct MoveTo {
     pub transform: Transform,
 }
 
-pub fn make_gizmos_pickable(mut commands: Commands, new_gizmos: Query<Entity, Added<Gizmo>>) {
-    for e in &new_gizmos {
-        commands
-            .entity(e)
-            .insert(RaycastMesh::<SiteRaycastSet>::default());
-    }
-}
-
 pub fn update_gizmo_click_start(
     mut gizmos: Query<(
         &Gizmo,
         Option<&mut Draggable>,
-        &mut Handle<StandardMaterial>,
+        &mut MeshMaterial3d<StandardMaterial>,
     )>,
     mut selection_blocker: ResMut<SelectionBlockers>,
     gizmo_blocker: Res<GizmoBlockers>,
     mut visibility: Query<&mut Visibility>,
-    mouse_button_input: Res<Input<MouseButton>>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
     transforms: Query<(&Transform, &GlobalTransform)>,
-    raycast_sources: Query<&RaycastSource<SiteRaycastSet>>,
+    pointers: Query<(&PointerId, &PointerInteraction)>,
     mut cursor: ResMut<Cursor>,
     mut gizmo_state: ResMut<GizmoState>,
     mut picks: EventReader<ChangePick>,
@@ -298,7 +296,7 @@ pub fn update_gizmo_click_start(
             if *gizmo_state == GizmoState::Hovering(previous_pick) {
                 if let Ok((gizmo, _, mut material)) = gizmos.get_mut(previous_pick) {
                     if let Some(gizmo_materials) = &gizmo.materials {
-                        *material = gizmo_materials.passive.clone();
+                        *material = MeshMaterial3d(gizmo_materials.passive.clone());
                     }
                 }
 
@@ -311,7 +309,7 @@ pub fn update_gizmo_click_start(
                 if let Ok((gizmo, _, mut material)) = gizmos.get_mut(new_pick) {
                     cursor.add_blocker(new_pick, &mut visibility);
                     if let Some(gizmo_materials) = &gizmo.materials {
-                        *material = gizmo_materials.hover.clone();
+                        *material = MeshMaterial3d(gizmo_materials.hover.clone());
                     }
 
                     *gizmo_state = GizmoState::Hovering(new_pick);
@@ -327,11 +325,14 @@ pub fn update_gizmo_click_start(
 
     if clicking {
         if let GizmoState::Hovering(e) = *gizmo_state {
-            click.send(GizmoClicked(e));
-            let Ok(source) = raycast_sources.get_single() else {
+            click.write(GizmoClicked(e));
+            let Some((_, interactions)) = pointers.single().ok().filter(|(id, _)| id.is_mouse())
+            else {
                 return;
             };
-            if let Some(intersection) = source.get_nearest_intersection().map(|(_, i)| i.position())
+            if let Some(intersection) = interactions
+                .get_nearest_hit()
+                .and_then(|(_, hit_data)| hit_data.position)
             {
                 if let Ok((gizmo, Some(mut draggable), mut material)) = gizmos.get_mut(e) {
                     if let Ok((local_tf, global_tf)) = transforms.get(draggable.for_entity) {
@@ -344,7 +345,7 @@ pub fn update_gizmo_click_start(
                             tf_for_entity_parent_inv,
                         });
                         if let Some(drag_materials) = &gizmo.materials {
-                            *material = drag_materials.drag.clone();
+                            *material = MeshMaterial3d(drag_materials.drag.clone());
                         }
                         *gizmo_state = GizmoState::Dragging(e);
                     } else {
@@ -361,11 +362,15 @@ pub fn update_gizmo_click_start(
 }
 
 pub fn update_gizmo_release(
-    mut draggables: Query<(&Gizmo, &mut Draggable, &mut Handle<StandardMaterial>)>,
+    mut draggables: Query<(
+        &Gizmo,
+        &mut Draggable,
+        &mut MeshMaterial3d<StandardMaterial>,
+    )>,
     mut selection_blockers: ResMut<SelectionBlockers>,
     gizmo_blockers: Res<GizmoBlockers>,
     mut gizmo_state: ResMut<GizmoState>,
-    mouse_button_input: Res<Input<MouseButton>>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
     mut picked: ResMut<Picked>,
 ) {
     let mouse_released = mouse_button_input.just_released(MouseButton::Left);
@@ -375,7 +380,7 @@ pub fn update_gizmo_release(
             if let Ok((gizmo, mut draggable, mut material)) = draggables.get_mut(e) {
                 draggable.drag = None;
                 if let Some(gizmo_materials) = &gizmo.materials {
-                    *material = gizmo_materials.passive.clone();
+                    *material = MeshMaterial3d(gizmo_materials.passive.clone());
                 }
             }
 
@@ -394,16 +399,14 @@ pub fn update_gizmo_release(
 pub fn update_drag_motions(
     drag_axis: Query<(&DragAxis, &Draggable, &GlobalTransform), Without<DragPlane>>,
     drag_plane: Query<(&DragPlane, &Draggable, &GlobalTransform), Without<DragAxis>>,
-    transforms: Query<(&Transform, &GlobalTransform)>,
-    cameras: Query<&Camera>,
     camera_controls: Res<CameraControls>,
     drag_state: Res<GizmoState>,
     mut cursor_motion: EventReader<CursorMoved>,
     mut move_to: EventWriter<MoveTo>,
-    primary_window: Query<&Window, With<PrimaryWindow>>,
+    ray_map: Res<RayMap>,
 ) {
     if let GizmoState::Dragging(dragging) = *drag_state {
-        let cursor_position = match cursor_motion.read().last() {
+        let _cursor_position = match cursor_motion.read().last() {
             Some(m) => m.position,
             None => {
                 return;
@@ -411,24 +414,7 @@ pub fn update_drag_motions(
         };
 
         let active_camera = camera_controls.active_camera();
-        let ray = if let Some(camera) = cameras.get(active_camera).ok() {
-            let camera_tf = match transforms.get(active_camera).ok() {
-                Some(tf) => tf.1.clone(),
-                None => {
-                    return;
-                }
-            };
-
-            let Ok(primary_window) = primary_window.get_single() else {
-                return;
-            };
-            match Ray3d::from_screenspace(cursor_position, camera, &camera_tf, primary_window) {
-                Some(ray) => ray,
-                None => {
-                    return;
-                }
-            }
-        } else {
+        let Some((_, ray)) = ray_map.iter().find(|(id, _)| id.camera == active_camera) else {
             return;
         };
 
@@ -442,9 +428,9 @@ pub fn update_drag_motions(
                 } else {
                     axis.along.normalize_or_zero()
                 };
-                let dp = ray.origin() - initial.click_point;
-                let a = ray.direction().dot(n);
-                let b = ray.direction().dot(dp);
+                let dp = ray.origin - initial.click_point;
+                let a = ray.direction.dot(n);
+                let b = ray.direction.dot(dp);
                 let c = n.dot(dp);
 
                 let denom = a.powi(2) - 1.;
@@ -459,7 +445,7 @@ pub fn update_drag_motions(
                 let tf_goal = initial
                     .tf_for_entity_global
                     .with_translation(initial.tf_for_entity_global.translation + delta);
-                move_to.send(MoveTo {
+                move_to.write(MoveTo {
                     entity: draggable.for_entity,
                     transform: Transform::from_matrix(
                         (initial.tf_for_entity_parent_inv * tf_goal.compute_affine()).into(),
@@ -479,20 +465,20 @@ pub fn update_drag_motions(
                     plane.in_plane.normalize_or_zero()
                 };
 
-                let n_r = ray.direction();
-                let denom = n_p.dot(n_r);
+                let n_r = ray.direction;
+                let denom = n_p.dot(*n_r);
                 if denom.abs() < 1e-3 {
                     // The rays are nearly parallel so we should not attempt
                     // moving because the motion will be too extreme
                     return;
                 }
 
-                let t = (initial.click_point - ray.origin()).dot(n_p) / denom;
-                let delta = ray.position(t) - initial.click_point;
+                let t = (initial.click_point - ray.origin).dot(n_p) / denom;
+                let delta = ray.get_point(t) - initial.click_point;
                 let tf_goal = initial
                     .tf_for_entity_global
                     .with_translation(initial.tf_for_entity_global.translation + delta);
-                move_to.send(MoveTo {
+                move_to.write(MoveTo {
                     entity: draggable.for_entity,
                     transform: Transform::from_matrix(
                         (initial.tf_for_entity_parent_inv * tf_goal.compute_affine()).into(),

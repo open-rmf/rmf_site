@@ -32,13 +32,13 @@ fn handle_exit_requests(
 ) {
     for _ in close_events.read() {
         if app_state.get() == &AppState::MainMenu {
-            app_exit.send(AppExit);
+            app_exit.write(AppExit::Success);
         }
 
         if site_changed.0 == true {
             exit_confirmation_dialog.visible = true;
         } else {
-            app_exit.send(AppExit);
+            app_exit.write(AppExit::Success);
         }
     }
 }
@@ -62,7 +62,7 @@ fn show_exit_confirmation_dialog(
             ui.separator();
             ui.horizontal(|ui| {
                 if ui.button("Yes").clicked() {
-                    app_exit.send(AppExit);
+                    app_exit.write(AppExit::Success);
                 }
                 if ui.button("Cancel").clicked() {
                     exit_confirmation_dialog.visible = false;

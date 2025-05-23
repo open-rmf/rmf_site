@@ -19,14 +19,16 @@ use crate::{
     interaction::{Select, Selection},
     site::{
         Affiliation, CurrentScenario, Delete, Dependents, Group, InheritedInstance, InstanceMarker,
-        InstanceModifier, IssueKey, ModelMarker, NameInSite, Pending, Pose, RecallInstance,
-        ScenarioBundle, ScenarioMarker,
+        InstanceModifier, IssueKey, ModelMarker, NameInSite, Pending, PendingModel, Pose,
+        RecallInstance, ScenarioBundle, ScenarioMarker,
     },
     widgets::view_model_instances::count_scenarios,
     CurrentWorkspace, Issue, ValidateWorkspace,
 };
-use bevy::{prelude::*, utils::Uuid};
+use bevy::ecs::hierarchy::ChildOf;
+use bevy::prelude::*;
 use std::collections::{HashMap, HashSet};
+use uuid::Uuid;
 
 #[derive(Clone, Copy, Debug, Event)]
 pub struct ChangeCurrentScenario(pub Entity);
@@ -58,7 +60,10 @@ pub fn update_current_scenario(
     mut select: EventWriter<Select>,
     mut change_current_scenario: EventReader<ChangeCurrentScenario>,
     mut current_scenario: ResMut<CurrentScenario>,
-    mut instances: Query<(Entity, &NameInSite, &mut Pose, &mut Visibility), With<InstanceMarker>>,
+    mut instances: Query<
+        (Entity, &NameInSite, &mut Pose, &mut Visibility),
+        (With<InstanceMarker>, Without<PendingModel>),
+    >,
     mut update_instance: EventWriter<UpdateInstanceEvent>,
     children: Query<&Children>,
     instance_modifiers: Query<(&mut InstanceModifier, &Affiliation<Entity>)>,
@@ -126,7 +131,7 @@ pub fn update_current_scenario(
                                 Setting instance to hidden in current scenario.",
                                 name.0
                             );
-                            update_instance.send(UpdateInstanceEvent {
+                            update_instance.write(UpdateInstanceEvent {
                                 scenario: *scenario_entity,
                                 instance: entity,
                                 update: UpdateInstance::Hide,
@@ -145,7 +150,7 @@ pub fn update_current_scenario(
         }
 
         if deselect {
-            select.send(Select::new(None));
+            select.write(Select::new(None));
         }
 
         *current_scenario = CurrentScenario(Some(*scenario_entity));
@@ -169,7 +174,7 @@ pub fn update_scenario_properties(
 
     for (entity, new_pose) in changed_instances.iter() {
         if new_pose.is_changed() {
-            update_instance.send(UpdateInstanceEvent {
+            update_instance.write(UpdateInstanceEvent {
                 scenario: current_scenario_entity,
                 instance: entity,
                 update: UpdateInstance::Modify(new_pose.clone()),
@@ -251,10 +256,10 @@ pub fn find_modifier_for_instance(
     if let Ok(scenario_children) = children.get(scenario) {
         for child in scenario_children.iter() {
             if instance_modifiers
-                .get(*child)
+                .get(child)
                 .is_ok_and(|(_, a)| a.0.is_some_and(|e| e == instance))
             {
-                return Some(*child);
+                return Some(child);
             }
         }
     };
@@ -272,9 +277,9 @@ pub fn get_instance_modifier_entities(
     if let Ok(scenario_children) = children.get(scenario) {
         for child in scenario_children.iter() {
             if let Some(affiliated_entity) =
-                instance_modifiers.get(*child).ok().and_then(|(_, a)| a.0)
+                instance_modifiers.get(child).ok().and_then(|(_, a)| a.0)
             {
-                instance_to_modifier_entities.insert(affiliated_entity, *child);
+                instance_to_modifier_entities.insert(affiliated_entity, child);
             }
         }
     };
@@ -301,13 +306,13 @@ pub fn insert_new_instance_modifiers(
                 if let Ok(children) = children.get(parent_scenario_entity) {
                     children.iter().for_each(|e| {
                         if let Ok((instance_modifier, affiliation)) = instance_modifiers
-                            .get(*e)
+                            .get(e)
                             .map(|(_, a)| (InstanceModifier::inherited(), a.clone()))
                         {
                             commands
                                 .spawn(instance_modifier)
                                 .insert(affiliation)
-                                .set_parent(scenario_entity);
+                                .insert(ChildOf(scenario_entity));
                         }
                     });
                 }
@@ -329,11 +334,11 @@ pub fn insert_new_instance_modifiers(
                         commands
                             .spawn(InstanceModifier::Hidden)
                             .insert(Affiliation(Some(instance_entity)))
-                            .set_parent(scenario_entity);
+                            .insert(ChildOf(scenario_entity));
                     }
                 }
             }
-            change_current_scenario.send(ChangeCurrentScenario(scenario_entity));
+            change_current_scenario.write(ChangeCurrentScenario(scenario_entity));
         }
     }
 
@@ -364,7 +369,7 @@ pub fn insert_new_instance_modifiers(
                 commands
                     .spawn(InstanceModifier::added(instance_pose.clone()))
                     .insert(Affiliation(Some(instance_entity)))
-                    .set_parent(current_scenario_entity);
+                    .insert(ChildOf(current_scenario_entity));
             }
 
             // Insert instance modifier into remaining scenarios
@@ -399,13 +404,13 @@ pub fn insert_new_instance_modifiers(
                         commands
                             .spawn(InstanceModifier::inherited())
                             .insert(Affiliation(Some(instance_entity)))
-                            .set_parent(scenario_entity);
+                            .insert(ChildOf(scenario_entity));
                     } else {
                         // Insert this new instance modifier into other scenarios as Hidden
                         commands
                             .spawn(InstanceModifier::Hidden)
                             .insert(Affiliation(Some(instance_entity)))
-                            .set_parent(scenario_entity);
+                            .insert(ChildOf(scenario_entity));
                     }
                 }
             }
@@ -510,7 +515,7 @@ pub fn handle_instance_updates(
                 }
             }
             if current_scenario.0.is_some_and(|e| e == update.scenario) {
-                change_current_scenario.send(ChangeCurrentScenario(update.scenario));
+                change_current_scenario.write(ChangeCurrentScenario(update.scenario));
             };
         }
     }
@@ -539,8 +544,8 @@ pub fn handle_remove_scenarios(
         while let Some(scenario_entity) = queue.pop() {
             if let Ok(children) = children.get(scenario_entity) {
                 children.iter().for_each(|e| {
-                    subtree_dependents.insert(*e);
-                    queue.push(*e);
+                    subtree_dependents.insert(e);
+                    queue.push(e);
                 });
             }
         }
@@ -549,15 +554,15 @@ pub fn handle_remove_scenarios(
         if let Some(parent_scenario_entity) =
             scenarios.get(request.0).map(|(_, a, _)| a.0).ok().flatten()
         {
-            change_current_scenario.send(ChangeCurrentScenario(parent_scenario_entity));
+            change_current_scenario.write(ChangeCurrentScenario(parent_scenario_entity));
         } else if let Some((root_scenario_entity, _, _)) = scenarios
             .iter()
             .filter(|(e, a, _)| request.0 != *e && a.0.is_none())
             .next()
         {
-            change_current_scenario.send(ChangeCurrentScenario(root_scenario_entity));
+            change_current_scenario.write(ChangeCurrentScenario(root_scenario_entity));
         } else {
-            create_new_scenario.send(CreateScenario {
+            create_new_scenario.write(CreateScenario {
                 name: None,
                 parent: None,
             });
@@ -571,7 +576,7 @@ pub fn handle_remove_scenarios(
                 .entity(request.0)
                 .insert(Dependents(subtree_dependents));
         }
-        delete.send(Delete::new(request.0).and_dependents());
+        delete.write(Delete::new(request.0).and_dependents());
     }
 }
 
@@ -635,7 +640,7 @@ pub fn handle_create_scenarios(
         ));
 
         if let Some(parent) = current_workspace.root {
-            cmd.set_parent(parent);
+            cmd.insert(ChildOf(parent));
         } else {
             error!("Missing workspace for a new root scenario!");
         }

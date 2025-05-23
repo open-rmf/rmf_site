@@ -19,7 +19,7 @@ use crate::{
     interaction::select::*,
     site::{ModelInstance, ModelLoader},
 };
-use bevy::prelude::Input as UserInput;
+use bevy::prelude::ButtonInput;
 
 pub const PLACE_OBJECT_2D_MODE_LABEL: &'static str = "place_object_2d";
 
@@ -32,18 +32,19 @@ pub fn spawn_place_object_2d_workflow(app: &mut App) -> Service<Option<Entity>, 
     let cleanup = app.spawn_service(place_object_2d_cleanup.into_blocking_service());
 
     let keyboard_just_pressed = app
-        .world
+        .world()
         .resource::<KeyboardServices>()
         .keyboard_just_pressed;
 
-    app.world.spawn_io_workflow(build_place_object_2d_workflow(
-        setup,
-        find_position,
-        placement_chosen,
-        handle_key_code,
-        cleanup,
-        keyboard_just_pressed,
-    ))
+    app.world_mut()
+        .spawn_io_workflow(build_place_object_2d_workflow(
+            setup,
+            find_position,
+            placement_chosen,
+            handle_key_code,
+            cleanup,
+            keyboard_just_pressed,
+        ))
 }
 
 pub fn build_place_object_2d_workflow(
@@ -151,7 +152,7 @@ pub fn place_object_2d_find_placement(
     cursor: Res<Cursor>,
     mut transforms: Query<&mut Transform>,
     intersect_ground_params: IntersectGroundPlaneParams,
-    mouse_button_input: Res<UserInput<MouseButton>>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
     blockers: Option<Res<PickingBlockers>>,
 ) {
     let Some(mut orders) = orders.get_mut(&key) else {

@@ -1,4 +1,7 @@
-use bevy::{app::ScheduleRunnerPlugin, log::LogPlugin, pbr::DirectionalLightShadowMap, prelude::*};
+use bevy::{
+    app::ScheduleRunnerPlugin, asset::UnapprovedPathMode, log::LogPlugin,
+    pbr::DirectionalLightShadowMap, prelude::*,
+};
 use bevy_egui::EguiPlugin;
 #[cfg(not(target_arch = "wasm32"))]
 use clap::Parser;
@@ -17,7 +20,6 @@ use exit_confirmation::ExitConfirmationPlugin;
 
 // Bevy plugins that are public dependencies, mixing versions won't work for downstream users
 pub use bevy_egui;
-pub use bevy_mod_raycast;
 
 pub mod keyboard;
 use keyboard::*;
@@ -135,7 +137,13 @@ impl SiteEditor {
 
 impl Plugin for SiteEditor {
     fn build(&self, app: &mut App) {
-        let mut plugins = DefaultPlugins.build();
+        let mut plugins = DefaultPlugins
+            .set(AssetPlugin {
+                unapproved_path_mode: UnapprovedPathMode::Deny,
+                ..Default::default()
+            })
+            .build();
+
         let headless = {
             #[cfg(not(target_arch = "wasm32"))]
             {
@@ -195,12 +203,14 @@ impl Plugin for SiteEditor {
         ));
 
         app.insert_resource(DirectionalLightShadowMap { size: 2048 })
-            .add_state::<AppState>()
+            .init_state::<AppState>()
             .add_plugins((
                 AssetLoadersPlugin,
                 LogHistoryPlugin,
                 AabbUpdatePlugin,
-                EguiPlugin,
+                EguiPlugin {
+                    enable_multipass_for_primary_context: false,
+                },
                 ExitConfirmationPlugin,
                 KeyboardInputPlugin,
                 SitePlugin,
@@ -217,11 +227,6 @@ impl Plugin for SiteEditor {
                 // Note order matters, plugins that edit the menus must be initialized after the UI
                 .add_plugins((site::ViewMenuPlugin, OSMViewPlugin, SiteWireframePlugin));
         }
-
-        // Ref https://github.com/bevyengine/bevy/issues/10877. The default behavior causes issues
-        // with events being accumulated when not read (i.e. scrolling mouse wheel on a UI widget).
-        app.world
-            .remove_resource::<bevy::ecs::event::EventUpdateSignal>();
 
         if let Some(path) = &self.headless_export {
             // We really don't need a high update rate here since we are IO bound, set a low rate

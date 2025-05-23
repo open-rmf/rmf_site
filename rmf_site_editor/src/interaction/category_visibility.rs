@@ -104,10 +104,7 @@ fn set_category_visibility_for_new_entity<T: Component + Clone + Debug>(
         if let Some(mut vis) = vis {
             *vis = visibility;
         } else {
-            commands.entity(e).insert(VisibilityBundle {
-                visibility,
-                ..default()
-            });
+            commands.entity(e).insert(visibility);
         }
     }
 }

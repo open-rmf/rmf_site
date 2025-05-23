@@ -49,7 +49,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectMeasurement<'w, 's> {
         {
             params
                 .change_distance
-                .send(Change::new(Distance(new_distance), selection));
+                .write(Change::new(Distance(new_distance), selection));
         }
         ui.add_space(10.0);
     }

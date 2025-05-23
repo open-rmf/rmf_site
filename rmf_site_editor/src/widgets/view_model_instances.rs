@@ -110,7 +110,7 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                             continue;
                         };
                         CollapsingHeader::new(desc_name.0.clone())
-                            .id_source(desc_name.0.clone())
+                            .id_salt(desc_name.0.clone())
                             .default_open(self.selection.0.is_some_and(|e| members.contains(&e)))
                             .show(ui, |ui| {
                                 for member in members.iter() {
@@ -209,7 +209,7 @@ fn check_instance_modifier_inclusion(
                 Setting instance to be hidden in current scenario.",
                 instance_entity.index()
             );
-            update_instance.send(UpdateInstanceEvent {
+            update_instance.write(UpdateInstanceEvent {
                 scenario: scenario_entity,
                 instance: instance_entity,
                 update: UpdateInstance::Hide,
@@ -278,7 +278,7 @@ fn show_model_instance(
                     {
                         // If this is a root scenario or Added modifier, toggle to Hidden
                         // Note: all modifiers are Added in root scenarios
-                        update_instance.send(UpdateInstanceEvent {
+                        update_instance.write(UpdateInstanceEvent {
                             scenario,
                             instance,
                             update: UpdateInstance::Hide,
@@ -292,7 +292,7 @@ fn show_model_instance(
                             .on_hover_text("Model instance is included in this scenario")
                             .clicked()
                         {
-                            update_instance.send(UpdateInstanceEvent {
+                            update_instance.write(UpdateInstanceEvent {
                                 scenario,
                                 instance,
                                 update: UpdateInstance::ResetVisibility,
@@ -306,7 +306,7 @@ fn show_model_instance(
                             )
                             .clicked()
                         {
-                            update_instance.send(UpdateInstanceEvent {
+                            update_instance.write(UpdateInstanceEvent {
                                 scenario,
                                 instance,
                                 update: UpdateInstance::Hide,
@@ -320,7 +320,7 @@ fn show_model_instance(
                         .on_hover_text("Model instance is hidden in this scenario")
                         .clicked()
                     {
-                        update_instance.send(UpdateInstanceEvent {
+                        update_instance.write(UpdateInstanceEvent {
                             scenario,
                             instance,
                             update: UpdateInstance::Include,
@@ -334,7 +334,7 @@ fn show_model_instance(
                 .on_hover_text("Remove instance from all scenarios")
                 .clicked()
             {
-                delete.send(Delete::new(instance));
+                delete.write(Delete::new(instance));
             }
             // Name of model instance and scenario count
             ui.label(format!("{}", name.0)).on_hover_text(format!(
