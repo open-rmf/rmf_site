@@ -90,6 +90,9 @@ pub use physical_camera::*;
 pub mod pose;
 pub use pose::*;
 
+pub mod property_plugin;
+pub use property_plugin::*;
+
 pub mod primitive_shape;
 pub use primitive_shape::*;
 
@@ -264,6 +267,8 @@ impl Plugin for SitePlugin {
             ChangePlugin::<ModelProperty<Scale>>::default(),
             ChangePlugin::<ModelProperty<IsStatic>>::default(),
             RecallPlugin::<RecallInstance>::default(),
+            PropertyPlugin::<Pose, InstanceModifier>::default(),
+            PropertyPlugin::<Visibility, InstanceModifier>::default(),
         ))
         .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
         .add_issue_type(&DUPLICATED_LIFT_NAME_ISSUE_UUID, "Duplicate lift name")
@@ -359,8 +364,8 @@ impl Plugin for SitePlugin {
                 add_fiducial_visuals,
                 update_level_visibility,
                 handle_remove_scenarios.before(update_current_scenario),
-                update_current_scenario.before(update_scenario_properties),
-                update_scenario_properties.before(handle_instance_updates),
+                update_current_scenario.before(update_model_instance_poses),
+                update_model_instance_poses.before(handle_instance_updates),
                 handle_instance_updates.before(handle_create_scenarios),
                 handle_create_scenarios.before(insert_new_instance_modifiers),
                 insert_new_instance_modifiers.before(handle_scenario_modifiers),
@@ -412,6 +417,7 @@ impl Plugin for SitePlugin {
                 handle_loaded_drawing,
                 update_drawing_rank,
                 add_physical_camera_visuals,
+                check_selected_is_visible,
             )
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
