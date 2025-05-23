@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::{DragPlaneBundle, Preview, MODEL_PREVIEW_LAYER},
-    site::SiteAssets,
+    site::{Delete, SiteAssets},
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
     Issue, ValidateWorkspace,
 };
@@ -225,6 +225,7 @@ pub fn cleanup_if_asset_source_changed(
     model_scenes: Query<&ModelScene>,
     scene_roots: Query<(&SceneRoot, Option<&SceneInstance>)>,
     mut scene_spawner: ResMut<SceneSpawner>,
+    mut delete: EventWriter<Delete>,
 ) -> Result<ModelLoadingRequest, ModelLoadingResult> {
     commands
         .entity(request.parent)
@@ -244,7 +245,7 @@ pub fn cleanup_if_asset_source_changed(
             scene_spawner.despawn_instance(**old_instance);
         }
     }
-    commands.entity(scene.scene_root).despawn();
+    delete.write(Delete::new(scene.scene_root));
     commands.entity(request.parent).remove::<ModelScene>();
     Ok(request)
 }
@@ -339,6 +340,7 @@ fn handle_model_loading_errors(
     mut commands: Commands,
     scene_roots: Query<(&SceneRoot, Option<&SceneInstance>)>,
     mut scene_spawner: ResMut<SceneSpawner>,
+    mut delete: EventWriter<Delete>,
 ) -> ModelLoadingResult {
     let parent = match result {
         Ok(ref success) => success.request.parent,
@@ -351,7 +353,7 @@ fn handle_model_loading_errors(
                         scene_spawner.despawn_instance(**old_instance);
                     }
                 }
-                commands.entity(scene.scene_root).despawn();
+                delete.write(Delete::new(scene.scene_root));
                 commands.entity(parent).remove::<ModelScene>();
             }
             error!("{err}");

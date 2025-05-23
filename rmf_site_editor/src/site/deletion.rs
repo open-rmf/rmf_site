@@ -34,6 +34,32 @@ use bevy::{
 use rmf_site_format::{Edge, Path, Point};
 use std::collections::HashSet;
 
+/// There are instances where Bevy panics if an entity that is computed to be
+/// visible is deleted at a stage in the schedule that wasn't anticipated.
+/// To deal with this we defer deleting descendants by placing them in the
+/// trash can and waiting to despawn them during a later stage after any
+/// modifier commands have been flushed.
+#[derive(Resource)]
+pub struct Trashcan(pub Entity);
+
+impl FromWorld for Trashcan {
+    fn from_world(world: &mut World) -> Self {
+        Self(world.spawn_empty().id())
+    }
+}
+
+pub fn clear_trashcan(
+    mut commands: Commands,
+    trashcan: Res<Trashcan>,
+    children: Query<&Children, Changed<Children>>,
+) {
+    if let Ok(children) = children.get(trashcan.0) {
+        for trash in children {
+            commands.entity(*trash).despawn();
+        }
+    }
+}
+
 // TODO(MXG): Use this module to implement the deletion buffer. The role of the
 // deletion buffer will be to preserve deleted entities so that they can be
 // easily restored if the user wants to undo the deletion.
@@ -97,6 +123,7 @@ struct DeletionParams<'w, 's> {
     select: EventWriter<'w, Select>,
     log: EventWriter<'w, Log>,
     issues: Query<'w, 's, (Entity, &'static mut Issue)>,
+    trashcan: Res<'w, Trashcan>,
 }
 
 pub struct DeletionPlugin;
@@ -294,7 +321,10 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
         }
     }
 
-    params.commands.entity(element).despawn();
+    params
+        .commands
+        .entity(element)
+        .insert(ChildOf(params.trashcan.0));
 }
 
 fn recursive_dependent_delete(element: Entity, params: &mut DeletionParams) {
@@ -419,7 +449,10 @@ fn perform_deletions(all_to_delete: HashSet<Entity>, params: &mut DeletionParams
             }
         }
 
-        // TODO(MXG): Replace this with a move to the trash bin group.
-        params.commands.entity(e).remove::<Children>().despawn();
+        params
+            .commands
+            .entity(e)
+            .remove::<Children>()
+            .insert(ChildOf(params.trashcan.0));
     }
 }
