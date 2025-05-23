@@ -18,9 +18,9 @@
 use crate::{
     interaction::Selection,
     site::{
-        scenario::*, Affiliation, CurrentScenario, Delete, Group, InstanceModifier, Members,
-        ModelMarker, NameInSite, ScenarioMarker, ScenarioModifiers, UpdateInstance,
-        UpdateInstanceEvent,
+        Affiliation, CurrentScenario, Delete, GetModifier, Group, InstanceModifier, Members,
+        ModelMarker, Modifier, NameInSite, Property, ScenarioMarker, ScenarioModifiers,
+        UpdateInstance, UpdateInstanceEvent,
     },
     widgets::{prelude::*, SelectorWidget},
     Icons,
@@ -113,7 +113,6 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                             &self.scenarios,
                                             instance_entity,
                                             &self.get_modifier,
-                                            &mut self.update_instance,
                                         );
                                         show_model_instance(
                                             ui,
@@ -151,7 +150,6 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                         &self.scenarios,
                                         *instance_entity,
                                         &self.get_modifier,
-                                        &mut self.update_instance,
                                     );
                                     show_model_instance(
                                         ui,
@@ -178,25 +176,17 @@ fn check_instance_modifier_inclusion(
     instance_entity: Entity,
     scenario_entity: Entity,
     get_modifier: &GetModifier<InstanceModifier>,
-    update_instance: &mut EventWriter<UpdateInstanceEvent>,
 ) -> bool {
-    instance_modifier.visibility().unwrap_or_else(|| {
-        retrieve_parent_visibility(instance_entity, scenario_entity, get_modifier).unwrap_or_else(
-            || {
-                error!(
-                    "Unable to retrieve inherited visibility for instance {:?}.
-                Setting instance to be hidden in current scenario.",
-                    instance_entity.index()
-                );
-                update_instance.write(UpdateInstanceEvent {
-                    scenario: scenario_entity,
-                    instance: instance_entity,
-                    update: UpdateInstance::Hide,
-                });
-                true
-            },
-        )
-    })
+    let visibility: Visibility = instance_modifier
+        .get()
+        .or_else(|| {
+            instance_modifier.retrieve_inherited(instance_entity, scenario_entity, get_modifier)
+        })
+        .unwrap_or(Visibility::get_fallback(instance_entity, scenario_entity));
+    match visibility {
+        Visibility::Hidden => false,
+        _ => true,
+    }
 }
 
 /// Count the number of scenarios a model instance is included in
@@ -207,19 +197,12 @@ pub fn count_scenarios(
     >,
     instance: Entity,
     get_modifier: &GetModifier<InstanceModifier>,
-    update_instance: &mut EventWriter<UpdateInstanceEvent>,
 ) -> i32 {
     scenarios.iter().fold(0, |x, (e, _, _)| {
         if get_modifier
             .get(e, instance)
             .is_some_and(|instance_modifier| {
-                check_instance_modifier_inclusion(
-                    instance_modifier,
-                    instance,
-                    e,
-                    get_modifier,
-                    update_instance,
-                )
+                check_instance_modifier_inclusion(instance_modifier, instance, e, get_modifier)
             })
         {
             x + 1
