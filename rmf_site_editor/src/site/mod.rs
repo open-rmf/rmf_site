@@ -267,8 +267,8 @@ impl Plugin for SitePlugin {
             ChangePlugin::<ModelProperty<Scale>>::default(),
             ChangePlugin::<ModelProperty<IsStatic>>::default(),
             RecallPlugin::<RecallInstance>::default(),
-            PropertyPlugin::<Pose, InstanceModifier>::default(),
-            PropertyPlugin::<Visibility, InstanceModifier>::default(),
+            PropertyPlugin::<Pose, InstanceModifier, InstanceMarker>::default(),
+            PropertyPlugin::<Visibility, InstanceModifier, InstanceMarker>::default(),
         ))
         .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
         .add_issue_type(&DUPLICATED_LIFT_NAME_ISSUE_UUID, "Duplicate lift name")
@@ -418,6 +418,7 @@ impl Plugin for SitePlugin {
                 update_drawing_rank,
                 add_physical_camera_visuals,
                 check_selected_is_visible,
+                check_for_missing_root_modifiers::<InstanceMarker>,
             )
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenTransformAndVisibility),

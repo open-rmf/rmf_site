@@ -15,21 +15,31 @@
  *
 */
 
-use crate::site::{
-    Affiliation, ChangeCurrentScenario, CurrentScenario, InstanceMarker, ScenarioMarker,
-    ScenarioModifiers,
+use crate::{
+    site::{
+        Affiliation, ChangeCurrentScenario, CurrentScenario, IssueKey, NameInSite, ScenarioMarker,
+        ScenarioModifiers,
+    },
+    Issue, ValidateWorkspace,
 };
 use bevy::{
     ecs::{component::Mutable, hierarchy::ChildOf, system::SystemParam},
     prelude::*,
 };
 use std::fmt::Debug;
+use uuid::Uuid;
 
 pub trait Property: Component<Mutability = Mutable> + Debug + Default + Clone {
     fn get_fallback(for_element: Entity, in_scenario: Entity) -> Self;
 }
 
-// TODO(@xiyuoh) create StandardProperty
+pub trait StandardProperty {}
+
+impl<T: StandardProperty> Property for T {
+    fn get_fallback(for_element: Entity, in_scenario: Entity) -> Self {
+        T::default()
+    }
+}
 
 pub trait Modifier<T: Property>: Component<Mutability = Mutable> + Debug + Default + Clone {
     /// This system retrieves the property values for this element's modifier, if any
@@ -81,11 +91,13 @@ impl UpdateProperty {
     }
 }
 
-pub struct PropertyPlugin<T: Property, S: Modifier<T>> {
-    _ignore: std::marker::PhantomData<(T, S)>,
+pub struct PropertyPlugin<T: Property, S: Modifier<T>, M: Component<Mutability = Mutable>> {
+    _ignore: std::marker::PhantomData<(T, S, M)>,
 }
 
-impl<T: Property, S: Modifier<T>> Default for PropertyPlugin<T, S> {
+impl<T: Property, S: Modifier<T>, M: Component<Mutability = Mutable>> Default
+    for PropertyPlugin<T, S, M>
+{
     fn default() -> Self {
         Self {
             _ignore: Default::default(),
@@ -93,11 +105,13 @@ impl<T: Property, S: Modifier<T>> Default for PropertyPlugin<T, S> {
     }
 }
 
-impl<T: Property, S: Modifier<T>> Plugin for PropertyPlugin<T, S> {
+impl<T: Property, S: Modifier<T>, M: Component<Mutability = Mutable>> Plugin
+    for PropertyPlugin<T, S, M>
+{
     fn build(&self, app: &mut App) {
         app.add_event::<UpdateProperty>().add_observer(
             |trigger: Trigger<UpdateProperty>,
-             mut values: Query<&mut T, With<InstanceMarker>>,
+             mut values: Query<&mut T, With<M>>,
              mut commands: Commands,
              mut add_modifier: EventWriter<AddModifier>,
              current_scenario: Res<CurrentScenario>,
@@ -121,9 +135,8 @@ impl<T: Property, S: Modifier<T>> Plugin for PropertyPlugin<T, S> {
                             })
                             .unwrap_or(T::get_fallback(event.for_element, event.in_scenario));
                     } else {
-                        // No instance modifier exists for this model instance/scenario pairing
-                        // TODO(@xiyuoh) catch this with a diagnostic
-                        // Make sure that an instance modifier exists in the current scenario tree
+                        // No modifier exists for this scenario/element pairing
+                        // Make sure that a modifier exists in the current scenario tree
                         let root_modifier_entity = commands.spawn(S::default()).id();
                         add_modifier.write(AddModifier::new_to_root(
                             event.for_element,
@@ -275,9 +288,9 @@ pub fn handle_scenario_modifiers(
         let Ok((mut scenario_modifiers, _)) = scenarios.get_mut(scenario_entity) else {
             continue;
         };
-        // If a modifier entity already exists, despawn incoming modifier entity
+        // If a modifier entity already exists, we assume it's meant to replace the current modifier.
+        // Despawn incoming modifier entity. Note that this erases any Recall data
         if let Some(current_modifier) = scenario_modifiers.get(&add.for_element) {
-            // TODO(@xiyuoh) note this means we're getting rid of Recall data also
             commands.entity(*current_modifier).despawn();
         }
 
@@ -288,5 +301,53 @@ pub fn handle_scenario_modifiers(
         scenario_modifiers.insert(add.for_element, add.modifier);
 
         commands.trigger(UpdateProperty::new(add.for_element, add.in_scenario));
+    }
+}
+
+/// Unique UUID to identify issue of missing root scenario modifiers
+pub const MISSING_ROOT_MODIFIER_ISSUE_UUID: Uuid =
+    Uuid::from_u128(0x98df792d3de44d26b126a9335f9e743au128);
+
+pub fn check_for_missing_root_modifiers<M: Component<Mutability = Mutable>>(
+    mut commands: Commands,
+    mut validate_events: EventReader<ValidateWorkspace>,
+    scenarios: Query<
+        (
+            &ScenarioModifiers<Entity>,
+            &NameInSite,
+            &Affiliation<Entity>,
+        ),
+        With<ScenarioMarker>,
+    >,
+    elements: Query<(Entity, Option<&NameInSite>), With<M>>,
+) {
+    for root in validate_events.read() {
+        for (scenario_modifiers, scenario_name, parent_scenario) in scenarios.iter() {
+            if parent_scenario.0.is_some() {
+                continue;
+            }
+            for (element, element_name) in elements.iter() {
+                if !scenario_modifiers.contains_key(&element) {
+                    let name = element_name
+                        .map(|name| name.0.clone())
+                        .unwrap_or(element.index().to_string());
+                    let issue = Issue {
+                        key: IssueKey {
+                            entities: [element].into(),
+                            kind: MISSING_ROOT_MODIFIER_ISSUE_UUID,
+                        },
+                        brief: format!(
+                            "Modifier for element {:?} is missing in root scenario {:?}",
+                            name, scenario_name.0
+                        ),
+                        hint: "Toggle the scenario properties for this element in specified scenario tree. \
+                               The editor will append a modifier with fallback values for this element."
+                            .to_string(),
+                    };
+                    let issue_id = commands.spawn(issue).id();
+                    commands.entity(**root).add_child(issue_id);
+                }
+            }
+        }
     }
 }

@@ -70,7 +70,9 @@ impl Modifier<Pose> for InstanceModifier {
 
 impl Property for Visibility {
     fn get_fallback(for_element: Entity, in_scenario: Entity) -> Visibility {
-        Visibility::Hidden // TODO(@xiyuoh) implement fallback and LastSetValue
+        // We want the instance to be hidden by default, and only visible
+        // when intentionally toggled
+        Visibility::Hidden
     }
 }
 
