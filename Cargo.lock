@@ -880,7 +880,7 @@ dependencies = [
 [[package]]
 name = "bevy_gltf_export"
 version = "0.1.0"
-source = "git+https://github.com/luca-della-vedova/bevy_gltf_export#098fc7c64e40bffb796ae6945177e7f708a20cc9"
+source = "git+https://github.com/xiyuoh/bevy_gltf_export?branch=xiyu%2Fbevy_0.16#104843277849f6fcfefb7c221fccb6578f3202c1"
 dependencies = [
  "bevy_asset",
  "bevy_color",
