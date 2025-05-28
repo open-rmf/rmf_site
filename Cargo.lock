@@ -880,7 +880,7 @@ dependencies = [
 [[package]]
 name = "bevy_gltf_export"
 version = "0.1.0"
-source = "git+https://github.com/xiyuoh/bevy_gltf_export?branch=xiyu%2Fbevy_0.16#104843277849f6fcfefb7c221fccb6578f3202c1"
+source = "git+https://github.com/luca-della-vedova/bevy_gltf_export#098fc7c64e40bffb796ae6945177e7f708a20cc9"
 dependencies = [
  "bevy_asset",
  "bevy_color",
@@ -1116,11 +1116,13 @@ dependencies = [
 [[package]]
 name = "bevy_mod_outline"
 version = "0.10.0"
-source = "git+https://github.com/komadori/bevy_mod_outline?branch=bevy-0.16#1b0c3348f3d2f1f627907e2c7f6cdeb33ea4defc"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b4fb205ce648281ec42dc1f82bb3143ff7c8b244974db5216bcd8c3b8a650cc6"
 dependencies = [
  "bevy",
  "bitfield 0.15.0",
  "interpolation",
+ "itertools 0.14.0",
  "nonmax",
  "thiserror 1.0.69",
  "wgpu-types",
@@ -5261,7 +5263,8 @@ dependencies = [
 [[package]]
 name = "ron"
 version = "0.10.1"
-source = "git+https://github.com/ron-rs/ron?branch=master#3159534d8111a31d33791826aef2132308cc032c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "beceb6f7bf81c73e73aeef6dd1356d9a1b2b4909e1f0fc3e59b034f9572d7b7f"
 dependencies = [
  "base64 0.22.1",
  "bitflags 2.9.0",
