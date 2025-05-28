@@ -432,6 +432,7 @@ impl Plugin for SitePlugin {
             )
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
-        );
+        )
+        .add_observer(handle_cleanup_modifiers::<InstanceMarker>);
     }
 }

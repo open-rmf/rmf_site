@@ -23,7 +23,7 @@ use crate::{
     Issue, ValidateWorkspace,
 };
 use bevy::{
-    ecs::{component::Mutable, hierarchy::ChildOf, system::SystemParam},
+    ecs::{component::Mutable, hierarchy::ChildOf, system::SystemParam, world::OnDespawn},
     prelude::*,
 };
 use std::fmt::Debug;
@@ -220,6 +220,17 @@ pub fn handle_scenario_modifiers(
         scenario_modifiers.insert(add.for_element, add.modifier);
 
         commands.trigger(UpdateProperty::new(add.for_element, add.in_scenario));
+    }
+}
+
+/// Handles cleanup of scenario modifiers when elements are despawned
+pub fn handle_cleanup_modifiers<M: Component<Mutability = Mutable> + Debug + Default + Clone>(
+    trigger: Trigger<OnDespawn, M>,
+    scenarios: Query<Entity, With<ScenarioMarker>>,
+    mut remove_modifier: EventWriter<RemoveModifier>,
+) {
+    for scenario_entity in scenarios.iter() {
+        remove_modifier.write(RemoveModifier::new(trigger.target(), scenario_entity));
     }
 }
 
