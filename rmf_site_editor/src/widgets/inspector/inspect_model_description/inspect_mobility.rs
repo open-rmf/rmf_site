@@ -304,7 +304,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectDifferentialDrive<'w, 's> {
                     ui.label("Nominal Acceleration");
                     ui.add(
                         DragValue::new(&mut new_differential_drive.translational_acceleration)
-                            .clamp_range(0_f32..=std::f32::INFINITY)
+                            .range(0_f32..=std::f32::INFINITY)
                             .speed(0.01),
                     );
                     ui.label("m/s2");
@@ -322,7 +322,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectDifferentialDrive<'w, 's> {
                     ui.label("Nominal Angular Acceleration");
                     ui.add(
                         DragValue::new(&mut new_differential_drive.rotational_acceleration)
-                            .clamp_range(0_f32..=std::f32::INFINITY)
+                            .range(0_f32..=std::f32::INFINITY)
                             .speed(0.01),
                     );
                     ui.label("rad/s2");

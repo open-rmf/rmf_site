@@ -27,7 +27,7 @@ use crate::{
 };
 use bevy::{
     ecs::{component::Mutable, hierarchy::ChildOf, system::SystemParam},
-    prelude::{Component, *},
+    prelude::Component,
 };
 use bevy_egui::egui::{ComboBox, Ui};
 use serde::{de::DeserializeOwned, Serialize};

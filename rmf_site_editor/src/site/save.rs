@@ -1340,8 +1340,7 @@ fn generate_model_instances(
                 .resource_scope::<ExportHandlers, Option<sdformat_rs::XmlElement>>(
                     move |world, mut export_handlers| {
                         if let Some(export_handler) = export_handlers.get_mut(label) {
-                            let data_xml = export_handler.export(*entity, value.clone(), world);
-                            Some(data_xml)
+                            export_handler.export(*entity, value.clone(), world)
                         } else {
                             None
                         }

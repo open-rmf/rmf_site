@@ -1,6 +1,6 @@
 use bevy::ecs::{
     relationship::DescendantIter,
-    system::{BoxedSystem, SystemState},
+    system::{SystemId, SystemState},
 };
 use bevy::prelude::*;
 use bevy_gltf_export::{export_meshes, CompressGltfOptions, MeshData};
@@ -46,17 +46,28 @@ impl HeadlessSdfExportState {
 }
 
 #[derive(Deref, DerefMut)]
-pub struct ExportHandler(pub BoxedSystem<(Entity, serde_json::Value), sdformat_rs::XmlElement>);
+pub struct ExportHandler(pub SystemId<In<(Entity, serde_json::Value)>, sdformat_rs::XmlElement>);
 
 impl ExportHandler {
+    pub fn new<M, S: IntoSystem<In<(Entity, serde_json::Value)>, sdformat_rs::XmlElement, M>>(
+        system: S,
+        world: &mut World,
+    ) -> Self {
+        let mut system = Box::new(IntoSystem::into_system(system));
+        system.initialize(world);
+        let system_id: SystemId<In<(Entity, serde_json::Value)>, sdformat_rs::XmlElement> =
+            world.register_boxed_system(system);
+
+        Self(system_id)
+    }
+
     pub fn export(
         &mut self,
         entity: Entity,
         value: serde_json::Value,
         world: &mut World,
-    ) -> sdformat_rs::XmlElement {
-        self.0.initialize(world);
-        self.0.run((entity, value), world)
+    ) -> Option<sdformat_rs::XmlElement> {
+        world.run_system_with(self.0, (entity, value)).ok()
     }
 }
 

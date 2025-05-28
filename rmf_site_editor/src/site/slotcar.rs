@@ -48,7 +48,7 @@ pub fn insert_slotcar_differential_drive(
     mobility: Query<&Mobility, (With<ModelMarker>, With<Group>)>,
     model_descriptions: Query<&ModelProperty<Robot>, (With<ModelMarker>, With<Group>)>,
     model_instances: ModelPropertyQuery<Robot>,
-    parents: Query<&Parent>,
+    child_of: Query<&ChildOf>,
 ) {
     for (e, diff_drive) in differential_drive.iter() {
         if !model_descriptions.get(e).is_ok() {
@@ -57,7 +57,7 @@ pub fn insert_slotcar_differential_drive(
             // Insert this component in the affiliated description and remove it from the original entity
             let mut description_entity: Option<Entity> = None;
             let mut target_entity: Entity = e;
-            while let Ok(parent) = parents.get(target_entity).map(|p| p.get()) {
+            while let Ok(parent) = child_of.get(target_entity).map(|co| co.parent()) {
                 if let Some(desc) = model_instances.get(parent).ok().and_then(|a| a.0) {
                     if !mobility.get(desc).is_ok() && is_static.get(desc).is_ok_and(|is| !is.0 .0) {
                         description_entity = Some(desc);
@@ -109,11 +109,13 @@ pub fn update_slotcar_export_with(
     }
 }
 
-pub fn setup_slotcar_export_handler(mut export_handlers: ResMut<ExportHandlers>) {
-    export_handlers.insert(
-        "slotcar".to_string(),
-        ExportHandler(Box::new(IntoSystem::into_system(slotcar_export_handler))),
-    );
+pub fn setup_slotcar_export_handler(world: &mut World) {
+    world.resource_scope::<ExportHandlers, ()>(move |world, mut export_handlers| {
+        export_handlers.insert(
+            "slotcar".to_string(),
+            ExportHandler::new(slotcar_export_handler, world),
+        );
+    });
 }
 
 #[derive(Clone, Debug)]
