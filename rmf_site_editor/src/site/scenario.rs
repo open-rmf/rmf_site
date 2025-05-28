@@ -92,7 +92,7 @@ impl Modifier<Pose> for InstanceModifier {
         self.pose()
     }
 
-    fn insert_modifier(for_element: Entity, in_scenario: Entity, value: Pose, world: &mut World) {
+    fn insert(for_element: Entity, in_scenario: Entity, value: Pose, world: &mut World) {
         let mut state: SystemState<(
             Query<(&mut InstanceModifier, &Affiliation<Entity>)>,
             Query<
@@ -159,6 +159,56 @@ impl Modifier<Pose> for InstanceModifier {
                 *scenario_entity,
             ));
         }
+    }
+
+    fn insert_on_new_scenario(in_scenario: Entity, world: &mut World) {
+        let mut state: SystemState<(
+            Query<&Children>,
+            Query<(&InstanceModifier, &Affiliation<Entity>)>,
+            Query<Entity, (With<InstanceMarker>, Without<Pending>)>,
+            EventWriter<AddModifier>,
+            EventWriter<ChangeCurrentScenario>,
+        )> = SystemState::new(world);
+        let (children, instance_modifiers, model_instances, _, _) = state.get_mut(world);
+
+        // Insert instance modifier entities when new root scenarios are created
+        let mut have_instance = HashSet::new();
+        if let Ok(scenario_children) = children.get(in_scenario) {
+            for child in scenario_children {
+                if let Ok((_, a)) = instance_modifiers.get(*child) {
+                    if let Some(a) = a.0 {
+                        have_instance.insert(a);
+                    }
+                }
+            }
+        }
+
+        let mut target_instances = HashSet::new();
+        for instance_entity in model_instances.iter() {
+            if !have_instance.contains(&instance_entity) {
+                target_instances.insert(instance_entity);
+            }
+        }
+
+        let mut new_modifiers = Vec::<(Entity, Entity)>::new();
+        for target in target_instances.iter() {
+            // Mark all instance modifiers as Hidden
+            new_modifiers.push((
+                *target,
+                world.commands().spawn(InstanceModifier::Hidden).id(),
+            ));
+        }
+
+        let (_, _, _, mut add_modifier, mut change_current_scenario) = state.get_mut(world);
+        for (instance_entity, modifier_entity) in new_modifiers.iter() {
+            add_modifier.write(AddModifier::new(
+                *instance_entity,
+                *modifier_entity,
+                in_scenario,
+            ));
+        }
+
+        change_current_scenario.write(ChangeCurrentScenario(in_scenario));
     }
 }
 
@@ -266,56 +316,6 @@ pub fn update_model_instance_poses(
                 instance: entity,
                 update: UpdateInstance::Modify(new_pose.clone()),
             });
-        }
-    }
-}
-
-// TODO(@xiyuoh) Consider moving this into PropertyPlugin, i.e. insert modifier when new scenarios are added
-/// Creates and inserts instances modifiers when new scenarios are added
-pub fn insert_new_instance_modifiers(
-    mut commands: Commands,
-    mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
-    mut add_modifier: EventWriter<AddModifier>,
-    children: Query<&Children>,
-    instance_modifiers: Query<(&InstanceModifier, &Affiliation<Entity>)>,
-    model_instances: Query<(Entity, Ref<Pose>), Without<Pending>>,
-    scenarios: Query<
-        (
-            Entity,
-            &mut ScenarioModifiers<Entity>,
-            Ref<Affiliation<Entity>>,
-        ),
-        With<ScenarioMarker>,
-    >,
-) {
-    // Insert instance modifier entities when new scenarios are created
-    for (scenario_entity, _, parent_scenario) in scenarios.iter() {
-        if parent_scenario.is_added() {
-            if parent_scenario.0.is_none() {
-                // If root scenario, mark all instance modifiers as Hidden
-                let mut have_instance = HashSet::new();
-                if let Ok(scenario_children) = children.get(scenario_entity) {
-                    for child in scenario_children {
-                        if let Ok((_, a)) = instance_modifiers.get(*child) {
-                            if let Some(a) = a.0 {
-                                have_instance.insert(a);
-                            }
-                        }
-                    }
-                }
-
-                for (instance_entity, _) in model_instances.iter() {
-                    if !have_instance.contains(&instance_entity) {
-                        let modifier_entity = commands.spawn(InstanceModifier::Hidden).id();
-                        add_modifier.write(AddModifier::new(
-                            instance_entity,
-                            modifier_entity,
-                            scenario_entity,
-                        ));
-                    }
-                }
-            }
-            change_current_scenario.write(ChangeCurrentScenario(scenario_entity));
         }
     }
 }
@@ -475,6 +475,28 @@ pub fn handle_instance_updates(
     }
 }
 
+/// Create a new scenario and its children entities
+pub fn handle_create_scenarios(
+    mut commands: Commands,
+    mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
+    mut new_scenarios: EventReader<CreateScenario>,
+    current_workspace: Res<CurrentWorkspace>,
+) {
+    for new in new_scenarios.read() {
+        let mut cmd = commands.spawn((
+            ScenarioBundle::<Entity>::new(new.name.clone(), new.parent.clone()),
+            ScenarioModifiers::<Entity>::default(),
+        ));
+
+        if let Some(parent) = current_workspace.root {
+            cmd.insert(ChildOf(parent));
+        } else {
+            error!("Missing workspace for a new root scenario!");
+        }
+        change_current_scenario.write(ChangeCurrentScenario(cmd.id()));
+    }
+}
+
 #[derive(Debug, Clone, Copy, Event)]
 pub struct RemoveScenario(pub Entity);
 
@@ -571,26 +593,6 @@ pub fn check_for_hidden_model_instances(
             };
             let issue_id = commands.spawn(issue).id();
             commands.entity(**root).add_child(issue_id);
-        }
-    }
-}
-
-/// Create a new scenario and its children entities
-pub fn handle_create_scenarios(
-    mut commands: Commands,
-    mut new_scenarios: EventReader<CreateScenario>,
-    current_workspace: Res<CurrentWorkspace>,
-) {
-    for new in new_scenarios.read() {
-        let mut cmd = commands.spawn((
-            ScenarioBundle::<Entity>::new(new.name.clone(), new.parent.clone()),
-            ScenarioModifiers::<Entity>::default(),
-        ));
-
-        if let Some(parent) = current_workspace.root {
-            cmd.insert(ChildOf(parent));
-        } else {
-            error!("Missing workspace for a new root scenario!");
         }
     }
 }

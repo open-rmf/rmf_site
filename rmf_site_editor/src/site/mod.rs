@@ -78,6 +78,9 @@ pub use measurement::*;
 pub mod model;
 pub use model::*;
 
+pub mod modifier;
+pub use modifier::*;
+
 pub mod nav_graph;
 pub use nav_graph::*;
 
@@ -375,8 +378,7 @@ impl Plugin for SitePlugin {
                 update_current_scenario.before(update_model_instance_poses),
                 update_model_instance_poses.before(handle_instance_updates),
                 handle_instance_updates.before(handle_create_scenarios),
-                handle_create_scenarios.before(insert_new_instance_modifiers),
-                insert_new_instance_modifiers.before(handle_scenario_modifiers),
+                handle_create_scenarios.before(handle_scenario_modifiers),
                 handle_scenario_modifiers,
             )
                 .run_if(AppState::in_displaying_mode())
