@@ -114,9 +114,9 @@ pub fn handle_update_fuel_cache_requests(
                 let res = fuel_client
                     .update_cache_with_progress(write_to_disk, Some(progress))
                     .await;
-                sender
-                    .send(FuelCacheUpdated(res))
-                    .expect("Failed sending fuel cache update event");
+                if let Err(err) = sender.send(FuelCacheUpdated(res)) {
+                    error!("Failed sending fuel cache update event {:?}", err);
+                };
             })
             .detach();
     }

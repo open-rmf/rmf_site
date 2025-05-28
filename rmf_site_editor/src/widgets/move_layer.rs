@@ -117,7 +117,7 @@ impl<'a, 'w, 's, T: Component> MoveLayerButton<'a, 'w, T> {
 
         if resp.clicked() {
             self.rank_events
-                .send(ChangeRank::new(self.entity, self.adjustment));
+                .write(ChangeRank::new(self.entity, self.adjustment));
         }
     }
 }

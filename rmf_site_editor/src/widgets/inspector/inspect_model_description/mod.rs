@@ -18,7 +18,8 @@
 use bevy::{
     ecs::{
         component::{ComponentId, ComponentInfo},
-        query::WorldQuery,
+        hierarchy::ChildOf,
+        query::QueryData,
         system::{EntityCommands, SystemParam},
     },
     prelude::*,
@@ -53,11 +54,16 @@ pub struct InspectModelDescriptionPlugin {}
 
 impl Plugin for InspectModelDescriptionPlugin {
     fn build(&self, app: &mut App) {
-        let main_inspector = app.world.resource::<MainInspector>().id;
-        let widget = Widget::new::<InspectModelDescription>(&mut app.world);
-        let id = app.world.spawn(widget).set_parent(main_inspector).id();
-        app.world.insert_resource(ModelDescriptionInspector { id });
-        app.world.init_resource::<ModelPropertyData>();
+        let main_inspector = app.world().resource::<MainInspector>().id;
+        let widget = Widget::new::<InspectModelDescription>(app.world_mut());
+        let id = app
+            .world_mut()
+            .spawn(widget)
+            .insert(ChildOf(main_inspector))
+            .id();
+        app.world_mut()
+            .insert_resource(ModelDescriptionInspector { id });
+        app.world_mut().init_resource::<ModelPropertyData>();
     }
 }
 
@@ -101,7 +107,7 @@ pub struct ModelPropertyData {
 impl FromWorld for ModelPropertyData {
     fn from_world(world: &mut World) -> Self {
         let mut required = HashMap::new();
-        world.init_component::<ModelProperty<AssetSource>>();
+        world.register_component::<ModelProperty<AssetSource>>();
         required.insert(
             world
                 .components()
@@ -113,7 +119,7 @@ impl FromWorld for ModelPropertyData {
                 get_remove_model_property_fn::<ModelProperty<AssetSource>>(),
             ),
         );
-        world.init_component::<ModelProperty<Scale>>();
+        world.register_component::<ModelProperty<Scale>>();
         required.insert(
             world
                 .components()
@@ -125,7 +131,7 @@ impl FromWorld for ModelPropertyData {
                 get_remove_model_property_fn::<ModelProperty<Scale>>(),
             ),
         );
-        world.init_component::<ModelProperty<IsStatic>>();
+        world.register_component::<ModelProperty<IsStatic>>();
         required.insert(
             world
                 .components()
@@ -172,19 +178,19 @@ where
 {
     fn build(&self, app: &mut App) {
         let component_id = app
-            .world
+            .world()
             .components()
             .component_id::<ModelProperty<T>>()
             .unwrap();
         if !app
-            .world
+            .world()
             .resource::<ModelPropertyData>()
             .required
             .contains_key(&component_id)
         {
             app.add_systems(PreUpdate, update_model_instances::<T>);
 
-            app.world
+            app.world_mut()
                 .resource_mut::<ModelPropertyData>()
                 .optional
                 .insert(
@@ -197,9 +203,9 @@ where
                 );
         }
 
-        let inspector = app.world.resource::<ModelDescriptionInspector>().id;
-        let widget = Widget::<Inspect>::new::<W>(&mut app.world);
-        app.world.spawn(widget).set_parent(inspector);
+        let inspector = app.world().resource::<ModelDescriptionInspector>().id;
+        let widget = Widget::<Inspect>::new::<W>(app.world_mut());
+        app.world_mut().spawn(widget).insert(ChildOf(inspector));
     }
 }
 
@@ -245,11 +251,12 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelDescription<'w, 's> {
             }
         };
 
-        let components_info: Vec<ComponentInfo> = world
+        let Ok(components_info) = world
             .inspect_entity(description_entity)
-            .into_iter()
-            .cloned()
-            .collect();
+            .map(|c| c.cloned().collect::<Vec<ComponentInfo>>())
+        else {
+            return;
+        };
 
         let mut inserts_to_execute = Vec::<InsertModelPropertyFn>::new();
         let mut removals_to_execute = Vec::<RemoveModelPropertyFn>::new();
@@ -325,7 +332,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelDescription<'w, 's> {
             let children: Result<SmallVec<[_; 16]>, _> = params
                 .children
                 .get(params.inspect_model_description.id)
-                .map(|children| children.iter().copied().collect());
+                .map(|children| children.iter().collect());
             let Ok(children) = children else {
                 return;
             };
@@ -400,7 +407,7 @@ impl<'w, 's> InspectSelectedModelDescription<'w, 's> {
         let mut new_description_entity = current_description_entity.clone();
         ui.horizontal(|ui| {
             ui.label("Description");
-            ComboBox::from_id_source("model_description_affiliation")
+            ComboBox::from_id_salt("model_description_affiliation")
                 .selected_text(current_description_name.0.as_str())
                 .show_ui(ui, |ui| {
                     for (entity, name, ..) in self.model_descriptions.iter() {
@@ -410,7 +417,7 @@ impl<'w, 's> InspectSelectedModelDescription<'w, 's> {
         });
         if new_description_entity != current_description_entity {
             self.change_affiliation
-                .send(Change::new(Affiliation(Some(new_description_entity)), id));
+                .write(Change::new(Affiliation(Some(new_description_entity)), id));
             let (_, _, new_source) = self.model_descriptions.get(new_description_entity).unwrap();
             self.model_loader
                 .update_asset_source(id, new_source.0.clone());
@@ -423,7 +430,7 @@ pub type ModelPropertyQuery<'w, 's, P> =
 
 /// Helper function to get the corresponding description entity for a given model instance entity
 /// if it exists.
-fn get_selected_description_entity<'w, 's, P: Component, T: WorldQuery>(
+fn get_selected_description_entity<'w, 's, P: Component, T: QueryData>(
     selection: Entity,
     model_instances: &ModelPropertyQuery<'w, 's, P>,
     model_descriptions: &Query<'w, 's, T, (With<ModelMarker>, With<Group>)>,

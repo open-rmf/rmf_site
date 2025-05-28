@@ -18,8 +18,8 @@
 use crate::{Categorized, Category, Pose};
 #[cfg(feature = "bevy")]
 use bevy::{
-    ecs::{query::QueryEntityError, system::SystemParam},
-    prelude::{Component, Entity, GlobalTransform, Parent, Query, Transform},
+    ecs::{hierarchy::ChildOf, query::QueryEntityError, system::SystemParam},
+    prelude::{Component, Entity, GlobalTransform, Query, Transform},
 };
 use glam::{Vec2, Vec3};
 use serde::{Deserialize, Serialize};
@@ -41,16 +41,16 @@ impl From<[f32; 2]> for Anchor {
     }
 }
 
-fn to_slice(p: &[f32]) -> &[f32; 2] {
-    p.try_into().expect("Wrong array size")
+fn to_array2(p: &[f32; 3]) -> [f32; 2] {
+    [p[0], p[1]]
 }
 
 impl Anchor {
-    pub fn translation_for_category(&self, category: Category) -> &[f32; 2] {
+    pub fn translation_for_category(&self, category: Category) -> [f32; 2] {
         match self {
-            Self::Translate2D(v) => v,
-            Self::CategorizedTranslate2D(v) => v.for_category(category),
-            Self::Pose3D(p) => to_slice(&p.trans[0..2]),
+            Self::Translate2D(v) => *v,
+            Self::CategorizedTranslate2D(v) => *v.for_category(category),
+            Self::Pose3D(p) => to_array2(&p.trans),
         }
     }
 
@@ -73,7 +73,7 @@ impl Anchor {
                         return true;
                     }
                     Self::Pose3D(p) => {
-                        let p_right = Vec2::from_array(*to_slice(&p.trans[0..2]));
+                        let p_right = Vec2::from_array(to_array2(&p.trans));
                         return (p_left - p_right).length() <= dist;
                     }
                 }
@@ -96,7 +96,7 @@ impl Anchor {
                 }
                 Self::Pose3D(p) => {
                     let p_left = Vec2::from_array(*left_categories.for_general());
-                    let p_right = Vec2::from_array(*to_slice(&p.trans[0..2]));
+                    let p_right = Vec2::from_array(to_array2(&p.trans));
                     return (p_left - p_right).length() <= dist;
                 }
             },
@@ -133,8 +133,8 @@ impl Anchor {
         match category {
             Category::General => tf.translation(),
             category => {
-                let dp = Vec2::from(*self.translation_for_category(category))
-                    - Vec2::from(*self.translation_for_category(Category::General));
+                let dp = Vec2::from(self.translation_for_category(category))
+                    - Vec2::from(self.translation_for_category(Category::General));
                 tf.affine().transform_point3([dp.x, dp.y, 0.0].into())
             }
         }
@@ -178,7 +178,7 @@ impl Anchor {
 #[derive(SystemParam)]
 pub struct AnchorParams<'w, 's> {
     anchors: Query<'w, 's, (&'static Anchor, &'static GlobalTransform)>,
-    parents: Query<'w, 's, &'static Parent>,
+    child_of: Query<'w, 's, &'static ChildOf>,
     global_tfs: Query<'w, 's, &'static GlobalTransform>,
 }
 
@@ -207,8 +207,8 @@ impl<'w, 's> AnchorParams<'w, 's> {
         category: Category,
         in_parent_frame_of: Entity,
     ) -> Result<Vec3, QueryEntityError> {
-        match self.parents.get(in_parent_frame_of) {
-            Ok(parent) => self.relative_point(anchor, category, parent.get()),
+        match self.child_of.get(in_parent_frame_of) {
+            Ok(child_of) => self.relative_point(anchor, category, child_of.parent()),
             Err(_) => self.point(anchor, category),
         }
     }

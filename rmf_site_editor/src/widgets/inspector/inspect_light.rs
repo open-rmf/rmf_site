@@ -20,10 +20,7 @@ use crate::{
     widgets::{prelude::*, Inspect},
 };
 use bevy::prelude::*;
-use bevy_egui::egui::{
-    color_picker::{color_edit_button_rgba, Alpha},
-    ComboBox, DragValue, Rgba, Ui,
-};
+use bevy_egui::egui::{color_picker::color_edit_button_rgb, ComboBox, DragValue, Ui};
 
 #[derive(SystemParam)]
 pub struct InspectLight<'w, 's> {
@@ -44,7 +41,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectLight<'w, 's> {
         };
 
         if let Some(new_light) = InspectLightKind::new(light, recall).show(ui) {
-            params.change_light.send(Change::new(new_light, selection));
+            params.change_light.write(Change::new(new_light, selection));
         }
         ui.add_space(10.0);
     }
@@ -64,7 +61,7 @@ impl<'a> InspectLightKind<'a> {
         let mut new_kind = self.kind.clone();
         ui.horizontal(|ui| {
             ui.label("Light Kind:");
-            ComboBox::from_id_source("Inspect Light Kind ComboBox")
+            ComboBox::from_id_salt("Inspect Light Kind ComboBox")
                 .selected_text(self.kind.label())
                 .show_ui(ui, |ui| {
                     for variant in [
@@ -87,21 +84,19 @@ impl<'a> InspectLightKind<'a> {
                     ui.label("Intensity");
                     ui.add(
                         DragValue::new(&mut point.intensity)
-                            .clamp_range(0_f32..=std::f32::INFINITY)
+                            .range(0_f32..=std::f32::INFINITY)
                             .speed(10),
                     );
                 });
                 ui.horizontal(|ui| {
                     ui.label("Range");
-                    ui.add(
-                        DragValue::new(&mut point.range).clamp_range(0_f32..=std::f32::INFINITY),
-                    );
+                    ui.add(DragValue::new(&mut point.range).range(0_f32..=std::f32::INFINITY));
                 });
                 ui.horizontal(|ui| {
                     ui.label("Radius");
                     ui.add(
                         DragValue::new(&mut point.radius)
-                            .clamp_range(0_f32..=std::f32::INFINITY)
+                            .range(0_f32..=std::f32::INFINITY)
                             .speed(0.1),
                     );
                 });
@@ -116,19 +111,19 @@ impl<'a> InspectLightKind<'a> {
                     ui.label("Intensity");
                     ui.add(
                         DragValue::new(&mut spot.intensity)
-                            .clamp_range(0_f32..=std::f32::INFINITY)
+                            .range(0_f32..=std::f32::INFINITY)
                             .speed(10),
                     );
                 });
                 ui.horizontal(|ui| {
                     ui.label("Range");
-                    ui.add(DragValue::new(&mut spot.range).clamp_range(0_f32..=std::f32::INFINITY));
+                    ui.add(DragValue::new(&mut spot.range).range(0_f32..=std::f32::INFINITY));
                 });
                 ui.horizontal(|ui| {
                     ui.label("Radius");
                     ui.add(
                         DragValue::new(&mut spot.radius)
-                            .clamp_range(0_f32..=std::f32::INFINITY)
+                            .range(0_f32..=std::f32::INFINITY)
                             .speed(0.1),
                     );
                 });
@@ -143,7 +138,7 @@ impl<'a> InspectLightKind<'a> {
                     ui.label("Illuminance");
                     ui.add(
                         DragValue::new(&mut dir.illuminance)
-                            .clamp_range(0_f32..=std::f32::INFINITY)
+                            .range(0_f32..=std::f32::INFINITY)
                             .speed(1000),
                     );
                 });
@@ -159,8 +154,6 @@ impl<'a> InspectLightKind<'a> {
     }
 }
 
-pub fn color_edit(ui: &mut Ui, color: &mut [f32; 4]) {
-    let mut rgba = Rgba::from_rgba_premultiplied(color[0], color[1], color[2], color[3]);
-    color_edit_button_rgba(ui, &mut rgba, Alpha::OnlyBlend);
-    *color = [rgba.r(), rgba.g(), rgba.b(), rgba.a()];
+pub fn color_edit(ui: &mut Ui, color: &mut [f32; 3]) {
+    color_edit_button_rgb(ui, color);
 }

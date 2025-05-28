@@ -1,4 +1,7 @@
-use bevy::ecs::system::{BoxedSystem, SystemState};
+use bevy::ecs::{
+    relationship::DescendantIter,
+    system::{BoxedSystem, SystemState},
+};
 use bevy::prelude::*;
 use bevy_gltf_export::{export_meshes, CompressGltfOptions, MeshData};
 
@@ -94,12 +97,12 @@ pub fn headless_sdf_export(
             "No site is loaded so we cannot export an SDF file into [{}]",
             export_state.target_path,
         );
-        exit.send(bevy::app::AppExit);
+        exit.write(bevy::app::AppExit::Error(1.try_into().unwrap()));
     }
     if !missing_models.is_empty() {
         // Despawn all drawings, otherwise floors will become transparent.
         for e in drawings.iter() {
-            commands.entity(e).despawn_recursive();
+            commands.entity(e).despawn();
         }
         // TODO(luca) implement a timeout logic?
     } else {
@@ -113,7 +116,7 @@ pub fn headless_sdf_export(
                 export_state.save_requested = true;
                 export_state.iterations = 0;
             } else if export_state.save_requested && export_state.iterations > 5 {
-                exit.send(bevy::app::AppExit);
+                exit.write(bevy::app::AppExit::Success);
             }
         }
     }
@@ -129,9 +132,9 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
         Query<(Entity, &IsStatic, &NameInSite), With<ModelMarker>>,
         Query<(), With<CollisionMeshMarker>>,
         Query<(), With<VisualMeshMarker>>,
-        Query<(&Handle<Mesh>, &Handle<StandardMaterial>)>,
+        Query<(&Mesh3d, &MeshMaterial3d<StandardMaterial>)>,
         Query<(&NameInSite, &LiftCabin<Entity>, &ChildLiftCabinGroup)>,
-        Query<((), With<LiftDoormat>)>,
+        Query<(), With<LiftDoormat>>,
         Query<&GlobalTransform>,
         Query<&Transform>,
         Query<&SiteID>,
@@ -204,13 +207,13 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
     for site_child in site_children.iter() {
         let mut collision_data = Vec::new();
         let mut visual_data = Vec::new();
-        if let Ok((level_name, elevation, children)) = q_levels.get(*site_child) {
+        if let Ok((level_name, elevation, children)) = q_levels.get(site_child) {
             let level_tf = Transform {
                 translation: Vec3::new(0.0, 0.0, **elevation),
                 ..Default::default()
             };
             for child in children.iter() {
-                if let Ok(res) = q_walls.get(*child) {
+                if let Ok(res) = q_walls.get(child) {
                     let Some((mesh, material)) = get_mesh_and_material(res) else {
                         continue;
                     };
@@ -224,7 +227,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                         material: Some(material),
                         transform: Some(level_tf.clone()),
                     });
-                } else if let Ok(res) = q_floors.get(*child) {
+                } else if let Ok(res) = q_floors.get(child) {
                     let Some((mesh, material)) = get_mesh_and_material(res.mesh) else {
                         continue;
                     };
@@ -238,7 +241,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                         material: Some(material),
                         transform: Some(level_tf.clone()),
                     });
-                } else if let Ok((model, is_static, name)) = q_models.get(*child) {
+                } else if let Ok((model, is_static, name)) = q_models.get(child) {
                     let mut model_collisions = vec![];
                     let mut model_visuals = vec![];
                     // TODO(luca) don't do full descendant iter here or we might add twice?
@@ -291,7 +294,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                         let filename = format!(
                             "{}/model_{}_collision.glb",
                             folder.display(),
-                            get_site_id(*child)?,
+                            get_site_id(child)?,
                         );
                         write_meshes_to_file(
                             model_collisions,
@@ -302,7 +305,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                         let filename = format!(
                             "{}/model_{}_visual.glb",
                             folder.display(),
-                            get_site_id(*child)?,
+                            get_site_id(child)?,
                         );
                         write_meshes_to_file(
                             model_visuals,
@@ -311,7 +314,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                             filename,
                         )?;
                     }
-                } else if let Ok((door_name, segments)) = q_doors.get(*child) {
+                } else if let Ok((door_name, segments)) = q_doors.get(child) {
                     for (entity, segment_name) in segments
                         .body
                         .entities()
@@ -334,7 +337,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                         let filename = format!(
                             "{}/door_{}_{}.glb",
                             folder.display(),
-                            get_site_id(*child)?,
+                            get_site_id(child)?,
                             segment_name,
                         );
                         let door_name = door_name.map(|n| n.0.as_str()).unwrap_or("");
@@ -352,7 +355,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
             let filename = format!(
                 "{}/level_{}_collision.glb",
                 folder.display(),
-                get_site_id(*site_child)?,
+                get_site_id(site_child)?,
             );
             write_meshes_to_file(
                 collision_data,
@@ -363,7 +366,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
             let filename = format!(
                 "{}/level_{}_visual.glb",
                 folder.display(),
-                get_site_id(*site_child)?,
+                get_site_id(site_child)?,
             );
             write_meshes_to_file(
                 visual_data,
@@ -373,7 +376,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
             )?;
         }
         // Lifts
-        if let Ok((lift_name, cabin, cabin_children)) = q_lift_cabins.get(*site_child) {
+        if let Ok((lift_name, cabin, cabin_children)) = q_lift_cabins.get(site_child) {
             // The children of this entity have the mesh for the lift cabin
             let mut lift_data = vec![];
             for entity in DescendantIter::new(&q_children, **cabin_children) {
@@ -392,11 +395,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                     transform: None,
                 });
             }
-            let filename = format!(
-                "{}/lift_{}.glb",
-                folder.display(),
-                get_site_id(*site_child)?
-            );
+            let filename = format!("{}/lift_{}.glb", folder.display(), get_site_id(site_child)?);
             write_meshes_to_file(
                 lift_data,
                 Some(format!("lift_{}", **lift_name)),
@@ -433,7 +432,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                         let filename = format!(
                             "{}/lift_{}_{}_{}.glb",
                             folder.display(),
-                            get_site_id(*site_child)?,
+                            get_site_id(site_child)?,
                             face.label(),
                             segment_name,
                         );

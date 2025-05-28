@@ -112,7 +112,7 @@ impl NavGraph {
                             yaw,
                             [center.trans[0], center.trans[1]].into(),
                         );
-                        let trans = lift_tf.transform_point2((*trans).into());
+                        let trans = lift_tf.transform_point2((trans).into());
                         let anchor = Anchor::Translate2D([trans[0], trans[1]]);
 
                         anchor_to_vertex.insert(*id, vertices.len());
@@ -158,7 +158,7 @@ impl NavGraph {
                         door_name.clone(),
                         NavDoor {
                             map: level.properties.name.0.clone(),
-                            endpoints: [*v0, *v1],
+                            endpoints: [v0, v1],
                         },
                     );
                 }
@@ -278,7 +278,7 @@ pub struct NavVertex(pub f32, pub f32, pub NavVertexProperties);
 
 impl NavVertex {
     fn from_anchor(anchor: &Anchor, location: Option<&Location<u32>>) -> Self {
-        let p = *anchor.translation_for_category(Category::General);
+        let p = anchor.translation_for_category(Category::General);
         Self(p[0], p[1], NavVertexProperties::from_location(location))
     }
 }

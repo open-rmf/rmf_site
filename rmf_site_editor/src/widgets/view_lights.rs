@@ -98,7 +98,7 @@ impl<'w, 's> ViewLights<'w, 's> {
             ui.horizontal(|ui| {
                 if let Some(export_file) = &self.display_light.export_file {
                     if ui.button("Export").clicked() {
-                        self.export_lights.send(ExportLights(export_file.clone()));
+                        self.export_lights.write(ExportLights(export_file.clone()));
                     }
                 }
                 if ui.button("Export Lights As...").clicked() {
@@ -162,7 +162,7 @@ impl<'w, 's> ViewLights<'w, 's> {
                 })
                 .insert(Category::Light)
                 .id();
-            self.selector.select.send(Select::new(Some(new_light)));
+            self.selector.select.write(Select::new(Some(new_light)));
         }
 
         ui.separator();
@@ -231,7 +231,7 @@ pub fn resolve_light_export_file(
             resolved = true;
 
             if let Some(result) = result {
-                export_lights.send(ExportLights(result.clone()));
+                export_lights.write(ExportLights(result.clone()));
                 light_display.export_file = Some(result);
             }
         }

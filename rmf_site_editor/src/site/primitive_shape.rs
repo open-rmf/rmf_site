@@ -15,9 +15,9 @@
  *
 */
 
-use bevy::ecs::system::EntityCommands;
+use bevy::ecs::{hierarchy::ChildOf, relationship::AncestorIter, system::EntityCommands};
+use bevy::math::primitives;
 use bevy::prelude::*;
-use bevy::render::mesh::shape::{Capsule, UVSphere};
 use bevy::render::view::RenderLayers;
 
 use crate::interaction::{DragPlaneBundle, Selectable, MODEL_PREVIEW_LAYER};
@@ -39,7 +39,7 @@ pub struct CollisionMeshMarker;
 pub fn handle_new_primitive_shapes(
     mut commands: Commands,
     primitives: Query<(Entity, &PrimitiveShape), Added<PrimitiveShape>>,
-    parents: Query<&Parent>,
+    child_of: Query<&ChildOf>,
     selectables: Query<&Selectable>,
     render_layers: Query<&RenderLayers>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -47,33 +47,29 @@ pub fn handle_new_primitive_shapes(
 ) {
     for (e, primitive) in primitives.iter() {
         let mesh = match primitive {
-            PrimitiveShape::Box { size } => Mesh::from(shape::Box::new(size[0], size[1], size[2])),
+            PrimitiveShape::Box { size } => Mesh::from(Cuboid::new(size[0], size[1], size[2])),
             PrimitiveShape::Cylinder { radius, length } => {
                 Mesh::from(make_cylinder(*length, *radius))
             }
-            PrimitiveShape::Capsule { radius, length } => Mesh::from(Capsule {
-                radius: *radius,
-                depth: *length,
-                ..default()
-            }),
-            PrimitiveShape::Sphere { radius } => Mesh::from(UVSphere {
-                radius: *radius,
-                ..default()
-            }),
+            PrimitiveShape::Capsule { radius, length } => {
+                Mesh::from(primitives::Capsule3d::new(*radius, *length))
+            }
+            PrimitiveShape::Sphere { radius } => Mesh::from(primitives::Sphere::new(*radius)),
         };
         // If there is a parent with a Selectable component, use it to make this primitive
         // point to it. Otherwise set the Selectable to point to itself.
         let id = commands
-            .spawn(PbrBundle {
-                mesh: meshes.add(mesh),
-                material: site_assets.default_mesh_grey_material.clone(),
-                ..default()
-            })
-            .set_parent(e)
+            .spawn((
+                Mesh3d(meshes.add(mesh)),
+                MeshMaterial3d(site_assets.default_mesh_grey_material.clone()),
+                Transform::default(),
+                Visibility::default(),
+            ))
+            .insert(ChildOf(e))
             .id();
 
         let spawn_selectable = |mut cmd: EntityCommands| {
-            let selectable = if let Some(selectable) = AncestorIter::new(&parents, e)
+            let selectable = if let Some(selectable) = AncestorIter::new(&child_of, e)
                 .filter_map(|p| selectables.get(p).ok())
                 .last()
             {
@@ -84,7 +80,7 @@ pub fn handle_new_primitive_shapes(
             cmd.insert(DragPlaneBundle::new(selectable, Vec3::Z));
         };
         let mut entity_commands = commands.entity(id);
-        if let Some(render_layer) = AncestorIter::new(&parents, e)
+        if let Some(render_layer) = AncestorIter::new(&child_of, e)
             .filter_map(|p| render_layers.get(p).ok())
             .last()
         {

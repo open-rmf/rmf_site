@@ -16,10 +16,15 @@
 */
 
 use crate::{site::*, Issue, ValidateWorkspace};
-use bevy::{ecs::system::Command, prelude::*, render::primitives::Sphere, utils::Uuid};
+use bevy::{
+    ecs::{hierarchy::ChildOf, relationship::AncestorIter, system::Command},
+    prelude::*,
+    render::primitives::Sphere,
+};
 use itertools::Itertools;
 use rmf_site_format::{Anchor, LevelElevation, LiftCabin};
 use std::collections::HashMap;
+use uuid::Uuid;
 
 #[derive(Bundle, Debug)]
 pub struct AnchorBundle {
@@ -100,7 +105,7 @@ pub fn update_anchor_transforms(
 }
 
 pub fn assign_orphan_anchors_to_parent(
-    mut orphan_anchors: Query<(Entity, &mut Anchor), Without<Parent>>,
+    mut orphan_anchors: Query<(Entity, &mut Anchor), Without<ChildOf>>,
     mut commands: Commands,
     mut current_level: ResMut<CurrentLevel>,
     lifts: Query<(&LiftCabin<Entity>, &ChildCabinAnchorGroup, &GlobalTransform)>,
@@ -185,7 +190,7 @@ pub const UNCONNECTED_ANCHORS_ISSUE_UUID: Uuid =
 pub fn check_for_close_unconnected_anchors(
     mut commands: Commands,
     mut validate_events: EventReader<ValidateWorkspace>,
-    parents: Query<&Parent>,
+    child_of: Query<&ChildOf>,
     anchors: AnchorParams,
     anchor_entities: Query<Entity, With<Anchor>>,
     levels: Query<Entity, With<LevelElevation>>,
@@ -199,15 +204,19 @@ pub fn check_for_close_unconnected_anchors(
         // Key is level id, value is vector of (Entity, Global tf's position)
         let mut anchor_poses: HashMap<Entity, Vec<(Entity, Vec3)>> = HashMap::new();
         for e in &anchor_entities {
-            if let Some(level) = AncestorIter::new(&parents, e).find(|p| levels.get(*p).is_ok()) {
-                if AncestorIter::new(&parents, level).any(|p| p == **root) {
+            if let Some(level) = AncestorIter::new(&child_of, e).find(|p| levels.get(*p).is_ok()) {
+                if AncestorIter::new(&child_of, level).any(|p| p == **root) {
                     // Level that belongs to requested workspace
                     let poses = anchor_poses.entry(level).or_default();
                     poses.push((
                         e,
-                        anchors
-                            .point_in_parent_frame_of(e, Category::General, level)
-                            .expect("Failed fetching anchor pose"),
+                        match anchors.point_in_parent_frame_of(e, Category::General, level) {
+                            Ok(p) => p,
+                            Err(err) => {
+                                error!("Failed fetching anchor pose {:?}", err);
+                                continue;
+                            }
+                        },
                     ));
                 }
             }

@@ -144,7 +144,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectMobility<'w, 's> {
             let children_widgets: Result<SmallVec<[_; 16]>, _> = params
                 .children
                 .get(widget_registration.property_widget)
-                .map(|c| c.iter().copied().collect());
+                .map(|c| c.iter().collect());
             let Ok(children_widgets) = children_widgets else {
                 return;
             };
@@ -278,12 +278,12 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectDifferentialDrive<'w, 's> {
                     ui.label("");
                     ui.add(
                         DragValue::new(&mut new_differential_drive.rotation_center_offset[0])
-                            .clamp_range(std::f32::NEG_INFINITY..=std::f32::INFINITY)
+                            .range(std::f32::NEG_INFINITY..=std::f32::INFINITY)
                             .speed(0.01),
                     );
                     ui.add(
                         DragValue::new(&mut new_differential_drive.rotation_center_offset[1])
-                            .clamp_range(std::f32::NEG_INFINITY..=std::f32::INFINITY)
+                            .range(std::f32::NEG_INFINITY..=std::f32::INFINITY)
                             .speed(0.01),
                     );
                     ui.end_row();
@@ -295,7 +295,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectDifferentialDrive<'w, 's> {
                     ui.label("Nominal Velocity");
                     ui.add(
                         DragValue::new(&mut new_differential_drive.translational_speed)
-                            .clamp_range(0_f32..=std::f32::INFINITY)
+                            .range(0_f32..=std::f32::INFINITY)
                             .speed(0.01),
                     );
                     ui.label("m/s");
@@ -313,7 +313,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectDifferentialDrive<'w, 's> {
                     ui.label("Nominal Angular Velocity");
                     ui.add(
                         DragValue::new(&mut new_differential_drive.rotational_speed)
-                            .clamp_range(0_f32..=std::f32::INFINITY)
+                            .range(0_f32..=std::f32::INFINITY)
                             .speed(0.01),
                     );
                     ui.label("rad/s");

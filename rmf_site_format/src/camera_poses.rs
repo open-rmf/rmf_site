@@ -42,7 +42,7 @@ impl UserCameraPose {
         let mut count = 0;
         let mut trans = Vec3::default();
         for anchor in anchors {
-            let anchor_trans = *anchor.translation_for_category(Category::Level);
+            let anchor_trans = anchor.translation_for_category(Category::Level);
             trans[0] = trans[0] + anchor_trans[0];
             trans[1] = trans[1] + anchor_trans[1];
             count += 1;

@@ -25,7 +25,7 @@ use crate::{
     },
     CurrentWorkspace,
 };
-use bevy::{asset::LoadState, math::Affine3A, prelude::*};
+use bevy::{asset::LoadState, ecs::hierarchy::ChildOf, math::Affine3A, prelude::*};
 use rmf_site_format::{AssetSource, Category, DrawingProperties, PixelsPerMeter, Pose};
 use std::path::PathBuf;
 
@@ -115,7 +115,7 @@ pub fn add_drawing_visuals(
                 continue;
             }
         };
-        let texture_handle: Handle<Image> = asset_server.load(asset_path);
+        let texture_handle: Handle<Image> = asset_server.load_override(asset_path.clone());
         commands.entity(e).insert(LoadingDrawing(texture_handle));
     }
 }
@@ -131,7 +131,7 @@ pub fn handle_loaded_drawing(
         &PixelsPerMeter,
         &LoadingDrawing,
         Option<&LayerVisibility>,
-        Option<&Parent>,
+        Option<&ChildOf>,
         Option<&RecencyRank<DrawingMarker>>,
     )>,
     mut mesh_assets: ResMut<Assets<Mesh>>,
@@ -140,11 +140,17 @@ pub fn handle_loaded_drawing(
     segments: Query<&DrawingSegments>,
     default_drawing_vis: Query<&GlobalDrawingVisibility>,
 ) {
-    for (entity, source, pose, pixels_per_meter, handle, vis, parent, rank) in
+    for (entity, source, pose, pixels_per_meter, handle, vis, child_of, rank) in
         loading_drawings.iter()
     {
         let Some(load_state) = asset_server.get_load_state(handle.id()) else {
-            warn!("Handle for drawing with source {:?} not found", source);
+            error!(
+                "Handle for drawing with source {:?} not found. This suggests \
+                there is a bug in the site editor. Please report this to the \
+                maintainers.",
+                source,
+            );
+            commands.entity(entity).remove::<LoadingDrawing>();
             continue;
         };
         match load_state {
@@ -157,14 +163,14 @@ pub fn handle_loaded_drawing(
                 let mesh = make_flat_rect_mesh(width, height).transform_by(
                     Affine3A::from_translation(Vec3::new(width / 2.0, -height / 2.0, 0.0)),
                 );
-                let mesh = mesh_assets.add(mesh.into());
-                let default = parent
-                    .map(|p| default_drawing_vis.get(p.get()).ok())
+                let mesh = mesh_assets.add(mesh);
+                let default = child_of
+                    .map(|co| default_drawing_vis.get(co.parent()).ok())
                     .flatten();
                 let (alpha, alpha_mode) = drawing_alpha(vis, rank, default);
                 let material = materials.add(StandardMaterial {
                     base_color_texture: Some(handle.0.clone()),
-                    base_color: *Color::default().set_a(alpha),
+                    base_color: Color::default().with_alpha(alpha),
                     alpha_mode,
                     perceptual_roughness: 0.089,
                     metallic: 0.01,
@@ -181,32 +187,37 @@ pub fn handle_loaded_drawing(
                     commands
                         .entity(entity)
                         .insert(DrawingSegments { leaf })
-                        .insert(SpatialBundle::from_transform(pose.transform().with_scale(
-                            Vec3::new(1.0 / pixels_per_meter.0, 1.0 / pixels_per_meter.0, 1.),
-                        )))
+                        .insert((
+                            pose.transform().with_scale(Vec3::new(
+                                1.0 / pixels_per_meter.0,
+                                1.0 / pixels_per_meter.0,
+                                1.,
+                            )),
+                            Visibility::Inherited,
+                        ))
                         .insert(Selectable::new(entity))
-                        .push_children(&[leaf]);
+                        .add_children(&[leaf]);
                     leaf
                 };
                 let z = drawing_layer_height(rank);
                 commands
                     .entity(leaf)
-                    .insert(PbrBundle {
-                        mesh,
-                        material: material.clone(),
-                        transform: Transform::from_xyz(0.0, 0.0, z),
-                        ..Default::default()
-                    })
+                    .insert((
+                        Mesh3d(mesh),
+                        MeshMaterial3d(material.clone()),
+                        Transform::from_xyz(0.0, 0.0, z),
+                        Visibility::default(),
+                    ))
                     .insert(Selectable::new(entity));
                 commands
                     .entity(entity)
                     // Put a handle for the material into the main entity
                     // so that we can modify it during interactions.
-                    .insert(material)
+                    .insert(MeshMaterial3d(material))
                     .remove::<LoadingDrawing>();
             }
-            LoadState::Failed => {
-                error!("Failed loading drawing {:?}", source);
+            LoadState::Failed(e) => {
+                error!("Failed loading drawing {:?}, reason: [{:?}]", source, e);
                 commands.entity(entity).remove::<LoadingDrawing>();
             }
             _ => {}
@@ -269,11 +280,14 @@ pub fn update_drawing_children_to_pixel_coordinates(
                 if let Ok(mut tf) = transforms.get_mut(*child) {
                     tf.scale = Vec3::new(pixels_per_meter.0, pixels_per_meter.0, 1.0);
                 } else {
-                    commands
-                        .entity(*child)
-                        .insert(SpatialBundle::from_transform(Transform::from_scale(
-                            Vec3::new(pixels_per_meter.0, pixels_per_meter.0, 1.0),
-                        )));
+                    commands.entity(*child).insert((
+                        Transform::from_scale(Vec3::new(
+                            pixels_per_meter.0,
+                            pixels_per_meter.0,
+                            1.0,
+                        )),
+                        Visibility::Inherited,
+                    ));
                 }
             }
         }
@@ -315,23 +329,23 @@ fn iter_update_drawing_visibility<'a>(
     iter: impl Iterator<
         Item = (
             Option<&'a LayerVisibility>,
-            Option<&'a Parent>,
+            Option<&'a ChildOf>,
             Option<&'a RecencyRank<DrawingMarker>>,
             &'a DrawingSegments,
         ),
     >,
-    material_handles: &Query<&Handle<StandardMaterial>>,
+    material_handles: &Query<&MeshMaterial3d<StandardMaterial>>,
     material_assets: &mut ResMut<Assets<StandardMaterial>>,
     default_drawing_vis: &Query<&GlobalDrawingVisibility>,
 ) {
-    for (vis, parent, rank, segments) in iter {
+    for (vis, child_of, rank, segments) in iter {
         if let Ok(handle) = material_handles.get(segments.leaf) {
             if let Some(mat) = material_assets.get_mut(handle) {
-                let default = parent
-                    .map(|p| default_drawing_vis.get(p.get()).ok())
+                let default = child_of
+                    .map(|co| default_drawing_vis.get(co.parent()).ok())
                     .flatten();
                 let (alpha, alpha_mode) = drawing_alpha(vis, rank, default);
-                mat.base_color = *mat.base_color.set_a(alpha);
+                mat.base_color = mat.base_color.with_alpha(alpha);
                 mat.alpha_mode = alpha_mode;
             }
         }
@@ -344,18 +358,18 @@ pub fn update_drawing_visibility(
         Entity,
         Or<(
             Changed<LayerVisibility>,
-            Changed<Parent>,
+            Changed<ChildOf>,
             Changed<RecencyRank<DrawingMarker>>,
         )>,
     >,
     mut removed_vis: RemovedComponents<LayerVisibility>,
     all_drawings: Query<(
         Option<&LayerVisibility>,
-        Option<&Parent>,
+        Option<&ChildOf>,
         Option<&RecencyRank<DrawingMarker>>,
         &DrawingSegments,
     )>,
-    material_handles: Query<&Handle<StandardMaterial>>,
+    material_handles: Query<&MeshMaterial3d<StandardMaterial>>,
     mut material_assets: ResMut<Assets<StandardMaterial>>,
     default_drawing_vis: Query<&GlobalDrawingVisibility>,
     changed_default_drawing_vis: Query<&Children, Changed<GlobalDrawingVisibility>>,
@@ -378,7 +392,7 @@ pub fn update_drawing_visibility(
 
     for children in &changed_default_drawing_vis {
         iter_update_drawing_visibility(
-            children.iter().filter_map(|e| all_drawings.get(*e).ok()),
+            children.iter().filter_map(|e| all_drawings.get(e).ok()),
             &material_handles,
             &mut material_assets,
             &default_drawing_vis,

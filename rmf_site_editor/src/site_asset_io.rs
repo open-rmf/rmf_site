@@ -1,8 +1,11 @@
 use bevy::asset::io::AssetSource as BevyAssetSource;
 use bevy::{
-    asset::io::{AssetReader, AssetReaderError, AssetSourceBuilder, PathStream, Reader, VecReader},
+    asset::io::{
+        AssetReader, AssetReaderError, AssetSourceBuilder, ErasedAssetReader, PathStream, Reader,
+        VecReader,
+    },
     prelude::*,
-    utils::BoxedFuture,
+    tasks::BoxedFuture,
 };
 use dirs;
 use serde::Deserialize;
@@ -34,7 +37,7 @@ struct FuelErrorMsg {
     msg: String,
 }
 
-fn load_from_file<'a>(path: PathBuf) -> Result<Box<Reader<'a>>, AssetReaderError> {
+fn load_from_file<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
     match fs::read(&path) {
         Ok(bytes) => Ok(Box::new(VecReader::new(bytes))),
         Err(e) => {
@@ -56,29 +59,38 @@ fn generate_remote_asset_url(name: &str) -> Result<String, AssetReaderError> {
     let org_name = match tokens.next() {
         Some(token) => token,
         None => {
-            return Err(AssetReaderError::Io(io::Error::new(
-                io::ErrorKind::Other,
-                format!("Unable to parse into org/model names: {name}"),
-            )));
+            return Err(AssetReaderError::Io(
+                io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("Unable to parse into org/model names: {name}"),
+                )
+                .into(),
+            ));
         }
     };
     let model_name = match tokens.next() {
         Some(token) => token,
         None => {
-            return Err(AssetReaderError::Io(io::Error::new(
-                io::ErrorKind::Other,
-                format!("Unable to parse into org/model names: {name}"),
-            )));
+            return Err(AssetReaderError::Io(
+                io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("Unable to parse into org/model names: {name}"),
+                )
+                .into(),
+            ));
         }
     };
     // TODO(luca) migrate to split.remainder once
     // https://github.com/rust-lang/rust/issues/77998 is stabilized
     let binding = tokens.fold(String::new(), |prefix, path| prefix + "/" + path);
     if binding.len() < 2 {
-        return Err(AssetReaderError::Io(io::Error::new(
-            io::ErrorKind::Other,
-            format!("File name not found for: {name}"),
-        )));
+        return Err(AssetReaderError::Io(
+            io::Error::new(
+                io::ErrorKind::Other,
+                format!("File name not found for: {name}"),
+            )
+            .into(),
+        ));
     }
     let filename = binding.split_at(1).1;
     let uri = format!(
@@ -91,7 +103,7 @@ fn generate_remote_asset_url(name: &str) -> Result<String, AssetReaderError> {
 async fn fetch_asset<'a>(
     remote_url: String,
     asset_name: String,
-) -> Result<Box<Reader<'a>>, AssetReaderError> {
+) -> Result<Box<dyn Reader>, AssetReaderError> {
     let mut req = ehttp::Request::get(remote_url.clone());
     match FUEL_API_KEY.lock() {
         Ok(key) => {
@@ -102,26 +114,36 @@ async fn fetch_asset<'a>(
         Err(poisoned_key) => {
             // Reset the key to None
             *poisoned_key.into_inner() = None;
-            return Err(AssetReaderError::Io(io::Error::new(
-                io::ErrorKind::Other,
-                format!("Lock poisoning detected when reading fuel API key, please set it again."),
-            )));
+            return Err(AssetReaderError::Io(
+                io::Error::new(
+                    io::ErrorKind::Other,
+                    format!(
+                        "Lock poisoning detected when reading fuel API key, please set it again."
+                    ),
+                )
+                .into(),
+            ));
         }
     }
     let bytes = ehttp::fetch_async(req)
         .await
-        .map_err(|e| AssetReaderError::Io(io::Error::new(io::ErrorKind::Other, e.to_string())))?
+        .map_err(|e| {
+            AssetReaderError::Io(io::Error::new(io::ErrorKind::Other, e.to_string()).into())
+        })?
         .bytes;
 
     match serde_json::from_slice::<FuelErrorMsg>(&bytes) {
         Ok(error) => {
-            return Err(AssetReaderError::Io(io::Error::new(
-                io::ErrorKind::NotFound,
-                format!(
-                    "Failed to fetch asset from fuel {} [errcode {}]: {}",
-                    remote_url, error.errcode, error.msg,
-                ),
-            )));
+            return Err(AssetReaderError::Io(
+                io::Error::new(
+                    io::ErrorKind::NotFound,
+                    format!(
+                        "Failed to fetch asset from fuel {} [errcode {}]: {}",
+                        remote_url, error.errcode, error.msg,
+                    ),
+                )
+                .into(),
+            ));
         }
         Err(_) => {
             // This is actually the happy path. When a GET from fuel was
@@ -153,21 +175,23 @@ fn save_to_cache(name: &str, bytes: &[u8]) {
     asset_path.push(PathBuf::from(name));
     fs::create_dir_all(asset_path.parent().unwrap()).unwrap();
     if bytes.len() > 0 {
-        fs::write(asset_path, bytes).expect("unable to write to file");
+        if let Err(err) = std::fs::write(asset_path, bytes) {
+            error!("Unable to write to file {:?}", err);
+        };
     }
 }
 
 pub struct SiteAssetReader<F>
 where
-    F: Fn(&Path) -> BoxedFuture<'_, Result<Box<Reader<'_>>, AssetReaderError>> + Sync + 'static,
+    F: Fn(&Path) -> BoxedFuture<Result<Box<dyn Reader>, AssetReaderError>> + Sync + 'static,
 {
-    pub default_reader: Box<dyn AssetReader>,
+    pub default_reader: Box<dyn ErasedAssetReader>,
     pub reader: F,
 }
 
 impl<F> SiteAssetReader<F>
 where
-    F: Fn(&Path) -> BoxedFuture<'_, Result<Box<Reader<'_>>, AssetReaderError>> + Sync + 'static,
+    F: Fn(&Path) -> BoxedFuture<Result<Box<dyn Reader>, AssetReaderError>> + Sync + 'static,
 {
     pub fn new(reader: F) -> Self {
         Self {
@@ -181,37 +205,25 @@ where
 
 impl<F> AssetReader for SiteAssetReader<F>
 where
-    F: Fn(&Path) -> BoxedFuture<'_, Result<Box<Reader<'_>>, AssetReaderError>>
-        + Send
-        + Sync
-        + 'static,
+    F: Fn(&Path) -> BoxedFuture<Result<Box<dyn Reader>, AssetReaderError>> + Send + Sync + 'static,
 {
-    fn read<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> BoxedFuture<'a, Result<Box<Reader<'a>>, AssetReaderError>> {
-        (self.reader)(path)
+    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+        (self.reader)(path).await
     }
 
-    fn read_meta<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> BoxedFuture<'a, Result<Box<Reader<'a>>, AssetReaderError>> {
-        self.default_reader.read_meta(path)
+    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+        self.default_reader.read_meta(path).await
     }
 
-    fn read_directory<'a>(
+    async fn read_directory<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<'a, Result<Box<PathStream>, AssetReaderError>> {
-        self.default_reader.read_directory(path)
+    ) -> Result<Box<PathStream>, AssetReaderError> {
+        self.default_reader.read_directory(path).await
     }
 
-    fn is_directory<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> BoxedFuture<'a, Result<bool, AssetReaderError>> {
-        self.default_reader.is_directory(path)
+    async fn is_directory<'a>(&'a self, path: &'a Path) -> Result<bool, AssetReaderError> {
+        self.default_reader.is_directory(path).await
     }
 }
 

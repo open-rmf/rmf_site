@@ -17,7 +17,7 @@
 
 use crate::widgets::{FileMenu, MenuDisabled, MenuEvent, MenuItem, TextMenuItem};
 use crate::{AppState, CreateNewWorkspace, WorkspaceLoader, WorkspaceSaver};
-use bevy::prelude::*;
+use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 
 #[derive(Default)]
 pub struct WorkspaceMenuPlugin {}
@@ -44,21 +44,21 @@ impl FromWorld for WorkspaceMenu {
         let file_menu = world.resource::<FileMenu>().get();
         let new = world
             .spawn(MenuItem::Text(TextMenuItem::new("New").shortcut("Ctrl-N")))
-            .set_parent(file_menu)
+            .insert(ChildOf(file_menu))
             .id();
         let save = world
             .spawn(MenuItem::Text(TextMenuItem::new("Save").shortcut("Ctrl-S")))
-            .set_parent(file_menu)
+            .insert(ChildOf(file_menu))
             .id();
         let save_as = world
             .spawn(MenuItem::Text(
                 TextMenuItem::new("Save As").shortcut("Ctrl-Shift-S"),
             ))
-            .set_parent(file_menu)
+            .insert(ChildOf(file_menu))
             .id();
         let load = world
             .spawn(MenuItem::Text(TextMenuItem::new("Open").shortcut("Ctrl-O")))
-            .set_parent(file_menu)
+            .insert(ChildOf(file_menu))
             .id();
 
         // Saving is not enabled in wasm
@@ -84,7 +84,7 @@ fn handle_workspace_menu_events(
 ) {
     for event in menu_events.read() {
         if event.clicked() && event.source() == workspace_menu.new {
-            new_workspace.send(CreateNewWorkspace);
+            new_workspace.write(CreateNewWorkspace);
         } else if event.clicked() && event.source() == workspace_menu.save {
             workspace_saver.save_to_default_file();
         } else if event.clicked() && event.source() == workspace_menu.save_as {

@@ -16,10 +16,8 @@
 */
 
 use bevy::asset::{io::Reader, AssetLoader, LoadContext};
+use bevy::ecs::hierarchy::ChildOf;
 use bevy::prelude::*;
-
-use bevy::utils::BoxedFuture;
-use futures_lite::AsyncReadExt;
 
 use thiserror::Error;
 
@@ -63,18 +61,16 @@ impl AssetLoader for SdfLoader {
     type Asset = bevy::scene::Scene;
     type Settings = ();
     type Error = SdfError;
-    fn load<'a>(
-        &'a self,
-        reader: &'a mut Reader,
-        _settings: &'a (),
-        load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
-        Box::pin(async move {
-            let mut bytes = Vec::new();
-            // TODO(luca) remove unwrap
-            reader.read_to_end(&mut bytes).await.unwrap();
-            Ok(load_model(bytes, load_context)?)
-        })
+    async fn load(
+        &self,
+        reader: &mut dyn Reader,
+        _settings: &(),
+        load_context: &mut LoadContext<'_>,
+    ) -> Result<Self::Asset, Self::Error> {
+        let mut bytes = Vec::new();
+        // TODO(luca) remove unwrap
+        reader.read_to_end(&mut bytes).await.unwrap();
+        Ok(load_model(bytes, load_context)?)
     }
 
     fn extensions(&self) -> &[&str] {
@@ -219,7 +215,7 @@ fn spawn_geometry<'a, 'b>(
                     })
                     .insert(pose)
                     .insert(NameInSite(geometry_name.to_owned()))
-                    .insert(SpatialBundle::INHERITED_IDENTITY)
+                    .insert((Transform::IDENTITY, Visibility::Inherited))
                     .id(),
             )
         }
@@ -231,7 +227,7 @@ fn spawn_geometry<'a, 'b>(
                 })
                 .insert(pose)
                 .insert(NameInSite(geometry_name.to_owned()))
-                .insert(SpatialBundle::INHERITED_IDENTITY)
+                .insert((Transform::IDENTITY, Visibility::Inherited))
                 .id(),
         ),
         SdfGeometry::Cylinder(c) => Some(
@@ -242,7 +238,7 @@ fn spawn_geometry<'a, 'b>(
                 })
                 .insert(pose)
                 .insert(NameInSite(geometry_name.to_owned()))
-                .insert(SpatialBundle::INHERITED_IDENTITY)
+                .insert((Transform::IDENTITY, Visibility::Inherited))
                 .id(),
         ),
         SdfGeometry::Sphere(s) => Some(
@@ -252,7 +248,7 @@ fn spawn_geometry<'a, 'b>(
                 })
                 .insert(pose)
                 .insert(NameInSite(geometry_name.to_owned()))
-                .insert(SpatialBundle::INHERITED_IDENTITY)
+                .insert((Transform::IDENTITY, Visibility::Inherited))
                 .id(),
         ),
         _ => None,
@@ -270,13 +266,15 @@ fn load_model<'a, 'b>(
         Ok(root) => {
             if let Some(model) = root.model {
                 let mut world = World::default();
-                let e = world.spawn(SpatialBundle::INHERITED_IDENTITY).id();
+                let e = world
+                    .spawn((Transform::IDENTITY, Visibility::Inherited))
+                    .id();
                 // TODO(luca) hierarchies and joints, rather than flat link importing
                 // All Open-RMF assets have no hierarchy, for now.
                 for link in &model.link {
                     let link_pose = parse_pose(&link.pose);
                     let link_id = world
-                        .spawn(SpatialBundle::from_transform(link_pose.transform()))
+                        .spawn((link_pose.transform(), Visibility::Inherited))
                         .id();
                     world.entity_mut(e).add_child(link_id);
                     for visual in &link.visual {
@@ -294,7 +292,7 @@ fn load_model<'a, 'b>(
                                     .entity_mut(id)
                                     .insert(VisualMeshMarker)
                                     .insert(Category::Visual)
-                                    .set_parent(link_id);
+                                    .insert(ChildOf(link_id));
                             }
                             None => warn!("Found unhandled geometry type {:?}", &visual.geometry),
                         }
@@ -314,7 +312,7 @@ fn load_model<'a, 'b>(
                                     .entity_mut(id)
                                     .insert(CollisionMeshMarker)
                                     .insert(Category::Collision)
-                                    .set_parent(link_id);
+                                    .insert(ChildOf(link_id));
                             }
                             None => {
                                 warn!("Found unhandled geometry type {:?}", &collision.geometry)

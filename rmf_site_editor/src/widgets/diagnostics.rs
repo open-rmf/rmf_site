@@ -24,7 +24,10 @@ use crate::{
     },
     CurrentWorkspace, Icons, Issue, IssueDictionary, ValidateWorkspace,
 };
-use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy::{
+    ecs::{hierarchy::ChildOf, system::SystemParam},
+    prelude::*,
+};
 use bevy_egui::egui::{self, Button, Checkbox, Grid, ImageButton, ScrollArea, Ui};
 
 /// Add a [`Diagnostics`] widget to your application.
@@ -38,9 +41,9 @@ impl Plugin for DiagnosticsPlugin {
             .init_resource::<DiagnosticsDisplay>()
             .add_systems(Update, handle_diagnostic_panel_visibility);
 
-        let panel = PanelWidget::new(diagnostics_panel, &mut app.world);
-        let widget = Widget::new::<Diagnostics>(&mut app.world);
-        app.world.spawn((panel, widget));
+        let panel = PanelWidget::new(diagnostics_panel, app.world_mut());
+        let widget = Widget::new::<Diagnostics>(app.world_mut());
+        app.world_mut().spawn((panel, widget));
     }
 }
 
@@ -66,7 +69,7 @@ pub struct Diagnostics<'w, 's> {
     icons: Res<'w, Icons>,
     filters: Query<'w, 's, (&'static FilteredIssues<Entity>, &'static FilteredIssueKinds)>,
     issue_dictionary: Res<'w, IssueDictionary>,
-    issues: Query<'w, 's, (&'static Issue, &'static Parent)>,
+    issues: Query<'w, 's, (&'static Issue, &'static ChildOf)>,
     display_diagnostics: ResMut<'w, DiagnosticsDisplay>,
     current_workspace: ResMut<'w, CurrentWorkspace>,
     validate_workspace: EventWriter<'w, ValidateWorkspace>,
@@ -150,10 +153,10 @@ impl<'w, 's> Diagnostics<'w, 's> {
                     if self.issues.is_empty() {
                         ui.label("No issues found");
                     }
-                    for (issue, parent) in &self.issues {
+                    for (issue, child_of) in &self.issues {
                         if new_filtered_issue_kinds.contains(&issue.key.kind)
                             || new_filtered_issues.contains(&issue.key)
-                            || **parent != root
+                            || child_of.parent() != root
                         {
                             continue;
                         }
@@ -195,7 +198,7 @@ impl<'w, 's> Diagnostics<'w, 's> {
             }
 
             if ui.add(Button::new("Validate")).clicked() {
-                self.validate_workspace.send(ValidateWorkspace(root));
+                self.validate_workspace.write(ValidateWorkspace(root));
             }
             if ui.add(Button::new("Close")).clicked() {
                 state.show = false;
@@ -203,11 +206,11 @@ impl<'w, 's> Diagnostics<'w, 's> {
         });
         if new_filtered_issues != *filtered_issues {
             self.change_filtered_issues
-                .send(Change::new(new_filtered_issues, root));
+                .write(Change::new(new_filtered_issues, root));
         }
         if new_filtered_issue_kinds != *filtered_issue_kinds {
             self.change_filtered_issue_kinds
-                .send(Change::new(new_filtered_issue_kinds, root));
+                .write(Change::new(new_filtered_issue_kinds, root));
         }
         *self.display_diagnostics = state;
     }
@@ -242,7 +245,7 @@ impl FromWorld for IssueMenu {
         let tool_header = world.resource::<ToolMenu>().get();
         let diagnostic_tool = world
             .spawn(MenuItem::Text("Diagnostic Tool".into()))
-            .set_parent(tool_header)
+            .insert(ChildOf(tool_header))
             .id();
 
         IssueMenu { diagnostic_tool }
