@@ -267,8 +267,16 @@ impl Plugin for SitePlugin {
             ChangePlugin::<ModelProperty<Scale>>::default(),
             ChangePlugin::<ModelProperty<IsStatic>>::default(),
             RecallPlugin::<RecallInstance>::default(),
-            PropertyPlugin::<Pose, InstanceModifier, InstanceMarker>::default(),
-            PropertyPlugin::<Visibility, InstanceModifier, InstanceMarker>::default(),
+            PropertyPlugin::<
+                Pose,
+                InstanceModifier,
+                (With<InstanceMarker>, Without<Pending>),
+            >::default(),
+            PropertyPlugin::<
+                Visibility,
+                InstanceModifier,
+                (With<InstanceMarker>, Without<Pending>),
+            >::default(),
         ))
         .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
         .add_issue_type(&DUPLICATED_LIFT_NAME_ISSUE_UUID, "Duplicate lift name")

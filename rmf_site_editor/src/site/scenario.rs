@@ -91,6 +91,75 @@ impl Modifier<Pose> for InstanceModifier {
     fn get(&self) -> Option<Pose> {
         self.pose()
     }
+
+    fn insert_modifier(for_element: Entity, in_scenario: Entity, value: Pose, world: &mut World) {
+        let mut state: SystemState<(
+            Query<(&mut InstanceModifier, &Affiliation<Entity>)>,
+            Query<
+                (Entity, &ScenarioModifiers<Entity>, Ref<Affiliation<Entity>>),
+                With<ScenarioMarker>,
+            >,
+            EventWriter<AddModifier>,
+        )> = SystemState::new(world);
+        let (mut instance_modifiers, scenarios, _) = state.get_mut(world);
+
+        // Insert instance modifier entities when new model instances are spawned and placed
+        let Ok((_, scenario_modifiers, _)) = scenarios.get(in_scenario) else {
+            return;
+        };
+        let mut new_modifiers = Vec::<(InstanceModifier, Entity)>::new();
+
+        if let Some((mut instance_modifier, _)) = scenario_modifiers
+            .get(&for_element)
+            .and_then(|e| instance_modifiers.get_mut(*e).ok())
+        {
+            // If an instance modifier entity already exists for this scenario, update it
+            let instance_modifier = instance_modifier.as_mut();
+            match instance_modifier {
+                InstanceModifier::Added(_) => {
+                    *instance_modifier = InstanceModifier::added(value.clone())
+                }
+                InstanceModifier::Inherited(inherited) => {
+                    inherited.modified_pose = Some(value.clone())
+                }
+                InstanceModifier::Hidden => {}
+            }
+        } else {
+            // If instance modifier entity does not exist in this scenario, spawn one
+            new_modifiers.push((InstanceModifier::added(value.clone()), in_scenario));
+        }
+
+        // Retrieve root scenario of current scenario
+        let mut current_root_entity: Entity = in_scenario;
+        while let Ok((_, _, parent_scenario)) = scenarios.get(current_root_entity) {
+            if let Some(parent_scenario_entity) = parent_scenario.0 {
+                current_root_entity = parent_scenario_entity;
+            } else {
+                break;
+            }
+        }
+        // Insert instance modifier into all root scenarios outside of the current tree as hidden
+        for (scenario_entity, _, parent_scenario) in scenarios.iter() {
+            if parent_scenario.0.is_some() || scenario_entity == current_root_entity {
+                continue;
+            }
+            new_modifiers.push((InstanceModifier::Hidden, scenario_entity));
+        }
+
+        // Spawn all new modifier entities
+        let new_modifier_entities = new_modifiers
+            .iter()
+            .map(|(modifier, scenario)| (world.spawn(modifier.clone()).id(), *scenario))
+            .collect::<Vec<(Entity, Entity)>>();
+        let (_, _, mut add_modifier) = state.get_mut(world);
+        for (modifier_entity, scenario_entity) in new_modifier_entities.iter() {
+            add_modifier.write(AddModifier::new(
+                for_element,
+                *modifier_entity,
+                *scenario_entity,
+            ));
+        }
+    }
 }
 
 impl Property for Visibility {
@@ -191,7 +260,7 @@ pub fn update_model_instance_poses(
     };
 
     for (entity, new_pose) in changed_instances.iter() {
-        if new_pose.is_changed() {
+        if new_pose.is_changed() && !new_pose.is_added() {
             update_instance.write(UpdateInstanceEvent {
                 scenario: current_scenario_entity,
                 instance: entity,
@@ -201,16 +270,14 @@ pub fn update_model_instance_poses(
     }
 }
 
-// TODO(@xiyuoh) how to generalize add new modifiers when Property T is added
-// TODO(@xiyuoh) separate inserting when there is a new scenario and when there is a new property
-/// Creates and inserts instances modifiers when new scenarios or instances are added
+// TODO(@xiyuoh) Consider moving this into PropertyPlugin, i.e. insert modifier when new scenarios are added
+/// Creates and inserts instances modifiers when new scenarios are added
 pub fn insert_new_instance_modifiers(
     mut commands: Commands,
     mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
     mut add_modifier: EventWriter<AddModifier>,
-    mut instance_modifiers: Query<(&mut InstanceModifier, &Affiliation<Entity>)>,
     children: Query<&Children>,
-    current_scenario: Res<CurrentScenario>,
+    instance_modifiers: Query<(&InstanceModifier, &Affiliation<Entity>)>,
     model_instances: Query<(Entity, Ref<Pose>), Without<Pending>>,
     scenarios: Query<
         (
@@ -221,9 +288,6 @@ pub fn insert_new_instance_modifiers(
         With<ScenarioMarker>,
     >,
 ) {
-    let Some(current_scenario_entity) = current_scenario.0 else {
-        return;
-    };
     // Insert instance modifier entities when new scenarios are created
     for (scenario_entity, _, parent_scenario) in scenarios.iter() {
         if parent_scenario.is_added() {
@@ -254,71 +318,10 @@ pub fn insert_new_instance_modifiers(
             change_current_scenario.write(ChangeCurrentScenario(scenario_entity));
         }
     }
-
-    // TODO(@xiyuoh) move this "Pose is added" portion to PropertyPlugin
-    // Insert instance modifier entities when new model instances are spawned and placed
-    for (instance_entity, instance_pose) in model_instances.iter() {
-        if instance_pose.is_added() {
-            let Ok((_, current_scenario_modifiers, _)) = scenarios.get(current_scenario_entity)
-            else {
-                continue;
-            };
-            if let Some((mut instance_modifier, _)) = current_scenario_modifiers
-                .get(&instance_entity)
-                .and_then(|e| instance_modifiers.get_mut(*e).ok())
-            {
-                // If an instance modifier entity already exists for this scenario, update it
-                let instance_modifier = instance_modifier.as_mut();
-                match instance_modifier {
-                    InstanceModifier::Added(_) => {
-                        *instance_modifier = InstanceModifier::added(instance_pose.clone())
-                    }
-                    InstanceModifier::Inherited(inherited) => {
-                        inherited.modified_pose = Some(instance_pose.clone())
-                    }
-                    InstanceModifier::Hidden => {}
-                }
-            } else {
-                // If instance modifier entity does not exist in this scenario, spawn one
-                let modifier_entity = commands
-                    .spawn(InstanceModifier::added(instance_pose.clone()))
-                    .id();
-                add_modifier.write(AddModifier::new(
-                    instance_entity,
-                    modifier_entity,
-                    current_scenario_entity,
-                ));
-            }
-
-            // Retrieve root scenario of current scenario
-            let mut current_root_entity: Entity = current_scenario_entity;
-            while let Ok((_, _, parent_scenario)) = scenarios.get(current_root_entity) {
-                if let Some(parent_scenario_entity) = parent_scenario.0 {
-                    current_root_entity = parent_scenario_entity;
-                } else {
-                    break;
-                }
-            }
-
-            // Insert instance modifier into all root scenarios outside of the current tree as hidden
-            for (scenario_entity, _, parent_scenario) in scenarios.iter() {
-                if parent_scenario.0.is_some() || scenario_entity == current_root_entity {
-                    continue;
-                }
-                let modifier_entity = commands.spawn(InstanceModifier::Hidden).id();
-                add_modifier.write(AddModifier::new(
-                    instance_entity,
-                    modifier_entity,
-                    scenario_entity,
-                ));
-            }
-        }
-    }
 }
 
 #[derive(SystemParam)]
 pub struct InstanceParams<'w, 's> {
-    commands: Commands<'w, 's>,
     add_modifier: EventWriter<'w, AddModifier>,
     remove_modifier: EventWriter<'w, RemoveModifier>,
     instance_modifiers:
@@ -425,7 +428,8 @@ pub fn handle_instance_updates(
                     // Do not trigger PropertyPlugin<Pose> if pose for existing modifier
                     // was modified by user
                     world
-                        .entity_mut(update.instance)
+                        .commands()
+                        .entity(update.instance)
                         .insert(LastSetValue::<Pose>::new(new_pose));
                     continue;
                 }
@@ -455,7 +459,7 @@ pub fn handle_instance_updates(
                     continue;
                 }
             };
-            let modifier_entity = world.spawn(instance_modifier).id();
+            let modifier_entity = world.commands().spawn(instance_modifier).id();
             let (_, mut params) = state.get_mut(world);
             params.add_modifier.write(AddModifier::new(
                 update.instance,
@@ -465,7 +469,9 @@ pub fn handle_instance_updates(
             continue;
         }
 
-        world.trigger(UpdateProperty::new(update.instance, update.scenario));
+        world
+            .commands()
+            .trigger(UpdateProperty::new(update.instance, update.scenario));
     }
 }
 
