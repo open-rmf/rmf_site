@@ -23,20 +23,24 @@ use crate::{
     Issue, ValidateWorkspace,
 };
 use bevy::{
-    ecs::{component::Mutable, hierarchy::ChildOf, system::SystemParam},
+    ecs::{
+        component::Mutable,
+        hierarchy::ChildOf,
+        system::{SystemParam, SystemState},
+    },
     prelude::*,
 };
 use std::fmt::Debug;
 use uuid::Uuid;
 
 pub trait Property: Component<Mutability = Mutable> + Debug + Default + Clone {
-    fn get_fallback(for_element: Entity, in_scenario: Entity) -> Self;
+    fn get_fallback(_for_element: Entity, _in_scenario: Entity, _world: &mut World) -> Self;
 }
 
-pub trait StandardProperty {}
+pub trait StandardProperty: Component<Mutability = Mutable> + Debug + Default + Clone {}
 
 impl<T: StandardProperty> Property for T {
-    fn get_fallback(for_element: Entity, in_scenario: Entity) -> Self {
+    fn get_fallback(_for_element: Entity, _in_scenario: Entity, _world: &mut World) -> Self {
         T::default()
     }
 }
@@ -111,39 +115,55 @@ impl<T: Property, S: Modifier<T>, M: Component<Mutability = Mutable>> Plugin
     fn build(&self, app: &mut App) {
         app.add_event::<UpdateProperty>().add_observer(
             |trigger: Trigger<UpdateProperty>,
-             mut values: Query<&mut T, With<M>>,
-             mut commands: Commands,
-             mut add_modifier: EventWriter<AddModifier>,
-             current_scenario: Res<CurrentScenario>,
-             get_modifier: GetModifier<S>| {
+             world: &mut World,
+             state: &mut SystemState<(
+                Query<&mut T, With<M>>,
+                EventWriter<AddModifier>,
+                Res<CurrentScenario>,
+                GetModifier<S>,
+            )>| {
+                let (_, _, current_scenario, get_modifier) = state.get_mut(world);
                 let event = trigger.event();
                 // Only update current scenario properties
                 if !current_scenario.0.is_some_and(|e| e == event.in_scenario) {
                     return;
                 }
 
-                if let Ok(mut value) = values.get_mut(event.for_element) {
-                    if let Some(modifier) = get_modifier.get(event.in_scenario, event.for_element) {
-                        *value = modifier
-                            .get()
-                            .or_else(|| {
-                                modifier.retrieve_inherited(
-                                    event.for_element,
-                                    event.in_scenario,
-                                    &get_modifier,
-                                )
-                            })
-                            .unwrap_or(T::get_fallback(event.for_element, event.in_scenario));
-                    } else {
-                        // No modifier exists for this scenario/element pairing
-                        // Make sure that a modifier exists in the current scenario tree
-                        let root_modifier_entity = commands.spawn(S::default()).id();
-                        add_modifier.write(AddModifier::new_to_root(
-                            event.for_element,
-                            root_modifier_entity,
-                            event.in_scenario,
-                        ));
-                    }
+                let new_value = if let Some(modifier) =
+                    get_modifier.get(event.in_scenario, event.for_element)
+                {
+                    modifier
+                        .get()
+                        .or_else(|| {
+                            modifier.retrieve_inherited(
+                                event.for_element,
+                                event.in_scenario,
+                                &get_modifier,
+                            )
+                        })
+                        .unwrap_or(T::get_fallback(event.for_element, event.in_scenario, world))
+                } else {
+                    // No modifier exists for this scenario/element pairing
+                    // Make sure that a modifier exists in the current scenario tree
+                    let root_modifier_entity = world.spawn(S::default()).id();
+                    let (_, mut add_modifier, _, _) = state.get_mut(world);
+                    add_modifier.write(AddModifier::new_to_root(
+                        event.for_element,
+                        root_modifier_entity,
+                        event.in_scenario,
+                    ));
+                    return;
+                };
+
+                let (mut values, _, _, _) = state.get_mut(world);
+                let changed = values.get_mut(event.for_element).is_ok_and(|mut value| {
+                    *value = new_value.clone();
+                    true
+                });
+                if changed {
+                    world
+                        .entity_mut(event.for_element)
+                        .insert(LastSetValue::<T>::new(new_value));
                 }
             },
         );
@@ -165,7 +185,7 @@ pub struct GetModifier<'w, 's, T: Component<Mutability = Mutable> + Clone + Defa
 }
 
 impl<'w, 's, T: Component<Mutability = Mutable> + Clone + Default> GetModifier<'w, 's, T> {
-    pub fn get(&self, scenario: Entity, entity: Entity) -> Option<&T> {
+    pub fn get(&self, scenario: Entity, element: Entity) -> Option<&T> {
         let mut modifier: Option<&T> = None;
         let mut scenario_entity = scenario;
         while modifier.is_none() {
@@ -174,7 +194,7 @@ impl<'w, 's, T: Component<Mutability = Mutable> + Clone + Default> GetModifier<'
                 break;
             };
             if let Some(target_modifier) = scenario_modifiers
-                .get(&entity)
+                .get(&element)
                 .and_then(|e| self.modifiers.get(*e).ok())
             {
                 modifier = Some(target_modifier);
@@ -232,6 +252,15 @@ impl RemoveModifier {
             for_element,
             in_scenario,
         }
+    }
+}
+
+#[derive(Component, Clone, Debug)]
+pub struct LastSetValue<T: Property>(pub T);
+
+impl<T: Property> LastSetValue<T> {
+    pub fn new(value: T) -> Self {
+        Self(value)
     }
 }
 

@@ -19,8 +19,8 @@ use crate::{
     interaction::Selection,
     site::{
         Affiliation, CurrentScenario, Delete, GetModifier, Group, InstanceModifier, Members,
-        ModelMarker, Modifier, NameInSite, Property, ScenarioMarker, ScenarioModifiers,
-        UpdateInstance, UpdateInstanceEvent,
+        ModelMarker, Modifier, NameInSite, ScenarioMarker, ScenarioModifiers, UpdateInstance,
+        UpdateInstanceEvent,
     },
     widgets::{prelude::*, SelectorWidget},
     Icons,
@@ -182,7 +182,7 @@ fn check_instance_modifier_inclusion(
         .or_else(|| {
             instance_modifier.retrieve_inherited(instance_entity, scenario_entity, get_modifier)
         })
-        .unwrap_or(Visibility::get_fallback(instance_entity, scenario_entity));
+        .unwrap_or(Visibility::Hidden);
     match visibility {
         Visibility::Hidden => false,
         _ => true,
