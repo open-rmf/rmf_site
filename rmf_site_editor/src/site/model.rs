@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::{DragPlaneBundle, Preview, MODEL_PREVIEW_LAYER},
-    site::{Delete, SiteAssets},
+    site::{CurrentScenario, Delete, SiteAssets, UpdateProperty},
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
     Issue, ValidateWorkspace,
 };
@@ -36,8 +36,8 @@ use bevy::{
 use bevy_impulse::*;
 use bevy_mod_outline::{GenerateOutlineNormalsSettings, OutlineMeshExt};
 use rmf_site_format::{
-    Affiliation, AssetSource, Group, InstanceMarker, IssueKey, ModelInstance, ModelMarker,
-    ModelProperty, NameInSite, Pending, Scale,
+    Affiliation, AssetSource, Group, IssueKey, ModelInstance, ModelMarker, ModelProperty,
+    NameInSite, Pending, Scale,
 };
 use smallvec::SmallVec;
 use std::{any::TypeId, collections::HashSet, fmt, future::Future};
@@ -767,11 +767,11 @@ pub fn make_models_selectable(
 pub fn make_models_visible(
     In(req): In<ModelLoadingRequest>,
     mut commands: Commands,
-    mut model_instances: Query<(&mut Visibility, &PendingModel), With<InstanceMarker>>,
+    current_scenario: Res<CurrentScenario>,
 ) -> ModelLoadingRequest {
-    if let Ok((mut visibility, _)) = model_instances.get_mut(req.parent) {
+    if let Some(current_scenario_entity) = current_scenario.0 {
         commands.entity(req.parent).remove::<PendingModel>();
-        *visibility = Visibility::default();
+        commands.trigger(UpdateProperty::new(req.parent, current_scenario_entity));
     }
     req
 }
