@@ -270,16 +270,8 @@ impl Plugin for SitePlugin {
             ChangePlugin::<ModelProperty<Scale>>::default(),
             ChangePlugin::<ModelProperty<IsStatic>>::default(),
             RecallPlugin::<RecallInstance>::default(),
-            PropertyPlugin::<
-                Pose,
-                InstanceModifier,
-                (With<InstanceMarker>, Without<Pending>),
-            >::default(),
-            PropertyPlugin::<
-                Visibility,
-                InstanceModifier,
-                (With<InstanceMarker>, Without<Pending>),
-            >::default(),
+            PropertyPlugin::<Pose, InstanceModifier, With<InstanceMarker>>::default(),
+            PropertyPlugin::<Visibility, InstanceModifier, With<InstanceMarker>>::default(),
         ))
         .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
         .add_issue_type(&DUPLICATED_LIFT_NAME_ISSUE_UUID, "Duplicate lift name")
@@ -361,6 +353,7 @@ impl Plugin for SitePlugin {
         .add_systems(
             PostUpdate,
             (
+                update_anchor_transforms,
                 add_door_visuals,
                 update_changed_door,
                 update_door_for_moved_anchors,
@@ -387,7 +380,6 @@ impl Plugin for SitePlugin {
         .add_systems(
             PostUpdate,
             (
-                update_anchor_transforms,
                 update_changed_lane,
                 update_lane_for_moved_anchor,
                 remove_association_for_deleted_graphs,

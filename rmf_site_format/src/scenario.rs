@@ -132,12 +132,6 @@ impl<T: RefTrait> Default for ScenarioModifiers<T> {
     }
 }
 
-impl<T: RefTrait> ScenarioModifiers<T> {
-    pub fn get_modifiers(&self, entity: T) -> Option<T> {
-        self.0.get(&entity).copied()
-    }
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]

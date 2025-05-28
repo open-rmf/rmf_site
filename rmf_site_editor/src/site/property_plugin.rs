@@ -124,6 +124,8 @@ fn update_property_value<T: Property, M: Modifier<T>, F: QueryFilter + 'static +
         return;
     };
 
+    // TODO(@xiyuoh) Pose and visibility changes are currently not being updated all at one go
+    // Consider using EventReader instead of observer for value updates
     let (mut values, _, _, _) = state.get_mut(world);
     let changed = values.get_mut(event.for_element).is_ok_and(|mut value| {
         *value = new_value.clone();
