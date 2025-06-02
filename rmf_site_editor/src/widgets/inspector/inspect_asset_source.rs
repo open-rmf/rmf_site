@@ -20,10 +20,10 @@ use crate::{
     widgets::prelude::*,
     CurrentWorkspace,
 };
-use bevy::prelude::{EventWriter, Query, Res};
+use bevy::prelude::*;
 use bevy_egui::egui::{ComboBox, Ui};
 use pathdiff::diff_paths;
-use rmf_site_format::{AssetSource, RecallAssetSource};
+use rmf_site_format::{Affiliation, AssetSource, RecallAssetSource};
 
 #[cfg(not(target_arch = "wasm32"))]
 use rfd::FileDialog;
@@ -155,7 +155,12 @@ impl<'a> InspectAssetSourceComponent<'a> {
 
 #[derive(SystemParam)]
 pub struct InspectAssetSource<'w, 's> {
-    query: Query<'w, 's, (&'static AssetSource, &'static RecallAssetSource)>,
+    query: Query<
+        'w,
+        's,
+        (&'static AssetSource, &'static RecallAssetSource),
+        Without<Affiliation<Entity>>,
+    >,
     default_file: Query<'w, 's, &'static DefaultFile>,
     current_workspace: Res<'w, CurrentWorkspace>,
     change_asset_source: EventWriter<'w, Change<AssetSource>>,
