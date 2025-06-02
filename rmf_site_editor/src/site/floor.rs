@@ -312,17 +312,18 @@ pub fn update_floors_for_moved_anchors(
         ),
     >,
     mut mesh_assets: ResMut<Assets<Mesh>>,
-    mut mesh_handles: Query<&mut Mesh3d>,
+    mesh_handles: Query<&Mesh3d>,
     lifts: Query<(&Transform, &LiftCabin<Entity>)>,
 ) {
     for dependents in &changed_anchors {
         for dependent in dependents.iter() {
             if let Some((e, segments, path, texture_source)) = floors.get(*dependent).ok() {
                 let (_, texture) = from_texture_source(texture_source, &textures);
-                if let Ok(mut mesh) = mesh_handles.get_mut(segments.mesh) {
-                    *mesh = Mesh3d(
-                        mesh_assets.add(make_floor_mesh(e, path, &texture, &anchors, &lifts)),
-                    );
+                if let Ok(mesh_handle) = mesh_handles.get(segments.mesh) {
+                    let Some(mesh) = mesh_assets.get_mut(&mesh_handle.0) else {
+                        continue;
+                    };
+                    *mesh = make_floor_mesh(e, path, &texture, &anchors, &lifts);
                 }
             }
         }
@@ -344,7 +345,7 @@ pub fn update_floors(
     >,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut mesh_handles: Query<&mut Mesh3d>,
+    mesh_handles: Query<&Mesh3d>,
     material_handles: Query<&MeshMaterial3d<StandardMaterial>>,
     anchors: AnchorParams,
     textures: Query<(Option<&TextureImage>, &Texture)>,
@@ -359,9 +360,12 @@ pub fn update_floors(
             continue;
         };
         let (base_color_texture, texture) = from_texture_source(texture_source, &textures);
-        if let Ok(mut mesh) = mesh_handles.get_mut(segment.mesh) {
+        if let Ok(mesh_handle) = mesh_handles.get(segment.mesh) {
             if let Ok(material) = material_handles.get(segment.mesh) {
-                *mesh = Mesh3d(meshes.add(make_floor_mesh(e, path, &texture, &anchors, &lifts)));
+                let Some(mesh) = meshes.get_mut(&mesh_handle.0) else {
+                    continue;
+                };
+                *mesh = make_floor_mesh(e, path, &texture, &anchors, &lifts);
                 if let Some(material) = materials.get_mut(material) {
                     material.base_color_texture = base_color_texture;
                 }

@@ -99,7 +99,7 @@ pub fn add_wall_visual(
 }
 
 pub fn update_walls_for_moved_anchors(
-    mut walls: Query<(Entity, &Edge<Entity>, &Affiliation<Entity>, &mut Mesh3d), With<WallMarker>>,
+    walls: Query<(Entity, &Edge<Entity>, &Affiliation<Entity>, &Mesh3d), With<WallMarker>>,
     anchors: AnchorParams,
     textures: Query<(Option<&TextureImage>, &Texture)>,
     changed_anchors: Query<
@@ -113,20 +113,23 @@ pub fn update_walls_for_moved_anchors(
 ) {
     for dependents in &changed_anchors {
         for dependent in dependents.iter() {
-            if let Some((e, edge, texture_source, mut mesh)) = walls.get_mut(*dependent).ok() {
+            if let Some((e, edge, texture_source, mesh)) = walls.get(*dependent).ok() {
                 let (_, texture) = from_texture_source(texture_source, &textures);
-                *mesh = Mesh3d(meshes.add(make_wall(e, edge, &texture, &anchors)));
+                let Some(mesh) = meshes.get_mut(&mesh.0) else {
+                    continue;
+                };
+                *mesh = make_wall(e, edge, &texture, &anchors);
             }
         }
     }
 }
 
 pub fn update_walls(
-    mut walls: Query<
+    walls: Query<
         (
             &Edge<Entity>,
             &Affiliation<Entity>,
-            &mut Mesh3d,
+            &Mesh3d,
             &MeshMaterial3d<StandardMaterial>,
         ),
         With<WallMarker>,
@@ -152,11 +155,14 @@ pub fn update_walls(
             .iter()
             .flat_map(|members| members.iter().cloned()),
     ) {
-        let Ok((edge, texture_source, mut mesh, material)) = walls.get_mut(e) else {
+        let Ok((edge, texture_source, mesh, material)) = walls.get(e) else {
             continue;
         };
         let (base_color_texture, texture) = from_texture_source(texture_source, &textures);
-        *mesh = Mesh3d(meshes.add(make_wall(e, edge, &texture, &anchors)));
+        let Some(mesh) = meshes.get_mut(&mesh.0) else {
+            continue;
+        };
+        *mesh = make_wall(e, edge, &texture, &anchors);
         if let Some(material) = materials.get_mut(material) {
             let (base_color, alpha_mode) = if let Some(alpha) = texture.alpha.filter(|a| a < &1.0) {
                 (Color::default().with_alpha(alpha), AlphaMode::Blend)
