@@ -1,8 +1,6 @@
 [workspace]
 members = [
-    "rmf_site_editor",
-    "rmf_site_editor_web",
-    "rmf_site_format",
+    "crates/*"
 ]
 
 # This is needed for packages that are part of a workspace to use the 2nd version
