@@ -23,7 +23,7 @@ jobs:
         rustup component add rustfmt
 
     - name: style
-      run: rustfmt --check --edition 2021 crates/rmf_site_format/src/lib.rs rmf_site_editor/src/lib.rs rmf_site_editor/src/main.rs
+      run: rustfmt --check --edition 2021 crates/rmf_site_format/src/lib.rs crates/rmf_site_editor/src/lib.rs crates/rmf_site_editor/src/main.rs
 
     - name: minimal feature build
       run: cd crates/rmf_site_format && cargo check --no-default-features
