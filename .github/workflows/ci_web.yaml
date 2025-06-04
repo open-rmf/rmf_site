@@ -40,7 +40,7 @@ jobs:
 
     - name: build rmf_site_format
       run: |
-        cd rmf_site_format
+        cd crates/rmf_site_format
         cargo build
 
     - name: build rmf_site_editor

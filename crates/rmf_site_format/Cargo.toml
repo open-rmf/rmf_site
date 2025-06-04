@@ -1,0 +1,33 @@
+[package]
+name = "rmf_site_format"
+version = "0.0.1"
+edition = "2021"
+authors = ["Grey <grey@openrobotics.org>"]
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_yaml = {workspace = true}
+serde_json = {workspace = true}
+ron = {workspace = true}
+thiserror = {workspace = true}
+glam = { workspace = true, features = ["serde"] }
+uuid = { workspace = true, features = ["v4", "serde"] }
+# add features=["bevy"] to a dependent Cargo.toml to get the bevy-related features
+bevy = { workspace = true, optional = true }
+sdformat_rs = { workspace = true }
+yaserde = {workspace = true}
+# We depend on a bugfix released specifically in 0.7.3
+urdf-rs = { workspace = true, optional = true }
+# Used for lazy initialization of static variable when they are non const
+once_cell = {workspace = true}
+pathdiff = {workspace = true}
+
+[dev-dependencies]
+float_eq = {workspace = true}
+
+[features]
+urdf = ["dep:urdf-rs"]
+default = ["urdf"]
