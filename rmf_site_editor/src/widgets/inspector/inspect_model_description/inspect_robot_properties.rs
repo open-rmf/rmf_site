@@ -19,8 +19,8 @@ use super::*;
 use crate::{
     site::{
         recall_plugin::UpdateRecallSet, update_model_instances, Change, ChangePlugin, Group,
-        IssueKey, ModelMarker, ModelProperty, NameInSite, Recall, RecallPlugin, Robot,
-        SiteUpdateSet,
+        IssueKey, ModelMarker, ModelProperty, NameInSite, Recall, RecallPlugin, RecallPropertyKind,
+        Robot, RobotProperty, RobotPropertyKind, SiteUpdateSet,
     },
     widgets::Inspect,
     AppState, Issue, ModelPropertyData, ValidateWorkspace,
@@ -30,7 +30,6 @@ use bevy::{
     prelude::Component,
 };
 use bevy_egui::egui::{ComboBox, Ui};
-use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{Error, Map, Value};
 use smallvec::SmallVec;
 use std::collections::HashMap;
@@ -176,37 +175,6 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectRobotProperties<'w, 's> {
         });
         ui.add_space(10.0);
     }
-}
-
-pub trait RobotProperty:
-    'static
-    + Send
-    + Sync
-    + Default
-    + Clone
-    + Component<Mutability = Mutable>
-    + PartialEq
-    + Serialize
-    + DeserializeOwned
-{
-    fn new(kind: String, config: serde_json::Value) -> Self;
-
-    fn is_default(&self) -> bool;
-
-    fn kind(&self) -> Option<String>;
-
-    fn label() -> String;
-}
-
-pub trait RobotPropertyKind:
-    'static + Send + Sync + Default + Clone + Component + PartialEq + Serialize + DeserializeOwned
-{
-    fn label() -> String;
-}
-
-pub trait RecallPropertyKind: Recall + Default + Component<Mutability = Mutable> {
-    type Kind: RobotPropertyKind;
-    fn assume(&self) -> Self::Kind;
 }
 
 /// Implement this plugin to add a new configurable robot property of type T to the

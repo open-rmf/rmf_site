@@ -18,73 +18,22 @@
 use super::{
     get_selected_description_entity,
     inspect_robot_properties::{
-        serialize_and_change_robot_property, show_robot_property_widget, RecallPropertyKind,
-        RobotProperty, RobotPropertyKind, RobotPropertyWidgetRegistry,
+        serialize_and_change_robot_property, show_robot_property_widget,
+        RobotPropertyWidgetRegistry,
     },
     ModelPropertyQuery,
 };
 use crate::{
-    site::{Change, Group, ModelMarker, ModelProperty, Pose, Robot},
+    site::{
+        Change, CircleCollision, Collision, Group, ModelMarker, ModelProperty, Pose,
+        RecallCollision, Robot, RobotProperty,
+    },
     widgets::{prelude::*, Inspect},
 };
 use bevy::color::palettes::css as Colors;
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{DragValue, Grid, Ui};
-use rmf_site_format::Recall;
-use serde::{Deserialize, Serialize};
-use serde_json::Map;
 use smallvec::SmallVec;
-
-#[derive(Serialize, Deserialize, Debug, Clone, Component, PartialEq)]
-pub struct Collision {
-    pub kind: String,
-    pub config: serde_json::Value,
-}
-
-impl Default for Collision {
-    fn default() -> Self {
-        Self {
-            kind: String::new(),
-            config: serde_json::Value::Object(Map::new()),
-        }
-    }
-}
-
-impl RobotProperty for Collision {
-    fn new(kind: String, config: serde_json::Value) -> Self {
-        Self { kind, config }
-    }
-
-    fn is_default(&self) -> bool {
-        if *self == Self::default() {
-            return true;
-        }
-        false
-    }
-
-    fn kind(&self) -> Option<String> {
-        Some(self.kind.clone())
-    }
-
-    fn label() -> String {
-        "Collision".to_string()
-    }
-}
-
-#[derive(Clone, Debug, Default, Component, PartialEq)]
-pub struct RecallCollision {
-    pub kind: Option<String>,
-    pub config: Option<serde_json::Value>,
-}
-
-impl Recall for RecallCollision {
-    type Source = Collision;
-
-    fn remember(&mut self, source: &Collision) {
-        self.kind = Some(source.kind.clone());
-        self.config = Some(source.config.clone());
-    }
-}
 
 #[derive(SystemParam)]
 pub struct InspectCollision<'w, 's> {
@@ -160,54 +109,6 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectCollision<'w, 's> {
                 let _ = world.try_show_in(child, inspect, ui);
             }
         }
-    }
-}
-
-// Supported kinds of Collision
-#[derive(Serialize, Deserialize, Debug, Clone, Component, PartialEq, Reflect)]
-pub struct CircleCollision {
-    pub radius: f32,
-    pub offset: [f32; 2],
-}
-
-impl Default for CircleCollision {
-    fn default() -> Self {
-        Self {
-            radius: 0.0,
-            offset: [0.0, 0.0],
-        }
-    }
-}
-
-impl RobotPropertyKind for CircleCollision {
-    fn label() -> String {
-        "Circle Collision".to_string()
-    }
-}
-
-#[derive(Clone, Debug, Default, Component, PartialEq)]
-pub struct RecallCircleCollision {
-    pub radius: Option<f32>,
-    pub offset: Option<[f32; 2]>,
-}
-
-impl RecallPropertyKind for RecallCircleCollision {
-    type Kind = CircleCollision;
-
-    fn assume(&self) -> CircleCollision {
-        CircleCollision {
-            radius: self.radius.clone().unwrap_or_default(),
-            offset: self.offset.clone().unwrap_or_default(),
-        }
-    }
-}
-
-impl Recall for RecallCircleCollision {
-    type Source = CircleCollision;
-
-    fn remember(&mut self, source: &CircleCollision) {
-        self.radius = Some(source.radius);
-        self.offset = Some(source.offset);
     }
 }
 

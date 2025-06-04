@@ -17,8 +17,8 @@
 
 use crate::{
     site::{
-        Change, ExportHandler, ExportHandlers, ExportWith, Group, IsStatic, ModelMarker,
-        ModelProperty, Robot,
+        Change, DifferentialDrive, ExportHandler, ExportHandlers, ExportWith, Group, IsStatic,
+        Mobility, ModelMarker, ModelProperty, Robot,
     },
     widgets::inspector::*,
 };

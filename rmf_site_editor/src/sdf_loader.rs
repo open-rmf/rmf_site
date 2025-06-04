@@ -23,10 +23,7 @@ use thiserror::Error;
 
 use sdformat_rs::{SdfGeometry, SdfPose, Vector3d};
 
-use crate::{
-    site::{CollisionMeshMarker, VisualMeshMarker},
-    widgets::DifferentialDrive,
-};
+use crate::site::{CollisionMeshMarker, DifferentialDrive, VisualMeshMarker};
 use rmf_site_format::{
     Angle, AssetSource, Category, IsStatic, Model, ModelMarker, NameInSite, Pose, PrimitiveShape,
     Rotation, Scale,
