@@ -72,7 +72,7 @@ pub fn insert_slotcar_differential_drive(
                     Ok(ModelProperty(r)) => r.clone(),
                     Err(_) => Robot::default(),
                 };
-                serialize_and_change_robot_property::<Mobility, DifferentialDrive>(
+                serialize_and_change_robot_property_kind::<Mobility, DifferentialDrive>(
                     &mut change_robot_property,
                     diff_drive.clone(),
                     &robot,

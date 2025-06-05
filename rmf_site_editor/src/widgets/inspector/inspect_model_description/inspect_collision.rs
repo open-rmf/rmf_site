@@ -18,7 +18,7 @@
 use super::{
     get_selected_description_entity,
     inspect_robot_properties::{
-        serialize_and_change_robot_property, show_robot_property_widget,
+        serialize_and_change_robot_property_kind, show_robot_property_widget,
         RobotPropertyWidgetRegistry,
     },
     ModelPropertyQuery,
@@ -197,7 +197,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectCircleCollision<'w, 's> {
         });
 
         if new_circle_collision != *circle_collision {
-            serialize_and_change_robot_property::<Collision, CircleCollision>(
+            serialize_and_change_robot_property_kind::<Collision, CircleCollision>(
                 &mut params.change_robot_property,
                 new_circle_collision,
                 robot,

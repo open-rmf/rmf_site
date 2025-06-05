@@ -18,7 +18,7 @@
 use super::{
     get_selected_description_entity,
     inspect_robot_properties::{
-        serialize_and_change_robot_property, show_robot_property_widget,
+        serialize_and_change_robot_property_kind, show_robot_property_widget,
         RobotPropertyWidgetRegistry,
     },
     ModelPropertyQuery,
@@ -211,7 +211,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectDifferentialDrive<'w, 's> {
         });
 
         if new_differential_drive != *differential_drive {
-            serialize_and_change_robot_property::<Mobility, DifferentialDrive>(
+            serialize_and_change_robot_property_kind::<Mobility, DifferentialDrive>(
                 &mut params.change_robot_property,
                 new_differential_drive,
                 robot,

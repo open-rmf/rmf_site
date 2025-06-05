@@ -22,7 +22,8 @@ use bevy::{
     prelude::{Component, *},
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use serde_json::Map;
+use serde_json::{Map, Value};
+use thiserror::Error;
 
 pub trait RobotProperty:
     'static
@@ -53,6 +54,116 @@ pub trait RobotPropertyKind:
 pub trait RecallPropertyKind: Recall + Default + Component<Mutability = Mutable> {
     type Kind: RobotPropertyKind;
     fn assume(&self) -> Self::Kind;
+}
+
+#[derive(Debug, Error)]
+pub enum RobotPropertyError {
+    #[error("Robot property [{0}] is not found on this robot")]
+    PropertyNotFound(String),
+    #[error("Robot property kind [{0}] is not found in this robot")]
+    PropertyKindNotFound(String),
+    #[error("Failed serializing robot property kind: {0}")]
+    SerializePropertyError(String),
+    #[error("Failed serializing robot property: {0}")]
+    SerializePropertyKindError(String),
+    #[error("Failed deserializing robot property: {0}")]
+    DeserializePropertyError(String),
+    #[error("Failed deserializing robot property kind: {0}")]
+    DeserializePropertyKindError(String),
+}
+
+pub fn serialize_robot_property<Property: RobotProperty>(
+    property: Property,
+) -> Result<Value, RobotPropertyError> {
+    serde_json::to_value(property)
+        .map_err(|_| RobotPropertyError::SerializePropertyError(Property::label()))
+}
+
+pub fn serialize_robot_property_from_kind<Property: RobotProperty, Kind: RobotPropertyKind>(
+    property_kind: Kind,
+) -> Result<Value, RobotPropertyError> {
+    let label = Kind::label();
+    serde_json::to_value(property_kind)
+        .map_err(|_| RobotPropertyError::SerializePropertyKindError(label.clone()))
+        .map(|val| Property::new(label, val))
+        .and_then(|new_property| serialize_robot_property::<Property>(new_property))
+}
+
+pub fn serialize_robot_property_kind<Property: RobotProperty, Kind: RobotPropertyKind>(
+    property_kind: Kind,
+) -> Result<Value, RobotPropertyError> {
+    let label = Kind::label();
+    serde_json::to_value(property_kind)
+        .map_err(|_| RobotPropertyError::SerializePropertyKindError(label))
+}
+
+pub fn deserialize_robot_property<Property: RobotProperty>(
+    value: serde_json::Value,
+) -> Result<Property, RobotPropertyError> {
+    serde_json::from_value::<Property>(value)
+        .map_err(|_| RobotPropertyError::DeserializePropertyError(Property::label()))
+}
+
+pub fn deserialize_robot_property_kind<Kind: RobotPropertyKind>(
+    value: serde_json::Value,
+) -> Result<Kind, RobotPropertyError> {
+    serde_json::from_value::<Kind>(value)
+        .map_err(|_| RobotPropertyError::DeserializePropertyKindError(Kind::label()))
+}
+
+/// Returns the specified RobotProperty if it is present in this robot
+pub fn retrieve_robot_property<Property: RobotProperty>(
+    robot: Robot,
+) -> Result<(Property, Value), RobotPropertyError> {
+    let property_label = Property::label();
+
+    match robot.properties.get(&property_label) {
+        Some(property_value) => {
+            if property_value.as_object().is_none_or(|m| m.is_empty()) {
+                // Robot property does not have/require any nested value, return default
+                // TODO(@xiyuoh) check again why do we want to force this to be Value::Object
+                Ok((Property::default(), Value::Object(Map::new())))
+            } else {
+                deserialize_robot_property::<Property>(property_value.clone())
+                    .map(|property| (property.clone(), property_value.clone()))
+            }
+        }
+        None => Err(RobotPropertyError::PropertyNotFound(property_label)),
+    }
+}
+
+/// Returns the specified RobotPropertyKind if it is present in this serialized RobotProperty
+pub fn retrieve_robot_property_kind<
+    Kind: RobotPropertyKind,
+    Property: RobotProperty,
+    RecallKind: RecallPropertyKind<Kind = Kind>,
+>(
+    value: Value,
+    recall_kind: Option<&RecallKind>,
+) -> Result<Kind, RobotPropertyError> {
+    if let Some(property) = value.as_object() {
+        if property
+            .get("kind")
+            .and_then(|kind| kind.as_str())
+            .is_some_and(|label| label == Kind::label().as_str())
+        {
+            let kind = match property
+                .get("config")
+                .and_then(|config| deserialize_robot_property_kind::<Kind>(config.clone()).ok())
+            {
+                Some(property_kind) => {
+                    if let Some(recall) = recall_kind.filter(|_| property_kind == Kind::default()) {
+                        recall.assume()
+                    } else {
+                        property_kind
+                    }
+                }
+                None => Kind::default(),
+            };
+            return Ok(kind);
+        }
+    }
+    Err(RobotPropertyError::PropertyKindNotFound(Kind::label()))
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
