@@ -1116,8 +1116,7 @@ dependencies = [
 [[package]]
 name = "bevy_mod_outline"
 version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4fb205ce648281ec42dc1f82bb3143ff7c8b244974db5216bcd8c3b8a650cc6"
+source = "git+https://github.com/komadori/bevy_mod_outline?rev=0798a93#0798a93f725be937037aae3290900a9c8309651d"
 dependencies = [
  "bevy",
  "bitfield 0.15.0",
