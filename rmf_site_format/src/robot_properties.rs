@@ -238,9 +238,7 @@ pub struct DifferentialDrive {
     pub bidirectional: bool,
     pub rotation_center_offset: [f32; 2],
     pub translational_speed: f32,
-    pub translational_acceleration: f32,
     pub rotational_speed: f32,
-    pub rotational_acceleration: f32,
 }
 
 impl Default for DifferentialDrive {
@@ -249,9 +247,7 @@ impl Default for DifferentialDrive {
             bidirectional: false,
             rotation_center_offset: [0.0, 0.0],
             translational_speed: 0.5,
-            translational_acceleration: 0.25,
             rotational_speed: 1.0,
-            rotational_acceleration: 1.5,
         }
     }
 }
@@ -269,9 +265,7 @@ pub struct RecallDifferentialDrive {
     pub bidirectional: Option<bool>,
     pub rotation_center_offset: Option<[f32; 2]>,
     pub translational_speed: Option<f32>,
-    pub translational_acceleration: Option<f32>,
     pub rotational_speed: Option<f32>,
-    pub rotational_acceleration: Option<f32>,
 }
 
 #[cfg(feature = "bevy")]
@@ -283,9 +277,7 @@ impl RecallPropertyKind for RecallDifferentialDrive {
             bidirectional: self.bidirectional.clone().unwrap_or(false),
             rotation_center_offset: self.rotation_center_offset.clone().unwrap_or([0.0, 0.0]),
             translational_speed: self.translational_speed.clone().unwrap_or(0.5),
-            translational_acceleration: self.translational_acceleration.clone().unwrap_or(0.25),
             rotational_speed: self.rotational_speed.clone().unwrap_or(1.0),
-            rotational_acceleration: self.rotational_acceleration.clone().unwrap_or(1.5),
         }
     }
 }
@@ -297,9 +289,7 @@ impl Recall for RecallDifferentialDrive {
         self.bidirectional = Some(source.bidirectional);
         self.rotation_center_offset = Some(source.rotation_center_offset);
         self.translational_speed = Some(source.translational_speed);
-        self.translational_acceleration = Some(source.translational_acceleration);
         self.rotational_speed = Some(source.rotational_speed);
-        self.rotational_acceleration = Some(source.rotational_acceleration);
     }
 }
 

@@ -167,30 +167,11 @@ impl SlotcarParams {
         {
             slotcar_params.nominal_drive_speed = translational_speed as f32;
         }
-        if let Some(translational_acceleration) = diff_drive
-            .get("translational_acceleration")
-            .and_then(|b| match b {
-                serde_json::Value::Number(acceleration) => acceleration.as_f64(),
-                _ => None,
-            })
-        {
-            slotcar_params.nominal_drive_acceleration = translational_acceleration as f32;
-        }
         if let Some(rotational_speed) = diff_drive.get("rotational_speed").and_then(|b| match b {
             serde_json::Value::Number(speed) => speed.as_f64(),
             _ => None,
         }) {
             slotcar_params.nominal_turn_speed = rotational_speed as f32;
-        }
-        if let Some(rotational_acceleration) =
-            diff_drive
-                .get("rotational_acceleration")
-                .and_then(|b| match b {
-                    serde_json::Value::Number(acceleration) => acceleration.as_f64(),
-                    _ => None,
-                })
-        {
-            slotcar_params.nominal_turn_acceleration = rotational_acceleration as f32;
         }
 
         slotcar_params
