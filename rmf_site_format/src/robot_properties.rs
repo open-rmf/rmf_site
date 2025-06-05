@@ -25,6 +25,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{Map, Value};
 use thiserror::Error;
 
+#[cfg(feature = "bevy")]
 pub trait RobotProperty:
     'static
     + Send
@@ -36,7 +37,7 @@ pub trait RobotProperty:
     + Serialize
     + DeserializeOwned
 {
-    fn new(kind: String, config: serde_json::Value) -> Self;
+    fn new(kind: String, config: Value) -> Self;
 
     fn is_default(&self) -> bool;
 
@@ -45,12 +46,14 @@ pub trait RobotProperty:
     fn label() -> String;
 }
 
+#[cfg(feature = "bevy")]
 pub trait RobotPropertyKind:
     'static + Send + Sync + Default + Clone + Component + PartialEq + Serialize + DeserializeOwned
 {
     fn label() -> String;
 }
 
+#[cfg(feature = "bevy")]
 pub trait RecallPropertyKind: Recall + Default + Component<Mutability = Mutable> {
     type Kind: RobotPropertyKind;
     fn assume(&self) -> Self::Kind;
@@ -72,6 +75,7 @@ pub enum RobotPropertyError {
     DeserializePropertyKindError(String),
 }
 
+#[cfg(feature = "bevy")]
 pub fn serialize_robot_property<Property: RobotProperty>(
     property: Property,
 ) -> Result<Value, RobotPropertyError> {
@@ -79,6 +83,7 @@ pub fn serialize_robot_property<Property: RobotProperty>(
         .map_err(|_| RobotPropertyError::SerializePropertyError(Property::label()))
 }
 
+#[cfg(feature = "bevy")]
 pub fn serialize_robot_property_from_kind<Property: RobotProperty, Kind: RobotPropertyKind>(
     property_kind: Kind,
 ) -> Result<Value, RobotPropertyError> {
@@ -89,6 +94,7 @@ pub fn serialize_robot_property_from_kind<Property: RobotProperty, Kind: RobotPr
         .and_then(|new_property| serialize_robot_property::<Property>(new_property))
 }
 
+#[cfg(feature = "bevy")]
 pub fn serialize_robot_property_kind<Property: RobotProperty, Kind: RobotPropertyKind>(
     property_kind: Kind,
 ) -> Result<Value, RobotPropertyError> {
@@ -97,20 +103,23 @@ pub fn serialize_robot_property_kind<Property: RobotProperty, Kind: RobotPropert
         .map_err(|_| RobotPropertyError::SerializePropertyKindError(label))
 }
 
+#[cfg(feature = "bevy")]
 pub fn deserialize_robot_property<Property: RobotProperty>(
-    value: serde_json::Value,
+    value: Value,
 ) -> Result<Property, RobotPropertyError> {
     serde_json::from_value::<Property>(value)
         .map_err(|_| RobotPropertyError::DeserializePropertyError(Property::label()))
 }
 
+#[cfg(feature = "bevy")]
 pub fn deserialize_robot_property_kind<Kind: RobotPropertyKind>(
-    value: serde_json::Value,
+    value: Value,
 ) -> Result<Kind, RobotPropertyError> {
     serde_json::from_value::<Kind>(value)
         .map_err(|_| RobotPropertyError::DeserializePropertyKindError(Kind::label()))
 }
 
+#[cfg(feature = "bevy")]
 /// Returns the specified RobotProperty if it is present in this robot
 pub fn retrieve_robot_property<Property: RobotProperty>(
     robot: Robot,
@@ -133,6 +142,7 @@ pub fn retrieve_robot_property<Property: RobotProperty>(
 }
 
 /// Returns the specified RobotPropertyKind if it is present in this serialized RobotProperty
+#[cfg(feature = "bevy")]
 pub fn retrieve_robot_property_kind<
     Kind: RobotPropertyKind,
     Property: RobotProperty,
@@ -170,20 +180,21 @@ pub fn retrieve_robot_property_kind<
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct Mobility {
     pub kind: String,
-    pub config: serde_json::Value,
+    pub config: Value,
 }
 
 impl Default for Mobility {
     fn default() -> Self {
         Self {
             kind: String::new(),
-            config: serde_json::Value::Object(Map::new()),
+            config: Value::Object(Map::new()),
         }
     }
 }
 
+#[cfg(feature = "bevy")]
 impl RobotProperty for Mobility {
-    fn new(kind: String, config: serde_json::Value) -> Self {
+    fn new(kind: String, config: Value) -> Self {
         Self { kind, config }
     }
 
@@ -207,7 +218,7 @@ impl RobotProperty for Mobility {
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct RecallMobility {
     pub kind: Option<String>,
-    pub config: Option<serde_json::Value>,
+    pub config: Option<Value>,
 }
 
 impl Recall for RecallMobility {
@@ -245,6 +256,7 @@ impl Default for DifferentialDrive {
     }
 }
 
+#[cfg(feature = "bevy")]
 impl RobotPropertyKind for DifferentialDrive {
     fn label() -> String {
         "Differential Drive".to_string()
@@ -262,17 +274,18 @@ pub struct RecallDifferentialDrive {
     pub rotational_acceleration: Option<f32>,
 }
 
+#[cfg(feature = "bevy")]
 impl RecallPropertyKind for RecallDifferentialDrive {
     type Kind = DifferentialDrive;
 
     fn assume(&self) -> DifferentialDrive {
         DifferentialDrive {
-            bidirectional: self.bidirectional.clone().unwrap_or_default(),
-            rotation_center_offset: self.rotation_center_offset.clone().unwrap_or_default(),
-            translational_speed: self.translational_speed.clone().unwrap_or_default(),
-            translational_acceleration: self.translational_acceleration.clone().unwrap_or_default(),
-            rotational_speed: self.rotational_speed.clone().unwrap_or_default(),
-            rotational_acceleration: self.rotational_acceleration.clone().unwrap_or_default(),
+            bidirectional: self.bidirectional.clone().unwrap_or(false),
+            rotation_center_offset: self.rotation_center_offset.clone().unwrap_or([0.0, 0.0]),
+            translational_speed: self.translational_speed.clone().unwrap_or(0.5),
+            translational_acceleration: self.translational_acceleration.clone().unwrap_or(0.25),
+            rotational_speed: self.rotational_speed.clone().unwrap_or(1.0),
+            rotational_acceleration: self.rotational_acceleration.clone().unwrap_or(1.5),
         }
     }
 }
@@ -294,20 +307,21 @@ impl Recall for RecallDifferentialDrive {
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct Collision {
     pub kind: String,
-    pub config: serde_json::Value,
+    pub config: Value,
 }
 
 impl Default for Collision {
     fn default() -> Self {
         Self {
             kind: String::new(),
-            config: serde_json::Value::Object(Map::new()),
+            config: Value::Object(Map::new()),
         }
     }
 }
 
+#[cfg(feature = "bevy")]
 impl RobotProperty for Collision {
-    fn new(kind: String, config: serde_json::Value) -> Self {
+    fn new(kind: String, config: Value) -> Self {
         Self { kind, config }
     }
 
@@ -331,7 +345,7 @@ impl RobotProperty for Collision {
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct RecallCollision {
     pub kind: Option<String>,
-    pub config: Option<serde_json::Value>,
+    pub config: Option<Value>,
 }
 
 impl Recall for RecallCollision {
@@ -361,6 +375,7 @@ impl Default for CircleCollision {
     }
 }
 
+#[cfg(feature = "bevy")]
 impl RobotPropertyKind for CircleCollision {
     fn label() -> String {
         "Circle Collision".to_string()
@@ -374,6 +389,7 @@ pub struct RecallCircleCollision {
     pub offset: Option<[f32; 2]>,
 }
 
+#[cfg(feature = "bevy")]
 impl RecallPropertyKind for RecallCircleCollision {
     type Kind = CircleCollision;
 
