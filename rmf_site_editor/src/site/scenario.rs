@@ -18,16 +18,20 @@
 use crate::{
     interaction::{Select, Selection},
     site::{
-        Affiliation, CurrentScenario, Delete, Dependents, Group, InheritedInstance, InstanceMarker,
-        InstanceModifier, IssueKey, ModelMarker, NameInSite, Pending, PendingModel, Pose,
-        RecallInstance, ScenarioBundle, ScenarioMarker,
+        AddModifier, Affiliation, CurrentScenario, Delete, Dependents, GetModifier, Group,
+        InheritedInstance, InstanceMarker, InstanceModifier, IssueKey, LastSetValue, ModelMarker,
+        Modifier, NameInSite, Pending, PendingModel, Pose, Property, RecallInstance,
+        RemoveModifier, ScenarioBundle, ScenarioMarker, ScenarioModifiers, UpdateProperty,
     },
     widgets::view_model_instances::count_scenarios,
     CurrentWorkspace, Issue, ValidateWorkspace,
 };
-use bevy::ecs::hierarchy::ChildOf;
+use bevy::ecs::{
+    hierarchy::ChildOf,
+    system::{SystemParam, SystemState},
+};
 use bevy::prelude::*;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use uuid::Uuid;
 
 #[derive(Clone, Copy, Debug, Event)]
@@ -39,7 +43,7 @@ pub struct CreateScenario {
     pub parent: Option<Entity>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Copy)]
 pub enum UpdateInstance {
     Include,
     Hide,
@@ -48,121 +52,255 @@ pub enum UpdateInstance {
     ResetVisibility,
 }
 
-#[derive(Clone, Debug, Event)]
+#[derive(Clone, Debug, Event, Copy)]
 pub struct UpdateInstanceEvent {
     pub scenario: Entity,
     pub instance: Entity,
     pub update: UpdateInstance,
 }
 
-/// Handles changes to the current scenario
-pub fn update_current_scenario(
-    mut select: EventWriter<Select>,
-    mut change_current_scenario: EventReader<ChangeCurrentScenario>,
-    mut current_scenario: ResMut<CurrentScenario>,
-    mut instances: Query<
-        (Entity, &NameInSite, &mut Pose, &mut Visibility),
-        (With<InstanceMarker>, Without<PendingModel>),
-    >,
-    mut update_instance: EventWriter<UpdateInstanceEvent>,
-    children: Query<&Children>,
-    instance_modifiers: Query<(&mut InstanceModifier, &Affiliation<Entity>)>,
-    recall_instance: Query<&RecallInstance>,
-    scenarios: Query<(Entity, &Affiliation<Entity>), With<ScenarioMarker>>,
-    selection: Res<Selection>,
-) {
-    if let Some(ChangeCurrentScenario(scenario_entity)) = change_current_scenario.read().last() {
-        let mut deselect = false;
-        let instance_modifier_entities =
-            get_instance_modifier_entities(*scenario_entity, &children, &instance_modifiers);
+impl Property for Pose {
+    fn get_fallback(for_element: Entity, in_scenario: Entity, world: &mut World) -> Pose {
+        let mut state: SystemState<(
+            Query<&ScenarioModifiers<Entity>, With<ScenarioMarker>>,
+            Query<&RecallInstance>,
+            Query<&LastSetValue<Pose>>,
+        )> = SystemState::new(world);
+        let (scenarios, recall_instance, last_set_pose) = state.get(world);
 
-        // Loop over every model instance in this site
-        for (entity, name, mut pose, mut visibility) in instances.iter_mut() {
-            let Some((instance_modifier, _)) = instance_modifier_entities
-                .get(&entity)
-                .and_then(|modifier_entity| instance_modifiers.get(*modifier_entity).ok())
-            else {
-                // No instance modifier matches this model instance entity, set to hidden
-                *visibility = Visibility::Hidden;
-                if selection.0.is_some_and(|e| e == entity) {
-                    deselect = true;
-                }
-                continue;
-            };
+        // Recall instance pose for this scenario if any
+        if let Some(recall_pose) = scenarios
+            .get(in_scenario)
+            .ok()
+            .and_then(|scenario_modifiers| scenario_modifiers.get(&for_element))
+            .and_then(|modifier_entity| recall_instance.get(*modifier_entity).ok())
+            .and_then(|recall_modifier| recall_modifier.pose)
+        {
+            return recall_pose;
+        }
 
+        // Otherwise return the last set pose for this model instance
+        last_set_pose
+            .get(for_element)
+            .map(|value| value.0)
+            .unwrap_or(Pose::default())
+    }
+}
+
+impl Modifier<Pose> for InstanceModifier {
+    fn get(&self) -> Option<Pose> {
+        self.pose()
+    }
+
+    fn insert(for_element: Entity, in_scenario: Entity, value: Pose, world: &mut World) {
+        let mut state: SystemState<(
+            Query<(&mut InstanceModifier, &Affiliation<Entity>)>,
+            Query<
+                (Entity, &ScenarioModifiers<Entity>, Ref<Affiliation<Entity>>),
+                With<ScenarioMarker>,
+            >,
+            EventWriter<AddModifier>,
+        )> = SystemState::new(world);
+        let (mut instance_modifiers, scenarios, _) = state.get_mut(world);
+
+        // Insert instance modifier entities when new model instances are spawned and placed
+        let Ok((_, scenario_modifiers, _)) = scenarios.get(in_scenario) else {
+            return;
+        };
+        let mut new_modifiers = Vec::<(InstanceModifier, Entity)>::new();
+
+        if let Some((mut instance_modifier, _)) = scenario_modifiers
+            .get(&for_element)
+            .and_then(|e| instance_modifiers.get_mut(*e).ok())
+        {
+            // If an instance modifier entity already exists for this scenario, update it
+            let instance_modifier = instance_modifier.as_mut();
             match instance_modifier {
-                InstanceModifier::Added(added) => {
-                    *pose = added.pose.clone();
-                    *visibility = Visibility::Inherited;
+                InstanceModifier::Added(_) => {
+                    *instance_modifier = InstanceModifier::added(value.clone())
                 }
                 InstanceModifier::Inherited(inherited) => {
-                    *pose = inherited
-                        .modified_pose
-                        .or_else(|| retrieve_parent_pose(entity, *scenario_entity, &children, &recall_instance, &scenarios, &instance_modifiers))
-                        .map_or_else(
-                            || {
-                                error!(
-                                    "Instance {:?} is included in the current scenario, but no pose found! \
-                                    Setting instance to default pose in current scenario.",
-                                    name.0
-                                );
-                                Pose::default()
-                            },
-                            |p| p.clone(),
-                        );
-                    *visibility = if inherited.explicit_inclusion {
-                        Visibility::Inherited
-                    } else {
-                        if let Some(v) = retrieve_parent_visibility(
-                            entity,
-                            *scenario_entity,
-                            &children,
-                            &scenarios,
-                            &instance_modifiers,
-                        ) {
-                            if v {
-                                Visibility::Inherited
-                            } else {
-                                Visibility::Hidden
-                            }
-                        } else {
-                            error!(
-                                "Instance {:?} is included in the current scenario, but no visibility found! \
-                                Setting instance to hidden in current scenario.",
-                                name.0
-                            );
-                            update_instance.write(UpdateInstanceEvent {
-                                scenario: *scenario_entity,
-                                instance: entity,
-                                update: UpdateInstance::Hide,
-                            });
-                            Visibility::Inherited
-                        }
-                    };
+                    inherited.modified_pose = Some(value.clone())
                 }
-                InstanceModifier::Hidden => {
-                    *visibility = Visibility::Hidden;
-                    if selection.0.is_some_and(|e| e == entity) {
-                        deselect = true;
+                InstanceModifier::Hidden => {}
+            }
+        } else {
+            // If instance modifier entity does not exist in this scenario, spawn one
+            new_modifiers.push((InstanceModifier::added(value.clone()), in_scenario));
+        }
+
+        // Retrieve root scenario of current scenario
+        let mut current_root_entity: Entity = in_scenario;
+        while let Ok((_, _, parent_scenario)) = scenarios.get(current_root_entity) {
+            if let Some(parent_scenario_entity) = parent_scenario.0 {
+                current_root_entity = parent_scenario_entity;
+            } else {
+                break;
+            }
+        }
+        // Insert instance modifier into all root scenarios outside of the current tree as hidden
+        for (scenario_entity, _, parent_scenario) in scenarios.iter() {
+            if parent_scenario.0.is_some() || scenario_entity == current_root_entity {
+                continue;
+            }
+            new_modifiers.push((InstanceModifier::Hidden, scenario_entity));
+        }
+
+        // Spawn all new modifier entities
+        let new_modifier_entities = new_modifiers
+            .iter()
+            .map(|(modifier, scenario)| (world.spawn(modifier.clone()).id(), *scenario))
+            .collect::<Vec<(Entity, Entity)>>();
+        let (_, _, mut add_modifier) = state.get_mut(world);
+        for (modifier_entity, scenario_entity) in new_modifier_entities.iter() {
+            add_modifier.write(AddModifier::new(
+                for_element,
+                *modifier_entity,
+                *scenario_entity,
+            ));
+        }
+    }
+
+    fn insert_on_new_scenario(in_scenario: Entity, world: &mut World) {
+        let mut state: SystemState<(
+            Query<&Children>,
+            Query<(&InstanceModifier, &Affiliation<Entity>)>,
+            Query<Entity, (With<InstanceMarker>, Without<Pending>)>,
+            EventWriter<AddModifier>,
+            EventWriter<ChangeCurrentScenario>,
+        )> = SystemState::new(world);
+        let (children, instance_modifiers, model_instances, _, _) = state.get_mut(world);
+
+        // Insert instance modifier entities when new root scenarios are created
+        let mut have_instance = HashSet::new();
+        if let Ok(scenario_children) = children.get(in_scenario) {
+            for child in scenario_children {
+                if let Ok((_, a)) = instance_modifiers.get(*child) {
+                    if let Some(a) = a.0 {
+                        have_instance.insert(a);
                     }
                 }
             }
         }
 
-        if deselect {
-            select.write(Select::new(None));
+        let mut target_instances = HashSet::new();
+        for instance_entity in model_instances.iter() {
+            if !have_instance.contains(&instance_entity) {
+                target_instances.insert(instance_entity);
+            }
         }
 
+        let mut new_modifiers = Vec::<(Entity, Entity)>::new();
+        for target in target_instances.iter() {
+            // Mark all instance modifiers as Hidden
+            new_modifiers.push((
+                *target,
+                world.commands().spawn(InstanceModifier::Hidden).id(),
+            ));
+        }
+
+        let (_, _, _, mut add_modifier, mut change_current_scenario) = state.get_mut(world);
+        for (instance_entity, modifier_entity) in new_modifiers.iter() {
+            add_modifier.write(AddModifier::new(
+                *instance_entity,
+                *modifier_entity,
+                in_scenario,
+            ));
+        }
+
+        change_current_scenario.write(ChangeCurrentScenario(in_scenario));
+    }
+}
+
+impl Property for Visibility {
+    fn get_fallback(_for_element: Entity, _in_scenario: Entity, _world: &mut World) -> Visibility {
+        // We want the instance to be hidden by default, and only visible
+        // when intentionally toggled
+        Visibility::Hidden
+    }
+}
+
+impl Modifier<Visibility> for InstanceModifier {
+    fn get(&self) -> Option<Visibility> {
+        self.visibility().map(|v| {
+            if v {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            }
+        })
+    }
+
+    fn retrieve_inherited(
+        &self,
+        for_element: Entity,
+        in_scenario: Entity,
+        get_modifier: &GetModifier<InstanceModifier>,
+    ) -> Option<Visibility> {
+        let mut parent_visibility: Option<bool> = None;
+        let mut entity = in_scenario;
+        while parent_visibility.is_none() {
+            let Some(parent_entity) = get_modifier
+                .scenarios
+                .get(entity)
+                .ok()
+                .and_then(|(_, p)| p.0)
+            else {
+                break;
+            };
+
+            if let Some(instance_modifier) = get_modifier.get(parent_entity, for_element) {
+                parent_visibility = instance_modifier.visibility();
+            }
+            entity = parent_entity;
+        }
+        parent_visibility.map(|v| {
+            if v {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            }
+        })
+    }
+}
+
+/// Handles updates when the current scenario has changed, and trigger property updates for scenario elements
+pub fn update_current_scenario(
+    mut change_current_scenario: EventReader<ChangeCurrentScenario>,
+    mut current_scenario: ResMut<CurrentScenario>,
+    mut update_property: EventWriter<UpdateProperty>,
+    instances: Query<Entity, (With<InstanceMarker>, Without<PendingModel>)>,
+) {
+    if let Some(ChangeCurrentScenario(scenario_entity)) = change_current_scenario.read().last() {
         *current_scenario = CurrentScenario(Some(*scenario_entity));
+        for instance_entity in instances.iter() {
+            update_property.write(UpdateProperty::new(instance_entity, *scenario_entity));
+        }
+    }
+}
+
+pub fn check_selected_is_visible(
+    mut select: EventWriter<Select>,
+    selection: Res<Selection>,
+    visibility: Query<&Visibility>,
+) {
+    if selection.0.is_some_and(|e| {
+        visibility.get(e).is_ok_and(|v| match v {
+            Visibility::Hidden => true,
+            _ => false,
+        })
+    }) {
+        select.write(Select::new(None));
     }
 }
 
 /// Tracks pose changes for instances in the current scenario to update its properties
-pub fn update_scenario_properties(
+pub fn update_model_instance_poses(
     current_scenario: Res<CurrentScenario>,
     mut change_current_scenario: EventReader<ChangeCurrentScenario>,
     mut update_instance: EventWriter<UpdateInstanceEvent>,
     changed_instances: Query<(Entity, Ref<Pose>), (With<InstanceMarker>, Without<Pending>)>,
+    changed_last_set_pose: Query<(), Changed<LastSetValue<Pose>>>,
 ) {
     // Do nothing if scenario has changed, as we rely on pose changes by the user and not the system updating instances
     for ChangeCurrentScenario(_) in change_current_scenario.read() {
@@ -173,7 +311,12 @@ pub fn update_scenario_properties(
     };
 
     for (entity, new_pose) in changed_instances.iter() {
-        if new_pose.is_changed() {
+        if new_pose.is_changed()
+            && !new_pose.is_added()
+            && changed_last_set_pose.get(entity).is_err()
+        {
+            // Only mark an instance as modified if its pose changed due to user
+            // interaction, not because it was updated by scenarios
             update_instance.write(UpdateInstanceEvent {
                 scenario: current_scenario_entity,
                 instance: entity,
@@ -183,325 +326,103 @@ pub fn update_scenario_properties(
     }
 }
 
-/// This system climbs up the scenario tree to retrieve inherited poses for a model instance, if any
-fn retrieve_parent_pose(
-    instance_entity: Entity,
-    scenario_entity: Entity,
-    children: &Query<&Children>,
-    recall_instance: &Query<&RecallInstance>,
-    scenarios: &Query<(Entity, &Affiliation<Entity>), With<ScenarioMarker>>,
-    instance_modifiers: &Query<(&mut InstanceModifier, &Affiliation<Entity>)>,
-) -> Option<Pose> {
-    let mut parent_pose: Option<Pose> = None;
-    let mut entity = scenario_entity;
-    while parent_pose.is_none() {
-        let Some(parent_entity) = scenarios.get(entity).ok().and_then(|(_, a)| a.0) else {
-            break;
-        };
-
-        if let Some(modifier_entity) =
-            find_modifier_for_instance(instance_entity, parent_entity, children, instance_modifiers)
-        {
-            parent_pose = instance_modifiers
-                .get(modifier_entity)
-                .ok()
-                .and_then(|(i, _)| {
-                    i.pose().or_else(|| {
-                        recall_instance
-                            .get(modifier_entity)
-                            .ok()
-                            .and_then(|r| r.pose)
-                    })
-                });
-        }
-        entity = parent_entity;
-    }
-    parent_pose
+#[derive(SystemParam)]
+pub struct InstanceParams<'w, 's> {
+    add_modifier: EventWriter<'w, AddModifier>,
+    remove_modifier: EventWriter<'w, RemoveModifier>,
+    instance_modifiers:
+        Query<'w, 's, (&'static mut InstanceModifier, &'static Affiliation<Entity>)>,
+    recall_instance: Query<'w, 's, &'static RecallInstance>,
+    scenarios: Query<
+        'w,
+        's,
+        (
+            &'static mut ScenarioModifiers<Entity>,
+            &'static Affiliation<Entity>,
+        ),
+        With<ScenarioMarker>,
+    >,
+    update_property: EventWriter<'w, UpdateProperty>,
 }
 
-pub fn retrieve_parent_visibility(
-    instance_entity: Entity,
-    scenario_entity: Entity,
-    children: &Query<&Children>,
-    scenarios: &Query<(Entity, &Affiliation<Entity>), With<ScenarioMarker>>,
-    instance_modifiers: &Query<(&mut InstanceModifier, &Affiliation<Entity>)>,
-) -> Option<bool> {
-    let mut parent_visibility: Option<bool> = None;
-    let mut entity = scenario_entity;
-    while parent_visibility.is_none() {
-        let Some(parent_entity) = scenarios.get(entity).ok().and_then(|(_, a)| a.0) else {
-            break;
-        };
-
-        if let Some(modifier_entity) =
-            find_modifier_for_instance(instance_entity, parent_entity, children, instance_modifiers)
-        {
-            parent_visibility = instance_modifiers
-                .get(modifier_entity)
-                .ok()
-                .and_then(|(i, _)| i.visibility());
-        }
-        entity = parent_entity;
-    }
-    parent_visibility
-}
-
-/// This system searches for the InstanceModifier affiliated with a specific model instance if any
-pub fn find_modifier_for_instance(
-    instance: Entity,
-    scenario: Entity,
-    children: &Query<&Children>,
-    instance_modifiers: &Query<(&mut InstanceModifier, &Affiliation<Entity>)>,
-) -> Option<Entity> {
-    if let Ok(scenario_children) = children.get(scenario) {
-        for child in scenario_children.iter() {
-            if instance_modifiers
-                .get(child)
-                .is_ok_and(|(_, a)| a.0.is_some_and(|e| e == instance))
-            {
-                return Some(child);
-            }
-        }
-    };
-    None
-}
-
-/// This system searches for scenario children entities with the InstanceModifier component
-/// and maps the affiliated model instance entity to the corresponding instance modifier entity
-pub fn get_instance_modifier_entities(
-    scenario: Entity,
-    children: &Query<&Children>,
-    instance_modifiers: &Query<(&mut InstanceModifier, &Affiliation<Entity>)>,
-) -> HashMap<Entity, Entity> {
-    let mut instance_to_modifier_entities = HashMap::<Entity, Entity>::new();
-    if let Ok(scenario_children) = children.get(scenario) {
-        for child in scenario_children.iter() {
-            if let Some(affiliated_entity) =
-                instance_modifiers.get(child).ok().and_then(|(_, a)| a.0)
-            {
-                instance_to_modifier_entities.insert(affiliated_entity, child);
-            }
-        }
-    };
-    instance_to_modifier_entities
-}
-
-pub fn manage_instance_modifiers(
-    mut commands: Commands,
-    mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
-    mut delete: EventWriter<Delete>,
-    mut instance_modifiers: Query<(&mut InstanceModifier, &Affiliation<Entity>)>,
-    mut removals: RemovedComponents<Pose>,
-    children: Query<&Children>,
-    current_scenario: Res<CurrentScenario>,
-    model_instances: Query<(Entity, Ref<Pose>), Without<Pending>>,
-    scenarios: Query<(Entity, Ref<Affiliation<Entity>>), With<ScenarioMarker>>,
-) {
-    let Some(current_scenario_entity) = current_scenario.0 else {
-        return;
-    };
-    // Insert instance modifier entities when new scenarios are created
-    for (scenario_entity, parent_scenario) in scenarios.iter() {
-        if parent_scenario.is_added() {
-            if let Some(parent_scenario_entity) = parent_scenario.0 {
-                // Inherit any instance modifiers from the parent scenario
-                if let Ok(children) = children.get(parent_scenario_entity) {
-                    children.iter().for_each(|e| {
-                        if let Ok((instance_modifier, affiliation)) = instance_modifiers
-                            .get(e)
-                            .map(|(_, a)| (InstanceModifier::inherited(), a.clone()))
-                        {
-                            commands
-                                .spawn(instance_modifier)
-                                .insert(affiliation)
-                                .insert(ChildOf(scenario_entity));
-                        }
-                    });
-                }
-            } else {
-                // If root scenario, mark all instance modifiers as Hidden
-                let mut have_instance = HashSet::new();
-                if let Ok(scenario_children) = children.get(scenario_entity) {
-                    for child in scenario_children {
-                        if let Ok((_, a)) = instance_modifiers.get(*child) {
-                            if let Some(a) = a.0 {
-                                have_instance.insert(a);
-                            }
-                        }
-                    }
-                }
-
-                for (instance_entity, _) in model_instances.iter() {
-                    if !have_instance.contains(&instance_entity) {
-                        commands
-                            .spawn(InstanceModifier::Hidden)
-                            .insert(Affiliation(Some(instance_entity)))
-                            .insert(ChildOf(scenario_entity));
-                    }
-                }
-            }
-            change_current_scenario.write(ChangeCurrentScenario(scenario_entity));
-        }
-    }
-
-    // Insert instance modifier entities when new model instances are spawned and placed
-    for (instance_entity, instance_pose) in model_instances.iter() {
-        if instance_pose.is_added() {
-            if let Some((mut instance_modifier, _)) = find_modifier_for_instance(
-                instance_entity,
-                current_scenario_entity,
-                &children,
-                &instance_modifiers,
-            )
-            .and_then(|modifier_entity| instance_modifiers.get_mut(modifier_entity).ok())
-            {
-                // If an instance modifier entity already exists for this scenario, update it
-                let instance_modifier = instance_modifier.as_mut();
-                match instance_modifier {
-                    InstanceModifier::Added(_) => {
-                        *instance_modifier = InstanceModifier::added(instance_pose.clone())
-                    }
-                    InstanceModifier::Inherited(inherited) => {
-                        inherited.modified_pose = Some(instance_pose.clone())
-                    }
-                    InstanceModifier::Hidden => {}
-                }
-            } else {
-                // If instance modifier entity does not exist in this scenario, spawn one
-                commands
-                    .spawn(InstanceModifier::added(instance_pose.clone()))
-                    .insert(Affiliation(Some(instance_entity)))
-                    .insert(ChildOf(current_scenario_entity));
-            }
-
-            // Insert instance modifier into remaining scenarios
-            for (scenario_entity, parent_scenario) in scenarios.iter() {
-                if scenario_entity == current_scenario_entity {
-                    continue;
-                }
-
-                // Crawl up scenario tree to check if this is a descendent of the current scenario
-                let mut parent_entity: Option<Entity> = parent_scenario.0.clone();
-                while parent_entity.is_some() {
-                    if parent_entity.is_some_and(|e| e == current_scenario_entity) {
-                        break;
-                    }
-                    parent_entity = parent_entity
-                        .and_then(|e| scenarios.get(e).ok())
-                        .and_then(|(_, a)| a.0);
-                }
-
-                // If instance modifier entity does not exist in this child scenario, spawn one
-                // Do nothing if it already exists, as it may be modified
-                if find_modifier_for_instance(
-                    instance_entity,
-                    scenario_entity,
-                    &children,
-                    &instance_modifiers,
-                )
-                .is_none()
-                {
-                    if parent_entity.is_some_and(|e| e == current_scenario_entity) {
-                        // Insert this new instance modifier into children scenarios as Inherited
-                        commands
-                            .spawn(InstanceModifier::inherited())
-                            .insert(Affiliation(Some(instance_entity)))
-                            .insert(ChildOf(scenario_entity));
-                    } else {
-                        // Insert this new instance modifier into other scenarios as Hidden
-                        commands
-                            .spawn(InstanceModifier::Hidden)
-                            .insert(Affiliation(Some(instance_entity)))
-                            .insert(ChildOf(scenario_entity));
-                    }
-                }
-            }
-        }
-    }
-
-    // Check for modifiers affiliated with deleted Instance or missing valid affiliations.
-    if !removals.is_empty() {
-        for instance_entity in removals.read() {
-            for (scenario_entity, _) in scenarios.iter() {
-                if let Some(modifier_entity) = find_modifier_for_instance(
-                    instance_entity,
-                    scenario_entity,
-                    &children,
-                    &instance_modifiers,
-                ) {
-                    // Instance modifier is affiliated to a non-existing instance
-                    delete.write(Delete::new(modifier_entity));
-                }
-            }
-        }
-    }
-}
-
-/// Checks that the current scenario's included instances are categorized correctly
+/// Handles updates to model instance modifiers for all scenarios
 pub fn handle_instance_updates(
-    mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
-    mut instance_modifiers: Query<(&mut InstanceModifier, &Affiliation<Entity>)>,
-    mut update_instance: EventReader<UpdateInstanceEvent>,
-    children: Query<&Children>,
-    current_scenario: Res<CurrentScenario>,
-    scenarios: Query<(Entity, &Affiliation<Entity>), With<ScenarioMarker>>,
-    model_instances: Query<&NameInSite, With<InstanceMarker>>,
-    recall_instance: Query<&RecallInstance>,
+    world: &mut World,
+    state: &mut SystemState<(EventReader<UpdateInstanceEvent>, InstanceParams)>,
 ) {
-    for update in update_instance.read() {
-        if let Some(((mut instance_modifier, _), modifier_entity)) = find_modifier_for_instance(
-            update.instance,
-            update.scenario,
-            &children,
-            &instance_modifiers,
-        )
-        .and_then(|modifier_entity| {
-            instance_modifiers
-                .get_mut(modifier_entity)
-                .ok()
-                .zip(Some(modifier_entity))
-        }) {
-            let instance_modifier = instance_modifier.as_mut();
-            let has_parent = scenarios
-                .get(update.scenario)
-                .is_ok_and(|(_, a)| a.0.is_some());
+    let (mut update_events, _) = state.get_mut(world);
+    if update_events.is_empty() {
+        return;
+    }
 
+    let mut update_instance = Vec::<(UpdateInstanceEvent, Pose)>::new();
+    for update in update_events.read() {
+        update_instance.push((*update, Pose::default()));
+    }
+    for (update, pose) in update_instance.iter_mut() {
+        *pose = Pose::get_fallback(update.instance, update.scenario, world);
+    }
+
+    for (update, fallback_pose) in update_instance.iter() {
+        let (_, mut params) = state.get_mut(world);
+        let Ok((scenario_modifiers, scenario_parent)) = params.scenarios.get(update.scenario)
+        else {
+            continue;
+        };
+
+        if let Some((mut instance_modifier, modifier_entity)) =
+            scenario_modifiers.get(&update.instance).and_then(|e| {
+                params
+                    .instance_modifiers
+                    .get_mut(*e)
+                    .ok()
+                    .map(|(m, _)| m)
+                    .zip(Some(e))
+            })
+        {
+            let instance_modifier = instance_modifier.as_mut();
             match update.update {
                 UpdateInstance::Include => {
-                    let recall_modifier = recall_instance.get(modifier_entity).ok();
-                    let instance_pose = instance_modifier
-                        .pose()
-                        .or(recall_modifier.and_then(|r| r.pose));
-                    if has_parent
-                        && recall_modifier.is_some_and(|m| match m.modifier {
-                            Some(InstanceModifier::Inherited(_)) => true,
-                            _ => false,
-                        })
-                    {
-                        *instance_modifier = InstanceModifier::Inherited(InheritedInstance {
-                            modified_pose: instance_pose,
-                            explicit_inclusion: true,
-                        });
-                    } else if let Some(instance_pose) = instance_pose {
-                        *instance_modifier = InstanceModifier::added(instance_pose);
-                    } else {
-                        let instance_id = model_instances
-                            .get(update.instance)
-                            .map(|n| n.0.clone())
-                            .unwrap_or_else(|_| format!("{}", update.instance.index()));
-                        error!(
-                            "Unable to retrieve pose for instance {:?}, \
-                                setting to default pose as AddedInstance in current scenario",
-                            instance_id
-                        );
-                        *instance_modifier = InstanceModifier::added(Pose::default());
+                    match instance_modifier {
+                        InstanceModifier::Added(_) => continue,
+                        InstanceModifier::Inherited(inherited) => {
+                            inherited.explicit_inclusion = true;
+                        }
+                        InstanceModifier::Hidden => {
+                            if let Some(recall_modifier) = params
+                                .recall_instance
+                                .get(*modifier_entity)
+                                .ok()
+                                .and_then(|r| r.modifier.clone())
+                            {
+                                // RecallInstance exists, check for previous
+                                match recall_modifier {
+                                    InstanceModifier::Added(_) => {
+                                        *instance_modifier =
+                                            InstanceModifier::added(*fallback_pose);
+                                    }
+                                    InstanceModifier::Inherited(_) => {
+                                        *instance_modifier =
+                                            InstanceModifier::Inherited(InheritedInstance {
+                                                modified_pose: recall_modifier.pose(),
+                                                explicit_inclusion: true,
+                                            });
+                                    }
+                                    InstanceModifier::Hidden => {} // We don't recall Hidden modifiers
+                                }
+                            } else {
+                                *instance_modifier = match scenario_parent.0 {
+                                    Some(_) => InstanceModifier::inherited_with_inclusion(),
+                                    None => InstanceModifier::added(*fallback_pose),
+                                };
+                            }
+                        }
                     }
                 }
                 UpdateInstance::Hide => {
                     *instance_modifier = InstanceModifier::Hidden;
                 }
                 UpdateInstance::Modify(new_pose) => {
-                    // Update Pose changes
                     match instance_modifier {
                         InstanceModifier::Added(_) => {
                             *instance_modifier = InstanceModifier::added(new_pose.clone())
@@ -510,33 +431,77 @@ pub fn handle_instance_updates(
                             inherited.modified_pose = Some(new_pose.clone())
                         }
                         InstanceModifier::Hidden => {}
-                    }
+                    };
+                    // Do not trigger PropertyPlugin<Pose> if pose for existing modifier
+                    // was modified by user
+                    world
+                        .commands()
+                        .entity(update.instance)
+                        .insert(LastSetValue::<Pose>::new(new_pose));
+                    continue;
                 }
-                UpdateInstance::ResetPose => {
-                    if has_parent {
-                        match instance_modifier {
-                            InstanceModifier::Inherited(inherited) => {
-                                inherited.modified_pose = None
-                            }
-                            _ => {}
-                        }
+                UpdateInstance::ResetPose | UpdateInstance::ResetVisibility => {
+                    let inherited = match instance_modifier {
+                        InstanceModifier::Inherited(inherited) => inherited,
+                        _ => continue,
+                    };
+                    match update.update {
+                        UpdateInstance::ResetPose => inherited.modified_pose = None,
+                        UpdateInstance::ResetVisibility => inherited.explicit_inclusion = false,
+                        _ => continue,
                     }
-                }
-                UpdateInstance::ResetVisibility => {
-                    if has_parent {
-                        match instance_modifier {
-                            InstanceModifier::Inherited(inherited) => {
-                                inherited.explicit_inclusion = false
-                            }
-                            _ => {}
-                        }
+                    if !inherited.modified() {
+                        params
+                            .remove_modifier
+                            .write(RemoveModifier::new(update.instance, update.scenario));
                     }
                 }
             }
-            if current_scenario.0.is_some_and(|e| e == update.scenario) {
-                change_current_scenario.write(ChangeCurrentScenario(update.scenario));
+        } else {
+            let instance_modifier = match update.update {
+                UpdateInstance::Include => InstanceModifier::inherited_with_inclusion(),
+                UpdateInstance::Hide => InstanceModifier::Hidden,
+                UpdateInstance::Modify(new_pose) => InstanceModifier::inherited_with_pose(new_pose),
+                UpdateInstance::ResetPose | UpdateInstance::ResetVisibility => {
+                    continue;
+                }
             };
+            let modifier_entity = world.commands().spawn(instance_modifier).id();
+            let (_, mut params) = state.get_mut(world);
+            params.add_modifier.write(AddModifier::new(
+                update.instance,
+                modifier_entity,
+                update.scenario,
+            ));
+            continue;
         }
+
+        let (_, mut params) = state.get_mut(world);
+        params
+            .update_property
+            .write(UpdateProperty::new(update.instance, update.scenario));
+    }
+}
+
+/// Create a new scenario and its children entities
+pub fn handle_create_scenarios(
+    mut commands: Commands,
+    mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
+    mut new_scenarios: EventReader<CreateScenario>,
+    current_workspace: Res<CurrentWorkspace>,
+) {
+    for new in new_scenarios.read() {
+        let mut cmd = commands.spawn((
+            ScenarioBundle::<Entity>::new(new.name.clone(), new.parent.clone()),
+            ScenarioModifiers::<Entity>::default(),
+        ));
+
+        if let Some(parent) = current_workspace.root {
+            cmd.insert(ChildOf(parent));
+        } else {
+            error!("Missing workspace for a new root scenario!");
+        }
+        change_current_scenario.write(ChangeCurrentScenario(cmd.id()));
     }
 }
 
@@ -605,26 +570,20 @@ pub const HIDDEN_MODEL_INSTANCE_ISSUE_UUID: Uuid =
 
 pub fn check_for_hidden_model_instances(
     mut commands: Commands,
-    mut update_instance: EventWriter<UpdateInstanceEvent>,
     mut validate_events: EventReader<ValidateWorkspace>,
-    children: Query<&Children>,
+    get_modifier: GetModifier<InstanceModifier>,
     instances: Query<
         (Entity, &NameInSite, &Affiliation<Entity>),
         (With<ModelMarker>, Without<Group>),
     >,
-    scenarios: Query<(Entity, &Affiliation<Entity>), With<ScenarioMarker>>,
-    instance_modifiers: Query<(&mut InstanceModifier, &Affiliation<Entity>)>,
+    scenarios: Query<
+        (Entity, &ScenarioModifiers<Entity>, &Affiliation<Entity>),
+        With<ScenarioMarker>,
+    >,
 ) {
     for root in validate_events.read() {
         for (instance_entity, instance_name, _) in instances.iter() {
-            if count_scenarios(
-                &scenarios,
-                instance_entity,
-                &children,
-                &instance_modifiers,
-                &mut update_instance,
-            ) > 0
-            {
+            if count_scenarios(&scenarios, instance_entity, &get_modifier) > 0 {
                 continue;
             }
             let issue = Issue {
@@ -642,26 +601,6 @@ pub fn check_for_hidden_model_instances(
             };
             let issue_id = commands.spawn(issue).id();
             commands.entity(**root).add_child(issue_id);
-        }
-    }
-}
-
-/// Create a new scenario and its children entities
-pub fn handle_create_scenarios(
-    mut commands: Commands,
-    mut new_scenarios: EventReader<CreateScenario>,
-    current_workspace: Res<CurrentWorkspace>,
-) {
-    for new in new_scenarios.read() {
-        let mut cmd = commands.spawn(ScenarioBundle::<Entity>::new(
-            new.name.clone(),
-            new.parent.clone(),
-        ));
-
-        if let Some(parent) = current_workspace.root {
-            cmd.insert(ChildOf(parent));
-        } else {
-            error!("Missing workspace for a new root scenario!");
         }
     }
 }

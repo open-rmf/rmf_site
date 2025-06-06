@@ -17,7 +17,7 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Reflect, ReflectComponent};
+use bevy::prelude::{Bundle, Component, Deref, DerefMut, Reflect, ReflectComponent};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 
@@ -26,11 +26,12 @@ use std::collections::{BTreeMap, HashMap};
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct InstanceMarker;
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub enum InstanceModifier {
     Added(AddedInstance),
     Inherited(InheritedInstance),
+    #[default]
     Hidden,
 }
 
@@ -39,10 +40,17 @@ impl InstanceModifier {
         Self::Added(AddedInstance { pose: pose })
     }
 
-    pub fn inherited() -> Self {
+    pub fn inherited_with_pose(pose: Pose) -> Self {
+        Self::Inherited(InheritedInstance {
+            modified_pose: Some(pose),
+            explicit_inclusion: false,
+        })
+    }
+
+    pub fn inherited_with_inclusion() -> Self {
         Self::Inherited(InheritedInstance {
             modified_pose: None,
-            explicit_inclusion: false,
+            explicit_inclusion: true,
         })
     }
 
@@ -182,6 +190,25 @@ pub struct AddedTask {
 pub struct InheritedTask {
     pub modified_params: Option<TaskParams>,
     pub explicit_inclusion: bool,
+}
+
+impl InheritedInstance {
+    pub fn modified(&self) -> bool {
+        if self.modified_pose.is_some() || self.explicit_inclusion {
+            return true;
+        }
+        false
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+pub struct ScenarioModifiers<T: RefTrait>(pub HashMap<T, T>);
+
+impl<T: RefTrait> Default for ScenarioModifiers<T> {
+    fn default() -> Self {
+        Self(HashMap::new())
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]

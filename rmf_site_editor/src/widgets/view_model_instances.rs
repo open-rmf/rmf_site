@@ -18,8 +18,9 @@
 use crate::{
     interaction::Selection,
     site::{
-        scenario::*, Affiliation, CurrentScenario, Delete, Group, InstanceModifier, Members,
-        ModelMarker, NameInSite, ScenarioMarker, UpdateInstance, UpdateInstanceEvent,
+        Affiliation, CurrentScenario, Delete, GetModifier, Group, InstanceModifier, Members,
+        ModelMarker, Modifier, NameInSite, ScenarioMarker, ScenarioModifiers, UpdateInstance,
+        UpdateInstanceEvent,
     },
     widgets::{prelude::*, SelectorWidget},
     Icons,
@@ -27,7 +28,6 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, ImageButton, ScrollArea, Ui};
 use rmf_site_format::{InstanceMarker, SiteID};
-use std::collections::HashMap;
 
 const INSTANCES_VIEWER_HEIGHT: f32 = 200.0;
 
@@ -43,9 +43,18 @@ impl Plugin for ViewModelInstancesPlugin {
 
 #[derive(SystemParam)]
 pub struct ViewModelInstances<'w, 's> {
-    scenarios: Query<'w, 's, (Entity, &'static Affiliation<Entity>), With<ScenarioMarker>>,
-    children: Query<'w, 's, &'static Children>,
+    scenarios: Query<
+        'w,
+        's,
+        (
+            Entity,
+            &'static ScenarioModifiers<Entity>,
+            &'static Affiliation<Entity>,
+        ),
+        With<ScenarioMarker>,
+    >,
     current_scenario: ResMut<'w, CurrentScenario>,
+    get_modifier: GetModifier<'w, 's, InstanceModifier>,
     icons: Res<'w, Icons>,
     members: Query<'w, 's, &'static Members>,
     model_descriptions: Query<
@@ -63,8 +72,6 @@ pub struct ViewModelInstances<'w, 's> {
     selection: Res<'w, Selection>,
     selector: SelectorWidget<'w, 's>,
     delete: EventWriter<'w, Delete>,
-    instance_modifiers:
-        Query<'w, 's, (&'static mut InstanceModifier, &'static Affiliation<Entity>)>,
     update_instance: EventWriter<'w, UpdateInstanceEvent>,
 }
 
@@ -82,24 +89,6 @@ impl<'w, 's> WidgetSystem<Tile> for ViewModelInstances<'w, 's> {
 impl<'w, 's> ViewModelInstances<'w, 's> {
     pub fn show_widget(&mut self, ui: &mut Ui) {
         if let Some(current_scenario_entity) = self.current_scenario.0 {
-            let instance_modifier_entities = get_instance_modifier_entities(
-                current_scenario_entity,
-                &self.children,
-                &self.instance_modifiers,
-            );
-            // Get InstanceModifier components in this scenario
-            let scenario_instance_modifiers = instance_modifier_entities.iter().fold(
-                HashMap::new(),
-                |mut x, (instance_entity, modifier_entity)| {
-                    if let Ok((instance, _)) = self.instance_modifiers.get(*modifier_entity) {
-                        x.insert(*instance_entity, instance.clone());
-                        x
-                    } else {
-                        x
-                    }
-                },
-            );
-
             let mut unaffiliated_instances = Vec::<Entity>::new();
             ScrollArea::vertical()
                 .max_height(INSTANCES_VIEWER_HEIGHT)
@@ -123,9 +112,7 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                         let scenario_count = count_scenarios(
                                             &self.scenarios,
                                             instance_entity,
-                                            &self.children,
-                                            &self.instance_modifiers,
-                                            &mut self.update_instance,
+                                            &self.get_modifier,
                                         );
                                         show_model_instance(
                                             ui,
@@ -134,7 +121,7 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                             &mut self.selector,
                                             &mut self.delete,
                                             &mut self.update_instance,
-                                            scenario_instance_modifiers.get(&instance_entity),
+                                            &self.get_modifier,
                                             current_scenario_entity,
                                             scenario_count,
                                             &self.icons,
@@ -162,9 +149,7 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                     let scenario_count = count_scenarios(
                                         &self.scenarios,
                                         *instance_entity,
-                                        &self.children,
-                                        &self.instance_modifiers,
-                                        &mut self.update_instance,
+                                        &self.get_modifier,
                                     );
                                     show_model_instance(
                                         ui,
@@ -173,7 +158,7 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                         &mut self.selector,
                                         &mut self.delete,
                                         &mut self.update_instance,
-                                        scenario_instance_modifiers.get(instance_entity),
+                                        &self.get_modifier,
                                         current_scenario_entity,
                                         scenario_count,
                                         &self.icons,
@@ -190,56 +175,34 @@ fn check_instance_modifier_inclusion(
     instance_modifier: &InstanceModifier,
     instance_entity: Entity,
     scenario_entity: Entity,
-    children: &Query<&Children>,
-    scenarios: &Query<(Entity, &Affiliation<Entity>), With<ScenarioMarker>>,
-    update_instance: &mut EventWriter<UpdateInstanceEvent>,
-    instance_modifiers: &Query<(&mut InstanceModifier, &Affiliation<Entity>)>,
+    get_modifier: &GetModifier<InstanceModifier>,
 ) -> bool {
-    instance_modifier.visibility().unwrap_or_else(|| {
-        retrieve_parent_visibility(
-            instance_entity,
-            scenario_entity,
-            children,
-            scenarios,
-            instance_modifiers,
-        )
-        .unwrap_or_else(|| {
-            error!(
-                "Unable to retrieve inherited visibility for instance {:?}.
-                Setting instance to be hidden in current scenario.",
-                instance_entity.index()
-            );
-            update_instance.write(UpdateInstanceEvent {
-                scenario: scenario_entity,
-                instance: instance_entity,
-                update: UpdateInstance::Hide,
-            });
-            true
+    let visibility: Visibility = instance_modifier
+        .get()
+        .or_else(|| {
+            instance_modifier.retrieve_inherited(instance_entity, scenario_entity, get_modifier)
         })
-    })
+        .unwrap_or(Visibility::Hidden);
+    match visibility {
+        Visibility::Hidden => false,
+        _ => true,
+    }
 }
 
 /// Count the number of scenarios a model instance is included in
 pub fn count_scenarios(
-    scenarios: &Query<(Entity, &Affiliation<Entity>), With<ScenarioMarker>>,
+    scenarios: &Query<
+        (Entity, &ScenarioModifiers<Entity>, &Affiliation<Entity>),
+        With<ScenarioMarker>,
+    >,
     instance: Entity,
-    children: &Query<&Children>,
-    instance_modifiers: &Query<(&mut InstanceModifier, &Affiliation<Entity>)>,
-    update_instance: &mut EventWriter<UpdateInstanceEvent>,
+    get_modifier: &GetModifier<InstanceModifier>,
 ) -> i32 {
-    scenarios.iter().fold(0, |x, (e, _)| {
-        if find_modifier_for_instance(instance, e, &children, &instance_modifiers)
-            .and_then(|modifier_entity| instance_modifiers.get(modifier_entity).ok())
-            .is_some_and(|(i, _)| {
-                check_instance_modifier_inclusion(
-                    i,
-                    instance,
-                    e,
-                    children,
-                    scenarios,
-                    update_instance,
-                    instance_modifiers,
-                )
+    scenarios.iter().fold(0, |x, (e, _, _)| {
+        if get_modifier
+            .get(e, instance)
+            .is_some_and(|instance_modifier| {
+                check_instance_modifier_inclusion(instance_modifier, instance, e, get_modifier)
             })
         {
             x + 1
@@ -257,18 +220,24 @@ fn show_model_instance(
     selector: &mut SelectorWidget,
     delete: &mut EventWriter<Delete>,
     update_instance: &mut EventWriter<UpdateInstanceEvent>,
-    instance_modifier: Option<&InstanceModifier>,
+    get_modifier: &GetModifier<InstanceModifier>,
     scenario: Entity,
     scenario_count: i32,
     icons: &Res<Icons>,
 ) {
-    if let Some(instance_modifier) = instance_modifier {
-        ui.horizontal(|ui| {
-            // Selector widget
-            selector.show_widget(instance, ui);
-            // Include/hide model instance
-            // Toggle between 3 visibility modes: Include -> Inherited -> Hidden
-            // If this is a root scenario, we won't include the Inherited option
+    let instance_modifier = get_modifier
+        .scenarios
+        .get(scenario)
+        .ok()
+        .and_then(|(scenario_modifiers, _)| scenario_modifiers.get(&instance))
+        .and_then(|e| get_modifier.modifiers.get(*e).ok());
+    ui.horizontal(|ui| {
+        // Selector widget
+        selector.show_widget(instance, ui);
+        // Include/hide model instance
+        // Toggle between 3 visibility modes: Include -> Inherited -> Hidden
+        // If this is a root scenario, we won't include the Inherited option
+        if let Some(instance_modifier) = instance_modifier {
             match instance_modifier {
                 InstanceModifier::Added(_) => {
                     if ui
@@ -328,19 +297,32 @@ fn show_model_instance(
                     }
                 }
             }
-            // Delete instance from this site (all scenarios)
+        } else {
+            // Modifier is inherited
             if ui
-                .add(ImageButton::new(icons.trash.egui()))
-                .on_hover_text("Remove instance from all scenarios")
+                .add(ImageButton::new(icons.link.egui()))
+                .on_hover_text("Model instance visibility is inherited in this scenario")
                 .clicked()
             {
-                delete.write(Delete::new(instance));
+                update_instance.write(UpdateInstanceEvent {
+                    scenario,
+                    instance,
+                    update: UpdateInstance::Hide,
+                });
             }
-            // Name of model instance and scenario count
-            ui.label(format!("{}", name.0)).on_hover_text(format!(
-                "Instance is included in {} scenarios",
-                scenario_count
-            ));
-        });
-    }
+        }
+        // Delete instance from this site (all scenarios)
+        if ui
+            .add(ImageButton::new(icons.trash.egui()))
+            .on_hover_text("Remove instance from all scenarios")
+            .clicked()
+        {
+            delete.write(Delete::new(instance));
+        }
+        // Name of model instance and scenario count
+        ui.label(format!("{}", name.0)).on_hover_text(format!(
+            "Instance is included in {} scenarios",
+            scenario_count
+        ));
+    });
 }

@@ -78,6 +78,9 @@ pub use measurement::*;
 pub mod model;
 pub use model::*;
 
+pub mod modifier;
+pub use modifier::*;
+
 pub mod nav_graph;
 pub use nav_graph::*;
 
@@ -89,6 +92,9 @@ pub use physical_camera::*;
 
 pub mod pose;
 pub use pose::*;
+
+pub mod property_plugin;
+pub use property_plugin::*;
 
 pub mod primitive_shape;
 pub use primitive_shape::*;
@@ -202,6 +208,8 @@ impl Plugin for SitePlugin {
         .add_event::<ChangeCurrentScenario>()
         .add_event::<CreateScenario>()
         .add_event::<RemoveScenario>()
+        .add_event::<AddModifier>()
+        .add_event::<RemoveModifier>()
         .add_event::<UpdateInstanceEvent>()
         .add_event::<SaveSite>()
         .add_event::<SaveNavGraphs>()
@@ -263,6 +271,8 @@ impl Plugin for SitePlugin {
             ChangePlugin::<ModelProperty<IsStatic>>::default(),
             RecallPlugin::<RecallInstance>::default(),
             RecallPlugin::<RecallTask>::default(),
+            PropertyPlugin::<Pose, InstanceModifier, With<InstanceMarker>>::default(),
+            PropertyPlugin::<Visibility, InstanceModifier, With<InstanceMarker>>::default(),
         ))
         .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
         .add_issue_type(&DUPLICATED_LIFT_NAME_ISSUE_UUID, "Duplicate lift name")
@@ -359,11 +369,11 @@ impl Plugin for SitePlugin {
                 add_fiducial_visuals,
                 update_level_visibility,
                 handle_remove_scenarios.before(update_current_scenario),
-                update_current_scenario.before(update_scenario_properties),
-                update_scenario_properties.before(handle_instance_updates),
+                update_current_scenario.before(update_model_instance_poses),
+                update_model_instance_poses.before(handle_instance_updates),
                 handle_instance_updates.before(handle_create_scenarios),
-                handle_create_scenarios.before(manage_instance_modifiers),
-                manage_instance_modifiers,
+                handle_create_scenarios.before(handle_scenario_modifiers),
+                handle_scenario_modifiers,
             )
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
@@ -410,9 +420,12 @@ impl Plugin for SitePlugin {
                 handle_loaded_drawing,
                 update_drawing_rank,
                 add_physical_camera_visuals,
+                check_selected_is_visible,
+                check_for_missing_root_modifiers::<InstanceMarker>,
             )
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
-        );
+        )
+        .add_observer(handle_cleanup_modifiers::<InstanceMarker>);
     }
 }
