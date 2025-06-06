@@ -38,7 +38,7 @@ impl<T: StandardProperty> Property for T {
 
 /// This event is triggered when changes have been made to an element in the
 /// current scenario, and requires the element property value to be updated.
-#[derive(Debug, Event)]
+#[derive(Debug, Event, Clone, Copy)]
 pub struct UpdateProperty {
     pub for_element: Entity,
     pub in_scenario: Entity,
@@ -81,61 +81,71 @@ impl<T: Property, M: Modifier<T>, F: QueryFilter + 'static + Send + Sync> Plugin
 {
     fn build(&self, app: &mut App) {
         app.add_event::<UpdateProperty>()
-            .add_observer(update_property_value::<T, M, F>)
+            .add_systems(PostUpdate, update_property_value::<T, M, F>)
             .add_observer(on_add_property::<T, M, F>)
             .add_observer(on_add_root_scenario::<T, M, F>);
     }
 }
 
 fn update_property_value<T: Property, M: Modifier<T>, F: QueryFilter + 'static + Send + Sync>(
-    trigger: Trigger<UpdateProperty>,
     world: &mut World,
     state: &mut SystemState<(
         Query<&mut T, F>,
+        EventReader<UpdateProperty>,
         EventWriter<AddModifier>,
         Res<CurrentScenario>,
         GetModifier<M>,
     )>,
 ) {
-    let (_, _, current_scenario, get_modifier) = state.get_mut(world);
-    let event = trigger.event();
-    // Only update current scenario properties
-    if !current_scenario.0.is_some_and(|e| e == event.in_scenario) {
+    let (_, mut update_property_events, _, _, _) = state.get_mut(world);
+    if update_property_events.is_empty() {
         return;
     }
+    let mut update_property: Vec<UpdateProperty> = Vec::new();
+    for event in update_property_events.read() {
+        update_property.push(*event);
+    }
 
-    let new_value = if let Some(modifier) = get_modifier.get(event.in_scenario, event.for_element) {
-        modifier
-            .get()
-            .or_else(|| {
-                modifier.retrieve_inherited(event.for_element, event.in_scenario, &get_modifier)
-            })
-            .unwrap_or(T::get_fallback(event.for_element, event.in_scenario, world))
-    } else {
-        // No modifier exists for this scenario/element pairing
-        // Make sure that a modifier exists in the current scenario tree
-        let root_modifier_entity = world.commands().spawn(M::default()).id();
-        let (_, mut add_modifier, _, _) = state.get_mut(world);
-        add_modifier.write(AddModifier::new_to_root(
-            event.for_element,
-            root_modifier_entity,
-            event.in_scenario,
-        ));
-        return;
-    };
+    for event in update_property.iter() {
+        let (_, _, _, current_scenario, get_modifier) = state.get_mut(world);
+        // Only update current scenario properties
+        if !current_scenario.0.is_some_and(|e| e == event.in_scenario) {
+            continue;
+        }
 
-    // TODO(@xiyuoh) Pose and visibility changes are currently not being updated all at one go
-    // Consider using EventReader instead of observer for value updates
-    let (mut values, _, _, _) = state.get_mut(world);
-    let changed = values.get_mut(event.for_element).is_ok_and(|mut value| {
-        *value = new_value.clone();
-        true
-    });
-    if changed {
-        world
-            .commands()
-            .entity(event.for_element)
-            .insert(LastSetValue::<T>::new(new_value));
+        let new_value = if let Some(modifier) =
+            get_modifier.get(event.in_scenario, event.for_element)
+        {
+            modifier
+                .get()
+                .or_else(|| {
+                    modifier.retrieve_inherited(event.for_element, event.in_scenario, &get_modifier)
+                })
+                .unwrap_or(T::get_fallback(event.for_element, event.in_scenario, world))
+        } else {
+            // No modifier exists in this tree for this scenario/element pairing
+            // Make sure that a modifier exists in the current scenario tree
+            let root_modifier_entity = world.commands().spawn(M::default()).id();
+            let (_, _, mut add_modifier, _, _) = state.get_mut(world);
+            add_modifier.write(AddModifier::new_to_root(
+                event.for_element,
+                root_modifier_entity,
+                event.in_scenario,
+            ));
+            continue;
+        };
+
+        let (mut values, _, _, _, _) = state.get_mut(world);
+        let changed = values.get_mut(event.for_element).is_ok_and(|mut value| {
+            *value = new_value.clone();
+            true
+        });
+        if changed {
+            world
+                .commands()
+                .entity(event.for_element)
+                .insert(LastSetValue::<T>::new(new_value));
+        }
     }
 }
 

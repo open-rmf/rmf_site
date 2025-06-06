@@ -164,6 +164,7 @@ pub fn handle_scenario_modifiers(
         (&mut ScenarioModifiers<Entity>, &Affiliation<Entity>),
         With<ScenarioMarker>,
     >,
+    mut update_property: EventWriter<UpdateProperty>,
     current_scenario: Res<CurrentScenario>,
 ) {
     for remove in remove_modifier.read() {
@@ -219,7 +220,7 @@ pub fn handle_scenario_modifiers(
             .insert(ChildOf(scenario_entity));
         scenario_modifiers.insert(add.for_element, add.modifier);
 
-        commands.trigger(UpdateProperty::new(add.for_element, add.in_scenario));
+        update_property.write(UpdateProperty::new(add.for_element, add.in_scenario));
     }
 }
 

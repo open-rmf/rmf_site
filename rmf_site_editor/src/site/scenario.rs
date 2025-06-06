@@ -266,15 +266,15 @@ impl Modifier<Visibility> for InstanceModifier {
 
 /// Handles updates when the current scenario has changed, and trigger property updates for scenario elements
 pub fn update_current_scenario(
-    mut commands: Commands,
     mut change_current_scenario: EventReader<ChangeCurrentScenario>,
     mut current_scenario: ResMut<CurrentScenario>,
+    mut update_property: EventWriter<UpdateProperty>,
     instances: Query<Entity, (With<InstanceMarker>, Without<PendingModel>)>,
 ) {
     if let Some(ChangeCurrentScenario(scenario_entity)) = change_current_scenario.read().last() {
         *current_scenario = CurrentScenario(Some(*scenario_entity));
         for instance_entity in instances.iter() {
-            commands.trigger(UpdateProperty::new(instance_entity, *scenario_entity));
+            update_property.write(UpdateProperty::new(instance_entity, *scenario_entity));
         }
     }
 }
@@ -300,6 +300,7 @@ pub fn update_model_instance_poses(
     mut change_current_scenario: EventReader<ChangeCurrentScenario>,
     mut update_instance: EventWriter<UpdateInstanceEvent>,
     changed_instances: Query<(Entity, Ref<Pose>), (With<InstanceMarker>, Without<Pending>)>,
+    changed_last_set_pose: Query<(), Changed<LastSetValue<Pose>>>,
 ) {
     // Do nothing if scenario has changed, as we rely on pose changes by the user and not the system updating instances
     for ChangeCurrentScenario(_) in change_current_scenario.read() {
@@ -310,7 +311,12 @@ pub fn update_model_instance_poses(
     };
 
     for (entity, new_pose) in changed_instances.iter() {
-        if new_pose.is_changed() && !new_pose.is_added() {
+        if new_pose.is_changed()
+            && !new_pose.is_added()
+            && changed_last_set_pose.get(entity).is_err()
+        {
+            // Only mark an instance as modified if its pose changed due to user
+            // interaction, not because it was updated by scenarios
             update_instance.write(UpdateInstanceEvent {
                 scenario: current_scenario_entity,
                 instance: entity,
@@ -336,6 +342,7 @@ pub struct InstanceParams<'w, 's> {
         ),
         With<ScenarioMarker>,
     >,
+    update_property: EventWriter<'w, UpdateProperty>,
 }
 
 /// Handles updates to model instance modifiers for all scenarios
@@ -469,9 +476,10 @@ pub fn handle_instance_updates(
             continue;
         }
 
-        world
-            .commands()
-            .trigger(UpdateProperty::new(update.instance, update.scenario));
+        let (_, mut params) = state.get_mut(world);
+        params
+            .update_property
+            .write(UpdateProperty::new(update.instance, update.scenario));
     }
 }
 
