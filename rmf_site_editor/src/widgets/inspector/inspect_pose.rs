@@ -49,7 +49,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPose<'w, 's> {
             return;
         };
         if let Some(new_pose) = InspectPoseComponent::new(pose).show(ui) {
-            params.change_pose.send(Change::new(new_pose, selection));
+            params.change_pose.write(Change::new(new_pose, selection));
         }
 
         // Reset model instance pose to parent scenario pose (if any)
@@ -70,7 +70,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPose<'w, 's> {
                                 .on_hover_text("Reset to parent scenario pose")
                                 .clicked()
                             {
-                                params.update_instance.send(UpdateInstanceEvent {
+                                params.update_instance.write(UpdateInstanceEvent {
                                     scenario: scenario_entity,
                                     instance: selection,
                                     update: UpdateInstance::ResetPose,
@@ -124,7 +124,7 @@ impl<'a> InspectPoseComponent<'a> {
 
         ui.horizontal(|ui| {
             ui.label("Rotation");
-            ComboBox::from_id_source("pose_rotation")
+            ComboBox::from_id_salt("pose_rotation")
                 .selected_text(new_pose.rot.label())
                 .show_ui(ui, |ui| {
                     for variant in &[
@@ -161,10 +161,10 @@ impl<'a> InspectPoseComponent<'a> {
                     ui.label("w");
                     ui.end_row();
 
-                    ui.add(DragValue::new(x).speed(0.01).clamp_range(-1.0..=1.0));
-                    ui.add(DragValue::new(y).speed(0.01).clamp_range(-1.0..=1.0));
-                    ui.add(DragValue::new(z).speed(0.01).clamp_range(-1.0..=1.0));
-                    ui.add(DragValue::new(w).speed(0.01).clamp_range(-1.0..=1.0));
+                    ui.add(DragValue::new(x).speed(0.01).range(-1.0..=1.0));
+                    ui.add(DragValue::new(y).speed(0.01).range(-1.0..=1.0));
+                    ui.add(DragValue::new(z).speed(0.01).range(-1.0..=1.0));
+                    ui.add(DragValue::new(w).speed(0.01).range(-1.0..=1.0));
                     ui.end_row();
                 });
 

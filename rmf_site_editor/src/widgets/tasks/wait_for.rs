@@ -21,7 +21,10 @@ use crate::{
     Tile, WidgetSystem,
 };
 use bevy::{
-    ecs::system::{SystemParam, SystemState},
+    ecs::{
+        hierarchy::ChildOf,
+        system::{SystemParam, SystemState},
+    },
     prelude::*,
 };
 use bevy_egui::egui::DragValue;
@@ -32,7 +35,7 @@ pub struct WaitForPlugin {}
 
 impl Plugin for WaitForPlugin {
     fn build(&self, app: &mut App) {
-        app.world.resource_mut::<TaskKinds>().0.insert(
+        app.world_mut().resource_mut::<TaskKinds>().0.insert(
             WaitFor::label(),
             (
                 |mut e_cmd| {
@@ -43,9 +46,9 @@ impl Plugin for WaitForPlugin {
                 },
             ),
         );
-        let widget = Widget::<Tile>::new::<ViewWaitFor>(&mut app.world);
-        let task_widget = app.world.resource::<TaskWidget>().get();
-        app.world.spawn(widget).set_parent(task_widget);
+        let widget = Widget::<Tile>::new::<ViewWaitFor>(&mut app.world_mut());
+        let task_widget = app.world().resource::<TaskWidget>().get();
+        app.world_mut().spawn(widget).insert(ChildOf(task_widget));
     }
 }
 
@@ -70,7 +73,7 @@ impl<'w, 's> WidgetSystem<Tile> for ViewWaitFor<'w, 's> {
             ui.label("Duration:");
             ui.add(
                 DragValue::new(&mut new_wait_for.duration)
-                    .clamp_range(0_f32..=std::f32::INFINITY)
+                    .range(0_f32..=std::f32::INFINITY)
                     .speed(1),
             );
             ui.label(" seconds");

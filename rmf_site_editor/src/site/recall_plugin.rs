@@ -16,7 +16,7 @@
 */
 
 use crate::site::SiteUpdateSet;
-use bevy::prelude::*;
+use bevy::{ecs::component::Mutable, prelude::*};
 use rmf_site_format::Recall;
 
 /// The set in which all [`RecallPlugin`]s run.
@@ -24,14 +24,14 @@ use rmf_site_format::Recall;
 pub struct UpdateRecallSet;
 
 #[derive(Default)]
-pub struct RecallPlugin<T: Recall + Component + Default>
+pub struct RecallPlugin<T: Recall + Component<Mutability = Mutable> + Default>
 where
     T::Source: Component,
 {
     _ignore: std::marker::PhantomData<T>,
 }
 
-impl<T: Recall + Component + Default> Plugin for RecallPlugin<T>
+impl<T: Recall + Component<Mutability = Mutable> + Default> Plugin for RecallPlugin<T>
 where
     T::Source: Component,
 {
@@ -47,7 +47,7 @@ where
     }
 }
 
-fn add_recaller<Recaller: Recall + Component + Default>(
+fn add_recaller<Recaller: Recall + Component<Mutability = Mutable> + Default>(
     mut commands: Commands,
     new_sources: Query<(Entity, &Recaller::Source), (Added<Recaller::Source>, Without<Recaller>)>,
 ) where
@@ -56,13 +56,13 @@ fn add_recaller<Recaller: Recall + Component + Default>(
     for (e, source) in &new_sources {
         let mut recaller = Recaller::default();
         recaller.remember(source);
-        commands.get_entity(e).map(|mut e_mut| {
+        let _ = commands.get_entity(e).map(|mut e_mut| {
             e_mut.insert(recaller);
         });
     }
 }
 
-fn update_recaller<Recaller: Recall + Component + Default>(
+fn update_recaller<Recaller: Recall + Component<Mutability = Mutable> + Default>(
     mut changed_sources: Query<(&Recaller::Source, &mut Recaller), Changed<Recaller::Source>>,
 ) where
     Recaller::Source: Component,

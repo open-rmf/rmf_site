@@ -24,7 +24,10 @@ use crate::{
     widgets::{prelude::*, PendingModelDescription},
     AppState, CurrentWorkspace,
 };
-use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy::{
+    ecs::{hierarchy::ChildOf, system::SystemParam},
+    prelude::*,
+};
 use bevy_egui::egui::{self, Button, ComboBox, ImageSource, RichText, ScrollArea, Ui, Window};
 use gz_fuel::FuelModel;
 
@@ -34,9 +37,9 @@ pub struct FuelAssetBrowserPlugin;
 impl Plugin for FuelAssetBrowserPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<AssetGalleryStatus>();
-        let panel = PanelWidget::new(fuel_asset_browser_panel, &mut app.world);
-        let widget = Widget::new::<FuelAssetBrowser>(&mut app.world);
-        app.world.spawn((panel, widget));
+        let panel = PanelWidget::new(fuel_asset_browser_panel, app.world_mut());
+        let widget = Widget::new::<FuelAssetBrowser>(app.world_mut());
+        app.world_mut().spawn((panel, widget));
     }
 }
 
@@ -141,7 +144,7 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                                     .clone()
                                     .unwrap_or(owners[0].clone()),
                             };
-                            ComboBox::from_id_source("Asset Owner Filter")
+                            ComboBox::from_id_salt("Asset Owner Filter")
                                 .selected_text(selected.clone())
                                 .show_ui(ui, |ui| {
                                     for owner in owners.into_iter() {
@@ -175,7 +178,7 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                                     .clone()
                                     .unwrap_or(tags[0].clone()),
                             };
-                            ComboBox::from_id_source("Asset Tag Filter")
+                            ComboBox::from_id_salt("Asset Tag Filter")
                                 .selected_text(selected.clone())
                                 .show_ui(ui, |ui| {
                                     for tag in tags.into_iter() {
@@ -200,7 +203,7 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                                 Some(s) => s.clone(),
                                 None => gallery_status.filters.recall_private.unwrap_or(false),
                             };
-                            ComboBox::from_id_source("Asset Private Filter")
+                            ComboBox::from_id_salt("Asset Private Filter")
                                 .selected_text(selected.to_string())
                                 .show_ui(ui, |ui| {
                                     for private in [true, false].into_iter() {
@@ -293,7 +296,7 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                                 .commands
                                 .spawn(model_description)
                                 .insert(Category::ModelDescription)
-                                .set_parent(site_entity)
+                                .insert(ChildOf(site_entity))
                                 .id();
 
                             if let Some(pending) = &mut self.pending_model_description {
@@ -322,7 +325,7 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                 if ui.add(Button::new("Save")).clicked() {
                     // Take it to avoid leaking the information in the dialog
                     self.set_api_key
-                        .send(SetFuelApiKey(gallery_status.proposed_api_key.clone()));
+                        .write(SetFuelApiKey(gallery_status.proposed_api_key.clone()));
                     fuel_client.token = Some(std::mem::take(&mut gallery_status.proposed_api_key));
                     gallery_status.show_api_window = false;
                 } else if ui.add(Button::new("Close")).clicked() {
@@ -338,7 +341,7 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
             ui.label("Updating model cache...");
         } else {
             if ui.add(Button::new("Update model cache")).clicked() {
-                self.update_cache.send(UpdateFuelCache);
+                self.update_cache.write(UpdateFuelCache);
             }
         }
         if ui.add(Button::new("Close")).clicked() {

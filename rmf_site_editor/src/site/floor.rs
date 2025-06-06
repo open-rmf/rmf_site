@@ -16,7 +16,12 @@
 */
 
 use crate::{interaction::Selectable, shapes::*, site::*, RecencyRanking};
-use bevy::{math::Affine3A, prelude::*, render::mesh::PrimitiveTopology};
+use bevy::{
+    ecs::hierarchy::ChildOf,
+    math::Affine3A,
+    prelude::*,
+    render::{mesh::PrimitiveTopology, render_asset::RenderAssetUsages},
+};
 use geo::{
     geometry::{LineString, MultiPolygon, Polygon},
     BooleanOps, CoordsIter, TriangulateSpade,
@@ -68,7 +73,10 @@ fn make_floor_mesh(
     lifts: &Query<(&Transform, &LiftCabin<Entity>)>,
 ) -> Mesh {
     if anchor_path.len() == 0 {
-        return Mesh::new(PrimitiveTopology::TriangleList);
+        return Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        );
     } else if anchor_path.len() == 1 {
         let p = anchors
             .point_in_parent_frame_of(anchor_path[0], Category::Floor, entity)
@@ -212,7 +220,7 @@ fn floor_transparency(
     } else {
         AlphaMode::Opaque
     };
-    (*Color::default().set_a(alpha), alpha_mode)
+    (Color::default().with_alpha(alpha), alpha_mode)
 }
 
 pub fn add_floor_visuals(
@@ -224,25 +232,25 @@ pub fn add_floor_visuals(
             &Affiliation<Entity>,
             Option<&RecencyRank<FloorMarker>>,
             Option<&LayerVisibility>,
-            Option<&Parent>,
+            Option<&ChildOf>,
         ),
         Added<FloorMarker>,
     >,
     anchors: AnchorParams,
-    textures: Query<(Option<&Handle<Image>>, &Texture)>,
+    textures: Query<(Option<&TextureImage>, &Texture)>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     default_floor_vis: Query<(&GlobalFloorVisibility, &RecencyRanking<DrawingMarker>)>,
     lifts: Query<(&Transform, &LiftCabin<Entity>)>,
 ) {
-    for (e, new_floor, texture_source, rank, vis, parent) in &floors {
+    for (e, new_floor, texture_source, rank, vis, child_of) in &floors {
         let (base_color_texture, texture) = from_texture_source(texture_source, &textures);
 
         let mesh = make_floor_mesh(e, new_floor, &texture, &anchors, &lifts);
         let height = floor_height(rank);
-        let default_vis = parent
-            .map(|p| default_floor_vis.get(p.get()).ok())
+        let default_vis = child_of
+            .map(|co| default_floor_vis.get(co.parent()).ok())
             .flatten();
         let (base_color, alpha_mode) = floor_transparency(vis, default_vis);
         let material = materials.add(StandardMaterial {
@@ -255,20 +263,18 @@ pub fn add_floor_visuals(
         });
 
         let mesh_entity_id = commands
-            .spawn(PbrBundle {
-                mesh: meshes.add(mesh),
-                material,
-                ..default()
-            })
+            .spawn((
+                Mesh3d(meshes.add(mesh)),
+                MeshMaterial3d(material),
+                Transform::default(),
+                Visibility::default(),
+            ))
             .insert(Selectable::new(e))
             .id();
 
         commands
             .entity(e)
-            .insert(SpatialBundle {
-                transform: Transform::from_xyz(0.0, 0.0, height),
-                ..default()
-            })
+            .insert((Transform::from_xyz(0.0, 0.0, height), Visibility::default()))
             .insert(FloorSegments {
                 mesh: mesh_entity_id,
             })
@@ -297,7 +303,7 @@ pub fn update_changed_floor_ranks(
 pub fn update_floors_for_moved_anchors(
     floors: Query<(Entity, &FloorSegments, &Path<Entity>, &Affiliation<Entity>), With<FloorMarker>>,
     anchors: AnchorParams,
-    textures: Query<(Option<&Handle<Image>>, &Texture)>,
+    textures: Query<(Option<&TextureImage>, &Texture)>,
     changed_anchors: Query<
         &Dependents,
         (
@@ -306,15 +312,18 @@ pub fn update_floors_for_moved_anchors(
         ),
     >,
     mut mesh_assets: ResMut<Assets<Mesh>>,
-    mut mesh_handles: Query<&mut Handle<Mesh>>,
+    mesh_handles: Query<&Mesh3d>,
     lifts: Query<(&Transform, &LiftCabin<Entity>)>,
 ) {
     for dependents in &changed_anchors {
         for dependent in dependents.iter() {
             if let Some((e, segments, path, texture_source)) = floors.get(*dependent).ok() {
                 let (_, texture) = from_texture_source(texture_source, &textures);
-                if let Ok(mut mesh) = mesh_handles.get_mut(segments.mesh) {
-                    *mesh = mesh_assets.add(make_floor_mesh(e, path, &texture, &anchors, &lifts));
+                if let Ok(mesh_handle) = mesh_handles.get(segments.mesh) {
+                    let Some(mesh) = mesh_assets.get_mut(&mesh_handle.0) else {
+                        continue;
+                    };
+                    *mesh = make_floor_mesh(e, path, &texture, &anchors, &lifts);
                 }
             }
         }
@@ -332,14 +341,14 @@ pub fn update_floors(
     >,
     changed_texture_sources: Query<
         &Members,
-        (With<Group>, Or<(Changed<Handle<Image>>, Changed<Texture>)>),
+        (With<Group>, Or<(Changed<TextureImage>, Changed<Texture>)>),
     >,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut mesh_handles: Query<&mut Handle<Mesh>>,
-    material_handles: Query<&Handle<StandardMaterial>>,
+    mesh_handles: Query<&Mesh3d>,
+    material_handles: Query<&MeshMaterial3d<StandardMaterial>>,
     anchors: AnchorParams,
-    textures: Query<(Option<&Handle<Image>>, &Texture)>,
+    textures: Query<(Option<&TextureImage>, &Texture)>,
     lifts: Query<(&Transform, &LiftCabin<Entity>)>,
 ) {
     for e in changed_floors.iter().chain(
@@ -351,9 +360,12 @@ pub fn update_floors(
             continue;
         };
         let (base_color_texture, texture) = from_texture_source(texture_source, &textures);
-        if let Ok(mut mesh) = mesh_handles.get_mut(segment.mesh) {
+        if let Ok(mesh_handle) = mesh_handles.get(segment.mesh) {
             if let Ok(material) = material_handles.get(segment.mesh) {
-                *mesh = meshes.add(make_floor_mesh(e, path, &texture, &anchors, &lifts));
+                let Some(mesh) = meshes.get_mut(&mesh_handle.0) else {
+                    continue;
+                };
+                *mesh = make_floor_mesh(e, path, &texture, &anchors, &lifts);
                 if let Some(material) = materials.get_mut(material) {
                     material.base_color_texture = base_color_texture;
                 }
@@ -374,9 +386,9 @@ pub fn update_floors_for_changed_lifts(
     removed_lifts: RemovedComponents<LiftCabin<Entity>>,
     floors: Query<(Entity, &FloorSegments, &Path<Entity>, &Affiliation<Entity>), With<FloorMarker>>,
     anchors: AnchorParams,
-    textures: Query<(Option<&Handle<Image>>, &Texture)>,
+    textures: Query<(Option<&TextureImage>, &Texture)>,
     mut mesh_assets: ResMut<Assets<Mesh>>,
-    mut mesh_handles: Query<&mut Handle<Mesh>>,
+    mut mesh_handles: Query<&mut Mesh3d>,
 ) {
     if changed_lifts.is_empty() && removed_lifts.is_empty() {
         return;
@@ -384,7 +396,7 @@ pub fn update_floors_for_changed_lifts(
     for (e, segments, path, texture_source) in floors.iter() {
         let (_, texture) = from_texture_source(texture_source, &textures);
         if let Ok(mut mesh) = mesh_handles.get_mut(segments.mesh) {
-            *mesh = mesh_assets.add(make_floor_mesh(e, path, &texture, &anchors, &lifts));
+            *mesh = Mesh3d(mesh_assets.add(make_floor_mesh(e, path, &texture, &anchors, &lifts)));
         }
     }
 }
@@ -394,19 +406,19 @@ fn iter_update_floor_visibility<'a>(
     iter: impl Iterator<
         Item = (
             Option<&'a LayerVisibility>,
-            Option<&'a Parent>,
+            Option<&'a ChildOf>,
             &'a FloorSegments,
         ),
     >,
-    material_handles: &Query<&Handle<StandardMaterial>>,
+    material_handles: &Query<&MeshMaterial3d<StandardMaterial>>,
     material_assets: &mut ResMut<Assets<StandardMaterial>>,
     default_floor_vis: &Query<(&GlobalFloorVisibility, &RecencyRanking<DrawingMarker>)>,
 ) {
-    for (vis, parent, segments) in iter {
+    for (vis, child_of, segments) in iter {
         if let Ok(handle) = material_handles.get(segments.mesh) {
             if let Some(mat) = material_assets.get_mut(handle) {
-                let default_vis = parent
-                    .map(|p| default_floor_vis.get(p.get()).ok())
+                let default_vis = child_of
+                    .map(|co| default_floor_vis.get(co.parent()).ok())
                     .flatten();
                 let (base_color, alpha_mode) = floor_transparency(vis, default_vis);
                 mat.base_color = base_color;
@@ -418,10 +430,10 @@ fn iter_update_floor_visibility<'a>(
 
 // TODO(luca) RemovedComponents is brittle, maybe wrap component in an option?
 pub fn update_floor_visibility(
-    changed_floors: Query<Entity, Or<(Changed<LayerVisibility>, Changed<Parent>)>>,
+    changed_floors: Query<Entity, Or<(Changed<LayerVisibility>, Changed<ChildOf>)>>,
     mut removed_vis: RemovedComponents<LayerVisibility>,
-    all_floors: Query<(Option<&LayerVisibility>, Option<&Parent>, &FloorSegments)>,
-    material_handles: Query<&Handle<StandardMaterial>>,
+    all_floors: Query<(Option<&LayerVisibility>, Option<&ChildOf>, &FloorSegments)>,
+    material_handles: Query<&MeshMaterial3d<StandardMaterial>>,
     mut material_assets: ResMut<Assets<StandardMaterial>>,
     default_floor_vis: Query<(&GlobalFloorVisibility, &RecencyRanking<DrawingMarker>)>,
     changed_default_floor_vis: Query<
@@ -448,7 +460,7 @@ pub fn update_floor_visibility(
 
     for children in &changed_default_floor_vis {
         iter_update_floor_visibility(
-            children.iter().filter_map(|e| all_floors.get(*e).ok()),
+            children.iter().filter_map(|e| all_floors.get(e).ok()),
             &material_handles,
             &mut material_assets,
             &default_floor_vis,

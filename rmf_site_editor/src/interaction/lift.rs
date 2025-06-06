@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    interaction::*,
+    interaction::{gizmo::Gizmo, *},
     site::{CurrentLevel, LiftCabin, LiftDoormat, ToggleLiftDoorAvailability},
 };
 use bevy::prelude::*;
@@ -28,7 +28,7 @@ pub fn make_lift_doormat_gizmo(
             Entity,
             &LiftDoormat,
             &mut Visibility,
-            &mut Handle<StandardMaterial>,
+            &mut MeshMaterial3d<StandardMaterial>,
         ),
         Added<LiftDoormat>,
     >,
@@ -37,7 +37,7 @@ pub fn make_lift_doormat_gizmo(
 ) {
     for (e, doormat, mut visible, mut material) in &mut new_doormats {
         let materials = assets.lift_doormat_materials(doormat.door_available);
-        *material = materials.passive.clone();
+        *material = MeshMaterial3d(materials.passive.clone());
         commands
             .entity(e)
             .insert(Gizmo::new().with_materials(materials));
@@ -56,8 +56,8 @@ pub fn handle_lift_doormat_clicks(
 ) {
     for click in clicks.read() {
         if let Ok(doormat) = doormats.get(click.0) {
-            toggle.send(doormat.toggle_availability());
-            select.send(Select::new(Some(doormat.for_lift)));
+            toggle.write(doormat.toggle_availability());
+            select.write(Select::new(Some(doormat.for_lift)));
         }
     }
 }

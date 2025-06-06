@@ -16,7 +16,7 @@
 */
 
 use bevy::{
-    ecs::{event::Events, system::SystemState},
+    ecs::{event::Events, hierarchy::ChildOf, system::SystemState},
     prelude::*,
 };
 use std::{
@@ -25,7 +25,10 @@ use std::{
 };
 use thiserror::Error as ThisError;
 
-use crate::{interaction::Preview, recency::RecencyRanking, site::*, ExportFormat};
+use crate::{
+    exit_confirmation::SiteChanged, interaction::Preview, recency::RecencyRanking, site::*,
+    ExportFormat,
+};
 use rmf_site_format::*;
 
 #[derive(Event)]
@@ -77,10 +80,10 @@ fn assemble_edited_drawing(world: &mut World) {
         return;
     };
     let Some(c) = c.target() else { return };
-    let Some(mut level) = world.get_entity_mut(c.level) else {
+    let Ok(mut level) = world.get_entity_mut(c.level) else {
         return;
     };
-    level.push_children(&[c.drawing]);
+    level.add_children(&[c.drawing]);
 }
 
 /// Revert the drawing back to the root so it can continue to be edited.
@@ -89,7 +92,7 @@ fn disassemble_edited_drawing(world: &mut World) {
         return;
     };
     let Some(c) = c.target() else { return };
-    let Some(mut level) = world.get_entity_mut(c.level) else {
+    let Ok(mut level) = world.get_entity_mut(c.level) else {
         return;
     };
     level.remove_children(&[c.drawing]);
@@ -464,7 +467,7 @@ fn generate_levels(
                 level_children,
                 floor_ranking,
                 drawing_ranking,
-            )) = q_levels.get(*c)
+            )) = q_levels.get(c)
             {
                 let mut level = Level::new(
                     LevelProperties {
@@ -483,10 +486,10 @@ fn generate_levels(
                     },
                 );
                 for c in level_children.iter() {
-                    if let Ok((anchor, id)) = q_anchors.get(*c) {
+                    if let Ok((anchor, id)) = q_anchors.get(c) {
                         level.anchors.insert(id.0, anchor.clone());
                     }
-                    if let Ok((edge, o_edge, name, kind, id)) = q_doors.get(*c) {
+                    if let Ok((edge, o_edge, name, kind, id)) = q_doors.get(c) {
                         let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
                         let anchors = get_anchor_id_edge(edge)?;
                         level.doors.insert(
@@ -507,16 +510,16 @@ fn generate_levels(
                         preferred_alpha,
                         id,
                         children,
-                    )) = q_drawings.get(*c)
+                    )) = q_drawings.get(c)
                     {
                         let mut measurements = BTreeMap::new();
                         let mut fiducials = BTreeMap::new();
                         let mut anchors = BTreeMap::new();
                         for e in children.iter() {
-                            if let Ok((anchor, anchor_id)) = q_anchors.get(*e) {
+                            if let Ok((anchor, anchor_id)) = q_anchors.get(e) {
                                 anchors.insert(anchor_id.0, anchor.clone());
                             }
-                            if let Ok((edge, o_edge, distance, id)) = q_measurements.get(*e) {
+                            if let Ok((edge, o_edge, distance, id)) = q_measurements.get(e) {
                                 let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
                                 let anchors = get_anchor_id_edge(edge)?;
                                 measurements.insert(
@@ -528,7 +531,7 @@ fn generate_levels(
                                     },
                                 );
                             }
-                            if let Ok((point, o_point, affiliation, id)) = q_fiducials.get(*e) {
+                            if let Ok((point, o_point, affiliation, id)) = q_fiducials.get(e) {
                                 let point = o_point.map(|x| &x.0).unwrap_or(point);
                                 let anchor = Point(get_anchor_id(point.0)?);
                                 let affiliation = if let Affiliation(Some(e)) = affiliation {
@@ -562,7 +565,7 @@ fn generate_levels(
                             },
                         );
                     }
-                    if let Ok((path, o_path, texture, preferred_alpha, id)) = q_floors.get(*c) {
+                    if let Ok((path, o_path, texture, preferred_alpha, id)) = q_floors.get(c) {
                         let path = o_path.map(|x| &x.0).unwrap_or(path);
                         let anchors = get_anchor_id_path(&path)?;
                         let texture = if let Affiliation(Some(e)) = texture {
@@ -581,7 +584,7 @@ fn generate_levels(
                             },
                         );
                     }
-                    if let Ok((kind, pose, id)) = q_lights.get(*c) {
+                    if let Ok((kind, pose, id)) = q_lights.get(c) {
                         level.lights.insert(
                             id.0,
                             Light {
@@ -590,7 +593,7 @@ fn generate_levels(
                             },
                         );
                     }
-                    if let Ok((name, pose, properties, id)) = q_physical_cameras.get(*c) {
+                    if let Ok((name, pose, properties, id)) = q_physical_cameras.get(c) {
                         level.physical_cameras.insert(
                             id.0,
                             PhysicalCamera {
@@ -601,7 +604,7 @@ fn generate_levels(
                             },
                         );
                     }
-                    if let Ok((edge, o_edge, texture, id)) = q_walls.get(*c) {
+                    if let Ok((edge, o_edge, texture, id)) = q_walls.get(c) {
                         let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
                         let anchors = get_anchor_id_edge(edge)?;
                         let texture = if let Affiliation(Some(e)) = texture {
@@ -619,7 +622,7 @@ fn generate_levels(
                             },
                         );
                     }
-                    if let Ok((pose, name, id)) = q_user_camera_poses.get(*c) {
+                    if let Ok((pose, name, id)) = q_user_camera_poses.get(c) {
                         level.user_camera_poses.insert(
                             id.0,
                             UserCameraPose {
@@ -649,7 +652,7 @@ type QueryLift<'w, 's> = Query<
         &'static IsStatic,
         &'static InitialLevel<Entity>,
         &'static SiteID,
-        &'static Parent,
+        &'static ChildOf,
     ),
     Without<Pending>,
 >;
@@ -664,7 +667,7 @@ fn generate_lifts(
         Query<&SiteID, (With<LevelElevation>, Without<Pending>)>,
         QueryLift,
         Query<Entity, With<CabinAnchorGroup>>,
-        Query<&Parent, Without<Pending>>,
+        Query<&ChildOf, Without<Pending>>,
         Query<&Children>,
         Query<&SiteID>,
     )> = SystemState::new(world);
@@ -675,7 +678,7 @@ fn generate_lifts(
         q_levels,
         q_lifts,
         q_cabin_anchor_groups,
-        q_parents,
+        q_child_of,
         q_children,
         q_site_id,
     ) = state.get(world);
@@ -703,8 +706,8 @@ fn generate_lifts(
     };
 
     let confirm_entity_parent = |intended_parent, child| {
-        if let Ok(actual_parent) = q_parents.get(child) {
-            if actual_parent.get() == intended_parent {
+        if let Ok(actual_parent) = q_child_of.get(child) {
+            if actual_parent.parent() == intended_parent {
                 return true;
             }
         }
@@ -729,18 +732,19 @@ fn generate_lifts(
         Ok(())
     };
 
-    for (lift_entity, name, edge, o_edge, cabin, is_static, initial_level, id, parent) in &q_lifts {
-        if parent.get() != site {
+    for (lift_entity, name, edge, o_edge, cabin, is_static, initial_level, id, child_of) in &q_lifts
+    {
+        if child_of.parent() != site {
             continue;
         }
 
         // TODO(MXG): Clean up this spaghetti
-        let anchor_group_entity = *match match q_children.get(lift_entity) {
+        let anchor_group_entity = match match q_children.get(lift_entity) {
             Ok(children) => children,
             Err(_) => return Err(SiteGenerationError::BrokenLift(id.0)),
         }
         .iter()
-        .find(|c| q_cabin_anchor_groups.contains(**c))
+        .find(|c| q_cabin_anchor_groups.contains(*c))
         {
             Some(c) => c,
             None => return Err(SiteGenerationError::BrokenLift(id.0)),
@@ -939,7 +943,7 @@ fn generate_nav_graphs(
 ) -> Result<BTreeMap<u32, NavGraph>, SiteGenerationError> {
     let mut state: SystemState<
         Query<
-            (&NameInSite, &DisplayColor, &SiteID, &Parent),
+            (&NameInSite, &DisplayColor, &SiteID, &ChildOf),
             (With<NavGraphMarker>, Without<Pending>),
         >,
     > = SystemState::new(world);
@@ -947,8 +951,8 @@ fn generate_nav_graphs(
     let q_nav_graphs = state.get(world);
 
     let mut nav_graphs = BTreeMap::new();
-    for (name, color, id, parent) in &q_nav_graphs {
-        if parent.get() != site {
+    for (name, color, id, child_of) in &q_nav_graphs {
+        if child_of.parent() != site {
             continue;
         }
 
@@ -978,7 +982,7 @@ fn generate_lanes(
                 &ReverseLane,
                 &AssociatedGraphs<Entity>,
                 &SiteID,
-                &Parent,
+                &ChildOf,
             ),
             (With<LaneMarker>, Without<Pending>),
         >,
@@ -1002,8 +1006,8 @@ fn generate_lanes(
     };
 
     let mut lanes = BTreeMap::new();
-    for (edge, o_edge, forward, reverse, graphs, lane_id, parent) in &q_lanes {
-        if parent.get() != site {
+    for (edge, o_edge, forward, reverse, graphs, lane_id, child_of) in &q_lanes {
+        if child_of.parent() != site {
             continue;
         }
 
@@ -1041,7 +1045,7 @@ fn generate_locations(
                 &NameInSite,
                 &AssociatedGraphs<Entity>,
                 &SiteID,
-                &Parent,
+                &ChildOf,
             ),
             Without<Pending>,
         >,
@@ -1059,8 +1063,8 @@ fn generate_locations(
     };
 
     let mut locations = BTreeMap::new();
-    for (point, o_point, tags, name, graphs, location_id, parent) in &q_locations {
-        if parent.get() != site {
+    for (point, o_point, tags, name, graphs, location_id, child_of) in &q_locations {
+        if child_of.parent() != site {
             continue;
         }
 
@@ -1160,7 +1164,7 @@ fn migrate_relative_paths(
     // mut assets: Query<(Entity, &mut AssetSource)>,
     // mut default_files: Query<&mut DefaultFile>,
     // mut commands: Commands,
-    // parents: Query<&Parent>,
+    // child_of: Query<&ChildOf>,
 ) {
     let old_path = if let Some(mut default_file) = world.get_mut::<DefaultFile>(site) {
         let old_path = default_file.0.clone();
@@ -1174,10 +1178,10 @@ fn migrate_relative_paths(
         return;
     };
 
-    let mut state: SystemState<(Query<(Entity, &mut AssetSource)>, Query<&Parent>)> =
+    let mut state: SystemState<(Query<(Entity, &mut AssetSource)>, Query<&ChildOf>)> =
         SystemState::new(world);
 
-    let (mut assets, parents) = state.get_mut(world);
+    let (mut assets, child_of) = state.get_mut(world);
 
     for (mut e, mut source) in &mut assets {
         let asset_entity = e;
@@ -1196,8 +1200,8 @@ fn migrate_relative_paths(
                 }
             }
 
-            if let Ok(parent) = parents.get(e) {
-                e = parent.get();
+            if let Ok(child_of) = child_of.get(e) {
+                e = child_of.parent();
             } else {
                 break;
             }
@@ -1227,7 +1231,7 @@ fn generate_model_descriptions(
     let mut res = BTreeMap::<u32, ModelDescriptionBundle>::new();
     if let Ok(children) = children.get(site) {
         for child in children.iter() {
-            if let Ok((site_id, name, source, is_static, scale)) = model_descriptions.get(*child) {
+            if let Ok((site_id, name, source, is_static, scale)) = model_descriptions.get(child) {
                 let desc_bundle = ModelDescriptionBundle {
                     name: name.clone(),
                     source: source.clone(),
@@ -1255,7 +1259,7 @@ fn generate_robots(
     let mut res = BTreeMap::<u32, Robot>::new();
     if let Ok(children) = children.get(site) {
         for child in children.iter() {
-            if let Ok((site_id, robot_property)) = robots.get(*child) {
+            if let Ok((site_id, robot_property)) = robots.get(child) {
                 let mut robot = robot_property.0.clone();
                 // Remove any invalid properties
                 robot.properties.retain(|k, _| !k.is_empty());
@@ -1277,13 +1281,16 @@ fn generate_model_instances(
             (With<ModelMarker>, Without<Group>, Without<Pending>),
         >,
         Query<(Entity, &SiteID), With<LevelElevation>>,
-        Query<&Parent>,
+        Query<&ChildOf>,
     )> = SystemState::new(world);
-    let (model_descriptions, model_instances, levels, parents) = state.get(world);
+    let (model_descriptions, model_instances, levels, child_of) = state.get(world);
 
     let mut site_levels_ids = std::collections::HashMap::<Entity, u32>::new();
     for (level_entity, site_id) in levels.iter() {
-        if parents.get(level_entity).is_ok_and(|p| p.get() == site) {
+        if child_of
+            .get(level_entity)
+            .is_ok_and(|co| co.parent() == site)
+        {
             site_levels_ids.insert(level_entity, site_id.0);
         }
     }
@@ -1291,10 +1298,10 @@ fn generate_model_instances(
     for (instance_entity, instance_id, instance_name, instance_pose, instance_affiliation) in
         model_instances.iter()
     {
-        let Some(level_id) = parents
+        let Some(level_id) = child_of
             .get(instance_entity)
             .ok()
-            .map(|p| site_levels_ids.get(&p.get()).copied())
+            .map(|co| site_levels_ids.get(&co.parent()).copied())
             .flatten()
         else {
             error!("Unable to find parent for instance [{}]", instance_name.0);
@@ -1340,7 +1347,7 @@ fn generate_scenarios(
 
     if let Ok(site_children) = children.get(site) {
         for site_child in site_children.iter() {
-            if let Ok((entity, ..)) = scenarios.get(*site_child) {
+            if let Ok((entity, ..)) = scenarios.get(site_child) {
                 let mut queue = vec![entity];
 
                 while let Some(scenario) = queue.pop() {
@@ -1348,12 +1355,12 @@ fn generate_scenarios(
                     let mut scenario_task_modifiers = Vec::new();
                     if let Ok(scenario_children) = children.get(scenario) {
                         for scenario_child in scenario_children.iter() {
-                            if scenarios.contains(*scenario_child) {
-                                queue.push(*scenario_child);
-                            } else if instance_modifiers.contains(*scenario_child) {
-                                scenario_instance_modifiers.push(*scenario_child);
-                            } else if task_modifiers.contains(*scenario_child) {
-                                scenario_task_modifiers.push(*scenario_child);
+                            if scenarios.contains(scenario_child) {
+                                queue.push(scenario_child);
+                            } else if instance_modifiers.contains(scenario_child) {
+                                scenario_instance_modifiers.push(scenario_child);
+                            } else if task_modifiers.contains(scenario_child) {
+                                scenario_task_modifiers.push(scenario_child);
                             }
                         }
                     }
@@ -1420,7 +1427,7 @@ fn generate_tasks(
     let mut res = BTreeMap::<u32, Task>::new();
     if let Ok(children) = children.get(site) {
         for child in children.iter() {
-            if let Ok((site_id, task)) = tasks.get(*child) {
+            if let Ok((site_id, task)) = tasks.get(child) {
                 res.insert(site_id.0, task.clone());
             }
         }
@@ -1530,6 +1537,7 @@ pub fn save_site(world: &mut World) {
                                 world.entity_mut(save_event.site).insert(old_default_path);
                             }
                             error!("Save failed: {err}");
+                            continue;
                         }
                     }
                 } else {
@@ -1542,9 +1550,15 @@ pub fn save_site(world: &mut World) {
                                 world.entity_mut(save_event.site).insert(old_default_path);
                             }
                             error!("Save failed: {err}");
+                            continue;
                         }
                     }
                 }
+
+                // Indicate that the site has not changed since the last save.
+                // Note that we will need to change this logic when we start
+                // supporting multiple sites being open in one app.
+                world.resource_mut::<SiteChanged>().0 = false;
             }
             ExportFormat::Sdf => {
                 // TODO(luca) reduce code duplication with default exporting
@@ -1635,6 +1649,7 @@ pub fn save_site(world: &mut World) {
                     };
                     if let Err(err) = serde_yaml::to_writer(f, &graph) {
                         error!("Failed to save nav graph: {err}");
+                        continue;
                     }
                 }
             }

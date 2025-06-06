@@ -23,14 +23,15 @@ use crate::{
 };
 use anyhow::{anyhow, Error as Anyhow};
 use bevy::{
-    ecs::system::{StaticSystemParam, SystemParam},
-    prelude::{Input, *},
+    ecs::{
+        schedule::ScheduleConfigs,
+        system::{ScheduleSystem, StaticSystemParam, SystemParam},
+    },
+    math::Ray3d,
+    picking::pointer::{PointerId, PointerInteraction},
+    prelude::*,
 };
 use bevy_impulse::*;
-use bevy_mod_raycast::{
-    deferred::{RaycastMesh, RaycastSource},
-    primitives::rays::Ray3d,
-};
 use rmf_site_format::{
     Category, Door, Edge, Lane, LiftProperties, Measurement, NameOfSite, Pending, PixelsPerMeter,
     Pose, Side, Wall,
@@ -89,13 +90,13 @@ impl Plugin for SelectionPlugin {
         .add_systems(
             Update,
             (
-                (apply_deferred, flush_impulses())
+                (ApplyDeferred, flush_impulses())
                     .chain()
                     .in_set(SelectionServiceStages::PickFlush),
-                (apply_deferred, flush_impulses())
+                (ApplyDeferred, flush_impulses())
                     .chain()
                     .in_set(SelectionServiceStages::HoverFlush),
-                (apply_deferred, flush_impulses())
+                (ApplyDeferred, flush_impulses())
                     .chain()
                     .in_set(SelectionServiceStages::SelectFlush),
             ),
@@ -106,15 +107,15 @@ impl Plugin for SelectionPlugin {
             ObjectPlacementPlugin::default(),
         ));
 
-        let inspector_service = app.world.resource::<InspectorService>().inspector_service;
+        let inspector_service = app.world().resource::<InspectorService>().inspector_service;
         let new_selector_service = app.spawn_event_streaming_service::<RunSelector>(Update);
-        let selection_workflow = app.world.spawn_io_workflow(build_selection_workflow(
+        let selection_workflow = app.world_mut().spawn_io_workflow(build_selection_workflow(
             inspector_service,
             new_selector_service,
         ));
 
         // Get the selection workflow running
-        app.world.command(|commands| {
+        app.world_mut().command(|commands| {
             commands.request((), selection_workflow).detach();
         });
     }
@@ -384,14 +385,10 @@ impl Default for SelectionBlockers {
 
 pub fn make_selectable_entities_pickable(
     mut commands: Commands,
-    new_selectables: Query<(Entity, &Selectable), Added<Selectable>>,
+    new_selectables: Query<&Selectable, Added<Selectable>>,
     targets: Query<(Option<&Hovered>, Option<&Selected>)>,
 ) {
-    for (entity, selectable) in &new_selectables {
-        commands
-            .entity(entity)
-            .insert(RaycastMesh::<SiteRaycastSet>::default());
-
+    for selectable in &new_selectables {
         if let Ok((hovered, selected)) = targets.get(selectable.element) {
             if hovered.is_none() {
                 commands
@@ -429,23 +426,26 @@ impl SpawnSelectionServiceExt for App {
     {
         let picking_service = self.spawn_continuous_service(
             Update,
-            picking_service::<F>
-                .configure(|config: SystemConfigs| config.in_set(SelectionServiceStages::Pick)),
+            picking_service::<F>.configure(|config: ScheduleConfigs<ScheduleSystem>| {
+                config.in_set(SelectionServiceStages::Pick)
+            }),
         );
 
         let hover_service = self.spawn_continuous_service(
             Update,
-            hover_service::<F>
-                .configure(|config: SystemConfigs| config.in_set(SelectionServiceStages::Hover)),
+            hover_service::<F>.configure(|config: ScheduleConfigs<ScheduleSystem>| {
+                config.in_set(SelectionServiceStages::Hover)
+            }),
         );
 
         let select_service = self.spawn_continuous_service(
             Update,
-            select_service::<F>
-                .configure(|config: SystemConfigs| config.in_set(SelectionServiceStages::Select)),
+            select_service::<F>.configure(|config: ScheduleConfigs<ScheduleSystem>| {
+                config.in_set(SelectionServiceStages::Select)
+            }),
         );
 
-        self.world
+        self.world_mut()
             .spawn_workflow::<_, _, (Hover, Select), _>(|scope, builder| {
                 let hover = builder.create_node(hover_service);
                 builder.connect(hover.streams, scope.streams.0);
@@ -513,16 +513,17 @@ impl Plugin for InspectorServicePlugin {
         let inspector_select_service = app.spawn_selection_service::<InspectorFilter>();
         let inspector_cursor_transform = app.spawn_continuous_service(
             Update,
-            inspector_cursor_transform
-                .configure(|config: SystemConfigs| config.in_set(SelectionServiceStages::Pick)),
+            inspector_cursor_transform.configure(|config: ScheduleConfigs<ScheduleSystem>| {
+                config.in_set(SelectionServiceStages::Pick)
+            }),
         );
         let selection_update = app.spawn_service(selection_update);
         let keyboard_just_pressed = app
-            .world
+            .world()
             .resource::<KeyboardServices>()
             .keyboard_just_pressed;
 
-        let inspector_service = app.world.spawn_workflow(|scope, builder| {
+        let inspector_service = app.world_mut().spawn_workflow(|scope, builder| {
             let fork_input = scope.input.fork_clone(builder);
             fork_input
                 .clone_chain(builder)
@@ -548,7 +549,7 @@ impl Plugin for InspectorServicePlugin {
             builder.connect(selection.output, scope.terminate);
         });
 
-        app.world.insert_resource(InspectorService {
+        app.world_mut().insert_resource(InspectorService {
             inspector_service,
             inspector_select_service,
             inspector_cursor_transform,
@@ -559,7 +560,7 @@ impl Plugin for InspectorServicePlugin {
 
 pub fn deselect_on_esc(In(code): In<KeyCode>, mut select: EventWriter<Select>) {
     if matches!(code, KeyCode::Escape) {
-        select.send(Select::new(None));
+        select.write(Select::new(None));
     }
 }
 
@@ -705,10 +706,10 @@ pub fn picking_service<Filter: SystemParam + 'static>(
     let mut filter = filter.into_inner();
 
     if let Some(pick) = picks.read().last() {
-        hover
-            .send(Hover(pick.to.and_then(|change_pick_to| {
-                filter.filter_pick(change_pick_to)
-            })));
+        hover.write(Hover(
+            pick.to
+                .and_then(|change_pick_to| filter.filter_pick(change_pick_to)),
+        ));
     }
 }
 
@@ -733,7 +734,7 @@ pub fn hover_service<Filter: SystemParam + 'static>(
     mut hovered: Query<&mut Hovered>,
     mut hovering: ResMut<Hovering>,
     mut hover: EventReader<Hover>,
-    mouse_button_input: Res<Input<MouseButton>>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
     touch_input: Res<Touches>,
     mut select: EventWriter<Select>,
     blockers: Option<Res<PickingBlockers>>,
@@ -783,7 +784,7 @@ pub fn hover_service<Filter: SystemParam + 'static>(
 
     if clicked && !blocked {
         if let Some(new_select) = filter.on_click(Hover(hovering.0)) {
-            select.send(new_select);
+            select.write(new_select);
         }
     }
 }
@@ -824,8 +825,8 @@ pub fn select_service<Filter: SystemParam + 'static>(
                     if selected.provisional {
                         // The selection was provisional. Since we are not
                         // using it, we are responsible for despawning it.
-                        if let Some(entity_mut) = commands.get_entity(selected.candidate) {
-                            entity_mut.despawn_recursive();
+                        if let Ok(mut entity_mut) = commands.get_entity(selected.candidate) {
+                            entity_mut.despawn();
                         }
                     }
                     continue;
@@ -896,7 +897,8 @@ pub fn inspector_cursor_transform(
     In(ContinuousService { key }): ContinuousServiceInput<(), ()>,
     orders: ContinuousQuery<(), ()>,
     cursor: Res<Cursor>,
-    raycast_sources: Query<&RaycastSource<SiteRaycastSet>>,
+    camera_controls: Res<CameraControls>,
+    pointers: Query<(&PointerId, &PointerInteraction)>,
     mut transforms: Query<&mut Transform>,
 ) {
     let Some(orders) = orders.view(&key) else {
@@ -907,14 +909,20 @@ pub fn inspector_cursor_transform(
         return;
     }
 
-    let Ok(source) = raycast_sources.get_single() else {
+    let Some((_, interactions)) = pointers.single().ok() else {
         return;
     };
-    let intersection = match source.get_nearest_intersection() {
-        Some((_, intersection)) => intersection,
-        None => {
-            return;
-        }
+    let active_camera = camera_controls.active_camera();
+    let Some((position, normal)) = interactions
+        .iter()
+        .find(|(_, hit_data)| hit_data.camera == active_camera)
+        .and_then(|(_, hit_data)| {
+            hit_data
+                .position
+                .zip(hit_data.normal.and_then(|n| Dir3::new(n).ok()))
+        })
+    else {
+        return;
     };
 
     let mut transform = match transforms.get_mut(cursor.frame) {
@@ -924,6 +932,9 @@ pub fn inspector_cursor_transform(
         }
     };
 
-    let ray = Ray3d::new(intersection.position(), intersection.normal());
-    *transform = Transform::from_matrix(ray.to_aligned_transform([0., 0., 1.].into()));
+    let ray = Ray3d::new(position, normal);
+    *transform = Transform::from_matrix(Mat4::from_rotation_translation(
+        Quat::from_rotation_arc(Vec3::new(0., 0., 1.), *ray.direction),
+        ray.origin,
+    ));
 }

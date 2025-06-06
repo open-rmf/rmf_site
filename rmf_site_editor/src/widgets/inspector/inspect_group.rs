@@ -73,7 +73,7 @@ impl<'w, 's> InspectGroup<'w, 's> {
         if let Ok(texture) = self.textures.get(id) {
             ui.label(RichText::new("Texture Properties").size(18.0));
             if let Some(new_texture) = InspectTexture::new(texture, default_file).show(ui) {
-                self.change_texture.send(Change::new(new_texture, id));
+                self.change_texture.write(Change::new(new_texture, id));
             }
             ui.add_space(10.0);
         }

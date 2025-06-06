@@ -16,12 +16,11 @@
 */
 use crate::interaction::{InteractionAssets, PickingBlockers};
 use bevy::{
-    core_pipeline::{
-        clear_color::ClearColorConfig, core_3d::Camera3dBundle, tonemapping::Tonemapping,
-    },
+    color::palettes::css as Colors,
+    core_pipeline::tonemapping::Tonemapping,
     prelude::*,
     render::{
-        camera::{Camera, Projection, ScalingMode},
+        camera::{Camera, ClearColorConfig, Exposure, Projection, ScalingMode},
         view::RenderLayers,
     },
 };
@@ -38,28 +37,44 @@ use keyboard::{update_keyboard_command, KeyboardCommand};
 /// RenderLayers are used to inform cameras which entities they should render.
 /// The General render layer is for things that should be visible to all
 /// cameras.
-pub const GENERAL_RENDER_LAYER: u8 = 0;
+pub const GENERAL_RENDER_LAYER: usize = 0;
 /// The Physical render layer is for things that should be visible to any camera
 /// that needs to capture the physical world (e.g. the physical camera sensor
 /// simulator) but should not be rendered by the user's view. This allows us to
 /// toggle off complex PBR lights for the user's view (which can severely slow
 /// down performance) while keeping them for camera sensors.
-pub const PHYSICAL_RENDER_LAYER: u8 = 1;
+pub const PHYSICAL_RENDER_LAYER: usize = 1;
 /// The Visual Cue layer is for things that should be shown to the user but
 /// should never appear in a physical camera.
-pub const VISUAL_CUE_RENDER_LAYER: u8 = 2;
+pub const VISUAL_CUE_RENDER_LAYER: usize = 2;
 /// The Selected Outline layer is where the outline of the currently selected
 /// entity is shown.
-pub const SELECTED_OUTLINE_LAYER: u8 = 3;
+pub const SELECTED_OUTLINE_LAYER: usize = 3;
 /// The Hovered Outline layer is where the outline of the currently hovered
 /// entity is shown.
-pub const HOVERED_OUTLINE_LAYER: u8 = 4;
+pub const HOVERED_OUTLINE_LAYER: usize = 4;
 /// The X-Ray layer is used to show visual cues that need to be rendered
 /// above anything that would be obstructing them.
-pub const XRAY_RENDER_LAYER: u8 = 5;
+pub const XRAY_RENDER_LAYER: usize = 5;
 /// The Model Preview layer is used by model previews to spawn and render
 /// models in the engine without having them being visible to general cameras
-pub const MODEL_PREVIEW_LAYER: u8 = 6;
+pub const MODEL_PREVIEW_LAYER: usize = 6;
+
+// Creates all the layers visible in the main camera view (excluding, for example
+// the model preview which is on a separate view). The main lights will affect these.
+pub fn main_view_render_layers() -> RenderLayers {
+    RenderLayers::from_layers(&[
+        GENERAL_RENDER_LAYER,
+        PHYSICAL_RENDER_LAYER,
+        VISUAL_CUE_RENDER_LAYER,
+        SELECTED_OUTLINE_LAYER,
+        HOVERED_OUTLINE_LAYER,
+        XRAY_RENDER_LAYER,
+    ])
+}
+
+/// Camera exposure, adjusted for indoor lighting, in ev100 units
+pub const DEFAULT_CAMERA_EV100: f32 = 3.5;
 
 /// Camera limits
 pub const MIN_FOV: f32 = 5.0;
@@ -246,22 +261,21 @@ impl FromWorld for CameraControls {
         );
         let selection_mesh = interaction_assets.camera_control_mesh.clone();
         let selection_marker = world
-            .spawn(PbrBundle {
-                mesh: selection_mesh,
-                visibility: Visibility::Visible,
-                ..default()
-            })
+            .spawn((
+                Mesh3d(selection_mesh),
+                Visibility::Visible,
+                Transform::default(),
+                MeshMaterial3d::<StandardMaterial>::default(),
+            ))
             .id();
 
         let perspective_headlight = world
-            .spawn(DirectionalLightBundle {
-                directional_light: DirectionalLight {
-                    shadows_enabled: false,
-                    illuminance: 20000.,
-                    ..default()
-                },
+            .spawn(DirectionalLight {
+                shadows_enabled: false,
+                illuminance: 50.,
                 ..default()
             })
+            .insert(main_view_render_layers())
             .id();
 
         let perspective_child_cameras = [
@@ -271,63 +285,65 @@ impl FromWorld for CameraControls {
         ]
         .map(|(order, layer)| {
             world
-                .spawn(Camera3dBundle {
-                    projection: Projection::Perspective(Default::default()),
-                    camera: Camera { order, ..default() },
-                    camera_3d: Camera3d {
+                .spawn(Camera3d::default())
+                .insert((
+                    Projection::Perspective(Default::default()),
+                    Camera {
+                        order,
                         clear_color: ClearColorConfig::None,
                         ..default()
                     },
-                    tonemapping: Tonemapping::ReinhardLuminance,
-                    ..default()
-                })
-                .insert(VisibilityBundle {
-                    visibility: Visibility::Inherited,
-                    ..default()
-                })
+                    Tonemapping::ReinhardLuminance,
+                    Exposure {
+                        ev100: DEFAULT_CAMERA_EV100,
+                    },
+                ))
+                .insert(Visibility::Inherited)
                 .insert(RenderLayers::layer(layer))
                 .id()
         });
 
         let perspective_base_camera = world
-            .spawn(Camera3dBundle {
-                transform: Transform::from_xyz(-10., -10., 10.).looking_at(Vec3::ZERO, Vec3::Z),
-                projection: Projection::Perspective(Default::default()),
-                tonemapping: Tonemapping::ReinhardLuminance,
-                ..default()
-            })
-            .insert(VisibilityBundle {
-                visibility: Visibility::Inherited,
-                ..default()
-            })
+            .spawn(Camera3d::default())
+            .insert((
+                Transform::from_xyz(-10., -10., 10.).looking_at(Vec3::ZERO, Vec3::Z),
+                Projection::Perspective(Default::default()),
+                Exposure {
+                    ev100: DEFAULT_CAMERA_EV100,
+                },
+                Tonemapping::ReinhardLuminance,
+            ))
+            .insert(Visibility::Inherited)
             .insert(RenderLayers::from_layers(&[
                 GENERAL_RENDER_LAYER,
                 VISUAL_CUE_RENDER_LAYER,
             ]))
-            .push_children(&[perspective_headlight])
-            .push_children(&perspective_child_cameras)
+            .add_children(&[perspective_headlight])
+            .add_children(&perspective_child_cameras)
             .id();
 
         let orthographic_headlight = world
-            .spawn(DirectionalLightBundle {
-                transform: Transform::from_rotation(Quat::from_axis_angle(
+            .spawn((
+                DirectionalLight {
+                    shadows_enabled: false,
+                    illuminance: 50.,
+                    ..default()
+                },
+                Transform::from_rotation(Quat::from_axis_angle(
                     Vec3::new(1., 1., 0.).normalize(),
                     35_f32.to_radians(),
                 )),
-                directional_light: DirectionalLight {
-                    shadows_enabled: false,
-                    illuminance: 20000.,
-                    ..default()
-                },
-                ..default()
-            })
+            ))
+            .insert(main_view_render_layers())
             .id();
 
         let ortho_projection = OrthographicProjection {
             viewport_origin: Vec2::new(0.5, 0.5),
-            scaling_mode: ScalingMode::FixedVertical(1.0),
+            scaling_mode: ScalingMode::FixedVertical {
+                viewport_height: 1.0,
+            },
             scale: 10.0,
-            ..default()
+            ..OrthographicProjection::default_3d()
         };
 
         let orthographic_child_cameras = [
@@ -337,50 +353,53 @@ impl FromWorld for CameraControls {
         ]
         .map(|(order, layer)| {
             world
-                .spawn(Camera3dBundle {
-                    camera: Camera {
+                .spawn(Camera3d::default())
+                .insert((
+                    Camera {
                         is_active: false,
                         order,
-                        ..default()
-                    },
-                    camera_3d: Camera3d {
                         clear_color: ClearColorConfig::None,
                         ..default()
                     },
-                    projection: Projection::Orthographic(ortho_projection.clone()),
-                    tonemapping: Tonemapping::ReinhardLuminance,
-                    ..default()
-                })
-                .insert(VisibilityBundle {
-                    visibility: Visibility::Inherited,
-                    ..default()
-                })
+                    Projection::Orthographic(ortho_projection.clone()),
+                    Exposure {
+                        ev100: DEFAULT_CAMERA_EV100,
+                    },
+                    Tonemapping::ReinhardLuminance,
+                ))
+                .insert(Visibility::Inherited)
                 .insert(RenderLayers::layer(layer))
                 .id()
         });
 
         let orthographic_camera_entity = world
-            .spawn(Camera3dBundle {
-                camera: Camera {
+            .spawn(Camera3d::default())
+            .insert((
+                Camera {
                     is_active: false,
                     ..default()
                 },
-                transform: Transform::from_xyz(0., 0., 20.).looking_at(Vec3::ZERO, Vec3::Y),
-                projection: Projection::Orthographic(ortho_projection),
-                tonemapping: Tonemapping::ReinhardLuminance,
-                ..default()
-            })
-            .insert(VisibilityBundle {
-                visibility: Visibility::Inherited,
-                ..default()
-            })
+                Transform::from_xyz(0., 0., 20.).looking_at(Vec3::ZERO, Vec3::Y),
+                Projection::Orthographic(ortho_projection),
+                Exposure {
+                    ev100: DEFAULT_CAMERA_EV100,
+                },
+                Tonemapping::ReinhardLuminance,
+            ))
+            .insert(Visibility::Inherited)
             .insert(RenderLayers::from_layers(&[
                 GENERAL_RENDER_LAYER,
                 VISUAL_CUE_RENDER_LAYER,
             ]))
-            .push_children(&[orthographic_headlight])
-            .push_children(&orthographic_child_cameras)
+            .add_children(&[orthographic_headlight])
+            .add_children(&orthographic_child_cameras)
             .id();
+
+        let mut ambient_light = world
+            .get_resource_mut::<AmbientLight>()
+            .expect("Make sure bevy's PbrPlugin is initialized before the cameras");
+
+        ambient_light.brightness = 2.0;
 
         CameraControls {
             mode: ProjectionMode::Perspective,
@@ -463,7 +482,7 @@ fn camera_controls(
 
             // Ensure upright
             let forward = persp_transform.forward();
-            persp_transform.look_to(forward, Vec3::Z);
+            persp_transform.look_to(*forward, Vec3::Z);
         }
 
         let proj = persp_proj.clone();
@@ -505,7 +524,7 @@ fn update_orbit_center_marker(
         (
             &mut Transform,
             &mut Visibility,
-            &mut Handle<StandardMaterial>,
+            &mut MeshMaterial3d<StandardMaterial>,
         ),
         Without<Projection>,
     >,
@@ -520,17 +539,27 @@ fn update_orbit_center_marker(
         {
             if let Some(orbit_center) = controls.orbit_center {
                 *marker_visibility = Visibility::Visible;
-                *marker_material = interaction_assets.camera_control_orbit_material.clone();
+                *marker_material =
+                    MeshMaterial3d(interaction_assets.camera_control_orbit_material.clone());
                 marker_transform.translation = orbit_center;
-                gizmo.sphere(orbit_center, Quat::IDENTITY, 0.1, Color::GREEN);
+                gizmo.sphere(
+                    Isometry3d::new(orbit_center, Quat::IDENTITY),
+                    0.1,
+                    Colors::LIME,
+                );
             }
         // Panning
         } else if cursor_command.command_type == CameraCommandType::Pan {
             if let Some(cursor_selection) = cursor_command.cursor_selection {
                 *marker_visibility = Visibility::Visible;
-                *marker_material = interaction_assets.camera_control_pan_material.clone();
+                *marker_material =
+                    MeshMaterial3d(interaction_assets.camera_control_pan_material.clone());
                 marker_transform.translation = cursor_selection;
-                gizmo.sphere(cursor_selection, Quat::IDENTITY, 0.1, Color::WHITE);
+                gizmo.sphere(
+                    Isometry3d::new(cursor_selection, Quat::IDENTITY),
+                    0.1,
+                    Colors::WHITE,
+                );
             }
         } else {
             *marker_visibility = Visibility::Hidden;

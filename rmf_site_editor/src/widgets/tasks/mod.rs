@@ -15,17 +15,19 @@
  *
 */
 use crate::{
-    interaction::{Select, Selection},
     site::{
-        AddedTask, Affiliation, Category, ChangeCurrentScenario, CurrentScenario, Delete,
-        DispatchTaskRequest, Group, NameInSite, Pending, RecallTask, Robot, RobotTaskRequest,
-        ScenarioMarker, Task, TaskModifier, TaskParams,
+        Affiliation, Category, ChangeCurrentScenario, CurrentScenario, Delete, DispatchTaskRequest,
+        Group, NameInSite, Pending, RecallTask, Robot, RobotTaskRequest, ScenarioMarker, Task,
+        TaskModifier, TaskParams,
     },
     widgets::prelude::*,
     CurrentWorkspace, Icons, Tile, WidgetSystem,
 };
 use bevy::{
-    ecs::system::{EntityCommands, SystemParam, SystemState},
+    ecs::{
+        hierarchy::ChildOf,
+        system::{EntityCommands, SystemParam, SystemState},
+    },
     prelude::*,
 };
 use bevy_egui::egui::{
@@ -35,7 +37,7 @@ use bevy_egui::egui::{
 use rmf_site_format::InheritedTask;
 use serde_json::Value;
 use smallvec::SmallVec;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 
 pub mod go_to_place;
 pub use go_to_place::*;
@@ -105,7 +107,7 @@ impl FromWorld for TaskWidget {
     fn from_world(world: &mut World) -> Self {
         let widget = Widget::new::<ViewTasks>(world);
         let properties_panel = world.resource::<PropertiesPanel>().id();
-        let id = world.spawn(widget).set_parent(properties_panel).id();
+        let id = world.spawn(widget).insert(ChildOf(properties_panel)).id();
         Self { id }
     }
 }
@@ -191,7 +193,7 @@ impl<'w, 's> WidgetSystem<Tile> for ViewTasks<'w, 's> {
                     let children: Result<SmallVec<[_; 16]>, _> = params
                         .children
                         .get(params.task_widget.id)
-                        .map(|children| children.iter().copied().collect());
+                        .map(|children| children.iter().collect());
                     let Ok(children) = children else {
                         return;
                     };
@@ -216,7 +218,7 @@ impl<'w, 's> ViewTasks<'w, 's> {
         // View and modify tasks in current scenario
         Frame::default()
             .inner_margin(4.0)
-            .rounding(2.0)
+            .corner_radius(2.0)
             .stroke(Stroke::new(1.0, Color32::GRAY))
             .show(ui, |ui| {
                 ui.set_min_width(ui.available_width());
@@ -357,7 +359,7 @@ impl<'w, 's> ViewTasks<'w, 's> {
                     .insert(TaskParams::default())
                     .insert(Pending)
                     .id();
-                self.edit_mode.send(EditModeEvent {
+                self.edit_mode.write(EditModeEvent {
                     scenario: current_scenario_entity,
                     mode: EditMode::New(new_task),
                 });
@@ -365,7 +367,7 @@ impl<'w, 's> ViewTasks<'w, 's> {
         }
 
         if reset_edit {
-            self.edit_mode.send(EditModeEvent {
+            self.edit_mode.write(EditModeEvent {
                 scenario: current_scenario_entity,
                 mode: EditMode::Edit(None),
             });
@@ -396,7 +398,7 @@ fn check_modifier_inclusion(
                 Setting task to be included in current scenario.",
                 task_entity.index() // TODO(@xiyuo) better identifier
             );
-            update_task_modifier.send(UpdateTaskModifierEvent {
+            update_task_modifier.write(UpdateTaskModifierEvent {
                 scenario: scenario_entity,
                 task: task_entity,
                 update: UpdateTaskModifier::Include,
@@ -457,7 +459,7 @@ fn show_task(
     Frame::default()
         .inner_margin(4.0)
         .fill(color)
-        .rounding(2.0)
+        .corner_radius(2.0)
         .show(ui, |ui| {
             ui.set_min_width(ui.available_width());
 
@@ -470,7 +472,7 @@ fn show_task(
                         .on_hover_text("Remove task from all scenarios")
                         .clicked()
                     {
-                        delete.send(Delete::new(task_entity));
+                        delete.write(Delete::new(task_entity));
                     }
                     // Include/hide task
                     // Toggle between 3 inclusion modes: Include -> Inherited -> Hidden
@@ -484,11 +486,11 @@ fn show_task(
                             {
                                 // If this is a root scenario or Added modifier, toggle to Hidden
                                 // Note: all modifiers are Added in root scenarios
-                                update_task_modifier.send(UpdateTaskModifierEvent {
+                                update_task_modifier.write(UpdateTaskModifierEvent {
                                     scenario,
                                     task: task_entity,
                                     update: UpdateTaskModifier::Hide,
-                                })
+                                });
                             }
                         }
                         TaskModifier::Inherited(inherited) => {
@@ -498,11 +500,11 @@ fn show_task(
                                     .on_hover_text("Task is included in this scenario")
                                     .clicked()
                                 {
-                                    update_task_modifier.send(UpdateTaskModifierEvent {
+                                    update_task_modifier.write(UpdateTaskModifierEvent {
                                         scenario,
                                         task: task_entity,
                                         update: UpdateTaskModifier::ResetInclusion,
-                                    })
+                                    });
                                 }
                             } else {
                                 if ui
@@ -510,11 +512,11 @@ fn show_task(
                                     .on_hover_text("Task inclusion is inherited in this scenario")
                                     .clicked()
                                 {
-                                    update_task_modifier.send(UpdateTaskModifierEvent {
+                                    update_task_modifier.write(UpdateTaskModifierEvent {
                                         scenario,
                                         task: task_entity,
                                         update: UpdateTaskModifier::Hide,
-                                    })
+                                    });
                                 }
                             }
                         }
@@ -524,11 +526,11 @@ fn show_task(
                                 .on_hover_text("Task is hidden in this scenario")
                                 .clicked()
                             {
-                                update_task_modifier.send(UpdateTaskModifierEvent {
+                                update_task_modifier.write(UpdateTaskModifierEvent {
                                     scenario,
                                     task: task_entity,
                                     update: UpdateTaskModifier::Include,
-                                })
+                                });
                             }
                         }
                     }
@@ -539,10 +541,10 @@ fn show_task(
                             .on_hover_text("Edit task parameters")
                             .clicked()
                         {
-                            edit_mode.send(EditModeEvent {
+                            edit_mode.write(EditModeEvent {
                                 scenario,
                                 mode: EditMode::Edit(Some(task_entity)),
-                            })
+                            });
                         }
                     }
                 });
@@ -598,7 +600,7 @@ fn show_task(
                 });
 
             CollapsingHeader::new("More details")
-                .id_source("task_details_".to_owned() + &task_entity.index().to_string())
+                .id_salt("task_details_".to_owned() + &task_entity.index().to_string())
                 .default_open(false)
                 .show(ui, |ui| {
                     Grid::new("task_details_".to_owned() + &task_entity.index().to_string())
@@ -647,11 +649,11 @@ fn show_task(
                                             )
                                             .clicked()
                                         {
-                                            update_task_modifier.send(UpdateTaskModifierEvent {
+                                            update_task_modifier.write(UpdateTaskModifierEvent {
                                                 scenario,
                                                 task: task_entity,
                                                 update: UpdateTaskModifier::ResetParams,
-                                            })
+                                            });
                                         }
                                         ui.end_row();
                                     }
@@ -721,7 +723,7 @@ fn edit_task(
                     } else {
                         robot_task_request.robot()
                     };
-                    ComboBox::from_id_source("select_robot_for_task")
+                    ComboBox::from_id_salt("select_robot_for_task")
                         .selected_text(selected_robot)
                         .show_ui(ui, |ui| {
                             for (_, robot) in robots.iter() {
@@ -749,7 +751,7 @@ fn edit_task(
                 "Select Kind".to_string()
             };
             ui.label("Task Kind:");
-            ComboBox::from_id_source("select_task_kind")
+            ComboBox::from_id_salt("select_task_kind")
                 .selected_text(selected_task_kind)
                 .show_ui(ui, |ui| {
                     for (kind, _) in task_kinds.0.iter() {
@@ -803,7 +805,7 @@ fn edit_task(
             ui.end_row();
 
             if new_task != *task {
-                update_task.send(UpdateTaskEvent {
+                update_task.write(UpdateTaskEvent {
                     scenario,
                     entity: task_entity,
                     task: new_task,
@@ -832,7 +834,7 @@ fn edit_task(
                             let new_start_time = new_task_params.start_time_mut().get_or_insert(0);
                             ui.add(
                                 DragValue::new(new_start_time)
-                                    .clamp_range(0_i32..=std::i32::MAX)
+                                    .range(0_i32..=std::i32::MAX)
                                     .speed(1),
                             );
                         } else if start_time.is_some() {
@@ -853,7 +855,7 @@ fn edit_task(
                                 new_task_params.request_time_mut().get_or_insert(0);
                             ui.add(
                                 DragValue::new(new_request_time)
-                                    .clamp_range(0_i32..=std::i32::MAX)
+                                    .range(0_i32..=std::i32::MAX)
                                     .speed(1),
                             );
                         } else if request_time.is_some() {
@@ -915,7 +917,7 @@ fn edit_task(
                     }
 
                     if new_task_params != *task_params {
-                        update_task_modifier.send(UpdateTaskModifierEvent {
+                        update_task_modifier.write(UpdateTaskModifierEvent {
                             scenario,
                             task: task_entity,
                             update: UpdateTaskModifier::Modify(new_task_params),
@@ -995,10 +997,10 @@ fn find_modifier_for_task(
     if let Ok(scenario_children) = children.get(scenario) {
         for child in scenario_children.iter() {
             if task_modifiers
-                .get(*child)
+                .get(child)
                 .is_ok_and(|(_, a)| a.0.is_some_and(|e| e == task))
             {
-                return Some(*child);
+                return Some(child);
             }
         }
     };
@@ -1017,9 +1019,8 @@ fn get_task_modifier_entities(
     // TODO(@xiyuoh) Introduce task ordering based on TaskParams
     if let Ok(scenario_children) = children.get(scenario) {
         for child in scenario_children.iter() {
-            if let Some(affiliated_entity) = task_modifiers.get(*child).ok().and_then(|(_, a)| a.0)
-            {
-                task_to_modifier_entities.insert(affiliated_entity, *child);
+            if let Some(affiliated_entity) = task_modifiers.get(child).ok().and_then(|(_, a)| a.0) {
+                task_to_modifier_entities.insert(affiliated_entity, child);
             }
         }
     };
@@ -1049,13 +1050,13 @@ fn manage_task_modifiers(
                 if let Ok(children) = children.get(parent_scenario_entity) {
                     children.iter().for_each(|e| {
                         if let Ok((task_modifier, affiliation)) = task_modifiers
-                            .get(*e)
+                            .get(e)
                             .map(|(_, a)| (TaskModifier::inherited(), a.clone()))
                         {
                             commands
                                 .spawn(task_modifier)
                                 .insert(affiliation)
-                                .set_parent(scenario_entity);
+                                .insert(ChildOf(scenario_entity));
                         }
                     });
                 }
@@ -1065,10 +1066,10 @@ fn manage_task_modifiers(
                     commands
                         .spawn(TaskModifier::Hidden)
                         .insert(Affiliation(Some(task_entity)))
-                        .set_parent(scenario_entity);
+                        .insert(ChildOf(scenario_entity));
                 }
             }
-            change_current_scenario.send(ChangeCurrentScenario(scenario_entity));
+            change_current_scenario.write(ChangeCurrentScenario(scenario_entity));
         }
     }
 
@@ -1099,7 +1100,7 @@ fn manage_task_modifiers(
                 commands
                     .spawn(TaskModifier::added(task_params.clone()))
                     .insert(Affiliation(Some(task_entity)))
-                    .set_parent(current_scenario_entity);
+                    .insert(ChildOf(current_scenario_entity));
             }
 
             // Insert task modifier into remaining scenarios
@@ -1129,20 +1130,20 @@ fn manage_task_modifiers(
                         commands
                             .spawn(TaskModifier::inherited())
                             .insert(Affiliation(Some(task_entity)))
-                            .set_parent(scenario_entity);
+                            .insert(ChildOf(scenario_entity));
                     } else {
                         // Insert this new task modifier into other scenarios as Hidden
                         commands
                             .spawn(TaskModifier::Hidden)
                             .insert(Affiliation(Some(task_entity)))
-                            .set_parent(scenario_entity);
+                            .insert(ChildOf(scenario_entity));
                     }
                 }
             }
         }
     }
 
-    /// Check for modifiers affiliated with deleted Task or missing valid affiliations.
+    // Check for modifiers affiliated with deleted Task or missing valid affiliations.
     if !removals.is_empty() {
         for task_entity in removals.read() {
             for (scenario_entity, _) in scenarios.iter() {
@@ -1150,7 +1151,7 @@ fn manage_task_modifiers(
                     find_modifier_for_task(task_entity, scenario_entity, &children, &task_modifiers)
                 {
                     // Task modifier is affiliated to a non-existing Task
-                    delete.send(Delete::new(modifier_entity));
+                    delete.write(Delete::new(modifier_entity));
                 }
             }
         }
@@ -1171,13 +1172,14 @@ fn handle_task_updates(
         match edit.mode {
             EditMode::New(task_entity) => {
                 if let Some(site_entity) = current_workspace.root {
-                    commands.entity(task_entity).set_parent(site_entity);
+                    commands.entity(task_entity).insert(ChildOf(site_entity));
                 }
                 edit_task.0 = Some(task_entity);
             }
             EditMode::Edit(task_entity) => {
                 if let Some(pending_task) = edit_task.0.filter(|e| pending_tasks.get(*e).is_ok()) {
-                    commands.entity(pending_task).despawn_recursive();
+                    // TODO@(xiyuoh) use trashcan
+                    commands.entity(pending_task).despawn();
                 }
                 edit_task.0 = task_entity;
             }
@@ -1279,7 +1281,7 @@ fn handle_task_modifier_updates(
             }
         }
         if current_scenario.0.is_some_and(|e| e == update.scenario) {
-            change_current_scenario.send(ChangeCurrentScenario(update.scenario));
+            change_current_scenario.write(ChangeCurrentScenario(update.scenario));
         };
     }
 }

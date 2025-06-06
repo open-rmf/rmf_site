@@ -71,7 +71,7 @@ impl<'w, 's> InspectForwardMotion<'w, 's> {
         };
 
         if let Some(new_motion) = InspectMotionComponent::new(motion, recall).show(ui) {
-            self.change_lane_motion.send(Change::new(new_motion, id));
+            self.change_lane_motion.write(Change::new(new_motion, id));
         }
         ui.add_space(10.0);
     }
@@ -108,7 +108,7 @@ impl<'w, 's> InspectReverseMotion<'w, 's> {
 
         let mut new_reverse = reverse.clone();
         ui.label(RichText::new("Reverse Motion").size(18.0));
-        ComboBox::from_id_source("Reverse Lane")
+        ComboBox::from_id_salt("Reverse Lane")
             .selected_text(new_reverse.label())
             .show_ui(ui, |ui| {
                 for variant in &[
@@ -135,7 +135,7 @@ impl<'w, 's> InspectReverseMotion<'w, 's> {
         }
 
         if new_reverse != *reverse {
-            self.change_lane_reverse.send(Change::new(new_reverse, id));
+            self.change_lane_reverse.write(Change::new(new_reverse, id));
         }
         ui.add_space(10.0);
     }
@@ -168,7 +168,7 @@ impl<'a> InspectMotionComponent<'a> {
 
                 ui.label("Orientation Constraint");
                 let mut orientation = self.motion.orientation_constraint.clone();
-                ComboBox::from_id_source("Orientation Constraint")
+                ComboBox::from_id_salt("Orientation Constraint")
                     .selected_text(orientation.label())
                     .show_ui(ui, |ui| {
                         for variant in &[

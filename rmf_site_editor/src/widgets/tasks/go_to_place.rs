@@ -21,7 +21,10 @@ use crate::{
     Tile, WidgetSystem,
 };
 use bevy::{
-    ecs::system::{SystemParam, SystemState},
+    ecs::{
+        hierarchy::ChildOf,
+        system::{SystemParam, SystemState},
+    },
     prelude::*,
 };
 use bevy_egui::egui::ComboBox;
@@ -32,7 +35,7 @@ pub struct GoToPlacePlugin {}
 
 impl Plugin for GoToPlacePlugin {
     fn build(&self, app: &mut App) {
-        app.world.resource_mut::<TaskKinds>().0.insert(
+        app.world_mut().resource_mut::<TaskKinds>().0.insert(
             GoToPlace::label(),
             (
                 |mut e_cmd| {
@@ -43,9 +46,9 @@ impl Plugin for GoToPlacePlugin {
                 },
             ),
         );
-        let widget = Widget::<Tile>::new::<ViewGoToPlace>(&mut app.world);
-        let task_widget = app.world.resource::<TaskWidget>().get();
-        app.world.spawn(widget).set_parent(task_widget);
+        let widget = Widget::<Tile>::new::<ViewGoToPlace>(&mut app.world_mut());
+        let task_widget = app.world().resource::<TaskWidget>().get();
+        app.world_mut().spawn(widget).insert(ChildOf(task_widget));
     }
 }
 
@@ -81,7 +84,7 @@ impl<'w, 's> WidgetSystem<Tile> for ViewGoToPlace<'w, 's> {
         let mut new_go_to_place = go_to_place.clone();
         ui.horizontal(|ui| {
             ui.label("Location:");
-            ComboBox::from_id_source("select_go_to_location")
+            ComboBox::from_id_salt("select_go_to_location")
                 .selected_text(selected_location_name)
                 .show_ui(ui, |ui| {
                     for location_name in params.locations.iter() {

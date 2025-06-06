@@ -23,7 +23,10 @@ use crate::{
     widgets::{prelude::*, Icons},
     AppState, CurrentWorkspace, RecencyRanking,
 };
-use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy::{
+    ecs::{hierarchy::ChildOf, relationship::AncestorIter, system::SystemParam},
+    prelude::*,
+};
 use bevy_egui::egui::{CollapsingHeader, DragValue, ImageButton, Ui};
 use std::cmp::{Ordering, Reverse};
 
@@ -41,7 +44,7 @@ impl Plugin for ViewLevelsPlugin {
 #[derive(SystemParam)]
 pub struct ViewLevels<'w, 's> {
     levels: Query<'w, 's, (Entity, &'static NameInSite, &'static LevelElevation)>,
-    parents: Query<'w, 's, &'static Parent>,
+    child_of: Query<'w, 's, &'static ChildOf>,
     icons: Res<'w, Icons>,
     display_levels: ResMut<'w, LevelDisplay>,
     current_level: ResMut<'w, CurrentLevel>,
@@ -91,7 +94,8 @@ impl<'w, 's> ViewLevels<'w, 's> {
                     let new_level = self
                         .commands
                         .spawn((
-                            SpatialBundle::default(),
+                            Transform::default(),
+                            Visibility::default(),
                             LevelProperties {
                                 elevation: LevelElevation(show_elevation),
                                 name: NameInSite(show_name.clone()),
@@ -115,7 +119,7 @@ impl<'w, 's> ViewLevels<'w, 's> {
                 .levels
                 .iter()
                 .filter(|(e, _, _)| {
-                    AncestorIter::new(&self.parents, *e)
+                    AncestorIter::new(&self.child_of, *e)
                         .any(|e| Some(e) == self.current_workspace.root)
                 })
                 .map(|(e, _, elevation)| (Reverse(elevation.0), e))
@@ -164,7 +168,7 @@ impl<'w, 's> ViewLevels<'w, 's> {
                             .on_hover_text("Remove this level")
                             .clicked()
                         {
-                            self.delete.send(Delete::new(e).and_dependents());
+                            self.delete.write(Delete::new(e).and_dependents());
                             any_deleted = true;
                         }
                     } else if editing {
@@ -186,12 +190,12 @@ impl<'w, 's> ViewLevels<'w, 's> {
 
                 if shown_name != name.0 {
                     self.change_name
-                        .send(Change::new(NameInSite(shown_name), e));
+                        .write(Change::new(NameInSite(shown_name), e));
                 }
 
                 if shown_elevation != elevation.0 {
                     self.change_level_elevation
-                        .send(Change::new(LevelElevation(shown_elevation), e));
+                        .write(Change::new(LevelElevation(shown_elevation), e));
                 }
             }
         }

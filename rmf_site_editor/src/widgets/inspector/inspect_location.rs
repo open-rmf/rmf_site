@@ -81,7 +81,7 @@ impl<'w, 's> InspectLocation<'w, 's> {
                         }
                         variants.push(recall.assume_workcell());
 
-                        ComboBox::from_id_source("Add Location Tag")
+                        ComboBox::from_id_salt("Add Location Tag")
                             .selected_text(consider.label())
                             .show_ui(ui, |ui| {
                                 for variant in variants {
@@ -101,7 +101,7 @@ impl<'w, 's> InspectLocation<'w, 's> {
                 };
                 if consider_changed {
                     self.consider_tag
-                        .send(ConsiderLocationTag::new(Some(consider.clone()), id));
+                        .write(ConsiderLocationTag::new(Some(consider.clone()), id));
                 }
 
                 if add {
@@ -123,7 +123,7 @@ impl<'w, 's> InspectLocation<'w, 's> {
                 new_tags.push(new_tag);
             }
 
-            self.change_tags.send(Change::new(new_tags, id));
+            self.change_tags.write(Change::new(new_tags, id));
         }
     }
 }
