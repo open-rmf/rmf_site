@@ -17,8 +17,8 @@
 
 use crate::{
     site::{
-        scenario::*, Affiliation, Change, CurrentScenario, InstanceModifier, UpdateInstance,
-        UpdateInstanceEvent,
+        Affiliation, Change, CurrentScenario, InstanceModifier, ScenarioMarker, ScenarioModifiers,
+        UpdateInstance, UpdateInstanceEvent,
     },
     widgets::{inspector::InspectAngle, prelude::*, Inspect},
 };
@@ -30,10 +30,10 @@ use rmf_site_format::{Pose, Rotation};
 pub struct InspectPose<'w, 's> {
     poses: Query<'w, 's, &'static Pose>,
     change_pose: EventWriter<'w, Change<Pose>>,
-    children: Query<'w, 's, &'static Children>,
     current_scenario: Res<'w, CurrentScenario>,
     instance_modifiers:
         Query<'w, 's, (&'static mut InstanceModifier, &'static Affiliation<Entity>)>,
+    scenarios: Query<'w, 's, (Entity, &'static ScenarioModifiers<Entity>), With<ScenarioMarker>>,
     update_instance: EventWriter<'w, UpdateInstanceEvent>,
 }
 
@@ -53,14 +53,14 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPose<'w, 's> {
         }
 
         // Reset model instance pose to parent scenario pose (if any)
-        if let Some(scenario_entity) = params.current_scenario.0 {
-            if let Some((instance_modifier, _)) = find_modifier_for_instance(
-                selection,
-                scenario_entity,
-                &params.children,
-                &params.instance_modifiers,
-            )
-            .and_then(|modifier_entity| params.instance_modifiers.get(modifier_entity).ok())
+        if let Some((scenario_entity, scenario_modifiers)) = params
+            .current_scenario
+            .0
+            .and_then(|e| params.scenarios.get(e).ok())
+        {
+            if let Some((instance_modifier, _)) = scenario_modifiers
+                .get(&selection)
+                .and_then(|modifier_entity| params.instance_modifiers.get(*modifier_entity).ok())
             {
                 match instance_modifier {
                     InstanceModifier::Inherited(inherited) => {
