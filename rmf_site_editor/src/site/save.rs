@@ -34,14 +34,8 @@ use rmf_site_format::*;
 #[derive(Event)]
 pub struct SaveSite {
     pub site: Entity,
-    pub to_file: PathBuf,
+    pub to_location: PathBuf,
     pub format: ExportFormat,
-}
-
-#[derive(Event)]
-pub struct SaveNavGraphs {
-    pub site: Entity,
-    pub in_directory: PathBuf,
 }
 
 // TODO(MXG): Change all these errors to use u32 SiteIDs instead of entities
@@ -1477,7 +1471,7 @@ pub fn generate_site(
 pub fn save_site(world: &mut World) {
     let save_events: Vec<_> = world.resource_mut::<Events<SaveSite>>().drain().collect();
     for save_event in save_events {
-        let mut new_path = save_event.to_file;
+        let mut new_path = dbg!(save_event.to_location);
         let path_str = match new_path.to_str() {
             Some(s) => s,
             None => {
@@ -1599,7 +1593,6 @@ pub fn save_site(world: &mut World) {
                 }
 
                 migrate_relative_paths(save_event.site, &sdf_path, world);
-                let graphs = legacy::nav_graph::NavGraph::from_site(&site);
                 let sdf = match site.to_sdf() {
                     Ok(sdf) => sdf,
                     Err(err) => {
@@ -1616,15 +1609,19 @@ pub fn save_site(world: &mut World) {
                     error!("Failed serializing site to sdf: {e}");
                     continue;
                 }
-                let mut navgraph_dir = new_path.clone();
-                navgraph_dir.push("nav_graphs");
-                if let Err(e) = std::fs::create_dir_all(&navgraph_dir) {
-                    error!("Unable to create folder {}: {e}", navgraph_dir.display());
-                    continue;
-                }
-                for (name, graph) in &graphs {
-                    let mut graph_file = navgraph_dir.clone();
-                    graph_file.push(name.to_owned() + ".yaml");
+            }
+            ExportFormat::NavGraph => {
+                let site = match generate_site(world, save_event.site) {
+                    Ok(site) => site,
+                    Err(err) => {
+                        error!("Unable to compile site: {err}");
+                        continue;
+                    }
+                };
+
+                dbg!(&new_path);
+                for (name, nav_graph) in legacy::nav_graph::NavGraph::from_site(&site) {
+                    let graph_file = new_path.clone().join(name + ".nav.yaml");
                     info!(
                         "Saving legacy nav graph to {}",
                         graph_file.to_str().unwrap_or("<failed to render??>")
@@ -1636,63 +1633,16 @@ pub fn save_site(world: &mut World) {
                             continue;
                         }
                     };
-                    if let Err(err) = serde_yaml::to_writer(f, &graph) {
+                    if let Err(err) = serde_yaml::to_writer(f, &nav_graph) {
                         error!("Failed to save nav graph: {err}");
-                        continue;
                     }
                 }
+
+                info!(
+                    "Saving all site nav graphs to {}",
+                    new_path.to_str().unwrap_or("<failed to render??>")
+                );
             }
         }
-    }
-}
-
-pub fn save_nav_graphs(world: &mut World) {
-    let save_events: Vec<_> = world
-        .resource_mut::<Events<SaveNavGraphs>>()
-        .drain()
-        .collect();
-    for save_event in save_events {
-        let path = save_event.in_directory;
-
-        let mut site = match generate_site(world, save_event.site) {
-            Ok(site) => site,
-            Err(err) => {
-                error!("Unable to compile site: {err}");
-                continue;
-            }
-        };
-
-        for (name, nav_graph) in legacy::nav_graph::NavGraph::from_site(&site) {
-            let mut graph_file = path.clone();
-            graph_file.set_file_name(name + ".nav.yaml");
-            info!(
-                "Saving legacy nav graph to {}",
-                graph_file.to_str().unwrap_or("<failed to render??>")
-            );
-            let f = match std::fs::File::create(graph_file) {
-                Ok(f) => f,
-                Err(err) => {
-                    error!("Unable to save nav graph: {err}");
-                    continue;
-                }
-            };
-            if let Err(err) = serde_yaml::to_writer(f, &nav_graph) {
-                error!("Failed to save nav graph: {err}");
-            }
-        }
-
-        // Clear the elements that are not related to nav graphs
-        for (_, level) in &mut site.levels {
-            level.doors.clear();
-            level.drawings.clear();
-            level.floors.clear();
-            level.lights.clear();
-            level.walls.clear();
-        }
-
-        info!(
-            "Saving all site nav graphs to {}",
-            path.to_str().unwrap_or("<failed to render??>")
-        );
     }
 }

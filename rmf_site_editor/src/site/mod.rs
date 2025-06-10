@@ -204,7 +204,6 @@ impl Plugin for SitePlugin {
         .add_event::<RemoveScenario>()
         .add_event::<UpdateInstanceEvent>()
         .add_event::<SaveSite>()
-        .add_event::<SaveNavGraphs>()
         .add_event::<ExportLights>()
         .add_event::<ConsiderAssociatedGraph>()
         .add_event::<ConsiderLocationTag>()
@@ -300,7 +299,7 @@ impl Plugin for SitePlugin {
         )
         .add_systems(
             Update,
-            (save_site, save_nav_graphs, change_site.after(load_site))
+            (save_site, change_site.after(load_site))
                 .run_if(AppState::in_displaying_mode()),
         )
         .add_systems(
