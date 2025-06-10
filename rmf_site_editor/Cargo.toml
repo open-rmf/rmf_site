@@ -16,7 +16,7 @@ name = "extending_site_editor"
 path = "examples/extending_menu.rs"
 
 [dependencies]
-bevy_mod_outline = "0.10"
+bevy_mod_outline = "0.10.1"
 bevy_gltf_export = { git = "https://github.com/luca-della-vedova/bevy_gltf_export", rev = "098fc7c" }
 bevy_stl = "0.16"
 bevy_obj = { version = "0.16", features = ["scene"] }
