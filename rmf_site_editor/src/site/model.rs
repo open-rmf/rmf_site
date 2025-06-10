@@ -22,6 +22,7 @@ use crate::{
     Issue, ValidateWorkspace,
 };
 use bevy::{
+    asset::{AssetLoadError, io::AssetReaderError},
     ecs::{
         hierarchy::ChildOf,
         relationship::DescendantIter,
@@ -142,7 +143,15 @@ fn load_asset_source(
         asset_server
             .load_untyped_async(&asset_path)
             .await
-            .map_err(|e| ModelLoadingErrorKind::AssetServerError(e.to_string()))
+            .map_err(|err| {
+                if !matches!(err, AssetLoadError::AssetReaderError(AssetReaderError::Io(_))) {
+                    // AssetReaderError::Io is a common error during searches, so
+                    // we skip it, but other errors may indicate that a problem
+                    // exists in the asset itself.
+                    error!("Failed attempt to load asset with [{asset_path}]: {err}");
+                }
+                ModelLoadingErrorKind::AssetServerError(err.to_string())
+            })
     }
 }
 
