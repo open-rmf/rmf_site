@@ -72,6 +72,23 @@ impl RemoveModifier {
     }
 }
 
+#[derive(Clone, Debug, Event, Copy)]
+pub struct UpdateModifier<T> {
+    pub scenario: Entity,
+    pub element: Entity,
+    pub update: T,
+}
+
+impl<T> UpdateModifier<T> {
+    pub fn new(scenario: Entity, element: Entity, update: T) -> Self {
+        Self {
+            scenario,
+            element,
+            update,
+        }
+    }
+}
+
 #[derive(SystemParam)]
 pub struct GetModifier<'w, 's, T: Component<Mutability = Mutable> + Clone + Default> {
     pub scenarios: Query<

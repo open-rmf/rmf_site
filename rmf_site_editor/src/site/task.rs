@@ -19,7 +19,7 @@ use crate::{
     site::{
         AddModifier, Affiliation, ChangeCurrentScenario, Delete, GetModifier, Modifier, Pending,
         Property, RecallTask, RemoveModifier, ScenarioMarker, ScenarioModifiers, StandardProperty,
-        Task, TaskModifier, TaskParams, UpdateProperty,
+        Task, TaskModifier, TaskParams, UpdateModifier, UpdateProperty,
     },
     widgets::tasks::{EditMode, EditModeEvent, EditTask},
     CurrentWorkspace,
@@ -165,14 +165,6 @@ impl Modifier<TaskParams> for TaskModifier {
     }
 }
 
-// TODO(@xiyuoh) possibly merge this with UpdateInstanceEvent
-#[derive(Clone, Debug, Event)]
-pub struct UpdateTaskEvent {
-    pub scenario: Entity,
-    pub entity: Entity,
-    pub task: Task,
-}
-
 #[derive(Clone, Debug)]
 pub enum UpdateTaskModifier {
     Include,
@@ -180,14 +172,6 @@ pub enum UpdateTaskModifier {
     Modify(TaskParams),
     ResetInclusion,
     ResetParams,
-}
-
-// TODO(@xiyuoh) possibly merge this with UpdateInstanceEvent
-#[derive(Clone, Debug, Event)]
-pub struct UpdateTaskModifierEvent {
-    pub scenario: Entity,
-    pub task: Entity,
-    pub update: UpdateTaskModifier,
 }
 
 /// Updates the current EditTask entity based on the triggered edit mode event
@@ -218,28 +202,6 @@ pub fn handle_task_edit(
     }
 }
 
-// Task and TaskParams point to different properties in a task. Tasks should
-// not vary across scenarios, including the type of task (e.g. GoToPlace or WaitFor)
-// and which fleet/robot the task is assigned to. On the other hand, TaskParams
-// can be modified across scenarios based on the user's preference, e.g. start time
-// and request time. As such, we do not update Task properties via the PropertyPlugin,
-// and do it separately here via the UpdateTaskEvent.
-pub fn handle_task_updates(
-    mut pending_tasks: Query<&mut Task, With<Pending>>,
-    mut tasks: Query<&mut Task, Without<Pending>>,
-    mut update_task: EventReader<UpdateTaskEvent>,
-) {
-    for update in update_task.read() {
-        if let Ok(mut task) = tasks
-            .get_mut(update.entity)
-            .or(pending_tasks.get_mut(update.entity))
-        {
-            *task = update.task.clone();
-        } else {
-        }
-    }
-}
-
 #[derive(SystemParam)]
 pub struct UpdateTaskParams<'w, 's> {
     add_modifier: EventWriter<'w, AddModifier>,
@@ -260,19 +222,22 @@ pub struct UpdateTaskParams<'w, 's> {
 
 pub fn handle_task_modifier_updates(
     world: &mut World,
-    state: &mut SystemState<(EventReader<UpdateTaskModifierEvent>, UpdateTaskParams)>,
+    state: &mut SystemState<(
+        EventReader<UpdateModifier<UpdateTaskModifier>>,
+        UpdateTaskParams,
+    )>,
 ) {
     let (mut update_events, _) = state.get_mut(world);
     if update_events.is_empty() {
         return;
     }
 
-    let mut update_task_modifier = Vec::<(UpdateTaskModifierEvent, TaskParams)>::new();
+    let mut update_task_modifier = Vec::<(UpdateModifier<UpdateTaskModifier>, TaskParams)>::new();
     for update in update_events.read() {
         update_task_modifier.push((update.clone(), TaskParams::default()));
     }
     for (update, task_params) in update_task_modifier.iter_mut() {
-        *task_params = TaskParams::get_fallback(update.task, update.scenario, world);
+        *task_params = TaskParams::get_fallback(update.element, update.scenario, world);
     }
 
     for (update, fallback_params) in update_task_modifier.iter() {
@@ -284,7 +249,7 @@ pub fn handle_task_modifier_updates(
         };
 
         if let Some((mut task_modifier, modifier_entity)) =
-            scenario_modifiers.get(&update.task).and_then(|e| {
+            scenario_modifiers.get(&update.element).and_then(|e| {
                 params
                     .task_modifiers
                     .get_mut(*e)
@@ -350,7 +315,7 @@ pub fn handle_task_modifier_updates(
                     if !inherited.modified() {
                         params
                             .remove_modifier
-                            .write(RemoveModifier::new(update.task, update.scenario));
+                            .write(RemoveModifier::new(update.element, update.scenario));
                     }
                 }
             }
@@ -366,7 +331,7 @@ pub fn handle_task_modifier_updates(
             let modifier_entity = world.commands().spawn(task_modifier).id();
             let (_, mut params) = state.get_mut(world);
             params.add_modifier.write(AddModifier::new(
-                update.task,
+                update.element,
                 modifier_entity,
                 update.scenario,
             ));
@@ -376,6 +341,6 @@ pub fn handle_task_modifier_updates(
         let (_, mut params) = state.get_mut(world);
         params
             .update_property
-            .write(UpdateProperty::new(update.task, update.scenario));
+            .write(UpdateProperty::new(update.element, update.scenario));
     }
 }

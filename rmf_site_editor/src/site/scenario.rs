@@ -22,7 +22,7 @@ use crate::{
         GetModifier, Group, InheritedInstance, InstanceMarker, InstanceModifier, IssueKey,
         LastSetValue, ModelMarker, Modifier, NameInSite, Pending, PendingModel, Pose, Property,
         RecallInstance, RemoveModifier, ScenarioBundle, ScenarioMarker, ScenarioModifiers,
-        UpdateProperty,
+        UpdateModifier, UpdateProperty,
     },
     CurrentWorkspace, Issue, ValidateWorkspace,
 };
@@ -50,13 +50,6 @@ pub enum UpdateInstance {
     Modify(Pose),
     ResetPose,
     ResetVisibility,
-}
-
-#[derive(Clone, Debug, Event, Copy)]
-pub struct UpdateInstanceEvent {
-    pub scenario: Entity,
-    pub instance: Entity,
-    pub update: UpdateInstance,
 }
 
 impl Property for Pose {
@@ -324,7 +317,7 @@ pub fn check_selected_is_visible(
 pub fn update_model_instance_poses(
     current_scenario: Res<CurrentScenario>,
     mut change_current_scenario: EventReader<ChangeCurrentScenario>,
-    mut update_instance: EventWriter<UpdateInstanceEvent>,
+    mut update_instance: EventWriter<UpdateModifier<UpdateInstance>>,
     changed_instances: Query<(Entity, Ref<Pose>), (With<InstanceMarker>, Without<Pending>)>,
     changed_last_set_pose: Query<(), Changed<LastSetValue<Pose>>>,
 ) {
@@ -343,11 +336,11 @@ pub fn update_model_instance_poses(
         {
             // Only mark an instance as modified if its pose changed due to user
             // interaction, not because it was updated by scenarios
-            update_instance.write(UpdateInstanceEvent {
-                scenario: current_scenario_entity,
-                instance: entity,
-                update: UpdateInstance::Modify(new_pose.clone()),
-            });
+            update_instance.write(UpdateModifier::new(
+                current_scenario_entity,
+                entity,
+                UpdateInstance::Modify(new_pose.clone()),
+            ));
         }
     }
 }
@@ -372,21 +365,21 @@ pub struct InstanceParams<'w, 's> {
 }
 
 /// Handles updates to model instance modifiers for all scenarios
-pub fn handle_instance_updates(
+pub fn handle_instance_modifier_updates(
     world: &mut World,
-    state: &mut SystemState<(EventReader<UpdateInstanceEvent>, InstanceParams)>,
+    state: &mut SystemState<(EventReader<UpdateModifier<UpdateInstance>>, InstanceParams)>,
 ) {
     let (mut update_events, _) = state.get_mut(world);
     if update_events.is_empty() {
         return;
     }
 
-    let mut update_instance = Vec::<(UpdateInstanceEvent, Pose)>::new();
+    let mut update_instance = Vec::<(UpdateModifier<UpdateInstance>, Pose)>::new();
     for update in update_events.read() {
         update_instance.push((*update, Pose::default()));
     }
     for (update, pose) in update_instance.iter_mut() {
-        *pose = Pose::get_fallback(update.instance, update.scenario, world);
+        *pose = Pose::get_fallback(update.element, update.scenario, world);
     }
 
     for (update, fallback_pose) in update_instance.iter() {
@@ -397,7 +390,7 @@ pub fn handle_instance_updates(
         };
 
         if let Some((mut instance_modifier, modifier_entity)) =
-            scenario_modifiers.get(&update.instance).and_then(|e| {
+            scenario_modifiers.get(&update.element).and_then(|e| {
                 params
                     .instance_modifiers
                     .get_mut(*e)
@@ -462,7 +455,7 @@ pub fn handle_instance_updates(
                     // was modified by user
                     world
                         .commands()
-                        .entity(update.instance)
+                        .entity(update.element)
                         .insert(LastSetValue::<Pose>::new(new_pose));
                     continue;
                 }
@@ -479,7 +472,7 @@ pub fn handle_instance_updates(
                     if !inherited.modified() {
                         params
                             .remove_modifier
-                            .write(RemoveModifier::new(update.instance, update.scenario));
+                            .write(RemoveModifier::new(update.element, update.scenario));
                     }
                 }
             }
@@ -495,7 +488,7 @@ pub fn handle_instance_updates(
             let modifier_entity = world.commands().spawn(instance_modifier).id();
             let (_, mut params) = state.get_mut(world);
             params.add_modifier.write(AddModifier::new(
-                update.instance,
+                update.element,
                 modifier_entity,
                 update.scenario,
             ));
@@ -505,7 +498,7 @@ pub fn handle_instance_updates(
         let (_, mut params) = state.get_mut(world);
         params
             .update_property
-            .write(UpdateProperty::new(update.instance, update.scenario));
+            .write(UpdateProperty::new(update.element, update.scenario));
     }
 }
 

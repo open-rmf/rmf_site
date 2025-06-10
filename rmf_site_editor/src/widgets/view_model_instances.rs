@@ -20,7 +20,7 @@ use crate::{
     site::{
         count_scenarios, Affiliation, CurrentScenario, Delete, GetModifier, Group,
         InstanceModifier, Members, ModelMarker, NameInSite, ScenarioMarker, ScenarioModifiers,
-        UpdateInstance, UpdateInstanceEvent,
+        UpdateInstance, UpdateModifier,
     },
     widgets::{prelude::*, SelectorWidget},
     Icons,
@@ -72,7 +72,7 @@ pub struct ViewModelInstances<'w, 's> {
     selection: Res<'w, Selection>,
     selector: SelectorWidget<'w, 's>,
     delete: EventWriter<'w, Delete>,
-    update_instance: EventWriter<'w, UpdateInstanceEvent>,
+    update_instance: EventWriter<'w, UpdateModifier<UpdateInstance>>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for ViewModelInstances<'w, 's> {
@@ -180,7 +180,7 @@ fn show_model_instance(
     instance: Entity,
     selector: &mut SelectorWidget,
     delete: &mut EventWriter<Delete>,
-    update_instance: &mut EventWriter<UpdateInstanceEvent>,
+    update_instance: &mut EventWriter<UpdateModifier<UpdateInstance>>,
     get_modifier: &GetModifier<InstanceModifier>,
     scenario: Entity,
     scenario_count: i32,
@@ -208,11 +208,11 @@ fn show_model_instance(
                     {
                         // If this is a root scenario or Added modifier, toggle to Hidden
                         // Note: all modifiers are Added in root scenarios
-                        update_instance.write(UpdateInstanceEvent {
+                        update_instance.write(UpdateModifier::new(
                             scenario,
                             instance,
-                            update: UpdateInstance::Hide,
-                        });
+                            UpdateInstance::Hide,
+                        ));
                     }
                 }
                 InstanceModifier::Inherited(inherited) => {
@@ -222,11 +222,11 @@ fn show_model_instance(
                             .on_hover_text("Model instance is included in this scenario")
                             .clicked()
                         {
-                            update_instance.write(UpdateInstanceEvent {
+                            update_instance.write(UpdateModifier::new(
                                 scenario,
                                 instance,
-                                update: UpdateInstance::ResetVisibility,
-                            });
+                                UpdateInstance::ResetVisibility,
+                            ));
                         }
                     } else {
                         if ui
@@ -236,11 +236,11 @@ fn show_model_instance(
                             )
                             .clicked()
                         {
-                            update_instance.write(UpdateInstanceEvent {
+                            update_instance.write(UpdateModifier::new(
                                 scenario,
                                 instance,
-                                update: UpdateInstance::Hide,
-                            });
+                                UpdateInstance::Hide,
+                            ));
                         }
                     }
                 }
@@ -250,11 +250,11 @@ fn show_model_instance(
                         .on_hover_text("Model instance is hidden in this scenario")
                         .clicked()
                     {
-                        update_instance.write(UpdateInstanceEvent {
+                        update_instance.write(UpdateModifier::new(
                             scenario,
                             instance,
-                            update: UpdateInstance::Include,
-                        });
+                            UpdateInstance::Include,
+                        ));
                     }
                 }
             }
@@ -265,11 +265,11 @@ fn show_model_instance(
                 .on_hover_text("Model instance visibility is inherited in this scenario")
                 .clicked()
             {
-                update_instance.write(UpdateInstanceEvent {
+                update_instance.write(UpdateModifier::new(
                     scenario,
                     instance,
-                    update: UpdateInstance::Hide,
-                });
+                    UpdateInstance::Hide,
+                ));
             }
         }
         // Delete instance from this site (all scenarios)
