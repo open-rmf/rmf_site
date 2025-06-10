@@ -41,7 +41,7 @@ pub struct SaveSite {
 #[derive(Event)]
 pub struct SaveNavGraphs {
     pub site: Entity,
-    pub to_file: PathBuf,
+    pub in_directory: PathBuf,
 }
 
 // TODO(MXG): Change all these errors to use u32 SiteIDs instead of entities
@@ -1489,12 +1489,12 @@ pub fn save_site(world: &mut World) {
             ExportFormat::Default => {
                 if path_str.ends_with(".building.yaml") {
                     warn!("Detected old file format, converting to new format");
-                    new_path = path_str.replace(".building.yaml", ".site.ron").into();
-                } else if path_str.ends_with(".site.json") {
-                    // Noop
-                } else if !path_str.ends_with(".site.ron") {
-                    info!("Appending .site.ron to {}", new_path.display());
-                    new_path = new_path.with_extension("site.ron");
+                    new_path = path_str.replace(".building.yaml", ".site.json").into();
+                } else if path_str.ends_with(".site.ron") {
+                    // Noop, we allow .site.ron to remain as-is
+                } else if !path_str.ends_with(".site.json") {
+                    info!("Appending .site.json to {}", new_path.display());
+                    new_path = new_path.with_extension("site.json");
                 }
                 info!("Saving to {}", new_path.display());
                 let f = match std::fs::File::create(new_path.clone()) {
@@ -1652,7 +1652,7 @@ pub fn save_nav_graphs(world: &mut World) {
         .drain()
         .collect();
     for save_event in save_events {
-        let path = save_event.to_file;
+        let path = save_event.in_directory;
 
         let mut site = match generate_site(world, save_event.site) {
             Ok(site) => site,
@@ -1694,21 +1694,5 @@ pub fn save_nav_graphs(world: &mut World) {
             "Saving all site nav graphs to {}",
             path.to_str().unwrap_or("<failed to render??>")
         );
-        let f = match std::fs::File::create(path) {
-            Ok(f) => f,
-            Err(err) => {
-                error!("Unable to save file: {err}");
-                continue;
-            }
-        };
-
-        match site.to_writer_ron(f) {
-            Ok(()) => {
-                info!("Save successful");
-            }
-            Err(err) => {
-                error!("Save failed: {err}");
-            }
-        }
     }
 }

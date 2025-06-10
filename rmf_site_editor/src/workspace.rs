@@ -328,12 +328,24 @@ impl FromWorld for WorkspaceLoadingServices {
             .clone();
         let loading_filters = vec![
             FileDialogFilter {
-                name: "Legacy building".into(),
-                extensions: vec!["building.yaml".into()],
+                name: "Site or Building".into(),
+                extensions: vec![
+                    "site.ron".into(),
+                    "site.json".into(),
+                    "building.yaml".into(),
+                ],
             },
             FileDialogFilter {
-                name: "Site".into(),
-                extensions: vec!["site.ron".into(), "site.json".into()],
+                name: "Structured file".into(),
+                extensions: vec![
+                    ".ron".into(),
+                    ".json".into(),
+                    ".yaml".into(),
+                ]
+            },
+            FileDialogFilter {
+                name: "All files".into(),
+                extensions: vec![],
             },
         ];
         // Spawn all the services
@@ -519,7 +531,7 @@ impl FromWorld for WorkspaceSavingServices {
         let pick_folder = world.resource::<FileDialogServices>().pick_folder.clone();
         let saving_filters = vec![FileDialogFilter {
             name: "Site".into(),
-            extensions: vec!["site.ron".into(), "site.json".into()],
+            extensions: vec!["site.json".into(), "site.ron".into()],
         }];
         // Spawn all the services
         let save_workspace_to_dialog = world.spawn_workflow(|scope, builder| {

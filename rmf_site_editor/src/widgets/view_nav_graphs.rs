@@ -252,7 +252,7 @@ impl<'w, 's> ViewNavGraphs<'w, 's> {
                         {
                             self.save_nav_graphs.write(SaveNavGraphs {
                                 site: current_site,
-                                to_file: export_file.clone(),
+                                in_directory: export_file.clone(),
                             });
                         } else {
                             error!("No current site??");
@@ -330,7 +330,7 @@ pub fn resolve_nav_graph_import_export_files(
                     if let Some(current_site) = current_workspace.to_site(&open_sites) {
                         save_nav_graphs.write(SaveNavGraphs {
                             site: current_site,
-                            to_file: result.clone(),
+                            in_directory: result.clone(),
                         });
                     }
                     nav_graph_display.export_file = Some(result)
