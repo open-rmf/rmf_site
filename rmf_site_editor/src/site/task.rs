@@ -17,9 +17,9 @@
 
 use crate::{
     site::{
-        AddModifier, Affiliation, ChangeCurrentScenario, Delete, GetModifier, Modifier, Pending,
-        Property, RecallTask, RemoveModifier, ScenarioMarker, ScenarioModifiers, StandardProperty,
-        Task, TaskModifier, TaskParams, UpdateModifier, UpdateProperty,
+        AddModifier, Affiliation, ChangeCurrentScenario, Delete, GetModifier, InheritedTask,
+        Modifier, Pending, Property, RecallTask, RemoveModifier, ScenarioMarker, ScenarioModifiers,
+        StandardProperty, Task, TaskModifier, TaskParams, UpdateModifier, UpdateProperty,
     },
     widgets::tasks::{EditMode, EditModeEvent, EditTask},
     CurrentWorkspace,
@@ -158,10 +158,33 @@ impl Modifier<TaskParams> for TaskModifier {
         in_scenario: Entity,
         get_modifier: &GetModifier<Self>,
     ) -> bool {
-        get_modifier
-            .get(in_scenario, for_element)
-            .and_then(|modifier| modifier.is_included())
-            .unwrap_or(false)
+        let mut included: Option<bool> = None;
+        let mut entity = in_scenario;
+        while included.is_none() {
+            if let Some(modifier) = get_modifier.get(entity, for_element) {
+                included = match modifier {
+                    TaskModifier::Added(_) => Some(true),
+                    TaskModifier::Inherited(inherited) => {
+                        if inherited.explicit_inclusion {
+                            Some(true)
+                        } else {
+                            None
+                        }
+                    }
+                    TaskModifier::Hidden => Some(false),
+                };
+            }
+            let Some(parent_entity) = get_modifier
+                .scenarios
+                .get(entity)
+                .ok()
+                .and_then(|(_, p)| p.0)
+            else {
+                break;
+            };
+            entity = parent_entity;
+        }
+        included.unwrap_or(false)
     }
 }
 
@@ -241,7 +264,6 @@ pub fn handle_task_modifier_updates(
     }
 
     for (update, fallback_params) in update_task_modifier.iter() {
-        // for update in update_modifier.read() {
         let (_, mut params) = state.get_mut(world);
         let Ok((scenario_modifiers, scenario_parent)) = params.scenarios.get(update.scenario)
         else {
@@ -267,19 +289,24 @@ pub fn handle_task_modifier_updates(
                             inherited.explicit_inclusion = true;
                         }
                         TaskModifier::Hidden => {
-                            if let Some(recall_modifier) = params
+                            if let Some((recall_modifier, recall_params)) = params
                                 .recall_task
                                 .get(*modifier_entity)
                                 .ok()
-                                .and_then(|r| r.modifier.clone())
+                                .and_then(|r| r.modifier.as_ref().zip(r.params.clone()))
                             {
-                                // Use recalled modifier values. We don't recall Hidden modifiers.
-                                *task_modifier = recall_modifier.clone();
-                                match task_modifier {
-                                    TaskModifier::Inherited(inherited) => {
-                                        inherited.explicit_inclusion = true;
+                                // RecallTask exists, check for previous
+                                match recall_modifier {
+                                    TaskModifier::Added(_) => {
+                                        *task_modifier = TaskModifier::added(recall_params);
                                     }
-                                    _ => {}
+                                    TaskModifier::Inherited(_) => {
+                                        *task_modifier = TaskModifier::Inherited(InheritedTask {
+                                            modified_params: Some(recall_params),
+                                            explicit_inclusion: true,
+                                        });
+                                    }
+                                    TaskModifier::Hidden => {} // We don't recall Hidden modifiers
                                 }
                             } else {
                                 *task_modifier = match scenario_parent.0 {

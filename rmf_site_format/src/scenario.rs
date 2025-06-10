@@ -157,20 +157,6 @@ impl TaskModifier {
             TaskModifier::Hidden => None,
         }
     }
-
-    pub fn is_included(&self) -> Option<bool> {
-        match self {
-            TaskModifier::Added(_) => Some(true),
-            TaskModifier::Inherited(inherited) => {
-                if inherited.explicit_inclusion {
-                    Some(true)
-                } else {
-                    None
-                }
-            }
-            TaskModifier::Hidden => Some(false),
-        }
-    }
 }
 
 #[derive(Clone, Debug, Default)]
