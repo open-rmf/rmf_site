@@ -338,14 +338,14 @@ impl FromWorld for WorkspaceLoadingServices {
             FileDialogFilter {
                 name: "Structured file".into(),
                 extensions: vec![
-                    ".ron".into(),
-                    ".json".into(),
-                    ".yaml".into(),
+                    "ron".into(),
+                    "json".into(),
+                    "yaml".into(),
                 ]
             },
             FileDialogFilter {
                 name: "All files".into(),
-                extensions: vec![],
+                extensions: vec!["*".into()],
             },
         ];
         // Spawn all the services
