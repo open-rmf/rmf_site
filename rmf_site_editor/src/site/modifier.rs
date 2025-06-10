@@ -87,6 +87,8 @@ pub struct GetModifier<'w, 's, T: Component<Mutability = Mutable> + Clone + Defa
 }
 
 impl<'w, 's, T: Component<Mutability = Mutable> + Clone + Default> GetModifier<'w, 's, T> {
+    /// Retrieves the element's modifier in a scenario or the nearest inherited modifier.
+    /// If None is returned, there is no modifier for the scenario-element pair in this scenario tree.
     pub fn get(&self, scenario: Entity, element: Entity) -> Option<&T> {
         let mut modifier: Option<&T> = None;
         let mut scenario_entity = scenario;
@@ -152,6 +154,14 @@ pub trait Modifier<T: Property>: Component<Mutability = Mutable> + Debug + Defau
 
     /// Inserts new modifiers elements in a newly added root scenario.
     fn insert_on_new_scenario(_in_scenario: Entity, _world: &mut World) {}
+
+    /// Checks whether this element is included in the current scenario.
+    fn check_inclusion(
+        &self,
+        for_element: Entity,
+        in_scenario: Entity,
+        get_modifier: &GetModifier<Self>,
+    ) -> bool;
 }
 
 /// Handles additions and removals of scenario modifiers
@@ -233,6 +243,28 @@ pub fn handle_cleanup_modifiers<M: Component<Mutability = Mutable> + Debug + Def
     for scenario_entity in scenarios.iter() {
         remove_modifier.write(RemoveModifier::new(trigger.target(), scenario_entity));
     }
+}
+
+/// Counts how many scenarios this element is included in. Requirements for inclusion
+/// depends on the scenario property.
+pub fn count_scenarios<T: Property, M: Modifier<T>>(
+    for_element: Entity,
+    scenarios: &Query<
+        (Entity, &ScenarioModifiers<Entity>, &Affiliation<Entity>),
+        With<ScenarioMarker>,
+    >,
+    get_modifier: &GetModifier<M>,
+) -> i32 {
+    scenarios.iter().fold(0, |x, (e, _, _)| {
+        if get_modifier
+            .get(e, for_element)
+            .is_some_and(|modifier| modifier.check_inclusion(for_element, e, get_modifier))
+        {
+            x + 1
+        } else {
+            x
+        }
+    })
 }
 
 /// Unique UUID to identify issue of missing root scenario modifiers

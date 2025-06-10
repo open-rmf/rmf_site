@@ -18,12 +18,12 @@
 use crate::{
     interaction::{Select, Selection},
     site::{
-        AddModifier, Affiliation, CurrentScenario, Delete, Dependents, GetModifier, Group,
-        InheritedInstance, InstanceMarker, InstanceModifier, IssueKey, LastSetValue, ModelMarker,
-        Modifier, NameInSite, Pending, PendingModel, Pose, Property, RecallInstance,
-        RemoveModifier, ScenarioBundle, ScenarioMarker, ScenarioModifiers, UpdateProperty,
+        count_scenarios, AddModifier, Affiliation, CurrentScenario, Delete, Dependents,
+        GetModifier, Group, InheritedInstance, InstanceMarker, InstanceModifier, IssueKey,
+        LastSetValue, ModelMarker, Modifier, NameInSite, Pending, PendingModel, Pose, Property,
+        RecallInstance, RemoveModifier, ScenarioBundle, ScenarioMarker, ScenarioModifiers,
+        UpdateProperty,
     },
-    widgets::view_model_instances::count_scenarios,
     CurrentWorkspace, Issue, ValidateWorkspace,
 };
 use bevy::ecs::{
@@ -210,6 +210,16 @@ impl Modifier<Pose> for InstanceModifier {
 
         change_current_scenario.write(ChangeCurrentScenario(in_scenario));
     }
+
+    fn check_inclusion(
+        &self,
+        _for_element: Entity,
+        _in_scenario: Entity,
+        _get_modifier: &GetModifier<Self>,
+    ) -> bool {
+        // TODO(@xiyuoh) Revisit this implementation
+        true
+    }
 }
 
 impl Property for Visibility {
@@ -235,7 +245,7 @@ impl Modifier<Visibility> for InstanceModifier {
         &self,
         for_element: Entity,
         in_scenario: Entity,
-        get_modifier: &GetModifier<InstanceModifier>,
+        get_modifier: &GetModifier<Self>,
     ) -> Option<Visibility> {
         let mut parent_visibility: Option<bool> = None;
         let mut entity = in_scenario;
@@ -261,6 +271,22 @@ impl Modifier<Visibility> for InstanceModifier {
                 Visibility::Hidden
             }
         })
+    }
+
+    fn check_inclusion(
+        &self,
+        for_element: Entity,
+        in_scenario: Entity,
+        get_modifier: &GetModifier<Self>,
+    ) -> bool {
+        let visibility: Visibility = self
+            .get()
+            .or_else(|| self.retrieve_inherited(for_element, in_scenario, get_modifier))
+            .unwrap_or(Visibility::Hidden);
+        match visibility {
+            Visibility::Hidden => false,
+            _ => true,
+        }
     }
 }
 
@@ -583,7 +609,12 @@ pub fn check_for_hidden_model_instances(
 ) {
     for root in validate_events.read() {
         for (instance_entity, instance_name, _) in instances.iter() {
-            if count_scenarios(&scenarios, instance_entity, &get_modifier) > 0 {
+            if count_scenarios::<Visibility, InstanceModifier>(
+                instance_entity,
+                &scenarios,
+                &get_modifier,
+            ) > 0
+            {
                 continue;
             }
             let issue = Issue {

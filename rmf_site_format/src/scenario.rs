@@ -113,11 +113,21 @@ pub struct InheritedInstance {
     pub explicit_inclusion: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+impl InheritedInstance {
+    pub fn modified(&self) -> bool {
+        if self.modified_pose.is_some() || self.explicit_inclusion {
+            return true;
+        }
+        false
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub enum TaskModifier {
     Added(AddedTask),
     Inherited(InheritedTask),
+    #[default]
     Hidden,
 }
 
@@ -126,10 +136,17 @@ impl TaskModifier {
         Self::Added(AddedTask { params })
     }
 
-    pub fn inherited() -> Self {
+    pub fn inherited_with_params(params: TaskParams) -> Self {
+        Self::Inherited(InheritedTask {
+            modified_params: Some(params),
+            explicit_inclusion: false,
+        })
+    }
+
+    pub fn inherited_with_inclusion() -> Self {
         Self::Inherited(InheritedTask {
             modified_params: None,
-            explicit_inclusion: false,
+            explicit_inclusion: true,
         })
     }
 
@@ -192,9 +209,9 @@ pub struct InheritedTask {
     pub explicit_inclusion: bool,
 }
 
-impl InheritedInstance {
+impl InheritedTask {
     pub fn modified(&self) -> bool {
-        if self.modified_pose.is_some() || self.explicit_inclusion {
+        if self.modified_params.is_some() || self.explicit_inclusion {
             return true;
         }
         false

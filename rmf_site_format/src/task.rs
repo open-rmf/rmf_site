@@ -75,7 +75,6 @@ pub struct TaskRequest {
     pub description: serde_json::Value,
     #[serde(default, skip_serializing_if = "is_default")]
     pub description_display: Option<String>,
-
     #[serde(default, skip_serializing_if = "is_default")]
     pub requester: Option<String>,
     #[serde(default, skip_serializing_if = "is_default")]

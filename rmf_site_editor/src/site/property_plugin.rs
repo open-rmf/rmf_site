@@ -107,9 +107,13 @@ fn update_property_value<T: Property, M: Modifier<T>, F: QueryFilter + 'static +
     }
 
     for event in update_property.iter() {
-        let (_, _, _, current_scenario, get_modifier) = state.get_mut(world);
+        let (values, _, _, current_scenario, get_modifier) = state.get_mut(world);
         // Only update current scenario properties
         if !current_scenario.0.is_some_and(|e| e == event.in_scenario) {
+            continue;
+        }
+        // Only update elements registered for this plugin
+        if !values.get(event.for_element).is_ok() {
             continue;
         }
 

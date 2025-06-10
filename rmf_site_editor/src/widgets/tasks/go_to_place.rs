@@ -55,7 +55,7 @@ impl Plugin for GoToPlacePlugin {
 #[derive(SystemParam)]
 pub struct ViewGoToPlace<'w, 's> {
     locations: Query<'w, 's, &'static NameInSite, With<LocationTags>>,
-    edit_task: ResMut<'w, EditTask>,
+    edit_task: Res<'w, EditTask>,
     tasks: Query<'w, 's, (&'static mut GoToPlace, &'static mut Task)>,
 }
 
