@@ -1,0 +1,515 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sdf version="1.7">
+  <world name="building">
+    <include>
+      <uri>model://TeleportDispenser</uri>
+      <name>coke_dispenser</name>
+      <pose>17.70439 -5.289419 0 0 0 1.5708001</pose>
+    </include>
+    <include>
+      <uri>model://TeleportIngestor</uri>
+      <name>coke_ingestor</name>
+      <pose>22.542656 -7.610446 0.805 0 0 1.5708001</pose>
+    </include>
+    <gravity>0 0 -9.8</gravity>
+    <magnetic_field>0.00000564 0.0000229 -0.0000424</magnetic_field>
+    <atmosphere type="adiabatic" />
+    <gui fullscreen="false">
+      <plugin name="3D View" filename="MinimalScene">
+        <gz-gui>
+          <title>3D View</title>
+          <property key="showTitleBar" type="bool">false</property>
+          <property type="string" key="state">docked</property>
+        </gz-gui>
+        <engine>ogre2</engine>
+        <scene>scene</scene>
+        <ambient_light>0.4 0.4 0.4</ambient_light>
+        <background_color>0.8 0.8 0.8</background_color>
+        <camera_pose>13.334979 -16.818161 10 0 0.6 1.57</camera_pose>
+      </plugin>
+      <plugin name="Entity context menu" filename="EntityContextMenuPlugin">
+        <gz-gui>
+          <property key="state" type="string">floating</property>
+          <property key="width" type="double">5</property>
+          <property key="height" type="double">5</property>
+          <property type="bool" key="showTitleBar">false</property>
+        </gz-gui>
+      </plugin>
+      <plugin name="Scene Manager" filename="GzSceneManager">
+        <gz-gui>
+          <property key="resizable" type="bool">false</property>
+          <property key="width" type="double">5</property>
+          <property type="double" key="height">5</property>
+          <property key="state" type="string">floating</property>
+          <property key="showTitleBar" type="bool">false</property>
+        </gz-gui>
+      </plugin>
+      <plugin name="Interactive view control" filename="InteractiveViewControl">
+        <gz-gui>
+          <property type="bool" key="resizable">false</property>
+          <property key="width" type="double">5</property>
+          <property key="height" type="double">5</property>
+          <property key="state" type="string">floating</property>
+          <property key="showTitleBar" type="bool">false</property>
+        </gz-gui>
+      </plugin>
+      <plugin name="Camera Tracking" filename="CameraTracking">
+        <gz-gui>
+          <property type="bool" key="resizable">false</property>
+          <property key="width" type="double">5</property>
+          <property type="double" key="height">5</property>
+          <property key="state" type="string">floating</property>
+          <property key="showTitleBar" type="bool">false</property>
+        </gz-gui>
+      </plugin>
+      <plugin name="Marker manager" filename="MarkerManager">
+        <gz-gui>
+          <property key="resizable" type="bool">false</property>
+          <property key="width" type="double">5</property>
+          <property key="height" type="double">5</property>
+          <property key="state" type="string">floating</property>
+          <property key="showTitleBar" type="bool">false</property>
+        </gz-gui>
+      </plugin>
+      <plugin name="Select Entities" filename="SelectEntities">
+        <gz-gui>
+          <property key="resizable" type="bool">false</property>
+          <property key="width" type="double">5</property>
+          <property type="double" key="height">5</property>
+          <property key="state" type="string">floating</property>
+          <property type="bool" key="showTitleBar">false</property>
+        </gz-gui>
+      </plugin>
+      <plugin name="Spawn Entities" filename="Spawn">
+        <gz-gui>
+          <property type="bool" key="resizable">false</property>
+          <property type="double" key="width">5</property>
+          <property key="height" type="double">5</property>
+          <property type="string" key="state">floating</property>
+          <property key="showTitleBar" type="bool">false</property>
+        </gz-gui>
+      </plugin>
+      <plugin name="Visualization Capabilities" filename="VisualizationCapabilities">
+        <gz-gui>
+          <property key="resizable" type="bool">false</property>
+          <property key="width" type="double">5</property>
+          <property type="double" key="height">5</property>
+          <property key="state" type="string">floating</property>
+          <property type="bool" key="showTitleBar">false</property>
+        </gz-gui>
+      </plugin>
+      <plugin name="World control" filename="WorldControl">
+        <gz-gui>
+          <title>World control</title>
+          <property key="showTitleBar" type="bool">false</property>
+          <property type="bool" key="resizable">false</property>
+          <property type="double" key="height">72</property>
+          <property type="double" key="z">1</property>
+          <property type="string" key="state">floating</property>
+          <anchors target="3D View">
+            <line target="left" own="left"></line>
+            <line own="bottom" target="bottom"></line>
+          </anchors>
+        </gz-gui>
+        <play_pause>true</play_pause>
+        <step>true</step>
+        <start_paused>true</start_paused>
+        <use_event>true</use_event>
+      </plugin>
+      <plugin name="World stats" filename="WorldStats">
+        <gz-gui>
+          <title>World stats</title>
+          <property key="showTitleBar" type="bool">false</property>
+          <property key="resizable" type="bool">false</property>
+          <property key="height" type="double">110</property>
+          <property key="width" type="double">290</property>
+          <property key="z" type="double">1</property>
+          <property type="string" key="state">floating</property>
+          <anchors target="3D View">
+            <line own="right" target="right"></line>
+            <line own="bottom" target="bottom"></line>
+          </anchors>
+        </gz-gui>
+        <sim_time>true</sim_time>
+        <real_time>true</real_time>
+        <real_time_factor>true</real_time_factor>
+        <iterations>true</iterations>
+      </plugin>
+      <plugin name="Shapes" filename="Shapes">
+        <gz-gui>
+          <property type="bool" key="resizable">false</property>
+          <property type="double" key="x">0</property>
+          <property type="double" key="y">0</property>
+          <property key="width" type="double">250</property>
+          <property key="height" type="double">50</property>
+          <property type="string" key="state">floating</property>
+          <property key="showTitleBar" type="bool">false</property>
+          <property type="string" key="cardBackground">#666666</property>
+        </gz-gui>
+      </plugin>
+      <plugin name="Lights" filename="Lights">
+        <gz-gui>
+          <property key="resizable" type="bool">false</property>
+          <property type="double" key="x">250</property>
+          <property type="double" key="y">0</property>
+          <property type="double" key="width">150</property>
+          <property key="height" type="double">50</property>
+          <property key="state" type="string">floating</property>
+          <property key="showTitleBar" type="bool">false</property>
+          <property type="string" key="cardBackground">#666666</property>
+        </gz-gui>
+      </plugin>
+      <plugin name="Transform control" filename="TransformControl">
+        <gz-gui>
+          <property key="resizable" type="bool">false</property>
+          <property type="double" key="x">0</property>
+          <property type="double" key="y">50</property>
+          <property type="double" key="width">250</property>
+          <property key="height" type="double">50</property>
+          <property type="string" key="state">floating</property>
+          <property type="bool" key="showTitleBar">false</property>
+          <property key="cardBackground" type="string">#777777</property>
+        </gz-gui>
+      </plugin>
+      <plugin name="Screenshot" filename="Screenshot">
+        <gz-gui>
+          <property key="resizable" type="bool">false</property>
+          <property key="x" type="double">250</property>
+          <property key="y" type="double">50</property>
+          <property key="width" type="double">50</property>
+          <property key="height" type="double">50</property>
+          <property key="state" type="string">floating</property>
+          <property key="showTitleBar" type="bool">false</property>
+          <property type="string" key="cardBackground">#777777</property>
+        </gz-gui>
+      </plugin>
+      <plugin name="CopyPaste" filename="CopyPaste">
+        <gz-gui>
+          <property type="bool" key="resizable">false</property>
+          <property key="x" type="double">300</property>
+          <property type="double" key="y">50</property>
+          <property key="width" type="double">100</property>
+          <property key="height" type="double">50</property>
+          <property type="string" key="state">floating</property>
+          <property key="showTitleBar" type="bool">false</property>
+          <property key="cardBackground" type="string">#777777</property>
+        </gz-gui>
+      </plugin>
+      <plugin name="Component inspector" filename="ComponentInspector">
+        <gz-gui>
+          <property key="showTitleBar" type="bool">false</property>
+          <property key="state" type="string">docked</property>
+        </gz-gui>
+      </plugin>
+      <plugin name="Entity tree" filename="EntityTree">
+        <gz-gui>
+          <property key="showTitleBar" type="bool">false</property>
+          <property key="state" type="string">docked</property>
+        </gz-gui>
+      </plugin>
+      <plugin name="toggle_charging" filename="toggle_charging" />
+      <plugin name="toggle_floors" filename="toggle_floors">
+        <floor name="L1" model_name="L1">
+          <model name="TeleportDispenser"></model>
+          <model name="Coke"></model>
+          <model name="TeleportIngestor"></model>
+          <model name="TinyRobot"></model>
+          <model name="TinyRobot"></model>
+          <model name="main_door"></model>
+          <model name="coe_door"></model>
+          <model name="hardware_door"></model>
+        </floor>
+      </plugin>
+    </gui>
+    <physics name="10ms" type="ode">
+      <max_step_size>0.01</max_step_size>
+      <real_time_factor>1</real_time_factor>
+      <real_time_update_rate>0</real_time_update_rate>
+    </physics>
+    <scene>
+      <ambient>1 1 1</ambient>
+      <background>0.8 0.8 0.8</background>
+      <shadows>false</shadows>
+      <grid>false</grid>
+    </scene>
+    <light name="sun" type="directional">
+      <cast_shadows>true</cast_shadows>
+      <diffuse>1 1 1 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <attenuation>
+        <range>1000</range>
+        <linear>0.001</linear>
+        <constant>0.09</constant>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <direction>-0.5 0.1 -0.9</direction>
+      <pose>0 0 10 0 0 0</pose>
+    </light>
+    <model name="L1">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <mesh>
+              <uri>meshes/level_1_collision.glb</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <collide_bitmask>0x01</collide_bitmask>
+            </contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <mesh>
+              <uri>meshes/level_1_visual.glb</uri>
+            </mesh>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="Coke">
+      <static>false</static>
+      <pose>17.70439 -5.2915354 0 0 0 1.5708001</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <mesh>
+              <uri>meshes/model_160_collision.glb</uri>
+            </mesh>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <mesh>
+              <uri>meshes/model_160_visual.glb</uri>
+            </mesh>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="tinyRobot1">
+      <static>false</static>
+      <pose>10.433054 -5.5750957 0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <mesh>
+              <uri>meshes/model_164_collision.glb</uri>
+            </mesh>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <mesh>
+              <uri>meshes/model_164_visual.glb</uri>
+            </mesh>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="tinyRobot2">
+      <static>false</static>
+      <pose>20.423693 -5.312098 0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <mesh>
+              <uri>meshes/model_164_collision.glb</uri>
+            </mesh>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <mesh>
+              <uri>meshes/model_164_visual.glb</uri>
+            </mesh>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+    <model name="main_door">
+      <static>false</static>
+      <pose>13.13195 -2.579487 0 0 0 1.5921196</pose>
+      <link name="right">
+        <collision name="right_collision">
+          <geometry>
+            <mesh>
+              <uri>meshes/door_77_right.glb</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <collide_bitmask>0x02</collide_bitmask>
+            </contact>
+          </surface>
+        </collision>
+        <visual name="right_visual">
+          <geometry>
+            <mesh>
+              <uri>meshes/door_77_right.glb</uri>
+            </mesh>
+          </geometry>
+        </visual>
+      </link>
+      <link name="left">
+        <collision name="left_collision">
+          <geometry>
+            <mesh>
+              <uri>meshes/door_77_left.glb</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <collide_bitmask>0x02</collide_bitmask>
+            </contact>
+          </surface>
+        </collision>
+        <visual name="left_visual">
+          <geometry>
+            <mesh>
+              <uri>meshes/door_77_left.glb</uri>
+            </mesh>
+          </geometry>
+        </visual>
+      </link>
+      <joint name="main_door_right_joint" type="revolute">
+        <parent>world</parent>
+        <child>right</child>
+        <axis>
+          <xyz>0 0 1</xyz>
+          <limit>
+            <lower>0</lower>
+            <upper>1.5707963705062866</upper>
+          </limit>
+        </axis>
+        <pose>0 -0.9477286 1.25 0 0 0</pose>
+      </joint>
+      <joint name="main_door_left_joint" type="revolute">
+        <parent>world</parent>
+        <child>left</child>
+        <axis>
+          <xyz>0 0 1</xyz>
+          <limit>
+            <lower>-1.5707963705062866</lower>
+            <upper>0</upper>
+          </limit>
+        </axis>
+        <pose>0 0.9477286 1.25 0 0 0</pose>
+      </joint>
+      <plugin name="register_component" filename="libregister_component.so">
+        <component name="Door">
+          <v_max_door>0.5</v_max_door>
+          <a_max_door>0.3</a_max_door>
+          <a_nom_door>0.15</a_nom_door>
+          <dx_min_door>0.01</dx_min_door>
+          <f_max_door>500.0</f_max_door>
+          <ros_interface>true</ros_interface>
+          <door name="main_door" right_joint_name="main_door_right_joint" type="DoubleSwingDoor" left_joint_name="main_door_left_joint"></door>
+        </component>
+      </plugin>
+    </model>
+    <model name="coe_door">
+      <static>false</static>
+      <pose>8.077686 -5.898342 0 0 0 -0.4147953</pose>
+      <link name="body">
+        <collision name="body_collision">
+          <geometry>
+            <mesh>
+              <uri>meshes/door_78_body.glb</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <collide_bitmask>0x02</collide_bitmask>
+            </contact>
+          </surface>
+        </collision>
+        <visual name="body_visual">
+          <geometry>
+            <mesh>
+              <uri>meshes/door_78_body.glb</uri>
+            </mesh>
+          </geometry>
+        </visual>
+      </link>
+      <joint name="coe_door_joint" type="revolute">
+        <parent>world</parent>
+        <child>body</child>
+        <axis>
+          <xyz>0 0 -1</xyz>
+          <limit>
+            <lower>0</lower>
+            <upper>1.5707963705062866</upper>
+          </limit>
+        </axis>
+        <pose>0 0.44330126 1.25 0 0 0</pose>
+      </joint>
+      <plugin name="register_component" filename="libregister_component.so">
+        <component name="Door">
+          <v_max_door>0.5</v_max_door>
+          <a_max_door>0.3</a_max_door>
+          <a_nom_door>0.15</a_nom_door>
+          <dx_min_door>0.01</dx_min_door>
+          <f_max_door>500.0</f_max_door>
+          <ros_interface>true</ros_interface>
+          <door type="SwingDoor" name="coe_door" left_joint_name="empty_joint" right_joint_name="coe_door_joint"></door>
+        </component>
+      </plugin>
+    </model>
+    <model name="hardware_door">
+      <static>false</static>
+      <pose>19.450062 -10.319159 0 0 0 3.136327</pose>
+      <link name="body">
+        <collision name="body_collision">
+          <geometry>
+            <mesh>
+              <uri>meshes/door_79_body.glb</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <collide_bitmask>0x02</collide_bitmask>
+            </contact>
+          </surface>
+        </collision>
+        <visual name="body_visual">
+          <geometry>
+            <mesh>
+              <uri>meshes/door_79_body.glb</uri>
+            </mesh>
+          </geometry>
+        </visual>
+      </link>
+      <joint name="hardware_door_joint" type="revolute">
+        <parent>world</parent>
+        <child>body</child>
+        <axis>
+          <xyz>0 0 -1</xyz>
+          <limit>
+            <lower>0</lower>
+            <upper>1.5707963705062866</upper>
+          </limit>
+        </axis>
+        <pose>0 0.4446306 1.25 0 0 0</pose>
+      </joint>
+      <plugin name="register_component" filename="libregister_component.so">
+        <component name="Door">
+          <v_max_door>0.5</v_max_door>
+          <a_max_door>0.3</a_max_door>
+          <a_nom_door>0.15</a_nom_door>
+          <dx_min_door>0.01</dx_min_door>
+          <f_max_door>500.0</f_max_door>
+          <ros_interface>true</ros_interface>
+          <door type="SwingDoor" right_joint_name="hardware_door_joint" left_joint_name="empty_joint" name="hardware_door"></door>
+        </component>
+      </plugin>
+    </model>
+    <plugin name="gz::sim::systems::Physics" filename="libgz-sim-physics-system.so" />
+    <plugin name="gz::sim::systems::UserCommands" filename="libgz-sim-user-commands-system.so" />
+    <plugin name="gz::sim::systems::SceneBroadcaster" filename="libgz-sim-scene-broadcaster-system.so" />
+    <plugin name="door" filename="libdoor.so" />
+    <plugin name="lift" filename="liblift.so" />
+  </world>
+</sdf>
