@@ -17,6 +17,7 @@
 
 use crate::site::{
     AddModifier, Affiliation, CurrentScenario, GetModifier, Modifier, ScenarioMarker,
+    ScenarioModifiers,
 };
 use bevy::{
     ecs::{component::Mutable, query::QueryFilter, system::SystemState},
@@ -107,9 +108,13 @@ fn update_property_value<T: Property, M: Modifier<T>, F: QueryFilter + 'static +
     }
 
     for event in update_property.iter() {
-        let (_, _, _, current_scenario, get_modifier) = state.get_mut(world);
+        let (values, _, _, current_scenario, get_modifier) = state.get_mut(world);
         // Only update current scenario properties
         if !current_scenario.0.is_some_and(|e| e == event.in_scenario) {
+            continue;
+        }
+        // Only update elements registered for this plugin
+        if !values.get(event.for_element).is_ok() {
             continue;
         }
 
@@ -165,7 +170,7 @@ fn on_add_property<T: Property, M: Modifier<T>, F: QueryFilter + 'static + Send 
 }
 
 fn on_add_root_scenario<T: Property, M: Modifier<T>, F: QueryFilter + 'static + Send + Sync>(
-    trigger: Trigger<OnAdd, ScenarioMarker>,
+    trigger: Trigger<OnAdd, ScenarioModifiers<Entity>>,
     world: &mut World,
     state: &mut SystemState<Query<&Affiliation<Entity>, With<ScenarioMarker>>>,
 ) {
