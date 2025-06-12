@@ -18,9 +18,9 @@
 use crate::{
     interaction::Selection,
     site::{
-        Affiliation, CurrentScenario, Delete, GetModifier, Group, InstanceModifier, Members,
-        ModelMarker, Modifier, NameInSite, ScenarioMarker, ScenarioModifiers, UpdateInstance,
-        UpdateInstanceEvent,
+        count_scenarios, Affiliation, CurrentScenario, Delete, GetModifier, Group,
+        InstanceModifier, Members, ModelMarker, NameInSite, ScenarioMarker, ScenarioModifiers,
+        UpdateInstance, UpdateModifier,
     },
     widgets::{prelude::*, SelectorWidget},
     Icons,
@@ -72,7 +72,7 @@ pub struct ViewModelInstances<'w, 's> {
     selection: Res<'w, Selection>,
     selector: SelectorWidget<'w, 's>,
     delete: EventWriter<'w, Delete>,
-    update_instance: EventWriter<'w, UpdateInstanceEvent>,
+    update_instance: EventWriter<'w, UpdateModifier<UpdateInstance>>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for ViewModelInstances<'w, 's> {
@@ -109,11 +109,12 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                         continue;
                                     };
                                     if affiliation.0.is_some_and(|e| e == desc_entity) {
-                                        let scenario_count = count_scenarios(
-                                            &self.scenarios,
-                                            instance_entity,
-                                            &self.get_modifier,
-                                        );
+                                        let scenario_count =
+                                            count_scenarios::<Visibility, InstanceModifier>(
+                                                instance_entity,
+                                                &self.scenarios,
+                                                &self.get_modifier,
+                                            );
                                         show_model_instance(
                                             ui,
                                             instance_name,
@@ -146,11 +147,12 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                 if let Ok((_, instance_name, _)) =
                                     self.model_instances.get_mut(*instance_entity)
                                 {
-                                    let scenario_count = count_scenarios(
-                                        &self.scenarios,
-                                        *instance_entity,
-                                        &self.get_modifier,
-                                    );
+                                    let scenario_count =
+                                        count_scenarios::<Visibility, InstanceModifier>(
+                                            *instance_entity,
+                                            &self.scenarios,
+                                            &self.get_modifier,
+                                        );
                                     show_model_instance(
                                         ui,
                                         instance_name,
@@ -171,47 +173,6 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
     }
 }
 
-fn check_instance_modifier_inclusion(
-    instance_modifier: &InstanceModifier,
-    instance_entity: Entity,
-    scenario_entity: Entity,
-    get_modifier: &GetModifier<InstanceModifier>,
-) -> bool {
-    let visibility: Visibility = instance_modifier
-        .get()
-        .or_else(|| {
-            instance_modifier.retrieve_inherited(instance_entity, scenario_entity, get_modifier)
-        })
-        .unwrap_or(Visibility::Hidden);
-    match visibility {
-        Visibility::Hidden => false,
-        _ => true,
-    }
-}
-
-/// Count the number of scenarios a model instance is included in
-pub fn count_scenarios(
-    scenarios: &Query<
-        (Entity, &ScenarioModifiers<Entity>, &Affiliation<Entity>),
-        With<ScenarioMarker>,
-    >,
-    instance: Entity,
-    get_modifier: &GetModifier<InstanceModifier>,
-) -> i32 {
-    scenarios.iter().fold(0, |x, (e, _, _)| {
-        if get_modifier
-            .get(e, instance)
-            .is_some_and(|instance_modifier| {
-                check_instance_modifier_inclusion(instance_modifier, instance, e, get_modifier)
-            })
-        {
-            x + 1
-        } else {
-            x
-        }
-    })
-}
-
 /// Show a widget for users to interact with a model instance
 fn show_model_instance(
     ui: &mut Ui,
@@ -219,7 +180,7 @@ fn show_model_instance(
     instance: Entity,
     selector: &mut SelectorWidget,
     delete: &mut EventWriter<Delete>,
-    update_instance: &mut EventWriter<UpdateInstanceEvent>,
+    update_instance: &mut EventWriter<UpdateModifier<UpdateInstance>>,
     get_modifier: &GetModifier<InstanceModifier>,
     scenario: Entity,
     scenario_count: i32,
@@ -247,11 +208,11 @@ fn show_model_instance(
                     {
                         // If this is a root scenario or Added modifier, toggle to Hidden
                         // Note: all modifiers are Added in root scenarios
-                        update_instance.write(UpdateInstanceEvent {
+                        update_instance.write(UpdateModifier::new(
                             scenario,
                             instance,
-                            update: UpdateInstance::Hide,
-                        });
+                            UpdateInstance::Hide,
+                        ));
                     }
                 }
                 InstanceModifier::Inherited(inherited) => {
@@ -261,11 +222,11 @@ fn show_model_instance(
                             .on_hover_text("Model instance is included in this scenario")
                             .clicked()
                         {
-                            update_instance.write(UpdateInstanceEvent {
+                            update_instance.write(UpdateModifier::new(
                                 scenario,
                                 instance,
-                                update: UpdateInstance::ResetVisibility,
-                            });
+                                UpdateInstance::ResetVisibility,
+                            ));
                         }
                     } else {
                         if ui
@@ -275,11 +236,11 @@ fn show_model_instance(
                             )
                             .clicked()
                         {
-                            update_instance.write(UpdateInstanceEvent {
+                            update_instance.write(UpdateModifier::new(
                                 scenario,
                                 instance,
-                                update: UpdateInstance::Hide,
-                            });
+                                UpdateInstance::Hide,
+                            ));
                         }
                     }
                 }
@@ -289,11 +250,11 @@ fn show_model_instance(
                         .on_hover_text("Model instance is hidden in this scenario")
                         .clicked()
                     {
-                        update_instance.write(UpdateInstanceEvent {
+                        update_instance.write(UpdateModifier::new(
                             scenario,
                             instance,
-                            update: UpdateInstance::Include,
-                        });
+                            UpdateInstance::Include,
+                        ));
                     }
                 }
             }
@@ -304,11 +265,11 @@ fn show_model_instance(
                 .on_hover_text("Model instance visibility is inherited in this scenario")
                 .clicked()
             {
-                update_instance.write(UpdateInstanceEvent {
+                update_instance.write(UpdateModifier::new(
                     scenario,
                     instance,
-                    update: UpdateInstance::Hide,
-                });
+                    UpdateInstance::Hide,
+                ));
             }
         }
         // Delete instance from this site (all scenarios)
