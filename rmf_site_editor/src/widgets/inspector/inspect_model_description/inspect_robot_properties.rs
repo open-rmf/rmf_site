@@ -19,8 +19,8 @@ use super::*;
 use crate::{
     site::{
         recall_plugin::UpdateRecallSet, robot_properties::*, update_model_instances, Change,
-        ChangePlugin, Group, IssueKey, ModelMarker, ModelProperty, NameInSite, Recall,
-        RecallPlugin, Robot, SiteUpdateSet,
+        ChangePlugin, Group, IssueKey, ModelMarker, ModelProperty, ModelPropertyQuery, NameInSite,
+        Recall, RecallPlugin, Robot, SiteUpdateSet,
     },
     widgets::Inspect,
     AppState, Issue, ModelPropertyData, ValidateWorkspace,
@@ -30,10 +30,10 @@ use bevy::{
     prelude::Component,
 };
 use bevy_egui::egui::{ComboBox, Ui};
-use serde_json::{Error, Map, Value};
+use rmf_site_format::robot_properties::*;
+use serde_json::{Error, Value};
 use smallvec::SmallVec;
 use std::collections::HashMap;
-use std::fmt::Debug;
 use uuid::Uuid;
 
 type InsertDefaultValueFn = fn() -> Result<Value, Error>;
@@ -306,88 +306,6 @@ where
     }
 }
 
-#[derive(Debug, Event)]
-pub struct UpdateRobotPropertyKinds {
-    pub entity: Entity,
-    pub label: String,
-    pub value: serde_json::Value,
-}
-
-/// This system monitors changes to ModelProperty<Robot> and inserts robot property components
-/// to the model descriptions
-pub fn update_robot_property_components<T: RobotProperty>(
-    mut commands: Commands,
-    model_properties: Query<(Entity, Ref<ModelProperty<Robot>>), (With<ModelMarker>, With<Group>)>,
-    mut removals: RemovedComponents<ModelProperty<Robot>>,
-    mut update_robot_property_kinds: EventWriter<UpdateRobotPropertyKinds>,
-) {
-    let property_label = T::label();
-
-    // Remove Robot property entirely
-    for description_entity in removals.read() {
-        commands.entity(description_entity).remove::<T>();
-        update_robot_property_kinds.write(UpdateRobotPropertyKinds {
-            entity: description_entity,
-            label: property_label.clone(),
-            value: serde_json::Value::Object(Map::new()),
-        });
-    }
-
-    for (entity, robot) in model_properties.iter() {
-        if robot.is_changed() {
-            // Update robot property
-            let value = match retrieve_robot_property::<T>(robot.0.clone()) {
-                Ok((property, value)) => {
-                    commands.entity(entity).insert(property);
-                    value
-                }
-                Err(RobotPropertyError::PropertyNotFound(_)) => {
-                    commands.entity(entity).remove::<T>();
-                    serde_json::Value::Object(Map::new())
-                }
-                Err(_) => continue,
-            };
-
-            // Update robot property kinds
-            update_robot_property_kinds.write(UpdateRobotPropertyKinds {
-                entity,
-                label: property_label.clone(),
-                value,
-            });
-        }
-    }
-}
-
-/// This system inserts or removes robot property kind components when a robot property is updated
-pub fn update_robot_property_kind_components<
-    Kind: RobotPropertyKind,
-    Property: RobotProperty,
-    RecallKind: RecallPropertyKind<Kind = Kind>,
->(
-    mut commands: Commands,
-    mut update_robot_property_kinds: EventReader<UpdateRobotPropertyKinds>,
-    recall_kind: Query<&RecallKind, (With<ModelMarker>, With<Group>)>,
-) {
-    for update in update_robot_property_kinds.read() {
-        if update.label != Property::label() {
-            continue;
-        }
-
-        match retrieve_robot_property_kind::<Kind, Property, RecallKind>(
-            update.value.clone(),
-            recall_kind.get(update.entity).ok(),
-        ) {
-            Ok(property_kind) => {
-                commands.entity(update.entity).insert(property_kind);
-            }
-            Err(RobotPropertyError::PropertyKindNotFound(_)) => {
-                commands.entity(update.entity).remove::<Kind>();
-            }
-            Err(_) => continue,
-        }
-    }
-}
-
 /// This system displays each RobotProperty widget and enables users to toggle
 /// the properties on and off, and select relevant RobotPropertyKinds.
 pub fn show_robot_property_widget<T: RobotProperty>(
@@ -472,44 +390,6 @@ pub fn show_robot_property_widget<T: RobotProperty>(
         }
     }
     change_robot_property.write(Change::new(ModelProperty(new_robot), description_entity));
-}
-
-/// This system updates ModelProperty<Robot> based on updates to the RobotProperty components
-pub fn serialize_and_change_robot_property<Property: RobotProperty>(
-    change_robot_property: &mut EventWriter<Change<ModelProperty<Robot>>>,
-    property: Property,
-    robot: &Robot,
-    description_entity: Entity,
-) {
-    if let Ok(new_property_value) = serialize_robot_property::<Property>(property) {
-        let mut new_robot = robot.clone();
-        new_robot
-            .properties
-            .insert(Property::label(), new_property_value);
-        change_robot_property.write(Change::new(ModelProperty(new_robot), description_entity));
-    }
-}
-
-/// This system updates ModelProperty<Robot> based on updates to the RobotProperty and
-/// RobotPropertyKind components
-pub fn serialize_and_change_robot_property_kind<
-    Property: RobotProperty,
-    Kind: RobotPropertyKind,
->(
-    change_robot_property: &mut EventWriter<Change<ModelProperty<Robot>>>,
-    property_kind: Kind,
-    robot: &Robot,
-    description_entity: Entity,
-) {
-    if let Ok(new_property_value) =
-        serialize_robot_property_from_kind::<Property, Kind>(property_kind)
-    {
-        let mut new_robot = robot.clone();
-        new_robot
-            .properties
-            .insert(Property::label(), new_property_value);
-        change_robot_property.write(Change::new(ModelProperty(new_robot), description_entity));
-    }
 }
 
 /// Unique UUID to identify issue of missing robot property kind

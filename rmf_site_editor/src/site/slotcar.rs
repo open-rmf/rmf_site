@@ -15,12 +15,9 @@
  *
 */
 
-use crate::{
-    site::{
-        Change, DifferentialDrive, ExportHandler, ExportHandlers, ExportWith, Group, IsStatic,
-        Mobility, ModelMarker, ModelProperty, Robot,
-    },
-    widgets::inspector::*,
+use crate::site::{
+    robot_properties::*, Change, DifferentialDrive, ExportHandler, ExportHandlers, ExportWith,
+    Group, IsStatic, Mobility, ModelMarker, ModelProperty, ModelPropertyQuery, Robot,
 };
 use bevy::prelude::*;
 use sdformat_rs::{ElementData, ElementMap, XmlElement};

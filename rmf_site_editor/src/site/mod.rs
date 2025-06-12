@@ -96,6 +96,9 @@ pub use primitive_shape::*;
 pub mod recall_plugin;
 pub use recall_plugin::RecallPlugin;
 
+pub mod robot_properties;
+pub use robot_properties::*;
+
 pub mod save;
 pub use save::*;
 

@@ -17,16 +17,13 @@
 
 use super::{
     get_selected_description_entity,
-    inspect_robot_properties::{
-        serialize_and_change_robot_property_kind, show_robot_property_widget,
-        RobotPropertyWidgetRegistry,
-    },
-    ModelPropertyQuery,
+    inspect_robot_properties::{show_robot_property_widget, RobotPropertyWidgetRegistry},
 };
 use crate::{
     site::{
-        Change, CircleCollision, Collision, Group, ModelMarker, ModelProperty, Pose,
-        RecallCollision, Robot, RobotProperty,
+        robot_properties::serialize_and_change_robot_property_kind, Change, CircleCollision,
+        Collision, Group, ModelMarker, ModelProperty, ModelPropertyQuery, Pose, RecallCollision,
+        Robot, RobotProperty,
     },
     widgets::{prelude::*, Inspect},
 };

@@ -31,7 +31,7 @@ use std::{collections::HashMap, fmt::Debug};
 use crate::{
     site::{
         update_model_instances, Affiliation, AssetSource, Change, Group, IsStatic, ModelLoader,
-        ModelMarker, ModelProperty, NameInSite, Scale,
+        ModelMarker, ModelProperty, ModelPropertyQuery, NameInSite, Scale,
     },
     widgets::{prelude::*, Inspect},
     MainInspector,
@@ -424,9 +424,6 @@ impl<'w, 's> InspectSelectedModelDescription<'w, 's> {
         }
     }
 }
-
-pub type ModelPropertyQuery<'w, 's, P> =
-    Query<'w, 's, &'static Affiliation<Entity>, (With<ModelMarker>, Without<Group>, With<P>)>;
 
 /// Helper function to get the corresponding description entity for a given model instance entity
 /// if it exists.

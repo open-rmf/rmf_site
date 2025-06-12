@@ -15,11 +15,11 @@
  *
 */
 
-use super::{get_selected_description_entity, ModelPropertyQuery};
+use super::get_selected_description_entity;
 use crate::{
     site::{
         AssetSource, Change, DefaultFile, Group, ModelLoader, ModelMarker, ModelProperty,
-        RecallAssetSource, Scale,
+        ModelPropertyQuery, RecallAssetSource, Scale,
     },
     widgets::{prelude::*, Inspect, InspectAssetSourceComponent, InspectScaleComponent},
     CurrentWorkspace,
