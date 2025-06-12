@@ -470,6 +470,22 @@ fn generate_site_entities(
                 );
             }
         }
+        for (task_id, task_data) in scenario_data.tasks.iter() {
+            if let Some(task_entity) = id_to_entity.get(&task_id) {
+                let modifier_entity = commands
+                    .spawn(task_data.clone())
+                    .insert(Affiliation(Some(*task_entity)))
+                    .insert(ChildOf(scenario_entity))
+                    .id();
+                scenario_modifiers.insert(*task_entity, modifier_entity);
+            } else {
+                error!(
+                    "Task {} referenced by scenario {} is missing! This should \
+                    not happen, please report this bug to the maintainers of rmf_site_editor.",
+                    task_id, scenario.properties.name.0
+                );
+            }
+        }
         commands.entity(scenario_entity).insert(scenario_modifiers);
     }
 

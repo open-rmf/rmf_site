@@ -18,8 +18,8 @@ use crate::{
     site::{
         count_scenarios, Affiliation, Category, Change, CurrentScenario, Delete,
         DispatchTaskRequest, GetModifier, Group, Modifier, NameInSite, Pending, Robot,
-        RobotTaskRequest, ScenarioMarker, ScenarioModifiers, Task, TaskModifier, TaskParams,
-        UpdateModifier, UpdateTaskModifier,
+        RobotTaskRequest, ScenarioMarker, ScenarioModifiers, Task, TaskKinds, TaskModifier,
+        TaskParams, UpdateModifier, UpdateTaskModifier,
     },
     widgets::prelude::*,
     Icons, Tile, WidgetSystem,
@@ -27,7 +27,7 @@ use crate::{
 use bevy::{
     ecs::{
         hierarchy::ChildOf,
-        system::{EntityCommands, SystemParam, SystemState},
+        system::{SystemParam, SystemState},
     },
     prelude::*,
 };
@@ -37,25 +37,12 @@ use bevy_egui::egui::{
 };
 use serde_json::Value;
 use smallvec::SmallVec;
-use std::collections::HashMap;
 
 pub mod go_to_place;
 pub use go_to_place::*;
 
 pub mod wait_for;
 pub use wait_for::*;
-
-pub type InsertTaskKindFn = fn(EntityCommands);
-pub type RemoveTaskKindFn = fn(EntityCommands);
-
-#[derive(Resource)]
-pub struct TaskKinds(pub HashMap<String, (InsertTaskKindFn, RemoveTaskKindFn)>);
-
-impl FromWorld for TaskKinds {
-    fn from_world(_world: &mut World) -> Self {
-        TaskKinds(HashMap::new())
-    }
-}
 
 #[derive(Default)]
 pub struct StandardTasksPlugin {}

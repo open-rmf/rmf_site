@@ -19,7 +19,7 @@ use crate::{
     site::{
         AddModifier, Affiliation, ChangeCurrentScenario, Delete, GetModifier, InheritedTask,
         Modifier, Pending, Property, RecallTask, RemoveModifier, ScenarioMarker, ScenarioModifiers,
-        StandardProperty, Task, TaskModifier, TaskParams, UpdateModifier, UpdateProperty,
+        StandardProperty, Task, TaskKind, TaskModifier, TaskParams, UpdateModifier, UpdateProperty,
     },
     widgets::tasks::{EditMode, EditModeEvent, EditTask},
     CurrentWorkspace,
@@ -29,7 +29,19 @@ use bevy::ecs::{
     system::{SystemParam, SystemState},
 };
 use bevy::prelude::*;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+
+pub type InsertTaskKindFn = fn(EntityCommands);
+pub type RemoveTaskKindFn = fn(EntityCommands);
+
+#[derive(Resource)]
+pub struct TaskKinds(pub HashMap<String, (InsertTaskKindFn, RemoveTaskKindFn)>);
+
+impl FromWorld for TaskKinds {
+    fn from_world(_world: &mut World) -> Self {
+        TaskKinds(HashMap::new())
+    }
+}
 
 impl StandardProperty for TaskParams {}
 
@@ -220,6 +232,26 @@ pub fn handle_task_edit(
                     delete.write(Delete::new(pending_task));
                 }
                 edit_task.0 = task_entity;
+            }
+        }
+    }
+}
+
+pub fn update_task_kind_component<T: TaskKind>(
+    mut commands: Commands,
+    task_kinds: Res<TaskKinds>,
+    tasks: Query<(Entity, Ref<Task>, Option<&T>)>,
+) {
+    for (entity, task, task_kind) in tasks.iter() {
+        if task.is_changed() {
+            let task_request = task.request();
+            if task_request.category() == T::label() && task_kind.is_none() {
+                // This TaskKind is present in the task but the component has not been inserted
+                if let Ok(task_kind_component) =
+                    serde_json::from_value::<T>(task_request.description())
+                {
+                    commands.entity(entity).insert(task_kind_component);
+                }
             }
         }
     }

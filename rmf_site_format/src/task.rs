@@ -18,7 +18,7 @@
 use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Component, Reflect};
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fmt;
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
@@ -308,7 +308,8 @@ impl Task {
     }
 }
 
-pub trait TaskKind {
+#[cfg(feature = "bevy")]
+pub trait TaskKind: Component + Serialize + DeserializeOwned {
     fn label() -> String;
 }
 

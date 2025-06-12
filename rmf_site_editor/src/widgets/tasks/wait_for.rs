@@ -14,9 +14,9 @@
  * limitations under the License.
  *
 */
-use super::{EditTask, TaskKinds, TaskWidget};
+use super::{EditTask, TaskWidget};
 use crate::{
-    site::{Task, TaskKind},
+    site::{update_task_kind_component, Task, TaskKind, TaskKinds},
     widgets::prelude::*,
     Tile, WidgetSystem,
 };
@@ -49,6 +49,7 @@ impl Plugin for WaitForPlugin {
         let widget = Widget::<Tile>::new::<ViewWaitFor>(&mut app.world_mut());
         let task_widget = app.world().resource::<TaskWidget>().get();
         app.world_mut().spawn(widget).insert(ChildOf(task_widget));
+        app.add_systems(PostUpdate, update_task_kind_component::<WaitFor>);
     }
 }
 

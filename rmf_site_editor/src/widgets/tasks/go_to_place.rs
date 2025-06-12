@@ -14,9 +14,9 @@
  * limitations under the License.
  *
 */
-use super::{EditTask, TaskKinds, TaskWidget};
+use super::{EditTask, TaskWidget};
 use crate::{
-    site::{LocationTags, NameInSite, Task, TaskKind},
+    site::{update_task_kind_component, LocationTags, NameInSite, Task, TaskKind, TaskKinds},
     widgets::prelude::*,
     Tile, WidgetSystem,
 };
@@ -49,6 +49,7 @@ impl Plugin for GoToPlacePlugin {
         let widget = Widget::<Tile>::new::<ViewGoToPlace>(&mut app.world_mut());
         let task_widget = app.world().resource::<TaskWidget>().get();
         app.world_mut().spawn(widget).insert(ChildOf(task_widget));
+        app.add_systems(PostUpdate, update_task_kind_component::<GoToPlace>);
     }
 }
 
