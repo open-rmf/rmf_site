@@ -17,6 +17,7 @@
 
 use crate::site::{
     AddModifier, Affiliation, CurrentScenario, GetModifier, Modifier, ScenarioMarker,
+    ScenarioModifiers,
 };
 use bevy::{
     ecs::{component::Mutable, query::QueryFilter, system::SystemState},
@@ -169,7 +170,7 @@ fn on_add_property<T: Property, M: Modifier<T>, F: QueryFilter + 'static + Send 
 }
 
 fn on_add_root_scenario<T: Property, M: Modifier<T>, F: QueryFilter + 'static + Send + Sync>(
-    trigger: Trigger<OnAdd, ScenarioMarker>,
+    trigger: Trigger<OnAdd, ScenarioModifiers<Entity>>,
     world: &mut World,
     state: &mut SystemState<Query<&Affiliation<Entity>, With<ScenarioMarker>>>,
 ) {
