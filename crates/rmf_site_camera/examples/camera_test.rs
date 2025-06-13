@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
-use rmf_site_camera::plugins::CameraControlsPlugin;
+use rmf_site_camera::{plugins::CameraControlsPlugin, resources::ProjectionMode};
+use bevy_color::palettes::css as Colors;
 
 fn main() {
     App::new()
@@ -14,7 +15,21 @@ fn main() {
         .add_plugins(CameraControlsPlugin)
         .add_plugins(WorldInspectorPlugin::default())
         .add_systems(Startup, setup)
+        .add_systems(Update, camera_controls)
         .run();
+}
+
+fn camera_controls(
+    mut projection_mode: ResMut<ProjectionMode>,
+    keys: Res<ButtonInput<KeyCode>>
+) {
+    if keys.just_pressed(KeyCode::F2) {
+        *projection_mode = ProjectionMode::Orthographic;
+    }
+
+    if keys.just_pressed(KeyCode::F3) {
+        *projection_mode = ProjectionMode::Perspective;
+    }
 }
 
 /// set up a simple 3D scene
@@ -26,8 +41,8 @@ fn setup(
     // circular base
     commands.spawn((
         Mesh3d(meshes.add(Circle::new(4.0))),
-        MeshMaterial3d(materials.add(Color::WHITE)),
-        Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+        MeshMaterial3d(materials.add(Color::Srgba(Colors::DARK_GREEN))),
+        Transform::from_xyz(0.0, 0.0, -0.5),
         Name::new("base_plate"),
     ));
     // cube

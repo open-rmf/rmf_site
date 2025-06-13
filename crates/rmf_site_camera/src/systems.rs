@@ -8,15 +8,15 @@ pub fn init_cameras(
     mut commands: Commands
 ) {
     let selection_mesh = camera_control_mesh.0.clone();
-    let selection_marker = commands
+    commands
         .spawn((
             Mesh3d(selection_mesh),
             Visibility::Visible,
             Transform::default(),
             MeshMaterial3d::<StandardMaterial>::default(),
-            CameraSelectionMarker
-        ))
-        .id();
+            CameraSelectionMarker,
+            Name::new("selection_marker")
+        ));
 
     let perspective_headlight = commands
         .spawn((
@@ -25,7 +25,8 @@ pub fn init_cameras(
             illuminance: 50.,
             ..default()
             },
-            PerspectiveHeadlightTarget
+            PerspectiveHeadlightTarget,
+            Name::new("perspective_headlight")
         ))
         .insert(main_view_render_layers())
         .id();
@@ -55,7 +56,7 @@ pub fn init_cameras(
             .id()
     });
 
-    let perspective_base_camera = commands
+    commands
         .spawn(Camera3d::default())
         .insert((
             Transform::from_xyz(-10., -10., 10.).looking_at(Vec3::ZERO, Vec3::Z),
@@ -73,8 +74,7 @@ pub fn init_cameras(
             VISUAL_CUE_RENDER_LAYER,
         ]))
         .add_children(&[perspective_headlight])
-        .add_children(&perspective_child_cameras)
-        .id();
+        .add_children(&perspective_child_cameras);
 
     let orthographic_headlight = commands
         .spawn((
@@ -127,7 +127,7 @@ pub fn init_cameras(
             .id()
     });
 
-    let orthographic_base_camera = commands
+    commands
         .spawn(Camera3d::default())
         .insert((
             Camera {
@@ -150,16 +150,54 @@ pub fn init_cameras(
             VISUAL_CUE_RENDER_LAYER,
         ]))
         .add_children(&[orthographic_headlight])
-        .add_children(&orthographic_child_cameras)
-        .id();
+        .add_children(&orthographic_child_cameras);
 
     ambient_light.brightness = 2.0;
     
 }
 
 pub fn change_projection_mode(
-    projection_mode: Res<ProjectionMode>
+    projection_mode: Res<ProjectionMode>,
+    mut cameras: Query<(&mut Camera, &mut Visibility)>,
+    ortho_cams: Query<Entity, With<OrthographicCameraRoot>>,
+    persp_cams: Query<Entity, With<PerspectiveCameraRoot>>,
 ) {
+    let projection_mode = *projection_mode;
+
+    match projection_mode {
+        ProjectionMode::Perspective => {
+            for ortho_cam in ortho_cams {
+                let Ok((mut camera, mut visibility)) = cameras.get_mut(ortho_cam) else {
+                    continue
+                };
+                camera.is_active = false;
+                *visibility = Visibility::Hidden;
+            }
+            for persp_cam in persp_cams {
+                let Ok((mut camera, mut visibility)) = cameras.get_mut(persp_cam) else {
+                    continue
+                };
+                camera.is_active = true;
+                *visibility = Visibility::Inherited;
+            }
+        },
+        ProjectionMode::Orthographic => {
+            for ortho_cam in ortho_cams {
+                let Ok((mut camera, mut visibility)) = cameras.get_mut(ortho_cam) else {
+                    continue
+                };
+                camera.is_active = true;
+                *visibility = Visibility::Inherited;
+            }
+            for persp_cam in persp_cams {
+                let Ok((mut camera, mut visibility)) = cameras.get_mut(persp_cam) else {
+                    continue
+                };
+                camera.is_active = false;
+                *visibility = Visibility::Hidden;
+            }
+        },
+    }
 }
 
 pub fn toggle_headlights(
@@ -189,12 +227,7 @@ pub fn toggle_headlights(
 pub fn camera_controls(
     mut cursor_command: ResMut<CursorCommand>,
     mut keyboard_command: ResMut<KeyboardCommand>,
-    mut controls: ResMut<CameraControls>,
     mut cameras: Query<(&mut Projection, &mut Transform)>,
-    mut bevy_cameras: Query<&mut Camera>,
-    mut visibility: Query<&mut Visibility>,
-    headlight_toggle: Res<HeadlightToggle>,
-    // picking_blockers: Res<PickingBlockers>,
     projection_mode: Res<ProjectionMode>,
     perspective_cam_root: Query<(Entity, &Children), With<PerspectiveCameraRoot>>,
     orthographic_cam_root: Query<(Entity, &Children), With<OrthographicCameraRoot>>,

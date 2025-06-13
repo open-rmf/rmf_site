@@ -7,7 +7,7 @@ use bevy_render::mesh::Mesh;
 use bevy_color::palettes::css as Colors;
 use bevy_utils::default;
 
-#[derive(Resource)]
+#[derive(Resource, Reflect)]
 pub struct CameraOrbitMat(pub Handle<StandardMaterial>);
 
 impl FromWorld for CameraOrbitMat {
@@ -28,7 +28,7 @@ impl FromWorld for CameraOrbitMat {
     }
 }
 
-#[derive(Resource)]
+#[derive(Resource, Reflect)]
 pub struct CameraControlMesh(pub Handle<Mesh>);
 
 impl FromWorld for CameraControlMesh {
@@ -39,7 +39,7 @@ impl FromWorld for CameraControlMesh {
     }
 }
 
-#[derive(Resource)]
+#[derive(Resource, Reflect)]
 pub struct CameraControlPanMaterial(pub Handle<StandardMaterial>);
 
 impl FromWorld for CameraControlPanMaterial {
@@ -59,6 +59,7 @@ impl FromWorld for CameraControlPanMaterial {
 }
 
 #[derive(PartialEq, Debug, Copy, Clone, Reflect, Resource, Default)]
+#[reflect(Resource)]
 pub enum ProjectionMode {
     #[default]
     Perspective,

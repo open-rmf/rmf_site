@@ -7,6 +7,10 @@ pub struct CameraControlsPlugin;
 impl Plugin for CameraControlsPlugin {
     fn build(&self, app: &mut App) {
         app
+        .register_type::<CameraOrbitMat>()
+        .register_type::<CameraControlMesh>()
+        .register_type::<CameraControlPanMaterial>()
+        .register_type::<ProjectionMode>()
         .init_resource::<CursorCommand>()
         .init_resource::<KeyboardCommand>()
         .init_resource::<HeadlightToggle>()
