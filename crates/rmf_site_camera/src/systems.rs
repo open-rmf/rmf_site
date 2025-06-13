@@ -1,8 +1,11 @@
 use crate::{components::*, resources::*, *};
 use tracing::warn;
-use std::any::type_name;
+use std::any::{type_name, TypeId};
 use std::ops::Deref;
 
+fn unqualified_type_name<'a, T>() -> Option<&'a str> {
+    type_name::<T>().split("::").last()
+}
 
 /// checks if a camera blocking [T] is currently enabled, and block camera if it is.
 pub fn update_blocker_registry<T: Resource + Deref<Target = bool>>(
@@ -11,15 +14,28 @@ pub fn update_blocker_registry<T: Resource + Deref<Target = bool>>(
 ) {
     let blocker = **camera_blocker;
 
-    let resource_type_name = type_name::<T>();
+    let resource_type_name = type_name::<T>().split("::").last().unwrap_or("???");
+    println!("adding to blocker registry: {:#?} ", resource_type_name.to_string());
     if blocker == true {
-        let resource_id = resource_type_name.to_string();
-        let blocked = blocker_registry.entry(resource_id).or_insert(true);
+        let resource_id = TypeId::of::<T>();
+        let (_, blocked) = blocker_registry.entry(resource_id)
+        .or_insert(
+            (
+            unqualified_type_name::<T>().unwrap_or("???").to_owned(), 
+                true
+            )
+        );
         *blocked = true;
     } else {
-        let resource_id = resource_type_name.to_string();
+        let resource_id = TypeId::of::<T>();
 
-        let blocked = blocker_registry.entry(resource_id).or_insert(false);
+        let (_, blocked) = blocker_registry.entry(resource_id)
+        .or_insert(
+            (
+            unqualified_type_name::<T>().unwrap_or("???").to_owned(), 
+                false
+            )
+        );
         *blocked = false;
     }
 }
@@ -30,7 +46,7 @@ pub(crate) fn set_block_status(
     mut block_status: ResMut<CameraControlBlocked>,
 ) {
     let mut camera_still_blocked = false;
-    for blocker in blocker_registry.0.values() {
+    for (_, blocker) in blocker_registry.0.values() {
         if blocker == &true {
             camera_still_blocked = true;
         }

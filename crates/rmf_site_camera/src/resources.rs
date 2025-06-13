@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{any::TypeId, collections::HashMap};
 
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
@@ -84,4 +84,4 @@ impl Default for CameraControlBlocked {
 /// registry of things that can block camera controls
 #[derive(Resource, Reflect, Deref, DerefMut, Default)]
 #[reflect(Resource)]
-pub struct CameraBlockerRegistry(pub HashMap<String, bool>);
+pub struct CameraBlockerRegistry(pub HashMap<TypeId, (String, bool)>);

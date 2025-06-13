@@ -5,15 +5,20 @@ use bevy_app::prelude::*;
 
 use crate::{resources::{CameraBlockerRegistry, CameraControlBlocked, CameraControlMesh, CameraControlPanMaterial, CameraOrbitMat}, systems::*, *};
 
-#[derive(Default)]
 pub struct CameraBlockerRegistration<T: Resource + Deref<Target = bool>> {
     _phantom: PhantomData<T>,
+}
+
+impl<T: Resource + Deref<Target = bool>> Default for CameraBlockerRegistration<T> {
+    fn default() -> Self {
+        Self { _phantom: Default::default() }
+    }
 }
 
 impl<T: Resource + Deref<Target = bool>> Plugin for CameraBlockerRegistration<T> {
     fn build(&self, app: &mut App) {
         app
-        .add_systems(PreUpdate, update_blocker_registry::<T>)
+        .add_systems(PreUpdate, update_blocker_registry::<T>.run_if(resource_changed::<T>))
         ;
     }
 }
