@@ -1,8 +1,11 @@
-use bevy::ecs::{relationship::DescendantIter, system::SystemState};
+use bevy::ecs::{
+    relationship::DescendantIter,
+    system::{SystemId, SystemState},
+};
 use bevy::prelude::*;
 use bevy_gltf_export::{export_meshes, CompressGltfOptions, MeshData};
 
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 
 use crate::WorkspaceSaver;
 
@@ -39,6 +42,41 @@ impl HeadlessSdfExportState {
             save_requested: false,
             target_path: path.into(),
         }
+    }
+}
+
+#[derive(Deref, DerefMut)]
+pub struct ExportHandler(pub SystemId<In<(Entity, serde_json::Value)>, sdformat_rs::XmlElement>);
+
+impl ExportHandler {
+    pub fn new<M, S: IntoSystem<In<(Entity, serde_json::Value)>, sdformat_rs::XmlElement, M>>(
+        system: S,
+        world: &mut World,
+    ) -> Self {
+        let mut system = Box::new(IntoSystem::into_system(system));
+        system.initialize(world);
+        let system_id: SystemId<In<(Entity, serde_json::Value)>, sdformat_rs::XmlElement> =
+            world.register_boxed_system(system);
+
+        Self(system_id)
+    }
+
+    pub fn export(
+        &mut self,
+        entity: Entity,
+        value: serde_json::Value,
+        world: &mut World,
+    ) -> Option<sdformat_rs::XmlElement> {
+        world.run_system_with(self.0, (entity, value)).ok()
+    }
+}
+
+#[derive(Default, Resource, Deref, DerefMut)]
+pub struct ExportHandlers(pub HashMap<String, ExportHandler>);
+
+impl ExportHandlers {
+    pub fn insert(&mut self, label: String, handler: ExportHandler) {
+        self.0.insert(label, handler);
     }
 }
 

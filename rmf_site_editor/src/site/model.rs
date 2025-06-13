@@ -859,6 +859,9 @@ pub fn update_model_instances<T: Component + Default + Clone>(
     }
 }
 
+pub type ModelPropertyQuery<'w, 's, P> =
+    Query<'w, 's, &'static Affiliation<Entity>, (With<ModelMarker>, Without<Group>, With<P>)>;
+
 /// Unique UUID to identify issue of orphan model instance
 pub const ORPHAN_MODEL_INSTANCE_ISSUE_UUID: Uuid =
     Uuid::from_u128(0x4e98ce0bc28e4fe528cb0a028f4d5c08u128);
