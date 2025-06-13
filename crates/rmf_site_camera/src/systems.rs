@@ -1,6 +1,42 @@
 use crate::{components::*, resources::*, *};
 use tracing::warn;
+use std::any::type_name;
+use std::ops::Deref;
 
+
+/// checks if a camera blocking [T] is currently enabled, and block camera if it is.
+pub fn update_blocker_registry<T: Resource + Deref<Target = bool>>(
+    mut blocker_registry: ResMut<CameraBlockerRegistry>,
+    camera_blocker: Res<T>
+) {
+    let blocker = **camera_blocker;
+
+    let resource_type_name = type_name::<T>();
+    if blocker == true {
+        let resource_id = resource_type_name.to_string();
+        let blocked = blocker_registry.entry(resource_id).or_insert(true);
+        *blocked = true;
+    } else {
+        let resource_id = resource_type_name.to_string();
+
+        let blocked = blocker_registry.entry(resource_id).or_insert(false);
+        *blocked = false;
+    }
+}
+
+/// check if camera still blocked, unblock it if it isn't.
+pub(crate) fn set_block_status(
+    blocker_registry: ResMut<CameraBlockerRegistry>,
+    mut block_status: ResMut<CameraControlBlocked>,
+) {
+    let mut camera_still_blocked = false;
+    for blocker in blocker_registry.0.values() {
+        if blocker == &true {
+            camera_still_blocked = true;
+        }
+    }
+    block_status.0 = camera_still_blocked;
+}
 
 pub fn init_cameras(
     camera_control_mesh: Res<CameraControlMesh>,
@@ -229,14 +265,14 @@ pub fn camera_controls(
     mut keyboard_command: ResMut<KeyboardCommand>,
     mut cameras: Query<(&mut Projection, &mut Transform)>,
     projection_mode: Res<ProjectionMode>,
+    camera_blocked: Res<CameraControlBlocked>,
     perspective_cam_root: Query<(Entity, &Children), With<PerspectiveCameraRoot>>,
     orthographic_cam_root: Query<(Entity, &Children), With<OrthographicCameraRoot>>,
 ) {
-    //TODO: Find alternative for this that doesn't result in circular dependencies.
-    // // give input priority to ui elements
-    // if picking_blockers.ui {
-    //     return;
-    // }
+    // don't run camera controls if something else has taken priority over it.
+    if camera_blocked.0 {
+        return;
+    }
 
     let translation_delta: Vec3;
     let rotation_delta: Quat;

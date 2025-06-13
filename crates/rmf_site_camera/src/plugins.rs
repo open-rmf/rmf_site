@@ -1,6 +1,22 @@
+use std::marker::PhantomData;
+use std::ops::Deref;
+
 use bevy_app::prelude::*;
 
-use crate::{resources::{CameraControlMesh, CameraControlPanMaterial, CameraOrbitMat}, systems::*, *};
+use crate::{resources::{CameraBlockerRegistry, CameraControlBlocked, CameraControlMesh, CameraControlPanMaterial, CameraOrbitMat}, systems::*, *};
+
+#[derive(Default)]
+pub struct CameraBlockerRegistration<T: Resource + Deref<Target = bool>> {
+    _phantom: PhantomData<T>,
+}
+
+impl<T: Resource + Deref<Target = bool>> Plugin for CameraBlockerRegistration<T> {
+    fn build(&self, app: &mut App) {
+        app
+        .add_systems(PreUpdate, update_blocker_registry::<T>)
+        ;
+    }
+}
 
 pub struct CameraControlsPlugin;
 
@@ -11,6 +27,9 @@ impl Plugin for CameraControlsPlugin {
         .register_type::<CameraControlMesh>()
         .register_type::<CameraControlPanMaterial>()
         .register_type::<ProjectionMode>()
+        .register_type::<CameraBlockerRegistry>()
+        .init_resource::<CameraControlBlocked>()
+        .init_resource::<CameraBlockerRegistry>()
         .init_resource::<CursorCommand>()
         .init_resource::<KeyboardCommand>()
         .init_resource::<HeadlightToggle>()
@@ -25,6 +44,7 @@ impl Plugin for CameraControlsPlugin {
         .add_systems(
             Update,
             (
+                set_block_status,
                 update_cursor_command,
                 update_keyboard_command,
                 camera_controls,

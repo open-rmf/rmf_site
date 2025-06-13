@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_asset::prelude::*;
 use bevy_math::primitives;
@@ -58,6 +61,7 @@ impl FromWorld for CameraControlPanMaterial {
     }
 }
 
+/// currently enabled camera.
 #[derive(PartialEq, Debug, Copy, Clone, Reflect, Resource, Default)]
 #[reflect(Resource)]
 pub enum ProjectionMode {
@@ -65,3 +69,19 @@ pub enum ProjectionMode {
     Perspective,
     Orthographic,
 }
+
+/// weather camera is controlable or not. enabled/disabled by [`CameraBlockerRegistry`]
+#[derive(Resource)]
+pub struct CameraControlBlocked(pub(crate) bool);
+
+
+impl Default for CameraControlBlocked {
+    fn default() -> Self {
+        Self(false)
+    }
+}
+
+/// registry of things that can block camera controls
+#[derive(Resource, Reflect, Deref, DerefMut, Default)]
+#[reflect(Resource)]
+pub struct CameraBlockerRegistry(pub HashMap<String, bool>);
