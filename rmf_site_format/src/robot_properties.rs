@@ -21,6 +21,7 @@ use bevy::{
     ecs::component::Mutable,
     prelude::{Component, *},
 };
+use sdformat_rs::{ElementData, ElementMap};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{Map, Value};
 use thiserror::Error;
@@ -259,6 +260,43 @@ impl RobotPropertyKind for DifferentialDrive {
     }
 }
 
+#[cfg(feature = "bevy")]
+impl From<&ElementMap> for DifferentialDrive {
+    fn from(elements: &ElementMap) -> Self {
+        let mut diff_drive = DifferentialDrive::default();
+        if let Some(reversible) = elements.get("reversible") {
+            if let ElementData::String(reversible_str) = &reversible.data {
+                diff_drive.bidirectional = if reversible_str == "true" {
+                    true
+                } else if reversible_str == "false" {
+                    false
+                } else {
+                    warn!(
+                        "Found invalid slotcar reversibility data {:?}, 
+                                        setting DifferentialDrive reversibility to false.",
+                        reversible_str
+                    );
+                    false
+                };
+            }
+        }
+        if let Some(translational_speed) = elements
+            .get("nominal_drive_speed")
+            .and_then(|speed| f64::try_from(speed.data.clone()).ok())
+        {
+            diff_drive.translational_speed = translational_speed as f32;
+        }
+        if let Some(rotational_speed) = elements
+            .get("nominal_turn_speed")
+            .and_then(|speed| f64::try_from(speed.data.clone()).ok())
+        {
+            diff_drive.rotational_speed = rotational_speed as f32;
+        }
+
+        diff_drive
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct RecallDifferentialDrive {
@@ -397,5 +435,155 @@ impl Recall for RecallCircleCollision {
     fn remember(&mut self, source: &CircleCollision) {
         self.radius = Some(source.radius);
         self.offset = Some(source.offset);
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct PowerSource {
+    pub kind: String,
+    pub config: Value,
+}
+
+impl Default for PowerSource {
+    fn default() -> Self {
+        Self {
+            kind: String::new(),
+            config: Value::Object(Map::new()),
+        }
+    }
+}
+
+#[cfg(feature = "bevy")]
+impl RobotProperty for PowerSource {
+    fn new(kind: String, config: Value) -> Self {
+        Self { kind, config }
+    }
+
+    fn is_default(&self) -> bool {
+        if *self == Self::default() {
+            return true;
+        }
+        false
+    }
+
+    fn kind(&self) -> Option<String> {
+        Some(self.kind.clone())
+    }
+
+    fn label() -> String {
+        "Power Source".to_string()
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct RecallPowerSource {
+    pub kind: Option<String>,
+    pub config: Option<Value>,
+}
+
+impl Recall for RecallPowerSource {
+    type Source = PowerSource;
+
+    fn remember(&mut self, source: &PowerSource) {
+        self.kind = Some(source.kind.clone());
+        self.config = Some(source.config.clone());
+    }
+}
+
+// Supported kinds of Power Source
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
+pub struct Battery {
+    pub voltage: f32,
+    pub capacity: f32,
+    pub charging_current: f32,
+    pub power: f32,
+}
+
+impl Default for Battery {
+    fn default() -> Self {
+        Self {
+            voltage: 12.0,
+            capacity: 24.0,
+            charging_current: 5.0,
+            power: 20.0,
+        }
+    }
+}
+
+#[cfg(feature = "bevy")]
+impl RobotPropertyKind for Battery {
+    fn label() -> String {
+        "Battery".to_string()
+    }
+}
+
+#[cfg(feature = "bevy")]
+impl From<&ElementMap> for Battery {
+    fn from(elements: &ElementMap) -> Self {
+        let mut battery = Battery::default();
+        if let Some(voltage) = elements
+            .get("nominal_voltage")
+            .and_then(|voltage| f64::try_from(voltage.data.clone()).ok())
+        {
+            battery.voltage = voltage as f32;
+        }
+        if let Some(capacity) = elements
+            .get("nominal_capacity")
+            .and_then(|capacity| f64::try_from(capacity.data.clone()).ok())
+        {
+            battery.capacity = capacity as f32;
+        }
+        if let Some(current) = elements
+            .get("charging_current")
+            .and_then(|current| f64::try_from(current.data.clone()).ok())
+        {
+            battery.charging_current = current as f32;
+        }
+        if let Some(power) = elements
+            .get("nominal_power")
+            .and_then(|power| f64::try_from(power.data.clone()).ok())
+        {
+            battery.power = power as f32;
+        }
+
+        battery
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct RecallBattery {
+    pub voltage: Option<f32>,
+    pub capacity: Option<f32>,
+    pub charging_current: Option<f32>,
+    pub power: Option<f32>,
+}
+
+#[cfg(feature = "bevy")]
+impl RecallPropertyKind for RecallBattery {
+    type Kind = Battery;
+
+    fn assume(&self) -> Battery {
+        Battery {
+            voltage: self.voltage.clone().unwrap_or(12.0),
+            capacity: self.capacity.clone().unwrap_or(24.0),
+            charging_current: self.charging_current.clone().unwrap_or(5.0),
+            power: self.power.clone().unwrap_or(20.0),
+        }
+    }
+}
+
+impl Recall for RecallBattery {
+    type Source = Battery;
+
+    fn remember(&mut self, source: &Battery) {
+        self.voltage = Some(source.voltage);
+        self.capacity = Some(source.capacity);
+        self.charging_current = Some(source.charging_current);
+        self.power = Some(source.power);
     }
 }

@@ -212,30 +212,42 @@ impl Plugin for StandardInspectorPlugin {
                 InspectModelDescriptionPlugin::default(),
                 InspectLiftPlugin::default(),
             ))
-            .add_plugins((
-                // Required model properties
-                InspectModelPropertyPlugin::<InspectModelScale, Scale>::new("Scale".to_string()),
-                InspectModelPropertyPlugin::<InspectModelAssetSource, AssetSource>::new(
-                    "Asset Source".to_string(),
+            .add_plugins(
+                (
+                    // Required model properties
+                    InspectModelPropertyPlugin::<InspectModelScale, Scale>::new(
+                        "Scale".to_string(),
+                    ),
+                    InspectModelPropertyPlugin::<InspectModelAssetSource, AssetSource>::new(
+                        "Asset Source".to_string(),
+                    ),
+                    InspectRobotPropertiesPlugin::default(),
+                    InspectRobotPropertyPlugin::<InspectMobility, Mobility, RecallMobility>::new(),
+                    InspectRobotPropertyPlugin::<InspectCollision, Collision, RecallCollision>::new(
+                    ),
+                    InspectRobotPropertyPlugin::<InspectPowerSource, PowerSource, RecallPowerSource>::new(),
+                    InspectRobotPropertyKindPlugin::<
+                        InspectDifferentialDrive,
+                        DifferentialDrive,
+                        Mobility,
+                        RecallDifferentialDrive,
+                    >::new(),
+                    InspectRobotPropertyKindPlugin::<
+                        InspectCircleCollision,
+                        CircleCollision,
+                        Collision,
+                        RecallCircleCollision,
+                    >::new(),
+                    InspectRobotPropertyKindPlugin::<
+                        InspectBattery,
+                        Battery,
+                        PowerSource,
+                        RecallBattery,
+                    >::new(),
+                    InspectTaskPlugin::default(),
+                    InspectDefaultTasksPlugin::default(),
                 ),
-                InspectRobotPropertiesPlugin::default(),
-                InspectRobotPropertyPlugin::<InspectMobility, Mobility, RecallMobility>::new(),
-                InspectRobotPropertyPlugin::<InspectCollision, Collision, RecallCollision>::new(),
-                InspectRobotPropertyKindPlugin::<
-                    InspectDifferentialDrive,
-                    DifferentialDrive,
-                    Mobility,
-                    RecallDifferentialDrive,
-                >::new(),
-                InspectRobotPropertyKindPlugin::<
-                    InspectCircleCollision,
-                    CircleCollision,
-                    Collision,
-                    RecallCircleCollision,
-                >::new(),
-                InspectTaskPlugin::default(),
-                InspectDefaultTasksPlugin::default(),
-            ));
+            );
     }
 }
 

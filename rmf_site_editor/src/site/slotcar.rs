@@ -16,11 +16,14 @@
 */
 
 use crate::site::{
-    robot_properties::*, Change, DifferentialDrive, ExportHandler, ExportHandlers, ExportWith,
-    Group, IsStatic, Mobility, ModelMarker, ModelProperty, ModelPropertyQuery, Robot,
+    Battery, Change, DifferentialDrive, ExportHandler, ExportHandlers, ExportWith, Group, IsStatic,
+    Mobility, ModelMarker, ModelProperty, ModelPropertyQuery, PowerSource, Robot, RobotProperty,
+    RobotPropertyKind,
 };
 use bevy::prelude::*;
+use rmf_site_format::robot_properties::*;
 use sdformat_rs::{ElementData, ElementMap, XmlElement};
+use serde_json::{Map, Value};
 
 pub struct SlotcarSdfPlugin;
 
@@ -28,35 +31,41 @@ impl Plugin for SlotcarSdfPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup_slotcar_export_handler)
             .add_systems(
-                PreUpdate,
+                PostUpdate,
                 (
-                    insert_slotcar_differential_drive,
-                    update_slotcar_export_with,
+                    insert_slotcar_components,
+                    update_slotcar_export_with::<DifferentialDrive>,
+                    update_slotcar_export_with::<Battery>,
                 ),
             );
     }
 }
 
-pub fn insert_slotcar_differential_drive(
+fn insert_slotcar_components(
     mut commands: Commands,
     mut change_robot_property: EventWriter<Change<ModelProperty<Robot>>>,
-    differential_drive: Query<(Entity, &DifferentialDrive), (Without<ModelMarker>, Without<Group>)>,
     is_static: Query<&ModelProperty<IsStatic>, (With<ModelMarker>, With<Group>)>,
-    mobility: Query<&Mobility, (With<ModelMarker>, With<Group>)>,
+    robot_property_kinds: Query<
+        (Entity, &DifferentialDrive, &Battery),
+        (Without<ModelMarker>, Without<Group>),
+    >,
+    robot_properties: Query<(&Mobility, &PowerSource), (With<ModelMarker>, With<Group>)>,
     model_descriptions: Query<&ModelProperty<Robot>, (With<ModelMarker>, With<Group>)>,
     model_instances: ModelPropertyQuery<Robot>,
     child_of: Query<&ChildOf>,
 ) {
-    for (e, diff_drive) in differential_drive.iter() {
+    for (e, differential_drive, battery) in robot_property_kinds.iter() {
         if !model_descriptions.get(e).is_ok() {
-            // A non-description entity has the DifferentialDrive component, it could have been inserted into a
+            // A non-description entity has the RobotPropertyKind component, it could have been inserted into a
             // model instance descendent when processing importing robot plugins
             // Insert this component in the affiliated description and remove it from the original entity
             let mut description_entity: Option<Entity> = None;
             let mut target_entity: Entity = e;
             while let Ok(parent) = child_of.get(target_entity).map(|co| co.parent()) {
                 if let Some(desc) = model_instances.get(parent).ok().and_then(|a| a.0) {
-                    if !mobility.get(desc).is_ok() && is_static.get(desc).is_ok_and(|is| !is.0 .0) {
+                    if !robot_properties.get(desc).is_ok()
+                        && is_static.get(desc).is_ok_and(|is| !is.0 .0)
+                    {
                         description_entity = Some(desc);
                     }
                     break;
@@ -65,41 +74,78 @@ pub fn insert_slotcar_differential_drive(
             }
 
             if let Some(desc) = description_entity {
-                let robot = match model_descriptions.get(desc) {
+                let mut robot = match model_descriptions.get(desc) {
                     Ok(ModelProperty(r)) => r.clone(),
                     Err(_) => Robot::default(),
                 };
-                serialize_and_change_robot_property_kind::<Mobility, DifferentialDrive>(
-                    &mut change_robot_property,
-                    diff_drive.clone(),
-                    &robot,
-                    desc,
-                );
+
+                // NOTE(@xiyuoh) It's probably a better idea to generalize this system
+                // for each RobotPropertyKind, but the current design of ChangePlugin
+                // and Robot will result in the later system run to overwrite changes
+                // from the earlier system. For now we will process data from both
+                // DifferentialDrive and Battery in a single system.
+                if let Ok(mobility_value) = serialize_robot_property_from_kind::<
+                    Mobility,
+                    DifferentialDrive,
+                >(differential_drive.clone())
+                {
+                    robot.properties.insert(Mobility::label(), mobility_value);
+                }
+
+                if let Ok(power_source_value) =
+                    serialize_robot_property_from_kind::<PowerSource, Battery>(battery.clone())
+                {
+                    robot
+                        .properties
+                        .insert(PowerSource::label(), power_source_value);
+                }
+
+                change_robot_property.write(Change::new(ModelProperty(robot), desc));
             }
-            commands.entity(e).remove::<DifferentialDrive>();
+            commands
+                .entity(e)
+                .remove::<DifferentialDrive>()
+                .remove::<Battery>();
         }
     }
 }
 
-pub fn update_slotcar_export_with(
-    differential_drive: Query<(Entity, Ref<DifferentialDrive>), (With<ModelMarker>, With<Group>)>,
+pub fn update_slotcar_export_with<T: RobotPropertyKind>(
+    robot_property_kind: Query<(Entity, Ref<T>), (With<ModelMarker>, With<Group>)>,
     mut export_with: Query<&mut ExportWith, (With<ModelMarker>, With<Group>)>,
-    mut removals: RemovedComponents<DifferentialDrive>,
+    mut removals: RemovedComponents<T>,
 ) {
+    let slotcar_label = "slotcar".to_string();
+
     for desc_entity in removals.read() {
         if let Ok(mut desc_export) = export_with.get_mut(desc_entity) {
-            let slotcar_label = "slotcar".to_string();
-            desc_export.0.remove(&slotcar_label);
+            let slotcar_entry = desc_export
+                .0
+                .entry(slotcar_label.clone())
+                .or_insert(Value::Object(Map::new()));
+
+            if let Some(entry_map) = slotcar_entry.as_object_mut() {
+                entry_map.remove(&T::label());
+            }
+            // If slotcar entry is empty, remove label entirely
+            if slotcar_entry.as_object().is_some_and(|obj| obj.is_empty()) {
+                desc_export.0.remove(&slotcar_label);
+            }
         }
     }
 
-    for (desc_entity, diff_drive) in differential_drive.iter() {
-        if diff_drive.is_changed() {
+    for (desc_entity, property_kind) in robot_property_kind.iter() {
+        if property_kind.is_changed() {
             if let Ok(mut desc_export) = export_with.get_mut(desc_entity) {
-                if let Ok(diff_drive_value) = serde_json::to_value(diff_drive.clone()) {
-                    desc_export
-                        .0
-                        .insert("slotcar".to_string(), diff_drive_value);
+                let slotcar_entry = desc_export
+                    .0
+                    .entry(slotcar_label.clone())
+                    .or_insert(Value::Object(Map::new()));
+
+                if let Some(entry_map) = slotcar_entry.as_object_mut() {
+                    if let Ok(value) = serde_json::to_value(property_kind.clone()) {
+                        entry_map.insert(T::label(), value);
+                    }
                 }
             }
         }
@@ -147,31 +193,58 @@ impl Default for SlotcarParams {
 }
 
 impl SlotcarParams {
-    fn from_differential_drive(diff_drive: serde_json::Value) -> Self {
-        let mut slotcar_params = Self::default();
-
+    fn from_differential_drive(&mut self, diff_drive: &Value) -> &mut Self {
         if let Some(reversible) = diff_drive.get("bidirectional").and_then(|b| match b {
-            serde_json::Value::Bool(rev) => Some(rev),
+            Value::Bool(rev) => Some(rev),
             _ => None,
         }) {
-            slotcar_params.reversible = reversible.clone();
+            self.reversible = reversible.clone();
         }
         if let Some(translational_speed) =
             diff_drive.get("translational_speed").and_then(|b| match b {
-                serde_json::Value::Number(speed) => speed.as_f64(),
+                Value::Number(speed) => speed.as_f64(),
                 _ => None,
             })
         {
-            slotcar_params.nominal_drive_speed = translational_speed as f32;
+            self.nominal_drive_speed = translational_speed as f32;
         }
         if let Some(rotational_speed) = diff_drive.get("rotational_speed").and_then(|b| match b {
-            serde_json::Value::Number(speed) => speed.as_f64(),
+            Value::Number(speed) => speed.as_f64(),
             _ => None,
         }) {
-            slotcar_params.nominal_turn_speed = rotational_speed as f32;
+            self.nominal_turn_speed = rotational_speed as f32;
         }
 
-        slotcar_params
+        self
+    }
+
+    fn from_battery(&mut self, battery: &Value) -> &mut Self {
+        if let Some(voltage) = battery.get("voltage").and_then(|v| match v {
+            Value::Number(vol) => vol.as_f64(),
+            _ => None,
+        }) {
+            self.nominal_voltage = voltage as f32;
+        }
+        if let Some(capacity) = battery.get("capacity").and_then(|c| match c {
+            Value::Number(capacity) => capacity.as_f64(),
+            _ => None,
+        }) {
+            self.nominal_capacity = capacity as f32;
+        }
+        if let Some(charging_current) = battery.get("charging_current").and_then(|c| match c {
+            Value::Number(current) => current.as_f64(),
+            _ => None,
+        }) {
+            self.charging_current = charging_current as f32;
+        }
+        if let Some(power) = battery.get("power").and_then(|p| match p {
+            Value::Number(power) => power.as_f64(),
+            _ => None,
+        }) {
+            self.nominal_power = power as f32;
+        }
+
+        self
     }
 
     fn into_xml(&self) -> XmlElement {
@@ -235,7 +308,18 @@ impl SlotcarParams {
     }
 }
 
-fn slotcar_export_handler(In(input): In<(Entity, serde_json::Value)>) -> sdformat_rs::XmlElement {
-    let (_, diff_drive_config) = input;
-    SlotcarParams::from_differential_drive(diff_drive_config).into_xml()
+fn slotcar_export_handler(In(input): In<(Entity, Value)>) -> sdformat_rs::XmlElement {
+    let (_, slotcar_config) = input;
+    let mut slotcar_params = SlotcarParams::default();
+
+    if let Some(config_map) = slotcar_config.as_object() {
+        if let Some(diff_drive_config) = config_map.get(&DifferentialDrive::label()) {
+            slotcar_params.from_differential_drive(diff_drive_config);
+        }
+        if let Some(battery_config) = config_map.get(&Battery::label()) {
+            slotcar_params.from_battery(battery_config);
+        }
+    }
+
+    slotcar_params.into_xml()
 }
