@@ -120,6 +120,9 @@ pub use site::*;
 pub mod site_visualizer;
 pub use site_visualizer::*;
 
+pub mod task;
+pub use task::*;
+
 pub mod slotcar;
 pub use slotcar::*;
 
@@ -217,7 +220,8 @@ impl Plugin for SitePlugin {
         .add_event::<RemoveScenario>()
         .add_event::<AddModifier>()
         .add_event::<RemoveModifier>()
-        .add_event::<UpdateInstanceEvent>()
+        .add_event::<UpdateModifier<UpdateInstance>>()
+        .add_event::<UpdateModifier<UpdateTaskModifier>>()
         .add_event::<SaveSite>()
         .add_event::<SaveNavGraphs>()
         .add_event::<ExportLights>()
@@ -276,9 +280,12 @@ impl Plugin for SitePlugin {
             ChangePlugin::<ModelProperty<AssetSource>>::default(),
             ChangePlugin::<ModelProperty<Scale>>::default(),
             ChangePlugin::<ModelProperty<IsStatic>>::default(),
+            ChangePlugin::<Task>::default(),
             RecallPlugin::<RecallInstance>::default(),
+            RecallPlugin::<RecallTask>::default(),
             PropertyPlugin::<Pose, InstanceModifier, With<InstanceMarker>>::default(),
             PropertyPlugin::<Visibility, InstanceModifier, With<InstanceMarker>>::default(),
+            PropertyPlugin::<TaskParams, TaskModifier, With<Task>>::default(),
             SlotcarSdfPlugin,
         ))
         .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
@@ -377,11 +384,17 @@ impl Plugin for SitePlugin {
                 update_level_visibility,
                 handle_remove_scenarios.before(update_current_scenario),
                 update_current_scenario.before(update_model_instance_poses),
-                update_model_instance_poses.before(handle_instance_updates),
-                handle_instance_updates.before(handle_create_scenarios),
+                update_model_instance_poses.before(handle_instance_modifier_updates),
+                handle_instance_modifier_updates.before(handle_create_scenarios),
                 handle_create_scenarios.before(handle_scenario_modifiers),
                 handle_scenario_modifiers,
             )
+                .run_if(AppState::in_displaying_mode())
+                .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
+        )
+        .add_systems(
+            PostUpdate,
+            (handle_task_edit, handle_task_modifier_updates)
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
         )
