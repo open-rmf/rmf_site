@@ -1,41 +1,31 @@
 use crate::{components::*, resources::*, *};
+use bytemuck::TransparentWrapper;
 use tracing::warn;
-use std::any::{type_name, TypeId};
-use std::ops::Deref;
+use std::collections::HashMap;
 
-fn unqualified_type_name<'a, T>() -> Option<&'a str> {
-    type_name::<T>().split("::").last()
-}
 
 /// checks if a camera blocking [T] is currently enabled, and block camera if it is.
-pub fn update_blocker_registry<T: Resource + Deref<Target = bool>>(
-    mut blocker_registry: ResMut<CameraBlockerRegistry>,
+pub fn update_blocker_registry<T, U>
+(
+    blocker_registry: ResMut<U>,
     camera_blocker: Res<T>
-) {
-    let blocker = **camera_blocker;
+) 
+    where
+        T: Resource + TransparentWrapper<bool>,
+        U: Resource + TransparentWrapper<HashMap<TypeInfo, bool>>
+{
+    let blocker_registry = U::peel_mut(blocker_registry.into_inner());
+    let blocker = T::peel_ref(camera_blocker.into_inner());
 
-    let resource_type_name = type_name::<T>().split("::").last().unwrap_or("???");
-    println!("adding to blocker registry: {:#?} ", resource_type_name.to_string());
-    if blocker == true {
-        let resource_id = TypeId::of::<T>();
-        let (_, blocked) = blocker_registry.entry(resource_id)
-        .or_insert(
-            (
-            unqualified_type_name::<T>().unwrap_or("???").to_owned(), 
-                true
-            )
-        );
+    let type_info = TypeInfo::new::<T>();
+    
+    if blocker == &true {
+        let blocked = blocker_registry.entry(type_info)
+        .or_insert(true);
         *blocked = true;
     } else {
-        let resource_id = TypeId::of::<T>();
-
-        let (_, blocked) = blocker_registry.entry(resource_id)
-        .or_insert(
-            (
-            unqualified_type_name::<T>().unwrap_or("???").to_owned(), 
-                false
-            )
-        );
+        let blocked = blocker_registry.entry(type_info)
+        .or_insert(false);
         *blocked = false;
     }
 }
@@ -46,7 +36,7 @@ pub(crate) fn set_block_status(
     mut block_status: ResMut<CameraControlBlocked>,
 ) {
     let mut camera_still_blocked = false;
-    for (_, blocker) in blocker_registry.0.values() {
+    for blocker in blocker_registry.0.values() {
         if blocker == &true {
             camera_still_blocked = true;
         }

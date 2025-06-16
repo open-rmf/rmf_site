@@ -1,4 +1,4 @@
-use std::{any::TypeId, collections::HashMap};
+use std::{any::{type_name, TypeId}, collections::HashMap};
 
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
@@ -9,6 +9,8 @@ use bevy_reflect::Reflect;
 use bevy_render::mesh::Mesh;
 use bevy_color::palettes::css as Colors;
 use bevy_utils::default;
+use bytemuck::TransparentWrapper;
+use bevy_reflect::prelude::*;
 
 #[derive(Resource, Reflect)]
 pub struct CameraOrbitMat(pub Handle<StandardMaterial>);
@@ -81,7 +83,31 @@ impl Default for CameraControlBlocked {
     }
 }
 
+/// convenience struct for associating type info and type name.
+#[derive(Reflect, Hash, PartialEq, Eq, Debug)]
+pub struct TypeInfo {
+    type_id: TypeId,
+    type_name: String,
+}
+
+impl TypeInfo {
+    pub fn new<T: 'static>() -> Self {
+        Self {
+            type_id: TypeId::of::<T>(),
+            type_name: type_name::<T>().to_string(),
+            
+        }
+    }
+    pub fn type_id(&self) -> TypeId {
+        self.type_id
+    }
+    pub fn type_name(&self) -> &String {
+        &self.type_name
+    }
+}
+
 /// registry of things that can block camera controls
-#[derive(Resource, Reflect, Deref, DerefMut, Default)]
+#[derive(Resource, Reflect, TransparentWrapper, Default)]
 #[reflect(Resource)]
-pub struct CameraBlockerRegistry(pub HashMap<TypeId, (String, bool)>);
+#[repr(transparent)]
+pub struct CameraBlockerRegistry(pub HashMap<TypeInfo, bool>);

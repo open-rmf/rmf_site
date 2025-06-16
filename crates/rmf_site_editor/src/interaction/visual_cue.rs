@@ -15,9 +15,9 @@
  *
 */
 
-use crate::interaction::{VISUAL_CUE_RENDER_LAYER, XRAY_RENDER_LAYER};
 use bevy::{prelude::*, render::view::visibility::RenderLayers};
 use bitfield::bitfield;
+use rmf_site_camera::{VISUAL_CUE_RENDER_LAYER, XRAY_RENDER_LAYER};
 use smallvec::SmallVec;
 
 bitfield! {

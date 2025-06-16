@@ -15,9 +15,10 @@
  *
 */
 
-use crate::{interaction::CameraControls, CurrentWorkspace};
+use crate::{CurrentWorkspace};
 use bevy::ecs::hierarchy::ChildOf;
 use bevy::prelude::*;
+use rmf_site_camera::{active_camera_maybe, ActiveCameraQuery, CameraControls};
 use rmf_site_format::{
     LevelElevation, LevelProperties, NameInSite, NameOfSite, Pose, ScenarioMarker,
     UserCameraPoseMarker,
@@ -178,6 +179,7 @@ pub fn change_site(
 pub fn set_camera_transform_for_changed_site(
     current_workspace: Res<CurrentWorkspace>,
     current_level: Res<CurrentLevel>,
+    active_cam: ActiveCameraQuery,
     mut camera_controls: ResMut<CameraControls>,
     children: Query<&Children>,
     user_camera_poses: Query<&Pose, With<UserCameraPoseMarker>>,
@@ -194,7 +196,11 @@ pub fn set_camera_transform_for_changed_site(
             .ok()
             .and_then(|children| children.iter().find_map(|c| user_camera_poses.get(c).ok()))
         {
-            if let Ok(mut tf) = transforms.get_mut(camera_controls.perspective_camera_entities[0]) {
+            
+            let Ok(active_camera) = active_camera_maybe(&active_cam) else {
+                return
+            };
+            if let Ok(mut tf) = transforms.get_mut(active_camera) {
                 *tf = pose.transform();
             }
             let mut translation = pose.transform().translation;

@@ -32,6 +32,7 @@ use bevy::{
     prelude::*,
 };
 use bevy_impulse::*;
+use rmf_site_camera::{active_camera_maybe, ActiveCameraQuery};
 use rmf_site_format::{
     Category, Door, Edge, Lane, LiftProperties, Measurement, NameOfSite, Pending, PixelsPerMeter,
     Pose, Side, Wall,
@@ -737,7 +738,7 @@ pub fn hover_service<Filter: SystemParam + 'static>(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     touch_input: Res<Touches>,
     mut select: EventWriter<Select>,
-    blockers: Option<Res<PickingBlockers>>,
+    blockers: Option<Res<PickingBlockersN>>,
     filter: StaticSystemParam<Filter>,
     selection_blockers: Res<SelectionBlockers>,
 ) where
@@ -897,7 +898,7 @@ pub fn inspector_cursor_transform(
     In(ContinuousService { key }): ContinuousServiceInput<(), ()>,
     orders: ContinuousQuery<(), ()>,
     cursor: Res<Cursor>,
-    camera_controls: Res<CameraControls>,
+    active_camera: ActiveCameraQuery,
     pointers: Query<(&PointerId, &PointerInteraction)>,
     mut transforms: Query<&mut Transform>,
 ) {
@@ -912,7 +913,9 @@ pub fn inspector_cursor_transform(
     let Some((_, interactions)) = pointers.single().ok() else {
         return;
     };
-    let active_camera = camera_controls.active_camera();
+    let Ok(active_camera) = active_camera_maybe(&active_camera) else {
+        return;
+    };
     let Some((position, normal)) = interactions
         .iter()
         .find(|(_, hit_data)| hit_data.camera == active_camera)

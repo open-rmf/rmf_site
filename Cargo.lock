@@ -5291,6 +5291,7 @@ dependencies = [
  "bevy_transform",
  "bevy_utils",
  "bevy_window",
+ "bytemuck",
  "nalgebra",
  "tracing",
 ]
@@ -5308,6 +5309,7 @@ dependencies = [
  "bevy_obj",
  "bevy_stl",
  "bitfield 0.19.1",
+ "bytemuck",
  "clap",
  "crossbeam-channel",
  "dirs 5.0.1",
@@ -5319,6 +5321,7 @@ dependencies = [
  "nalgebra",
  "pathdiff",
  "rfd",
+ "rmf_site_camera",
  "rmf_site_format",
  "sdformat_rs",
  "serde",

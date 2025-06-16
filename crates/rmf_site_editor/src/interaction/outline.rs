@@ -21,6 +21,7 @@ use bevy::render::view::RenderLayers;
 use bevy_mod_outline::{
     ComputedOutline, OutlineMode, OutlineRenderLayers, OutlineStencil, OutlineVolume,
 };
+use rmf_site_camera::{HOVERED_OUTLINE_LAYER, SELECTED_OUTLINE_LAYER};
 use rmf_site_format::{
     DoorType, FiducialMarker, FloorMarker, LiftCabin, LightKind, LocationTags, MeasurementMarker,
     ModelMarker, PhysicalCameraProperties, PrimitiveShape, WallMarker,

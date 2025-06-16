@@ -38,7 +38,7 @@ use cursor::{update_cursor_command, CursorCommand};
 mod keyboard;
 use keyboard::{update_keyboard_command, KeyboardCommand};
 
-use crate::{components::{OrthographicCameraRoot, PerspectiveCameraRoot}, resources::ProjectionMode};
+use crate::{components::{OrthographicCameraRoot, PerspectiveCameraRoot}, plugins::BlockerRegistration, resources::{CameraBlockerRegistry, ProjectionMode}};
 
 
 pub mod plugins;
@@ -158,3 +158,5 @@ pub fn active_camera_maybe(
         ,
     }
 }
+
+pub type CameraBlockerRegistration<T> = BlockerRegistration<T, CameraBlockerRegistry>;

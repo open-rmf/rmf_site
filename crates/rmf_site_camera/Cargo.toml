@@ -25,6 +25,7 @@ bevy_derive = {workspace = true}
 tracing = {workspace = true}
 anyhow = {workspace = true}
 nalgebra = {workspace = true}
+bytemuck = {workspace = true}
 
 [dev-dependencies]
 bevy = {workspace = true, features = ["dynamic_linking"]}

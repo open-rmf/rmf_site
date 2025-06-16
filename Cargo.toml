@@ -64,6 +64,7 @@ wasm-bindgen = "=0.2.100" # Remember to update the README if we change this vers
 console_error_panic_hook = "0.1.7"
 getrandom = { version = "0.3.3"}
 clap = { version = "4.0.10" }
+bytemuck = {version = "1.22"}
 
 bevy = { git = "https://github.com/xiyuoh/bevy", branch = "fix-specialize-panic" }
 bevy_a11y = { git = "https://github.com/xiyuoh/bevy", branch = "fix-specialize-panic" }

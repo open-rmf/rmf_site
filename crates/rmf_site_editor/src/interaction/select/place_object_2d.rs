@@ -153,7 +153,7 @@ pub fn place_object_2d_find_placement(
     mut transforms: Query<&mut Transform>,
     intersect_ground_params: IntersectGroundPlaneParams,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
-    blockers: Option<Res<PickingBlockers>>,
+    blockers: Option<Res<PickingBlockersN>>,
 ) {
     let Some(mut orders) = orders.get_mut(&key) else {
         return;

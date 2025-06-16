@@ -22,6 +22,7 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, picking::backend::ray::RayMap, prelude::*};
 
+use rmf_site_camera::{active_camera_maybe, ActiveCameraQuery};
 use rmf_site_format::{FloorMarker, ModelInstance, WallMarker};
 use std::collections::HashSet;
 
@@ -263,7 +264,7 @@ pub struct Preview;
 
 #[derive(SystemParam)]
 pub struct IntersectGroundPlaneParams<'w, 's> {
-    camera_controls: Res<'w, CameraControls>,
+    active_camera: ActiveCameraQuery<'w, 's>,
     global_transforms: Query<'w, 's, &'static GlobalTransform>,
     ray_map: Res<'w, RayMap>,
 }
@@ -286,7 +287,10 @@ impl<'w, 's> IntersectGroundPlaneParams<'w, 's> {
         plane_origin: Vec3,
         plane: InfinitePlane3d,
     ) -> Option<Transform> {
-        let e_active_camera = self.camera_controls.active_camera();
+
+        let Ok(e_active_camera) = active_camera_maybe(&self.active_camera) else {
+            return None
+        };
 
         let (_, ray) = self
             .ray_map

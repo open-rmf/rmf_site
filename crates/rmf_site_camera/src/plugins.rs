@@ -1,24 +1,42 @@
-use std::marker::PhantomData;
+use std::{collections::HashMap, marker::PhantomData};
 use std::ops::Deref;
 
 use bevy_app::prelude::*;
+use bytemuck::TransparentWrapper;
 
-use crate::{resources::{CameraBlockerRegistry, CameraControlBlocked, CameraControlMesh, CameraControlPanMaterial, CameraOrbitMat}, systems::*, *};
+use crate::{resources::{CameraBlockerRegistry, CameraControlBlocked, CameraControlMesh, CameraControlPanMaterial, CameraOrbitMat, TypeInfo}, systems::*, *};
 
-pub struct CameraBlockerRegistration<T: Resource + Deref<Target = bool>> {
-    _phantom: PhantomData<T>,
+///plugin to add a blocker to a registry of blockers. 
+/// 
+/// E.G: [`UiHovered`] -> CameraControlBlockers to block camera controls on ui hovered.
+pub struct BlockerRegistration<Blocker, Registry> 
+    where
+        Blocker: Resource + TransparentWrapper<bool>,
+        Registry: Resource + TransparentWrapper<HashMap<TypeInfo, bool>>,
+
+{
+    _a: PhantomData<Blocker>,
+    _b: PhantomData<Registry>,
 }
 
-impl<T: Resource + Deref<Target = bool>> Default for CameraBlockerRegistration<T> {
+impl<Blocker, Registry> Default for BlockerRegistration<Blocker, Registry> 
+    where
+        Blocker: Resource + TransparentWrapper<bool>,
+        Registry: Resource + TransparentWrapper<HashMap<TypeInfo, bool>>,
+{
     fn default() -> Self {
-        Self { _phantom: Default::default() }
+        Self { _a: Default::default(), _b: Default::default() }
     }
 }
 
-impl<T: Resource + Deref<Target = bool>> Plugin for CameraBlockerRegistration<T> {
+impl<Blocker, Registry> Plugin for BlockerRegistration<Blocker, Registry> 
+    where
+        Blocker: Resource + TransparentWrapper<bool>,
+        Registry: Resource + TransparentWrapper<HashMap<TypeInfo, bool>>,
+{
     fn build(&self, app: &mut App) {
         app
-        .add_systems(PreUpdate, update_blocker_registry::<T>.run_if(resource_changed::<T>))
+        .add_systems(PreUpdate, update_blocker_registry::<Blocker, Registry>.run_if(resource_changed::<Blocker>))
         ;
     }
 }
@@ -33,6 +51,7 @@ impl Plugin for CameraControlsPlugin {
         .register_type::<CameraControlPanMaterial>()
         .register_type::<ProjectionMode>()
         .register_type::<CameraBlockerRegistry>()
+        .register_type::<TypeInfo>()
         .init_resource::<CameraControlBlocked>()
         .init_resource::<CameraBlockerRegistry>()
         .init_resource::<CursorCommand>()

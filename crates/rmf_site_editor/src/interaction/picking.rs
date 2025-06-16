@@ -15,30 +15,35 @@
  *
 */
 
+use std::{any::TypeId, collections::HashMap, marker::PhantomData};
+
 use crate::interaction::*;
 use bevy::{picking::pointer::PointerInteraction, prelude::*};
+use bytemuck::TransparentWrapper;
+use rmf_site_camera::resources::TypeInfo;
+use std::ops::Deref;
 
-/// A resource to track what kind of picking blockers are currently active
-#[derive(Resource)]
-pub struct PickingBlockers {
-    /// An InteractionMask entity is being hovered over
-    pub masked: bool,
-    /// The UI is being hovered over
-    pub ui: bool,
-}
 
-impl PickingBlockers {
-    pub fn blocking(&self) -> bool {
-        self.masked || self.ui
-    }
-}
+/// The UI is being hovered over
+#[derive(Resource, Default, TransparentWrapper)]
+#[repr(transparent)]
+pub struct UiHovered(pub bool);
 
-impl Default for PickingBlockers {
-    fn default() -> Self {
-        PickingBlockers {
-            masked: false,
-            ui: false,
-        }
+/// An InteractionMask entity is being hovered over
+#[derive(Resource, Default, TransparentWrapper)]
+#[repr(transparent)]
+pub struct IteractionMaskHovered(pub bool);
+
+#[derive(Reflect, Resource, Default, TransparentWrapper)]
+#[reflect(Resource)]
+#[repr(transparent)]
+pub struct PickingBlockersN(pub HashMap<TypeInfo, bool>);
+
+pub type PickBlockerRegistration<T> = BlockerRegistration<T, PickingBlockersN>;
+
+impl PickingBlockersN {
+    pub fn blocking(&self) -> bool{
+        self.0.values().any(|n| n == &true)
     }
 }
 
@@ -81,7 +86,7 @@ fn pick_topmost(
 // TODO(@mxgrey): Consider making this a service similar to hover_service and select_service
 pub fn update_picked(
     selectable: Query<&Selectable>,
-    blockers: Option<Res<PickingBlockers>>,
+    blockers: Option<Res<PickingBlockersN>>,
     pointers: Query<&PointerInteraction>,
     visual_cues: Query<&ComputedVisualCue>,
     mut picked: ResMut<Picked>,

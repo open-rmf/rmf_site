@@ -27,8 +27,8 @@ pub use anchor::*;
 pub mod assets;
 pub use assets::*;
 
-pub mod camera_controls;
-pub use camera_controls::*;
+// pub mod camera_controls;
+// pub use camera_controls::*;
 
 pub mod category_visibility;
 pub use category_visibility::*;
@@ -79,6 +79,7 @@ pub mod preview;
 pub use preview::*;
 
 pub mod select;
+use rmf_site_camera::{plugins::{BlockerRegistration, CameraControlsPlugin}, resources::CameraBlockerRegistry, CameraBlockerRegistration};
 pub use select::*;
 
 pub mod visual_cue;
@@ -143,9 +144,13 @@ impl Plugin for InteractionPlugin {
             .add_plugins(MeshPickingPlugin)
             .init_resource::<InteractionAssets>()
             .init_resource::<Cursor>()
-            .init_resource::<CameraControls>()
             .init_resource::<Picked>()
-            .init_resource::<PickingBlockers>()
+            .init_resource::<PickingBlockersN>()
+            .init_resource::<UiHovered>()
+            .init_resource::<IteractionMaskHovered>()
+            .add_plugins(CameraBlockerRegistration::<UiHovered>::default())
+            .add_plugins(PickBlockerRegistration::<UiHovered>::default())
+            .add_plugins(PickBlockerRegistration::<IteractionMaskHovered>::default())
             .init_resource::<GizmoState>()
             .init_resource::<CurrentEditDrawing>()
             .init_resource::<CurrentLevel>()
