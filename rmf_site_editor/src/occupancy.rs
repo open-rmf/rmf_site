@@ -367,7 +367,13 @@ fn collect_physical_entities(
                 }
 
                 if let Some(category) = category {
-                    break category.is_physical();
+                    if *category == Category::Collision && child_of.is_some() {
+                        // This mesh has both Collision and ChildOf components,
+                        // so we'll check whether it is a physical entity based
+                        // on the parent entity
+                    } else {
+                        break category.is_physical();
+                    }
                 }
 
                 if let Some(child_of) = child_of {
