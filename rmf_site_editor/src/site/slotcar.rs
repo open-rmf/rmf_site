@@ -193,7 +193,7 @@ impl Default for SlotcarParams {
 }
 
 impl SlotcarParams {
-    fn from_differential_drive(&mut self, diff_drive: &Value) -> &mut Self {
+    fn with_differential_drive(&mut self, diff_drive: &Value) -> &mut Self {
         if let Some(reversible) = diff_drive.get("bidirectional").and_then(|b| match b {
             Value::Bool(rev) => Some(rev),
             _ => None,
@@ -218,7 +218,7 @@ impl SlotcarParams {
         self
     }
 
-    fn from_battery(&mut self, battery: &Value) -> &mut Self {
+    fn with_battery(&mut self, battery: &Value) -> &mut Self {
         if let Some(voltage) = battery.get("voltage").and_then(|v| match v {
             Value::Number(vol) => vol.as_f64(),
             _ => None,
@@ -314,10 +314,10 @@ fn slotcar_export_handler(In(input): In<(Entity, Value)>) -> sdformat_rs::XmlEle
 
     if let Some(config_map) = slotcar_config.as_object() {
         if let Some(diff_drive_config) = config_map.get(&DifferentialDrive::label()) {
-            slotcar_params.from_differential_drive(diff_drive_config);
+            slotcar_params.with_differential_drive(diff_drive_config);
         }
         if let Some(battery_config) = config_map.get(&Battery::label()) {
-            slotcar_params.from_battery(battery_config);
+            slotcar_params.with_battery(battery_config);
         }
     }
 
