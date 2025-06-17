@@ -133,14 +133,16 @@ pub fn update_cursor_command(
             .single()
             .ok()
             .and_then(|(_, interactions)| {
-                interactions.iter().find(|(_, hit)| hit.camera == active_camera_entity)
+                interactions
+                    .iter()
+                    .find(|(_, hit)| hit.camera == active_camera_entity)
             })
             .and_then(|(_, hit_data)| hit_data.position)
             .unwrap_or_else(|| {
                 get_groundplane_else_default_selection(
                     cursor_ray.origin,
                     *cursor_ray.direction,
-                    *camera_transform.forward()
+                    *camera_transform.forward(),
                 )
             });
 
