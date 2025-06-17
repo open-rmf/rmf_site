@@ -1,17 +1,17 @@
-
 use bevy::prelude::*;
+use bevy_color::palettes::css as Colors;
 use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
 use bytemuck::TransparentWrapper;
-use rmf_site_camera::{plugins::CameraSetupPlugin, resources::ProjectionMode, CameraBlockerRegistration};
-use bevy_color::palettes::css as Colors;
+use rmf_site_camera::{
+    CameraBlockerRegistration, plugins::CameraSetupPlugin, resources::ProjectionMode,
+};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(EguiPlugin {
             // (rydb): this crashed the last time I set this to true. Keeping as false for now
-            enable_multipass_for_primary_context:
-            false,
+            enable_multipass_for_primary_context: false,
         })
         .insert_resource(BlockerExample(false))
         .add_plugins(MeshPickingPlugin)
@@ -28,10 +28,7 @@ fn main() {
 #[repr(transparent)]
 pub struct BlockerExample(pub bool);
 
-fn camera_config(
-    mut projection_mode: ResMut<ProjectionMode>,
-    keys: Res<ButtonInput<KeyCode>>
-) {
+fn camera_config(mut projection_mode: ResMut<ProjectionMode>, keys: Res<ButtonInput<KeyCode>>) {
     if keys.just_pressed(KeyCode::F2) {
         *projection_mode = ProjectionMode::Orthographic;
     }
@@ -60,7 +57,6 @@ fn setup(
         MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
         Transform::from_xyz(0.0, 0.5, 0.0),
         Name::new("cube"),
-
     ));
     // light
     commands.spawn((

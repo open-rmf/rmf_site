@@ -15,10 +15,10 @@
  *
 */
 
-use bevy_math::Ray3d;
-use bevy_picking::mesh_picking::ray_cast::{MeshRayCast, MeshRayCastSettings, RayCastVisibility};
 use bevy_ecs::prelude::*;
+use bevy_math::Ray3d;
 use bevy_math::prelude::*;
+use bevy_picking::mesh_picking::ray_cast::{MeshRayCast, MeshRayCastSettings, RayCastVisibility};
 use bevy_render::prelude::*;
 use bevy_transform::components::{GlobalTransform, Transform};
 
@@ -69,7 +69,6 @@ pub fn zoom_distance_factor(camera_translation: Vec3, target_translation: Vec3) 
     return (0.2 * (camera_translation - target_translation).length()).max(1.0);
 }
 
-
 /// Get the nearest intersection from the center of the visible viewport.
 pub fn get_camera_selected_point(
     camera: &Camera,
@@ -81,12 +80,14 @@ pub fn get_camera_selected_point(
         // Assume that the camera spans the full window, covered by egui panels
         .map(|display: Res<'_, UserCameraDisplay>| display.region)
         // If egui panels aren't being used, then use the center of the whole camera
-        .or_else(|| camera.logical_viewport_rect()).ok_or(anyhow::Error::msg("logical_viewport_rect() evaluates to none"))?
+        .or_else(|| camera.logical_viewport_rect())
+        .ok_or(anyhow::Error::msg(
+            "logical_viewport_rect() evaluates to none",
+        ))?
         .center();
 
-    let camera_ray = camera
-        .viewport_to_world(camera_global_transform, available_viewport_center)
-        ?;
+    let camera_ray =
+        camera.viewport_to_world(camera_global_transform, available_viewport_center)?;
     let camera_ray = Ray3d::new(camera_ray.origin, camera_ray.direction);
     let ray_cast_setting = MeshRayCastSettings::default()
         .always_early_exit()

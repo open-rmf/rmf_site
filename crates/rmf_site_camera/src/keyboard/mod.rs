@@ -15,20 +15,20 @@
  *
 */
 
-use crate::{active_camera_maybe, resources::{CameraConfig, CameraControls}, ActiveCameraQuery, UserCameraDisplay};
-
-use super::{
-    utils::*, CameraCommandType, ProjectionMode, MAX_FOV, MAX_SCALE, MIN_FOV,
-    MIN_SCALE,
+use crate::{
+    ActiveCameraQuery, UserCameraDisplay, active_camera_maybe,
+    resources::{CameraConfig, CameraControls},
 };
-use bevy_picking::prelude::*;
+
+use super::{CameraCommandType, MAX_FOV, MAX_SCALE, MIN_FOV, MIN_SCALE, ProjectionMode, utils::*};
 use bevy_ecs::prelude::*;
+use bevy_input::prelude::*;
+use bevy_math::prelude::*;
+use bevy_picking::prelude::*;
+use bevy_render::prelude::*;
 use bevy_time::Time;
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_window::{PrimaryWindow, Window};
-use bevy_math::prelude::*;
-use bevy_input::prelude::*;
-use bevy_render::prelude::*;
 use tracing::warn;
 
 // Keyboard control limits
@@ -189,7 +189,7 @@ pub fn update_keyboard_command(
 
         // Camera projection and transform
         let Ok(active_camera_e) = active_camera_maybe(&active_camera) else {
-            return
+            return;
         };
 
         let (camera, camera_proj, camera_transform, camera_global_transform) =
@@ -207,7 +207,10 @@ pub fn update_keyboard_command(
         };
 
         let Ok(camera_selection) = camera_selection else {
-            warn!("Point could not be calculated for camera due to: {:#?}", camera_selection);
+            warn!(
+                "Point could not be calculated for camera due to: {:#?}",
+                camera_selection
+            );
             return;
         };
 

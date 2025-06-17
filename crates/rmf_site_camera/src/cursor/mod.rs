@@ -15,19 +15,25 @@
  *
 */
 
-use crate::{components::{OrthographicCameraRoot, PerspectiveCameraRoot}, resources::CameraConfig};
+use crate::{
+    components::{OrthographicCameraRoot, PerspectiveCameraRoot},
+    resources::CameraConfig,
+};
 
 use super::{
+    CameraCommandType, MAX_FOV, MAX_SCALE, MIN_FOV, MIN_SCALE, ProjectionMode,
     get_groundplane_else_default_selection, orbit_camera_around_point, zoom_distance_factor,
-    CameraCommandType, ProjectionMode, MAX_FOV, MAX_SCALE, MIN_FOV, MIN_SCALE,
-};
-use bevy_input::{mouse::{MouseScrollUnit, MouseWheel}, prelude::*};
-use bevy_picking::{
-    backend::{ray::RayMap, HitData},
-    pointer::{PointerId, PointerInteraction},
 };
 use bevy_ecs::prelude::*;
+use bevy_input::{
+    mouse::{MouseScrollUnit, MouseWheel},
+    prelude::*,
+};
 use bevy_math::prelude::*;
+use bevy_picking::{
+    backend::{HitData, ray::RayMap},
+    pointer::{PointerId, PointerInteraction},
+};
 use bevy_render::prelude::*;
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_window::{PrimaryWindow, Window};
@@ -130,8 +136,9 @@ pub fn update_cursor_command(
         };
 
         let Ok(active_camera_entity) = active_camera_entity
-        .inspect_err(|err| warn!("could not update cursor command due to {:#}", err)) else {
-            return
+            .inspect_err(|err| warn!("could not update cursor command due to {:#}", err))
+        else {
+            return;
         };
 
         let (camera_proj, camera_transform, _) = cameras.get(active_camera_entity).unwrap();

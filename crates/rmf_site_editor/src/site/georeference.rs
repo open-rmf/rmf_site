@@ -404,7 +404,7 @@ pub fn render_map_tiles(
             let Ok(cam_entity) = active_camera_maybe(&active_cam) else {
                 return;
             };
-            
+
             let mut zoom_changed = false;
             let mut existing_tiles = HashSet::new();
             for (_entity, tile) in &map_tiles {

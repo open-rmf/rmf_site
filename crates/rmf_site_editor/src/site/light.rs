@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{site::CurrentLevel};
+use crate::site::CurrentLevel;
 use bevy::{
     ecs::hierarchy::ChildOf,
     pbr::CubemapVisibleEntities,

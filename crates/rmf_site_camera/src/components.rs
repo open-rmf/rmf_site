@@ -12,6 +12,5 @@ pub struct OrthographicHeadlightTarget;
 #[derive(Component)]
 pub struct PerspectiveCameraRoot;
 
-
 #[derive(Component)]
 pub struct OrthographicCameraRoot;

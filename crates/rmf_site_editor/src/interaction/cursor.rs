@@ -287,9 +287,8 @@ impl<'w, 's> IntersectGroundPlaneParams<'w, 's> {
         plane_origin: Vec3,
         plane: InfinitePlane3d,
     ) -> Option<Transform> {
-
         let Ok(e_active_camera) = active_camera_maybe(&self.active_camera) else {
-            return None
+            return None;
         };
 
         let (_, ray) = self

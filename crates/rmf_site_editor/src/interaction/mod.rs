@@ -76,7 +76,10 @@ pub mod preview;
 pub use preview::*;
 
 pub mod select;
-use rmf_site_camera::{plugins::{BlockerRegistration, BlockerRegistryPlugin, CameraSetupPlugin}, CameraBlockerRegistration};
+use rmf_site_camera::{
+    plugins::{BlockerRegistration, BlockerRegistryPlugin, CameraSetupPlugin},
+    CameraBlockerRegistration,
+};
 pub use select::*;
 
 pub mod visual_cue;

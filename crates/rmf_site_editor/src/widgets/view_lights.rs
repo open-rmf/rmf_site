@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    interaction::{Select},
+    interaction::Select,
     site::{
         Angle, Category, ExportLights, Light, LightKind, PhysicalLightToggle, Pose, Recall,
         RecallLightKind, Rotation, SiteID,

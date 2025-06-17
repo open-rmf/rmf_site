@@ -415,7 +415,7 @@ pub fn update_drag_motions(
         };
 
         let Ok(active_camera) = active_camera_maybe(&active_camera) else {
-            return
+            return;
         };
 
         let Some((_, ray)) = ray_map.iter().find(|(id, _)| id.camera == active_camera) else {

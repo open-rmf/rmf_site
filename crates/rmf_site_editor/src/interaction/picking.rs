@@ -22,7 +22,6 @@ use bevy::{picking::pointer::PointerInteraction, prelude::*};
 use bytemuck::TransparentWrapper;
 use rmf_site_camera::{resources::BlockStatus, TypeInfo};
 
-
 /// The UI is being hovered over
 #[derive(Resource, Default, TransparentWrapper)]
 #[repr(transparent)]

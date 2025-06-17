@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{CurrentWorkspace};
+use crate::CurrentWorkspace;
 use bevy::ecs::hierarchy::ChildOf;
 use bevy::prelude::*;
 use rmf_site_camera::{active_camera_maybe, resources::CameraConfig, ActiveCameraQuery};
@@ -196,9 +196,8 @@ pub fn set_camera_transform_for_changed_site(
             .ok()
             .and_then(|children| children.iter().find_map(|c| user_camera_poses.get(c).ok()))
         {
-            
             let Ok(active_camera) = active_camera_maybe(&active_cam) else {
-                return
+                return;
             };
             if let Ok(mut tf) = transforms.get_mut(active_camera) {
                 *tf = pose.transform();
