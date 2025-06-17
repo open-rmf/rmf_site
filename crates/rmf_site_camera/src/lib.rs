@@ -1,3 +1,5 @@
+use std::{any::{type_name, TypeId}, collections::HashMap};
+
 /*
  * Copyright (C) 2022 Open Source Robotics Foundation
  *
@@ -29,6 +31,7 @@ use bevy_math::{Isometry3d, Quat, Rect, Vec2, Vec3};
 use bevy_transform::components::Transform;
 use bevy_utils::default;
 
+use bytemuck::TransparentWrapper;
 use tracing::warn;
 use utils::*;
 
@@ -38,7 +41,7 @@ use cursor::{update_cursor_command, CursorCommand};
 mod keyboard;
 use keyboard::{update_keyboard_command, KeyboardCommand};
 
-use crate::{components::{OrthographicCameraRoot, PerspectiveCameraRoot}, plugins::BlockerRegistration, resources::{CameraBlockerRegistry, ProjectionMode}};
+use crate::{components::{OrthographicCameraRoot, PerspectiveCameraRoot}, plugins::BlockerRegistration, resources::{BlockStatus, CameraControlBlockers, ProjectionMode}};
 
 
 pub mod plugins;
@@ -116,19 +119,6 @@ pub enum CameraCommandType {
     FovZoom,
 }
 
-#[derive(Default, Reflect)]
-struct OrbitCenterGizmo {}
-
-#[derive(Debug, Clone, Reflect, Resource, Default)]
-pub struct CameraControls {
-    // pub perspective_camera_entities: [Entity; 4],
-    // pub perspective_headlight: Entity,
-    // pub orthographic_camera_entities: [Entity; 4],
-    // pub orthographic_headlight: Entity,
-    // pub selection_marker: Entity,
-    pub orbit_center: Option<Vec3>,
-}
-
 /// True/false for whether the headlight should be on or off
 #[derive(Clone, Copy, PartialEq, Eq, Deref, DerefMut, Resource)]
 pub struct HeadlightToggle(pub bool);
@@ -159,4 +149,68 @@ pub fn active_camera_maybe(
     }
 }
 
-pub type CameraBlockerRegistration<T> = BlockerRegistration<T, CameraBlockerRegistry>;
+/// convenience struct for associating type info and type name.
+#[derive(Reflect, Hash, PartialEq, Eq, Debug)]
+pub struct TypeInfo {
+    type_id: TypeId,
+    type_name: String,
+}
+
+impl TypeInfo {
+    pub fn new<T: 'static>() -> Self {
+        Self {
+            type_id: TypeId::of::<T>(),
+            type_name: type_name::<T>().to_string(),
+            
+        }
+    }
+    pub fn type_id(&self) -> TypeId {
+        self.type_id
+    }
+    pub fn type_name(&self) -> &String {
+        &self.type_name
+    }
+}
+
+pub type CameraBlockerRegistration<T> = BlockerRegistration<T, CameraControlBlockers>;
+
+
+/// checks if a camera blocking [T] is currently enabled, and block camera if it is.
+pub(crate) fn update_blocker_registry<T, U>
+(
+    blocker_registry: ResMut<U>,
+    camera_blocker: Res<T>
+) 
+    where
+        T: Resource + TransparentWrapper<bool>,
+        U: Resource + TransparentWrapper<HashMap<TypeInfo, bool>>
+{
+    let blocker_registry = U::peel_mut(blocker_registry.into_inner());
+    let blocker = T::peel_ref(camera_blocker.into_inner());
+
+    let type_info = TypeInfo::new::<T>();
+    
+    if blocker == &true {
+        let blocked = blocker_registry.entry(type_info)
+        .or_insert(true);
+        *blocked = true;
+    } else {
+        let blocked = blocker_registry.entry(type_info)
+        .or_insert(false);
+        *blocked = false;
+    }
+}
+
+/// check if blocker registry has toggled blockers, unblock if it doesn't.
+pub(crate) fn set_block_status<U>(
+    block_status: ResMut<BlockStatus<U>>,
+    blocker_registry: Res<U>,
+)   
+    where
+        U: Resource + TransparentWrapper<HashMap<TypeInfo, bool>>
+{ 
+    let block_status = BlockStatus::<U>::peel_mut(block_status.into_inner());
+    let blocker_registry = U::peel_ref(blocker_registry.into_inner());
+
+    *block_status = blocker_registry.iter().any(|(_, blocker)| blocker == &true);
+}

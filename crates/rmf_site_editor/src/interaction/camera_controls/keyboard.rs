@@ -16,7 +16,7 @@
 */
 
 use super::{
-    utils::*, CameraCommandType, CameraControls, ProjectionMode, MAX_FOV, MAX_SCALE, MIN_FOV,
+    utils::*, CameraCommandType, CameraConfig, ProjectionMode, MAX_FOV, MAX_SCALE, MIN_FOV,
     MIN_SCALE,
 };
 use crate::widgets::UserCameraDisplay;
@@ -77,7 +77,7 @@ impl KeyboardCommand {
 }
 
 pub fn update_keyboard_command(
-    mut camera_controls: ResMut<CameraControls>,
+    mut camera_config: ResMut<CameraConfig>,
     mut keyboard_command: ResMut<KeyboardCommand>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     cameras: Query<(&Camera, &Projection, &Transform, &GlobalTransform)>,
@@ -177,9 +177,9 @@ pub fn update_keyboard_command(
         }
 
         // Camera projection and transform
-        let active_camera_entity = match camera_controls.mode() {
-            ProjectionMode::Orthographic => camera_controls.orthographic_camera_entities[0],
-            ProjectionMode::Perspective => camera_controls.perspective_camera_entities[0],
+        let active_camera_entity = match camera_config.mode() {
+            ProjectionMode::Orthographic => camera_config.orthographic_camera_entities[0],
+            ProjectionMode::Perspective => camera_config.perspective_camera_entities[0],
         };
         let (camera, camera_proj, camera_transform, camera_global_transform) =
             cameras.get(active_camera_entity).unwrap();
@@ -201,15 +201,15 @@ pub fn update_keyboard_command(
         };
 
         if command_type == CameraCommandType::Orbit {
-            camera_controls.orbit_center = Some(camera_selection);
+            camera_config.orbit_center = Some(camera_selection);
         }
         if keyboard_command.command_type == CameraCommandType::Orbit
             && keyboard_command.command_type != command_type
         {
-            camera_controls.orbit_center = None;
+            camera_config.orbit_center = None;
         }
 
-        match camera_controls.mode() {
+        match camera_config.mode() {
             ProjectionMode::Orthographic => {
                 if let Projection::Orthographic(camera_proj) = camera_proj {
                     *keyboard_command = get_orthographic_command(

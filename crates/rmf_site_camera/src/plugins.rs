@@ -1,38 +1,29 @@
 use std::{collections::HashMap, marker::PhantomData};
-use std::ops::Deref;
 
 use bevy_app::prelude::*;
 use bytemuck::TransparentWrapper;
 
-use crate::{resources::{CameraBlockerRegistry, CameraControlBlocked, CameraControlMesh, CameraControlPanMaterial, CameraOrbitMat, TypeInfo}, systems::*, *};
+use crate::resources::{BlockStatus, CameraConfig, CameraControls};
+use crate::{resources::{CameraControlBlockers, PickMarkerMesh, PanMarkerMaterial, OrbitMarkerMaterial}, systems::*, *};
 
 ///plugin to add a blocker to a registry of blockers. 
 /// 
 /// E.G: [`UiHovered`] -> CameraControlBlockers to block camera controls on ui hovered.
+#[derive(Default)]
 pub struct BlockerRegistration<Blocker, Registry> 
     where
-        Blocker: Resource + TransparentWrapper<bool>,
-        Registry: Resource + TransparentWrapper<HashMap<TypeInfo, bool>>,
+        Blocker: Resource + TransparentWrapper<bool> + Default,
+        Registry: Resource + TransparentWrapper<HashMap<TypeInfo, bool>> + Default,
 
 {
     _a: PhantomData<Blocker>,
     _b: PhantomData<Registry>,
 }
 
-impl<Blocker, Registry> Default for BlockerRegistration<Blocker, Registry> 
-    where
-        Blocker: Resource + TransparentWrapper<bool>,
-        Registry: Resource + TransparentWrapper<HashMap<TypeInfo, bool>>,
-{
-    fn default() -> Self {
-        Self { _a: Default::default(), _b: Default::default() }
-    }
-}
-
 impl<Blocker, Registry> Plugin for BlockerRegistration<Blocker, Registry> 
     where
-        Blocker: Resource + TransparentWrapper<bool>,
-        Registry: Resource + TransparentWrapper<HashMap<TypeInfo, bool>>,
+        Blocker: Resource + TransparentWrapper<bool> + Default,
+        Registry: Resource + TransparentWrapper<HashMap<TypeInfo, bool>> + Default,
 {
     fn build(&self, app: &mut App) {
         app
@@ -41,37 +32,60 @@ impl<Blocker, Registry> Plugin for BlockerRegistration<Blocker, Registry>
     }
 }
 
-pub struct CameraControlsPlugin;
+/// plugin to initialize initailize blocker registry's and their associated toggles. 
+#[derive(Default)]
+pub struct BlockerRegistryPlugin<Registry> 
+    where
+        Registry: Resource + TransparentWrapper<HashMap<TypeInfo, bool>> + Default,
+{
+    _a: PhantomData<Registry>,
+}
 
-impl Plugin for CameraControlsPlugin {
+impl<Registry> Plugin for BlockerRegistryPlugin<Registry> 
+    where
+        Registry: Resource + TransparentWrapper<HashMap<TypeInfo, bool>> + Default,
+{
     fn build(&self, app: &mut App) {
         app
-        .register_type::<CameraOrbitMat>()
-        .register_type::<CameraControlMesh>()
-        .register_type::<CameraControlPanMaterial>()
+        .init_resource::<Registry>()
+        .init_resource::<BlockStatus<Registry>>()
+        .add_systems(PreUpdate, set_block_status::<Registry>)
+        ;
+    }
+}
+
+
+/// Plugin for project's camera setup.
+pub struct CameraSetupPlugin;
+
+impl Plugin for CameraSetupPlugin {
+    fn build(&self, app: &mut App) {
+        app
+        .add_plugins(BlockerRegistryPlugin::<CameraControlBlockers>::default())
+        .register_type::<OrbitMarkerMaterial>()
+        .register_type::<PickMarkerMesh>()
+        .register_type::<PanMarkerMaterial>()
         .register_type::<ProjectionMode>()
-        .register_type::<CameraBlockerRegistry>()
+        .register_type::<CameraControlBlockers>()
         .register_type::<TypeInfo>()
-        .init_resource::<CameraControlBlocked>()
-        .init_resource::<CameraBlockerRegistry>()
         .init_resource::<CursorCommand>()
         .init_resource::<KeyboardCommand>()
         .init_resource::<HeadlightToggle>()
-        .init_resource::<CameraControls>()
-        .init_resource::<CameraOrbitMat>()
-        .init_resource::<CameraControlMesh>()
-        .init_resource::<CameraControlPanMaterial>()
+        .init_resource::<CameraConfig>()
+        .init_resource::<OrbitMarkerMaterial>()
+        .init_resource::<PickMarkerMesh>()
+        .init_resource::<PanMarkerMaterial>()
         .init_resource::<ProjectionMode>()
+        .init_resource::<CameraControls>()
         .add_systems(PostStartup, init_cameras)
         .add_systems(Update, toggle_headlights.run_if(resource_changed::<HeadlightToggle>))
         .add_systems(Update, change_projection_mode.run_if(resource_changed::<ProjectionMode>))
         .add_systems(
             Update,
             (
-                set_block_status,
                 update_cursor_command,
                 update_keyboard_command,
-                camera_controls,
+                camera_config,
             )
                 .chain(),
         )

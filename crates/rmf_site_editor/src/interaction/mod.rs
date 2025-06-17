@@ -27,8 +27,8 @@ pub use anchor::*;
 pub mod assets;
 pub use assets::*;
 
-// pub mod camera_controls;
-// pub use camera_controls::*;
+// pub mod camera_config;
+// pub use camera_config::*;
 
 pub mod category_visibility;
 pub use category_visibility::*;
@@ -79,7 +79,7 @@ pub mod preview;
 pub use preview::*;
 
 pub mod select;
-use rmf_site_camera::{plugins::{BlockerRegistration, CameraControlsPlugin}, resources::CameraBlockerRegistry, CameraBlockerRegistration};
+use rmf_site_camera::{plugins::{BlockerRegistration, BlockerRegistryPlugin, CameraSetupPlugin}, CameraBlockerRegistration};
 pub use select::*;
 
 pub mod visual_cue;
@@ -145,10 +145,11 @@ impl Plugin for InteractionPlugin {
             .init_resource::<InteractionAssets>()
             .init_resource::<Cursor>()
             .init_resource::<Picked>()
-            .init_resource::<PickingBlockersN>()
+            .init_resource::<PickingBlockers>()
             .init_resource::<UiHovered>()
             .init_resource::<IteractionMaskHovered>()
             .add_plugins(CameraBlockerRegistration::<UiHovered>::default())
+            .add_plugins(BlockerRegistryPlugin::<PickingBlockers>::default())
             .add_plugins(PickBlockerRegistration::<UiHovered>::default())
             .add_plugins(PickBlockerRegistration::<IteractionMaskHovered>::default())
             .init_resource::<GizmoState>()
@@ -174,7 +175,7 @@ impl Plugin for InteractionPlugin {
                 CategoryVisibilityPlugin::<MeasurementMarker>::visible(true),
                 CategoryVisibilityPlugin::<WallMarker>::visible(true),
             ))
-            .add_plugins((CameraControlsPlugin, ModelPreviewPlugin));
+            .add_plugins((CameraSetupPlugin, ModelPreviewPlugin));
 
         if !self.headless {
             app.add_plugins(SelectionPlugin::default())

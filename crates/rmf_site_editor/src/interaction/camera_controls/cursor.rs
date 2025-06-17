@@ -17,7 +17,7 @@
 
 use super::{
     get_groundplane_else_default_selection, orbit_camera_around_point, zoom_distance_factor,
-    CameraCommandType, CameraControls, ProjectionMode, MAX_FOV, MAX_SCALE, MIN_FOV, MIN_SCALE,
+    CameraCommandType, CameraConfig, ProjectionMode, MAX_FOV, MAX_SCALE, MIN_FOV, MIN_SCALE,
 };
 use bevy::input::mouse::{MouseScrollUnit, MouseWheel};
 use bevy::picking::{
@@ -76,7 +76,7 @@ impl CursorCommand {
 }
 
 pub fn update_cursor_command(
-    mut camera_controls: ResMut<CameraControls>,
+    mut camera_config: ResMut<CameraConfig>,
     mut cursor_command: ResMut<CursorCommand>,
     mut mouse_wheel: EventReader<MouseWheel>,
     mouse_input: Res<ButtonInput<MouseButton>>,
@@ -107,7 +107,7 @@ pub fn update_cursor_command(
             &keyboard_input,
             &mouse_input,
             &scroll_motion,
-            camera_controls.mode(),
+            camera_config.mode(),
         );
         if command_type == CameraCommandType::Inactive {
             *cursor_command = CursorCommand::default();
@@ -115,9 +115,9 @@ pub fn update_cursor_command(
         }
 
         // Camera projection and transform
-        let active_camera_entity = match camera_controls.mode() {
-            ProjectionMode::Orthographic => camera_controls.orthographic_camera_entities[0],
-            ProjectionMode::Perspective => camera_controls.perspective_camera_entities[0],
+        let active_camera_entity = match camera_config.mode() {
+            ProjectionMode::Orthographic => camera_config.orthographic_camera_entities[0],
+            ProjectionMode::Perspective => camera_config.perspective_camera_entities[0],
         };
         let (camera_proj, camera_transform, _) = cameras.get(active_camera_entity).unwrap();
 
@@ -149,15 +149,15 @@ pub fn update_cursor_command(
 
         // Update orbit center
         if command_type != CameraCommandType::Orbit {
-            camera_controls.orbit_center = None;
+            camera_config.orbit_center = None;
         } else if (command_type == CameraCommandType::Orbit && command_type != command_type_prev)
-            || camera_controls.orbit_center.is_none()
+            || camera_config.orbit_center.is_none()
         {
-            camera_controls.orbit_center = Some(cursor_selection);
+            camera_config.orbit_center = Some(cursor_selection);
         }
-        let orbit_center = camera_controls.orbit_center.unwrap_or(cursor_selection);
+        let orbit_center = camera_config.orbit_center.unwrap_or(cursor_selection);
 
-        match camera_controls.mode() {
+        match camera_config.mode() {
             ProjectionMode::Orthographic => {
                 if let Projection::Orthographic(camera_proj) = camera_proj {
                     *cursor_command = get_orthographic_cursor_command(

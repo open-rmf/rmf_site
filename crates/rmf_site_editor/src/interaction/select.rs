@@ -738,7 +738,7 @@ pub fn hover_service<Filter: SystemParam + 'static>(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     touch_input: Res<Touches>,
     mut select: EventWriter<Select>,
-    blockers: Option<Res<PickingBlockersN>>,
+    block_status: Res<PickBlockStatus>,
     filter: StaticSystemParam<Filter>,
     selection_blockers: Res<SelectionBlockers>,
 ) where
@@ -781,8 +781,8 @@ pub fn hover_service<Filter: SystemParam + 'static>(
 
     let clicked = mouse_button_input.just_pressed(MouseButton::Left)
         || touch_input.iter_just_pressed().next().is_some();
-    let blocked = blockers.filter(|x| x.blocking()).is_some();
 
+    let blocked = block_status.blocked();
     if clicked && !blocked {
         if let Some(new_select) = filter.on_click(Hover(hovering.0)) {
             select.write(new_select);

@@ -21,7 +21,6 @@ bevy_input = {workspace = true}
 bevy_time = {workspace = true}
 bevy_gizmos = {workspace = true}
 bevy_derive = {workspace = true}
-# rmf_site_picking = {workspace = true}
 tracing = {workspace = true}
 anyhow = {workspace = true}
 nalgebra = {workspace = true}

@@ -2,7 +2,7 @@
 use bevy::prelude::*;
 use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
 use bytemuck::TransparentWrapper;
-use rmf_site_camera::{plugins::{BlockerRegistration, CameraControlsPlugin}, resources::{CameraBlockerRegistry, ProjectionMode}, CameraBlockerRegistration};
+use rmf_site_camera::{plugins::CameraSetupPlugin, resources::ProjectionMode, CameraBlockerRegistration};
 use bevy_color::palettes::css as Colors;
 
 fn main() {
@@ -15,20 +15,20 @@ fn main() {
         })
         .insert_resource(BlockerExample(false))
         .add_plugins(MeshPickingPlugin)
-        .add_plugins(CameraControlsPlugin)
+        .add_plugins(CameraSetupPlugin)
         .add_plugins(CameraBlockerRegistration::<BlockerExample>::default())
         .add_plugins(WorldInspectorPlugin::default())
         .add_systems(Startup, setup)
-        .add_systems(Update, camera_controls)
+        .add_systems(Update, camera_config)
         .run();
 }
 
-#[derive(Reflect, Resource, TransparentWrapper)]
+#[derive(Reflect, Resource, TransparentWrapper, Default)]
 #[reflect(Resource)]
 #[repr(transparent)]
 pub struct BlockerExample(pub bool);
 
-fn camera_controls(
+fn camera_config(
     mut projection_mode: ResMut<ProjectionMode>,
     keys: Res<ButtonInput<KeyCode>>
 ) {

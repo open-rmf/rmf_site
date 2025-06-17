@@ -15,10 +15,10 @@
  *
 */
 
-use crate::{active_camera_maybe, ActiveCameraQuery, UserCameraDisplay};
+use crate::{active_camera_maybe, resources::{CameraConfig, CameraControls}, ActiveCameraQuery, UserCameraDisplay};
 
 use super::{
-    utils::*, CameraCommandType, CameraControls, ProjectionMode, MAX_FOV, MAX_SCALE, MIN_FOV,
+    utils::*, CameraCommandType, ProjectionMode, MAX_FOV, MAX_SCALE, MIN_FOV,
     MIN_SCALE,
 };
 use bevy_picking::prelude::*;
@@ -86,7 +86,8 @@ impl KeyboardCommand {
 }
 
 pub fn update_keyboard_command(
-    mut camera_controls: ResMut<CameraControls>,
+    mut camera_config: ResMut<CameraConfig>,
+    camera_controls: ResMut<CameraControls>,
     mut keyboard_command: ResMut<KeyboardCommand>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     cameras: Query<(&Camera, &Projection, &Transform, &GlobalTransform)>,
@@ -101,16 +102,16 @@ pub fn update_keyboard_command(
         let is_shifting = keyboard_input.pressed(KeyCode::ShiftLeft)
             || keyboard_input.pressed(KeyCode::ShiftRight);
         let mut target_keyboard_motion = Vec2::ZERO;
-        if keyboard_input.pressed(KeyCode::ArrowUp) {
+        if keyboard_input.pressed(camera_controls.up) {
             target_keyboard_motion.y += 1.0;
         }
-        if keyboard_input.pressed(KeyCode::ArrowLeft) {
+        if keyboard_input.pressed(camera_controls.left) {
             target_keyboard_motion.x += -1.0;
         }
-        if keyboard_input.pressed(KeyCode::ArrowDown) {
+        if keyboard_input.pressed(camera_controls.down) {
             target_keyboard_motion.y += -1.0;
         }
-        if keyboard_input.pressed(KeyCode::ArrowRight) {
+        if keyboard_input.pressed(camera_controls.right) {
             target_keyboard_motion.x += 1.0;
         }
         if target_keyboard_motion.length() > 0.0 {
@@ -118,10 +119,10 @@ pub fn update_keyboard_command(
         }
 
         let mut target_zoom_motion = 0.0;
-        if keyboard_input.pressed(KeyCode::PageDown) {
+        if keyboard_input.pressed(camera_controls.zoom_out) {
             target_zoom_motion += -1.0;
         }
-        if keyboard_input.pressed(KeyCode::PageUp) {
+        if keyboard_input.pressed(camera_controls.zoom_in) {
             target_zoom_motion += 1.0;
         }
 
@@ -211,12 +212,12 @@ pub fn update_keyboard_command(
         };
 
         if command_type == CameraCommandType::Orbit {
-            camera_controls.orbit_center = Some(camera_selection);
+            camera_config.orbit_center = Some(camera_selection);
         }
         if keyboard_command.command_type == CameraCommandType::Orbit
             && keyboard_command.command_type != command_type
         {
-            camera_controls.orbit_center = None;
+            camera_config.orbit_center = None;
         }
 
         match *active_camera.proj_mode {

@@ -1,51 +1,9 @@
 use crate::{components::*, resources::*, *};
-use bytemuck::TransparentWrapper;
 use tracing::warn;
-use std::collections::HashMap;
 
-
-/// checks if a camera blocking [T] is currently enabled, and block camera if it is.
-pub fn update_blocker_registry<T, U>
-(
-    blocker_registry: ResMut<U>,
-    camera_blocker: Res<T>
-) 
-    where
-        T: Resource + TransparentWrapper<bool>,
-        U: Resource + TransparentWrapper<HashMap<TypeInfo, bool>>
-{
-    let blocker_registry = U::peel_mut(blocker_registry.into_inner());
-    let blocker = T::peel_ref(camera_blocker.into_inner());
-
-    let type_info = TypeInfo::new::<T>();
-    
-    if blocker == &true {
-        let blocked = blocker_registry.entry(type_info)
-        .or_insert(true);
-        *blocked = true;
-    } else {
-        let blocked = blocker_registry.entry(type_info)
-        .or_insert(false);
-        *blocked = false;
-    }
-}
-
-/// check if camera still blocked, unblock it if it isn't.
-pub(crate) fn set_block_status(
-    blocker_registry: ResMut<CameraBlockerRegistry>,
-    mut block_status: ResMut<CameraControlBlocked>,
-) {
-    let mut camera_still_blocked = false;
-    for blocker in blocker_registry.0.values() {
-        if blocker == &true {
-            camera_still_blocked = true;
-        }
-    }
-    block_status.0 = camera_still_blocked;
-}
 
 pub fn init_cameras(
-    camera_control_mesh: Res<CameraControlMesh>,
+    camera_control_mesh: Res<PickMarkerMesh>,
     mut ambient_light: ResMut<AmbientLight>,
     mut commands: Commands
 ) {
@@ -266,7 +224,7 @@ pub fn toggle_headlights(
     }
 }
 
-pub fn camera_controls(
+pub fn camera_config(
     mut cursor_command: ResMut<CursorCommand>,
     mut keyboard_command: ResMut<KeyboardCommand>,
     mut cameras: Query<(&mut Projection, &mut Transform)>,
@@ -276,7 +234,7 @@ pub fn camera_controls(
     orthographic_cam_root: Query<(Entity, &Children), With<OrthographicCameraRoot>>,
 ) {
     // don't run camera controls if something else has taken priority over it.
-    if camera_blocked.0 {
+    if camera_blocked.blocked() {
         return;
     }
 
@@ -367,12 +325,12 @@ pub fn camera_controls(
     }
 }
 pub fn update_orbit_center_marker(
-    //camera: Single<(&CameraControls, &ProjectionMode)>,
-    controls: Res<CameraControls>,
+    //camera: Single<(&CameraConfig, &ProjectionMode)>,
+    controls: Res<CameraConfig>,
     projection_mode: Res<ProjectionMode>,
     keyboard_command: Res<KeyboardCommand>,
     cursor_command: Res<CursorCommand>,
-    camera_orbit_mat: Res<CameraOrbitMat>,
+    camera_orbit_mat: Res<OrbitMarkerMaterial>,
     mut gizmo: Gizmos,
     mut marker_query: Query<
         (
@@ -384,7 +342,7 @@ pub fn update_orbit_center_marker(
         Without<Projection>,
     >,
 ) {
-    //let (controls, mode) = *camera_controls;
+    //let (controls, mode) = *camera_config;
     let Ok((mut marker_transform, mut marker_visibility, mut marker_material, _)) = marker_query
     .single_mut() 
     .inspect_err(|err| {

@@ -18,7 +18,7 @@
 use crate::{CurrentWorkspace};
 use bevy::ecs::hierarchy::ChildOf;
 use bevy::prelude::*;
-use rmf_site_camera::{active_camera_maybe, ActiveCameraQuery, CameraControls};
+use rmf_site_camera::{active_camera_maybe, resources::CameraConfig, ActiveCameraQuery};
 use rmf_site_format::{
     LevelElevation, LevelProperties, NameInSite, NameOfSite, Pose, ScenarioMarker,
     UserCameraPoseMarker,
@@ -180,7 +180,7 @@ pub fn set_camera_transform_for_changed_site(
     current_workspace: Res<CurrentWorkspace>,
     current_level: Res<CurrentLevel>,
     active_cam: ActiveCameraQuery,
-    mut camera_controls: ResMut<CameraControls>,
+    mut camera_config: ResMut<CameraConfig>,
     children: Query<&Children>,
     user_camera_poses: Query<&Pose, With<UserCameraPoseMarker>>,
     mut transforms: Query<&mut Transform>,
@@ -209,7 +209,7 @@ pub fn set_camera_transform_for_changed_site(
             translation.x = translation.x + 10.0;
             translation.y = translation.y + 10.0;
             translation.z = 0.0;
-            camera_controls.orbit_center = Some(translation);
+            camera_config.orbit_center = Some(translation);
         }
     }
 }

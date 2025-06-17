@@ -1,21 +1,22 @@
-use std::{any::{type_name, TypeId}, collections::HashMap};
+use std::{collections::HashMap, marker::PhantomData};
 
-use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_asset::prelude::*;
-use bevy_math::primitives;
+use bevy_input::keyboard::KeyCode;
+use bevy_math::{primitives, Vec3};
 use bevy_pbr::StandardMaterial;
 use bevy_reflect::Reflect;
 use bevy_render::mesh::Mesh;
 use bevy_color::palettes::css as Colors;
 use bevy_utils::default;
 use bytemuck::TransparentWrapper;
-use bevy_reflect::prelude::*;
+
+use crate::TypeInfo;
 
 #[derive(Resource, Reflect)]
-pub struct CameraOrbitMat(pub Handle<StandardMaterial>);
+pub struct OrbitMarkerMaterial(pub Handle<StandardMaterial>);
 
-impl FromWorld for CameraOrbitMat {
+impl FromWorld for OrbitMarkerMaterial {
     fn from_world(world: &mut World) -> Self {
         let mut mats = world.get_resource_mut::<Assets<StandardMaterial>>().unwrap();
 
@@ -34,9 +35,9 @@ impl FromWorld for CameraOrbitMat {
 }
 
 #[derive(Resource, Reflect)]
-pub struct CameraControlMesh(pub Handle<Mesh>);
+pub struct PickMarkerMesh(pub Handle<Mesh>);
 
-impl FromWorld for CameraControlMesh {
+impl FromWorld for PickMarkerMesh {
     fn from_world(world: &mut World) -> Self {
         let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
 
@@ -45,9 +46,9 @@ impl FromWorld for CameraControlMesh {
 }
 
 #[derive(Resource, Reflect)]
-pub struct CameraControlPanMaterial(pub Handle<StandardMaterial>);
+pub struct PanMarkerMaterial(pub Handle<StandardMaterial>);
 
-impl FromWorld for CameraControlPanMaterial {
+impl FromWorld for PanMarkerMaterial {
     fn from_world(world: &mut World) -> Self {
         let mut mats = world.get_resource_mut::<Assets<StandardMaterial>>().unwrap();
         Self(
@@ -62,8 +63,37 @@ impl FromWorld for CameraControlPanMaterial {
         )
     }
 }
+/// Camera(s)'s controls.
+#[derive(Debug, Clone, Reflect, Resource)]
+pub struct CameraControls {
+    pub up: KeyCode,
+    pub down: KeyCode,
+    pub left: KeyCode,
+    pub right: KeyCode,
+    pub zoom_in: KeyCode,
+    pub zoom_out: KeyCode,
+}
 
-/// currently enabled camera.
+impl Default for CameraControls {
+    fn default() -> Self {
+        Self { 
+            up: KeyCode::ArrowUp, 
+            down: KeyCode::ArrowDown, 
+            left: KeyCode::ArrowLeft, 
+            right: KeyCode::ArrowRight, 
+            zoom_in: KeyCode::PageUp,
+            zoom_out: KeyCode::PageDown,
+        }
+    }
+}
+
+/// config settings for cameras.
+#[derive(Debug, Clone, Reflect, Resource, Default)]
+pub struct CameraConfig {
+    pub orbit_center: Option<Vec3>,
+}
+
+/// Currently enabled camera.
 #[derive(PartialEq, Debug, Copy, Clone, Reflect, Resource, Default)]
 #[reflect(Resource)]
 pub enum ProjectionMode {
@@ -72,42 +102,24 @@ pub enum ProjectionMode {
     Orthographic,
 }
 
-/// weather camera is controlable or not. enabled/disabled by [`CameraBlockerRegistry`]
-#[derive(Resource)]
-pub struct CameraControlBlocked(pub(crate) bool);
+/// Block status for a given [`Registry`]. Managed by [`set_block_status`]
+#[derive(Resource, TransparentWrapper, Default)]
+#[transparent(bool)]
+#[repr(transparent)]
+pub struct BlockStatus<Registry>(bool, PhantomData<Registry>);
 
-
-impl Default for CameraControlBlocked {
-    fn default() -> Self {
-        Self(false)
+impl<Registry> BlockStatus<Registry> {
+    /// Weather there was at least one block or not at the time of this resource's fetch.
+    pub fn blocked(&self) -> bool {
+        self.0
     }
 }
 
-/// convenience struct for associating type info and type name.
-#[derive(Reflect, Hash, PartialEq, Eq, Debug)]
-pub struct TypeInfo {
-    type_id: TypeId,
-    type_name: String,
-}
+/// Weather camera is controlable or not. enabled/disabled by [`CameraControlBlockers`]
+pub type CameraControlBlocked = BlockStatus<CameraControlBlockers>;
 
-impl TypeInfo {
-    pub fn new<T: 'static>() -> Self {
-        Self {
-            type_id: TypeId::of::<T>(),
-            type_name: type_name::<T>().to_string(),
-            
-        }
-    }
-    pub fn type_id(&self) -> TypeId {
-        self.type_id
-    }
-    pub fn type_name(&self) -> &String {
-        &self.type_name
-    }
-}
-
-/// registry of things that can block camera controls
+/// Registry of things that can block camera controls
 #[derive(Resource, Reflect, TransparentWrapper, Default)]
 #[reflect(Resource)]
 #[repr(transparent)]
-pub struct CameraBlockerRegistry(pub HashMap<TypeInfo, bool>);
+pub struct CameraControlBlockers(pub HashMap<TypeInfo, bool>);

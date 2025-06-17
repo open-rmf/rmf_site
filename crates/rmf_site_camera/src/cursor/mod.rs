@@ -15,11 +15,11 @@
  *
 */
 
-use crate::components::{OrthographicCameraRoot, PerspectiveCameraRoot};
+use crate::{components::{OrthographicCameraRoot, PerspectiveCameraRoot}, resources::CameraConfig};
 
 use super::{
     get_groundplane_else_default_selection, orbit_camera_around_point, zoom_distance_factor,
-    CameraCommandType, CameraControls, ProjectionMode, MAX_FOV, MAX_SCALE, MIN_FOV, MIN_SCALE,
+    CameraCommandType, ProjectionMode, MAX_FOV, MAX_SCALE, MIN_FOV, MIN_SCALE,
 };
 use bevy_input::{mouse::{MouseScrollUnit, MouseWheel}, prelude::*};
 use bevy_picking::{
@@ -82,7 +82,7 @@ impl CursorCommand {
 }
 
 pub fn update_cursor_command(
-    mut camera_controls: ResMut<CameraControls>,
+    mut camera_config: ResMut<CameraConfig>,
     mut cursor_command: ResMut<CursorCommand>,
     mut mouse_wheel: EventReader<MouseWheel>,
     mouse_input: Res<ButtonInput<MouseButton>>,
@@ -164,13 +164,13 @@ pub fn update_cursor_command(
 
         // Update orbit center
         if command_type != CameraCommandType::Orbit {
-            camera_controls.orbit_center = None;
+            camera_config.orbit_center = None;
         } else if (command_type == CameraCommandType::Orbit && command_type != command_type_prev)
-            || camera_controls.orbit_center.is_none()
+            || camera_config.orbit_center.is_none()
         {
-            camera_controls.orbit_center = Some(cursor_selection);
+            camera_config.orbit_center = Some(cursor_selection);
         }
-        let orbit_center = camera_controls.orbit_center.unwrap_or(cursor_selection);
+        let orbit_center = camera_config.orbit_center.unwrap_or(cursor_selection);
 
         match *projection_mode {
             ProjectionMode::Orthographic => {

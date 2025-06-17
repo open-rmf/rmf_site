@@ -128,7 +128,7 @@ impl ChangeProjectionMode {
 }
 
 #[derive(Debug, Clone, Reflect, Resource)]
-pub struct CameraControls {
+pub struct CameraConfig {
     mode: ProjectionMode,
     pub perspective_camera_entities: [Entity; 4],
     pub perspective_headlight: Entity,
@@ -148,7 +148,7 @@ impl Default for HeadlightToggle {
     }
 }
 
-impl CameraControls {
+impl CameraConfig {
     pub fn use_perspective(
         &mut self,
         choice: bool,
@@ -254,7 +254,7 @@ impl CameraControls {
     }
 }
 
-impl FromWorld for CameraControls {
+impl FromWorld for CameraConfig {
     fn from_world(world: &mut World) -> Self {
         let interaction_assets = world.get_resource::<InteractionAssets>().expect(
             "make sure that the InteractionAssets resource is initialized before the camera plugin",
@@ -401,7 +401,7 @@ impl FromWorld for CameraControls {
 
         ambient_light.brightness = 2.0;
 
-        CameraControls {
+        CameraConfig {
             mode: ProjectionMode::Perspective,
             perspective_camera_entities: [
                 perspective_base_camera,
@@ -423,10 +423,10 @@ impl FromWorld for CameraControls {
     }
 }
 
-fn camera_controls(
+fn camera_config(
     mut cursor_command: ResMut<CursorCommand>,
     mut keyboard_command: ResMut<KeyboardCommand>,
-    mut controls: ResMut<CameraControls>,
+    mut controls: ResMut<CameraConfig>,
     mut cameras: Query<(&mut Projection, &mut Transform)>,
     mut bevy_cameras: Query<&mut Camera>,
     mut visibility: Query<&mut Visibility>,
@@ -515,7 +515,7 @@ fn camera_controls(
 }
 
 fn update_orbit_center_marker(
-    controls: Res<CameraControls>,
+    controls: Res<CameraConfig>,
     keyboard_command: Res<KeyboardCommand>,
     cursor_command: Res<CursorCommand>,
     interaction_assets: Res<InteractionAssets>,
@@ -567,11 +567,11 @@ fn update_orbit_center_marker(
     }
 }
 
-pub struct CameraControlsPlugin;
+pub struct CameraSetupPlugin;
 
-impl Plugin for CameraControlsPlugin {
+impl Plugin for CameraSetupPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<CameraControls>()
+        app.init_resource::<CameraConfig>()
             .init_resource::<CursorCommand>()
             .init_resource::<KeyboardCommand>()
             .init_resource::<HeadlightToggle>()
@@ -581,7 +581,7 @@ impl Plugin for CameraControlsPlugin {
                 (
                     update_cursor_command,
                     update_keyboard_command,
-                    camera_controls,
+                    camera_config,
                 )
                     .chain(),
             )
