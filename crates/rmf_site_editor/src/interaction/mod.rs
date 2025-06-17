@@ -27,9 +27,6 @@ pub use anchor::*;
 pub mod assets;
 pub use assets::*;
 
-// pub mod camera_config;
-// pub use camera_config::*;
-
 pub mod category_visibility;
 pub use category_visibility::*;
 
