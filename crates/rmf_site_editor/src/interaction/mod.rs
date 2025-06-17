@@ -78,7 +78,7 @@ pub use preview::*;
 pub mod select;
 use rmf_site_camera::{
     plugins::{BlockerRegistration, BlockerRegistryPlugin, CameraSetupPlugin},
-    CameraBlockerRegistration,
+    CameraControlsBlocker,
 };
 pub use select::*;
 
@@ -148,7 +148,7 @@ impl Plugin for InteractionPlugin {
             .init_resource::<PickingBlockers>()
             .init_resource::<UiHovered>()
             .init_resource::<IteractionMaskHovered>()
-            .add_plugins(CameraBlockerRegistration::<UiHovered>::default())
+            .add_plugins(CameraControlsBlocker::<UiHovered>::default())
             .add_plugins(BlockerRegistryPlugin::<PickingBlockers>::default())
             .add_plugins(PickBlockerRegistration::<UiHovered>::default())
             .add_plugins(PickBlockerRegistration::<IteractionMaskHovered>::default())

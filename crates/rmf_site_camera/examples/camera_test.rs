@@ -3,7 +3,7 @@ use bevy_color::palettes::css as Colors;
 use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
 use bytemuck::TransparentWrapper;
 use rmf_site_camera::{
-    CameraBlockerRegistration, plugins::CameraSetupPlugin, resources::ProjectionMode,
+    CameraControlsBlocker, plugins::CameraSetupPlugin, resources::ProjectionMode,
 };
 
 fn main() {
@@ -16,7 +16,7 @@ fn main() {
         .insert_resource(BlockerExample(false))
         .add_plugins(MeshPickingPlugin)
         .add_plugins(CameraSetupPlugin)
-        .add_plugins(CameraBlockerRegistration::<BlockerExample>::default())
+        .add_plugins(CameraControlsBlocker::<BlockerExample>::default())
         .add_plugins(WorldInspectorPlugin::default())
         .add_systems(Startup, setup)
         .add_systems(Update, camera_config)

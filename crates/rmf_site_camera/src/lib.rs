@@ -180,7 +180,7 @@ impl TypeInfo {
     }
 }
 
-pub type CameraBlockerRegistration<T> = BlockerRegistration<T, CameraControlBlockers>;
+pub type CameraControlsBlocker<T> = BlockerRegistration<T, CameraControlBlockers>;
 
 /// checks if a camera blocking [T] is currently enabled, and block camera if it is.
 pub(crate) fn update_blocker_registry<T, U>(blocker_registry: ResMut<U>, camera_blocker: Res<T>)
