@@ -222,6 +222,7 @@ impl Plugin for StandardInspectorPlugin {
                 InspectRobotPropertyPlugin::<InspectMobility, Mobility, RecallMobility>::new(),
                 InspectRobotPropertyPlugin::<InspectCollision, Collision, RecallCollision>::new(),
                 InspectRobotPropertyPlugin::<InspectPowerSource, PowerSource, RecallPowerSource>::new(),
+                InspectRobotPropertyPlugin::<InspectPowerDissipation, PowerDissipation, RecallPowerDissipation>::new(),
                 InspectRobotPropertyKindPlugin::<
                     InspectDifferentialDrive,
                     DifferentialDrive,
@@ -240,6 +241,7 @@ impl Plugin for StandardInspectorPlugin {
                     PowerSource,
                     RecallBattery,
                 >::new(),
+                InspectMechanicalSystemPlugin::default(),
                 InspectTaskPlugin::default(),
                 InspectDefaultTasksPlugin::default(),
             ));

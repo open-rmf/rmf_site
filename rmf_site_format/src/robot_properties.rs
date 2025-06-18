@@ -96,7 +96,7 @@ pub fn serialize_robot_property_from_kind<Property: RobotProperty, Kind: RobotPr
 }
 
 #[cfg(feature = "bevy")]
-pub fn serialize_robot_property_kind<Property: RobotProperty, Kind: RobotPropertyKind>(
+pub fn serialize_robot_property_kind<Kind: RobotPropertyKind>(
     property_kind: Kind,
 ) -> Result<Value, RobotPropertyError> {
     let label = Kind::label();
@@ -585,5 +585,147 @@ impl Recall for RecallBattery {
         self.capacity = Some(source.capacity);
         self.charging_current = Some(source.charging_current);
         self.power = Some(source.power);
+    }
+}
+
+// TODO(@xiyuoh) Update RobotProperty trait to accommodate properties that can accommodate multiple Kinds
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct PowerDissipation {
+    pub config: Value,
+}
+
+impl Default for PowerDissipation {
+    fn default() -> Self {
+        Self {
+            config: Value::Object(Map::new()),
+        }
+    }
+}
+
+#[cfg(feature = "bevy")]
+impl RobotProperty for PowerDissipation {
+    fn new(kind: String, config: Value) -> Self {
+        let mut property_map = Map::new();
+        property_map.insert(kind.clone(), config);
+
+        Self {
+            config: Value::Object(property_map),
+        }
+    }
+
+    fn is_default(&self) -> bool {
+        if *self == Self::default() {
+            return true;
+        }
+        false
+    }
+
+    fn kind(&self) -> Option<String> {
+        // This RobotProperty supports multiple kinds
+        None
+    }
+
+    fn label() -> String {
+        "Power Dissipation".to_string()
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct RecallPowerDissipation {
+    pub config: Option<Value>,
+}
+
+impl Recall for RecallPowerDissipation {
+    type Source = PowerDissipation;
+
+    fn remember(&mut self, source: &PowerDissipation) {
+        self.config = Some(source.config.clone());
+    }
+}
+
+// Supported kinds of PowerDissipation
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
+pub struct MechanicalSystem {
+    pub mass: f32,
+    pub moment_of_inertia: f32,
+    pub friction_coefficient: f32,
+}
+
+impl Default for MechanicalSystem {
+    fn default() -> Self {
+        Self {
+            mass: 20.0,
+            moment_of_inertia: 10.0,
+            friction_coefficient: 0.22,
+        }
+    }
+}
+
+#[cfg(feature = "bevy")]
+impl RobotPropertyKind for MechanicalSystem {
+    fn label() -> String {
+        "Mechanical System".to_string()
+    }
+}
+
+#[cfg(feature = "bevy")]
+impl From<&ElementMap> for MechanicalSystem {
+    fn from(elements: &ElementMap) -> Self {
+        let mut mechanical_system = MechanicalSystem::default();
+        if let Some(mass) = elements
+            .get("mass")
+            .and_then(|mass| f64::try_from(mass.data.clone()).ok())
+        {
+            mechanical_system.mass = mass as f32;
+        }
+        if let Some(moment_of_inertia) = elements
+            .get("inertia")
+            .and_then(|moment_of_inertia| f64::try_from(moment_of_inertia.data.clone()).ok())
+        {
+            mechanical_system.moment_of_inertia = moment_of_inertia as f32;
+        }
+        if let Some(friction_coefficient) = elements
+            .get("friction_coefficient")
+            .and_then(|friction_coefficient| f64::try_from(friction_coefficient.data.clone()).ok())
+        {
+            mechanical_system.friction_coefficient = friction_coefficient as f32;
+        }
+
+        mechanical_system
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct RecallMechanicalSystem {
+    pub mass: Option<f32>,
+    pub moment_of_inertia: Option<f32>,
+    pub friction_coefficient: Option<f32>,
+}
+
+#[cfg(feature = "bevy")]
+impl RecallPropertyKind for RecallMechanicalSystem {
+    type Kind = MechanicalSystem;
+
+    fn assume(&self) -> MechanicalSystem {
+        MechanicalSystem {
+            mass: self.mass.clone().unwrap_or(20.0),
+            moment_of_inertia: self.moment_of_inertia.clone().unwrap_or(10.0),
+            friction_coefficient: self.friction_coefficient.clone().unwrap_or(0.22),
+        }
+    }
+}
+
+impl Recall for RecallMechanicalSystem {
+    type Source = MechanicalSystem;
+
+    fn remember(&mut self, source: &MechanicalSystem) {
+        self.mass = Some(source.mass);
+        self.moment_of_inertia = Some(source.moment_of_inertia);
+        self.friction_coefficient = Some(source.friction_coefficient);
     }
 }

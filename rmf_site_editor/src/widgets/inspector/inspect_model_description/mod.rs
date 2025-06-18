@@ -46,6 +46,9 @@ pub use inspect_mobility::*;
 pub mod inspect_power_source;
 pub use inspect_power_source::*;
 
+pub mod inspect_power_dissipation;
+pub use inspect_power_dissipation::*;
+
 pub mod inspect_required_properties;
 pub use inspect_required_properties::*;
 

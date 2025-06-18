@@ -17,8 +17,8 @@
 
 use crate::site::{
     Battery, Change, DifferentialDrive, ExportHandler, ExportHandlers, ExportWith, Group, IsStatic,
-    Mobility, ModelMarker, ModelProperty, ModelPropertyQuery, PowerSource, Robot, RobotProperty,
-    RobotPropertyKind,
+    MechanicalSystem, Mobility, ModelMarker, ModelProperty, ModelPropertyQuery, PowerSource, Robot,
+    RobotProperty, RobotPropertyKind,
 };
 use bevy::prelude::*;
 use rmf_site_format::robot_properties::*;
@@ -36,6 +36,7 @@ impl Plugin for SlotcarSdfPlugin {
                     insert_slotcar_components,
                     update_slotcar_export_with::<DifferentialDrive>,
                     update_slotcar_export_with::<Battery>,
+                    update_slotcar_export_with::<MechanicalSystem>,
                 ),
             );
     }
@@ -46,7 +47,7 @@ fn insert_slotcar_components(
     mut change_robot_property: EventWriter<Change<ModelProperty<Robot>>>,
     is_static: Query<&ModelProperty<IsStatic>, (With<ModelMarker>, With<Group>)>,
     robot_property_kinds: Query<
-        (Entity, &DifferentialDrive, &Battery),
+        (Entity, &DifferentialDrive, &Battery, &MechanicalSystem),
         (Without<ModelMarker>, Without<Group>),
     >,
     robot_properties: Query<(&Mobility, &PowerSource), (With<ModelMarker>, With<Group>)>,
@@ -54,7 +55,7 @@ fn insert_slotcar_components(
     model_instances: ModelPropertyQuery<Robot>,
     child_of: Query<&ChildOf>,
 ) {
-    for (e, differential_drive, battery) in robot_property_kinds.iter() {
+    for (e, differential_drive, battery, mechanical_system) in robot_property_kinds.iter() {
         if !model_descriptions.get(e).is_ok() {
             // A non-description entity has the RobotPropertyKind component, it could have been inserted into a
             // model instance descendent when processing importing robot plugins
@@ -82,8 +83,8 @@ fn insert_slotcar_components(
                 // NOTE(@xiyuoh) It's probably a better idea to generalize this system
                 // for each RobotPropertyKind, but the current design of ChangePlugin
                 // and Robot will result in the later system run to overwrite changes
-                // from the earlier system. For now we will process data from both
-                // DifferentialDrive and Battery in a single system.
+                // from the earlier system. For now we will process data from Battery/
+                // DifferentialDrive/MechanicalSystem in a single system.
                 if let Ok(mobility_value) = serialize_robot_property_from_kind::<
                     Mobility,
                     DifferentialDrive,
@@ -100,12 +101,35 @@ fn insert_slotcar_components(
                         .insert(PowerSource::label(), power_source_value);
                 }
 
+                let mut power_dissipation_value = Value::Object(Map::new());
+                if let Ok(mechanical_system_value) =
+                    serialize_robot_property_kind::<MechanicalSystem>(mechanical_system.clone())
+                {
+                    if let Some(power_dissipation_map) = power_dissipation_value
+                        .as_object_mut()
+                        .map(|map| map.entry("config").or_insert(Value::Object(Map::new())))
+                        .and_then(|config| config.as_object_mut())
+                    {
+                        power_dissipation_map
+                            .insert(MechanicalSystem::label(), mechanical_system_value);
+                    }
+                }
+                if power_dissipation_value
+                    .as_object()
+                    .is_some_and(|m| !m.is_empty())
+                {
+                    robot
+                        .properties
+                        .insert(PowerDissipation::label(), power_dissipation_value);
+                }
+
                 change_robot_property.write(Change::new(ModelProperty(robot), desc));
             }
             commands
                 .entity(e)
                 .remove::<DifferentialDrive>()
-                .remove::<Battery>();
+                .remove::<Battery>()
+                .remove::<MechanicalSystem>();
         }
     }
 }
@@ -171,6 +195,8 @@ pub struct SlotcarParams {
     pub nominal_voltage: f32,
     pub nominal_capacity: f32,
     pub charging_current: f32,
+    pub mass: f32,
+    pub inertia: f32,
     pub friction_coefficient: f32,
     pub nominal_power: f32,
 }
@@ -186,6 +212,8 @@ impl Default for SlotcarParams {
             nominal_voltage: 12.0,
             nominal_capacity: 24.0,
             charging_current: 5.0,
+            mass: 20.0,
+            inertia: 10.0,
             friction_coefficient: 0.22,
             nominal_power: 20.0,
         }
@@ -247,6 +275,37 @@ impl SlotcarParams {
         self
     }
 
+    fn with_mechanical_system(&mut self, mechanical_system: &Value) -> &mut Self {
+        if let Some(mass) = mechanical_system.get("mass").and_then(|m| match m {
+            Value::Number(mass) => mass.as_f64(),
+            _ => None,
+        }) {
+            self.mass = mass as f32;
+        }
+        if let Some(moment_of_inertia) =
+            mechanical_system
+                .get("moment_of_inertia")
+                .and_then(|i| match i {
+                    Value::Number(inertia) => inertia.as_f64(),
+                    _ => None,
+                })
+        {
+            self.inertia = moment_of_inertia as f32;
+        }
+        if let Some(friction_coefficient) =
+            mechanical_system
+                .get("friction_coefficient")
+                .and_then(|c| match c {
+                    Value::Number(coefficient) => coefficient.as_f64(),
+                    _ => None,
+                })
+        {
+            self.friction_coefficient = friction_coefficient as f32;
+        }
+
+        self
+    }
+
     fn into_xml(&self) -> XmlElement {
         let mut element_map = ElementMap::default();
 
@@ -291,6 +350,16 @@ impl SlotcarParams {
             ..Default::default()
         });
         element_map.push(XmlElement {
+            name: "mass".into(),
+            data: ElementData::String(self.mass.to_string()),
+            ..Default::default()
+        });
+        element_map.push(XmlElement {
+            name: "inertia".into(),
+            data: ElementData::String(self.inertia.to_string()),
+            ..Default::default()
+        });
+        element_map.push(XmlElement {
             name: "friction_coefficient".into(),
             data: ElementData::String(self.friction_coefficient.to_string()),
             ..Default::default()
@@ -318,6 +387,9 @@ fn slotcar_export_handler(In(input): In<(Entity, Value)>) -> sdformat_rs::XmlEle
         }
         if let Some(battery_config) = config_map.get(&Battery::label()) {
             slotcar_params.with_battery(battery_config);
+        }
+        if let Some(mech_sys_config) = config_map.get(&MechanicalSystem::label()) {
+            slotcar_params.with_mechanical_system(mech_sys_config);
         }
     }
 
