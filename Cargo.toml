@@ -26,6 +26,7 @@ serde = { version = "1.0" }
 rmf_site_format = { path = "crates/rmf_site_format" }
 rmf_site_editor = { path = "crates/rmf_site_editor" }
 rmf_site_camera = {path = "crates/rmf_site_camera" }
+rmf_site_mesh = {path = "crates/rmf_site_mesh"}
 serde_yaml = "0.8.23"
 serde_json = "*"
 ron = "0.10"
