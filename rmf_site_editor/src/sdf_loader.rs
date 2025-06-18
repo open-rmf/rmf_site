@@ -24,7 +24,8 @@ use thiserror::Error;
 use sdformat_rs::{SdfGeometry, SdfPose, Vector3d};
 
 use crate::site::{
-    Battery, CollisionMeshMarker, DifferentialDrive, MechanicalSystem, VisualMeshMarker,
+    AmbientSystem, Battery, CollisionMeshMarker, DifferentialDrive, MechanicalSystem,
+    VisualMeshMarker,
 };
 use rmf_site_format::{
     Angle, AssetSource, Category, IsStatic, Model, ModelMarker, NameInSite, Pose, PrimitiveShape,
@@ -50,6 +51,7 @@ impl Plugin for SdfPlugin {
             .register_type::<Category>()
             .register_type::<DifferentialDrive>()
             .register_type::<Battery>()
+            .register_type::<AmbientSystem>()
             .register_type::<MechanicalSystem>()
             .register_type::<PrimitiveShape>();
     }
@@ -330,6 +332,7 @@ fn load_model<'a, 'b>(
                             .entity_mut(e)
                             .insert(DifferentialDrive::from(&plugin.elements))
                             .insert(Battery::from(&plugin.elements))
+                            .insert(AmbientSystem::from(&plugin.elements))
                             .insert(MechanicalSystem::from(&plugin.elements));
                     }
                 }

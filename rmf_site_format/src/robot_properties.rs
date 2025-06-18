@@ -500,7 +500,6 @@ pub struct Battery {
     pub voltage: f32,
     pub capacity: f32,
     pub charging_current: f32,
-    pub power: f32,
 }
 
 impl Default for Battery {
@@ -509,7 +508,6 @@ impl Default for Battery {
             voltage: 12.0,
             capacity: 24.0,
             charging_current: 5.0,
-            power: 20.0,
         }
     }
 }
@@ -543,12 +541,6 @@ impl From<&ElementMap> for Battery {
         {
             battery.charging_current = current as f32;
         }
-        if let Some(power) = elements
-            .get("nominal_power")
-            .and_then(|power| f64::try_from(power.data.clone()).ok())
-        {
-            battery.power = power as f32;
-        }
 
         battery
     }
@@ -560,7 +552,6 @@ pub struct RecallBattery {
     pub voltage: Option<f32>,
     pub capacity: Option<f32>,
     pub charging_current: Option<f32>,
-    pub power: Option<f32>,
 }
 
 #[cfg(feature = "bevy")]
@@ -572,7 +563,6 @@ impl RecallPropertyKind for RecallBattery {
             voltage: self.voltage.clone().unwrap_or(12.0),
             capacity: self.capacity.clone().unwrap_or(24.0),
             charging_current: self.charging_current.clone().unwrap_or(5.0),
-            power: self.power.clone().unwrap_or(20.0),
         }
     }
 }
@@ -584,7 +574,6 @@ impl Recall for RecallBattery {
         self.voltage = Some(source.voltage);
         self.capacity = Some(source.capacity);
         self.charging_current = Some(source.charging_current);
-        self.power = Some(source.power);
     }
 }
 
@@ -727,5 +716,65 @@ impl Recall for RecallMechanicalSystem {
         self.mass = Some(source.mass);
         self.moment_of_inertia = Some(source.moment_of_inertia);
         self.friction_coefficient = Some(source.friction_coefficient);
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
+pub struct AmbientSystem {
+    pub idle_power: f32,
+}
+
+impl Default for AmbientSystem {
+    fn default() -> Self {
+        Self { idle_power: 20.0 }
+    }
+}
+
+#[cfg(feature = "bevy")]
+impl RobotPropertyKind for AmbientSystem {
+    fn label() -> String {
+        "Ambient System".to_string()
+    }
+}
+
+#[cfg(feature = "bevy")]
+impl From<&ElementMap> for AmbientSystem {
+    fn from(elements: &ElementMap) -> Self {
+        let mut ambient_system = AmbientSystem::default();
+        if let Some(power) = elements
+            .get("nominal_power")
+            .and_then(|power| f64::try_from(power.data.clone()).ok())
+        {
+            ambient_system.idle_power = power as f32;
+        }
+
+        ambient_system
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct RecallAmbientSystem {
+    pub idle_power: Option<f32>,
+}
+
+#[cfg(feature = "bevy")]
+impl RecallPropertyKind for RecallAmbientSystem {
+    type Kind = AmbientSystem;
+
+    fn assume(&self) -> AmbientSystem {
+        AmbientSystem {
+            idle_power: self.idle_power.clone().unwrap_or(20.0),
+        }
+    }
+}
+
+impl Recall for RecallAmbientSystem {
+    type Source = AmbientSystem;
+
+    fn remember(&mut self, source: &AmbientSystem) {
+        self.idle_power = Some(source.idle_power);
     }
 }

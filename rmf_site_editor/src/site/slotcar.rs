@@ -36,6 +36,7 @@ impl Plugin for SlotcarSdfPlugin {
                     insert_slotcar_components,
                     update_slotcar_export_with::<DifferentialDrive>,
                     update_slotcar_export_with::<Battery>,
+                    update_slotcar_export_with::<AmbientSystem>,
                     update_slotcar_export_with::<MechanicalSystem>,
                 ),
             );
@@ -47,7 +48,13 @@ fn insert_slotcar_components(
     mut change_robot_property: EventWriter<Change<ModelProperty<Robot>>>,
     is_static: Query<&ModelProperty<IsStatic>, (With<ModelMarker>, With<Group>)>,
     robot_property_kinds: Query<
-        (Entity, &DifferentialDrive, &Battery, &MechanicalSystem),
+        (
+            Entity,
+            &DifferentialDrive,
+            &Battery,
+            &AmbientSystem,
+            &MechanicalSystem,
+        ),
         (Without<ModelMarker>, Without<Group>),
     >,
     robot_properties: Query<(&Mobility, &PowerSource), (With<ModelMarker>, With<Group>)>,
@@ -55,7 +62,9 @@ fn insert_slotcar_components(
     model_instances: ModelPropertyQuery<Robot>,
     child_of: Query<&ChildOf>,
 ) {
-    for (e, differential_drive, battery, mechanical_system) in robot_property_kinds.iter() {
+    for (e, differential_drive, battery, ambient_system, mechanical_system) in
+        robot_property_kinds.iter()
+    {
         if !model_descriptions.get(e).is_ok() {
             // A non-description entity has the RobotPropertyKind component, it could have been inserted into a
             // model instance descendent when processing importing robot plugins
@@ -84,7 +93,7 @@ fn insert_slotcar_components(
                 // for each RobotPropertyKind, but the current design of ChangePlugin
                 // and Robot will result in the later system run to overwrite changes
                 // from the earlier system. For now we will process data from Battery/
-                // DifferentialDrive/MechanicalSystem in a single system.
+                // DifferentialDrive/MechanicalSystem/AmbientSystem in a single system.
                 if let Ok(mobility_value) = serialize_robot_property_from_kind::<
                     Mobility,
                     DifferentialDrive,
@@ -101,26 +110,29 @@ fn insert_slotcar_components(
                         .insert(PowerSource::label(), power_source_value);
                 }
 
-                let mut power_dissipation_value = Value::Object(Map::new());
-                if let Ok(mechanical_system_value) =
-                    serialize_robot_property_kind::<MechanicalSystem>(mechanical_system.clone())
+                let mut power_dissipation_config = Map::new();
+                if let Some(power_dissipation_map) = power_dissipation_config
+                    .entry("config")
+                    .or_insert(Value::Object(Map::new()))
+                    .as_object_mut()
                 {
-                    if let Some(power_dissipation_map) = power_dissipation_value
-                        .as_object_mut()
-                        .map(|map| map.entry("config").or_insert(Value::Object(Map::new())))
-                        .and_then(|config| config.as_object_mut())
+                    if let Ok(mechanical_system_value) =
+                        serialize_robot_property_kind::<MechanicalSystem>(mechanical_system.clone())
                     {
                         power_dissipation_map
                             .insert(MechanicalSystem::label(), mechanical_system_value);
                     }
+                    if let Ok(ambient_system_value) =
+                        serialize_robot_property_kind::<AmbientSystem>(ambient_system.clone())
+                    {
+                        power_dissipation_map.insert(AmbientSystem::label(), ambient_system_value);
+                    }
                 }
-                if power_dissipation_value
-                    .as_object()
-                    .is_some_and(|m| !m.is_empty())
-                {
-                    robot
-                        .properties
-                        .insert(PowerDissipation::label(), power_dissipation_value);
+                if !power_dissipation_config.is_empty() {
+                    robot.properties.insert(
+                        PowerDissipation::label(),
+                        Value::Object(power_dissipation_config),
+                    );
                 }
 
                 change_robot_property.write(Change::new(ModelProperty(robot), desc));
@@ -129,6 +141,7 @@ fn insert_slotcar_components(
                 .entity(e)
                 .remove::<DifferentialDrive>()
                 .remove::<Battery>()
+                .remove::<AmbientSystem>()
                 .remove::<MechanicalSystem>();
         }
     }
@@ -306,6 +319,17 @@ impl SlotcarParams {
         self
     }
 
+    fn with_ambient_system(&mut self, ambient_system: &Value) -> &mut Self {
+        if let Some(nominal_power) = ambient_system.get("idle_power").and_then(|p| match p {
+            Value::Number(power) => power.as_f64(),
+            _ => None,
+        }) {
+            self.nominal_power = nominal_power as f32;
+        }
+
+        self
+    }
+
     fn into_xml(&self) -> XmlElement {
         let mut element_map = ElementMap::default();
 
@@ -387,6 +411,9 @@ fn slotcar_export_handler(In(input): In<(Entity, Value)>) -> sdformat_rs::XmlEle
         }
         if let Some(battery_config) = config_map.get(&Battery::label()) {
             slotcar_params.with_battery(battery_config);
+        }
+        if let Some(ambient_sys_config) = config_map.get(&AmbientSystem::label()) {
+            slotcar_params.with_ambient_system(ambient_sys_config);
         }
         if let Some(mech_sys_config) = config_map.get(&MechanicalSystem::label()) {
             slotcar_params.with_mechanical_system(mech_sys_config);

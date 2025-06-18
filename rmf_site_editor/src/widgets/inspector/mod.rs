@@ -241,6 +241,7 @@ impl Plugin for StandardInspectorPlugin {
                     PowerSource,
                     RecallBattery,
                 >::new(),
+                InspectAmbientSystemPlugin::default(),
                 InspectMechanicalSystemPlugin::default(),
                 InspectTaskPlugin::default(),
                 InspectDefaultTasksPlugin::default(),

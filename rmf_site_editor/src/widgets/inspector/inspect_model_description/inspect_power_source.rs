@@ -176,17 +176,6 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectBattery<'w, 's> {
                 );
                 ui.label("A");
                 ui.end_row();
-
-                ui.label("Power").on_hover_text(
-                    "The rated nominal power consumption in Watts for this power system",
-                );
-                ui.add(
-                    DragValue::new(&mut new_battery.power)
-                        .range(0_f32..=std::f32::INFINITY)
-                        .speed(0.01),
-                );
-                ui.label("W");
-                ui.end_row();
             });
         });
 
