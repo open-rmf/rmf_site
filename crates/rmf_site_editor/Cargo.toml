@@ -32,6 +32,7 @@ geo = {workspace = true}
 thiserror = {workspace = true}
 rmf_site_format = { workspace = true, features = ["bevy"] }
 rmf_site_camera = {workspace = true}
+rmf_site_mesh = {workspace = true}
 itertools = {workspace = true}
 bitfield = {workspace = true}
 crossbeam-channel = {workspace = true}

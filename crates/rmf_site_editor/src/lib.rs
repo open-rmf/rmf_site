@@ -35,7 +35,9 @@ pub mod demo_world;
 pub mod log;
 mod recency;
 use recency::*;
-mod shapes;
+// mod shapes;
+use rmf_site_mesh::shapes::*;
+
 use log::LogHistoryPlugin;
 
 pub mod interaction;

@@ -17,7 +17,6 @@
 
 use crate::{
     interaction::ComputedVisualCue,
-    shapes::*,
     site::{Category, LevelElevation, NameOfSite, SiteAssets, LANE_LAYER_START},
 };
 use bevy::{

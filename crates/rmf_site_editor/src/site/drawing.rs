@@ -17,7 +17,6 @@
 
 use crate::{
     interaction::Selectable,
-    shapes::make_flat_rect_mesh,
     site::{
         get_current_workspace_path, Anchor, DefaultFile, FiducialMarker, GlobalDrawingVisibility,
         LayerVisibility, MeasurementMarker, MeasurementSegment, RecencyRank,

@@ -5323,6 +5323,7 @@ dependencies = [
  "rfd",
  "rmf_site_camera",
  "rmf_site_format",
+ "rmf_site_mesh",
  "sdformat_rs",
  "serde",
  "serde_json",
@@ -5371,6 +5372,15 @@ dependencies = [
 [[package]]
 name = "rmf_site_mesh"
 version = "0.1.0"
+dependencies = [
+ "bevy_asset",
+ "bevy_color",
+ "bevy_ecs",
+ "bevy_math",
+ "bevy_mod_outline",
+ "bevy_reflect",
+ "bevy_render",
+]
 
 [[package]]
 name = "robust"

@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{shapes::*, site::*};
+use crate::{site::*};
 use bevy::{
     asset::embedded_asset,
     math::{primitives, Affine3A},

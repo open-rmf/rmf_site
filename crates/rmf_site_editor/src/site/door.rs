@@ -18,7 +18,6 @@
 use crate::{
     interaction::{Hovered, Selectable},
     issue::*,
-    shapes::*,
     site::*,
 };
 use bevy::{

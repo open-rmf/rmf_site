@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{interaction::Selectable, shapes::*, site::*};
+use crate::{interaction::Selectable, site::*};
 use bevy::prelude::*;
 use rmf_site_format::{Edge, WallMarker, DEFAULT_LEVEL_HEIGHT};
 
