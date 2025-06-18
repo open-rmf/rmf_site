@@ -20,8 +20,7 @@ use super::{
     MIN_SCALE,
 };
 use crate::widgets::UserCameraDisplay;
-use bevy::{prelude::*, window::PrimaryWindow};
-use bevy_mod_raycast::immediate::Raycast;
+use bevy::{picking::mesh_picking::ray_cast::MeshRayCast, prelude::*, window::PrimaryWindow};
 
 // Keyboard control limits
 pub const MIN_RESPONSE_TIME: f32 = 0.25; // [s] time taken to reach minimum input, or to reset
@@ -80,28 +79,28 @@ impl KeyboardCommand {
 pub fn update_keyboard_command(
     mut camera_controls: ResMut<CameraControls>,
     mut keyboard_command: ResMut<KeyboardCommand>,
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     cameras: Query<(&Camera, &Projection, &Transform, &GlobalTransform)>,
-    immediate_raycast: Raycast,
+    mesh_ray_cast: MeshRayCast,
     time: Res<Time>,
     primary_windows: Query<&Window, With<PrimaryWindow>>,
     uncovered_window_area: Option<Res<UserCameraDisplay>>,
 ) {
-    if let Ok(_) = primary_windows.get_single() {
+    if let Ok(_) = primary_windows.single() {
         // User inputs
         let is_shifting = keyboard_input.pressed(KeyCode::ShiftLeft)
             || keyboard_input.pressed(KeyCode::ShiftRight);
         let mut target_keyboard_motion = Vec2::ZERO;
-        if keyboard_input.pressed(KeyCode::Up) {
+        if keyboard_input.pressed(KeyCode::ArrowUp) {
             target_keyboard_motion.y += 1.0;
         }
-        if keyboard_input.pressed(KeyCode::Left) {
+        if keyboard_input.pressed(KeyCode::ArrowLeft) {
             target_keyboard_motion.x += -1.0;
         }
-        if keyboard_input.pressed(KeyCode::Down) {
+        if keyboard_input.pressed(KeyCode::ArrowDown) {
             target_keyboard_motion.y += -1.0;
         }
-        if keyboard_input.pressed(KeyCode::Right) {
+        if keyboard_input.pressed(KeyCode::ArrowRight) {
             target_keyboard_motion.x += 1.0;
         }
         if target_keyboard_motion.length() > 0.0 {
@@ -117,7 +116,7 @@ pub fn update_keyboard_command(
         }
 
         // Smooth and normalize keyboard
-        let delta_seconds = time.delta_seconds();
+        let delta_seconds = time.delta_secs();
         let prev_keyboard_motion = keyboard_command.keyboard_motion;
         let keyboard_motion_delta =
             (target_keyboard_motion - prev_keyboard_motion).normalize_or_zero();
@@ -195,7 +194,7 @@ pub fn update_keyboard_command(
                 &camera,
                 &camera_global_transform,
                 uncovered_window_area,
-                immediate_raycast,
+                mesh_ray_cast,
             ),
         };
 

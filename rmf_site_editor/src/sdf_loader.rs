@@ -16,20 +16,20 @@
 */
 
 use bevy::asset::{io::Reader, AssetLoader, LoadContext};
+use bevy::ecs::hierarchy::ChildOf;
 use bevy::prelude::*;
-
-use bevy::utils::BoxedFuture;
-use futures_lite::AsyncReadExt;
 
 use thiserror::Error;
 
 use sdformat_rs::{SdfGeometry, SdfPose, Vector3d};
 
-use crate::site::{CollisionMeshMarker, VisualMeshMarker};
+use crate::site::{CollisionMeshMarker, DifferentialDrive, VisualMeshMarker};
 use rmf_site_format::{
     Angle, AssetSource, Category, IsStatic, Model, ModelMarker, NameInSite, Pose, PrimitiveShape,
     Rotation, Scale,
 };
+
+use std::str::Utf8Error;
 
 pub struct SdfPlugin;
 
@@ -48,6 +48,7 @@ impl Plugin for SdfPlugin {
             .register_type::<VisualMeshMarker>()
             .register_type::<CollisionMeshMarker>()
             .register_type::<Category>()
+            .register_type::<DifferentialDrive>()
             .register_type::<PrimitiveShape>();
     }
 }
@@ -59,19 +60,15 @@ impl AssetLoader for SdfLoader {
     type Asset = bevy::scene::Scene;
     type Settings = ();
     type Error = SdfError;
-    fn load<'a>(
-        &'a self,
-        reader: &'a mut Reader,
-        _settings: &'a (),
-        load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
-        Box::pin(async move {
-            let mut bytes = Vec::new();
-            if let Err(err) = reader.read_to_end(&mut bytes).await {
-                return Err(Self::Error::SdfReadBytesError(err.to_string()));
-            };
-            Ok(load_model(bytes, load_context)?)
-        })
+    async fn load(
+        &self,
+        reader: &mut dyn Reader,
+        _settings: &(),
+        load_context: &mut LoadContext<'_>,
+    ) -> Result<Self::Asset, Self::Error> {
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
+        Ok(load_model(bytes, load_context)?)
     }
 
     fn extensions(&self) -> &[&str] {
@@ -90,10 +87,10 @@ pub enum SdfError {
     MissingModelTag,
     #[error("Failed parsing asset source: {0}")]
     UnsupportedAssetSource(String),
-    #[error("Failed reading bytes from Sdf str : {0}")]
-    SdfReadBytesError(String),
     #[error("Unable to get parent asset path : {0}")]
     GetParentAssetPathError(String),
+    #[error("Invalid UTF-8: {0}")]
+    Utf8Error(#[from] Utf8Error),
 }
 
 /// Combines the path from the SDF that is currently being processed with the path of a mesh
@@ -152,14 +149,11 @@ fn compute_model_source<'a, 'b>(
         // Note that since the current path is the file (i.e. path/subfolder/model.sdf) we need to
         // concatenate to its parent
         let asset_path = load_context.asset_path();
-        let path = match asset_path.parent() {
-            Some(parent_asset_path) => parent_asset_path
-                .resolve(subasset_uri)
-                .or_else(|e| Err(SdfError::UnsupportedAssetSource(e.to_string())))?,
-            None => {
-                return Err(SdfError::GetParentAssetPathError(asset_path.to_string()));
-            }
-        };
+        let path = asset_path
+            .parent()
+            .ok_or_else(|| SdfError::GetParentAssetPathError(asset_path.to_string()))?
+            .resolve(subasset_uri)
+            .or_else(|e| Err(SdfError::UnsupportedAssetSource(e.to_string())))?;
         AssetSource::try_from(path.to_string().as_str()).map_err(SdfError::UnsupportedAssetSource)
     }?;
     Ok(asset_source)
@@ -223,7 +217,7 @@ fn spawn_geometry<'a, 'b>(
                     })
                     .insert(pose)
                     .insert(NameInSite(geometry_name.to_owned()))
-                    .insert(SpatialBundle::INHERITED_IDENTITY)
+                    .insert((Transform::IDENTITY, Visibility::Inherited))
                     .id(),
             )
         }
@@ -235,7 +229,7 @@ fn spawn_geometry<'a, 'b>(
                 })
                 .insert(pose)
                 .insert(NameInSite(geometry_name.to_owned()))
-                .insert(SpatialBundle::INHERITED_IDENTITY)
+                .insert((Transform::IDENTITY, Visibility::Inherited))
                 .id(),
         ),
         SdfGeometry::Cylinder(c) => Some(
@@ -246,7 +240,7 @@ fn spawn_geometry<'a, 'b>(
                 })
                 .insert(pose)
                 .insert(NameInSite(geometry_name.to_owned()))
-                .insert(SpatialBundle::INHERITED_IDENTITY)
+                .insert((Transform::IDENTITY, Visibility::Inherited))
                 .id(),
         ),
         SdfGeometry::Sphere(s) => Some(
@@ -256,7 +250,7 @@ fn spawn_geometry<'a, 'b>(
                 })
                 .insert(pose)
                 .insert(NameInSite(geometry_name.to_owned()))
-                .insert(SpatialBundle::INHERITED_IDENTITY)
+                .insert((Transform::IDENTITY, Visibility::Inherited))
                 .id(),
         ),
         _ => None,
@@ -268,22 +262,21 @@ fn load_model<'a, 'b>(
     bytes: Vec<u8>,
     load_context: &'a mut LoadContext<'b>,
 ) -> Result<bevy::scene::Scene, SdfError> {
-    let sdf_str = match std::str::from_utf8(&bytes) {
-        Ok(sdf_str) => sdf_str,
-        Err(err) => return Err(SdfError::SdfReadBytesError(err.to_string())),
-    };
+    let sdf_str = std::str::from_utf8(&bytes)?;
     let root = sdformat_rs::from_str::<sdformat_rs::SdfRoot>(sdf_str);
     match root {
         Ok(root) => {
             if let Some(model) = root.model {
                 let mut world = World::default();
-                let e = world.spawn(SpatialBundle::INHERITED_IDENTITY).id();
+                let e = world
+                    .spawn((Transform::IDENTITY, Visibility::Inherited))
+                    .id();
                 // TODO(luca) hierarchies and joints, rather than flat link importing
                 // All Open-RMF assets have no hierarchy, for now.
                 for link in &model.link {
                     let link_pose = parse_pose(&link.pose);
                     let link_id = world
-                        .spawn(SpatialBundle::from_transform(link_pose.transform()))
+                        .spawn((link_pose.transform(), Visibility::Inherited))
                         .id();
                     world.entity_mut(e).add_child(link_id);
                     for visual in &link.visual {
@@ -301,7 +294,7 @@ fn load_model<'a, 'b>(
                                     .entity_mut(id)
                                     .insert(VisualMeshMarker)
                                     .insert(Category::Visual)
-                                    .set_parent(link_id);
+                                    .insert(ChildOf(link_id));
                             }
                             None => warn!("Found unhandled geometry type {:?}", &visual.geometry),
                         }
@@ -321,12 +314,53 @@ fn load_model<'a, 'b>(
                                     .entity_mut(id)
                                     .insert(CollisionMeshMarker)
                                     .insert(Category::Collision)
-                                    .set_parent(link_id);
+                                    .insert(ChildOf(link_id));
                             }
                             None => {
                                 warn!("Found unhandled geometry type {:?}", &collision.geometry)
                             }
                         }
+                    }
+                }
+                // Load DifferentialDrive from slotcar plugin
+                for plugin in &model.plugin {
+                    if plugin.name == "slotcar".to_string()
+                        || plugin.filename == "libslotcar.so".to_string()
+                    {
+                        let mut diff_drive = DifferentialDrive::default();
+                        if let Some(reversible) = plugin.elements.get("reversible") {
+                            if let sdformat_rs::ElementData::String(reversible_str) =
+                                &reversible.data
+                            {
+                                diff_drive.bidirectional = if reversible_str == "true" {
+                                    true
+                                } else if reversible_str == "false" {
+                                    false
+                                } else {
+                                    warn!(
+                                        "Found invalid slotcar reversibility data {:?},
+                                        setting DifferentialDrive reversibility to false.",
+                                        reversible_str
+                                    );
+                                    false
+                                };
+                            }
+                        }
+                        if let Some(translational_speed) = plugin
+                            .elements
+                            .get("nominal_drive_speed")
+                            .and_then(|speed| f64::try_from(speed.data.clone()).ok())
+                        {
+                            diff_drive.translational_speed = translational_speed as f32;
+                        }
+                        if let Some(rotational_speed) = plugin
+                            .elements
+                            .get("nominal_turn_speed")
+                            .and_then(|speed| f64::try_from(speed.data.clone()).ok())
+                        {
+                            diff_drive.rotational_speed = rotational_speed as f32;
+                        }
+                        world.entity_mut(e).insert(diff_drive);
                     }
                 }
                 Ok(bevy::scene::Scene::new(world))

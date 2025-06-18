@@ -25,11 +25,40 @@ use crate::{
     Issue,
 };
 use bevy::{
-    ecs::system::{BoxedSystem, SystemParam, SystemState},
+    ecs::{
+        hierarchy::ChildOf,
+        system::{BoxedSystem, SystemId, SystemParam, SystemState},
+    },
     prelude::*,
 };
 use rmf_site_format::{Edge, Path, Point};
 use std::collections::HashSet;
+
+/// There are instances where Bevy panics if an entity that is computed to be
+/// visible is deleted at a stage in the schedule that wasn't anticipated.
+/// To deal with this we defer deleting descendants by placing them in the
+/// trash can and waiting to despawn them during a later stage after any
+/// modifier commands have been flushed.
+#[derive(Resource)]
+pub struct Trashcan(pub Entity);
+
+impl FromWorld for Trashcan {
+    fn from_world(world: &mut World) -> Self {
+        Self(world.spawn_empty().id())
+    }
+}
+
+pub fn clear_trashcan(
+    mut commands: Commands,
+    trashcan: Res<Trashcan>,
+    children: Query<&Children, Changed<Children>>,
+) {
+    if let Ok(children) = children.get(trashcan.0) {
+        for trash in children {
+            commands.entity(*trash).despawn();
+        }
+    }
+}
 
 // TODO(MXG): Use this module to implement the deletion buffer. The role of the
 // deletion buffer will be to preserve deleted entities so that they can be
@@ -85,7 +114,7 @@ struct DeletionParams<'w, 's> {
     edges: Query<'w, 's, &'static Edge<Entity>>,
     points: Query<'w, 's, &'static Point<Entity>>,
     paths: Query<'w, 's, &'static Path<Entity>>,
-    parents: Query<'w, 's, &'static mut Parent>,
+    child_of: Query<'w, 's, &'static ChildOf>,
     dependents: Query<'w, 's, &'static mut Dependents>,
     children: Query<'w, 's, &'static Children>,
     selection: Res<'w, Selection>,
@@ -94,6 +123,7 @@ struct DeletionParams<'w, 's> {
     select: EventWriter<'w, Select>,
     log: EventWriter<'w, Log>,
     issues: Query<'w, 's, (Entity, &'static mut Issue)>,
+    trashcan: Res<'w, Trashcan>,
 }
 
 pub struct DeletionPlugin;
@@ -104,7 +134,7 @@ impl Plugin for DeletionPlugin {
             First,
             (SiteUpdateSet::Deletion, SiteUpdateSet::DeletionFlush).chain(),
         )
-        .add_systems(First, apply_deferred.in_set(SiteUpdateSet::DeletionFlush))
+        .add_systems(First, ApplyDeferred.in_set(SiteUpdateSet::DeletionFlush))
         .add_event::<Delete>()
         .init_resource::<DeletionFilters>()
         .add_systems(
@@ -115,11 +145,11 @@ impl Plugin for DeletionPlugin {
 }
 
 #[derive(Deref, DerefMut)]
-pub struct DeletionBox(pub BoxedSystem<HashSet<Delete>, HashSet<Delete>>);
+pub struct DeletionBox(pub BoxedSystem<In<HashSet<Delete>>, HashSet<Delete>>);
 
 #[derive(Default, Resource)]
 pub struct DeletionFilters {
-    boxed_systems: Vec<DeletionBox>,
+    boxed_systems: Vec<SystemId<In<HashSet<Delete>>, HashSet<Delete>>>,
     pending_insertion: Vec<DeletionBox>,
 }
 
@@ -131,7 +161,9 @@ impl DeletionFilters {
     fn insert_boxes(&mut self, world: &mut World) {
         for mut inserted in self.pending_insertion.drain(..) {
             inserted.initialize(world);
-            self.boxed_systems.push(inserted);
+            let id: SystemId<In<HashSet<Delete>>, HashSet<Delete>> =
+                world.register_boxed_system(inserted.0);
+            self.boxed_systems.push(id);
         }
     }
 
@@ -140,8 +172,11 @@ impl DeletionFilters {
         mut pending_delete: HashSet<Delete>,
         world: &mut World,
     ) -> HashSet<Delete> {
-        for boxed_system in self.boxed_systems.iter_mut() {
-            pending_delete = boxed_system.0.run(pending_delete, world);
+        for system_id in self.boxed_systems.iter() {
+            let old_pending_delete = pending_delete.clone();
+            pending_delete = world
+                .run_system_with(*system_id, pending_delete)
+                .unwrap_or(old_pending_delete);
         }
         pending_delete
     }
@@ -195,7 +230,7 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
     for descendent in &all_descendents {
         if let Ok(prevent) = params.preventions.get(*descendent) {
             if *descendent == element {
-                params.log.send(Log::hint(format!(
+                params.log.write(Log::hint(format!(
                     "Element {:?} cannot be deleted because: {}",
                     element,
                     prevent
@@ -204,7 +239,7 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
                         .unwrap_or(&"<.. no reason given>".to_string()),
                 )));
             } else {
-                params.log.send(Log::hint(format!(
+                params.log.write(Log::hint(format!(
                     "Element {:?} is an ancestor of {:?} which cannot be \
                     deleted because: {}",
                     element,
@@ -222,7 +257,7 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
             for dep in dependents.iter() {
                 if !all_descendents.contains(dep) {
                     if *descendent == element {
-                        params.log.send(Log::hint(format!(
+                        params.log.write(Log::hint(format!(
                             "Cannot delete {:?} because it has {} dependents. \
                             Only elements with no outside dependents can be \
                             deleted.",
@@ -230,7 +265,7 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
                             dependents.len(),
                         )));
                     } else {
-                        params.log.send(Log::hint(format!(
+                        params.log.write(Log::hint(format!(
                             "Element {:?} is an ancestor of {:?} \
                             which cannot be deleted because {:?} depends \
                             on it.",
@@ -267,26 +302,29 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
         }
 
         if **params.selection == Some(e) {
-            params.select.send(Select(None));
+            params.select.write(Select(None));
         }
     }
 
     for (e, mut issue) in &mut params.issues {
         issue.key.entities.remove(&element);
         if issue.key.entities.is_empty() {
-            params.commands.entity(e).despawn_recursive();
+            params.commands.entity(e).despawn();
         }
     }
 
     // Fetch the parent and delete this dependent
     // TODO(luca) should we add this snippet to the recursive delete also?
-    if let Ok(parent) = params.parents.get(element) {
-        if let Ok(mut parent_dependents) = params.dependents.get_mut(**parent) {
+    if let Ok(child_of) = params.child_of.get(element) {
+        if let Ok(mut parent_dependents) = params.dependents.get_mut(child_of.parent()) {
             parent_dependents.remove(&element);
         }
     }
 
-    params.commands.entity(element).despawn_recursive();
+    params
+        .commands
+        .entity(element)
+        .insert(ChildOf(params.trashcan.0));
 }
 
 fn recursive_dependent_delete(element: Entity, params: &mut DeletionParams) {
@@ -296,7 +334,7 @@ fn recursive_dependent_delete(element: Entity, params: &mut DeletionParams) {
     while let Some(top) = queue.pop() {
         if let Ok(prevent) = params.preventions.get(top) {
             if top == element {
-                params.log.send(Log::hint(format!(
+                params.log.write(Log::hint(format!(
                     "Cannot delete {:?} because: {}",
                     element,
                     prevent
@@ -305,7 +343,7 @@ fn recursive_dependent_delete(element: Entity, params: &mut DeletionParams) {
                         .unwrap_or(&"<.. no reason given>".to_string()),
                 )));
             } else {
-                params.log.send(Log::hint(format!(
+                params.log.write(Log::hint(format!(
                     "Cannot delete {:?} because we would need to also delete \
                     {:?} which cannot be deleted because: {}",
                     element,
@@ -377,7 +415,7 @@ fn perform_deletions(all_to_delete: HashSet<Entity>, params: &mut DeletionParams
         }
 
         if **params.selection == Some(e) {
-            params.select.send(Select(None));
+            params.select.write(Select(None));
         }
 
         if **params.current_level == Some(e) {
@@ -399,7 +437,7 @@ fn perform_deletions(all_to_delete: HashSet<Entity>, params: &mut DeletionParams
                 // level because all the existing levels are being deleted.
                 let new_level = params
                     .commands
-                    .spawn(SpatialBundle::default())
+                    .spawn((Transform::default(), Visibility::default()))
                     .insert(LevelProperties {
                         name: NameInSite("<Unnamed>".to_owned()),
                         elevation: LevelElevation(0.0),
@@ -411,7 +449,10 @@ fn perform_deletions(all_to_delete: HashSet<Entity>, params: &mut DeletionParams
             }
         }
 
-        // TODO(MXG): Replace this with a move to the trash bin group.
-        params.commands.entity(e).despawn();
+        params
+            .commands
+            .entity(e)
+            .remove::<Children>()
+            .insert(ChildOf(params.trashcan.0));
     }
 }

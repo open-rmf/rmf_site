@@ -65,7 +65,7 @@ impl FromWorld for ViewMenuItems {
                 "Doors".to_string(),
                 default_visibility.0,
             ))
-            .set_parent(view_header)
+            .insert(ChildOf(view_header))
             .id();
         let default_visibility = world.resource::<CategoryVisibility<FloorMarker>>();
         let floors = world
@@ -73,7 +73,7 @@ impl FromWorld for ViewMenuItems {
                 "Floors".to_string(),
                 default_visibility.0,
             ))
-            .set_parent(view_header)
+            .insert(ChildOf(view_header))
             .id();
         let default_visibility = world.resource::<CategoryVisibility<LaneMarker>>();
         let lanes = world
@@ -81,7 +81,7 @@ impl FromWorld for ViewMenuItems {
                 "Lanes".to_string(),
                 default_visibility.0,
             ))
-            .set_parent(view_header)
+            .insert(ChildOf(view_header))
             .id();
         let default_visibility = world.resource::<CategoryVisibility<LiftCabin<Entity>>>();
         let lifts = world
@@ -89,7 +89,7 @@ impl FromWorld for ViewMenuItems {
                 "Lifts".to_string(),
                 default_visibility.0,
             ))
-            .set_parent(view_header)
+            .insert(ChildOf(view_header))
             .id();
         let default_visibility = world.resource::<CategoryVisibility<LocationTags>>();
         let locations = world
@@ -97,7 +97,7 @@ impl FromWorld for ViewMenuItems {
                 "Locations".to_string(),
                 default_visibility.0,
             ))
-            .set_parent(view_header)
+            .insert(ChildOf(view_header))
             .id();
         let default_visibility = world.resource::<CategoryVisibility<FiducialMarker>>();
         let fiducials = world
@@ -105,7 +105,7 @@ impl FromWorld for ViewMenuItems {
                 "Fiducials".to_string(),
                 default_visibility.0,
             ))
-            .set_parent(view_header)
+            .insert(ChildOf(view_header))
             .id();
         let default_visibility = world.resource::<CategoryVisibility<MeasurementMarker>>();
         let measurements = world
@@ -113,7 +113,7 @@ impl FromWorld for ViewMenuItems {
                 "Measurements".to_string(),
                 default_visibility.0,
             ))
-            .set_parent(view_header)
+            .insert(ChildOf(view_header))
             .id();
         let default_visibility = world.resource::<CategoryVisibility<CollisionMeshMarker>>();
         let collisions = world
@@ -121,7 +121,7 @@ impl FromWorld for ViewMenuItems {
                 "Collision meshes".to_string(),
                 default_visibility.0,
             ))
-            .set_parent(view_header)
+            .insert(ChildOf(view_header))
             .id();
         let default_visibility = world.resource::<CategoryVisibility<VisualMeshMarker>>();
         let visuals = world
@@ -129,7 +129,7 @@ impl FromWorld for ViewMenuItems {
                 "Visual meshes".to_string(),
                 default_visibility.0,
             ))
-            .set_parent(view_header)
+            .insert(ChildOf(view_header))
             .id();
         let default_visibility = world.resource::<CategoryVisibility<WallMarker>>();
         let walls = world
@@ -137,7 +137,7 @@ impl FromWorld for ViewMenuItems {
                 "Walls".to_string(),
                 default_visibility.0,
             ))
-            .set_parent(view_header)
+            .insert(ChildOf(view_header))
             .id();
 
         ViewMenuItems {
@@ -169,27 +169,27 @@ fn handle_view_menu_events(
     };
     for event in menu_events.read() {
         if event.clicked() && event.source() == view_menu.doors {
-            events.doors.send(toggle(event.source()).into());
+            events.doors.write(toggle(event.source()).into());
         } else if event.clicked() && event.source() == view_menu.floors {
-            events.floors.send(toggle(event.source()).into());
+            events.floors.write(toggle(event.source()).into());
         } else if event.clicked() && event.source() == view_menu.lanes {
-            events.lanes.send(toggle(event.source()).into());
+            events.lanes.write(toggle(event.source()).into());
         } else if event.clicked() && event.source() == view_menu.lifts {
             let value = toggle(event.source());
-            events.lift_cabins.send(value.into());
-            events.lift_cabin_doors.send(value.into());
+            events.lift_cabins.write(value.into());
+            events.lift_cabin_doors.write(value.into());
         } else if event.clicked() && event.source() == view_menu.locations {
-            events.locations.send(toggle(event.source()).into());
+            events.locations.write(toggle(event.source()).into());
         } else if event.clicked() && event.source() == view_menu.fiducials {
-            events.fiducials.send(toggle(event.source()).into());
+            events.fiducials.write(toggle(event.source()).into());
         } else if event.clicked() && event.source() == view_menu.measurements {
-            events.measurements.send(toggle(event.source()).into());
+            events.measurements.write(toggle(event.source()).into());
         } else if event.clicked() && event.source() == view_menu.collisions {
-            events.collisions.send(toggle(event.source()).into());
+            events.collisions.write(toggle(event.source()).into());
         } else if event.clicked() && event.source() == view_menu.visuals {
-            events.visuals.send(toggle(event.source()).into());
+            events.visuals.write(toggle(event.source()).into());
         } else if event.clicked() && event.source() == view_menu.walls {
-            events.walls.send(toggle(event.source()).into());
+            events.walls.write(toggle(event.source()).into());
         }
     }
 }

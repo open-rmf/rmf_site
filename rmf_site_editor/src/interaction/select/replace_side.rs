@@ -43,7 +43,7 @@ pub fn spawn_replace_side_service(
         update_current,
         handle_key_code,
         cleanup_state,
-        &mut app.world,
+        app.world_mut(),
     )
 }
 
@@ -87,7 +87,7 @@ impl ReplaceSide {
             // Remove both current dependencies in case both of them change.
             // If either dependency doesn't change then they'll be added back
             // later anyway.
-            commands.add(ChangeDependent::remove(a, self.edge));
+            commands.queue(ChangeDependent::remove(a, self.edge));
         }
 
         if chosen == original.array()[self.side.opposite().index()] {
@@ -103,7 +103,7 @@ impl ReplaceSide {
         }
 
         for a in edge_mut.array() {
-            commands.add(ChangeDependent::add(a, self.edge));
+            commands.queue(ChangeDependent::add(a, self.edge));
         }
 
         Ok(())

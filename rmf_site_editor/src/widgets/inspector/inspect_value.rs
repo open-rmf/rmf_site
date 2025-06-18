@@ -84,7 +84,7 @@ impl<'a, T: Numeric> InspectValue<'a, T> {
             ui.label(self.title);
             let response = ui.add(
                 DragValue::new(&mut new_value)
-                    .clamp_range(self.range)
+                    .range(self.range)
                     .min_decimals(self.min_decimals)
                     .max_decimals_opt(self.max_decimals)
                     .speed(self.speed)

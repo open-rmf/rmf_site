@@ -96,6 +96,9 @@ pub use primitive_shape::*;
 pub mod recall_plugin;
 pub use recall_plugin::RecallPlugin;
 
+pub mod robot_properties;
+pub use robot_properties::*;
+
 pub mod save;
 pub use save::*;
 
@@ -110,6 +113,9 @@ pub use site::*;
 
 pub mod site_visualizer;
 pub use site_visualizer::*;
+
+pub mod slotcar;
+pub use slotcar::*;
 
 pub mod texture;
 pub use texture::*;
@@ -143,10 +149,10 @@ pub enum SiteUpdateSet {
     Deletion,
     /// Force a command flush after deletion
     DeletionFlush,
-    /// Placed between visibility and transform propagation, to avoid one frame delays
-    BetweenVisibilityAndTransform,
+    /// Placed between transform and visibility propagation, to avoid one frame delays
+    BetweenTransformAndVisibility,
     /// Flush the set above
-    BetweenVisibilityAndTransformFlush,
+    BetweenTransformAndVisibilityFlush,
     /// Used to force a command flush after the change plugin's process changes
     ProcessChanges,
     /// Flush the set above
@@ -168,32 +174,34 @@ impl Plugin for SitePlugin {
         )
         .add_systems(
             PreUpdate,
-            apply_deferred.in_set(SiteUpdateSet::ProcessChangesFlush),
+            ApplyDeferred.in_set(SiteUpdateSet::ProcessChangesFlush),
         )
         .configure_sets(
             PostUpdate,
             (
                 SiteUpdateSet::AssignOrphans,
                 SiteUpdateSet::AssignOrphansFlush,
-                VisibilitySystems::VisibilityPropagate,
-                SiteUpdateSet::BetweenVisibilityAndTransform,
-                SiteUpdateSet::BetweenVisibilityAndTransformFlush,
                 TransformSystem::TransformPropagate,
+                SiteUpdateSet::BetweenTransformAndVisibility,
+                SiteUpdateSet::BetweenTransformAndVisibilityFlush,
+                VisibilitySystems::VisibilityPropagate,
             )
                 .chain(),
         )
         .add_systems(
             PostUpdate,
-            apply_deferred.in_set(SiteUpdateSet::BetweenVisibilityAndTransformFlush),
+            ApplyDeferred.in_set(SiteUpdateSet::BetweenTransformAndVisibilityFlush),
         )
         .add_systems(
             PostUpdate,
-            apply_deferred.in_set(SiteUpdateSet::AssignOrphansFlush),
+            ApplyDeferred.in_set(SiteUpdateSet::AssignOrphansFlush),
         )
-        .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
+        .insert_resource(ClearColor(Color::srgb(0., 0., 0.)))
         .init_resource::<SiteAssets>()
         .init_resource::<CurrentLevel>()
         .init_resource::<CurrentScenario>()
+        .init_resource::<ExportHandlers>()
+        .init_resource::<Trashcan>()
         .init_resource::<PhysicalLightToggle>()
         .add_event::<LoadSite>()
         .add_event::<ImportNavGraphs>()
@@ -261,6 +269,7 @@ impl Plugin for SitePlugin {
             ChangePlugin::<ModelProperty<Scale>>::default(),
             ChangePlugin::<ModelProperty<IsStatic>>::default(),
             RecallPlugin::<RecallInstance>::default(),
+            SlotcarSdfPlugin,
         ))
         .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
         .add_issue_type(&DUPLICATED_LIFT_NAME_ISSUE_UUID, "Duplicate lift name")
@@ -299,7 +308,7 @@ impl Plugin for SitePlugin {
         )
         .add_systems(
             Update,
-            (save_site, save_nav_graphs, change_site.before(load_site))
+            (save_site, save_nav_graphs, change_site.after(load_site))
                 .run_if(AppState::in_displaying_mode()),
         )
         .add_systems(
@@ -320,6 +329,7 @@ impl Plugin for SitePlugin {
                 add_tags_to_lift,
                 add_material_for_display_colors,
                 add_physical_lights,
+                clear_trashcan,
             )
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::AssignOrphans),
@@ -336,7 +346,7 @@ impl Plugin for SitePlugin {
                 set_camera_transform_for_changed_site,
             )
                 .run_if(AppState::in_displaying_mode())
-                .in_set(SiteUpdateSet::BetweenVisibilityAndTransform),
+                .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
         )
         .add_systems(
             PostUpdate,
@@ -363,7 +373,7 @@ impl Plugin for SitePlugin {
                 insert_new_instance_modifiers,
             )
                 .run_if(AppState::in_displaying_mode())
-                .in_set(SiteUpdateSet::BetweenVisibilityAndTransform),
+                .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
         )
         .add_systems(
             PostUpdate,
@@ -388,7 +398,7 @@ impl Plugin for SitePlugin {
                 toggle_physical_lights,
             )
                 .run_if(AppState::in_displaying_mode())
-                .in_set(SiteUpdateSet::BetweenVisibilityAndTransform),
+                .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
         )
         .add_systems(
             PostUpdate,
@@ -409,7 +419,7 @@ impl Plugin for SitePlugin {
                 add_physical_camera_visuals,
             )
                 .run_if(AppState::in_displaying_mode())
-                .in_set(SiteUpdateSet::BetweenVisibilityAndTransform),
+                .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
         );
     }
 }

@@ -18,8 +18,8 @@
 use crate::{Categorized, Category, Pose};
 #[cfg(feature = "bevy")]
 use bevy::{
-    ecs::{query::QueryEntityError, system::SystemParam},
-    prelude::{Component, Entity, GlobalTransform, Parent, Query, Transform},
+    ecs::{hierarchy::ChildOf, query::QueryEntityError, system::SystemParam},
+    prelude::{Component, Entity, GlobalTransform, Query, Transform},
 };
 use glam::{Vec2, Vec3};
 use serde::{Deserialize, Serialize};
@@ -178,7 +178,7 @@ impl Anchor {
 #[derive(SystemParam)]
 pub struct AnchorParams<'w, 's> {
     anchors: Query<'w, 's, (&'static Anchor, &'static GlobalTransform)>,
-    parents: Query<'w, 's, &'static Parent>,
+    child_of: Query<'w, 's, &'static ChildOf>,
     global_tfs: Query<'w, 's, &'static GlobalTransform>,
 }
 
@@ -207,8 +207,8 @@ impl<'w, 's> AnchorParams<'w, 's> {
         category: Category,
         in_parent_frame_of: Entity,
     ) -> Result<Vec3, QueryEntityError> {
-        match self.parents.get(in_parent_frame_of) {
-            Ok(parent) => self.relative_point(anchor, category, parent.get()),
+        match self.child_of.get(in_parent_frame_of) {
+            Ok(child_of) => self.relative_point(anchor, category, child_of.parent()),
             Err(_) => self.point(anchor, category),
         }
     }

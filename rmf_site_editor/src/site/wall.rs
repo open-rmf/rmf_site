@@ -16,7 +16,8 @@
 */
 
 use crate::{interaction::Selectable, shapes::*, site::*};
-use bevy::prelude::*;
+use bevy::{ecs::query::QueryEntityError, prelude::*};
+use bevy_mod_outline::GenerateOutlineNormalsError;
 use rmf_site_format::{Edge, WallMarker, DEFAULT_LEVEL_HEIGHT};
 use thiserror::Error;
 
@@ -28,9 +29,9 @@ pub enum MeshCreationError {
     ///
     /// Either it does not have a requested component, or it has a component which the query filters out.
     #[error("Failed getting anchor transform: {0}")]
-    GetAnchorTransformError(String),
+    GetAnchorTransformError(#[from] QueryEntityError),
     #[error("Error when generating normals: {0}")]
-    GenerateOutlineNormalsError(String),
+    GenerateOutlineNormalsError(#[from] GenerateOutlineNormalsError),
 }
 
 fn make_wall(
@@ -40,18 +41,8 @@ fn make_wall(
     anchors: &AnchorParams,
 ) -> Result<Mesh, MeshCreationError> {
     // TODO(luca) map texture rotation to UV coordinates
-    let p_start = match anchors.point_in_parent_frame_of(wall.start(), Category::Wall, entity) {
-        Ok(p_start) => p_start,
-        Err(err) => {
-            return Err(MeshCreationError::GetAnchorTransformError(err.to_string()));
-        }
-    };
-    let p_end = match anchors.point_in_parent_frame_of(wall.end(), Category::Wall, entity) {
-        Ok(p_end) => p_end,
-        Err(err) => {
-            return Err(MeshCreationError::GetAnchorTransformError(err.to_string()));
-        }
-    };
+    let p_start = anchors.point_in_parent_frame_of(wall.start(), Category::Wall, entity)?;
+    let p_end = anchors.point_in_parent_frame_of(wall.end(), Category::Wall, entity)?;
     let (p_start, p_end) = if wall.start() == wall.end() {
         (
             p_start - DEFAULT_WALL_THICKNESS / 2.0 * Vec3::X,
@@ -61,7 +52,7 @@ fn make_wall(
         (p_start, p_end)
     };
 
-    match Mesh::from(make_wall_mesh(
+    Mesh::from(make_wall_mesh(
         p_start,
         p_end,
         DEFAULT_WALL_THICKNESS,
@@ -70,19 +61,14 @@ fn make_wall(
         texture.width,
     ))
     .with_generated_outline_normals()
-    {
-        Ok(mesh) => Ok(mesh),
-        Err(err) => Err(MeshCreationError::GenerateOutlineNormalsError(
-            err.to_string(),
-        )),
-    }
+    .map_err(Into::into)
 }
 
 pub fn add_wall_visual(
     mut commands: Commands,
     walls: Query<(Entity, &Edge<Entity>, &Affiliation<Entity>), Added<WallMarker>>,
     anchors: AnchorParams,
-    textures: Query<(Option<&Handle<Image>>, &Texture)>,
+    textures: Query<(Option<&TextureImage>, &Texture)>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -90,30 +76,33 @@ pub fn add_wall_visual(
     for (e, edge, texture_source) in &walls {
         let (base_color_texture, texture) = from_texture_source(texture_source, &textures);
         let (base_color, alpha_mode) = if let Some(alpha) = texture.alpha.filter(|a| a < &1.0) {
-            (*Color::default().set_a(alpha), AlphaMode::Blend)
+            (Color::default().with_alpha(alpha), AlphaMode::Blend)
         } else {
             (Color::default(), AlphaMode::Opaque)
         };
+        let wall_mesh = match make_wall(e, edge, &texture, &anchors) {
+            Ok(mesh) => mesh,
+            Err(err) => {
+                error!("Error while adding a wall: {err}");
+                continue;
+            }
+        };
+
         commands
             .entity(e)
-            .insert(PbrBundle {
-                mesh: meshes.add(match make_wall(e, edge, &texture, &anchors) {
-                    Ok(mesh) => mesh,
-                    Err(err) => {
-                        error!("Error creating mesh : {:?}", err);
-                        continue;
-                    }
-                }),
-                material: materials.add(StandardMaterial {
+            .insert((
+                Mesh3d(meshes.add(wall_mesh)),
+                MeshMaterial3d(materials.add(StandardMaterial {
                     base_color_texture,
                     base_color,
                     alpha_mode,
                     perceptual_roughness: 0.089,
                     metallic: 0.01,
                     ..default()
-                }),
-                ..default()
-            })
+                })),
+                Transform::default(),
+                Visibility::default(),
+            ))
             .insert(Selectable::new(e))
             .insert(Category::Wall)
             .insert(EdgeLabels::StartEnd);
@@ -127,17 +116,9 @@ pub fn add_wall_visual(
 }
 
 pub fn update_walls_for_moved_anchors(
-    mut walls: Query<
-        (
-            Entity,
-            &Edge<Entity>,
-            &Affiliation<Entity>,
-            &mut Handle<Mesh>,
-        ),
-        With<WallMarker>,
-    >,
+    walls: Query<(Entity, &Edge<Entity>, &Affiliation<Entity>, &Mesh3d), With<WallMarker>>,
     anchors: AnchorParams,
-    textures: Query<(Option<&Handle<Image>>, &Texture)>,
+    textures: Query<(Option<&TextureImage>, &Texture)>,
     changed_anchors: Query<
         &Dependents,
         (
@@ -149,27 +130,30 @@ pub fn update_walls_for_moved_anchors(
 ) {
     for dependents in &changed_anchors {
         for dependent in dependents.iter() {
-            if let Some((e, edge, texture_source, mut mesh)) = walls.get_mut(*dependent).ok() {
+            if let Some((e, edge, texture_source, mesh)) = walls.get(*dependent).ok() {
                 let (_, texture) = from_texture_source(texture_source, &textures);
-                *mesh = meshes.add(match make_wall(e, edge, &texture, &anchors) {
+                let Some(mesh) = meshes.get_mut(&mesh.0) else {
+                    continue;
+                };
+                *mesh = match make_wall(e, edge, &texture, &anchors) {
                     Ok(mesh) => mesh,
                     Err(err) => {
-                        error!("Error creating mesh : {:?}", err);
+                        error!("Error while changing wall anchors: {err}");
                         continue;
                     }
-                });
+                };
             }
         }
     }
 }
 
 pub fn update_walls(
-    mut walls: Query<
+    walls: Query<
         (
             &Edge<Entity>,
             &Affiliation<Entity>,
-            &mut Handle<Mesh>,
-            &Handle<StandardMaterial>,
+            &Mesh3d,
+            &MeshMaterial3d<StandardMaterial>,
         ),
         With<WallMarker>,
     >,
@@ -182,32 +166,35 @@ pub fn update_walls(
     >,
     changed_texture_sources: Query<
         &Members,
-        (With<Group>, Or<(Changed<Handle<Image>>, Changed<Texture>)>),
+        (With<Group>, Or<(Changed<TextureImage>, Changed<Texture>)>),
     >,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     anchors: AnchorParams,
-    textures: Query<(Option<&Handle<Image>>, &Texture)>,
+    textures: Query<(Option<&TextureImage>, &Texture)>,
 ) {
     for e in changed_walls.iter().chain(
         changed_texture_sources
             .iter()
             .flat_map(|members| members.iter().cloned()),
     ) {
-        let Ok((edge, texture_source, mut mesh, material)) = walls.get_mut(e) else {
+        let Ok((edge, texture_source, mesh, material)) = walls.get(e) else {
             continue;
         };
         let (base_color_texture, texture) = from_texture_source(texture_source, &textures);
-        *mesh = meshes.add(match make_wall(e, edge, &texture, &anchors) {
+        let Some(mesh) = meshes.get_mut(&mesh.0) else {
+            continue;
+        };
+        *mesh = match make_wall(e, edge, &texture, &anchors) {
             Ok(mesh) => mesh,
             Err(err) => {
-                error!("Error creating mesh : {:?}", err);
+                error!("Error while creating wall mesh: {err}");
                 continue;
             }
-        });
+        };
         if let Some(material) = materials.get_mut(material) {
             let (base_color, alpha_mode) = if let Some(alpha) = texture.alpha.filter(|a| a < &1.0) {
-                (*Color::default().set_a(alpha), AlphaMode::Blend)
+                (Color::default().with_alpha(alpha), AlphaMode::Blend)
             } else {
                 (Color::default(), AlphaMode::Opaque)
             };

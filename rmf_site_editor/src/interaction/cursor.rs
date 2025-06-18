@@ -20,8 +20,7 @@ use crate::{
     interaction::*,
     site::{AnchorBundle, ModelLoader, Pending, SiteAssets},
 };
-use bevy::{ecs::system::SystemParam, prelude::*, window::PrimaryWindow};
-use bevy_mod_raycast::primitives::{rays::Ray3d, Primitive3d};
+use bevy::{ecs::system::SystemParam, picking::backend::ray::RayMap, prelude::*};
 
 use rmf_site_format::{FloorMarker, ModelInstance, WallMarker};
 use std::collections::HashSet;
@@ -116,7 +115,7 @@ impl Cursor {
 
     pub fn remove_preview(&mut self, commands: &mut Commands) {
         if let Some(current_preview) = self.preview_model.take() {
-            commands.entity(current_preview).despawn_recursive();
+            commands.entity(current_preview).despawn();
         }
     }
 
@@ -164,24 +163,23 @@ impl FromWorld for Cursor {
         let preview_frame_material = site_assets.preview_anchor_material.clone();
 
         let halo = world
-            .spawn(PbrBundle {
-                transform: Transform::from_scale([0.2, 0.2, 1.].into()),
-                mesh: halo_mesh,
-                material: halo_material,
-                visibility: Visibility::Inherited,
-                ..default()
-            })
+            .spawn((
+                Transform::from_scale([0.2, 0.2, 1.].into()),
+                Mesh3d(halo_mesh),
+                MeshMaterial3d(halo_material),
+                Visibility::Inherited,
+            ))
             .insert(Spinning::default())
             .insert(VisualCue::no_outline())
             .id();
 
         let dagger = world
-            .spawn(PbrBundle {
-                mesh: dagger_mesh,
-                material: dagger_material,
-                visibility: Visibility::Inherited,
-                ..default()
-            })
+            .spawn((
+                Mesh3d(dagger_mesh),
+                MeshMaterial3d(dagger_material),
+                Transform::default(),
+                Visibility::Inherited,
+            ))
             .insert(Spinning::default())
             .insert(Bobbing::default())
             .insert(VisualCue::no_outline())
@@ -193,11 +191,12 @@ impl FromWorld for Cursor {
             .insert(Preview)
             .insert(VisualCue::no_outline())
             .with_children(|parent| {
-                parent.spawn(PbrBundle {
-                    mesh: level_anchor_mesh,
-                    material: preview_anchor_material.clone(),
-                    ..default()
-                });
+                parent.spawn((
+                    Mesh3d(level_anchor_mesh),
+                    MeshMaterial3d(preview_anchor_material.clone()),
+                    Transform::default(),
+                    Visibility::default(),
+                ));
             })
             .id();
 
@@ -207,11 +206,12 @@ impl FromWorld for Cursor {
             .insert(Preview)
             .insert(VisualCue::no_outline())
             .with_children(|parent| {
-                parent.spawn(PbrBundle {
-                    mesh: site_anchor_mesh,
-                    material: preview_anchor_material,
-                    ..default()
-                });
+                parent.spawn((
+                    Mesh3d(site_anchor_mesh),
+                    MeshMaterial3d(preview_anchor_material),
+                    Transform::default(),
+                    Visibility::default(),
+                ));
             })
             .id();
 
@@ -221,28 +221,25 @@ impl FromWorld for Cursor {
             .insert(Preview)
             .insert(VisualCue::no_outline())
             .with_children(|parent| {
-                parent.spawn(PbrBundle {
-                    mesh: frame_mesh,
-                    material: preview_frame_material,
-                    transform: Transform::from_scale(Vec3::new(0.2, 0.2, 0.2)),
-                    ..default()
-                });
+                parent.spawn((
+                    Mesh3d(frame_mesh),
+                    MeshMaterial3d(preview_frame_material),
+                    Transform::from_scale(Vec3::new(0.2, 0.2, 0.2)),
+                    Visibility::default(),
+                ));
             })
             .id();
 
         let cursor = world
             .spawn(VisualCue::no_outline())
-            .push_children(&[
+            .add_children(&[
                 halo,
                 dagger,
                 level_anchor_placement,
                 site_anchor_placement,
                 frame_placement,
             ])
-            .insert(SpatialBundle {
-                visibility: Visibility::Hidden,
-                ..default()
-            })
+            .insert((Transform::default(), Visibility::Hidden))
             .id();
 
         Self {
@@ -268,52 +265,41 @@ pub struct Preview;
 
 #[derive(SystemParam)]
 pub struct IntersectGroundPlaneParams<'w, 's> {
-    primary_windows: Query<'w, 's, &'static Window, With<PrimaryWindow>>,
     camera_controls: Res<'w, CameraControls>,
-    cameras: Query<'w, 's, &'static Camera>,
     global_transforms: Query<'w, 's, &'static GlobalTransform>,
-    primary_window: Query<'w, 's, &'static Window, With<PrimaryWindow>>,
+    ray_map: Res<'w, RayMap>,
 }
 
 impl<'w, 's> IntersectGroundPlaneParams<'w, 's> {
     pub fn ground_plane_intersection(&self) -> Option<Transform> {
-        let ground_plane = Primitive3d::Plane {
-            point: Vec3::ZERO,
-            normal: Vec3::Z,
-        };
-        self.primitive_intersection(ground_plane)
+        self.plane_intersection(Vec3::ZERO, InfinitePlane3d { normal: Dir3::Z })
     }
 
     pub fn frame_plane_intersection(&self, frame: Entity) -> Option<Transform> {
         let tf = self.global_transforms.get(frame).ok()?;
         let affine = tf.affine();
         let point = affine.translation.into();
-        let normal = affine.matrix3.col(2).into();
-        self.primitive_intersection(Primitive3d::Plane { point, normal })
+        let normal = Dir3::new(affine.matrix3.col(2).into()).ok()?;
+        self.plane_intersection(point, InfinitePlane3d { normal })
     }
 
-    pub fn primitive_intersection(&self, primitive: Primitive3d) -> Option<Transform> {
-        let window = self.primary_windows.get_single().ok()?;
-        let cursor_position = window.cursor_position()?;
+    pub fn plane_intersection(
+        &self,
+        plane_origin: Vec3,
+        plane: InfinitePlane3d,
+    ) -> Option<Transform> {
         let e_active_camera = self.camera_controls.active_camera();
-        let active_camera = self.cameras.get(e_active_camera).ok()?;
-        let camera_tf = self.global_transforms.get(e_active_camera).ok()?;
-        let primary_window = self.primary_window.get_single().ok()?;
-        let ray =
-            Ray3d::from_screenspace(cursor_position, active_camera, camera_tf, primary_window)?;
 
-        let n = *match &primitive {
-            Primitive3d::Plane { normal, .. } => normal,
-            _ => {
-                warn!("Unsupported primitive type found");
-                return None;
-            }
-        };
+        let (_, ray) = self
+            .ray_map
+            .iter()
+            .find(|(id, _)| id.camera == e_active_camera && id.pointer.is_mouse())?;
+
         let p = ray
-            .intersects_primitive(primitive)
-            .map(|intersection| intersection.position())?;
+            .intersect_plane(plane_origin, plane)
+            .map(|distance| ray.get_point(distance))?;
 
-        Some(Transform::from_translation(p).with_rotation(aligned_z_axis(n)))
+        Some(Transform::from_translation(p).with_rotation(aligned_z_axis(*plane.normal)))
     }
 }
 

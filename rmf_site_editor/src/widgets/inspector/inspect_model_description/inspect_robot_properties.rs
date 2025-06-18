@@ -15,27 +15,26 @@
  *
 */
 
-use super::{get_selected_description_entity, ModelDescriptionInspector, ModelPropertyQuery};
+use super::*;
 use crate::{
     site::{
-        recall_plugin::UpdateRecallSet, update_model_instances, Change, ChangePlugin, Group,
-        IssueKey, ModelMarker, ModelProperty, NameInSite, Recall, RecallPlugin, Robot,
-        SiteUpdateSet,
+        recall_plugin::UpdateRecallSet, robot_properties::*, update_model_instances, Change,
+        ChangePlugin, Group, IssueKey, ModelMarker, ModelProperty, ModelPropertyQuery, NameInSite,
+        Recall, RecallPlugin, Robot, SiteUpdateSet,
     },
-    widgets::{prelude::*, Inspect},
+    widgets::Inspect,
     AppState, Issue, ModelPropertyData, ValidateWorkspace,
 };
 use bevy::{
-    ecs::system::SystemParam,
-    prelude::{Component, *},
-    utils::Uuid,
+    ecs::{component::Mutable, hierarchy::ChildOf, system::SystemParam},
+    prelude::Component,
 };
 use bevy_egui::egui::{ComboBox, Ui};
-use serde::{de::DeserializeOwned, Serialize};
-use serde_json::{Error, Map, Value};
+use rmf_site_format::robot_properties::*;
+use serde_json::{Error, Value};
 use smallvec::SmallVec;
 use std::collections::HashMap;
-use std::fmt::Debug;
+use uuid::Uuid;
 
 type InsertDefaultValueFn = fn() -> Result<Value, Error>;
 
@@ -65,16 +64,16 @@ impl Plugin for InspectRobotPropertiesPlugin {
     fn build(&self, app: &mut App) {
         // Allows us to toggle Robot as a configurable property
         // from the model description inspector
-        app.world.init_component::<ModelProperty<Robot>>();
+        app.world_mut().register_component::<ModelProperty<Robot>>();
         let component_id = app
-            .world
+            .world()
             .components()
             .component_id::<ModelProperty<Robot>>()
             .unwrap();
         app.add_plugins(ChangePlugin::<ModelProperty<Robot>>::default())
             .add_systems(PreUpdate, update_model_instances::<Robot>)
             .init_resource::<ModelPropertyData>()
-            .world
+            .world_mut()
             .resource_mut::<ModelPropertyData>()
             .optional
             .insert(
@@ -89,11 +88,17 @@ impl Plugin for InspectRobotPropertiesPlugin {
                     },
                 ),
             );
-        let inspector = app.world.resource::<ModelDescriptionInspector>().id;
-        let widget = Widget::<Inspect>::new::<InspectRobotProperties>(&mut app.world);
-        let id = app.world.spawn(widget).set_parent(inspector).id();
-        app.world.insert_resource(RobotPropertiesInspector { id });
-        app.world.init_resource::<RobotPropertyWidgetRegistry>();
+        let inspector = app.world().resource::<ModelDescriptionInspector>().id;
+        let widget = Widget::<Inspect>::new::<InspectRobotProperties>(app.world_mut());
+        let id = app
+            .world_mut()
+            .spawn(widget)
+            .insert(ChildOf(inspector))
+            .id();
+        app.world_mut()
+            .insert_resource(RobotPropertiesInspector { id });
+        app.world_mut()
+            .init_resource::<RobotPropertyWidgetRegistry>();
         app.add_event::<UpdateRobotPropertyKinds>().add_systems(
             PreUpdate,
             check_for_missing_robot_property_kinds
@@ -152,7 +157,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectRobotProperties<'w, 's> {
         let children: Result<SmallVec<[_; 16]>, _> = params
             .children
             .get(params.inspect_robot_properties.id)
-            .map(|children| children.iter().copied().collect());
+            .map(|children| children.iter().collect());
         let Ok(children) = children else {
             return;
         };
@@ -172,36 +177,13 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectRobotProperties<'w, 's> {
     }
 }
 
-pub trait RobotProperty:
-    'static + Send + Sync + Default + Clone + Component + PartialEq + Serialize + DeserializeOwned
-{
-    fn new(kind: String, config: serde_json::Value) -> Self;
-
-    fn is_default(&self) -> bool;
-
-    fn kind(&self) -> Option<String>;
-
-    fn label() -> String;
-}
-
-pub trait RobotPropertyKind:
-    'static + Send + Sync + Default + Clone + Component + PartialEq + Serialize + DeserializeOwned
-{
-    fn label() -> String;
-}
-
-pub trait RecallPropertyKind: Recall + Default + Component {
-    type Kind: RobotPropertyKind;
-    fn assume(&self) -> Self::Kind;
-}
-
 /// Implement this plugin to add a new configurable robot property of type T to the
 /// robot properties inspector.
 pub struct InspectRobotPropertyPlugin<W, Property, RecallProperty>
 where
     W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
     Property: RobotProperty,
-    RecallProperty: Recall + Component + Default,
+    RecallProperty: Recall + Component<Mutability = Mutable> + Default,
     RecallProperty::Source: RobotProperty,
 {
     _ignore: std::marker::PhantomData<(W, Property, RecallProperty)>,
@@ -211,7 +193,7 @@ impl<W, Property, RecallProperty> InspectRobotPropertyPlugin<W, Property, Recall
 where
     W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
     Property: RobotProperty,
-    RecallProperty: Recall + Component + Default,
+    RecallProperty: Recall + Component<Mutability = Mutable> + Default,
     RecallProperty::Source: RobotProperty,
 {
     pub fn new() -> Self {
@@ -225,14 +207,18 @@ impl<W, Property, RecallProperty> Plugin for InspectRobotPropertyPlugin<W, Prope
 where
     W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
     Property: RobotProperty,
-    RecallProperty: Recall + Component + Default,
+    RecallProperty: Recall + Component<Mutability = Mutable> + Default,
     RecallProperty::Source: RobotProperty,
 {
     fn build(&self, app: &mut App) {
-        let inspector = app.world.resource::<RobotPropertiesInspector>().id;
-        let widget = Widget::<Inspect>::new::<W>(&mut app.world);
-        let id = app.world.spawn(widget).set_parent(inspector).id();
-        app.world
+        let inspector = app.world().resource::<RobotPropertiesInspector>().id;
+        let widget = Widget::<Inspect>::new::<W>(app.world_mut());
+        let id = app
+            .world_mut()
+            .spawn(widget)
+            .insert(ChildOf(inspector))
+            .id();
+        app.world_mut()
             .resource_mut::<RobotPropertyWidgetRegistry>()
             .0
             .insert(
@@ -284,13 +270,13 @@ where
     W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
     Kind: RobotPropertyKind,
     Property: RobotProperty,
-    RecallKind: RecallPropertyKind,
+    RecallKind: RecallPropertyKind<Kind = Kind>,
     RecallKind::Source: RobotPropertyKind,
 {
     fn build(&self, app: &mut App) {
         let property_label = Property::label();
         let Some(inspector) = app
-            .world
+            .world()
             .resource::<RobotPropertyWidgetRegistry>()
             .0
             .get(&property_label)
@@ -298,9 +284,9 @@ where
         else {
             return;
         };
-        let widget = Widget::<Inspect>::new::<W>(&mut app.world);
-        app.world.spawn(widget).set_parent(inspector);
-        app.world
+        let widget = Widget::<Inspect>::new::<W>(app.world_mut());
+        app.world_mut().spawn(widget).insert(ChildOf(inspector));
+        app.world_mut()
             .resource_mut::<RobotPropertyWidgetRegistry>()
             .0
             .get_mut(&property_label)
@@ -317,111 +303,6 @@ where
             update_robot_property_kind_components::<Kind, Property, RecallKind>,
         )
         .add_plugins(RecallPlugin::<RecallKind>::default());
-    }
-}
-
-#[derive(Debug, Event)]
-pub struct UpdateRobotPropertyKinds {
-    pub entity: Entity,
-    pub label: String,
-    pub value: serde_json::Value,
-}
-
-/// This system monitors changes to ModelProperty<Robot> and inserts robot property components
-/// to the model descriptions
-pub fn update_robot_property_components<T: RobotProperty>(
-    mut commands: Commands,
-    model_properties: Query<(Entity, Ref<ModelProperty<Robot>>), (With<ModelMarker>, With<Group>)>,
-    mut removals: RemovedComponents<ModelProperty<Robot>>,
-    mut update_robot_property_kinds: EventWriter<UpdateRobotPropertyKinds>,
-) {
-    let property_label = T::label();
-
-    // Remove Robot property entirely
-    for description_entity in removals.read() {
-        commands.entity(description_entity).remove::<T>();
-        update_robot_property_kinds.send(UpdateRobotPropertyKinds {
-            entity: description_entity,
-            label: property_label.clone(),
-            value: serde_json::Value::Object(Map::new()),
-        });
-    }
-
-    for (entity, robot) in model_properties.iter() {
-        if robot.is_changed() {
-            let mut value = serde_json::Value::Object(Map::new());
-            // Update robot property
-            match robot.0.properties.get(&property_label) {
-                Some(property_value) => {
-                    if property_value.as_object().is_none_or(|m| m.is_empty()) {
-                        commands.entity(entity).insert(T::default());
-                    } else if let Ok(property) = serde_json::from_value::<T>(property_value.clone())
-                    {
-                        commands.entity(entity).insert(property.clone());
-                        value = property_value.clone();
-                    } else {
-                        continue;
-                    }
-                }
-                None => {
-                    commands.entity(entity).remove::<T>();
-                }
-            }
-            // Update robot property kinds
-            update_robot_property_kinds.send(UpdateRobotPropertyKinds {
-                entity,
-                label: property_label.clone(),
-                value,
-            });
-        }
-    }
-}
-
-/// This system inserts or removes robot property kind components when a robot property is updated
-pub fn update_robot_property_kind_components<
-    Kind: RobotPropertyKind,
-    Property: RobotProperty,
-    RecallKind: RecallPropertyKind,
->(
-    mut commands: Commands,
-    mut update_robot_property_kinds: EventReader<UpdateRobotPropertyKinds>,
-    recall_kind: Query<&RecallKind, (With<ModelMarker>, With<Group>)>,
-) {
-    for update in update_robot_property_kinds.read() {
-        let property_label = Property::label();
-        let property_kind_label = Kind::label();
-        if update.label != property_label {
-            continue;
-        }
-
-        if let Some(property) = update.value.as_object() {
-            if property
-                .get("kind")
-                .and_then(|k| k.as_str())
-                .is_some_and(|label| label == property_kind_label.as_str())
-            {
-                match property
-                    .get("config")
-                    .and_then(|config| serde_json::from_value::<Kind>(config.clone()).ok())
-                {
-                    Some(property_kind) => {
-                        if property_kind == Kind::default()
-                            && recall_kind.get(update.entity).is_ok()
-                        {
-                            let recall = recall_kind.get(update.entity).unwrap();
-                            commands.entity(update.entity).insert(recall.assume());
-                        } else {
-                            commands.entity(update.entity).insert(property_kind);
-                        }
-                    }
-                    None => {
-                        commands.entity(update.entity).insert(Kind::default());
-                    }
-                }
-                continue;
-            }
-        }
-        commands.entity(update.entity).remove::<Kind>();
     }
 }
 
@@ -476,7 +357,7 @@ pub fn show_robot_property_widget<T: RobotProperty>(
             ui.indent("configure_".to_owned() + &property_label, |ui| {
                 ui.horizontal(|ui| {
                     ui.label(property_label.to_owned() + " Kind");
-                    ComboBox::from_id_source("select_".to_owned() + &property_label + "_kind")
+                    ComboBox::from_id_salt("select_".to_owned() + &property_label + "_kind")
                         .selected_text(selected_property_kind)
                         .show_ui(ui, |ui| {
                             for (kind, kind_registration) in widget_registration.kinds.iter() {
@@ -508,27 +389,7 @@ pub fn show_robot_property_widget<T: RobotProperty>(
             }
         }
     }
-    change_robot_property.send(Change::new(ModelProperty(new_robot), description_entity));
-}
-
-/// This system updates ModelProperty<Robot> based on updates to the property components
-pub fn serialize_and_change_robot_property<Property: RobotProperty, Kind: RobotPropertyKind>(
-    mut change_robot_property: EventWriter<Change<ModelProperty<Robot>>>,
-    property_kind: Kind,
-    robot: &Robot,
-    description_entity: Entity,
-) {
-    if let Ok(new_property) =
-        serde_json::to_value(property_kind).map(|val| Property::new(Kind::label(), val))
-    {
-        if let Ok(new_property_value) = serde_json::to_value(new_property) {
-            let mut new_robot = robot.clone();
-            new_robot
-                .properties
-                .insert(Property::label(), new_property_value);
-            change_robot_property.send(Change::new(ModelProperty(new_robot), description_entity));
-        }
-    }
+    change_robot_property.write(Change::new(ModelProperty(new_robot), description_entity));
 }
 
 /// Unique UUID to identify issue of missing robot property kind

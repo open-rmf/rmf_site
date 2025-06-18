@@ -45,7 +45,7 @@ pub fn spawn_create_path_service(
         update_current,
         handle_key_code,
         cleanup_state,
-        &mut app.world,
+        app.world_mut(),
     )
 }
 
@@ -113,10 +113,10 @@ impl CreatePath {
         let previous = *last;
         *last = chosen;
         if !path_mut.0.contains(&previous) {
-            commands.add(ChangeDependent::remove(previous, path));
+            commands.queue(ChangeDependent::remove(previous, path));
         }
 
-        commands.add(ChangeDependent::add(chosen, path));
+        commands.queue(ChangeDependent::add(chosen, path));
         Ok(())
     }
 }
@@ -149,7 +149,7 @@ pub fn create_path_setup(
     if state.path.is_none() {
         let path = Path(vec![cursor.level_anchor_placement]);
         let path = (state.spawn_path)(path, &mut commands);
-        commands.add(ChangeDependent::add(cursor.level_anchor_placement, path));
+        commands.queue(ChangeDependent::add(cursor.level_anchor_placement, path));
         state.path = Some(path);
     }
 
@@ -237,7 +237,7 @@ pub fn on_select_for_create_path(
     }
 
     path_mut.0.push(cursor.level_anchor_placement);
-    commands.add(ChangeDependent::add(cursor.level_anchor_placement, path));
+    commands.queue(ChangeDependent::add(cursor.level_anchor_placement, path));
 
     Ok(())
 }
@@ -268,19 +268,16 @@ pub fn cleanup_create_path(
         // We did not collect enough points for the path so we should despawn it
         // as well as any provisional points it contains.
         for a in &path_mut.0 {
-            commands.add(ChangeDependent::remove(*a, path));
+            commands.queue(ChangeDependent::remove(*a, path));
         }
 
         for a in state.provisional_anchors {
-            if let Some(a_mut) = commands.get_entity(a) {
-                a_mut.despawn_recursive();
+            if let Ok(mut a_mut) = commands.get_entity(a) {
+                a_mut.despawn();
             }
         }
 
-        commands
-            .get_entity(path)
-            .or_broken_query()?
-            .despawn_recursive();
+        commands.get_entity(path).or_broken_query()?.despawn();
     } else {
         if let Some(a) = path_mut.0.last() {
             // The last point in the path is always a preview point so we need
@@ -290,17 +287,14 @@ pub fn cleanup_create_path(
             if !path_mut.contains(&a) {
                 // Remove the dependency on the last point since it no longer
                 // exists in the path
-                commands.add(ChangeDependent::remove(a, path));
+                commands.queue(ChangeDependent::remove(a, path));
             }
         }
 
         if path_mut.0.is_empty() {
             // The path is empty... we shouldn't keep an empty path so let's
             // just despawn it.
-            commands
-                .get_entity(path)
-                .or_broken_query()?
-                .despawn_recursive();
+            commands.get_entity(path).or_broken_query()?.despawn();
         }
     }
 

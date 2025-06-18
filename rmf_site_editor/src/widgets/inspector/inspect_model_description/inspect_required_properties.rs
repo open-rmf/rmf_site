@@ -15,11 +15,11 @@
  *
 */
 
-use super::{get_selected_description_entity, ModelPropertyQuery};
+use super::get_selected_description_entity;
 use crate::{
     site::{
         AssetSource, Change, DefaultFile, Group, ModelLoader, ModelMarker, ModelProperty,
-        RecallAssetSource, Scale,
+        ModelPropertyQuery, RecallAssetSource, Scale,
     },
     widgets::{prelude::*, Inspect, InspectAssetSourceComponent, InspectScaleComponent},
     CurrentWorkspace,
@@ -56,7 +56,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelScale<'w, 's> {
         if let Some(new_scale) = InspectScaleComponent::new(scale).show(ui) {
             params
                 .change_scale
-                .send(Change::new(ModelProperty(new_scale), description_entity));
+                .write(Change::new(ModelProperty(new_scale), description_entity));
         }
     }
 }
@@ -103,7 +103,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelAssetSource<'w, 's> {
                 .show(ui)
         {
             // TODO(@xiyuoh) look into removing Change for description asset source updates
-            params.change_asset_source.send(Change::new(
+            params.change_asset_source.write(Change::new(
                 ModelProperty(new_source.clone()),
                 description_entity,
             ));

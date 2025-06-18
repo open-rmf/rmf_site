@@ -15,17 +15,21 @@
  *
 */
 
-use bevy::math::Affine3A;
+use bevy::math::{primitives, Affine3A};
 use bevy::{
+    math::primitives::BoxedPolyline3d,
     prelude::*,
     render::{
         mesh::{Indices, PrimitiveTopology, VertexAttributeValues},
         primitives::Aabb,
+        render_asset::RenderAssetUsages,
     },
 };
 use bevy_mod_outline::ATTRIBUTE_OUTLINE_NORMAL;
-use bevy_mod_outline::{GenerateOutlineNormalsError, OutlineMeshExt};
-use bevy_polyline::{material::PolylineMaterial, polyline::Polyline};
+use bevy_mod_outline::{
+    GenerateOutlineNormalsError, GenerateOutlineNormalsSettings, OutlineMeshExt,
+};
+// use bevy_polyline::{material::PolylineMaterial, polyline::Polyline};
 use rmf_site_format::Angle;
 use std::collections::{BTreeMap, HashMap};
 
@@ -35,8 +39,52 @@ pub(crate) trait WithOutlineMeshExt: Sized {
 
 impl WithOutlineMeshExt for Mesh {
     fn with_generated_outline_normals(mut self) -> Result<Self, GenerateOutlineNormalsError> {
-        self.generate_outline_normals()?;
+        self.generate_outline_normals(&GenerateOutlineNormalsSettings::default())?;
         Ok(self)
+    }
+}
+
+// TODO(@xiyuoh) Temp only: ported from bevy_polyline, use GizmoConfig to instead
+#[derive(Asset, Debug, PartialEq, Clone, Copy, TypePath)]
+pub struct PolylineMaterial {
+    /// Width of the line.
+    ///
+    /// Corresponds to screen pixels when line is positioned nearest the
+    /// camera.
+    pub width: f32,
+    pub color: LinearRgba,
+    /// How closer to the camera than real geometry the line should be.
+    ///
+    /// Value between -1 and 1 (inclusive).
+    /// * 0 means that there is no change to the line position when rendering
+    /// * 1 means it is furthest away from camera as possible
+    /// * -1 means that it will always render in front of other things.
+    ///
+    /// This is typically useful if you are drawing wireframes on top of polygons
+    /// and your wireframe is z-fighting (flickering on/off) with your main model.
+    /// You would set this value to a negative number close to 0.0.
+    pub depth_bias: f32,
+    /// Whether to reduce line width with perspective.
+    ///
+    /// When `perspective` is `true`, `width` corresponds to screen pixels at
+    /// the near plane and becomes progressively smaller further away. This is done
+    /// by dividing `width` by the w component of the homogeneous coordinate.
+    ///
+    /// If the width where to be lower than 1, the color of the line is faded. This
+    /// prevents flickering.
+    ///
+    /// Note that `depth_bias` **does not** interact with this in any way.
+    pub perspective: bool,
+}
+
+impl Default for PolylineMaterial {
+    fn default() -> Self {
+        Self {
+            width: 10.0,
+            color: Color::WHITE.to_linear(),
+            depth_bias: 0.0,
+            perspective: false,
+        }
     }
 }
 
@@ -136,24 +184,24 @@ impl MeshBuffer {
                     if let Some(Indices::U32(indices)) = mesh.indices_mut() {
                         indices.extend(self.indices.into_iter().map(|i| i + offset as u32));
                     } else {
-                        mesh.set_indices(Some(Indices::U32(
+                        mesh.insert_indices(Indices::U32(
                             self.indices
                                 .into_iter()
                                 .map(|i| i + offset as u32)
                                 .collect(),
-                        )));
+                        ));
                     }
                 }
                 PrimitiveTopology::LineList => {
                     if let Some(Indices::U32(indices)) = mesh.indices_mut() {
                         indices.extend(self.outline.into_iter().map(|i| i + offset as u32));
                     } else {
-                        mesh.set_indices(Some(Indices::U32(
+                        mesh.insert_indices(Indices::U32(
                             self.outline
                                 .into_iter()
                                 .map(|i| i + offset as u32)
                                 .collect(),
-                        )));
+                        ));
                     }
                 }
                 other => {
@@ -219,10 +267,10 @@ impl MeshBuffer {
 
             match mesh.primitive_topology() {
                 PrimitiveTopology::TriangleList => {
-                    mesh.set_indices(Some(Indices::U32(self.indices)));
+                    mesh.insert_indices(Indices::U32(self.indices));
                 }
                 PrimitiveTopology::LineList => {
-                    mesh.set_indices(Some(Indices::U32(self.outline)));
+                    mesh.insert_indices(Indices::U32(self.outline));
                 }
                 other => {
                     panic!(
@@ -235,8 +283,8 @@ impl MeshBuffer {
     }
 
     pub(crate) fn into_outline(self) -> Mesh {
-        let mut mesh = Mesh::new(PrimitiveTopology::LineList);
-        mesh.set_indices(Some(Indices::U32(self.outline)));
+        let mut mesh = Mesh::new(PrimitiveTopology::LineList, RenderAssetUsages::default());
+        mesh.insert_indices(Indices::U32(self.outline));
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, self.positions);
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, self.normals);
         mesh
@@ -250,8 +298,11 @@ impl MeshBuffer {
 
 impl From<MeshBuffer> for Mesh {
     fn from(buffer: MeshBuffer) -> Self {
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-        mesh.set_indices(Some(Indices::U32(buffer.indices)));
+        let mut mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        );
+        mesh.insert_indices(Indices::U32(buffer.indices));
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, buffer.positions);
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, buffer.normals);
         if let Some(uv) = buffer.uv {
@@ -262,26 +313,26 @@ impl From<MeshBuffer> for Mesh {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct Circle {
+pub struct OffsetCircle {
     pub radius: f32,
     pub height: f32,
 }
 
-impl Circle {
+impl OffsetCircle {
     fn flip_height(mut self) -> Self {
         self.height = -self.height;
         self
     }
 }
 
-impl From<(f32, f32)> for Circle {
+impl From<(f32, f32)> for OffsetCircle {
     fn from((radius, height): (f32, f32)) -> Self {
         Self { radius, height }
     }
 }
 
 pub(crate) fn make_circles(
-    circles: impl IntoIterator<Item = Circle>,
+    circles: impl IntoIterator<Item = OffsetCircle>,
     resolution: u32,
     gap: f32,
 ) -> impl Iterator<Item = [f32; 3]> {
@@ -299,7 +350,7 @@ pub(crate) fn make_circles(
         });
 }
 
-pub(crate) fn make_boxy_wrap(circles: [Circle; 2], segments: u32) -> MeshBuffer {
+pub(crate) fn make_boxy_wrap(circles: [OffsetCircle; 2], segments: u32) -> MeshBuffer {
     let (bottom_circle, top_circle) = if circles[0].height < circles[1].height {
         (circles[0], circles[1])
     } else {
@@ -347,7 +398,7 @@ pub(crate) fn make_boxy_wrap(circles: [Circle; 2], segments: u32) -> MeshBuffer 
     return MeshBuffer::new(positions, normals, indices);
 }
 
-pub(crate) fn make_smooth_wrap(circles: [Circle; 2], resolution: u32) -> MeshBuffer {
+pub(crate) fn make_smooth_wrap(circles: [OffsetCircle; 2], resolution: u32) -> MeshBuffer {
     let (bottom_circle, top_circle) = if circles[0].height < circles[1].height {
         (circles[0], circles[1])
     } else {
@@ -383,7 +434,7 @@ pub(crate) fn make_smooth_wrap(circles: [Circle; 2], resolution: u32) -> MeshBuf
     return MeshBuffer::new(positions, normals, indices);
 }
 
-pub(crate) fn make_pyramid(circle: Circle, peak: [f32; 3], segments: u32) -> MeshBuffer {
+pub(crate) fn make_pyramid(circle: OffsetCircle, peak: [f32; 3], segments: u32) -> MeshBuffer {
     let positions: Vec<[f32; 3]> = make_circles([circle, circle], segments + 1, 0.)
         .chain([peak].into_iter().cycle().take(segments as usize))
         .collect();
@@ -422,7 +473,7 @@ pub(crate) fn make_pyramid(circle: Circle, peak: [f32; 3], segments: u32) -> Mes
     return MeshBuffer::new(positions, normals, indices);
 }
 
-pub(crate) fn make_cone(circle: Circle, peak: [f32; 3], resolution: u32) -> MeshBuffer {
+pub(crate) fn make_cone(circle: OffsetCircle, peak: [f32; 3], resolution: u32) -> MeshBuffer {
     let positions: Vec<[f32; 3]> = make_circles([circle], resolution + 1, 0.)
         .take(resolution as usize) // skip the last vertex which would close the circle
         .chain([peak].into_iter().cycle().take(resolution as usize))
@@ -571,7 +622,7 @@ pub(crate) fn make_wall_mesh(
         )
 }
 
-pub(crate) fn make_top_circle(circle: Circle, resolution: u32) -> MeshBuffer {
+pub(crate) fn make_top_circle(circle: OffsetCircle, resolution: u32) -> MeshBuffer {
     let positions: Vec<[f32; 3]> = make_circles([circle], resolution, 0.)
         .take(resolution as usize) // skip the vertex which would close the circle
         .chain([[0., 0., circle.height]].into_iter())
@@ -593,7 +644,7 @@ pub(crate) fn make_top_circle(circle: Circle, resolution: u32) -> MeshBuffer {
     return MeshBuffer::new(positions, normals, indices);
 }
 
-pub(crate) fn make_bottom_circle(circle: Circle, resolution: u32) -> MeshBuffer {
+pub(crate) fn make_bottom_circle(circle: OffsetCircle, resolution: u32) -> MeshBuffer {
     let positions: Vec<[f32; 3]> = make_circles([circle], resolution, 0.)
         .take(resolution as usize) // skip the vertex which would close the circle
         .chain([[0., 0., circle.height]].into_iter())
@@ -615,23 +666,26 @@ pub(crate) fn make_bottom_circle(circle: Circle, resolution: u32) -> MeshBuffer 
     return MeshBuffer::new(positions, normals, indices);
 }
 
-pub(crate) fn make_flat_disk(circle: Circle, resolution: u32) -> MeshBuffer {
+pub(crate) fn make_flat_disk(circle: OffsetCircle, resolution: u32) -> MeshBuffer {
     make_top_circle(circle, resolution).merge_with(make_bottom_circle(circle, resolution))
 }
 
 pub(crate) fn make_dagger_mesh() -> Mesh {
-    let lower_ring = Circle {
+    let lower_ring = OffsetCircle {
         radius: 0.01,
         height: 0.1,
     };
-    let upper_ring = Circle {
+    let upper_ring = OffsetCircle {
         radius: 0.02,
         height: 0.4,
     };
     let top_height = 0.42;
     let segments = 4u32;
 
-    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+    let mut mesh = Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::default(),
+    );
     make_boxy_wrap([lower_ring, upper_ring], segments).merge_into(&mut mesh);
     make_pyramid(upper_ring, [0., 0., top_height], segments).merge_into(&mut mesh);
     make_pyramid(lower_ring.flip_height(), [0., 0., 0.], segments)
@@ -643,15 +697,15 @@ pub(crate) fn make_dagger_mesh() -> Mesh {
 }
 
 pub(crate) fn make_cylinder(height: f32, radius: f32) -> MeshBuffer {
-    let top_circle = Circle {
+    let top_circle = OffsetCircle {
         height: height / 2.0,
         radius,
     };
-    let mid_circle = Circle {
+    let mid_circle = OffsetCircle {
         height: 0.0,
         radius,
     };
-    let bottom_circle = Circle {
+    let bottom_circle = OffsetCircle {
         height: -height / 2.0,
         radius,
     };
@@ -672,21 +726,24 @@ pub(crate) fn make_cylinder_arrow_mesh() -> Mesh {
     let l_head = 0.2;
     let r_head = 0.15;
     let r_base = 0.1;
-    let head_base = Circle {
+    let head_base = OffsetCircle {
         radius: r_head,
         height: 1.0 - l_head,
     };
-    let cylinder_top = Circle {
+    let cylinder_top = OffsetCircle {
         radius: r_base,
         height: 1.0 - l_head,
     };
-    let cylinder_bottom = Circle {
+    let cylinder_bottom = OffsetCircle {
         radius: r_base,
         height: 0.0,
     };
     let resolution = 32u32;
 
-    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+    let mut mesh = Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::default(),
+    );
     make_cone(head_base, tip, resolution).merge_into(&mut mesh);
     make_smooth_wrap([cylinder_top, cylinder_bottom], resolution).merge_into(&mut mesh);
     make_smooth_wrap([head_base, cylinder_top], resolution).merge_into(&mut mesh);
@@ -861,12 +918,12 @@ pub(crate) fn make_physical_camera_mesh() -> Mesh {
     let lens_hood_protrusion = 0.8;
 
     // Main body
-    let mut mesh: Mesh = shape::Box::new(scale, scale, scale).into();
+    let mut mesh: Mesh = primitives::Cuboid::new(scale, scale, scale).into();
     mesh.remove_attribute(Mesh::ATTRIBUTE_UV_0);
 
     // Outside of the lens hood
     make_pyramid(
-        Circle {
+        OffsetCircle {
             radius: scale,
             height: 0.,
         },
@@ -882,7 +939,7 @@ pub(crate) fn make_physical_camera_mesh() -> Mesh {
 
     // Inside of the lens hood
     make_pyramid(
-        Circle {
+        OffsetCircle {
             radius: scale,
             height: scale,
         },
@@ -901,7 +958,7 @@ pub(crate) fn make_physical_camera_mesh() -> Mesh {
 
 pub(crate) fn make_diamond(tip: f32, width: f32) -> MeshBuffer {
     make_pyramid(
-        Circle {
+        OffsetCircle {
             radius: width,
             height: 0.0,
         },
@@ -910,7 +967,7 @@ pub(crate) fn make_diamond(tip: f32, width: f32) -> MeshBuffer {
     )
     .merge_with(
         make_pyramid(
-            Circle {
+            OffsetCircle {
                 radius: width,
                 height: 0.0,
             },
@@ -1025,11 +1082,14 @@ pub(crate) fn make_halo_mesh() -> Mesh {
             .collect(),
     );
 
-    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+    let mut mesh = Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::default(),
+    );
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
     mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
     mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
-    mesh.set_indices(Some(indices));
+    mesh.insert_indices(indices);
     return mesh;
 }
 
@@ -1235,10 +1295,10 @@ pub(crate) fn make_closed_path_outline(mut initial_positions: Vec<[f32; 3]>) -> 
         .copy_outline_normals()
 }
 
-const X_AXIS_COLOR: Color = Color::rgb(1.0, 0.2, 0.2);
-const Y_AXIS_COLOR: Color = Color::rgb(0.2, 1.0, 0.2);
-const NEG_X_AXIS_COLOR: Color = Color::rgb(0.5, 0.0, 0.0);
-const NEG_Y_AXIS_COLOR: Color = Color::rgb(0.0, 0.5, 0.0);
+const X_AXIS_COLOR: Color = Color::srgb(1.0, 0.2, 0.2);
+const Y_AXIS_COLOR: Color = Color::srgb(0.2, 1.0, 0.2);
+const NEG_X_AXIS_COLOR: Color = Color::srgb(0.5, 0.0, 0.0);
+const NEG_Y_AXIS_COLOR: Color = Color::srgb(0.0, 0.5, 0.0);
 
 const POLYLINE_SEPARATOR: Vec3 = Vec3::splat(std::f32::NAN);
 
@@ -1247,7 +1307,7 @@ pub(crate) fn make_finite_grid(
     count: u32,
     color: Color,
     weights: BTreeMap<u32, f32>,
-) -> Vec<(Polyline, PolylineMaterial)> {
+) -> Vec<(BoxedPolyline3d, PolylineMaterial)> {
     let d_max = count as f32 * scale;
     let depth_bias = -0.0001;
     let perspective = true;
@@ -1261,12 +1321,13 @@ pub(crate) fn make_finite_grid(
 
     let make_points = |i, j, d| [make_point(i, j, d, d_max), make_point(i, j, d, -d_max)];
 
-    let mut polylines: HashMap<u32, Polyline> = HashMap::new();
+    let mut vec_of_lines: HashMap<u32, Vec<Vec3>> = HashMap::new();
+
     let mut result = {
         let Some(width) = weights.values().last().copied() else {
             return Vec::new();
         };
-        let mut axes: Vec<(Polyline, PolylineMaterial)> = Vec::new();
+        let mut axes: Vec<(BoxedPolyline3d, PolylineMaterial)> = Vec::new();
 
         for (sign, x_axis_color, y_axis_color) in [
             (1.0, X_AXIS_COLOR, Y_AXIS_COLOR),
@@ -1275,12 +1336,10 @@ pub(crate) fn make_finite_grid(
             for (i, j, color) in [(0, 1, x_axis_color), (1, 0, y_axis_color)] {
                 let p0 = Vec3::ZERO;
                 let p1 = make_point(i, j, 0.0, sign * d_max);
-                let polyline = Polyline {
-                    vertices: vec![p0, p1],
-                };
+                let polyline: BoxedPolyline3d = BoxedPolyline3d::new([p0, p1]);
                 let material = PolylineMaterial {
                     width,
-                    color,
+                    color: color.into(),
                     depth_bias,
                     perspective,
                 };
@@ -1293,35 +1352,32 @@ pub(crate) fn make_finite_grid(
 
     for n in 1..=count {
         let d = n as f32 * scale;
-        let polylines = {
+        let polyline = {
             let Some(weight_key) = weights.keys().rev().find(|k| n % **k == 0) else {
                 continue;
             };
-            polylines.entry(*weight_key).or_default()
+            vec_of_lines.entry(*weight_key).or_insert(Vec::default())
         };
 
         for (i, j) in [(0, 1), (1, 0)] {
-            polylines.vertices.extend(make_points(i, j, d));
-            polylines.vertices.push(POLYLINE_SEPARATOR);
-            polylines.vertices.extend(make_points(i, j, -d));
-            polylines.vertices.push(POLYLINE_SEPARATOR);
+            polyline.extend(make_points(i, j, d));
+            polyline.push(POLYLINE_SEPARATOR);
+            polyline.extend(make_points(i, j, -d));
+            polyline.push(POLYLINE_SEPARATOR);
         }
     }
 
-    result.extend(polylines.into_iter().map_while(|(n, polyline)| {
-        let width = match weights.get(&n) {
-            Some(width_ref) => *width_ref,
-            None => {
-                return None;
-            }
-        };
+    result.extend(vec_of_lines.into_iter().map(|(n, polyline)| {
+        // SAFETY: The keys of `vec_of_lines` are based on the keys of `weights`
+        // so this access should always be valid.
+        let width = weights[&n];
         let material = PolylineMaterial {
             width,
-            color,
+            color: color.into(),
             depth_bias,
             perspective,
         };
-        Some((polyline, material))
+        (BoxedPolyline3d::new(polyline), material)
     }));
     result
 }
@@ -1330,6 +1386,6 @@ pub(crate) fn make_metric_finite_grid(
     scale: f32,
     count: u32,
     color: Color,
-) -> Vec<(Polyline, PolylineMaterial)> {
+) -> Vec<(BoxedPolyline3d, PolylineMaterial)> {
     make_finite_grid(scale, count, color, [(1, 0.5), (5, 1.0), (10, 1.5)].into())
 }

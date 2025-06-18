@@ -17,73 +17,20 @@
 
 use super::{
     get_selected_description_entity,
-    inspect_robot_properties::{
-        serialize_and_change_robot_property, show_robot_property_widget, RecallPropertyKind,
-        RobotProperty, RobotPropertyKind, RobotPropertyWidgetRegistry,
-    },
-    ModelPropertyQuery,
+    inspect_robot_properties::{show_robot_property_widget, RobotPropertyWidgetRegistry},
 };
 use crate::{
-    site::{Change, Group, ModelMarker, ModelProperty, Pose, Robot},
+    site::{
+        robot_properties::serialize_and_change_robot_property_kind, Change, CircleCollision,
+        Collision, Group, ModelMarker, ModelProperty, ModelPropertyQuery, Pose, RecallCollision,
+        Robot, RobotProperty,
+    },
     widgets::{prelude::*, Inspect},
 };
+use bevy::color::palettes::css as Colors;
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{DragValue, Grid, Ui};
-use rmf_site_format::Recall;
-use serde::{Deserialize, Serialize};
-use serde_json::Map;
 use smallvec::SmallVec;
-
-#[derive(Serialize, Deserialize, Debug, Clone, Component, PartialEq)]
-pub struct Collision {
-    pub kind: String,
-    pub config: serde_json::Value,
-}
-
-impl Default for Collision {
-    fn default() -> Self {
-        Self {
-            kind: String::new(),
-            config: serde_json::Value::Object(Map::new()),
-        }
-    }
-}
-
-impl RobotProperty for Collision {
-    fn new(kind: String, config: serde_json::Value) -> Self {
-        Self { kind, config }
-    }
-
-    fn is_default(&self) -> bool {
-        if *self == Self::default() {
-            return true;
-        }
-        false
-    }
-
-    fn kind(&self) -> Option<String> {
-        Some(self.kind.clone())
-    }
-
-    fn label() -> String {
-        "Collision".to_string()
-    }
-}
-
-#[derive(Clone, Debug, Default, Component, PartialEq)]
-pub struct RecallCollision {
-    pub kind: Option<String>,
-    pub config: Option<serde_json::Value>,
-}
-
-impl Recall for RecallCollision {
-    type Source = Collision;
-
-    fn remember(&mut self, source: &Collision) {
-        self.kind = Some(source.kind.clone());
-        self.config = Some(source.config.clone());
-    }
-}
 
 #[derive(SystemParam)]
 pub struct InspectCollision<'w, 's> {
@@ -144,7 +91,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectCollision<'w, 's> {
             let children_widgets: Result<SmallVec<[_; 16]>, _> = params
                 .children
                 .get(widget_registration.property_widget)
-                .map(|c| c.iter().copied().collect());
+                .map(|c| c.iter().collect());
             let Ok(children_widgets) = children_widgets else {
                 return;
             };
@@ -162,54 +109,6 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectCollision<'w, 's> {
     }
 }
 
-// Supported kinds of Collision
-#[derive(Serialize, Deserialize, Debug, Clone, Component, PartialEq, Reflect)]
-pub struct CircleCollision {
-    pub radius: f32,
-    pub offset: [f32; 2],
-}
-
-impl Default for CircleCollision {
-    fn default() -> Self {
-        Self {
-            radius: 0.0,
-            offset: [0.0, 0.0],
-        }
-    }
-}
-
-impl RobotPropertyKind for CircleCollision {
-    fn label() -> String {
-        "Circle Collision".to_string()
-    }
-}
-
-#[derive(Clone, Debug, Default, Component, PartialEq)]
-pub struct RecallCircleCollision {
-    pub radius: Option<f32>,
-    pub offset: Option<[f32; 2]>,
-}
-
-impl RecallPropertyKind for RecallCircleCollision {
-    type Kind = CircleCollision;
-
-    fn assume(&self) -> CircleCollision {
-        CircleCollision {
-            radius: self.radius.clone().unwrap_or_default(),
-            offset: self.offset.clone().unwrap_or_default(),
-        }
-    }
-}
-
-impl Recall for RecallCircleCollision {
-    type Source = CircleCollision;
-
-    fn remember(&mut self, source: &CircleCollision) {
-        self.radius = Some(source.radius);
-        self.offset = Some(source.offset);
-    }
-}
-
 #[derive(SystemParam)]
 pub struct InspectCircleCollision<'w, 's> {
     model_instances: ModelPropertyQuery<'w, 's, Robot>,
@@ -220,7 +119,7 @@ pub struct InspectCircleCollision<'w, 's> {
         (With<ModelMarker>, With<Group>),
     >,
     poses: Query<'w, 's, &'static Pose>,
-    gizmos: Gizmos<'s>,
+    gizmos: Gizmos<'w, 's>,
     change_robot_property: EventWriter<'w, Change<ModelProperty<Robot>>>,
 }
 
@@ -255,17 +154,19 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectCircleCollision<'w, 's> {
                     if ui
                         .add(
                             DragValue::new(&mut new_circle_collision.radius)
-                                .clamp_range(0_f32..=std::f32::INFINITY)
+                                .range(0_f32..=std::f32::INFINITY)
                                 .speed(0.01),
                         )
                         .is_pointer_button_down_on()
                     {
                         if let Ok(pose) = params.poses.get(selection) {
                             params.gizmos.circle(
-                                Vec3::new(pose.trans[0], pose.trans[1], pose.trans[2] + 0.01),
-                                Vec3::Z,
+                                Isometry3d::new(
+                                    Vec3::new(pose.trans[0], pose.trans[1], pose.trans[2] + 0.01),
+                                    Quat::IDENTITY,
+                                ),
                                 new_circle_collision.radius,
-                                Color::RED,
+                                Colors::RED,
                             );
                         }
                     };
@@ -280,12 +181,12 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectCircleCollision<'w, 's> {
                     ui.label("");
                     ui.add(
                         DragValue::new(&mut new_circle_collision.offset[0])
-                            .clamp_range(std::f32::NEG_INFINITY..=std::f32::INFINITY)
+                            .range(std::f32::NEG_INFINITY..=std::f32::INFINITY)
                             .speed(0.01),
                     );
                     ui.add(
                         DragValue::new(&mut new_circle_collision.offset[1])
-                            .clamp_range(std::f32::NEG_INFINITY..=std::f32::INFINITY)
+                            .range(std::f32::NEG_INFINITY..=std::f32::INFINITY)
                             .speed(0.01),
                     );
                     ui.end_row();
@@ -293,8 +194,8 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectCircleCollision<'w, 's> {
         });
 
         if new_circle_collision != *circle_collision {
-            serialize_and_change_robot_property::<Collision, CircleCollision>(
-                params.change_robot_property,
+            serialize_and_change_robot_property_kind::<Collision, CircleCollision>(
+                &mut params.change_robot_property,
                 new_circle_collision,
                 robot,
                 description_entity,

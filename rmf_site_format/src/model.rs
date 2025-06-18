@@ -64,6 +64,16 @@ impl Default for Model {
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
 pub struct ModelProperty<T: Default + Clone>(pub T);
 
+/// Stores additional model description export data for plugins, to be updated by relevant plugins
+#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct ExportWith(pub HashMap<String, serde_json::Value>);
+
+/// Stores additional model instance export data when generating Sdf
+#[derive(Debug, Default, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct ExportData(pub HashMap<String, sdformat_rs::XmlElement>);
+
 /// Bundle with all required components for a valid model description
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
@@ -74,6 +84,8 @@ pub struct ModelDescriptionBundle {
     pub is_static: ModelProperty<IsStatic>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub scale: ModelProperty<Scale>,
+    #[serde(skip)]
+    pub export: ExportWith,
     #[serde(skip)]
     pub group: Group,
     #[serde(skip)]
@@ -87,6 +99,7 @@ impl Default for ModelDescriptionBundle {
             source: ModelProperty(AssetSource::default()),
             is_static: ModelProperty(IsStatic::default()),
             scale: ModelProperty(Scale::default()),
+            export: ExportWith::default(),
             group: Group,
             marker: ModelMarker,
         }
@@ -101,6 +114,8 @@ pub struct ModelInstance<T: RefTrait> {
     pub pose: Pose,
     pub description: Affiliation<T>,
     #[serde(skip)]
+    pub export_data: ExportData,
+    #[serde(skip)]
     pub marker: ModelMarker,
     #[serde(skip)]
     pub instance_marker: InstanceMarker,
@@ -112,6 +127,7 @@ impl<T: RefTrait> Default for ModelInstance<T> {
             name: NameInSite("<Unnamed>".to_string()),
             pose: Pose::default(),
             description: Affiliation::default(),
+            export_data: ExportData::default(),
             marker: ModelMarker,
             instance_marker: InstanceMarker,
         }

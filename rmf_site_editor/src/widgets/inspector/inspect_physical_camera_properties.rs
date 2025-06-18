@@ -85,7 +85,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPhysicalCameraProperties<'w, 's> {
         {
             params
                 .change_physical_camera_properties
-                .send(Change::new(new_properties, selection));
+                .write(Change::new(new_properties, selection));
         }
         ui.add_space(10.0);
     }

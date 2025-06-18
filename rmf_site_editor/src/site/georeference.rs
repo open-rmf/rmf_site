@@ -1,6 +1,5 @@
-use bevy::{asset::AssetPath, prelude::*, window::PrimaryWindow};
+use bevy::{asset::AssetPath, math::Ray3d, prelude::*, window::PrimaryWindow};
 use bevy_egui::{egui, EguiContexts};
-use bevy_mod_raycast::primitives::rays::Ray3d;
 use camera_controls::{CameraControls, ProjectionMode};
 use rmf_site_format::{GeographicComponent, GeographicOffset};
 use std::collections::HashSet;
@@ -296,7 +295,7 @@ fn spawn_tile(
     };
     let quad_handle = meshes.add(mesh);
 
-    let texture_handle: Handle<Image> = asset_server.load(AssetPath::from(&tile));
+    let texture_handle: Handle<Image> = asset_server.load_override(AssetPath::from(&tile));
     let material_handle = materials.add(StandardMaterial {
         base_color_texture: Some(texture_handle.clone()),
         alpha_mode: AlphaMode::Blend,
@@ -306,12 +305,12 @@ fn spawn_tile(
 
     let tile_offset = latlon_to_world(coordinates.0, coordinates.1, reference);
     commands
-        .spawn(PbrBundle {
-            mesh: quad_handle,
-            material: material_handle,
-            transform: Transform::from_xyz(tile_offset.x, tile_offset.y, -0.005),
-            ..default()
-        })
+        .spawn((
+            Mesh3d(quad_handle),
+            MeshMaterial3d(material_handle),
+            Transform::from_xyz(tile_offset.x, tile_offset.y, -0.005),
+            Visibility::default(),
+        ))
         .insert(MapTile(tile));
 }
 
@@ -394,13 +393,13 @@ pub fn render_map_tiles(
                 render_settings.prev_anchor = offset;
                 // Clear all exisitng tiles
                 for (entity, _tile) in &map_tiles {
-                    commands.entity(entity).despawn();
+                    commands.entity(entity).remove::<Children>().despawn();
                 }
             }
 
             if !geo_offset.visible {
                 for (entity, _tile) in &map_tiles {
-                    commands.entity(entity).despawn();
+                    commands.entity(entity).remove::<Children>().despawn();
                 }
                 return;
             }
@@ -423,29 +422,29 @@ pub fn render_map_tiles(
                 if let Some(Rect { min, max }) = camera.logical_viewport_rect() {
                     let viewport_size = max - min;
 
-                    let Ok(primary_window) = primary_window.get_single() else {
+                    let Ok(primary_window) = primary_window.single() else {
                         return;
                     };
-                    let top_left_ray = Ray3d::from_screenspace(
+                    let top_left_ray = ray_from_screenspace(
                         Vec2::new(0.0, 0.0),
                         camera,
                         transform,
                         primary_window,
                     );
-                    let top_right_ray = Ray3d::from_screenspace(
+                    let top_right_ray = ray_from_screenspace(
                         Vec2::new(viewport_size.x, 0.0),
                         camera,
                         transform,
                         primary_window,
                     );
-                    let bottom_left_ray = Ray3d::from_screenspace(
+                    let bottom_left_ray = ray_from_screenspace(
                         Vec2::new(0.0, viewport_size.y),
                         camera,
                         transform,
                         primary_window,
                     );
                     let bottom_right_ray =
-                        Ray3d::from_screenspace(viewport_size, camera, transform, primary_window);
+                        ray_from_screenspace(viewport_size, camera, transform, primary_window);
 
                     let top_left = ray_groundplane_intersection(&top_left_ray);
                     let top_right = ray_groundplane_intersection(&top_right_ray);
@@ -513,7 +512,7 @@ pub fn render_map_tiles(
 
                 if zoom_changed {
                     for (entity, _tile) in &map_tiles {
-                        commands.entity(entity).despawn();
+                        commands.entity(entity).remove::<Children>().despawn();
                     }
                 }
             }
@@ -521,12 +520,32 @@ pub fn render_map_tiles(
     }
 }
 
+fn ray_from_screenspace(
+    cursor_position: Vec2,
+    camera: &Camera,
+    camera_transform: &GlobalTransform,
+    window: &Window,
+) -> Option<Ray3d> {
+    camera
+        .viewport
+        .as_ref()
+        .map(|viewport| {
+            cursor_position - &viewport.physical_position.as_vec2() / window.scale_factor()
+        })
+        .and_then(|viewport_pos| {
+            camera
+                .viewport_to_world(&camera_transform, viewport_pos)
+                .ok()
+                .map(Ray3d::from)
+        })
+}
+
 fn ray_groundplane_intersection(ray: &Option<Ray3d>) -> Vec3 {
     if let Some(ray) = ray {
-        let t = -ray.origin().z / ray.direction().z;
+        let t = -ray.origin.z / ray.direction.z;
         Vec3::new(
-            ray.origin().x + t * ray.direction().x,
-            ray.origin().y + t * ray.direction().y,
+            ray.origin.x + t * ray.direction.x,
+            ray.origin.y + t * ray.direction.y,
             0.0,
         )
     } else {
@@ -536,7 +555,10 @@ fn ray_groundplane_intersection(ray: &Option<Ray3d>) -> Vec3 {
 
 #[test]
 fn test_groundplane() {
-    let ray = Ray3d::new(Vec3::new(1.0, 1.0, 1.0), Vec3::new(1.0, 1.0, 1.0));
+    let ray = Ray3d::new(
+        Vec3::new(1.0, 1.0, 1.0),
+        Dir3::from_xyz(1.0, 1.0, 1.0).unwrap(),
+    );
 
     // Ground plane should be at (0,0,0)
     assert!(ray_groundplane_intersection(&Some(ray)).length() < 1e-5);
@@ -560,14 +582,14 @@ impl FromWorld for OSMMenu {
         let sub_menu = world
             .spawn(Menu::from_title("Geographic Offset".to_string()))
             .id();
-        world.entity_mut(sub_menu).push_children(&[
+        world.entity_mut(sub_menu).add_children(&[
             set_reference,
             view_reference,
             settings_reference,
         ]);
 
         let tool_header = world.resource::<ToolMenu>().get();
-        world.entity_mut(tool_header).push_children(&[sub_menu]);
+        world.entity_mut(tool_header).add_children(&[sub_menu]);
 
         // Checkbox
         let view_header = world.resource::<ViewMenu>().get();
@@ -576,7 +598,7 @@ impl FromWorld for OSMMenu {
             .id();
         world
             .entity_mut(view_header)
-            .push_children(&[satellite_map_check_button]);
+            .add_children(&[satellite_map_check_button]);
 
         OSMMenu {
             set_reference,

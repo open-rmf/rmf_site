@@ -16,7 +16,7 @@
 */
 
 use crate::{animate::Spinning, interaction::VisualCue, site::*};
-use bevy::prelude::*;
+use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 
 // TODO(@mxgrey): Consider using recency rankings for Locations so they don't
 // experience z-fighting.
@@ -47,13 +47,13 @@ fn location_halo_tf(tag: &LocationTag) -> Transform {
 fn should_display_point(
     point: &Point<Entity>,
     associated: &AssociatedGraphs<Entity>,
-    parents: &Query<&Parent>,
+    child_of: &Query<&ChildOf>,
     levels: &Query<(), With<LevelElevation>>,
     current_level: &Res<CurrentLevel>,
     graphs: &GraphSelect,
 ) -> bool {
-    if let Ok(parent) = parents.get(point.0) {
-        if levels.contains(parent.get()) && Some(parent.get()) != ***current_level {
+    if let Ok(child_of) = child_of.get(point.0) {
+        if levels.contains(child_of.parent()) && Some(child_of.parent()) != ***current_level {
             return false;
         }
     }
@@ -74,7 +74,7 @@ pub fn add_location_visuals(
     >,
     graphs: GraphSelect,
     anchors: AnchorParams,
-    parents: Query<&Parent>,
+    child_of: Query<&ChildOf>,
     levels: Query<(), With<LevelElevation>>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
@@ -89,7 +89,7 @@ pub fn add_location_visuals(
         let visibility = if should_display_point(
             point,
             associated_graphs,
-            &parents,
+            &child_of,
             &levels,
             &current_level,
             &graphs,
@@ -123,25 +123,24 @@ pub fn add_location_visuals(
                 // Workcells are not visualized
                 LocationTag::Workcell(_) => continue,
             };
-            commands.entity(id).insert(PbrBundle {
-                mesh: assets.location_tag_mesh.clone(),
-                material,
-                transform: location_halo_tf(tag),
-                ..default()
-            });
+            commands.entity(id).insert((
+                Mesh3d(assets.location_tag_mesh.clone()),
+                MeshMaterial3d(material),
+                location_halo_tf(tag),
+                Visibility::default(),
+            ));
             commands.entity(e).add_child(id);
         }
 
         // TODO(MXG): Put icons on the different visual squares based on the location tags
         commands
             .entity(e)
-            .insert(PbrBundle {
-                mesh: assets.location_mesh.clone(),
-                transform: Transform::from_translation(position),
-                material,
+            .insert((
+                Mesh3d(assets.location_mesh.clone()),
+                Transform::from_translation(position),
+                MeshMaterial3d(material),
                 visibility,
-                ..default()
-            })
+            ))
             .insert(Spinning::new(-10.0))
             .insert(Category::Location)
             .insert(tag_meshes)
@@ -161,7 +160,7 @@ pub fn update_changed_location(
         (Changed<Point<Entity>>, Without<NavGraphMarker>),
     >,
     anchors: AnchorParams,
-    parents: Query<&Parent>,
+    child_of: Query<&ChildOf>,
     levels: Query<(), With<LevelElevation>>,
     graphs: GraphSelect,
     current_level: Res<CurrentLevel>,
@@ -176,7 +175,7 @@ pub fn update_changed_location(
         let new_visibility = if should_display_point(
             point,
             associated,
-            &parents,
+            &child_of,
             &levels,
             &current_level,
             &graphs,
@@ -224,19 +223,19 @@ pub fn update_location_for_changed_location_tags(
         // Despawn the removed tags first
         if let Some(id) = tag_meshes.charger {
             if !tags.iter().any(|t| t.is_charger()) {
-                commands.entity(id).despawn_recursive();
+                commands.entity(id).despawn();
                 tag_meshes.charger = None;
             }
         }
         if let Some(id) = tag_meshes.parking_spot {
             if !tags.iter().any(|t| t.is_parking_spot()) {
-                commands.entity(id).despawn_recursive();
+                commands.entity(id).despawn();
                 tag_meshes.parking_spot = None;
             }
         }
         if let Some(id) = tag_meshes.holding_point {
             if !tags.iter().any(|t| t.is_holding_point()) {
-                commands.entity(id).despawn_recursive();
+                commands.entity(id).despawn();
                 tag_meshes.holding_point = None;
             }
         }
@@ -273,12 +272,12 @@ pub fn update_location_for_changed_location_tags(
                 // Workcells are not visualized
                 LocationTag::Workcell(_) => continue,
             };
-            commands.entity(id).insert(PbrBundle {
-                mesh: assets.location_tag_mesh.clone(),
-                material,
-                transform: location_halo_tf(tag),
-                ..default()
-            });
+            commands.entity(id).insert((
+                Mesh3d(assets.location_tag_mesh.clone()),
+                MeshMaterial3d(material),
+                location_halo_tf(tag),
+                Visibility::default(),
+            ));
             commands.entity(e).add_child(id);
         }
     }
@@ -290,12 +289,12 @@ pub fn update_visibility_for_locations(
             &Point<Entity>,
             &AssociatedGraphs<Entity>,
             &mut Visibility,
-            &mut Handle<StandardMaterial>,
+            &mut MeshMaterial3d<StandardMaterial>,
             // &mut
         ),
         (With<LocationTags>, Without<NavGraphMarker>),
     >,
-    parents: Query<&Parent>,
+    child_of: Query<&ChildOf>,
     levels: Query<(), With<LevelElevation>>,
     current_level: Res<CurrentLevel>,
     graphs: GraphSelect,
@@ -319,7 +318,7 @@ pub fn update_visibility_for_locations(
             let new_visibility = if should_display_point(
                 point,
                 associated,
-                &parents,
+                &child_of,
                 &levels,
                 &current_level,
                 &graphs,
@@ -338,7 +337,7 @@ pub fn update_visibility_for_locations(
                 let new_visibility = if should_display_point(
                     point,
                     associated,
-                    &parents,
+                    &child_of,
                     &levels,
                     &current_level,
                     &graphs,
@@ -356,12 +355,12 @@ pub fn update_visibility_for_locations(
 
     if graph_change {
         for (_, associated_graphs, _, mut m) in &mut locations {
-            *m = graphs.display_style(associated_graphs).0;
+            *m = MeshMaterial3d(graphs.display_style(associated_graphs).0);
         }
     } else {
         for e in &locations_with_changed_association {
             if let Ok((_, associated_graphs, _, mut m)) = locations.get_mut(e) {
-                *m = graphs.display_style(associated_graphs).0;
+                *m = MeshMaterial3d(graphs.display_style(associated_graphs).0);
             }
         }
     }

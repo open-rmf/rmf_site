@@ -112,7 +112,7 @@ fn impl_inspect_anchor(
         let assign_response = ui.add(ImageButton::new(edit_icon));
 
         if assign_response.hovered() {
-            params.hover.send(Hover(Some(id)));
+            params.hover.write(Hover(Some(id)));
         }
 
         replace = assign_response.clicked();
@@ -151,7 +151,7 @@ fn impl_inspect_anchor(
 
                     if x != tf.translation.x || y != tf.translation.y {
                         {}
-                        params.move_to.send(MoveTo {
+                        params.move_to.write(MoveTo {
                             entity: id,
                             transform: Transform::from_translation([x, y, 0.0].into()),
                         });
@@ -165,7 +165,7 @@ fn impl_inspect_anchor(
                         if let Some(new_pose) = InspectPoseComponent::new(pose).show(ui) {
                             // TODO(luca) Using moveto doesn't allow switching between variants of
                             // Pose3D
-                            params.move_to.send(MoveTo {
+                            params.move_to.write(MoveTo {
                                 entity: id,
                                 transform: new_pose.transform(),
                             });

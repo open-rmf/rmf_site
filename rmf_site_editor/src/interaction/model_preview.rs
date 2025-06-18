@@ -15,7 +15,7 @@
  *
 */
 
-use crate::interaction::{Preview, MODEL_PREVIEW_LAYER};
+use crate::interaction::{Preview, DEFAULT_CAMERA_EV100, MODEL_PREVIEW_LAYER};
 use bevy::render::render_resource::{
     Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
@@ -23,7 +23,10 @@ use bevy::{
     core_pipeline::tonemapping::Tonemapping,
     ecs::system::SystemState,
     prelude::*,
-    render::{camera::RenderTarget, view::RenderLayers},
+    render::{
+        camera::{Exposure, RenderTarget},
+        view::RenderLayers,
+    },
 };
 use bevy_egui::{egui::TextureId, EguiContexts};
 use rmf_site_format::Model;
@@ -33,6 +36,7 @@ pub struct ModelPreviewCamera {
     pub camera_entity: Entity,
     pub egui_handle: TextureId,
     pub model_entity: Entity,
+    pub light_entity: Entity,
 }
 
 pub struct ModelPreviewPlugin;
@@ -68,15 +72,18 @@ impl FromWorld for ModelPreviewCamera {
         // Attach the bevy image to the egui image
         let egui_handle = egui_context.add_image(preview_image.clone());
         let camera_entity = world
-            .spawn(Camera3dBundle {
-                transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Z),
-                camera: Camera {
-                    target: RenderTarget::Image(preview_image),
+            .spawn(Camera3d::default())
+            .insert((
+                Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Z),
+                Camera {
+                    target: RenderTarget::Image(preview_image.into()),
                     ..default()
                 },
-                tonemapping: Tonemapping::ReinhardLuminance,
-                ..default()
-            })
+                Tonemapping::ReinhardLuminance,
+                Exposure {
+                    ev100: DEFAULT_CAMERA_EV100,
+                },
+            ))
             .insert(RenderLayers::from_layers(&[MODEL_PREVIEW_LAYER]))
             .id();
         let model_entity = world
@@ -86,11 +93,22 @@ impl FromWorld for ModelPreviewCamera {
                 Model::default(),
             ))
             .id();
+        let light_entity = world
+            .spawn(RenderLayers::from_layers(&[MODEL_PREVIEW_LAYER]))
+            .insert((
+                DirectionalLight {
+                    illuminance: 50.0,
+                    ..default()
+                },
+                Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Z),
+            ))
+            .id();
 
         Self {
             camera_entity,
             egui_handle,
             model_entity,
+            light_entity,
         }
     }
 }

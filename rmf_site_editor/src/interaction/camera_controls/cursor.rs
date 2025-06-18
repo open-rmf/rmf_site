@@ -19,11 +19,13 @@ use super::{
     get_groundplane_else_default_selection, orbit_camera_around_point, zoom_distance_factor,
     CameraCommandType, CameraControls, ProjectionMode, MAX_FOV, MAX_SCALE, MIN_FOV, MIN_SCALE,
 };
-use crate::interaction::SiteRaycastSet;
 use bevy::input::mouse::{MouseScrollUnit, MouseWheel};
+use bevy::picking::{
+    backend::ray::RayMap,
+    pointer::{PointerId, PointerInteraction},
+};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
-use bevy_mod_raycast::deferred::RaycastSource;
 use nalgebra::{Matrix3, Matrix3x1};
 
 pub const SCALE_ZOOM_SENSITIVITY: f32 = 0.1;
@@ -77,13 +79,14 @@ pub fn update_cursor_command(
     mut camera_controls: ResMut<CameraControls>,
     mut cursor_command: ResMut<CursorCommand>,
     mut mouse_wheel: EventReader<MouseWheel>,
-    mouse_input: Res<Input<MouseButton>>,
-    keyboard_input: Res<Input<KeyCode>>,
-    raycast_sources: Query<&RaycastSource<SiteRaycastSet>>,
+    mouse_input: Res<ButtonInput<MouseButton>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    pointers: Query<(&PointerId, &PointerInteraction)>,
+    ray_map: Res<RayMap>,
     cameras: Query<(&Projection, &Transform, &GlobalTransform)>,
     primary_windows: Query<&Window, With<PrimaryWindow>>,
 ) {
-    if let Ok(window) = primary_windows.get_single() {
+    if let Ok(window) = primary_windows.single() {
         // Return if cursor not within window
         if window.cursor_position().is_none() {
             return;
@@ -119,20 +122,35 @@ pub fn update_cursor_command(
         let (camera_proj, camera_transform, _) = cameras.get(active_camera_entity).unwrap();
 
         // Get selection under cursor, cursor direction
-        let Ok(cursor_raycast_source) = raycast_sources.get_single() else {
+        let Some((_, cursor_ray)) = ray_map
+            .iter()
+            .find(|(id, _)| id.camera == active_camera_entity)
+        else {
             return;
         };
-        let cursor_ray = match cursor_raycast_source.get_ray() {
-            Some(ray) => ray,
-            None => return,
-        };
-        let cursor_selection_new =
-            get_cursor_selected_point(&camera_transform, &cursor_raycast_source);
+
+        let cursor_selection_new = pointers
+            .single()
+            .ok()
+            .and_then(|(_, interactions)| {
+                interactions
+                    .iter()
+                    .find(|(_, hit)| hit.camera == active_camera_entity)
+            })
+            .and_then(|(_, hit_data)| hit_data.position)
+            .unwrap_or_else(|| {
+                get_groundplane_else_default_selection(
+                    cursor_ray.origin,
+                    *cursor_ray.direction,
+                    *camera_transform.forward(),
+                )
+            });
+
         let cursor_selection = match cursor_command.cursor_selection {
             Some(selection) => selection,
             None => cursor_selection_new,
         };
-        let cursor_direction = cursor_ray.direction().normalize();
+        let cursor_direction = cursor_ray.direction.normalize();
         let cursor_direction_camera_frame = camera_transform.rotation.inverse() * cursor_direction;
         let cursor_direction_camera_frame_prev = cursor_command
             .cursor_direction_camera_frame
@@ -365,26 +383,9 @@ fn pan_camera_with_cursor(
     return camera_transform_next;
 }
 
-/// Returns the object selected by the cursor, if none, defaults to ground plane or arbitrary point in front
-fn get_cursor_selected_point(
-    camera_transform: &Transform,
-    cursor_raycast_source: &RaycastSource<SiteRaycastSet>,
-) -> Vec3 {
-    let cursor_ray = cursor_raycast_source.get_ray().unwrap();
-
-    match cursor_raycast_source.get_nearest_intersection() {
-        Some((_, intersection)) => intersection.position(),
-        None => get_groundplane_else_default_selection(
-            cursor_ray.origin(),
-            cursor_ray.direction(),
-            camera_transform.forward(),
-        ),
-    }
-}
-
 fn get_command_type(
-    keyboard_input: &Res<Input<KeyCode>>,
-    mouse_input: &Res<Input<MouseButton>>,
+    keyboard_input: &Res<ButtonInput<KeyCode>>,
+    mouse_input: &Res<ButtonInput<MouseButton>>,
     scroll_motion: &f32,
     projection_mode: ProjectionMode,
 ) -> CameraCommandType {
