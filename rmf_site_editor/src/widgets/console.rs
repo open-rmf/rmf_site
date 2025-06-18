@@ -56,6 +56,11 @@ fn console_widget(In(input): In<PanelWidgetInput>, mut log_history: ResMut<LogHi
                         let all_were_checked = all_are_checked;
                         ui.checkbox(&mut all_are_checked, "All");
                         // Use strum crate for iterating through enum and converting to string?
+                        if let Some(checked_status) =
+                            log_history.category_present_mut(LogCategory::Status)
+                        {
+                            ui.checkbox(checked_status, "Status");
+                        };
                         if let Some(checked_warning) =
                             log_history.category_present_mut(LogCategory::Warning)
                         {
