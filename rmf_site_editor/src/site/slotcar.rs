@@ -234,7 +234,7 @@ impl Default for SlotcarParams {
 }
 
 impl SlotcarParams {
-    fn with_differential_drive(&mut self, diff_drive: &Value) -> &mut Self {
+    fn with_differential_drive(mut self, diff_drive: &Value) -> Self {
         if let Some(reversible) = diff_drive.get("bidirectional").and_then(|b| match b {
             Value::Bool(rev) => Some(rev),
             _ => None,
@@ -259,7 +259,7 @@ impl SlotcarParams {
         self
     }
 
-    fn with_battery(&mut self, battery: &Value) -> &mut Self {
+    fn with_battery(mut self, battery: &Value) -> Self {
         if let Some(voltage) = battery.get("voltage").and_then(|v| match v {
             Value::Number(vol) => vol.as_f64(),
             _ => None,
@@ -288,7 +288,7 @@ impl SlotcarParams {
         self
     }
 
-    fn with_mechanical_system(&mut self, mechanical_system: &Value) -> &mut Self {
+    fn with_mechanical_system(mut self, mechanical_system: &Value) -> Self {
         if let Some(mass) = mechanical_system.get("mass").and_then(|m| match m {
             Value::Number(mass) => mass.as_f64(),
             _ => None,
@@ -319,7 +319,7 @@ impl SlotcarParams {
         self
     }
 
-    fn with_ambient_system(&mut self, ambient_system: &Value) -> &mut Self {
+    fn with_ambient_system(mut self, ambient_system: &Value) -> Self {
         if let Some(nominal_power) = ambient_system.get("idle_power").and_then(|p| match p {
             Value::Number(power) => power.as_f64(),
             _ => None,
@@ -407,16 +407,16 @@ fn slotcar_export_handler(In(input): In<(Entity, Value)>) -> sdformat_rs::XmlEle
 
     if let Some(config_map) = slotcar_config.as_object() {
         if let Some(diff_drive_config) = config_map.get(&DifferentialDrive::label()) {
-            slotcar_params.with_differential_drive(diff_drive_config);
+            slotcar_params = slotcar_params.with_differential_drive(diff_drive_config);
         }
         if let Some(battery_config) = config_map.get(&Battery::label()) {
-            slotcar_params.with_battery(battery_config);
+            slotcar_params = slotcar_params.with_battery(battery_config);
         }
         if let Some(ambient_sys_config) = config_map.get(&AmbientSystem::label()) {
-            slotcar_params.with_ambient_system(ambient_sys_config);
+            slotcar_params = slotcar_params.with_ambient_system(ambient_sys_config);
         }
         if let Some(mech_sys_config) = config_map.get(&MechanicalSystem::label()) {
-            slotcar_params.with_mechanical_system(mech_sys_config);
+            slotcar_params = slotcar_params.with_mechanical_system(mech_sys_config);
         }
     }
 
