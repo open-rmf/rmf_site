@@ -55,19 +55,27 @@ fn console_widget(In(input): In<PanelWidgetInput>, mut log_history: ResMut<LogHi
                         let mut all_are_checked = log_history.all_categories_are_selected();
                         let all_were_checked = all_are_checked;
                         ui.checkbox(&mut all_are_checked, "All");
-                        ui.checkbox(
-                            log_history.category_present_mut(LogCategory::Status),
-                            "Status",
-                        );
-                        ui.checkbox(
-                            log_history.category_present_mut(LogCategory::Warning),
-                            "Warning",
-                        );
-                        ui.checkbox(
-                            log_history.category_present_mut(LogCategory::Error),
-                            "Error",
-                        );
-                        ui.checkbox(log_history.category_present_mut(LogCategory::Bevy), "Bevy");
+                        // Use strum crate for iterating through enum and converting to string?
+                        if let Some(checked_status) =
+                            log_history.category_present_mut(LogCategory::Status)
+                        {
+                            ui.checkbox(checked_status, "Status");
+                        };
+                        if let Some(checked_warning) =
+                            log_history.category_present_mut(LogCategory::Warning)
+                        {
+                            ui.checkbox(checked_warning, "Warning");
+                        };
+                        if let Some(checked_error) =
+                            log_history.category_present_mut(LogCategory::Error)
+                        {
+                            ui.checkbox(checked_error, "Error");
+                        };
+                        if let Some(checked_bevy) =
+                            log_history.category_present_mut(LogCategory::Bevy)
+                        {
+                            ui.checkbox(checked_bevy, "Bevy");
+                        };
                         // Copy full log history to clipboard
                         if ui.button("Copy Log History").clicked() {
                             ui.ctx().copy_text(log_history.copy_log_history());

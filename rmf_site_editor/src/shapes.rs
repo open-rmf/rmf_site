@@ -1368,7 +1368,9 @@ pub(crate) fn make_finite_grid(
     }
 
     result.extend(vec_of_lines.into_iter().map(|(n, polyline)| {
-        let width = *weights.get(&n).unwrap();
+        // SAFETY: The keys of `vec_of_lines` are based on the keys of `weights`
+        // so this access should always be valid.
+        let width = weights[&n];
         let material = PolylineMaterial {
             width,
             color: color.into(),

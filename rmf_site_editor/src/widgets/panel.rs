@@ -77,14 +77,12 @@ pub fn render_panels(
     let context = egui_contexts.get_mut(world).ctx_mut().clone();
     let mut panels: SmallVec<[_; 16]> = panel_widgets
         .iter_mut(world)
-        .map(|(entity, mut widget)| {
-            (
-                entity,
-                widget
-                    .inner
-                    .take()
-                    .expect("Inner system of PanelWidget is missing"),
-            )
+        .map_while(|(entity, mut widget)| match widget.inner.take() {
+            Some(widget) => Some((entity, widget)),
+            None => {
+                error!("Inner system of PanelWidget is missing");
+                None
+            }
         })
         .collect();
 
