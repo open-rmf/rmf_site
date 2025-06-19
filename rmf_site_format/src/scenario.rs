@@ -17,7 +17,7 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Reflect, ReflectComponent};
+use bevy::prelude::{Bundle, Component, Deref, DerefMut, Reflect, ReflectComponent};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 
@@ -26,83 +26,22 @@ use std::collections::{BTreeMap, HashMap};
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct InstanceMarker;
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub enum InstanceModifier {
-    Added(AddedInstance),
-    Inherited(InheritedInstance),
-    Hidden,
-}
-
-impl InstanceModifier {
-    pub fn added(pose: Pose) -> Self {
-        Self::Added(AddedInstance { pose: pose })
-    }
-
-    pub fn inherited() -> Self {
-        Self::Inherited(InheritedInstance {
-            modified_pose: None,
-            explicit_inclusion: false,
-        })
-    }
-
-    pub fn pose(&self) -> Option<Pose> {
-        match self {
-            InstanceModifier::Added(added) => Some(added.pose.clone()),
-            InstanceModifier::Inherited(inherited) => inherited.modified_pose.clone(),
-            InstanceModifier::Hidden => None,
-        }
-    }
-
-    pub fn visibility(&self) -> Option<bool> {
-        match self {
-            InstanceModifier::Added(_) => Some(true),
-            InstanceModifier::Inherited(inherited) => {
-                if inherited.explicit_inclusion {
-                    Some(true)
-                } else {
-                    None
-                }
-            }
-            InstanceModifier::Hidden => Some(false),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub struct RecallInstance {
+#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
+pub struct InstanceModifier {
+    #[serde(default, skip_serializing_if = "is_default")]
     pub pose: Option<Pose>,
-    pub modifier: Option<InstanceModifier>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub visibility: Option<bool>,
 }
 
-impl Recall for RecallInstance {
-    type Source = InstanceModifier;
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+pub struct ScenarioModifiers<T: RefTrait>(pub HashMap<T, T>);
 
-    fn remember(&mut self, source: &InstanceModifier) {
-        match source {
-            InstanceModifier::Added(_) | InstanceModifier::Inherited(_) => {
-                self.pose = source.pose();
-                self.modifier = Some(source.clone());
-            }
-            InstanceModifier::Hidden => {
-                // We don't update the pose if this InstanceModifier is hidden
-            }
-        };
+impl<T: RefTrait> Default for ScenarioModifiers<T> {
+    fn default() -> Self {
+        Self(HashMap::new())
     }
-}
-
-/// The instance modifier was added by this scenario
-#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
-pub struct AddedInstance {
-    pub pose: Pose,
-}
-
-/// The instance modifier was inherited from a parent scenario
-#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
-pub struct InheritedInstance {
-    pub modified_pose: Option<Pose>,
-    pub explicit_inclusion: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]

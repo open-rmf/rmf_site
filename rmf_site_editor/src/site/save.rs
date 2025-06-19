@@ -1374,7 +1374,11 @@ fn generate_scenarios(
 ) -> Result<BTreeMap<u32, Scenario<u32>>, SiteGenerationError> {
     let mut state: SystemState<(
         Query<(Entity, &NameInSite, &SiteID, &Affiliation<Entity>), With<ScenarioMarker>>,
-        Query<(&InstanceModifier, &Affiliation<Entity>)>,
+        Query<(
+            Option<&Modifier<Pose>>,
+            Option<&Modifier<Visibility>>,
+            &Affiliation<Entity>,
+        )>,
         Query<&SiteID, With<InstanceMarker>>,
         Query<&Children>,
     )> = SystemState::new(world);
@@ -1392,7 +1396,10 @@ fn generate_scenarios(
                         for scenario_child in scenario_children.iter() {
                             if scenarios.contains(scenario_child) {
                                 queue.push(scenario_child);
-                            } else if instance_modifiers.contains(scenario_child) {
+                            } else if instance_modifiers
+                                .get(scenario_child)
+                                .is_ok_and(|(p, v, _)| p.is_some() || v.is_some())
+                            {
                                 scenario_instance_modifiers.push(scenario_child);
                             }
                         }
@@ -1407,10 +1414,16 @@ fn generate_scenarios(
                                     .filter_map(|child_entity| {
                                         instance_modifiers.get(*child_entity).ok()
                                     })
-                                    .filter_map(|(instance, affiliation)| {
+                                    .filter_map(|(pose, visibility, affiliation)| {
                                         Some((
                                             affiliation.0.and_then(|e| instances.get(e).ok())?.0,
-                                            instance.clone(),
+                                            InstanceModifier {
+                                                pose: pose.map(|p| p.get()),
+                                                visibility: visibility.map(|v| match v.get() {
+                                                    Visibility::Hidden => false,
+                                                    _ => true,
+                                                }),
+                                            },
                                         ))
                                     })
                                     .collect(),

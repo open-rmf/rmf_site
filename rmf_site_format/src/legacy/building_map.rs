@@ -2,8 +2,8 @@ use super::{
     floor::FloorParameters, level::Level, lift::Lift, wall::WallProperties, PortingError, Result,
 };
 use crate::{
-    alignment::align_legacy_building, legacy::model::Model, AddedInstance, Affiliation, Anchor,
-    Angle, AssetSource, AssociatedGraphs, Category, DisplayColor, Dock as SiteDock,
+    alignment::align_legacy_building, legacy::model::Model, Affiliation, Anchor, Angle,
+    AssetSource, AssociatedGraphs, Category, DisplayColor, Dock as SiteDock,
     Drawing as SiteDrawing, DrawingProperties, Fiducial as SiteFiducial, FiducialGroup,
     FiducialMarker, Guided, InstanceModifier, Lane as SiteLane, LaneMarker, Level as SiteLevel,
     LevelElevation, LevelProperties as SiteLevelProperties, ModelDescriptionBundle, ModelInstance,
@@ -535,7 +535,10 @@ impl BuildingMap {
                     .instances
                     .insert(
                         model_instance_id,
-                        InstanceModifier::Added(AddedInstance { pose: model_pose }),
+                        InstanceModifier {
+                            pose: Some(model_pose),
+                            visibility: Some(true),
+                        },
                     );
             }
             // Spawn robots (for legacy imports)
@@ -554,7 +557,10 @@ impl BuildingMap {
                     .instances
                     .insert(
                         model_instance_id,
-                        InstanceModifier::Added(AddedInstance { pose: model_pose }),
+                        InstanceModifier {
+                            pose: Some(model_pose),
+                            visibility: Some(true),
+                        },
                     );
             }
 
