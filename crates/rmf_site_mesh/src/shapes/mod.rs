@@ -42,7 +42,7 @@ use bevy_render::render_asset::RenderAssetUsages;
 // use bevy_polyline::{material::PolylineMaterial, polyline::Polyline};
 use std::collections::{BTreeMap, HashMap};
 
-use crate::Angle;
+use crate::{Angle, Degrees, Radians};
 
 pub trait WithOutlineMeshExt: Sized {
     fn with_generated_outline_normals(self) -> Result<Self, GenerateOutlineNormalsError>;
@@ -819,27 +819,29 @@ pub fn flat_arc(
     pivot: Vec3,
     outer_radius: f32,
     inner_thickness: f32,
-    initial_angle: Angle,
-    sweep: Angle,
+    initial_angle: impl Into<Radians>,
+    sweep: impl Into<Radians>,
     vertices_per_degree: f32,
 ) -> MeshBuffer {
-    let (initial_angle, sweep) = if sweep.radians() < 0.0 {
+    let initial_angle: Radians = initial_angle.into();
+    let sweep = sweep.into();
+    let (initial_angle, sweep) = if sweep < 0.0 {
         (
-            Angle::Rad(initial_angle.radians() + sweep.radians()),
-            Angle::Rad(-sweep.radians()),
+            initial_angle + sweep,
+            -sweep,
         )
     } else {
         (initial_angle, sweep)
     };
 
-    let resolution = (sweep.degrees() * vertices_per_degree) as u32;
+    let resolution = (Degrees::from(sweep) * vertices_per_degree).0 as u32;
     let positions: Vec<[f32; 3]> = make_circles(
         [
             (outer_radius - inner_thickness, 0.).into(),
             (outer_radius, 0.).into(),
         ],
         resolution,
-        std::f32::consts::TAU - sweep.radians(),
+        std::f32::consts::TAU - *sweep,
     )
     .collect();
 
@@ -876,7 +878,7 @@ pub fn flat_arc(
     MeshBuffer::new(positions, normals, indices)
         .with_outline(outline)
         .transform_by(Affine3A::from_rotation_translation(
-            Quat::from_rotation_z(initial_angle.radians()),
+            Quat::from_rotation_z(*initial_angle),
             pivot,
         ))
 }
@@ -913,12 +915,12 @@ pub fn line_stroke_mesh(start: Vec3, end: Vec3, thickness: f32) -> MeshBuffer {
 
 pub fn line_stroke_away_from(
     start: Vec3,
-    direction: Angle,
+    direction: Radians,
     length: f32,
     thickness: f32,
 ) -> MeshBuffer {
     let end = start
-        + Affine3A::from_rotation_z(direction.radians())
+        + Affine3A::from_rotation_z(direction.0)
             .transform_vector3(Vec3::new(length, 0.0, 0.0));
 
     line_stroke_mesh(start, end, thickness)

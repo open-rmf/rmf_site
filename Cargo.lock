@@ -5375,6 +5375,7 @@ version = "0.1.0"
 dependencies = [
  "bevy_asset",
  "bevy_color",
+ "bevy_derive",
  "bevy_ecs",
  "bevy_math",
  "bevy_mod_outline",

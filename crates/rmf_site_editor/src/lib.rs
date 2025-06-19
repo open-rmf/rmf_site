@@ -36,7 +36,7 @@ pub mod log;
 mod recency;
 use recency::*;
 // mod shapes;
-use rmf_site_mesh::shapes::*;
+use rmf_site_mesh::*;
 
 use log::LogHistoryPlugin;
 

@@ -21,6 +21,8 @@ use bevy::{
     math::{primitives, Affine3A},
     prelude::*,
 };
+use rmf_site_mesh::*;
+
 
 pub(crate) fn add_site_icons(app: &mut App) {
     // Taken from https://github.com/bevyengine/bevy/issues/10377#issuecomment-1858797002

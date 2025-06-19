@@ -9,5 +9,6 @@ bevy_math = {workspace = true}
 bevy_render = {workspace = true}
 bevy_reflect = {workspace = true}
 bevy_asset = {workspace = true}
+bevy_derive = {workspace = true}
 bevy_color = {workspace = true}
 bevy_mod_outline = {workspace = true}

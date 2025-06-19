@@ -26,6 +26,7 @@ use crate::{
 };
 use bevy::{asset::LoadState, ecs::hierarchy::ChildOf, math::Affine3A, prelude::*};
 use rmf_site_format::{AssetSource, Category, DrawingProperties, PixelsPerMeter, Pose};
+use rmf_site_mesh::*;
 use std::path::PathBuf;
 
 #[derive(Bundle, Debug, Clone)]

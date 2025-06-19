@@ -24,6 +24,7 @@ use bevy::{
     render::primitives::Aabb,
 };
 use rmf_site_format::{Edge, LiftCabin};
+use rmf_site_mesh::*;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
 use uuid::Uuid;

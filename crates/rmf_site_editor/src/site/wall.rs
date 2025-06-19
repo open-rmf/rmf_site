@@ -18,6 +18,7 @@
 use crate::{interaction::Selectable, site::*};
 use bevy::prelude::*;
 use rmf_site_format::{Edge, WallMarker, DEFAULT_LEVEL_HEIGHT};
+use rmf_site_mesh::*;
 
 pub const DEFAULT_WALL_THICKNESS: f32 = 0.1;
 

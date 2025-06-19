@@ -29,6 +29,7 @@ use bevy::{
     },
 };
 use itertools::Itertools;
+use rmf_site_mesh::{make_flat_square_mesh, MeshBuffer};
 use std::{
     collections::{HashMap, HashSet},
     time::Instant,
