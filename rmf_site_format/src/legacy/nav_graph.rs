@@ -165,7 +165,9 @@ impl NavGraph {
 
                 let mut lanes = Vec::new();
                 for lane_id in &lanes_to_include {
-                    let lane = site.navigation.guided.lanes.get(lane_id).unwrap();
+                    let Some(lane) = site.navigation.guided.lanes.get(lane_id) else {
+                        continue;
+                    };
                     let (v0, v1) = match (
                         anchor_to_vertex.get(&lane.anchors.start()),
                         anchor_to_vertex.get(&lane.anchors.end()),

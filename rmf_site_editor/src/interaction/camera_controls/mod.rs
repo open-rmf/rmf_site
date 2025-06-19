@@ -256,6 +256,7 @@ impl CameraControls {
 
 impl FromWorld for CameraControls {
     fn from_world(world: &mut World) -> Self {
+        // SAFETY: THis only runs during startup
         let interaction_assets = world.get_resource::<InteractionAssets>().expect(
             "make sure that the InteractionAssets resource is initialized before the camera plugin",
         );
