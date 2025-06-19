@@ -277,23 +277,37 @@ impl FromWorld for FileDialogServices {
                         dialog = dialog.add_filter(filter.name, &filter.extensions);
                     }
                     if let Some(file) = dialog.pick_file().await {
-                        let path = file.path();
-                        match std::fs::metadata(path) {
-                            Ok(meta) => {
-                                if meta.is_dir() {
+                        #[cfg(not(target_arch = "wasm32"))]
+                        {
+                            // This safety check is disabled for wasm32 because
+                            // the .path() method is not available for wasm32.
+                            // We should try to find a better way to identify
+                            // when a directory is chosen instead of a file,
+                            // because otherwise a panic will occur inside one
+                            // of our dependencies when the user makes that kind
+                            // of error.
+                            //
+                            // We may even consider using a different dialog
+                            // library since these limitations make our
+                            // implementation awfully fragile.
+                            let path = file.path();
+                            match std::fs::metadata(path) {
+                                Ok(meta) => {
+                                    if meta.is_dir() {
+                                        error!(
+                                            "Selected directory when a file is needed: {}",
+                                            path.as_os_str().to_string_lossy()
+                                        );
+                                        return None;
+                                    }
+                                }
+                                Err(err) => {
                                     error!(
-                                        "Selected directory when a file is needed: {}",
+                                        "Did not select a valid file [{}], error: {err}",
                                         path.as_os_str().to_string_lossy()
                                     );
                                     return None;
                                 }
-                            }
-                            Err(err) => {
-                                error!(
-                                    "Did not select a valid file [{}], error: {err}",
-                                    path.as_os_str().to_string_lossy()
-                                );
-                                return None;
                             }
                         }
 
