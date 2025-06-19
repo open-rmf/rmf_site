@@ -1,5 +1,5 @@
 pub mod shapes;
-use std::{cmp, ops::{Add, Mul, Neg, Sub}};
+use std::{cmp, ops::{Add, Mul, Neg}};
 
 use bevy_derive::Deref;
 pub use shapes::*;

@@ -350,7 +350,7 @@ pub(crate) fn make_circles(
         });
 }
 
-pub(crate) fn make_boxy_wrap(circles: [OffsetCircle; 2], segments: u32) -> MeshBuffer {
+pub(crate) fn make_cuboidy_wrap(circles: [OffsetCircle; 2], segments: u32) -> MeshBuffer {
     let (bottom_circle, top_circle) = if circles[0].height < circles[1].height {
         (circles[0], circles[1])
     } else {
@@ -514,7 +514,7 @@ pub(crate) fn make_cone(circle: OffsetCircle, peak: [f32; 3], resolution: u32) -
     return MeshBuffer::new(positions, normals, indices);
 }
 
-pub(crate) fn make_box(x_size: f32, y_size: f32, z_size: f32) -> MeshBuffer {
+pub(crate) fn make_cuboid(x_size: f32, y_size: f32, z_size: f32) -> MeshBuffer {
     let (min_x, max_x) = (-x_size / 2.0, x_size / 2.0);
     let (min_y, max_y) = (-y_size / 2.0, y_size / 2.0);
     let (min_z, max_z) = (-z_size / 2.0, z_size / 2.0);
@@ -614,7 +614,7 @@ pub(crate) fn make_wall_mesh(
         [0., height / texture_height],                     // 22
         [length / texture_width, height / texture_height], // 23
     ];
-    make_box(length, thickness, height)
+    make_cuboid(length, thickness, height)
         .with_uv(uv)
         .transform_by(
             Affine3A::from_translation(Vec3::new(center.x, center.y, height / 2.0))
@@ -686,7 +686,7 @@ pub(crate) fn make_dagger_mesh() -> Mesh {
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::default(),
     );
-    make_boxy_wrap([lower_ring, upper_ring], segments).merge_into(&mut mesh);
+    make_cuboidy_wrap([lower_ring, upper_ring], segments).merge_into(&mut mesh);
     make_pyramid(upper_ring, [0., 0., top_height], segments).merge_into(&mut mesh);
     make_pyramid(lower_ring.flip_height(), [0., 0., 0.], segments)
         .transform_by(Affine3A::from_quat(Quat::from_rotation_y(
@@ -1141,7 +1141,7 @@ pub(crate) fn make_icon_halo(radius: f32, height: f32, segments: usize) -> MeshB
     let mut mesh = make_ring(radius, radius + width / 2.0, 32);
     for i in 0..segments {
         mesh = mesh.merge_with(
-            make_box(width, width, height)
+            make_cuboid(width, width, height)
                 .transform_by(Affine3A::from_translation(Vec3::new(
                     radius + width / 2.0,
                     0.0,

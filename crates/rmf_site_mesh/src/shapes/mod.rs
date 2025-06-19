@@ -18,15 +18,6 @@
 use bevy_asset::Asset;
 use bevy_color::{Color, LinearRgba};
 use bevy_math::{primitives, Affine3A};
-// use bevy::{
-//     math::primitives::BoxedPolyline3d,
-//     prelude::*,
-//     render::{
-//         mesh::{Indices, PrimitiveTopology, VertexAttributeValues},
-//         primitives::Aabb,
-//         render_asset::RenderAssetUsages,
-//     },
-// };
 use bevy_math::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_reflect::TypePath;
@@ -42,7 +33,7 @@ use bevy_render::render_asset::RenderAssetUsages;
 // use bevy_polyline::{material::PolylineMaterial, polyline::Polyline};
 use std::collections::{BTreeMap, HashMap};
 
-use crate::{Angle, Degrees, Radians};
+use crate::{make_cuboid, make_pyramid, Degrees, Radians};
 
 pub trait WithOutlineMeshExt: Sized {
     fn with_generated_outline_normals(self) -> Result<Self, GenerateOutlineNormalsError>;
@@ -330,7 +321,7 @@ pub struct OffsetCircle {
 }
 
 impl OffsetCircle {
-    fn flip_height(mut self) -> Self {
+    pub fn flip_height(mut self) -> Self {
         self.height = -self.height;
         self
     }
@@ -359,54 +350,6 @@ pub fn make_circles(
                 [r * theta.cos(), r * theta.sin(), h]
             })
         });
-}
-
-pub fn make_boxy_wrap(circles: [OffsetCircle; 2], segments: u32) -> MeshBuffer {
-    let (bottom_circle, top_circle) = if circles[0].height < circles[1].height {
-        (circles[0], circles[1])
-    } else {
-        (circles[1], circles[0])
-    };
-
-    let positions: Vec<[f32; 3]> = make_circles(
-        [bottom_circle, bottom_circle, top_circle, top_circle],
-        segments + 1,
-        0.,
-    )
-    .collect();
-
-    let indices = [[
-        0,
-        3 * segments + 4,
-        2 * segments + 2,
-        0,
-        segments + 2,
-        3 * segments + 4,
-    ]]
-    .into_iter()
-    .cycle()
-    .enumerate()
-    .flat_map(|(i, values)| values.into_iter().map(move |s| s + i as u32))
-    .take(6 * segments as usize)
-    .collect();
-
-    let mut normals = Vec::new();
-    normals.resize(positions.len(), [0., 0., 0.]);
-    for i in 0..segments {
-        let v0 = (i + 0) as usize;
-        let v1 = (i + 3 * segments + 4) as usize;
-        let v2 = (i + 2 * segments + 2) as usize;
-        let v3 = (i + segments + 2) as usize;
-        let p0: Vec3 = positions[v0].into();
-        let p1: Vec3 = positions[v1].into();
-        let p2: Vec3 = positions[v2].into();
-        let n = (p1 - p0).cross(p2 - p0).normalize();
-        [v0, v1, v2, v3].into_iter().for_each(|v| {
-            normals[v] = n.into();
-        });
-    }
-
-    return MeshBuffer::new(positions, normals, indices);
 }
 
 pub fn make_smooth_wrap(circles: [OffsetCircle; 2], resolution: u32) -> MeshBuffer {
@@ -443,137 +386,6 @@ pub fn make_smooth_wrap(circles: [OffsetCircle; 2], resolution: u32) -> MeshBuff
     }
 
     return MeshBuffer::new(positions, normals, indices);
-}
-
-pub fn make_pyramid(circle: OffsetCircle, peak: [f32; 3], segments: u32) -> MeshBuffer {
-    let positions: Vec<[f32; 3]> = make_circles([circle, circle], segments + 1, 0.)
-        .chain([peak].into_iter().cycle().take(segments as usize))
-        .collect();
-
-    let peak_start = 2 * segments + 2;
-    let complement_start = segments + 2;
-    let indices = [[0, complement_start, peak_start]]
-        .into_iter()
-        .cycle()
-        .enumerate()
-        .flat_map(|(i, values)| values.into_iter().map(move |s| s + i as u32))
-        .take(3 * segments as usize)
-        .collect();
-
-    let mut normals = Vec::new();
-    normals.resize(positions.len(), [0., 0., 0.]);
-    for i in 0..segments {
-        let v0 = (i + 0) as usize;
-        let v1 = (i + complement_start) as usize;
-        let vp = (i + peak_start) as usize;
-        let p0: Vec3 = positions[v0].into();
-        let p1: Vec3 = positions[v1].into();
-        let p2: Vec3 = positions[vp].into();
-        let n = if peak[2] < circle.height {
-            (p2 - p0).cross(p1 - p0)
-        } else {
-            (p1 - p0).cross(p2 - p0)
-        }
-        .normalize();
-
-        [v0, v1, vp].into_iter().for_each(|v| {
-            normals[v] = n.into();
-        });
-    }
-
-    return MeshBuffer::new(positions, normals, indices);
-}
-
-pub fn make_cone(circle: OffsetCircle, peak: [f32; 3], resolution: u32) -> MeshBuffer {
-    let positions: Vec<[f32; 3]> = make_circles([circle], resolution + 1, 0.)
-        .take(resolution as usize) // skip the last vertex which would close the circle
-        .chain([peak].into_iter().cycle().take(resolution as usize))
-        .collect();
-
-    let peak_start = resolution;
-    let indices: Vec<u32> = [[0, 1, peak_start]]
-        .into_iter()
-        .cycle()
-        .enumerate()
-        .flat_map(|(i, values)| values.into_iter().map(move |s| s + i as u32))
-        .take(3 * (resolution as usize - 1))
-        .chain([peak_start - 1, 0, (positions.len() - 1) as u32])
-        .collect();
-
-    let mut normals = Vec::<[f32; 3]>::new();
-    let base_p = Vec3::new(peak[0], peak[1], circle.height);
-    normals.resize(positions.len(), [0., 0., 1.]);
-    for i in 0..resolution {
-        // Normals around the ring
-        let calculate_normal = |theta: f32| -> [f32; 3] {
-            let p = circle.radius * Vec3::new(theta.cos(), theta.sin(), circle.height);
-            let r = (p - base_p).length();
-            let h = peak[2] - circle.height;
-            let phi = r.atan2(h);
-            let r_y = Affine3A::from_rotation_y(-phi);
-            let r_z = Affine3A::from_rotation_z(theta);
-            (r_z * r_y).transform_vector3(Vec3::new(1., 0., 0.)).into()
-        };
-
-        let theta = (i as f32) / (resolution as f32) * 2.0 * std::f32::consts::PI;
-        normals[i as usize] = calculate_normal(theta);
-
-        let mid_theta = (i as f32 + 0.5) / (resolution as f32) * 2.0 * std::f32::consts::PI;
-        normals[(i + peak_start) as usize] = calculate_normal(mid_theta);
-    }
-
-    return MeshBuffer::new(positions, normals, indices);
-}
-
-pub fn make_box(x_size: f32, y_size: f32, z_size: f32) -> MeshBuffer {
-    let (min_x, max_x) = (-x_size / 2.0, x_size / 2.0);
-    let (min_y, max_y) = (-y_size / 2.0, y_size / 2.0);
-    let (min_z, max_z) = (-z_size / 2.0, z_size / 2.0);
-    let vertices = &[
-        // Top
-        ([min_x, min_y, max_z], [0., 0., 1.]),
-        ([max_x, min_y, max_z], [0., 0., 1.]),
-        ([max_x, max_y, max_z], [0., 0., 1.]),
-        ([min_x, max_y, max_z], [0., 0., 1.]),
-        // Bottom
-        ([min_x, max_y, min_z], [0., 0., -1.]),
-        ([max_x, max_y, min_z], [0., 0., -1.]),
-        ([max_x, min_y, min_z], [0., 0., -1.]),
-        ([min_x, min_y, min_z], [0., 0., -1.]),
-        // Right
-        ([max_x, min_y, min_z], [1., 0., 0.]),
-        ([max_x, max_y, min_z], [1., 0., 0.]),
-        ([max_x, max_y, max_z], [1., 0., 0.]),
-        ([max_x, min_y, max_z], [1., 0., 0.]),
-        // Left
-        ([min_x, min_y, max_z], [-1., 0., 0.]),
-        ([min_x, max_y, max_z], [-1., 0., 0.]),
-        ([min_x, max_y, min_z], [-1., 0., 0.]),
-        ([min_x, min_y, min_z], [-1., 0., 0.]),
-        // Front
-        ([max_x, max_y, min_z], [0., 1., 0.]),
-        ([min_x, max_y, min_z], [0., 1., 0.]),
-        ([min_x, max_y, max_z], [0., 1., 0.]),
-        ([max_x, max_y, max_z], [0., 1., 0.]),
-        // Back
-        ([max_x, min_y, max_z], [0., -1., 0.]),
-        ([min_x, min_y, max_z], [0., -1., 0.]),
-        ([min_x, min_y, min_z], [0., -1., 0.]),
-        ([max_x, min_y, min_z], [0., -1., 0.]),
-    ];
-
-    let positions: Vec<_> = vertices.iter().map(|(p, _)| *p).collect();
-    let normals: Vec<_> = vertices.iter().map(|(_, n)| *n).collect();
-    let indices = vec![
-        0, 1, 2, 2, 3, 0, // Top
-        4, 5, 6, 6, 7, 4, // Bottom
-        8, 9, 10, 10, 11, 8, // Right
-        12, 13, 14, 14, 15, 12, // Left
-        16, 17, 18, 18, 19, 16, // Front
-        20, 21, 22, 22, 23, 20, // Back
-    ];
-
-    MeshBuffer::new(positions, normals, indices)
 }
 
 pub fn make_wall_mesh(
@@ -625,7 +437,7 @@ pub fn make_wall_mesh(
         [0., height / texture_height],                     // 22
         [length / texture_width, height / texture_height], // 23
     ];
-    make_box(length, thickness, height)
+    make_cuboid(length, thickness, height)
         .with_uv(uv)
         .transform_by(
             Affine3A::from_translation(Vec3::new(center.x, center.y, height / 2.0))
@@ -681,32 +493,6 @@ pub fn make_flat_disk(circle: OffsetCircle, resolution: u32) -> MeshBuffer {
     make_top_circle(circle, resolution).merge_with(make_bottom_circle(circle, resolution))
 }
 
-pub fn make_dagger_mesh() -> Mesh {
-    let lower_ring = OffsetCircle {
-        radius: 0.01,
-        height: 0.1,
-    };
-    let upper_ring = OffsetCircle {
-        radius: 0.02,
-        height: 0.4,
-    };
-    let top_height = 0.42;
-    let segments = 4u32;
-
-    let mut mesh = Mesh::new(
-        PrimitiveTopology::TriangleList,
-        RenderAssetUsages::default(),
-    );
-    make_boxy_wrap([lower_ring, upper_ring], segments).merge_into(&mut mesh);
-    make_pyramid(upper_ring, [0., 0., top_height], segments).merge_into(&mut mesh);
-    make_pyramid(lower_ring.flip_height(), [0., 0., 0.], segments)
-        .transform_by(Affine3A::from_quat(Quat::from_rotation_y(
-            180_f32.to_radians(),
-        )))
-        .merge_into(&mut mesh);
-    return mesh;
-}
-
 pub fn make_cylinder(height: f32, radius: f32) -> MeshBuffer {
     let top_circle = OffsetCircle {
         height: height / 2.0,
@@ -730,89 +516,6 @@ pub fn make_cylinder(height: f32, radius: f32) -> MeshBuffer {
             Affine3A::from_translation([0., 0., height / 2.0].into())
                 * Affine3A::from_rotation_x(180_f32.to_radians()),
         ))
-}
-
-pub fn make_cylinder_arrow_mesh() -> Mesh {
-    let tip = [0., 0., 1.0];
-    let l_head = 0.2;
-    let r_head = 0.15;
-    let r_base = 0.1;
-    let head_base = OffsetCircle {
-        radius: r_head,
-        height: 1.0 - l_head,
-    };
-    let cylinder_top = OffsetCircle {
-        radius: r_base,
-        height: 1.0 - l_head,
-    };
-    let cylinder_bottom = OffsetCircle {
-        radius: r_base,
-        height: 0.0,
-    };
-    let resolution = 32u32;
-
-    let mut mesh = Mesh::new(
-        PrimitiveTopology::TriangleList,
-        RenderAssetUsages::default(),
-    );
-    make_cone(head_base, tip, resolution).merge_into(&mut mesh);
-    make_smooth_wrap([cylinder_top, cylinder_bottom], resolution).merge_into(&mut mesh);
-    make_smooth_wrap([head_base, cylinder_top], resolution).merge_into(&mut mesh);
-    make_bottom_circle(cylinder_bottom, resolution).merge_into(&mut mesh);
-    return mesh;
-}
-
-pub fn flat_arrow_mesh(
-    handle_length: f32,
-    handle_width: f32,
-    tip_length: f32,
-    tip_width: f32,
-) -> MeshBuffer {
-    let half_handle_width = handle_width / 2.0;
-    let half_tip_width = tip_width / 2.0;
-    let positions: Vec<[f32; 3]> = vec![
-        [0.0, half_handle_width, 0.0],            // 0
-        [0.0, -half_handle_width, 0.0],           // 1
-        [handle_length, -half_handle_width, 0.0], // 2
-        [handle_length, half_handle_width, 0.0],  // 3
-        [handle_length, half_tip_width, 0.0],     // 4
-        [handle_length, -half_tip_width, 0.0],    // 5
-        [handle_length + tip_length, 0.0, 0.0],   // 6
-    ];
-
-    let normals: Vec<[f32; 3]> = {
-        let mut normals = Vec::new();
-        normals.resize(positions.len(), [0.0, 0.0, 1.0]);
-        normals
-    };
-
-    let indices: Vec<u32> = vec![0, 1, 3, 1, 2, 3, 4, 5, 6];
-
-    let outline: Vec<u32> = vec![0, 1, 1, 2, 2, 5, 5, 6, 6, 4, 4, 3, 3, 0];
-
-    MeshBuffer::new(positions, normals, indices).with_outline(outline)
-}
-
-pub fn flat_arrow_mesh_between(
-    start: Vec3,
-    stop: Vec3,
-    handle_width: f32,
-    tip_length: f32,
-    tip_width: f32,
-) -> MeshBuffer {
-    let total_length = (stop - start).length();
-    let tip_length = total_length.min(tip_length);
-    let handle_length = total_length - tip_length;
-    let dp = stop - start;
-    let yaw = dp.y.atan2(dp.x);
-
-    flat_arrow_mesh(handle_length, handle_width, tip_length, tip_width).transform_by(
-        Affine3A::from_scale_rotation_translation(
-            Vec3::new(1.0, 1.0, 1.0),
-            Quat::from_rotation_z(yaw),
-            start,
-        ),
-    )
 }
 
 pub fn flat_arc(
@@ -1031,81 +734,6 @@ pub fn make_flat_mesh_for_aabb(aabb: Aabb) -> MeshBuffer {
         .transform_by(Affine3A::from_translation(aabb.center.into()))
 }
 
-pub fn make_halo_mesh() -> Mesh {
-    let inner_ring = 1.0;
-    let mid_ring = 1.1 * inner_ring;
-    let outer_ring = 1.2 * inner_ring;
-    let peak = 0.01;
-    let segments = 100u32;
-    let gap = 60_f32.to_radians();
-
-    let positions: Vec<[f32; 3]> = make_circles(
-        [
-            (inner_ring, 0.).into(),
-            (mid_ring, peak).into(),
-            (outer_ring, 0.).into(),
-        ],
-        segments,
-        gap,
-    )
-    .collect();
-
-    let colors: Vec<[f32; 4]> = [[1., 1., 1., 1.]]
-        .into_iter()
-        .cycle()
-        .take(2 * segments as usize)
-        .chain(
-            [[1., 1., 1., 0.]]
-                .into_iter()
-                .cycle()
-                .take(segments as usize),
-        )
-        .collect();
-
-    let normals: Vec<[f32; 3]> = [[0., 0., 1.]]
-        .into_iter()
-        .cycle()
-        .take(positions.len())
-        .collect();
-
-    let indices = Indices::U32(
-        [[0u32, segments, segments + 1u32, 0u32, segments + 1u32, 1u32]]
-            .into_iter()
-            .cycle()
-            .enumerate()
-            .flat_map(|(cycle, values)| {
-                [(cycle as u32, values)]
-                    .into_iter()
-                    .cycle()
-                    .enumerate()
-                    .take(segments as usize - 1)
-                    .flat_map(|(segment, (cycle, values))| {
-                        values.map(|s| cycle * segments + segment as u32 + s)
-                    })
-            })
-            .take(6 * 2 * (segments as usize - 1))
-            .chain([
-                0,
-                2 * segments,
-                segments,
-                3 * segments - 1,
-                segments - 1,
-                2 * segments - 1,
-            ])
-            .collect(),
-    );
-
-    let mut mesh = Mesh::new(
-        PrimitiveTopology::TriangleList,
-        RenderAssetUsages::default(),
-    );
-    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-    mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
-    mesh.insert_indices(indices);
-    return mesh;
-}
-
 pub fn make_ring(inner_radius: f32, outer_radius: f32, resolution: usize) -> MeshBuffer {
     let positions: Vec<[f32; 3]> = make_circles(
         [(inner_radius, 0.).into(), (outer_radius, 0.).into()],
@@ -1144,27 +772,6 @@ pub fn make_location_icon(radius: f32, height: f32, segments: usize) -> MeshBuff
         0.0,
         height / 2.0,
     )))
-}
-
-pub fn make_icon_halo(radius: f32, height: f32, segments: usize) -> MeshBuffer {
-    let angle = (360.0 / (2.0 * segments as f32)).to_radians();
-    let p0 = radius * Vec3::X;
-    let p1 = Affine3A::from_rotation_z(angle).transform_vector3(p0);
-    let width = (p1 - p0).length();
-    let mut mesh = make_ring(radius, radius + width / 2.0, 32);
-    for i in 0..segments {
-        mesh = mesh.merge_with(
-            make_box(width, width, height)
-                .transform_by(Affine3A::from_translation(Vec3::new(
-                    radius + width / 2.0,
-                    0.0,
-                    height / 2.0,
-                )))
-                .transform_by(Affine3A::from_rotation_z(i as f32 * 2.0 * angle)),
-        );
-    }
-
-    mesh
 }
 
 pub fn make_closed_path_outline(mut initial_positions: Vec<[f32; 3]>) -> MeshBuffer {
