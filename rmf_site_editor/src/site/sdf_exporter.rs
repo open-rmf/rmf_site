@@ -1,99 +1,33 @@
+/*
+ * Copyright (C) 2025 Open Source Robotics Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+*/
+
 use bevy::ecs::{relationship::DescendantIter, system::SystemState};
 use bevy::prelude::*;
 use bevy_gltf_export::{export_meshes, CompressGltfOptions, MeshData};
 
 use std::path::Path;
 
-use crate::WorkspaceSaver;
-
-use crate::{
-    site::{
-        ChildLiftCabinGroup, CollisionMeshMarker, DoorSegments, DrawingMarker, FloorSegments,
-        LiftDoormat, ModelLoadingState, VisualMeshMarker,
-    },
-    Autoload, WorkspaceLoader,
+use crate::site::{
+    ChildLiftCabinGroup, CollisionMeshMarker, DoorSegments, FloorSegments,
+    LiftDoormat, VisualMeshMarker,
 };
 use rmf_site_format::{
-    IsStatic, LevelElevation, LiftCabin, ModelMarker, NameInSite, NameOfSite, SiteID, WallMarker,
+    IsStatic, LevelElevation, LiftCabin, ModelMarker, NameInSite, SiteID, WallMarker,
 };
-
-/// Manages a simple state machine where we:
-///   * Wait for a few iterations,
-///   * Make sure the world is loaded.
-///   * Send a save event.
-///   * Wait for a few iterations.
-///   * Exit.
-#[derive(Debug, Resource)]
-pub struct HeadlessSdfExportState {
-    iterations: u32,
-    world_loaded: bool,
-    save_requested: bool,
-    target_path: String,
-}
-
-impl HeadlessSdfExportState {
-    pub fn new(path: &str) -> Self {
-        Self {
-            iterations: 0,
-            world_loaded: false,
-            save_requested: false,
-            target_path: path.into(),
-        }
-    }
-}
-
-pub fn headless_sdf_export(
-    mut commands: Commands,
-    mut workspace_saver: WorkspaceSaver,
-    mut exit: EventWriter<bevy::app::AppExit>,
-    missing_models: Query<(), With<ModelLoadingState>>,
-    mut export_state: ResMut<HeadlessSdfExportState>,
-    sites: Query<(Entity, &NameOfSite)>,
-    drawings: Query<Entity, With<DrawingMarker>>,
-    autoload: Option<ResMut<Autoload>>,
-    mut workspace_loader: WorkspaceLoader,
-) {
-    if let Some(mut autoload) = autoload {
-        if let Some(filename) = autoload.filename.take() {
-            workspace_loader.load_from_path(filename);
-        }
-    } else {
-        error!("Cannot perform a headless export since no site file was specified for loading");
-    }
-
-    export_state.iterations += 1;
-    if export_state.iterations < 5 {
-        return;
-    }
-    if sites.is_empty() {
-        warn!(
-            "No site is loaded so we cannot export an SDF file into [{}]",
-            export_state.target_path,
-        );
-        exit.write(bevy::app::AppExit::Error(1.try_into().unwrap()));
-    }
-    if !missing_models.is_empty() {
-        // Despawn all drawings, otherwise floors will become transparent.
-        for e in drawings.iter() {
-            commands.entity(e).despawn();
-        }
-        // TODO(luca) implement a timeout logic?
-    } else {
-        if !export_state.world_loaded {
-            export_state.iterations = 0;
-            export_state.world_loaded = true;
-        } else {
-            if !export_state.save_requested && export_state.iterations > 5 {
-                let path = std::path::PathBuf::from(export_state.target_path.clone());
-                workspace_saver.export_sdf_to_path(path);
-                export_state.save_requested = true;
-                export_state.iterations = 0;
-            } else if export_state.save_requested && export_state.iterations > 5 {
-                exit.write(bevy::app::AppExit::Success);
-            }
-        }
-    }
-}
 
 pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Result<(), String> {
     let mut state: SystemState<(

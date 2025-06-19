@@ -768,6 +768,12 @@ impl<'w, 's> WorkspaceSaver<'w, 's> {
             .request((), self.workspace_saving.export_nav_graphs_to_dialog)
             .detach();
     }
+
+    pub fn export_nav_graphs_to_path(&mut self, path: PathBuf) {
+        self.commands
+            .request(path, self.workspace_saving.export_nav_graphs_to_path)
+            .detach();
+    }
 }
 
 /// `SystemParam` used to request for workspace loading operations
