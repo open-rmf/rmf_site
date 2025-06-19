@@ -448,12 +448,33 @@ fn generate_site_entities(
         let mut scenario_modifiers: ScenarioModifiers<Entity> = ScenarioModifiers::default();
         for (instance_id, instance) in scenario_data.instances.iter() {
             if let Some(instance_entity) = id_to_entity.get(&instance_id) {
-                let modifier_entity = commands
-                    .spawn(instance.clone())
-                    .insert(Affiliation(Some(*instance_entity)))
-                    .insert(ChildOf(scenario_entity))
-                    .id();
-                scenario_modifiers.insert(*instance_entity, modifier_entity);
+                if instance.pose.is_some() || instance.visibility.is_some() {
+                    let modifier_entity = commands
+                        .spawn(Affiliation(Some(*instance_entity)))
+                        .insert(ChildOf(scenario_entity))
+                        .id();
+                    if let Some(pose) = instance.pose {
+                        commands
+                            .entity(modifier_entity)
+                            .insert(Modifier::<Pose>::new(pose));
+                    }
+                    if let Some(vis) = instance.visibility {
+                        let visibility = if vis {
+                            Visibility::Inherited
+                        } else {
+                            Visibility::Hidden
+                        };
+                        commands
+                            .entity(modifier_entity)
+                            .insert(Modifier::<Visibility>::new(visibility));
+                    }
+                    scenario_modifiers.insert(*instance_entity, modifier_entity);
+                } else {
+                    error!(
+                        "Model instance {} does not have all required modifiers in scenario {}!",
+                        instance_id, scenario.properties.name.0
+                    );
+                }
             } else {
                 error!(
                     "Model instance {} referenced by scenario {} is missing! This should \

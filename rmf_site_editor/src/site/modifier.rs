@@ -23,11 +23,31 @@ use crate::{
     Issue, ValidateWorkspace,
 };
 use bevy::{
-    ecs::{component::Mutable, hierarchy::ChildOf, system::SystemParam, world::OnDespawn},
+    ecs::{
+        component::Mutable, hierarchy::ChildOf, query::QueryFilter, system::SystemParam,
+        world::OnDespawn,
+    },
     prelude::*,
 };
 use std::fmt::Debug;
 use uuid::Uuid;
+
+#[derive(Component, Debug, Default, Clone)]
+pub struct Modifier<T: Property>(T);
+
+impl<T: Property> Modifier<T> {
+    pub fn new(value: T) -> Self {
+        Self(value)
+    }
+
+    pub fn get(&self) -> T {
+        self.0.clone()
+    }
+
+    pub fn update(&mut self, new_value: T) {
+        self.0 = new_value;
+    }
+}
 
 #[derive(Clone, Debug, Event)]
 pub struct AddModifier {
@@ -114,16 +134,6 @@ impl<'w, 's, T: Component<Mutability = Mutable> + Clone + Default> GetModifier<'
     }
 }
 
-#[derive(Component)]
-pub struct Modifier<T: Property>(T);
-
-impl<T: Property> Modifier<T> {
-    /// This system retrieves the property values for this element's modifier
-    pub fn get(&self) -> T {
-        self.0.clone()
-    }
-}
-
 /// Handles additions and removals of scenario modifiers
 pub fn handle_scenario_modifiers(
     mut commands: Commands,
@@ -178,17 +188,17 @@ pub fn handle_scenario_modifiers(
         let Ok((mut scenario_modifiers, _)) = scenarios.get_mut(scenario_entity) else {
             continue;
         };
-        // If a modifier entity already exists, we assume it's meant to replace the current modifier.
-        // Despawn incoming modifier entity. Note that this erases any Recall data
-        if let Some(current_modifier) = scenario_modifiers.get(&add.for_element) {
-            commands.entity(*current_modifier).despawn();
+        // If a modifier entity already exists, we ignore and despawn incoming modifier
+        // entity.
+        if scenario_modifiers.contains_key(&add.for_element) {
+            commands.entity(add.modifier).despawn();
+        } else {
+            commands
+                .entity(add.modifier)
+                .insert(Affiliation(Some(add.for_element)))
+                .insert(ChildOf(scenario_entity));
+            scenario_modifiers.insert(add.for_element, add.modifier);
         }
-
-        commands
-            .entity(add.modifier)
-            .insert(Affiliation(Some(add.for_element)))
-            .insert(ChildOf(scenario_entity));
-        scenario_modifiers.insert(add.for_element, add.modifier);
 
         update_property.write(UpdateProperty::new(add.for_element, add.in_scenario));
     }
@@ -202,6 +212,59 @@ pub fn handle_cleanup_modifiers<M: Component<Mutability = Mutable> + Debug + Def
 ) {
     for scenario_entity in scenarios.iter() {
         remove_modifier.write(RemoveModifier::new(trigger.target(), scenario_entity));
+    }
+}
+
+/// If a modifier entity in ScenarioModifiers has all Modifier<T> components removed,
+/// send this entity to be removed and despawned.
+pub fn handle_empty_modifiers<T: Property, F: QueryFilter>(
+    mut remove_modifier: EventWriter<RemoveModifier>,
+    mut removals: RemovedComponents<Modifier<T>>,
+    affiliation: Query<&Affiliation<Entity>>,
+    current_scenario: Res<CurrentScenario>,
+    modifiers: Query<(), F>,
+    scenarios: Query<(Entity, &ScenarioModifiers<Entity>), With<ScenarioMarker>>,
+) {
+    if !removals.is_empty() {
+        for modifier_entity in removals.read() {
+            // Check that this modifier entity no longer satisfy the specified filter
+            if modifiers.get(modifier_entity).is_ok() {
+                continue;
+            }
+            // Check that this modifier entity has an affiliated element
+            let Some(element) = affiliation.get(modifier_entity).ok().and_then(|a| a.0) else {
+                continue;
+            };
+            // Check that this element-modifier pair exists in the current scenario, else
+            // search for the target scenario
+            if let Some(scenario_entity) = current_scenario.0 {
+                if scenarios
+                    .get(scenario_entity)
+                    .is_ok_and(|(_, scenario_modifiers)| {
+                        scenario_modifiers
+                            .get(&element)
+                            .is_some_and(|e| *e == modifier_entity)
+                    })
+                {
+                    remove_modifier.write(RemoveModifier::new(element, scenario_entity));
+                    continue;
+                }
+            }
+
+            // The current scenario wasn't the target scenario, loop over scenario
+            // modifiers to find
+            for (scenario_entity, scenario_modifiers) in scenarios.iter() {
+                if scenario_modifiers
+                    .get(&element)
+                    .is_some_and(|e| *e == modifier_entity)
+                {
+                    remove_modifier.write(RemoveModifier::new(element, scenario_entity));
+                    break;
+                }
+            }
+            // Target scenario entity can't be found, this is an invalid modifier,
+            // do nothing
+        }
     }
 }
 
