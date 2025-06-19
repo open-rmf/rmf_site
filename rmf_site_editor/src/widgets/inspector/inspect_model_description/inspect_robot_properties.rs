@@ -18,9 +18,9 @@
 use super::*;
 use crate::{
     site::{
-        recall_plugin::UpdateRecallSet, robot_properties::*, update_model_instances, Change,
-        ChangePlugin, Group, IssueKey, ModelMarker, ModelProperty, ModelPropertyQuery, NameInSite,
-        Recall, RecallPlugin, Robot, SiteUpdateSet,
+        recall_plugin::UpdateRecallSet, robot_properties::*, update_model_instances, Change, Group,
+        IssueKey, ModelMarker, ModelProperty, ModelPropertyQuery, NameInSite, Recall, RecallPlugin,
+        Robot, SiteUpdateSet,
     },
     widgets::Inspect,
     AppState, Issue, ModelPropertyData, ValidateWorkspace,
@@ -70,8 +70,7 @@ impl Plugin for InspectRobotPropertiesPlugin {
             .components()
             .component_id::<ModelProperty<Robot>>()
             .unwrap();
-        app.add_plugins(ChangePlugin::<ModelProperty<Robot>>::default())
-            .add_systems(PreUpdate, update_model_instances::<Robot>)
+        app.add_systems(PreUpdate, update_model_instances::<Robot>)
             .init_resource::<ModelPropertyData>()
             .world_mut()
             .resource_mut::<ModelPropertyData>()

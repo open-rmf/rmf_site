@@ -270,6 +270,7 @@ impl Plugin for SitePlugin {
             ChangePlugin::<ModelProperty<AssetSource>>::default(),
             ChangePlugin::<ModelProperty<Scale>>::default(),
             ChangePlugin::<ModelProperty<IsStatic>>::default(),
+            ChangePlugin::<ModelProperty<Robot>>::default(),
             RecallPlugin::<RecallInstance>::default(),
             SlotcarSdfPlugin,
         ))
