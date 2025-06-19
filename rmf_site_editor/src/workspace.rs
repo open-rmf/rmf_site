@@ -21,7 +21,7 @@ use rfd::AsyncFileDialog;
 use std::path::PathBuf;
 
 use crate::interaction::InteractionState;
-use crate::site::{DefaultFile, LoadSite, SaveSite, ImportNavGraphs};
+use crate::site::{DefaultFile, ImportNavGraphs, LoadSite, SaveSite};
 use crate::AppState;
 use rmf_site_format::legacy::building_map::BuildingMap;
 use rmf_site_format::{NameOfSite, Site};
@@ -67,41 +67,33 @@ impl WorkspaceData {
 
     pub fn as_site(&self) -> Option<Site> {
         match self {
-            Self::LegacyBuilding(data) => {
-                match BuildingMap::from_bytes(data) {
-                    Ok(building) => {
-                        match building.to_site() {
-                            Ok(site) => return Some(site),
-                            Err(err) => {
-                                error!("Failed converting a legacy building into a site: {err}");
-                                return None;
-                            }
-                        }
-                    }
-                    Err(err) => {
-                        error!("Failed parsing legacy building: {err}");
-                        return None;
-                    }
-                }
-            }
-            Self::RonSite(data) => {
-                match Site::from_bytes_ron(data) {
+            Self::LegacyBuilding(data) => match BuildingMap::from_bytes(data) {
+                Ok(building) => match building.to_site() {
                     Ok(site) => return Some(site),
                     Err(err) => {
-                        error!("Failed parsing ron site file: {err}");
+                        error!("Failed converting a legacy building into a site: {err}");
                         return None;
                     }
+                },
+                Err(err) => {
+                    error!("Failed parsing legacy building: {err}");
+                    return None;
                 }
-            }
-            Self::JsonSite(data) => {
-                match Site::from_bytes_json(data) {
-                    Ok(site) => return Some(site),
-                    Err(err) => {
-                        error!("Failed loading json site file: {err}");
-                        return None;
-                    }
+            },
+            Self::RonSite(data) => match Site::from_bytes_ron(data) {
+                Ok(site) => return Some(site),
+                Err(err) => {
+                    error!("Failed parsing ron site file: {err}");
+                    return None;
                 }
-            }
+            },
+            Self::JsonSite(data) => match Site::from_bytes_json(data) {
+                Ok(site) => return Some(site),
+                Err(err) => {
+                    error!("Failed loading json site file: {err}");
+                    return None;
+                }
+            },
             Self::LoadSite(load) => return Some(load.site.clone()),
         }
     }
@@ -289,12 +281,18 @@ impl FromWorld for FileDialogServices {
                         match std::fs::metadata(path) {
                             Ok(meta) => {
                                 if meta.is_dir() {
-                                    error!("Selected directory when a file is needed: {}", path.as_os_str().to_string_lossy());
+                                    error!(
+                                        "Selected directory when a file is needed: {}",
+                                        path.as_os_str().to_string_lossy()
+                                    );
                                     return None;
                                 }
                             }
                             Err(err) => {
-                                error!("Did not select a valid file [{}], error: {err}", path.as_os_str().to_string_lossy());
+                                error!(
+                                    "Did not select a valid file [{}], error: {err}",
+                                    path.as_os_str().to_string_lossy()
+                                );
                                 return None;
                             }
                         }
@@ -395,11 +393,7 @@ impl FromWorld for WorkspaceLoadingServices {
             },
             FileDialogFilter {
                 name: "Structured file".into(),
-                extensions: vec![
-                    "ron".into(),
-                    "json".into(),
-                    "yaml".into(),
-                ]
+                extensions: vec!["ron".into(), "json".into(), "yaml".into()],
             },
             FileDialogFilter {
                 name: "All files".into(),
@@ -487,16 +481,18 @@ impl FromWorld for WorkspaceLoadingServices {
                 .connect(scope.terminate)
         });
 
-        let request_import_nav_graphs = |
-            In(from_site): In<Site>,
-            current_site: Res<CurrentWorkspace>,
-            mut import_nav_graphs: EventWriter<ImportNavGraphs>,
-        | {
-            let Some(into_site) = current_site.root else {
-                return;
+        let request_import_nav_graphs =
+            |In(from_site): In<Site>,
+             current_site: Res<CurrentWorkspace>,
+             mut import_nav_graphs: EventWriter<ImportNavGraphs>| {
+                let Some(into_site) = current_site.root else {
+                    return;
+                };
+                import_nav_graphs.write(ImportNavGraphs {
+                    into_site,
+                    from_site,
+                });
             };
-            import_nav_graphs.write(ImportNavGraphs { into_site, from_site });
-        };
 
         let import_nav_graphs_from_dialog = world.spawn_workflow(|scope, builder| {
             scope
@@ -507,9 +503,7 @@ impl FromWorld for WorkspaceLoadingServices {
                     move |_| loading_filters.clone()
                 })
                 .then(pick_file)
-                .map_async(|(path, data)| async move {
-                    WorkspaceData::new(&path, data)?.as_site()
-                })
+                .map_async(|(path, data)| async move { WorkspaceData::new(&path, data)?.as_site() })
                 .cancel_on_none()
                 .then(request_import_nav_graphs.into_blocking_callback())
                 .connect(scope.terminate);

@@ -123,8 +123,8 @@ pub fn run(command_line_args: Vec<String>) {
 
     app.add_plugins(
         SiteEditor::default()
-        .export_sdf(_export_sdf)
-        .export_nav(_export_nav)
+            .export_sdf(_export_sdf)
+            .export_nav(_export_nav),
     );
     app.run();
 }

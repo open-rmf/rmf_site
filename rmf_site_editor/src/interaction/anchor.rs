@@ -45,7 +45,11 @@ pub fn add_anchor_visual_cues(
     highlight: Res<HighlightAnchors>,
 ) {
     for (e, child_of, subordinate, anchor) in &new_anchors {
-        let body_mesh = match categories.get(child_of.parent()).unwrap() {
+        let Ok(category) = categories.get(child_of.parent()) else {
+            continue;
+        };
+
+        let body_mesh = match category {
             Category::Level => site_assets.level_anchor_mesh.clone(),
             Category::Lift => site_assets.lift_anchor_mesh.clone(),
             _ => site_assets.site_anchor_mesh.clone(),

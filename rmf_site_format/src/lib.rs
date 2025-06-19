@@ -80,6 +80,9 @@ pub use misc::*;
 pub mod robot;
 pub use robot::*;
 
+pub mod robot_properties;
+pub use robot_properties::*;
+
 pub mod model;
 pub use model::*;
 

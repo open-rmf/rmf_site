@@ -36,9 +36,7 @@ impl FromWorld for SdfExportMenu {
         let file_header = world.resource::<FileMenu>().get();
         let export_sdf = world
             .spawn((
-                MenuItem::Text(
-                    TextMenuItem::new("Export Sdf").shortcut("Ctrl-E"),
-                ),
+                MenuItem::Text(TextMenuItem::new("Export Sdf").shortcut("Ctrl-E")),
                 ChildOf(file_header),
             ))
             .id();

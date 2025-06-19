@@ -22,7 +22,7 @@ use crate::{
     Issue, ValidateWorkspace,
 };
 use bevy::{
-    asset::{AssetLoadError, io::AssetReaderError},
+    asset::{io::AssetReaderError, AssetLoadError},
     ecs::{
         hierarchy::ChildOf,
         relationship::DescendantIter,
@@ -69,7 +69,7 @@ pub fn get_all_for_source(source: &AssetSource) -> Vec<AssetSource> {
                 // Check for the asset in the Open-RMF organization
                 paths.extend(common_model_directory_layouts(
                     &format!("Open-RMF/{name}"),
-                    &name
+                    &name,
                 ));
             }
 
@@ -83,10 +83,7 @@ pub fn get_all_for_source(source: &AssetSource) -> Vec<AssetSource> {
     }
 }
 
-fn common_model_directory_layouts(
-    path: &str,
-    model_name: &str,
-) -> Vec<AssetSource> {
+fn common_model_directory_layouts(path: &str, model_name: &str) -> Vec<AssetSource> {
     vec![
         AssetSource::Search(path.to_owned()),
         AssetSource::Search(path.to_owned() + "/model.sdf"),
@@ -162,7 +159,10 @@ fn load_asset_source(
             .load_untyped_async(&asset_path)
             .await
             .map_err(|err| {
-                if !matches!(err, AssetLoadError::AssetReaderError(AssetReaderError::Io(_))) {
+                if !matches!(
+                    err,
+                    AssetLoadError::AssetReaderError(AssetReaderError::Io(_))
+                ) {
                     // AssetReaderError::Io is a common error during searches, so
                     // we skip it, but other errors may indicate that a problem
                     // exists in the asset itself.
@@ -885,6 +885,9 @@ pub fn update_model_instances<T: Component + Default + Clone>(
         }
     }
 }
+
+pub type ModelPropertyQuery<'w, 's, P> =
+    Query<'w, 's, &'static Affiliation<Entity>, (With<ModelMarker>, Without<Group>, With<P>)>;
 
 /// Unique UUID to identify issue of orphan model instance
 pub const ORPHAN_MODEL_INSTANCE_ISSUE_UUID: Uuid =

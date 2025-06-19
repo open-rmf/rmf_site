@@ -16,24 +16,33 @@
 */
 
 use crate::{interaction::Selectable, shapes::*, site::*};
-use bevy::prelude::*;
+use bevy::{ecs::query::QueryEntityError, prelude::*};
+use bevy_mod_outline::GenerateOutlineNormalsError;
 use rmf_site_format::{Edge, WallMarker, DEFAULT_LEVEL_HEIGHT};
+use thiserror::Error;
 
 pub const DEFAULT_WALL_THICKNESS: f32 = 0.1;
+
+#[derive(Debug, Error)]
+pub enum MeshCreationError {
+    /// The given [`Entity`]'s components do not match the query.
+    ///
+    /// Either it does not have a requested component, or it has a component which the query filters out.
+    #[error("Failed getting anchor transform: {0}")]
+    GetAnchorTransformError(#[from] QueryEntityError),
+    #[error("Error when generating normals: {0}")]
+    GenerateOutlineNormalsError(#[from] GenerateOutlineNormalsError),
+}
 
 fn make_wall(
     entity: Entity,
     wall: &Edge<Entity>,
     texture: &Texture,
     anchors: &AnchorParams,
-) -> Mesh {
+) -> Result<Mesh, MeshCreationError> {
     // TODO(luca) map texture rotation to UV coordinates
-    let p_start = anchors
-        .point_in_parent_frame_of(wall.start(), Category::Wall, entity)
-        .expect("Failed getting anchor transform");
-    let p_end = anchors
-        .point_in_parent_frame_of(wall.end(), Category::Wall, entity)
-        .expect("Failed getting anchor transform");
+    let p_start = anchors.point_in_parent_frame_of(wall.start(), Category::Wall, entity)?;
+    let p_end = anchors.point_in_parent_frame_of(wall.end(), Category::Wall, entity)?;
     let (p_start, p_end) = if wall.start() == wall.end() {
         (
             p_start - DEFAULT_WALL_THICKNESS / 2.0 * Vec3::X,
@@ -52,7 +61,7 @@ fn make_wall(
         texture.width,
     ))
     .with_generated_outline_normals()
-    .unwrap()
+    .map_err(Into::into)
 }
 
 pub fn add_wall_visual(
@@ -71,10 +80,18 @@ pub fn add_wall_visual(
         } else {
             (Color::default(), AlphaMode::Opaque)
         };
+        let wall_mesh = match make_wall(e, edge, &texture, &anchors) {
+            Ok(mesh) => mesh,
+            Err(err) => {
+                error!("Error while adding a wall: {err}");
+                continue;
+            }
+        };
+
         commands
             .entity(e)
             .insert((
-                Mesh3d(meshes.add(make_wall(e, edge, &texture, &anchors))),
+                Mesh3d(meshes.add(wall_mesh)),
                 MeshMaterial3d(materials.add(StandardMaterial {
                     base_color_texture,
                     base_color,
@@ -118,7 +135,13 @@ pub fn update_walls_for_moved_anchors(
                 let Some(mesh) = meshes.get_mut(&mesh.0) else {
                     continue;
                 };
-                *mesh = make_wall(e, edge, &texture, &anchors);
+                *mesh = match make_wall(e, edge, &texture, &anchors) {
+                    Ok(mesh) => mesh,
+                    Err(err) => {
+                        error!("Error while changing wall anchors: {err}");
+                        continue;
+                    }
+                };
             }
         }
     }
@@ -162,7 +185,13 @@ pub fn update_walls(
         let Some(mesh) = meshes.get_mut(&mesh.0) else {
             continue;
         };
-        *mesh = make_wall(e, edge, &texture, &anchors);
+        *mesh = match make_wall(e, edge, &texture, &anchors) {
+            Ok(mesh) => mesh,
+            Err(err) => {
+                error!("Error while creating wall mesh: {err}");
+                continue;
+            }
+        };
         if let Some(material) = materials.get_mut(material) {
             let (base_color, alpha_mode) = if let Some(alpha) = texture.alpha.filter(|a| a < &1.0) {
                 (Color::default().with_alpha(alpha), AlphaMode::Blend)

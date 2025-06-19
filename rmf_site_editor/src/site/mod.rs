@@ -99,6 +99,9 @@ pub use primitive_shape::*;
 pub mod recall_plugin;
 pub use recall_plugin::RecallPlugin;
 
+pub mod robot_properties;
+pub use robot_properties::*;
+
 pub mod save;
 pub use save::*;
 
@@ -113,6 +116,9 @@ pub use site::*;
 
 pub mod site_visualizer;
 pub use site_visualizer::*;
+
+pub mod slotcar;
+pub use slotcar::*;
 
 pub mod texture;
 pub use texture::*;
@@ -197,6 +203,7 @@ impl Plugin for SitePlugin {
         .init_resource::<SiteAssets>()
         .init_resource::<CurrentLevel>()
         .init_resource::<CurrentScenario>()
+        .init_resource::<ExportHandlers>()
         .init_resource::<Trashcan>()
         .init_resource::<PhysicalLightToggle>()
         .add_event::<LoadSite>()
@@ -264,6 +271,7 @@ impl Plugin for SitePlugin {
             ChangePlugin::<ModelProperty<Scale>>::default(),
             ChangePlugin::<ModelProperty<IsStatic>>::default(),
             RecallPlugin::<RecallInstance>::default(),
+            SlotcarSdfPlugin,
         ))
         .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
         .add_issue_type(&DUPLICATED_LIFT_NAME_ISSUE_UUID, "Duplicate lift name")
@@ -302,8 +310,7 @@ impl Plugin for SitePlugin {
         )
         .add_systems(
             Update,
-            (save_site, change_site.after(load_site))
-                .run_if(AppState::in_displaying_mode()),
+            (save_site, change_site.after(load_site)).run_if(AppState::in_displaying_mode()),
         )
         .add_systems(
             PostUpdate,

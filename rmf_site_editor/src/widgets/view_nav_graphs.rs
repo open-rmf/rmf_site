@@ -18,21 +18,16 @@
 use crate::{
     recency::RecencyRanking,
     site::{
-        Change, Delete, DisplayColor, NameInSite, NavGraph,
-        NavGraphMarker, DEFAULT_NAV_GRAPH_COLORS,
+        Change, Delete, DisplayColor, NameInSite, NavGraph, NavGraphMarker,
+        DEFAULT_NAV_GRAPH_COLORS,
     },
     widgets::{
-        inspector::color_edit,
-        prelude::*,
-        Icons, MoveLayerButton, SelectorWidget, FileMenu, MenuItem, TextMenuItem,
-        MenuEvent,
+        inspector::color_edit, prelude::*, FileMenu, Icons, MenuEvent, MenuItem, MoveLayerButton,
+        SelectorWidget, TextMenuItem,
     },
     AppState, ChangeRank, CurrentWorkspace, WorkspaceLoader, WorkspaceSaver,
 };
-use bevy::{
-    ecs::system::SystemParam,
-    prelude::*,
-};
+use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, ImageButton, Ui};
 
 /// Add a widget for viewing and editing navigation graphs.
@@ -264,7 +259,10 @@ impl FromWorld for NavGraphIoMenu {
             ))
             .id();
 
-        NavGraphIoMenu { export_nav_graph, import_nav_graph }
+        NavGraphIoMenu {
+            export_nav_graph,
+            import_nav_graph,
+        }
     }
 }
 

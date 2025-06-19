@@ -20,10 +20,7 @@ use bevy::prelude::*;
 use crate::WorkspaceSaver;
 
 use crate::{
-    site::{
-        ChildLiftCabinGroup, CollisionMeshMarker, DoorSegments, DrawingMarker, FloorSegments,
-        LiftDoormat, ModelLoadingState, VisualMeshMarker,
-    },
+    site::{DrawingMarker, ModelLoadingState},
     Autoload, WorkspaceLoader,
 };
 use rmf_site_format::NameOfSite;
@@ -47,10 +44,7 @@ pub struct HeadlessExportState {
 }
 
 impl HeadlessExportState {
-    pub fn new(
-        sdf_target_path: Option<String>,
-        nav_target_path: Option<String>,
-    ) -> Self {
+    pub fn new(sdf_target_path: Option<String>, nav_target_path: Option<String>) -> Self {
         Self {
             iterations: 0,
             world_loaded: false,
@@ -108,7 +102,8 @@ pub fn headless_export(
                 }
 
                 if let Some(nav_target_path) = &export_state.nav_target_path {
-
+                    let path = std::path::PathBuf::from(nav_target_path.clone());
+                    workspace_saver.export_nav_graphs_to_path(path);
                 }
 
                 export_state.save_requested = true;
