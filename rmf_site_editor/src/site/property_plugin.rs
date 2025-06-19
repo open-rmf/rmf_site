@@ -28,6 +28,40 @@ use std::fmt::Debug;
 
 pub trait Property: Component<Mutability = Mutable> + Debug + Default + Clone {
     fn get_fallback(_for_element: Entity, _in_scenario: Entity, _world: &mut World) -> Self;
+
+    /// This system climbs up the scenario tree to retrieve the inherited property
+    /// value for this element, if any.
+    fn retrieve_inherited(
+        for_element: Entity,
+        in_scenario: Entity,
+        get_modifier: &GetModifier<Modifier<Self>>,
+    ) -> Option<T> {
+        let mut parent_value: Option<T> = None;
+        let mut target_scenario = in_scenario;
+        while parent_value.is_none() {
+            let Some(parent_entity) = get_modifier
+                .scenarios
+                .get(target_scenario)
+                .ok()
+                .and_then(|(_, p)| p.0)
+            else {
+                break;
+            };
+
+            if let Some(modifier) = get_modifier.get(parent_entity, for_element) {
+                parent_value = modifier.get();
+            }
+            target_scenario = parent_entity;
+        }
+        parent_value
+    }
+
+    /// Inserts a new modifier for an element in the specified scenario. This is triggered
+    /// when property T is newly added to an element.
+    fn insert(_for_element: Entity, _in_scenario: Entity, _value: T, _world: &mut World);
+
+    /// Inserts new modifiers elements in a newly added root scenario.
+    fn insert_on_new_scenario(_in_scenario: Entity, _world: &mut World);
 }
 
 pub trait StandardProperty: Component<Mutability = Mutable> + Debug + Default + Clone {}
@@ -35,6 +69,14 @@ pub trait StandardProperty: Component<Mutability = Mutable> + Debug + Default + 
 impl<T: StandardProperty> Property for T {
     fn get_fallback(_for_element: Entity, _in_scenario: Entity, _world: &mut World) -> Self {
         T::default()
+    }
+
+    fn insert(_for_element: Entity, _in_scenario: Entity, _value: T, _world: &mut World) {
+        // Do nothing
+    }
+
+    fn insert_on_new_scenario(_in_scenario: Entity, _world: &mut World) {
+        // Do nothing
     }
 }
 
@@ -64,13 +106,11 @@ impl<T: Property> LastSetValue<T> {
     }
 }
 
-pub struct PropertyPlugin<T: Property, M: Modifier<T>, F: QueryFilter + 'static + Send + Sync> {
-    _ignore: std::marker::PhantomData<(T, M, F)>,
+pub struct PropertyPlugin<T: Property, F: QueryFilter + 'static + Send + Sync> {
+    _ignore: std::marker::PhantomData<(T, F)>,
 }
 
-impl<T: Property, M: Modifier<T>, F: QueryFilter + 'static + Send + Sync> Default
-    for PropertyPlugin<T, M, F>
-{
+impl<T: Property, F: QueryFilter + 'static + Send + Sync> Default for PropertyPlugin<T, F> {
     fn default() -> Self {
         Self {
             _ignore: Default::default(),
@@ -78,23 +118,21 @@ impl<T: Property, M: Modifier<T>, F: QueryFilter + 'static + Send + Sync> Defaul
     }
 }
 
-impl<T: Property, M: Modifier<T>, F: QueryFilter + 'static + Send + Sync> Plugin
-    for PropertyPlugin<T, M, F>
-{
+impl<T: Property, F: QueryFilter + 'static + Send + Sync> Plugin for PropertyPlugin<T, F> {
     fn build(&self, app: &mut App) {
         app.add_event::<UpdateProperty>()
-            .add_systems(PostUpdate, update_property_value::<T, M, F>)
-            .add_observer(on_add_property::<T, M, F>)
-            .add_observer(on_add_root_scenario::<T, M, F>);
+            .add_systems(PostUpdate, update_property_value::<T, F>)
+            .add_observer(on_add_property::<T, F>)
+            .add_observer(on_add_root_scenario::<T, F>);
     }
 }
 
-fn update_property_value<T: Property, M: Modifier<T>, F: QueryFilter + 'static + Send + Sync>(
+fn update_property_value<T: Property, F: QueryFilter + 'static + Send + Sync>(
     world: &mut World,
     values: &mut QueryState<&mut T, F>,
     read_events_state: &mut SystemState<EventReader<UpdateProperty>>,
     add_modifier_state: &mut SystemState<EventWriter<AddModifier>>,
-    scenario_state: &mut SystemState<(Res<CurrentScenario>, GetModifier<M>)>,
+    scenario_state: &mut SystemState<(Res<CurrentScenario>, GetModifier<Modifier<T>>)>,
 ) {
     let mut update_property_events = read_events_state.get_mut(world);
     if update_property_events.is_empty() {
@@ -116,27 +154,26 @@ fn update_property_value<T: Property, M: Modifier<T>, F: QueryFilter + 'static +
             continue;
         }
 
-        let new_value = if let Some(modifier) =
-            get_modifier.get(event.in_scenario, event.for_element)
-        {
-            modifier
-                .get()
-                .or_else(|| {
-                    modifier.retrieve_inherited(event.for_element, event.in_scenario, &get_modifier)
-                })
-                .unwrap_or(T::get_fallback(event.for_element, event.in_scenario, world))
-        } else {
-            // No modifier exists in this tree for this scenario/element pairing
-            // Make sure that a modifier exists in the current scenario tree
-            let root_modifier_entity = world.commands().spawn(M::default()).id();
-            let mut add_modifier = add_modifier_state.get_mut(world);
-            add_modifier.write(AddModifier::new_to_root(
-                event.for_element,
-                root_modifier_entity,
-                event.in_scenario,
-            ));
-            continue;
-        };
+        let new_value =
+            if let Some(modifier) = get_modifier.get(event.in_scenario, event.for_element) {
+                modifier
+                    .get()
+                    .or_else(|| {
+                        T::retrieve_inherited(event.for_element, event.in_scenario, &get_modifier)
+                    })
+                    .unwrap_or(T::get_fallback(event.for_element, event.in_scenario, world))
+            } else {
+                // No modifier exists in this tree for this scenario/element pairing
+                // Make sure that a modifier exists in the current scenario tree
+                let root_modifier_entity = world.commands().spawn(M::default()).id();
+                let mut add_modifier = add_modifier_state.get_mut(world);
+                add_modifier.write(AddModifier::new_to_root(
+                    event.for_element,
+                    root_modifier_entity,
+                    event.in_scenario,
+                ));
+                continue;
+            };
 
         let changed = values
             .get_mut(world, event.for_element)
@@ -153,7 +190,7 @@ fn update_property_value<T: Property, M: Modifier<T>, F: QueryFilter + 'static +
     }
 }
 
-fn on_add_property<T: Property, M: Modifier<T>, F: QueryFilter + 'static + Send + Sync>(
+fn on_add_property<T: Property, F: QueryFilter + 'static + Send + Sync>(
     trigger: Trigger<OnAdd, T>,
     world: &mut World,
     state: &mut SystemState<(Query<&T, F>, Res<CurrentScenario>)>,
@@ -165,10 +202,10 @@ fn on_add_property<T: Property, M: Modifier<T>, F: QueryFilter + 'static + Send 
     let Some(scenario_entity) = current_scenario.0 else {
         return;
     };
-    M::insert(trigger.target(), scenario_entity, value.clone(), world);
+    T::insert(trigger.target(), scenario_entity, value.clone(), world);
 }
 
-fn on_add_root_scenario<T: Property, M: Modifier<T>, F: QueryFilter + 'static + Send + Sync>(
+fn on_add_root_scenario<T: Property, F: QueryFilter + 'static + Send + Sync>(
     trigger: Trigger<OnAdd, ScenarioModifiers<Entity>>,
     world: &mut World,
     state: &mut SystemState<Query<&Affiliation<Entity>, With<ScenarioMarker>>>,
@@ -178,5 +215,5 @@ fn on_add_root_scenario<T: Property, M: Modifier<T>, F: QueryFilter + 'static + 
         return;
     }
 
-    M::insert_on_new_scenario(trigger.target(), world);
+    T::insert_on_new_scenario(trigger.target(), world);
 }

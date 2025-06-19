@@ -85,12 +85,6 @@ impl Property for Pose {
             .map(|value| value.0)
             .unwrap_or(Pose::default())
     }
-}
-
-impl Modifier<Pose> for InstanceModifier {
-    fn get(&self) -> Option<Pose> {
-        self.pose()
-    }
 
     fn insert(for_element: Entity, in_scenario: Entity, value: Pose, world: &mut World) {
         let mut modifier_state: SystemState<(
@@ -220,18 +214,6 @@ impl Property for Visibility {
         // when intentionally toggled
         Visibility::Hidden
     }
-}
-
-impl Modifier<Visibility> for InstanceModifier {
-    fn get(&self) -> Option<Visibility> {
-        self.visibility().map(|v| {
-            if v {
-                Visibility::Inherited
-            } else {
-                Visibility::Hidden
-            }
-        })
-    }
 
     fn retrieve_inherited(
         &self,
@@ -263,6 +245,14 @@ impl Modifier<Visibility> for InstanceModifier {
                 Visibility::Hidden
             }
         })
+    }
+
+    fn insert(_for_element: Entity, _in_scenario: Entity, _value: T, _world: &mut World) {
+        // Do nothing
+    }
+
+    fn insert_on_new_scenario(_in_scenario: Entity, _world: &mut World) {
+        // Do nothing
     }
 }
 

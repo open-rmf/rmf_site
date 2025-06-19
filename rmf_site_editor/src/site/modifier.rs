@@ -114,44 +114,14 @@ impl<'w, 's, T: Component<Mutability = Mutable> + Clone + Default> GetModifier<'
     }
 }
 
-pub trait Modifier<T: Property>: Component<Mutability = Mutable> + Debug + Default + Clone {
-    /// This system retrieves the property values for this element's modifier, if any
-    fn get(&self) -> Option<T>;
+#[derive(Component)]
+pub struct Modifier<T: Property>(T);
 
-    /// This system climbs up the scenario tree to retrieve the inherited property
-    /// value for this element, if any.
-    fn retrieve_inherited(
-        &self,
-        for_element: Entity,
-        in_scenario: Entity,
-        get_modifier: &GetModifier<Self>,
-    ) -> Option<T> {
-        let mut parent_value: Option<T> = None;
-        let mut target_scenario = in_scenario;
-        while parent_value.is_none() {
-            let Some(parent_entity) = get_modifier
-                .scenarios
-                .get(target_scenario)
-                .ok()
-                .and_then(|(_, p)| p.0)
-            else {
-                break;
-            };
-
-            if let Some(modifier) = get_modifier.get(parent_entity, for_element) {
-                parent_value = modifier.get();
-            }
-            target_scenario = parent_entity;
-        }
-        parent_value
+impl<T: Property> Modifier<T> {
+    /// This system retrieves the property values for this element's modifier
+    pub fn get(&self) -> T {
+        self.0.clone()
     }
-
-    /// Inserts a new modifier for an element in the specified scenario. This is triggered
-    /// when property T is newly added to an element.
-    fn insert(_for_element: Entity, _in_scenario: Entity, _value: T, _world: &mut World) {}
-
-    /// Inserts new modifiers elements in a newly added root scenario.
-    fn insert_on_new_scenario(_in_scenario: Entity, _world: &mut World) {}
 }
 
 /// Handles additions and removals of scenario modifiers
