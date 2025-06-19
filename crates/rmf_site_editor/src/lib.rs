@@ -35,7 +35,6 @@ pub mod demo_world;
 pub mod log;
 mod recency;
 use recency::*;
-// mod shapes;
 
 use log::LogHistoryPlugin;
 
