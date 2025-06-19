@@ -69,15 +69,20 @@ pub use osm_slippy_map::*;
 
 #[cfg_attr(not(target_arch = "wasm32"), derive(Parser))]
 pub struct CommandLineArgs {
-    /// Filename of a Site (.site.ron) or Building (.building.yaml) file to load.
+    /// Filename of a Site (.site.ron / .site.json) or Building (.building.yaml) file to load.
     /// Exclude this argument to get the main menu.
     pub filename: Option<String>,
-    /// Name of a Site (.site.ron) file to import on top of the base FILENAME.
+    /// Name of a Site (.site.json or .site.ron) file to import on top of the base FILENAME.
     #[cfg_attr(not(target_arch = "wasm32"), arg(short, long))]
     pub import: Option<String>,
     /// Run in headless mode and export the loaded site to the requested path.
+    /// This requires you to specify FILENAME, and it can be used with export_nav.
     #[cfg_attr(not(target_arch = "wasm32"), arg(long))]
-    pub headless_export: Option<String>,
+    pub export_sdf: Option<String>,
+    /// Run in headless mode and export the nav graphs to the requested path.
+    /// This requires you to specify FILENAME, and it can be used with export_sdf.
+    #[cfg_attr(not(target_arch = "wasm32"), arg(long))]
+    pub export_nav: Option<String>,
 }
 
 #[derive(Clone, Default, Eq, PartialEq, Debug, Hash, States)]
@@ -100,7 +105,8 @@ impl AppState {
 
 pub fn run(command_line_args: Vec<String>) {
     let mut app = App::new();
-    let mut _headless_export = None;
+    let mut _export_sdf = None;
+    let mut _export_nav = None;
 
     #[cfg(not(target_arch = "wasm32"))]
     {
@@ -111,17 +117,26 @@ pub fn run(command_line_args: Vec<String>) {
                 command_line_args.import.map(Into::into),
             ));
         }
-        _headless_export = command_line_args.headless_export;
+        _export_sdf = command_line_args.export_sdf;
+        _export_nav = command_line_args.export_nav;
     }
 
-    app.add_plugins(SiteEditor::default().headless_export(_headless_export));
+    app.add_plugins(
+        SiteEditor::default()
+            .export_sdf(_export_sdf)
+            .export_nav(_export_nav),
+    );
     app.run();
 }
 
 #[derive(Default)]
 pub struct SiteEditor {
-    /// Contains Some(path) if the site editor is running in headless mode exporting its site.
-    headless_export: Option<String>,
+    /// Contains Some(path) if the site editor is running in headless mode
+    /// exporting its site as an SDF.
+    export_sdf: Option<String>,
+    /// Contains Some(path) if the site editor is running in headless mode
+    /// exporting its nav graphs.
+    export_nav: Option<String>,
 }
 
 impl SiteEditor {
@@ -129,9 +144,24 @@ impl SiteEditor {
         Self::default()
     }
 
-    pub fn headless_export(mut self, export_to_file: Option<String>) -> Self {
-        self.headless_export = export_to_file;
+    pub fn export_sdf(mut self, export_to_file: Option<String>) -> Self {
+        self.export_sdf = export_to_file;
         self
+    }
+
+    pub fn export_nav(mut self, export_to_file: Option<String>) -> Self {
+        self.export_nav = export_to_file;
+        self
+    }
+
+    pub fn is_headless(&self) -> bool {
+        self.export_sdf.is_some() || self.export_nav.is_some()
+    }
+
+    // This is a separate function from is_headless just in case there are other
+    // reasons to run headless in the future, e.g. headless simulation.
+    pub fn is_headless_export(&self) -> bool {
+        self.export_sdf.is_some() || self.export_nav.is_some()
     }
 }
 
@@ -147,7 +177,7 @@ impl Plugin for SiteEditor {
         let headless = {
             #[cfg(not(target_arch = "wasm32"))]
             {
-                self.headless_export.is_some()
+                self.is_headless()
             }
             #[cfg(target_arch = "wasm32")]
             {
@@ -214,7 +244,7 @@ impl Plugin for SiteEditor {
                 ExitConfirmationPlugin,
                 KeyboardInputPlugin,
                 SitePlugin,
-                InteractionPlugin::new().headless(self.headless_export.is_some()),
+                InteractionPlugin::new().headless(self.is_headless()),
                 AnimationPlugin,
                 OccupancyPlugin,
                 WorkspacePlugin,
@@ -222,21 +252,24 @@ impl Plugin for SiteEditor {
                 bevy_impulse::ImpulsePlugin::default(),
             ));
 
-        if self.headless_export.is_none() {
+        if !self.is_headless() {
             app.add_plugins((StandardUiPlugin::default(), MainMenuPlugin))
                 // Note order matters, plugins that edit the menus must be initialized after the UI
                 .add_plugins((site::ViewMenuPlugin, OSMViewPlugin, SiteWireframePlugin));
         }
 
-        if let Some(path) = &self.headless_export {
+        if self.is_headless_export() {
             // We really don't need a high update rate here since we are IO bound, set a low rate
             // to save CPU.
             // TODO(luca) this still seems to take quite some time, check where the bottleneck is.
             app.add_plugins(ScheduleRunnerPlugin::run_loop(
                 std::time::Duration::from_secs_f64(1.0 / 10.0),
             ));
-            app.insert_resource(site::HeadlessSdfExportState::new(path));
-            app.add_systems(Last, site::headless_sdf_export);
+            app.insert_resource(site::HeadlessExportState::new(
+                self.export_sdf.clone(),
+                self.export_nav.clone(),
+            ));
+            app.add_systems(Last, site::headless_export);
         }
     }
 }

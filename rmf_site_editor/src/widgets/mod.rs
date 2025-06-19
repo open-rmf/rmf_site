@@ -177,6 +177,8 @@ impl Plugin for StandardUiPlugin {
                 UserCameraDisplayPlugin::default(),
                 #[cfg(not(target_arch = "wasm32"))]
                 SdfExportMenuPlugin::default(),
+                #[cfg(not(target_arch = "wasm32"))]
+                NavGraphIoPlugin::default(),
             ))
             .add_systems(Startup, init_ui_style)
             .add_systems(
@@ -187,11 +189,7 @@ impl Plugin for StandardUiPlugin {
             )
             .add_systems(
                 PostUpdate,
-                (
-                    resolve_light_export_file,
-                    resolve_nav_graph_import_export_files,
-                )
-                    .run_if(AppState::in_displaying_mode()),
+                (resolve_light_export_file,).run_if(AppState::in_displaying_mode()),
             );
     }
 }

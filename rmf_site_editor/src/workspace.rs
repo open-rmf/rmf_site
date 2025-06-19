@@ -21,7 +21,7 @@ use rfd::AsyncFileDialog;
 use std::path::PathBuf;
 
 use crate::interaction::InteractionState;
-use crate::site::{DefaultFile, LoadSite, SaveSite};
+use crate::site::{DefaultFile, ImportNavGraphs, LoadSite, SaveSite};
 use crate::AppState;
 use rmf_site_format::legacy::building_map::BuildingMap;
 use rmf_site_format::{NameOfSite, Site};
@@ -55,13 +55,46 @@ impl WorkspaceData {
         let filename = path.file_name().and_then(|f| f.to_str())?;
         if filename.ends_with(".building.yaml") {
             Some(WorkspaceData::LegacyBuilding(data))
-        } else if filename.ends_with("site.ron") {
+        } else if filename.ends_with(".ron") {
             Some(WorkspaceData::RonSite(data))
-        } else if filename.ends_with("site.json") {
+        } else if filename.ends_with(".json") {
             Some(WorkspaceData::JsonSite(data))
         } else {
             error!("Unrecognized file type {:?}", filename);
             None
+        }
+    }
+
+    pub fn as_site(&self) -> Option<Site> {
+        match self {
+            Self::LegacyBuilding(data) => match BuildingMap::from_bytes(data) {
+                Ok(building) => match building.to_site() {
+                    Ok(site) => return Some(site),
+                    Err(err) => {
+                        error!("Failed converting a legacy building into a site: {err}");
+                        return None;
+                    }
+                },
+                Err(err) => {
+                    error!("Failed parsing legacy building: {err}");
+                    return None;
+                }
+            },
+            Self::RonSite(data) => match Site::from_bytes_ron(data) {
+                Ok(site) => return Some(site),
+                Err(err) => {
+                    error!("Failed parsing ron site file: {err}");
+                    return None;
+                }
+            },
+            Self::JsonSite(data) => match Site::from_bytes_json(data) {
+                Ok(site) => return Some(site),
+                Err(err) => {
+                    error!("Failed loading json site file: {err}");
+                    return None;
+                }
+            },
+            Self::LoadSite(load) => return Some(load.site.clone()),
         }
     }
 }
@@ -82,6 +115,7 @@ pub enum ExportFormat {
     #[default]
     Default,
     Sdf,
+    NavGraph,
 }
 
 /// Used to keep track of visibility when switching workspace
@@ -243,6 +277,40 @@ impl FromWorld for FileDialogServices {
                         dialog = dialog.add_filter(filter.name, &filter.extensions);
                     }
                     if let Some(file) = dialog.pick_file().await {
+                        #[cfg(not(target_arch = "wasm32"))]
+                        {
+                            // This safety check is disabled for wasm32 because
+                            // the .path() method is not available for wasm32.
+                            // We should try to find a better way to identify
+                            // when a directory is chosen instead of a file,
+                            // because otherwise a panic will occur inside one
+                            // of our dependencies when the user makes that kind
+                            // of error.
+                            //
+                            // We may even consider using a different dialog
+                            // library since these limitations make our
+                            // implementation awfully fragile.
+                            let path = file.path();
+                            match std::fs::metadata(path) {
+                                Ok(meta) => {
+                                    if meta.is_dir() {
+                                        error!(
+                                            "Selected directory when a file is needed: {}",
+                                            path.as_os_str().to_string_lossy()
+                                        );
+                                        return None;
+                                    }
+                                }
+                                Err(err) => {
+                                    error!(
+                                        "Did not select a valid file [{}], error: {err}",
+                                        path.as_os_str().to_string_lossy()
+                                    );
+                                    return None;
+                                }
+                            }
+                        }
+
                         let data = file.read().await;
                         #[cfg(not(target_arch = "wasm32"))]
                         let file = file.path().to_path_buf();
@@ -317,6 +385,8 @@ pub struct WorkspaceLoadingServices {
     pub load_workspace_from_path: Service<PathBuf, ()>,
     /// Loads the workspace from the requested data
     pub load_workspace_from_data: Service<WorkspaceData, ()>,
+    /// Service that lets the user select a file to import nav graphs from.
+    pub import_nav_graphs_from_dialog: Service<(), ()>,
 }
 
 impl FromWorld for WorkspaceLoadingServices {
@@ -328,12 +398,20 @@ impl FromWorld for WorkspaceLoadingServices {
             .clone();
         let loading_filters = vec![
             FileDialogFilter {
-                name: "Legacy building".into(),
-                extensions: vec!["building.yaml".into()],
+                name: "Site or Building".into(),
+                extensions: vec![
+                    "site.ron".into(),
+                    "site.json".into(),
+                    "building.yaml".into(),
+                ],
             },
             FileDialogFilter {
-                name: "Site".into(),
-                extensions: vec!["site.ron".into(), "site.json".into()],
+                name: "Structured file".into(),
+                extensions: vec!["ron".into(), "json".into(), "yaml".into()],
+            },
+            FileDialogFilter {
+                name: "All files".into(),
+                extensions: vec!["*".into()],
             },
         ];
         // Spawn all the services
@@ -341,9 +419,12 @@ impl FromWorld for WorkspaceLoadingServices {
             scope
                 .input
                 .chain(builder)
-                .map_block(move |_| loading_filters.clone())
+                .map_block({
+                    let loading_filters = loading_filters.clone();
+                    move |_| loading_filters.clone()
+                })
                 .then(pick_file)
-                .map_async(|(path, data)| async move {
+                .map_block(|(path, data)| {
                     let data = WorkspaceData::new(&path, data)?;
                     Some(LoadWorkspaceFile(Some(path), data))
                 })
@@ -390,7 +471,7 @@ impl FromWorld for WorkspaceLoadingServices {
             scope
                 .input
                 .chain(builder)
-                .map_async(|path| async move {
+                .map_block(|path| {
                     let Some(data) = std::fs::read(&path)
                         .ok()
                         .and_then(|data| WorkspaceData::new(&path, data))
@@ -414,11 +495,40 @@ impl FromWorld for WorkspaceLoadingServices {
                 .connect(scope.terminate)
         });
 
+        let request_import_nav_graphs =
+            |In(from_site): In<Site>,
+             current_site: Res<CurrentWorkspace>,
+             mut import_nav_graphs: EventWriter<ImportNavGraphs>| {
+                let Some(into_site) = current_site.root else {
+                    return;
+                };
+                import_nav_graphs.write(ImportNavGraphs {
+                    into_site,
+                    from_site,
+                });
+            };
+
+        let import_nav_graphs_from_dialog = world.spawn_workflow(|scope, builder| {
+            scope
+                .input
+                .chain(builder)
+                .map_block({
+                    let loading_filters = loading_filters.clone();
+                    move |_| loading_filters.clone()
+                })
+                .then(pick_file)
+                .map_async(|(path, data)| async move { WorkspaceData::new(&path, data)?.as_site() })
+                .cancel_on_none()
+                .then(request_import_nav_graphs.into_blocking_callback())
+                .connect(scope.terminate);
+        });
+
         Self {
             load_workspace_from_dialog,
             create_empty_workspace_from_dialog,
             load_workspace_from_path,
             load_workspace_from_data,
+            import_nav_graphs_from_dialog,
         }
     }
 }
@@ -454,6 +564,12 @@ impl<'w, 's> WorkspaceLoader<'w, 's> {
             .request(data, self.workspace_loading.load_workspace_from_data)
             .detach();
     }
+
+    pub fn import_nav_graphs_from_dialog(&mut self) {
+        self.commands
+            .request((), self.workspace_loading.import_nav_graphs_from_dialog)
+            .detach();
+    }
 }
 
 /// `SystemParam` used to request for workspace loading operations
@@ -478,7 +594,7 @@ fn send_file_save(
         AppState::SiteEditor | AppState::SiteDrawingEditor | AppState::SiteVisualizer => {
             save_site.write(SaveSite {
                 site: ws_root,
-                to_file: request.0,
+                to_location: request.0,
                 format: request.1,
             });
         }
@@ -499,6 +615,10 @@ pub struct WorkspaceSavingServices {
     pub export_sdf_to_dialog: Service<(), ()>,
     /// Exports the requested workspace as an SDF in the requested path.
     pub export_sdf_to_path: Service<PathBuf, ()>,
+    /// Opens a dialog to pick a folder and exports the nav graphs from the requested site.
+    pub export_nav_graphs_to_dialog: Service<(), ()>,
+    /// Exports the nav graphs from the requested site to the requested path.
+    pub export_nav_graphs_to_path: Service<PathBuf, ()>,
 }
 
 impl FromWorld for WorkspaceSavingServices {
@@ -517,10 +637,17 @@ impl FromWorld for WorkspaceSavingServices {
             .pick_file_for_saving
             .clone();
         let pick_folder = world.resource::<FileDialogServices>().pick_folder.clone();
-        let saving_filters = vec![FileDialogFilter {
-            name: "Site".into(),
-            extensions: vec!["site.ron".into(), "site.json".into()],
-        }];
+        let saving_filters = vec![
+            FileDialogFilter {
+                name: "Site".into(),
+                extensions: vec!["site.json".into(), "site.ron".into()],
+            },
+            FileDialogFilter {
+                name: "All Files".into(),
+                extensions: vec!["*".into()],
+            },
+        ];
+
         // Spawn all the services
         let save_workspace_to_dialog = world.spawn_workflow(|scope, builder| {
             scope
@@ -571,12 +698,33 @@ impl FromWorld for WorkspaceSavingServices {
                 .connect(scope.terminate)
         });
 
+        let export_nav_graphs_to_dialog = world.spawn_workflow(|scope, builder| {
+            scope
+                .input
+                .chain(builder)
+                .then(pick_folder)
+                .map_block(|path| (dbg!(path), ExportFormat::NavGraph))
+                .then(send_file_save)
+                .connect(scope.terminate)
+        });
+
+        let export_nav_graphs_to_path = world.spawn_workflow(|scope, builder| {
+            scope
+                .input
+                .chain(builder)
+                .map_block(|path| (path, ExportFormat::NavGraph))
+                .then(send_file_save)
+                .connect(scope.terminate)
+        });
+
         Self {
             save_workspace_to_dialog,
             save_workspace_to_path,
             save_workspace_to_default_file,
             export_sdf_to_dialog,
             export_sdf_to_path,
+            export_nav_graphs_to_dialog,
+            export_nav_graphs_to_path,
         }
     }
 }
@@ -619,6 +767,19 @@ impl<'w, 's> WorkspaceSaver<'w, 's> {
     pub fn export_sdf_to_path(&mut self, path: PathBuf) {
         self.commands
             .request(path, self.workspace_saving.export_sdf_to_path)
+            .detach();
+    }
+
+    /// Request to export the current nav graphs as a yaml to a folder selected from a dialog
+    pub fn export_nav_graphs_to_dialog(&mut self) {
+        self.commands
+            .request((), self.workspace_saving.export_nav_graphs_to_dialog)
+            .detach();
+    }
+
+    pub fn export_nav_graphs_to_path(&mut self, path: PathBuf) {
+        self.commands
+            .request(path, self.workspace_saving.export_nav_graphs_to_path)
             .detach();
     }
 }

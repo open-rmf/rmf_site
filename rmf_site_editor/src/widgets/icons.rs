@@ -54,7 +54,7 @@ pub struct Icon {
 impl Icon {
     // TODO(luca) consider exposing parameter for size, all occurences in the codebase currently
     // use [18., 18.]
-    pub fn egui(&self) -> ImageSource {
+    pub fn egui(&self) -> ImageSource<'_> {
         ImageSource::Texture((self.egui_handle, [18., 18.].into()).into())
     }
 }
@@ -148,7 +148,7 @@ impl FromWorld for Icons {
 }
 
 impl Icons {
-    pub fn layer_visibility_of(&self, vis: Option<LayerVisibility>) -> ImageSource {
+    pub fn layer_visibility_of(&self, vis: Option<LayerVisibility>) -> ImageSource<'_> {
         match vis {
             Some(v) => match v {
                 LayerVisibility::Opaque => self.opaque.egui(),
@@ -159,7 +159,7 @@ impl Icons {
         }
     }
 
-    pub fn move_rank(&self, adjustment: RankAdjustment) -> ImageSource {
+    pub fn move_rank(&self, adjustment: RankAdjustment) -> ImageSource<'_> {
         match adjustment {
             RankAdjustment::Delta(delta) => {
                 if delta < 0 {
