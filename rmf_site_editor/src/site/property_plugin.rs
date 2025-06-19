@@ -23,6 +23,7 @@ use bevy::{
     ecs::{component::Mutable, query::QueryFilter, system::SystemState},
     prelude::*,
 };
+use smallvec::SmallVec;
 use std::fmt::Debug;
 
 pub trait Property: Component<Mutability = Mutable> + Debug + Default + Clone {
@@ -90,31 +91,28 @@ impl<T: Property, M: Modifier<T>, F: QueryFilter + 'static + Send + Sync> Plugin
 
 fn update_property_value<T: Property, M: Modifier<T>, F: QueryFilter + 'static + Send + Sync>(
     world: &mut World,
-    state: &mut SystemState<(
-        Query<&mut T, F>,
-        EventReader<UpdateProperty>,
-        EventWriter<AddModifier>,
-        Res<CurrentScenario>,
-        GetModifier<M>,
-    )>,
+    values: &mut QueryState<&mut T, F>,
+    read_events_state: &mut SystemState<EventReader<UpdateProperty>>,
+    add_modifier_state: &mut SystemState<EventWriter<AddModifier>>,
+    scenario_state: &mut SystemState<(Res<CurrentScenario>, GetModifier<M>)>,
 ) {
-    let (_, mut update_property_events, _, _, _) = state.get_mut(world);
+    let mut update_property_events = read_events_state.get_mut(world);
     if update_property_events.is_empty() {
         return;
     }
-    let mut update_property: Vec<UpdateProperty> = Vec::new();
+    let mut update_property = SmallVec::<[UpdateProperty; 8]>::new();
     for event in update_property_events.read() {
         update_property.push(*event);
     }
 
     for event in update_property.iter() {
-        let (values, _, _, current_scenario, get_modifier) = state.get_mut(world);
+        let (current_scenario, get_modifier) = scenario_state.get(world);
         // Only update current scenario properties
         if !current_scenario.0.is_some_and(|e| e == event.in_scenario) {
             continue;
         }
         // Only update elements registered for this plugin
-        if !values.get(event.for_element).is_ok() {
+        if !values.get(world, event.for_element).is_ok() {
             continue;
         }
 
@@ -131,7 +129,7 @@ fn update_property_value<T: Property, M: Modifier<T>, F: QueryFilter + 'static +
             // No modifier exists in this tree for this scenario/element pairing
             // Make sure that a modifier exists in the current scenario tree
             let root_modifier_entity = world.commands().spawn(M::default()).id();
-            let (_, _, mut add_modifier, _, _) = state.get_mut(world);
+            let mut add_modifier = add_modifier_state.get_mut(world);
             add_modifier.write(AddModifier::new_to_root(
                 event.for_element,
                 root_modifier_entity,
@@ -140,11 +138,12 @@ fn update_property_value<T: Property, M: Modifier<T>, F: QueryFilter + 'static +
             continue;
         };
 
-        let (mut values, _, _, _, _) = state.get_mut(world);
-        let changed = values.get_mut(event.for_element).is_ok_and(|mut value| {
-            *value = new_value.clone();
-            true
-        });
+        let changed = values
+            .get_mut(world, event.for_element)
+            .is_ok_and(|mut value| {
+                *value = new_value.clone();
+                true
+            });
         if changed {
             world
                 .commands()

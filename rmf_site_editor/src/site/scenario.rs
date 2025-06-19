@@ -93,15 +93,14 @@ impl Modifier<Pose> for InstanceModifier {
     }
 
     fn insert(for_element: Entity, in_scenario: Entity, value: Pose, world: &mut World) {
-        let mut state: SystemState<(
+        let mut modifier_state: SystemState<(
             Query<(&mut InstanceModifier, &Affiliation<Entity>)>,
             Query<
                 (Entity, &ScenarioModifiers<Entity>, Ref<Affiliation<Entity>>),
                 With<ScenarioMarker>,
             >,
-            EventWriter<AddModifier>,
         )> = SystemState::new(world);
-        let (mut instance_modifiers, scenarios, _) = state.get_mut(world);
+        let (mut instance_modifiers, scenarios) = modifier_state.get_mut(world);
 
         // Insert instance modifier entities when new model instances are spawned and placed
         let Ok((_, scenario_modifiers, _)) = scenarios.get(in_scenario) else {
@@ -151,7 +150,8 @@ impl Modifier<Pose> for InstanceModifier {
             .iter()
             .map(|(modifier, scenario)| (world.spawn(modifier.clone()).id(), *scenario))
             .collect::<Vec<(Entity, Entity)>>();
-        let (_, _, mut add_modifier) = state.get_mut(world);
+        let mut add_modifier_state: SystemState<EventWriter<AddModifier>> = SystemState::new(world);
+        let mut add_modifier = add_modifier_state.get_mut(world);
         for (modifier_entity, scenario_entity) in new_modifier_entities.iter() {
             add_modifier.write(AddModifier::new(
                 for_element,
@@ -162,14 +162,12 @@ impl Modifier<Pose> for InstanceModifier {
     }
 
     fn insert_on_new_scenario(in_scenario: Entity, world: &mut World) {
-        let mut state: SystemState<(
+        let mut instance_state: SystemState<(
             Query<&Children>,
             Query<(&InstanceModifier, &Affiliation<Entity>)>,
             Query<Entity, (With<InstanceMarker>, Without<Pending>)>,
-            EventWriter<AddModifier>,
-            EventWriter<ChangeCurrentScenario>,
         )> = SystemState::new(world);
-        let (children, instance_modifiers, model_instances, _, _) = state.get_mut(world);
+        let (children, instance_modifiers, model_instances) = instance_state.get_mut(world);
 
         // Insert instance modifier entities when new root scenarios are created
         let mut have_instance = HashSet::new();
@@ -199,7 +197,11 @@ impl Modifier<Pose> for InstanceModifier {
             ));
         }
 
-        let (_, _, _, mut add_modifier, mut change_current_scenario) = state.get_mut(world);
+        let mut events_state: SystemState<(
+            EventWriter<AddModifier>,
+            EventWriter<ChangeCurrentScenario>,
+        )> = SystemState::new(world);
+        let (mut add_modifier, mut change_current_scenario) = events_state.get_mut(world);
         for (instance_entity, modifier_entity) in new_modifiers.iter() {
             add_modifier.write(AddModifier::new(
                 *instance_entity,
@@ -328,7 +330,6 @@ pub fn update_model_instance_poses(
 
 #[derive(SystemParam)]
 pub struct InstanceParams<'w, 's> {
-    add_modifier: EventWriter<'w, AddModifier>,
     remove_modifier: EventWriter<'w, RemoveModifier>,
     instance_modifiers:
         Query<'w, 's, (&'static mut InstanceModifier, &'static Affiliation<Entity>)>,
@@ -342,15 +343,17 @@ pub struct InstanceParams<'w, 's> {
         ),
         With<ScenarioMarker>,
     >,
-    update_property: EventWriter<'w, UpdateProperty>,
 }
 
 /// Handles updates to model instance modifiers for all scenarios
 pub fn handle_instance_updates(
     world: &mut World,
-    state: &mut SystemState<(EventReader<UpdateInstanceEvent>, InstanceParams)>,
+    read_events_state: &mut SystemState<EventReader<UpdateInstanceEvent>>,
+    add_modifier_state: &mut SystemState<EventWriter<AddModifier>>,
+    update_property_state: &mut SystemState<EventWriter<UpdateProperty>>,
+    instance_params_state: &mut SystemState<InstanceParams>,
 ) {
-    let (mut update_events, _) = state.get_mut(world);
+    let mut update_events = read_events_state.get_mut(world);
     if update_events.is_empty() {
         return;
     }
@@ -364,7 +367,7 @@ pub fn handle_instance_updates(
     }
 
     for (update, fallback_pose) in update_instance.iter() {
-        let (_, mut params) = state.get_mut(world);
+        let mut params = instance_params_state.get_mut(world);
         let Ok((scenario_modifiers, scenario_parent)) = params.scenarios.get(update.scenario)
         else {
             continue;
@@ -467,8 +470,8 @@ pub fn handle_instance_updates(
                 }
             };
             let modifier_entity = world.commands().spawn(instance_modifier).id();
-            let (_, mut params) = state.get_mut(world);
-            params.add_modifier.write(AddModifier::new(
+            let mut add_modifier = add_modifier_state.get_mut(world);
+            add_modifier.write(AddModifier::new(
                 update.instance,
                 modifier_entity,
                 update.scenario,
@@ -476,10 +479,8 @@ pub fn handle_instance_updates(
             continue;
         }
 
-        let (_, mut params) = state.get_mut(world);
-        params
-            .update_property
-            .write(UpdateProperty::new(update.instance, update.scenario));
+        let mut update_property = update_property_state.get_mut(world);
+        update_property.write(UpdateProperty::new(update.instance, update.scenario));
     }
 }
 
