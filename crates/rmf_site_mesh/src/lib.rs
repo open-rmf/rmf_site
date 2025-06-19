@@ -1,5 +1,8 @@
 pub mod shapes;
-use std::{cmp, ops::{Add, Mul, Neg}};
+use std::{
+    cmp,
+    ops::{Add, Mul, Neg},
+};
 
 use bevy_derive::Deref;
 pub use shapes::*;
@@ -37,7 +40,7 @@ impl PartialEq<f32> for Radians {
 
 impl PartialOrd<f32> for Radians {
     fn partial_cmp(&self, other: &f32) -> Option<cmp::Ordering> {
-       self.0.partial_cmp(other)
+        self.0.partial_cmp(other)
     }
 }
 
@@ -56,7 +59,6 @@ impl Add for Radians {
         Self(self.0 + rhs.0)
     }
 }
-
 
 #[derive(Deref, PartialEq, PartialOrd)]
 pub struct Degrees(pub f32);
@@ -91,7 +93,7 @@ impl Mul<f32> for Degrees {
 
 impl From<Degrees> for Radians {
     fn from(value: Degrees) -> Self {
-       Self(value.to_radians())
+        Self(value.to_radians())
     }
 }
 
@@ -109,7 +111,6 @@ impl From<Angle> for Degrees {
         }
     }
 }
-
 
 // impl Angle {
 //     pub fn from_degrees(degrees: f32) -> Self {

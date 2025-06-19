@@ -22,7 +22,6 @@ use bevy::render::view::RenderLayers;
 use rmf_site_camera::MODEL_PREVIEW_LAYER;
 use rmf_site_mesh::*;
 
-
 use crate::interaction::{DragPlaneBundle, Selectable};
 use crate::site::SiteAssets;
 

@@ -1,5 +1,5 @@
-pub use bevy_render::prelude::*;
 pub use bevy_math::prelude::*;
+pub use bevy_render::prelude::*;
 
 pub mod halo;
 pub use halo::*;

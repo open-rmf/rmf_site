@@ -12,3 +12,7 @@ bevy_asset = {workspace = true}
 bevy_derive = {workspace = true}
 bevy_color = {workspace = true}
 bevy_mod_outline = {workspace = true}
+
+[dev-dependencies]
+bevy = {workspace = true, features = ["dynamic_linking"]}
+bevy-inspector-egui = "*"

@@ -1,7 +1,7 @@
 use crate::*;
 
 /// make a cuboid
-/// 
+///
 /// renamed from `make_box` since box is a reserved word in rust and to mirror bevy's `box -> cuboid` rename.
 pub fn make_cuboid(x_size: f32, y_size: f32, z_size: f32) -> MeshBuffer {
     let (min_x, max_x) = (-x_size / 2.0, x_size / 2.0);

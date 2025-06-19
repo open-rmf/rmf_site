@@ -17,9 +17,9 @@
 
 use bevy_asset::Asset;
 use bevy_color::{Color, LinearRgba};
-use bevy_math::{primitives, Affine3A};
-use bevy_math::prelude::*;
 use bevy_ecs::prelude::*;
+use bevy_math::prelude::*;
+use bevy_math::{Affine3A, primitives};
 use bevy_reflect::TypePath;
 use bevy_render::mesh::{Indices, PrimitiveTopology, VertexAttributeValues};
 use bevy_render::prelude::*;
@@ -33,7 +33,7 @@ use bevy_render::render_asset::RenderAssetUsages;
 // use bevy_polyline::{material::PolylineMaterial, polyline::Polyline};
 use std::collections::{BTreeMap, HashMap};
 
-use crate::{make_cuboid, make_pyramid, Degrees, Radians};
+use crate::{Degrees, Radians, make_cuboid, make_pyramid};
 
 pub trait WithOutlineMeshExt: Sized {
     fn with_generated_outline_normals(self) -> Result<Self, GenerateOutlineNormalsError>;
@@ -529,10 +529,7 @@ pub fn flat_arc(
     let initial_angle: Radians = initial_angle.into();
     let sweep = sweep.into();
     let (initial_angle, sweep) = if sweep < 0.0 {
-        (
-            initial_angle + sweep,
-            -sweep,
-        )
+        (initial_angle + sweep, -sweep)
     } else {
         (initial_angle, sweep)
     };
@@ -623,8 +620,7 @@ pub fn line_stroke_away_from(
     thickness: f32,
 ) -> MeshBuffer {
     let end = start
-        + Affine3A::from_rotation_z(direction.0)
-            .transform_vector3(Vec3::new(length, 0.0, 0.0));
+        + Affine3A::from_rotation_z(direction.0).transform_vector3(Vec3::new(length, 0.0, 0.0));
 
     line_stroke_mesh(start, end, thickness)
 }

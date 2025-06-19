@@ -92,8 +92,6 @@ pub fn make_cylinder_arrow_mesh() -> Mesh {
     return mesh;
 }
 
-
-
 pub fn flat_arrow_mesh_between(
     start: Vec3,
     stop: Vec3,
