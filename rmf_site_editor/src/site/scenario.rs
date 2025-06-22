@@ -89,8 +89,7 @@ impl Property for Pose {
             .and_then(|e| pose_modifiers.get_mut(*e).ok())
         {
             // If an instance pose modifier entity already exists for this scenario, update it
-            let pose_modifier = pose_modifier.as_mut();
-            pose_modifier.update(value.clone());
+            **pose_modifier = value.clone();
         } else {
             // If pose modifier entity does not exist in this scenario, spawn one
             new_pose_modifiers.push((Modifier::<Pose>::new(value.clone()), in_scenario));
@@ -299,8 +298,8 @@ pub fn handle_instance_updates(
         };
 
         let modifier_entity = scenario_modifiers.get(&update.instance);
-        let mut pose_modifier = modifier_entity.and_then(|e| pose_modifiers.get_mut(*e).ok());
-        let mut visibility_modifier =
+        let pose_modifier = modifier_entity.and_then(|e| pose_modifiers.get_mut(*e).ok());
+        let visibility_modifier =
             modifier_entity.and_then(|e| visibility_modifiers.get_mut(*e).ok());
 
         match update.update {
@@ -310,8 +309,8 @@ pub fn handle_instance_updates(
                     UpdateInstance::Hide => Visibility::Hidden,
                     _ => continue,
                 };
-                if let Some(visibility_modifier) = visibility_modifier.as_mut() {
-                    visibility_modifier.update(new_visibility);
+                if let Some(mut visibility_modifier) = visibility_modifier {
+                    **visibility_modifier = new_visibility;
                 } else if let Some(modifier_entity) = modifier_entity {
                     commands
                         .entity(*modifier_entity)
@@ -328,14 +327,18 @@ pub fn handle_instance_updates(
                 }
             }
             UpdateInstance::Modify(new_pose) => {
-                if let Some(pose_modifier) = pose_modifier.as_mut() {
-                    pose_modifier.update(new_pose.clone());
+                if let Some(mut pose_modifier) = pose_modifier {
+                    **pose_modifier = new_pose.clone();
                     commands
                         .entity(update.instance)
                         .insert(LastSetValue::<Pose>::new(new_pose));
                     // Do not trigger PropertyPlugin<Pose> if pose for existing modifier
                     // was modified by user
                     continue;
+                } else if let Some(modifier_entity) = modifier_entity {
+                    commands
+                        .entity(*modifier_entity)
+                        .insert(Modifier::<Pose>::new(new_pose));
                 } else {
                     let modifier_entity = commands.spawn(Modifier::<Pose>::new(new_pose)).id();
                     add_modifier.write(AddModifier::new(

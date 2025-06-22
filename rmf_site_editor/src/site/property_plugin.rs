@@ -128,9 +128,9 @@ fn update_property_value<T: Property, F: QueryFilter + 'static + Send + Sync>(
             continue;
         }
 
-        let new_value =
+        let new_value: T =
             if let Some(modifier) = get_modifier.get(event.in_scenario, event.for_element) {
-                modifier.get()
+                (**modifier).clone()
             } else {
                 // No modifier exists in this tree for this scenario/element pairing
                 // Make sure that a modifier for this property exists in the current scenario tree

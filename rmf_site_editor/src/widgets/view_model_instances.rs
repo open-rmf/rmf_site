@@ -182,7 +182,7 @@ pub fn count_scenarios(
     scenarios.iter().fold(0, |x, (e, _, _)| {
         match get_modifier
             .get(e, instance)
-            .map(|m| m.get())
+            .map(|m| **m)
             .unwrap_or(Visibility::Hidden)
         {
             Visibility::Hidden => x,
@@ -218,7 +218,7 @@ fn show_model_instance(
         // If this is a root scenario, we won't include the None option
         if let Some(visibility_modifier) = visibility_modifier {
             // Either explicitly included or hidden
-            if visibility_modifier.get() == Visibility::Hidden {
+            if **visibility_modifier == Visibility::Hidden {
                 if ui
                     .add(ImageButton::new(icons.hide.egui()))
                     .on_hover_text("Model instance is hidden in this scenario")

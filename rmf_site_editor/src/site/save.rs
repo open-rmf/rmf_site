@@ -1418,8 +1418,8 @@ fn generate_scenarios(
                                         Some((
                                             affiliation.0.and_then(|e| instances.get(e).ok())?.0,
                                             InstanceModifier {
-                                                pose: pose.map(|p| p.get()),
-                                                visibility: visibility.map(|v| match v.get() {
+                                                pose: pose.map(|p| **p),
+                                                visibility: visibility.map(|v| match **v {
                                                     Visibility::Hidden => false,
                                                     _ => true,
                                                 }),

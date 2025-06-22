@@ -32,20 +32,12 @@ use bevy::{
 use std::fmt::Debug;
 use uuid::Uuid;
 
-#[derive(Component, Debug, Default, Clone)]
+#[derive(Component, Debug, Default, Clone, Deref, DerefMut)]
 pub struct Modifier<T: Property>(T);
 
 impl<T: Property> Modifier<T> {
     pub fn new(value: T) -> Self {
         Self(value)
-    }
-
-    pub fn get(&self) -> T {
-        self.0.clone()
-    }
-
-    pub fn update(&mut self, new_value: T) {
-        self.0 = new_value;
     }
 }
 
