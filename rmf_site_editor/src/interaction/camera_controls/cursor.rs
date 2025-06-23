@@ -21,7 +21,7 @@ use super::{
 };
 use bevy::input::mouse::{MouseScrollUnit, MouseWheel};
 use bevy::picking::{
-    backend::{ray::RayMap, HitData},
+    backend::ray::RayMap,
     pointer::{PointerId, PointerInteraction},
 };
 use bevy::prelude::*;
@@ -128,15 +128,24 @@ pub fn update_cursor_command(
         else {
             return;
         };
-        let Some((_, hit_data)) = pointers.single().ok().and_then(|(_, interactions)| {
-            interactions
-                .iter()
-                .find(|(_, hit)| hit.camera == active_camera_entity)
-        }) else {
-            return;
-        };
-        let cursor_selection_new =
-            get_cursor_selected_point(&camera_transform, hit_data, cursor_ray);
+
+        let cursor_selection_new = pointers
+            .single()
+            .ok()
+            .and_then(|(_, interactions)| {
+                interactions
+                    .iter()
+                    .find(|(_, hit)| hit.camera == active_camera_entity)
+            })
+            .and_then(|(_, hit_data)| hit_data.position)
+            .unwrap_or_else(|| {
+                get_groundplane_else_default_selection(
+                    cursor_ray.origin,
+                    *cursor_ray.direction,
+                    *camera_transform.forward(),
+                )
+            });
+
         let cursor_selection = match cursor_command.cursor_selection {
             Some(selection) => selection,
             None => cursor_selection_new,
@@ -372,22 +381,6 @@ fn pan_camera_with_cursor(
     camera_transform_next.translation += zoom_translation;
 
     return camera_transform_next;
-}
-
-/// Returns the object selected by the cursor, if none, defaults to ground plane or arbitrary point in front
-fn get_cursor_selected_point(
-    camera_transform: &Transform,
-    hit_data: &HitData,
-    cursor_ray: &Ray3d,
-) -> Vec3 {
-    match hit_data.position {
-        Some(pos) => pos,
-        None => get_groundplane_else_default_selection(
-            cursor_ray.origin,
-            *cursor_ray.direction,
-            *camera_transform.forward(),
-        ),
-    }
 }
 
 fn get_command_type(

@@ -27,99 +27,11 @@ use std::collections::{BTreeMap, HashMap};
 pub struct InstanceMarker;
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub enum InstanceModifier {
-    Added(AddedInstance),
-    Inherited(InheritedInstance),
-    #[default]
-    Hidden,
-}
-
-impl InstanceModifier {
-    pub fn added(pose: Pose) -> Self {
-        Self::Added(AddedInstance { pose: pose })
-    }
-
-    pub fn inherited_with_pose(pose: Pose) -> Self {
-        Self::Inherited(InheritedInstance {
-            modified_pose: Some(pose),
-            explicit_inclusion: false,
-        })
-    }
-
-    pub fn inherited_with_inclusion() -> Self {
-        Self::Inherited(InheritedInstance {
-            modified_pose: None,
-            explicit_inclusion: true,
-        })
-    }
-
-    pub fn pose(&self) -> Option<Pose> {
-        match self {
-            InstanceModifier::Added(added) => Some(added.pose.clone()),
-            InstanceModifier::Inherited(inherited) => inherited.modified_pose.clone(),
-            InstanceModifier::Hidden => None,
-        }
-    }
-
-    pub fn visibility(&self) -> Option<bool> {
-        match self {
-            InstanceModifier::Added(_) => Some(true),
-            InstanceModifier::Inherited(inherited) => {
-                if inherited.explicit_inclusion {
-                    Some(true)
-                } else {
-                    None
-                }
-            }
-            InstanceModifier::Hidden => Some(false),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub struct RecallInstance {
+pub struct InstanceModifier {
+    #[serde(default, skip_serializing_if = "is_default")]
     pub pose: Option<Pose>,
-    pub modifier: Option<InstanceModifier>,
-}
-
-impl Recall for RecallInstance {
-    type Source = InstanceModifier;
-
-    fn remember(&mut self, source: &InstanceModifier) {
-        match source {
-            InstanceModifier::Added(_) | InstanceModifier::Inherited(_) => {
-                self.pose = source.pose();
-                self.modifier = Some(source.clone());
-            }
-            InstanceModifier::Hidden => {
-                // We don't update the pose if this InstanceModifier is hidden
-            }
-        };
-    }
-}
-
-/// The instance modifier was added by this scenario
-#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
-pub struct AddedInstance {
-    pub pose: Pose,
-}
-
-/// The instance modifier was inherited from a parent scenario
-#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
-pub struct InheritedInstance {
-    pub modified_pose: Option<Pose>,
-    pub explicit_inclusion: bool,
-}
-
-impl InheritedInstance {
-    pub fn modified(&self) -> bool {
-        if self.modified_pose.is_some() || self.explicit_inclusion {
-            return true;
-        }
-        false
-    }
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub visibility: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]

@@ -281,11 +281,9 @@ impl Plugin for SitePlugin {
             ChangePlugin::<ModelProperty<Scale>>::default(),
             ChangePlugin::<ModelProperty<IsStatic>>::default(),
             ChangePlugin::<Task>::default(),
-            RecallPlugin::<RecallInstance>::default(),
-            RecallPlugin::<RecallTask>::default(),
-            PropertyPlugin::<Pose, InstanceModifier, With<InstanceMarker>>::default(),
-            PropertyPlugin::<Visibility, InstanceModifier, With<InstanceMarker>>::default(),
-            PropertyPlugin::<TaskParams, TaskModifier, With<Task>>::default(),
+            PropertyPlugin::<Pose, With<InstanceMarker>>::default(),
+            PropertyPlugin::<Visibility, With<InstanceMarker>>::default(),
+            PropertyPlugin::<TaskParams, With<Task>>::default(),
             SlotcarSdfPlugin,
         ))
         .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
@@ -442,6 +440,14 @@ impl Plugin for SitePlugin {
                 add_physical_camera_visuals,
                 check_selected_is_visible,
                 check_for_missing_root_modifiers::<InstanceMarker>,
+                handle_empty_modifiers::<
+                    Pose,
+                    (Without<Modifier<Pose>>, Without<Modifier<Visibility>>),
+                >,
+                handle_empty_modifiers::<
+                    Visibility,
+                    (Without<Modifier<Pose>>, Without<Modifier<Visibility>>),
+                >,
             )
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
