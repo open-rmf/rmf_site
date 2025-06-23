@@ -18,12 +18,11 @@
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_impulse::*;
 use rfd::AsyncFileDialog;
-use std::path::PathBuf;
+use std::{future::Future, path::PathBuf};
 
 use crate::interaction::InteractionState;
-use crate::site::{DefaultFile, ImportNavGraphs, LoadSite, SaveSite};
+use crate::site::{DefaultFile, ImportNavGraphs, LoadSite, LoadSiteResult, SaveSite};
 use crate::AppState;
-use rmf_site_format::legacy::building_map::BuildingMap;
 use rmf_site_format::{NameOfSite, Site};
 
 /// Used as an event to command that a new workspace should be made the current one
@@ -42,63 +41,6 @@ pub struct CreateNewWorkspace;
 #[derive(Component)]
 pub struct WorkspaceMarker;
 
-#[derive(Clone)]
-pub enum WorkspaceData {
-    LegacyBuilding(Vec<u8>),
-    RonSite(Vec<u8>),
-    JsonSite(Vec<u8>),
-    LoadSite(LoadSite),
-}
-
-impl WorkspaceData {
-    pub fn new(path: &PathBuf, data: Vec<u8>) -> Option<Self> {
-        let filename = path.file_name().and_then(|f| f.to_str())?;
-        if filename.ends_with(".building.yaml") {
-            Some(WorkspaceData::LegacyBuilding(data))
-        } else if filename.ends_with(".ron") {
-            Some(WorkspaceData::RonSite(data))
-        } else if filename.ends_with(".json") {
-            Some(WorkspaceData::JsonSite(data))
-        } else {
-            error!("Unrecognized file type {:?}", filename);
-            None
-        }
-    }
-
-    pub fn as_site(&self) -> Option<Site> {
-        match self {
-            Self::LegacyBuilding(data) => match BuildingMap::from_bytes(data) {
-                Ok(building) => match building.to_site() {
-                    Ok(site) => return Some(site),
-                    Err(err) => {
-                        error!("Failed converting a legacy building into a site: {err}");
-                        return None;
-                    }
-                },
-                Err(err) => {
-                    error!("Failed parsing legacy building: {err}");
-                    return None;
-                }
-            },
-            Self::RonSite(data) => match Site::from_bytes_ron(data) {
-                Ok(site) => return Some(site),
-                Err(err) => {
-                    error!("Failed parsing ron site file: {err}");
-                    return None;
-                }
-            },
-            Self::JsonSite(data) => match Site::from_bytes_json(data) {
-                Ok(site) => return Some(site),
-                Err(err) => {
-                    error!("Failed loading json site file: {err}");
-                    return None;
-                }
-            },
-            Self::LoadSite(load) => return Some(load.site.clone()),
-        }
-    }
-}
-
 /// Used as a resource that keeps track of the current workspace
 // TODO(@mxgrey): Consider a workspace stack, e.g. so users can temporarily edit
 // a workcell inside of a site and then revert back into the site.
@@ -107,8 +49,6 @@ pub struct CurrentWorkspace {
     pub root: Option<Entity>,
     pub display: bool,
 }
-
-pub struct LoadWorkspaceFile(pub Option<PathBuf>, pub WorkspaceData);
 
 #[derive(Clone, Default, Debug)]
 pub enum ExportFormat {
@@ -138,7 +78,7 @@ impl Plugin for WorkspacePlugin {
             .init_resource::<CurrentWorkspace>()
             .init_resource::<RecallWorkspace>()
             .init_resource::<FileDialogServices>()
-            .init_resource::<WorkspaceLoadingServices>()
+            .init_resource::<SiteLoadingServices>()
             .init_resource::<WorkspaceSavingServices>()
             .add_systems(
                 Update,
@@ -169,81 +109,17 @@ pub fn dispatch_new_workspace_events(
 }
 
 /// Service that takes workspace data and loads a site / workcell, as well as transition state.
-pub fn process_load_workspace_files(
-    In(BlockingService { request, .. }): BlockingServiceInput<LoadWorkspaceFile>,
+pub fn send_load_workspace_files(
+    In(BlockingService { mut request, .. }): BlockingServiceInput<LoadSite>,
     mut app_state: ResMut<NextState<AppState>>,
     mut interaction_state: ResMut<NextState<InteractionState>>,
     mut load_site: EventWriter<LoadSite>,
 ) {
-    let LoadWorkspaceFile(default_file, data) = request;
-    match data {
-        WorkspaceData::LegacyBuilding(data) => {
-            info!("Opening legacy building map file");
-            match BuildingMap::from_bytes(&data) {
-                Ok(building) => {
-                    match building.to_site() {
-                        Ok(site) => {
-                            // Switch state
-                            app_state.set(AppState::SiteEditor);
-                            load_site.write(LoadSite {
-                                site,
-                                focus: true,
-                                default_file,
-                            });
-                            interaction_state.set(InteractionState::Enable);
-                        }
-                        Err(err) => {
-                            error!("Failed converting to site {:?}", err);
-                        }
-                    }
-                }
-                Err(err) => {
-                    error!("Failed loading legacy building {:?}", err);
-                }
-            }
-        }
-        WorkspaceData::RonSite(data) => {
-            info!("Opening site file");
-            match Site::from_bytes_ron(&data) {
-                Ok(site) => {
-                    // Switch state
-                    app_state.set(AppState::SiteEditor);
-                    load_site.write(LoadSite {
-                        site,
-                        focus: true,
-                        default_file,
-                    });
-                    interaction_state.set(InteractionState::Enable);
-                }
-                Err(err) => {
-                    error!("Failed loading site {:?}", err);
-                }
-            }
-        }
-        WorkspaceData::JsonSite(data) => {
-            info!("Opening site file");
-            match Site::from_bytes_json(&data) {
-                Ok(site) => {
-                    // Switch state
-                    app_state.set(AppState::SiteEditor);
-                    load_site.write(LoadSite {
-                        site,
-                        focus: true,
-                        default_file,
-                    });
-                    interaction_state.set(InteractionState::Enable);
-                }
-                Err(err) => {
-                    error!("Failed loading site {:?}", err);
-                }
-            }
-        }
-        WorkspaceData::LoadSite(site) => {
-            app_state.set(AppState::SiteEditor);
-            load_site.write(site);
-            interaction_state.set(InteractionState::Enable);
-        }
-    }
+    app_state.set(AppState::SiteEditor);
+    interaction_state.set(InteractionState::Enable);
+
+    request.focus = true;
+    load_site.write(request);
 }
 
 /// Filter that can be added to a file dialog request to filter extensions
@@ -258,7 +134,7 @@ pub struct FileDialogFilter {
 #[derive(Resource)]
 pub struct FileDialogServices {
     /// Open a dialog to pick a file, return its path and data
-    pub pick_file_and_load: Service<Vec<FileDialogFilter>, (PathBuf, Vec<u8>)>,
+    pub pick_file_and_read: Service<Vec<FileDialogFilter>, (PathBuf, Vec<u8>)>,
     /// Pick a file to save data into
     pub pick_file_for_saving: Service<Vec<FileDialogFilter>, PathBuf>,
     /// Pick a folder
@@ -267,7 +143,7 @@ pub struct FileDialogServices {
 
 impl FromWorld for FileDialogServices {
     fn from_world(world: &mut World) -> Self {
-        let pick_file_and_load = world.spawn_workflow(|scope, builder| {
+        let pick_file_and_read = world.spawn_workflow(|scope, builder| {
             scope
                 .input
                 .chain(builder)
@@ -367,7 +243,7 @@ impl FromWorld for FileDialogServices {
         });
 
         Self {
-            pick_file_and_load,
+            pick_file_and_read,
             pick_file_for_saving,
             pick_folder,
         }
@@ -376,26 +252,27 @@ impl FromWorld for FileDialogServices {
 
 #[derive(Resource)]
 /// Services that deal with workspace loading
-pub struct WorkspaceLoadingServices {
+pub struct SiteLoadingServices {
     /// Service that spawns an open file dialog and loads a site accordingly.
-    pub load_workspace_from_dialog: Service<(), ()>,
+    pub load_site_from_dialog: Service<(), ()>,
     /// Service that spawns a save file dialog then creates a site with an empty level.
-    pub create_empty_workspace_from_dialog: Service<(), ()>,
+    pub create_empty_site_from_dialog: Service<(), ()>,
     /// Loads the workspace at the requested path
-    pub load_workspace_from_path: Service<PathBuf, ()>,
+    pub load_site_from_path: Service<PathBuf, ()>,
     /// Loads the workspace from the requested data
-    pub load_workspace_from_data: Service<WorkspaceData, ()>,
+    pub load_site: Service<LoadSiteResult, ()>,
     /// Service that lets the user select a file to import nav graphs from.
     pub import_nav_graphs_from_dialog: Service<(), ()>,
 }
 
-impl FromWorld for WorkspaceLoadingServices {
+impl FromWorld for SiteLoadingServices {
     fn from_world(world: &mut World) -> Self {
-        let process_load_files = world.spawn_service(process_load_workspace_files);
+        let send_loaded_data = world.spawn_service(send_load_workspace_files);
         let pick_file = world
             .resource::<FileDialogServices>()
-            .pick_file_and_load
+            .pick_file_and_read
             .clone();
+
         let loading_filters = vec![
             FileDialogFilter {
                 name: "Site or Building".into(),
@@ -415,7 +292,7 @@ impl FromWorld for WorkspaceLoadingServices {
             },
         ];
         // Spawn all the services
-        let load_workspace_from_dialog = world.spawn_workflow(|scope, builder| {
+        let load_site_from_dialog = world.spawn_workflow(|scope, builder| {
             scope
                 .input
                 .chain(builder)
@@ -424,16 +301,17 @@ impl FromWorld for WorkspaceLoadingServices {
                     move |_| loading_filters.clone()
                 })
                 .then(pick_file)
-                .map_block(|(path, data)| {
-                    let data = WorkspaceData::new(&path, data)?;
-                    Some(LoadWorkspaceFile(Some(path), data))
+                .map_async(|(path, data)| async move { LoadSite::from_data(&data, Some(path)) })
+                .branch_for_err(|chain: Chain<_>| {
+                    chain
+                        .map_block(|err| error!("Failed to parse file: {err}"))
+                        .connect(scope.terminate)
                 })
-                .cancel_on_none()
-                .then(process_load_files)
+                .then(send_loaded_data)
                 .connect(scope.terminate)
         });
 
-        let create_empty_workspace_from_dialog = world.spawn_workflow(|scope, builder| {
+        let create_empty_site_from_dialog = world.spawn_workflow(|scope, builder| {
             scope
                 .input
                 .chain(builder)
@@ -447,55 +325,55 @@ impl FromWorld for WorkspaceLoadingServices {
                                 .map(|s| s.to_str().map(|s| s.to_owned()))
                                 .flatten()
                                 .unwrap_or_else(|| "blank".to_owned());
-                            let data = WorkspaceData::LoadSite(LoadSite::blank_L1(
-                                name,
-                                Some(file.clone()),
-                            ));
-                            return Some(LoadWorkspaceFile(Some(file), data));
+                            return Some(LoadSite::blank_L1(name, Some(file.clone())));
                         }
                         None
                     }
                     #[cfg(target_arch = "wasm32")]
                     {
-                        let data =
-                            WorkspaceData::LoadSite(LoadSite::blank_L1("blank".to_owned(), None));
-                        Some(LoadWorkspaceFile(None, data))
+                        let load_site = LoadSite::blank_L1("blank".to_owned(), None);
+                        Some(load_site)
                     }
                 })
                 .cancel_on_none()
-                .then(process_load_files)
+                .then(send_loaded_data)
                 .connect(scope.terminate)
         });
 
-        let load_workspace_from_path = world.spawn_workflow(|scope, builder| {
+        let load_site_from_path = world.spawn_workflow(|scope, builder| {
             scope
                 .input
                 .chain(builder)
-                .map_block(|path| {
-                    let Some(data) = std::fs::read(&path)
-                        .ok()
-                        .and_then(|data| WorkspaceData::new(&path, data))
-                    else {
-                        warn!("Unable to read file [{path:?}] so it cannot be loaded");
-                        return None;
-                    };
-                    Some(LoadWorkspaceFile(Some(path.clone()), data))
+                .map_async(|path| async move {
+                    match std::fs::read(&path) {
+                        Ok(data) => LoadSite::from_data(&data, Some(path)).ok(),
+                        Err(err) => {
+                            warn!("Cannot load file [{path:?}] because it cannot be read: {err}");
+                            return None;
+                        }
+                    }
                 })
                 .cancel_on_none()
-                .then(process_load_files)
+                .then(send_loaded_data)
                 .connect(scope.terminate)
         });
 
-        let load_workspace_from_data = world.spawn_workflow(|scope, builder| {
+        let load_site = world.spawn_workflow(|scope, builder| {
             scope
                 .input
                 .chain(builder)
-                .map_block(|data| LoadWorkspaceFile(None, data))
-                .then(process_load_files)
+                .branch_for_err(|chain: Chain<_>| {
+                    chain
+                        .map_block(|err| {
+                            error!("Failed to load site: {err}");
+                        })
+                        .connect(scope.terminate)
+                })
+                .then(send_loaded_data)
                 .connect(scope.terminate)
         });
 
-        let request_import_nav_graphs =
+        let request_import_nav_graphs_from_site =
             |In(from_site): In<Site>,
              current_site: Res<CurrentWorkspace>,
              mut import_nav_graphs: EventWriter<ImportNavGraphs>| {
@@ -517,17 +395,31 @@ impl FromWorld for WorkspaceLoadingServices {
                     move |_| loading_filters.clone()
                 })
                 .then(pick_file)
-                .map_async(|(path, data)| async move { WorkspaceData::new(&path, data)?.as_site() })
-                .cancel_on_none()
-                .then(request_import_nav_graphs.into_blocking_callback())
+                .map_async(|(path, data)| async move {
+                    LoadSite::from_data(&data, Some(path)).map(|load_site| load_site.site)
+                })
+                .branch_for_err(|chain: Chain<_>| {
+                    chain
+                        .map_block(|err| {
+                            error!("Unable to import nav graphs from file: {err}");
+                            error!(
+                                "Nav graphs can only be imported from a legacy \
+                            .building.yaml file or from a site file. We do not \
+                            currently support importing from an exported nav \
+                            graph file"
+                            );
+                        })
+                        .connect(scope.terminate);
+                })
+                .then(request_import_nav_graphs_from_site.into_blocking_callback())
                 .connect(scope.terminate);
         });
 
         Self {
-            load_workspace_from_dialog,
-            create_empty_workspace_from_dialog,
-            load_workspace_from_path,
-            load_workspace_from_data,
+            load_site_from_dialog,
+            create_empty_site_from_dialog,
+            load_site_from_path,
+            load_site,
             import_nav_graphs_from_dialog,
         }
     }
@@ -537,31 +429,35 @@ impl<'w, 's> WorkspaceLoader<'w, 's> {
     /// Request to spawn a dialog and load a workspace
     pub fn load_from_dialog(&mut self) {
         self.commands
-            .request((), self.workspace_loading.load_workspace_from_dialog)
+            .request((), self.workspace_loading.load_site_from_dialog)
             .detach();
     }
 
     /// Request to spawn a dialog to select a file and create a new site with a blank level
     pub fn create_empty_from_dialog(&mut self) {
         self.commands
-            .request(
-                (),
-                self.workspace_loading.create_empty_workspace_from_dialog,
-            )
+            .request((), self.workspace_loading.create_empty_site_from_dialog)
             .detach();
     }
 
     /// Request to load a workspace from a path
     pub fn load_from_path(&mut self, path: PathBuf) {
         self.commands
-            .request(path, self.workspace_loading.load_workspace_from_path)
+            .request(path, self.workspace_loading.load_site_from_path)
             .detach();
     }
 
-    /// Request to load a workspace from data
-    pub fn load_from_data(&mut self, data: WorkspaceData) {
+    /// Request to load a workspace from data.
+    ///
+    /// This expects to receive a future to enforce the practice that
+    /// LoadSite::from_data should be run async.
+    pub fn load_site(
+        &mut self,
+        loader: impl Future<Output = LoadSiteResult> + Send + Sync + 'static,
+    ) {
         self.commands
-            .request(data, self.workspace_loading.load_workspace_from_data)
+            .serve(loader)
+            .then(self.workspace_loading.load_site)
             .detach();
     }
 
@@ -575,7 +471,7 @@ impl<'w, 's> WorkspaceLoader<'w, 's> {
 /// `SystemParam` used to request for workspace loading operations
 #[derive(SystemParam)]
 pub struct WorkspaceLoader<'w, 's> {
-    workspace_loading: Res<'w, WorkspaceLoadingServices>,
+    workspace_loading: Res<'w, SiteLoadingServices>,
     commands: Commands<'w, 's>,
 }
 
