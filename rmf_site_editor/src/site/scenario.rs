@@ -385,8 +385,8 @@ pub fn handle_create_scenarios(
             ScenarioModifiers::<Entity>::default(),
         ));
 
-        if let Some(parent) = current_workspace.root {
-            cmd.insert(ChildOf(parent));
+        if let Some(site_entity) = current_workspace.root {
+            cmd.insert(ChildOf(site_entity));
         } else {
             error!("Missing workspace for a new root scenario!");
         }
