@@ -5268,6 +5268,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "rmf_site_animate"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "bevy-inspector-egui",
+ "bevy_app",
+ "bevy_ecs",
+ "bevy_math",
+ "bevy_render",
+ "bevy_time",
+ "bevy_transform",
+ "bevy_utils",
+]
+
+[[package]]
 name = "rmf_site_camera"
 version = "0.1.0"
 dependencies = [
