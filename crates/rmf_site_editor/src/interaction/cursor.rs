@@ -16,13 +16,13 @@
 */
 
 use crate::{
-    animate::*,
     interaction::*,
     site::{AnchorBundle, ModelLoader, Pending, SiteAssets},
 };
 use bevy::{ecs::system::SystemParam, picking::backend::ray::RayMap, prelude::*};
 
 use rmf_site_camera::{active_camera_maybe, ActiveCameraQuery};
+use rmf_site_animate::*;
 use rmf_site_format::{FloorMarker, ModelInstance, WallMarker};
 use std::collections::HashSet;
 

@@ -5336,6 +5336,7 @@ dependencies = [
  "nalgebra",
  "pathdiff",
  "rfd",
+ "rmf_site_animate",
  "rmf_site_camera",
  "rmf_site_format",
  "rmf_site_mesh",
