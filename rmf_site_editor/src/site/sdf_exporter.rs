@@ -25,11 +25,11 @@ use bevy_gltf_export::{export_meshes, CompressGltfOptions, MeshData};
 use std::{collections::HashMap, path::Path};
 
 use crate::site::{
-    ChildLiftCabinGroup, CollisionMeshMarker, DoorSegments, FloorSegments, LiftDoormat,
+    ChildLiftCabinGroup, CollisionMeshMarker, DoorSegments, FloorSegments, Group, LiftDoormat,
     VisualMeshMarker,
 };
 use rmf_site_format::{
-    IsStatic, LevelElevation, LiftCabin, ModelMarker, NameInSite, SiteID, WallMarker,
+    Affiliation, IsStatic, LevelElevation, LiftCabin, ModelMarker, NameInSite, SiteID, WallMarker,
 };
 
 #[derive(Deref, DerefMut)]
@@ -74,7 +74,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
         Query<Entity, With<WallMarker>>,
         Query<&FloorSegments>,
         Query<(Option<&NameInSite>, &DoorSegments)>,
-        Query<(Entity, &IsStatic, &NameInSite), With<ModelMarker>>,
+        Query<(&NameInSite, &IsStatic, &Affiliation<Entity>), (With<ModelMarker>, Without<Group>)>,
         Query<(), With<CollisionMeshMarker>>,
         Query<(), With<VisualMeshMarker>>,
         Query<(&Mesh3d, &MeshMaterial3d<StandardMaterial>)>,
@@ -149,6 +149,9 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
     let Ok(site_children) = q_children.get(site) else {
         return Ok(());
     };
+
+    let mut description_meshes = HashMap::new();
+
     for site_child in site_children.iter() {
         let mut collision_data = Vec::new();
         let mut visual_data = Vec::new();
@@ -186,78 +189,48 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                         material: Some(material),
                         transform: Some(level_tf.clone()),
                     });
-                } else if let Ok((model, is_static, name)) = q_models.get(child) {
-                    let mut model_collisions = vec![];
-                    let mut model_visuals = vec![];
-                    // TODO(luca) don't do full descendant iter here or we might add twice?
-                    // Iterate through children and select all meshes
-                    for model_child in DescendantIter::new(&q_children, model) {
-                        if q_collisions.contains(model_child) {
-                            // Now iterate through the children of the collision and add them
-                            for entity in DescendantIter::new(&q_children, model_child) {
-                                let Some((mesh, _)) = get_mesh_and_material(entity) else {
-                                    continue;
-                                };
-                                let Ok(tf) = q_global_tfs.get(entity) else {
-                                    continue;
-                                };
-                                let mut tf = tf.compute_transform();
-                                tf.translation.z = tf.translation.z + **elevation;
-                                // Non static meshes have their translation in the SDF element, not in the
-                                // gltf node
-                                model_collisions.push(MeshData {
-                                    mesh,
-                                    material: None,
-                                    transform: is_static.then_some(tf),
-                                });
-                            }
-                        } else if q_visuals.contains(model_child) {
-                            // Now iterate through the children of the visuals and add them
-                            for entity in DescendantIter::new(&q_children, model_child) {
-                                let Some((mesh, material)) = get_mesh_and_material(entity) else {
-                                    continue;
-                                };
-                                let Ok(tf) = q_global_tfs.get(entity) else {
-                                    continue;
-                                };
-                                let mut tf = tf.compute_transform();
-                                tf.translation.z = tf.translation.z + **elevation;
-                                model_visuals.push(MeshData {
-                                    mesh,
-                                    material: Some(material),
-                                    transform: is_static.then_some(tf),
-                                });
-                            }
-                        }
-                    }
+                } else if let Ok((name, is_static, affiliation)) = q_models.get(child) {
                     if **is_static {
-                        // This is part of the static world, add it to the static mesh
-                        collision_data.extend(model_collisions);
-                        visual_data.extend(model_visuals);
-                    } else {
-                        // Create a new mesh for it
-                        let filename = format!(
-                            "{}/model_{}_collision.glb",
-                            folder.display(),
-                            get_site_id(child)?,
+                        // static meshes are incorporated directly into the world.
+                        append_collisions_and_visuals(
+                            child,
+                            **elevation,
+                            true,
+                            &q_children,
+                            &q_collisions,
+                            &q_visuals,
+                            &q_global_tfs,
+                            get_mesh_and_material,
+                            &mut collision_data,
+                            &mut visual_data,
                         );
-                        write_meshes_to_file(
-                            model_collisions,
-                            None,
-                            CompressGltfOptions::skip_materials(),
-                            filename,
-                        )?;
-                        let filename = format!(
-                            "{}/model_{}_visual.glb",
-                            folder.display(),
-                            get_site_id(child)?,
+                    } else if let Some(description) = affiliation.0 {
+                        // non-static (robot) meshes are exported once per
+                        // description and shared across all instances.
+                        let mut collisions = Vec::new();
+                        let mut visuals = Vec::new();
+
+                        append_collisions_and_visuals(
+                            child,
+                            **elevation,
+                            false,
+                            &q_children,
+                            &q_collisions,
+                            &q_visuals,
+                            &q_global_tfs,
+                            get_mesh_and_material,
+                            &mut collisions,
+                            &mut visuals,
                         );
-                        write_meshes_to_file(
-                            model_visuals,
-                            Some(format!("{}_visual", **name)),
-                            CompressGltfOptions::default(),
-                            filename,
-                        )?;
+
+                        description_meshes.insert(
+                            description,
+                            ModelDescriptionMeshes {
+                                name: name.0.clone(),
+                                collisions,
+                                visuals,
+                            },
+                        );
                     }
                 } else if let Ok((door_name, segments)) = q_doors.get(child) {
                     for (entity, segment_name) in segments
@@ -397,5 +370,93 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
             }
         }
     }
+
+    for (description, meshes) in description_meshes {
+        // Create a new mesh for it
+        let filename = format!(
+            "{}/model_{}_collision.glb",
+            folder.display(),
+            get_site_id(description)?,
+        );
+        write_meshes_to_file(
+            meshes.collisions,
+            None,
+            CompressGltfOptions::skip_materials(),
+            filename,
+        )?;
+        let filename = format!(
+            "{}/model_{}_visual.glb",
+            folder.display(),
+            get_site_id(description)?,
+        );
+        write_meshes_to_file(
+            meshes.visuals,
+            Some(format!("{}_visual", meshes.name)),
+            CompressGltfOptions::default(),
+            filename,
+        )?;
+    }
+
     Ok(())
+}
+
+fn append_collisions_and_visuals<'a>(
+    model: Entity,
+    elevation: f32,
+    is_static: bool,
+    q_children: &Query<&Children>,
+    q_collisions: &Query<(), With<CollisionMeshMarker>>,
+    q_visuals: &Query<(), With<VisualMeshMarker>>,
+    q_global_tfs: &Query<&GlobalTransform>,
+    get_mesh_and_material: impl Fn(Entity) -> Option<(&'a Mesh, &'a StandardMaterial)> + 'a,
+    collision_data: &mut Vec<MeshData<'a>>,
+    visual_data: &mut Vec<MeshData<'a>>,
+) {
+    // TODO(luca) don't do full descendant iter here or we might add twice?
+    // Iterate through children and select all meshes
+    for model_child in DescendantIter::new(&q_children, model) {
+        if q_collisions.contains(model_child) {
+            // Now iterate through the children of the collision and add them
+            for entity in DescendantIter::new(&q_children, model_child) {
+                let Some((mesh, _)) = get_mesh_and_material(entity) else {
+                    continue;
+                };
+                let Ok(tf) = q_global_tfs.get(entity) else {
+                    continue;
+                };
+                let mut tf = tf.compute_transform();
+                tf.translation.z = tf.translation.z + elevation;
+                // Non static meshes have their translation in the SDF element, not in the
+                // gltf node
+                collision_data.push(MeshData {
+                    mesh,
+                    material: None,
+                    transform: is_static.then_some(tf),
+                });
+            }
+        } else if q_visuals.contains(model_child) {
+            // Now iterate through the children of the visuals and add them
+            for entity in DescendantIter::new(&q_children, model_child) {
+                let Some((mesh, material)) = get_mesh_and_material(entity) else {
+                    continue;
+                };
+                let Ok(tf) = q_global_tfs.get(entity) else {
+                    continue;
+                };
+                let mut tf = tf.compute_transform();
+                tf.translation.z = tf.translation.z + elevation;
+                visual_data.push(MeshData {
+                    mesh,
+                    material: Some(material),
+                    transform: is_static.then_some(tf),
+                });
+            }
+        }
+    }
+}
+
+struct ModelDescriptionMeshes<'a> {
+    name: String,
+    collisions: Vec<MeshData<'a>>,
+    visuals: Vec<MeshData<'a>>,
 }
