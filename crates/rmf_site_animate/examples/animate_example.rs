@@ -2,7 +2,7 @@
 
 use bevy::prelude::*;
 use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
-use rmf_site_animate::{Bobbing, VisualCueAnimationsPlugin, Spinning};
+use rmf_site_animate::{Bobbing, Spinning, VisualCueAnimationsPlugin};
 
 fn main() {
     App::new()

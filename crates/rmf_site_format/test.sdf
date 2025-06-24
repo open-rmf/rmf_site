@@ -18,8 +18,8 @@
       <plugin name="3D View" filename="MinimalScene">
         <gz-gui>
           <title>3D View</title>
-          <property key="showTitleBar" type="bool">false</property>
-          <property type="string" key="state">docked</property>
+          <property type="bool" key="showTitleBar">false</property>
+          <property key="state" type="string">docked</property>
         </gz-gui>
         <engine>ogre2</engine>
         <scene>scene</scene>
@@ -29,43 +29,43 @@
       </plugin>
       <plugin name="Entity context menu" filename="EntityContextMenuPlugin">
         <gz-gui>
-          <property key="state" type="string">floating</property>
+          <property type="string" key="state">floating</property>
           <property key="width" type="double">5</property>
-          <property key="height" type="double">5</property>
+          <property type="double" key="height">5</property>
           <property type="bool" key="showTitleBar">false</property>
         </gz-gui>
       </plugin>
       <plugin name="Scene Manager" filename="GzSceneManager">
         <gz-gui>
-          <property key="resizable" type="bool">false</property>
+          <property type="bool" key="resizable">false</property>
           <property key="width" type="double">5</property>
-          <property type="double" key="height">5</property>
-          <property key="state" type="string">floating</property>
+          <property key="height" type="double">5</property>
+          <property type="string" key="state">floating</property>
           <property key="showTitleBar" type="bool">false</property>
         </gz-gui>
       </plugin>
       <plugin name="Interactive view control" filename="InteractiveViewControl">
         <gz-gui>
           <property type="bool" key="resizable">false</property>
-          <property key="width" type="double">5</property>
-          <property key="height" type="double">5</property>
-          <property key="state" type="string">floating</property>
+          <property type="double" key="width">5</property>
+          <property type="double" key="height">5</property>
+          <property type="string" key="state">floating</property>
           <property key="showTitleBar" type="bool">false</property>
         </gz-gui>
       </plugin>
       <plugin name="Camera Tracking" filename="CameraTracking">
         <gz-gui>
           <property type="bool" key="resizable">false</property>
-          <property key="width" type="double">5</property>
+          <property type="double" key="width">5</property>
           <property type="double" key="height">5</property>
-          <property key="state" type="string">floating</property>
+          <property type="string" key="state">floating</property>
           <property key="showTitleBar" type="bool">false</property>
         </gz-gui>
       </plugin>
       <plugin name="Marker manager" filename="MarkerManager">
         <gz-gui>
           <property key="resizable" type="bool">false</property>
-          <property key="width" type="double">5</property>
+          <property type="double" key="width">5</property>
           <property key="height" type="double">5</property>
           <property key="state" type="string">floating</property>
           <property key="showTitleBar" type="bool">false</property>
@@ -73,28 +73,28 @@
       </plugin>
       <plugin name="Select Entities" filename="SelectEntities">
         <gz-gui>
-          <property key="resizable" type="bool">false</property>
+          <property type="bool" key="resizable">false</property>
           <property key="width" type="double">5</property>
-          <property type="double" key="height">5</property>
+          <property key="height" type="double">5</property>
           <property key="state" type="string">floating</property>
-          <property type="bool" key="showTitleBar">false</property>
+          <property key="showTitleBar" type="bool">false</property>
         </gz-gui>
       </plugin>
       <plugin name="Spawn Entities" filename="Spawn">
         <gz-gui>
-          <property type="bool" key="resizable">false</property>
-          <property type="double" key="width">5</property>
+          <property key="resizable" type="bool">false</property>
+          <property key="width" type="double">5</property>
           <property key="height" type="double">5</property>
-          <property type="string" key="state">floating</property>
-          <property key="showTitleBar" type="bool">false</property>
+          <property key="state" type="string">floating</property>
+          <property type="bool" key="showTitleBar">false</property>
         </gz-gui>
       </plugin>
       <plugin name="Visualization Capabilities" filename="VisualizationCapabilities">
         <gz-gui>
           <property key="resizable" type="bool">false</property>
           <property key="width" type="double">5</property>
-          <property type="double" key="height">5</property>
-          <property key="state" type="string">floating</property>
+          <property key="height" type="double">5</property>
+          <property type="string" key="state">floating</property>
           <property type="bool" key="showTitleBar">false</property>
         </gz-gui>
       </plugin>
@@ -102,13 +102,13 @@
         <gz-gui>
           <title>World control</title>
           <property key="showTitleBar" type="bool">false</property>
-          <property type="bool" key="resizable">false</property>
+          <property key="resizable" type="bool">false</property>
           <property type="double" key="height">72</property>
-          <property type="double" key="z">1</property>
+          <property key="z" type="double">1</property>
           <property type="string" key="state">floating</property>
           <anchors target="3D View">
             <line target="left" own="left"></line>
-            <line own="bottom" target="bottom"></line>
+            <line target="bottom" own="bottom"></line>
           </anchors>
         </gz-gui>
         <play_pause>true</play_pause>
@@ -121,12 +121,12 @@
           <title>World stats</title>
           <property key="showTitleBar" type="bool">false</property>
           <property key="resizable" type="bool">false</property>
-          <property key="height" type="double">110</property>
+          <property type="double" key="height">110</property>
           <property key="width" type="double">290</property>
-          <property key="z" type="double">1</property>
+          <property type="double" key="z">1</property>
           <property type="string" key="state">floating</property>
           <anchors target="3D View">
-            <line own="right" target="right"></line>
+            <line target="right" own="right"></line>
             <line own="bottom" target="bottom"></line>
           </anchors>
         </gz-gui>
@@ -137,13 +137,13 @@
       </plugin>
       <plugin name="Shapes" filename="Shapes">
         <gz-gui>
-          <property type="bool" key="resizable">false</property>
-          <property type="double" key="x">0</property>
-          <property type="double" key="y">0</property>
-          <property key="width" type="double">250</property>
-          <property key="height" type="double">50</property>
-          <property type="string" key="state">floating</property>
-          <property key="showTitleBar" type="bool">false</property>
+          <property key="resizable" type="bool">false</property>
+          <property key="x" type="double">0</property>
+          <property key="y" type="double">0</property>
+          <property type="double" key="width">250</property>
+          <property type="double" key="height">50</property>
+          <property key="state" type="string">floating</property>
+          <property type="bool" key="showTitleBar">false</property>
           <property type="string" key="cardBackground">#666666</property>
         </gz-gui>
       </plugin>
@@ -152,11 +152,11 @@
           <property key="resizable" type="bool">false</property>
           <property type="double" key="x">250</property>
           <property type="double" key="y">0</property>
-          <property type="double" key="width">150</property>
+          <property key="width" type="double">150</property>
           <property key="height" type="double">50</property>
-          <property key="state" type="string">floating</property>
-          <property key="showTitleBar" type="bool">false</property>
-          <property type="string" key="cardBackground">#666666</property>
+          <property type="string" key="state">floating</property>
+          <property type="bool" key="showTitleBar">false</property>
+          <property key="cardBackground" type="string">#666666</property>
         </gz-gui>
       </plugin>
       <plugin name="Transform control" filename="TransformControl">
@@ -164,32 +164,32 @@
           <property key="resizable" type="bool">false</property>
           <property type="double" key="x">0</property>
           <property type="double" key="y">50</property>
-          <property type="double" key="width">250</property>
-          <property key="height" type="double">50</property>
-          <property type="string" key="state">floating</property>
+          <property key="width" type="double">250</property>
+          <property type="double" key="height">50</property>
+          <property key="state" type="string">floating</property>
           <property type="bool" key="showTitleBar">false</property>
-          <property key="cardBackground" type="string">#777777</property>
+          <property type="string" key="cardBackground">#777777</property>
         </gz-gui>
       </plugin>
       <plugin name="Screenshot" filename="Screenshot">
         <gz-gui>
-          <property key="resizable" type="bool">false</property>
-          <property key="x" type="double">250</property>
+          <property type="bool" key="resizable">false</property>
+          <property type="double" key="x">250</property>
           <property key="y" type="double">50</property>
-          <property key="width" type="double">50</property>
+          <property type="double" key="width">50</property>
           <property key="height" type="double">50</property>
           <property key="state" type="string">floating</property>
           <property key="showTitleBar" type="bool">false</property>
-          <property type="string" key="cardBackground">#777777</property>
+          <property key="cardBackground" type="string">#777777</property>
         </gz-gui>
       </plugin>
       <plugin name="CopyPaste" filename="CopyPaste">
         <gz-gui>
           <property type="bool" key="resizable">false</property>
           <property key="x" type="double">300</property>
-          <property type="double" key="y">50</property>
-          <property key="width" type="double">100</property>
-          <property key="height" type="double">50</property>
+          <property key="y" type="double">50</property>
+          <property type="double" key="width">100</property>
+          <property type="double" key="height">50</property>
           <property type="string" key="state">floating</property>
           <property key="showTitleBar" type="bool">false</property>
           <property key="cardBackground" type="string">#777777</property>
@@ -198,13 +198,13 @@
       <plugin name="Component inspector" filename="ComponentInspector">
         <gz-gui>
           <property key="showTitleBar" type="bool">false</property>
-          <property key="state" type="string">docked</property>
+          <property type="string" key="state">docked</property>
         </gz-gui>
       </plugin>
       <plugin name="Entity tree" filename="EntityTree">
         <gz-gui>
           <property key="showTitleBar" type="bool">false</property>
-          <property key="state" type="string">docked</property>
+          <property type="string" key="state">docked</property>
         </gz-gui>
       </plugin>
       <plugin name="toggle_charging" filename="toggle_charging" />
@@ -406,7 +406,7 @@
           <dx_min_door>0.01</dx_min_door>
           <f_max_door>500.0</f_max_door>
           <ros_interface>true</ros_interface>
-          <door name="main_door" right_joint_name="main_door_right_joint" type="DoubleSwingDoor" left_joint_name="main_door_left_joint"></door>
+          <door type="DoubleSwingDoor" right_joint_name="main_door_right_joint" name="main_door" left_joint_name="main_door_left_joint"></door>
         </component>
       </plugin>
     </model>
@@ -454,7 +454,7 @@
           <dx_min_door>0.01</dx_min_door>
           <f_max_door>500.0</f_max_door>
           <ros_interface>true</ros_interface>
-          <door type="SwingDoor" name="coe_door" left_joint_name="empty_joint" right_joint_name="coe_door_joint"></door>
+          <door name="coe_door" right_joint_name="coe_door_joint" type="SwingDoor" left_joint_name="empty_joint"></door>
         </component>
       </plugin>
     </model>
@@ -502,7 +502,7 @@
           <dx_min_door>0.01</dx_min_door>
           <f_max_door>500.0</f_max_door>
           <ros_interface>true</ros_interface>
-          <door type="SwingDoor" right_joint_name="hardware_door_joint" left_joint_name="empty_joint" name="hardware_door"></door>
+          <door type="SwingDoor" left_joint_name="empty_joint" name="hardware_door" right_joint_name="hardware_door_joint"></door>
         </component>
       </plugin>
     </model>
