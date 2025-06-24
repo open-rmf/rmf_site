@@ -16,7 +16,7 @@
 */
 
 use super::demo_world::*;
-use crate::{AppState, Autoload, WorkspaceData, WorkspaceLoader};
+use crate::{site::LoadSite, AppState, Autoload, WorkspaceLoader};
 use bevy::{app::AppExit, prelude::*, window::PrimaryWindow};
 use bevy_egui::{egui, EguiContexts};
 
@@ -57,7 +57,8 @@ fn egui_ui(
 
             ui.horizontal(|ui| {
                 if ui.button("View demo map").clicked() {
-                    workspace_loader.load_from_data(WorkspaceData::LegacyBuilding(demo_office()));
+                    workspace_loader
+                        .load_site(async move { LoadSite::from_data(&demo_office(), None) });
                 }
 
                 if ui.button("Open a file").clicked() {

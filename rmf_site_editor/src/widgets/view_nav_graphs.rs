@@ -18,22 +18,17 @@
 use crate::{
     recency::RecencyRanking,
     site::{
-        Change, Delete, DisplayColor, ImportNavGraphs, NameInSite, NameOfSite, NavGraph,
-        NavGraphMarker, SaveNavGraphs, DEFAULT_NAV_GRAPH_COLORS,
+        Change, Delete, DisplayColor, NameInSite, NavGraph, NavGraphMarker,
+        DEFAULT_NAV_GRAPH_COLORS,
     },
-    widgets::{inspector::color_edit, prelude::*, Icons, MoveLayerButton, SelectorWidget},
-    AppState, Autoload, ChangeRank, CurrentWorkspace,
+    widgets::{
+        inspector::color_edit, prelude::*, FileMenu, Icons, MenuEvent, MenuItem, MoveLayerButton,
+        SelectorWidget, TextMenuItem,
+    },
+    AppState, ChangeRank, CurrentWorkspace, WorkspaceLoader, WorkspaceSaver,
 };
-use bevy::{
-    ecs::system::SystemParam,
-    prelude::*,
-    tasks::{AsyncComputeTaskPool, Task},
-};
+use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, ImageButton, Ui};
-use futures_lite::future;
-
-#[cfg(not(target_arch = "wasm32"))]
-use rfd::AsyncFileDialog;
 
 /// Add a widget for viewing and editing navigation graphs.
 #[derive(Default)]
@@ -43,6 +38,16 @@ impl Plugin for ViewNavGraphsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<NavGraphDisplay>()
             .add_plugins(PropertiesTilePlugin::<ViewNavGraphs>::new());
+    }
+}
+
+#[derive(Default)]
+pub struct NavGraphIoPlugin {}
+
+impl Plugin for NavGraphIoPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<NavGraphIoMenu>()
+            .add_systems(Update, handle_nav_graph_io_events);
     }
 }
 
@@ -60,7 +65,6 @@ pub struct ViewNavGraphs<'w, 's> {
         With<NavGraphMarker>,
     >,
     icons: Res<'w, Icons>,
-    open_sites: Query<'w, 's, Entity, With<NameOfSite>>,
     current_workspace: ResMut<'w, CurrentWorkspace>,
     display_nav_graph: ResMut<'w, NavGraphDisplay>,
     delete: EventWriter<'w, Delete>,
@@ -68,7 +72,6 @@ pub struct ViewNavGraphs<'w, 's> {
     change_name: EventWriter<'w, Change<NameInSite>>,
     change_color: EventWriter<'w, Change<DisplayColor>>,
     change_rank: EventWriter<'w, ChangeRank<NavGraphMarker>>,
-    save_nav_graphs: EventWriter<'w, SaveNavGraphs>,
     selector: SelectorWidget<'w, 's>,
     commands: Commands<'w, 's>,
     app_state: Res<'w, State<AppState>>,
@@ -203,89 +206,6 @@ impl<'w, 's> ViewNavGraphs<'w, 's> {
                 MoveLayerButton::to_bottom(e, &mut self.change_rank, &self.icons).show(ui);
             });
         }
-
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            ui.separator();
-            if ui.button("Import Graphs...").clicked() {
-                match self.current_workspace.to_site(&self.open_sites) {
-                    Some(into_site) => match &self.display_nav_graph.choosing_file_to_import {
-                        Some(_) => {
-                            warn!("A file is already being chosen!");
-                        }
-                        None => {
-                            let future = AsyncComputeTaskPool::get().spawn(async move {
-                                // TODO(luca) change this to use FileDialogServices
-                                // https://github.com/open-rmf/rmf_site/issues/248
-                                let file = match AsyncFileDialog::new().pick_file().await {
-                                    Some(file) => file,
-                                    None => return None,
-                                };
-
-                                match rmf_site_format::Site::from_bytes_ron(&file.read().await) {
-                                    Ok(from_site) => Some((
-                                        file.path().to_owned(),
-                                        ImportNavGraphs {
-                                            into_site,
-                                            from_site,
-                                        },
-                                    )),
-                                    Err(err) => {
-                                        error!("Unable to parse file:\n{err}");
-                                        None
-                                    }
-                                }
-                            });
-                            self.display_nav_graph.choosing_file_to_import = Some(future);
-                        }
-                    },
-                    None => {
-                        error!("No current site??");
-                    }
-                }
-            }
-            ui.separator();
-            ui.horizontal(|ui| {
-                if let Some(export_file) = &self.display_nav_graph.export_file {
-                    if ui.button("Export").clicked() {
-                        if let Some(current_site) = self.current_workspace.to_site(&self.open_sites)
-                        {
-                            self.save_nav_graphs.write(SaveNavGraphs {
-                                site: current_site,
-                                to_file: export_file.clone(),
-                            });
-                        } else {
-                            error!("No current site??");
-                        }
-                    }
-                }
-                if ui.button("Export Graphs As...").clicked() {
-                    match &self.display_nav_graph.choosing_file_for_export {
-                        Some(_) => {
-                            warn!("A file is already being chosen!");
-                        }
-                        None => {
-                            let future = AsyncComputeTaskPool::get().spawn(async move {
-                                let file = match AsyncFileDialog::new().save_file().await {
-                                    Some(file) => file,
-                                    None => return None,
-                                };
-                                Some(file.path().to_path_buf())
-                            });
-                            self.display_nav_graph.choosing_file_for_export = Some(future);
-                        }
-                    }
-                }
-            });
-            if let Some(export_file) = &self.display_nav_graph.export_file {
-                if let Some(export_file) = export_file.as_os_str().to_str() {
-                    ui.horizontal(|ui| {
-                        ui.label("Chosen file:");
-                        ui.label(export_file);
-                    });
-                }
-            }
-        }
     }
 }
 
@@ -294,69 +214,75 @@ pub struct NavGraphDisplay {
     pub color: Option<[f32; 3]>,
     pub name: String,
     pub removing: bool,
-    pub choosing_file_for_export: Option<Task<Option<std::path::PathBuf>>>,
-    pub export_file: Option<std::path::PathBuf>,
-    pub choosing_file_to_import: Option<Task<Option<(std::path::PathBuf, ImportNavGraphs)>>>,
 }
 
-impl FromWorld for NavGraphDisplay {
-    fn from_world(world: &mut World) -> Self {
-        let export_file = world
-            .get_resource::<Autoload>()
-            .map(|a| a.import.clone())
-            .flatten();
+impl Default for NavGraphDisplay {
+    fn default() -> Self {
         Self {
             color: None,
             name: "<Unnamed>".to_string(),
             removing: false,
-            choosing_file_for_export: None,
-            export_file,
-            choosing_file_to_import: None,
         }
     }
 }
 
-pub fn resolve_nav_graph_import_export_files(
-    mut nav_graph_display: ResMut<NavGraphDisplay>,
-    mut save_nav_graphs: EventWriter<SaveNavGraphs>,
-    mut import_nav_graphs: EventWriter<ImportNavGraphs>,
-    open_sites: Query<Entity, With<NameOfSite>>,
-    current_workspace: Res<CurrentWorkspace>,
-) {
-    if 'resolved: {
-        if let Some(task) = &mut nav_graph_display.choosing_file_for_export {
-            if let Some(result) = future::block_on(future::poll_once(task)) {
-                if let Some(result) = result {
-                    if let Some(current_site) = current_workspace.to_site(&open_sites) {
-                        save_nav_graphs.write(SaveNavGraphs {
-                            site: current_site,
-                            to_file: result.clone(),
-                        });
-                    }
-                    nav_graph_display.export_file = Some(result)
-                }
+#[derive(Resource)]
+pub struct NavGraphIoMenu {
+    export_nav_graph: Entity,
+    import_nav_graph: Entity,
+}
 
-                break 'resolved true;
-            }
-        }
-        false
-    } {
-        nav_graph_display.choosing_file_for_export = None;
+impl NavGraphIoMenu {
+    pub fn get_export_widget(&self) -> Entity {
+        self.export_nav_graph
     }
 
-    if 'resolved: {
-        if let Some(task) = &mut nav_graph_display.choosing_file_to_import {
-            if let Some(result) = future::block_on(future::poll_once(task)) {
-                if let Some((path, request)) = result {
-                    import_nav_graphs.write(request);
-                    nav_graph_display.export_file = Some(path);
-                }
+    pub fn get_import_widget(&self) -> Entity {
+        self.import_nav_graph
+    }
+}
 
-                break 'resolved true;
-            }
+impl FromWorld for NavGraphIoMenu {
+    fn from_world(world: &mut World) -> Self {
+        let file_header = world.resource::<FileMenu>().get();
+        let export_nav_graph = world
+            .spawn((
+                MenuItem::Text(TextMenuItem::new("Export Nav Graphs")),
+                ChildOf(file_header),
+            ))
+            .id();
+
+        let import_nav_graph = world
+            .spawn((
+                MenuItem::Text(TextMenuItem::new("Import Nav Graphs")),
+                ChildOf(file_header),
+            ))
+            .id();
+
+        NavGraphIoMenu {
+            export_nav_graph,
+            import_nav_graph,
         }
-        false
-    } {
-        nav_graph_display.choosing_file_to_import = None;
+    }
+}
+
+fn handle_nav_graph_io_events(
+    mut menu_events: EventReader<MenuEvent>,
+    nav_graph_menu: Res<NavGraphIoMenu>,
+    mut saver: WorkspaceSaver,
+    mut loader: WorkspaceLoader,
+) {
+    for event in menu_events.read() {
+        if !event.clicked() {
+            continue;
+        }
+
+        if event.source() == nav_graph_menu.get_export_widget() {
+            saver.export_nav_graphs_to_dialog();
+        }
+
+        if event.source() == nav_graph_menu.get_import_widget() {
+            loader.import_nav_graphs_from_dialog();
+        }
     }
 }
