@@ -167,7 +167,7 @@ pub fn change_site(
                 } else {
                     create_new_scenario.write(CreateScenario {
                         name: None,
-                        parent: Some(cmd.site),
+                        parent: None,
                     });
                 }
             }

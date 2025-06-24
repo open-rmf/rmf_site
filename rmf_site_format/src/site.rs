@@ -135,9 +135,6 @@ pub struct Site {
     /// Data related to navigation
     #[serde(default, skip_serializing_if = "Navigation::is_empty")]
     pub navigation: Navigation,
-    /// Properties that describe simulated agents in the site
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub agents: BTreeMap<u32, Agent>,
 
     /// Scenarios that exist in the site
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -153,7 +150,7 @@ pub struct Site {
     pub model_instances: BTreeMap<u32, Parented<u32, ModelInstance<u32>>>,
     /// Tasks available in this site
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub tasks: BTreeMap<u32, Tasks>,
+    pub tasks: BTreeMap<u32, Task>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]

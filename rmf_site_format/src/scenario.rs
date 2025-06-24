@@ -17,7 +17,7 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Reflect, ReflectComponent};
+use bevy::prelude::{Bundle, Component, Deref, DerefMut, Reflect, ReflectComponent};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 
@@ -26,83 +26,39 @@ use std::collections::{BTreeMap, HashMap};
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct InstanceMarker;
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+/// A modifier property used to describe whether an element is explicitly included
+/// or hidden in a scenario.
+#[derive(Serialize, Deserialize, Debug, Default, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
-pub enum InstanceModifier {
-    Added(AddedInstance),
-    Inherited(InheritedInstance),
+pub enum Inclusion {
+    Included,
+    #[default]
     Hidden,
 }
 
-impl InstanceModifier {
-    pub fn added(pose: Pose) -> Self {
-        Self::Added(AddedInstance { pose: pose })
-    }
-
-    pub fn inherited() -> Self {
-        Self::Inherited(InheritedInstance {
-            modified_pose: None,
-            explicit_inclusion: false,
-        })
-    }
-
-    pub fn pose(&self) -> Option<Pose> {
-        match self {
-            InstanceModifier::Added(added) => Some(added.pose.clone()),
-            InstanceModifier::Inherited(inherited) => inherited.modified_pose.clone(),
-            InstanceModifier::Hidden => None,
-        }
-    }
-
-    pub fn visibility(&self) -> Option<bool> {
-        match self {
-            InstanceModifier::Added(_) => Some(true),
-            InstanceModifier::Inherited(inherited) => {
-                if inherited.explicit_inclusion {
-                    Some(true)
-                } else {
-                    None
-                }
-            }
-            InstanceModifier::Hidden => Some(false),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub struct RecallInstance {
+#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
+pub struct InstanceModifier {
+    #[serde(default, skip_serializing_if = "is_default")]
     pub pose: Option<Pose>,
-    pub modifier: Option<InstanceModifier>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub visibility: Option<bool>,
 }
 
-impl Recall for RecallInstance {
-    type Source = InstanceModifier;
+#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
+pub struct TaskModifier {
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub inclusion: Option<Inclusion>,
+    pub params: Option<TaskParams>,
+}
 
-    fn remember(&mut self, source: &InstanceModifier) {
-        match source {
-            InstanceModifier::Added(_) | InstanceModifier::Inherited(_) => {
-                self.pose = source.pose();
-                self.modifier = Some(source.clone());
-            }
-            InstanceModifier::Hidden => {
-                // We don't update the pose if this InstanceModifier is hidden
-            }
-        };
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+pub struct ScenarioModifiers<T: RefTrait>(pub HashMap<T, T>);
+
+impl<T: RefTrait> Default for ScenarioModifiers<T> {
+    fn default() -> Self {
+        Self(HashMap::new())
     }
-}
-
-/// The instance modifier was added by this scenario
-#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
-pub struct AddedInstance {
-    pub pose: Pose,
-}
-
-/// The instance modifier was inherited from a parent scenario
-#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
-pub struct InheritedInstance {
-    pub modified_pose: Option<Pose>,
-    pub explicit_inclusion: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -114,6 +70,7 @@ pub struct ScenarioMarker;
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct Scenario<T: RefTrait> {
     pub instances: BTreeMap<T, InstanceModifier>,
+    pub tasks: BTreeMap<T, TaskModifier>,
     #[serde(flatten)]
     pub properties: ScenarioBundle<T>,
 }
@@ -122,6 +79,7 @@ impl<T: RefTrait> Scenario<T> {
     pub fn from_name_parent(name: Option<String>, parent: Option<T>) -> Scenario<T> {
         Scenario {
             instances: BTreeMap::new(),
+            tasks: BTreeMap::new(),
             properties: ScenarioBundle::new(name, parent),
         }
     }
@@ -132,6 +90,7 @@ impl<T: RefTrait> Default for Scenario<T> {
     fn default() -> Self {
         Self {
             instances: BTreeMap::new(),
+            tasks: BTreeMap::new(),
             properties: ScenarioBundle::default(),
         }
     }
@@ -147,6 +106,15 @@ impl<T: RefTrait> Scenario<T> {
                 .map(|(id, instance)| {
                     let converted_id = id_map.get(&id).cloned().ok_or(id)?;
                     Ok((converted_id, instance))
+                })
+                .collect::<Result<_, _>>()?,
+            tasks: self
+                .tasks
+                .clone()
+                .into_iter()
+                .map(|(id, task)| {
+                    let converted_id = id_map.get(&id).cloned().ok_or(id)?;
+                    Ok((converted_id, task))
                 })
                 .collect::<Result<_, _>>()?,
             properties: self.properties.convert(id_map)?,

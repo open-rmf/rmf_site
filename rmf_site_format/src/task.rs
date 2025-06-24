@@ -15,41 +15,302 @@
  *
 */
 
+use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Component, Reflect};
-use serde::{Deserialize, Serialize};
-use serde_json::Map;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use std::fmt;
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
-pub struct Task {
-    pub kind: String,
-    pub config: serde_json::Value,
+pub struct TaskParams {
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub unix_millis_earliest_start_time: Option<i32>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub unix_millis_request_time: Option<i32>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub priority: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub labels: Vec<String>,
 }
 
-impl Default for Task {
+impl TaskParams {
+    pub fn start_time(&self) -> Option<i32> {
+        self.unix_millis_earliest_start_time.clone()
+    }
+
+    pub fn start_time_mut(&mut self) -> &mut Option<i32> {
+        &mut self.unix_millis_earliest_start_time
+    }
+
+    pub fn request_time(&self) -> Option<i32> {
+        self.unix_millis_request_time.clone()
+    }
+
+    pub fn request_time_mut(&mut self) -> &mut Option<i32> {
+        &mut self.unix_millis_request_time
+    }
+
+    pub fn priority(&self) -> Option<serde_json::Value> {
+        self.priority.clone()
+    }
+
+    pub fn priority_mut(&mut self) -> &mut Option<serde_json::Value> {
+        &mut self.priority
+    }
+
+    pub fn labels(&self) -> Vec<String> {
+        self.labels.clone()
+    }
+
+    pub fn labels_mut(&mut self) -> &mut Vec<String> {
+        &mut self.labels
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct TaskRequest {
+    pub category: String,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub description: serde_json::Value,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub description_display: Option<String>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub requester: Option<String>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub fleet_name: Option<String>,
+}
+
+impl Default for TaskRequest {
     fn default() -> Self {
-        Self {
-            kind: "Select Kind".to_string(),
-            config: serde_json::Value::Object(Map::new()),
+        TaskRequest {
+            category: "".to_string(),
+            description: serde_json::Value::Null,
+            description_display: None,
+            requester: None,
+            fleet_name: None,
         }
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub struct Tasks(pub Vec<Task>);
+impl TaskRequest {
+    pub fn is_valid(&self) -> bool {
+        if self.category.is_empty() {
+            return false;
+        }
+        true
+    }
 
-impl Default for Tasks {
-    fn default() -> Self {
-        Self(Vec::new())
+    pub fn category(&self) -> String {
+        self.category.clone()
+    }
+
+    pub fn category_mut(&mut self) -> &mut String {
+        &mut self.category
+    }
+
+    pub fn description(&self) -> serde_json::Value {
+        self.description.clone()
+    }
+
+    pub fn description_mut(&mut self) -> &mut serde_json::Value {
+        &mut self.description
+    }
+
+    pub fn description_display(&self) -> Option<String> {
+        self.description_display.clone()
+    }
+
+    pub fn description_display_mut(&mut self) -> &mut Option<String> {
+        &mut self.description_display
+    }
+
+    pub fn requester(&self) -> Option<String> {
+        self.requester.clone()
+    }
+
+    pub fn requester_mut(&mut self) -> &mut Option<String> {
+        &mut self.requester
+    }
+
+    pub fn fleet_name(&self) -> Option<String> {
+        self.fleet_name.clone()
+    }
+
+    pub fn fleet_name_mut(&mut self) -> &mut Option<String> {
+        &mut self.fleet_name
     }
 }
 
-impl Tasks {
-    pub fn label() -> String {
-        "Tasks".to_string()
+pub trait TaskRequestType {
+    fn is_valid(&self) -> bool;
+
+    fn request(&self) -> TaskRequest;
+
+    fn request_mut(&mut self) -> &mut TaskRequest;
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DispatchTaskRequest {
+    pub request: TaskRequest,
+}
+
+impl TaskRequestType for DispatchTaskRequest {
+    fn is_valid(&self) -> bool {
+        self.request.is_valid()
     }
+
+    fn request(&self) -> TaskRequest {
+        self.request.clone()
+    }
+
+    fn request_mut(&mut self) -> &mut TaskRequest {
+        &mut self.request
+    }
+}
+
+impl DispatchTaskRequest {
+    pub fn new(request: TaskRequest) -> Self {
+        Self { request }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct RobotTaskRequest {
+    pub robot: String,
+    pub fleet: String,
+    pub request: TaskRequest,
+}
+
+impl TaskRequestType for RobotTaskRequest {
+    fn is_valid(&self) -> bool {
+        if self.fleet.is_empty() {
+            return false;
+        }
+        if self.robot.is_empty() {
+            return false;
+        }
+        self.request.is_valid()
+    }
+
+    fn request(&self) -> TaskRequest {
+        self.request.clone()
+    }
+
+    fn request_mut(&mut self) -> &mut TaskRequest {
+        &mut self.request
+    }
+}
+
+impl RobotTaskRequest {
+    pub fn new(robot: String, fleet: String, request: TaskRequest) -> Self {
+        Self {
+            robot,
+            fleet,
+            request,
+        }
+    }
+
+    pub fn robot(&self) -> String {
+        self.robot.clone()
+    }
+
+    pub fn robot_mut(&mut self) -> &mut String {
+        &mut self.robot
+    }
+
+    pub fn fleet(&self) -> String {
+        self.fleet.clone()
+    }
+
+    pub fn fleet_mut(&mut self) -> &mut String {
+        &mut self.fleet
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub enum Task {
+    Dispatch(DispatchTaskRequest),
+    Direct(RobotTaskRequest),
+}
+
+impl Default for Task {
+    fn default() -> Self {
+        Task::Dispatch(DispatchTaskRequest {
+            request: TaskRequest::default(),
+        })
+    }
+}
+
+impl Task {
+    pub fn is_valid(&self) -> bool {
+        match self {
+            Task::Dispatch(dispatch_task_request) => dispatch_task_request.is_valid(),
+            Task::Direct(robot_task_request) => robot_task_request.is_valid(),
+        }
+    }
+
+    pub fn is_dispatch(&self) -> bool {
+        match self {
+            Task::Dispatch(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_direct(&self) -> bool {
+        match self {
+            Task::Direct(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn request(&self) -> TaskRequest {
+        match self {
+            Task::Dispatch(dispatch_task_request) => dispatch_task_request.request(),
+            Task::Direct(robot_task_request) => robot_task_request.request(),
+        }
+    }
+
+    pub fn request_mut(&mut self) -> &mut TaskRequest {
+        match self {
+            Task::Dispatch(dispatch_task_request) => dispatch_task_request.request_mut(),
+            Task::Direct(robot_task_request) => robot_task_request.request_mut(),
+        }
+    }
+
+    pub fn robot(&self) -> String {
+        match self {
+            Task::Direct(robot_task_request) => robot_task_request.robot(),
+            _ => "".to_string(),
+        }
+    }
+
+    pub fn robot_mut(&mut self) -> Option<&mut String> {
+        match self {
+            Task::Direct(robot_task_request) => Some(robot_task_request.robot_mut()),
+            _ => None,
+        }
+    }
+
+    pub fn fleet(&self) -> String {
+        match self {
+            Task::Direct(robot_task_request) => robot_task_request.fleet(),
+            _ => "".to_string(),
+        }
+    }
+
+    pub fn fleet_mut(&mut self) -> Option<&mut String> {
+        match self {
+            Task::Direct(robot_task_request) => Some(robot_task_request.fleet_mut()),
+            _ => None,
+        }
+    }
+}
+
+#[cfg(feature = "bevy")]
+pub trait TaskKind: Component + Serialize + DeserializeOwned {
+    fn label() -> String;
 }
 
 // Supported Task kinds
@@ -67,15 +328,15 @@ impl Default for GoToPlace {
     }
 }
 
-impl GoToPlace {
-    pub fn is_default(&self) -> bool {
-        if *self == GoToPlace::default() {
-            return true;
-        }
-        false
+impl fmt::Display for GoToPlace {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.location)
     }
+}
 
-    pub fn label() -> String {
+#[cfg(feature = "bevy")]
+impl TaskKind for GoToPlace {
+    fn label() -> String {
         "Go To Place".to_string()
     }
 }
@@ -92,8 +353,15 @@ impl Default for WaitFor {
     }
 }
 
-impl WaitFor {
-    pub fn label() -> String {
+impl fmt::Display for WaitFor {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} seconds", self.duration)
+    }
+}
+
+#[cfg(feature = "bevy")]
+impl TaskKind for WaitFor {
+    fn label() -> String {
         "Wait For".to_string()
     }
 }
