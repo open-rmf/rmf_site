@@ -334,6 +334,7 @@ impl fmt::Display for GoToPlace {
     }
 }
 
+#[cfg(feature = "bevy")]
 impl TaskKind for GoToPlace {
     fn label() -> String {
         "Go To Place".to_string()
@@ -358,6 +359,7 @@ impl fmt::Display for WaitFor {
     }
 }
 
+#[cfg(feature = "bevy")]
 impl TaskKind for WaitFor {
     fn label() -> String {
         "Wait For".to_string()
