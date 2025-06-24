@@ -21,6 +21,7 @@ use bevy::{
     ecs::component::Mutable,
     prelude::{Component, *},
 };
+use sdformat_rs::{ElementData, ElementMap};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{Map, Value};
 use thiserror::Error;
@@ -95,7 +96,7 @@ pub fn serialize_robot_property_from_kind<Property: RobotProperty, Kind: RobotPr
 }
 
 #[cfg(feature = "bevy")]
-pub fn serialize_robot_property_kind<Property: RobotProperty, Kind: RobotPropertyKind>(
+pub fn serialize_robot_property_kind<Kind: RobotPropertyKind>(
     property_kind: Kind,
 ) -> Result<Value, RobotPropertyError> {
     let label = Kind::label();
@@ -259,6 +260,43 @@ impl RobotPropertyKind for DifferentialDrive {
     }
 }
 
+#[cfg(feature = "bevy")]
+impl From<&ElementMap> for DifferentialDrive {
+    fn from(elements: &ElementMap) -> Self {
+        let mut diff_drive = DifferentialDrive::default();
+        if let Some(reversible) = elements.get("reversible") {
+            if let ElementData::String(reversible_str) = &reversible.data {
+                diff_drive.bidirectional = if reversible_str == "true" {
+                    true
+                } else if reversible_str == "false" {
+                    false
+                } else {
+                    warn!(
+                        "Found invalid slotcar reversibility data {:?}, 
+                                        setting DifferentialDrive reversibility to false.",
+                        reversible_str
+                    );
+                    false
+                };
+            }
+        }
+        if let Some(translational_speed) = elements
+            .get("nominal_drive_speed")
+            .and_then(|speed| f64::try_from(speed.data.clone()).ok())
+        {
+            diff_drive.translational_speed = translational_speed as f32;
+        }
+        if let Some(rotational_speed) = elements
+            .get("nominal_turn_speed")
+            .and_then(|speed| f64::try_from(speed.data.clone()).ok())
+        {
+            diff_drive.rotational_speed = rotational_speed as f32;
+        }
+
+        diff_drive
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct RecallDifferentialDrive {
@@ -397,5 +435,346 @@ impl Recall for RecallCircleCollision {
     fn remember(&mut self, source: &CircleCollision) {
         self.radius = Some(source.radius);
         self.offset = Some(source.offset);
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct PowerSource {
+    pub kind: String,
+    pub config: Value,
+}
+
+impl Default for PowerSource {
+    fn default() -> Self {
+        Self {
+            kind: String::new(),
+            config: Value::Object(Map::new()),
+        }
+    }
+}
+
+#[cfg(feature = "bevy")]
+impl RobotProperty for PowerSource {
+    fn new(kind: String, config: Value) -> Self {
+        Self { kind, config }
+    }
+
+    fn is_default(&self) -> bool {
+        if *self == Self::default() {
+            return true;
+        }
+        false
+    }
+
+    fn kind(&self) -> Option<String> {
+        Some(self.kind.clone())
+    }
+
+    fn label() -> String {
+        "Power Source".to_string()
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct RecallPowerSource {
+    pub kind: Option<String>,
+    pub config: Option<Value>,
+}
+
+impl Recall for RecallPowerSource {
+    type Source = PowerSource;
+
+    fn remember(&mut self, source: &PowerSource) {
+        self.kind = Some(source.kind.clone());
+        self.config = Some(source.config.clone());
+    }
+}
+
+// Supported kinds of Power Source
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
+pub struct Battery {
+    pub voltage: f32,
+    pub capacity: f32,
+    pub charging_current: f32,
+}
+
+impl Default for Battery {
+    fn default() -> Self {
+        Self {
+            voltage: 12.0,
+            capacity: 24.0,
+            charging_current: 5.0,
+        }
+    }
+}
+
+#[cfg(feature = "bevy")]
+impl RobotPropertyKind for Battery {
+    fn label() -> String {
+        "Battery".to_string()
+    }
+}
+
+#[cfg(feature = "bevy")]
+impl From<&ElementMap> for Battery {
+    fn from(elements: &ElementMap) -> Self {
+        let mut battery = Battery::default();
+        if let Some(voltage) = elements
+            .get("nominal_voltage")
+            .and_then(|voltage| f64::try_from(voltage.data.clone()).ok())
+        {
+            battery.voltage = voltage as f32;
+        }
+        if let Some(capacity) = elements
+            .get("nominal_capacity")
+            .and_then(|capacity| f64::try_from(capacity.data.clone()).ok())
+        {
+            battery.capacity = capacity as f32;
+        }
+        if let Some(current) = elements
+            .get("charging_current")
+            .and_then(|current| f64::try_from(current.data.clone()).ok())
+        {
+            battery.charging_current = current as f32;
+        }
+
+        battery
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct RecallBattery {
+    pub voltage: Option<f32>,
+    pub capacity: Option<f32>,
+    pub charging_current: Option<f32>,
+}
+
+#[cfg(feature = "bevy")]
+impl RecallPropertyKind for RecallBattery {
+    type Kind = Battery;
+
+    fn assume(&self) -> Battery {
+        Battery {
+            voltage: self.voltage.clone().unwrap_or(12.0),
+            capacity: self.capacity.clone().unwrap_or(24.0),
+            charging_current: self.charging_current.clone().unwrap_or(5.0),
+        }
+    }
+}
+
+impl Recall for RecallBattery {
+    type Source = Battery;
+
+    fn remember(&mut self, source: &Battery) {
+        self.voltage = Some(source.voltage);
+        self.capacity = Some(source.capacity);
+        self.charging_current = Some(source.charging_current);
+    }
+}
+
+// TODO(@xiyuoh) Update RobotProperty trait to accommodate properties that can accommodate multiple Kinds
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct PowerDissipation {
+    pub config: Value,
+}
+
+impl Default for PowerDissipation {
+    fn default() -> Self {
+        Self {
+            config: Value::Object(Map::new()),
+        }
+    }
+}
+
+#[cfg(feature = "bevy")]
+impl RobotProperty for PowerDissipation {
+    fn new(kind: String, config: Value) -> Self {
+        let mut property_map = Map::new();
+        property_map.insert(kind.clone(), config);
+
+        Self {
+            config: Value::Object(property_map),
+        }
+    }
+
+    fn is_default(&self) -> bool {
+        if *self == Self::default() {
+            return true;
+        }
+        false
+    }
+
+    fn kind(&self) -> Option<String> {
+        // This RobotProperty supports multiple kinds
+        None
+    }
+
+    fn label() -> String {
+        "Power Dissipation".to_string()
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct RecallPowerDissipation {
+    pub config: Option<Value>,
+}
+
+impl Recall for RecallPowerDissipation {
+    type Source = PowerDissipation;
+
+    fn remember(&mut self, source: &PowerDissipation) {
+        self.config = Some(source.config.clone());
+    }
+}
+
+// Supported kinds of PowerDissipation
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
+pub struct MechanicalSystem {
+    pub mass: f32,
+    pub moment_of_inertia: f32,
+    pub friction_coefficient: f32,
+}
+
+impl Default for MechanicalSystem {
+    fn default() -> Self {
+        Self {
+            mass: 20.0,
+            moment_of_inertia: 10.0,
+            friction_coefficient: 0.22,
+        }
+    }
+}
+
+#[cfg(feature = "bevy")]
+impl RobotPropertyKind for MechanicalSystem {
+    fn label() -> String {
+        "Mechanical System".to_string()
+    }
+}
+
+#[cfg(feature = "bevy")]
+impl From<&ElementMap> for MechanicalSystem {
+    fn from(elements: &ElementMap) -> Self {
+        let mut mechanical_system = MechanicalSystem::default();
+        if let Some(mass) = elements
+            .get("mass")
+            .and_then(|mass| f64::try_from(mass.data.clone()).ok())
+        {
+            mechanical_system.mass = mass as f32;
+        }
+        if let Some(moment_of_inertia) = elements
+            .get("inertia")
+            .and_then(|moment_of_inertia| f64::try_from(moment_of_inertia.data.clone()).ok())
+        {
+            mechanical_system.moment_of_inertia = moment_of_inertia as f32;
+        }
+        if let Some(friction_coefficient) = elements
+            .get("friction_coefficient")
+            .and_then(|friction_coefficient| f64::try_from(friction_coefficient.data.clone()).ok())
+        {
+            mechanical_system.friction_coefficient = friction_coefficient as f32;
+        }
+
+        mechanical_system
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct RecallMechanicalSystem {
+    pub mass: Option<f32>,
+    pub moment_of_inertia: Option<f32>,
+    pub friction_coefficient: Option<f32>,
+}
+
+#[cfg(feature = "bevy")]
+impl RecallPropertyKind for RecallMechanicalSystem {
+    type Kind = MechanicalSystem;
+
+    fn assume(&self) -> MechanicalSystem {
+        MechanicalSystem {
+            mass: self.mass.clone().unwrap_or(20.0),
+            moment_of_inertia: self.moment_of_inertia.clone().unwrap_or(10.0),
+            friction_coefficient: self.friction_coefficient.clone().unwrap_or(0.22),
+        }
+    }
+}
+
+impl Recall for RecallMechanicalSystem {
+    type Source = MechanicalSystem;
+
+    fn remember(&mut self, source: &MechanicalSystem) {
+        self.mass = Some(source.mass);
+        self.moment_of_inertia = Some(source.moment_of_inertia);
+        self.friction_coefficient = Some(source.friction_coefficient);
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
+pub struct AmbientSystem {
+    pub idle_power: f32,
+}
+
+impl Default for AmbientSystem {
+    fn default() -> Self {
+        Self { idle_power: 20.0 }
+    }
+}
+
+#[cfg(feature = "bevy")]
+impl RobotPropertyKind for AmbientSystem {
+    fn label() -> String {
+        "Ambient System".to_string()
+    }
+}
+
+#[cfg(feature = "bevy")]
+impl From<&ElementMap> for AmbientSystem {
+    fn from(elements: &ElementMap) -> Self {
+        let mut ambient_system = AmbientSystem::default();
+        if let Some(power) = elements
+            .get("nominal_power")
+            .and_then(|power| f64::try_from(power.data.clone()).ok())
+        {
+            ambient_system.idle_power = power as f32;
+        }
+
+        ambient_system
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct RecallAmbientSystem {
+    pub idle_power: Option<f32>,
+}
+
+#[cfg(feature = "bevy")]
+impl RecallPropertyKind for RecallAmbientSystem {
+    type Kind = AmbientSystem;
+
+    fn assume(&self) -> AmbientSystem {
+        AmbientSystem {
+            idle_power: self.idle_power.clone().unwrap_or(20.0),
+        }
+    }
+}
+
+impl Recall for RecallAmbientSystem {
+    type Source = AmbientSystem;
+
+    fn remember(&mut self, source: &AmbientSystem) {
+        self.idle_power = Some(source.idle_power);
     }
 }
