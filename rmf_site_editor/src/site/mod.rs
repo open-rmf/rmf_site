@@ -54,6 +54,9 @@ pub use georeference::*;
 pub mod group;
 pub use group::*;
 
+pub mod headless_export;
+pub use headless_export::*;
+
 pub mod lane;
 pub use lane::*;
 
@@ -219,7 +222,6 @@ impl Plugin for SitePlugin {
         .add_event::<RemoveModifier>()
         .add_event::<UpdateInstanceEvent>()
         .add_event::<SaveSite>()
-        .add_event::<SaveNavGraphs>()
         .add_event::<ExportLights>()
         .add_event::<ConsiderAssociatedGraph>()
         .add_event::<ConsiderLocationTag>()
@@ -276,6 +278,7 @@ impl Plugin for SitePlugin {
             ChangePlugin::<ModelProperty<AssetSource>>::default(),
             ChangePlugin::<ModelProperty<Scale>>::default(),
             ChangePlugin::<ModelProperty<IsStatic>>::default(),
+            ChangePlugin::<ModelProperty<Robot>>::default(),
             PropertyPlugin::<Pose, With<InstanceMarker>>::default(),
             PropertyPlugin::<Visibility, With<InstanceMarker>>::default(),
             SlotcarSdfPlugin,
@@ -317,8 +320,7 @@ impl Plugin for SitePlugin {
         )
         .add_systems(
             Update,
-            (save_site, save_nav_graphs, change_site.after(load_site))
-                .run_if(AppState::in_displaying_mode()),
+            (save_site, change_site.after(load_site)).run_if(AppState::in_displaying_mode()),
         )
         .add_systems(
             PostUpdate,

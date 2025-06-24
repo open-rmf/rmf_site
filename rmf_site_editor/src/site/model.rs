@@ -22,6 +22,7 @@ use crate::{
     Issue, ValidateWorkspace,
 };
 use bevy::{
+    asset::{io::AssetReaderError, AssetLoadError},
     ecs::{
         hierarchy::ChildOf,
         relationship::DescendantIter,
@@ -57,25 +58,40 @@ pub struct ModelScene {
 pub struct PendingModel;
 
 /// For a given `AssetSource`, return all the sources that we should try loading.
-pub fn get_all_for_source(source: &AssetSource) -> SmallVec<[AssetSource; 6]> {
+pub fn get_all_for_source(source: &AssetSource) -> Vec<AssetSource> {
     match source {
         AssetSource::Search(ref name) => {
-            let model_name = name.split('/').last().unwrap();
-            SmallVec::from([
-                AssetSource::Search(name.to_owned()),
-                AssetSource::Search(name.to_owned() + "/model.sdf"),
-                AssetSource::Search(name.to_owned() + "/" + model_name + ".obj"),
-                AssetSource::Search(name.to_owned() + ".glb"),
-                AssetSource::Search(name.to_owned() + ".stl"),
-                AssetSource::Search(name.to_owned() + "/" + model_name + ".glb"),
-            ])
+            let split: SmallVec<[&str; 8]> = name.split('/').collect();
+            let model_name = split.last().unwrap();
+            let mut paths = common_model_directory_layouts(&name, model_name);
+
+            if split.len() == 1 {
+                // Check for the asset in the Open-RMF organization
+                paths.extend(common_model_directory_layouts(
+                    &format!("Open-RMF/{name}"),
+                    &name,
+                ));
+            }
+
+            paths
         }
         AssetSource::Local(_) | AssetSource::Remote(_) | AssetSource::Package(_) => {
-            let mut v = SmallVec::new();
+            let mut v = Vec::new();
             v.push(source.clone());
             v
         }
     }
+}
+
+fn common_model_directory_layouts(path: &str, model_name: &str) -> Vec<AssetSource> {
+    vec![
+        AssetSource::Search(path.to_owned()),
+        AssetSource::Search(path.to_owned() + "/model.sdf"),
+        AssetSource::Search(path.to_owned() + "/" + model_name + ".obj"),
+        AssetSource::Search(path.to_owned() + ".glb"),
+        AssetSource::Search(path.to_owned() + ".stl"),
+        AssetSource::Search(path.to_owned() + "/" + model_name + ".glb"),
+    ]
 }
 
 pub type ModelLoadingResult = Result<ModelLoadingSuccess, ModelLoadingError>;
@@ -142,7 +158,18 @@ fn load_asset_source(
         asset_server
             .load_untyped_async(&asset_path)
             .await
-            .map_err(|e| ModelLoadingErrorKind::AssetServerError(e.to_string()))
+            .map_err(|err| {
+                if !matches!(
+                    err,
+                    AssetLoadError::AssetReaderError(AssetReaderError::Io(_))
+                ) {
+                    // AssetReaderError::Io is a common error during searches, so
+                    // we skip it, but other errors may indicate that a problem
+                    // exists in the asset itself.
+                    error!("Failed attempt to load asset with [{asset_path}]: {err}");
+                }
+                ModelLoadingErrorKind::AssetServerError(err.to_string())
+            })
     }
 }
 

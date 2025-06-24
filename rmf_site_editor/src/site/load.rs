@@ -20,6 +20,7 @@ use bevy::{
     ecs::{hierarchy::ChildOf, system::SystemParam},
     prelude::*,
 };
+use rmf_site_format::legacy::{building_map::BuildingMap, PortingError};
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
@@ -50,30 +51,118 @@ impl LoadSite {
             focus: true,
         }
     }
+
+    /// Create a `LoadSite` instance from raw data and optionally a file name.
+    ///
+    /// Note that this function can take some time to run if the file data is
+    /// large, so it's best to use this in an async context.
+    pub fn from_data(data: &Vec<u8>, default_file: Option<PathBuf>) -> Result<Self, LoadSiteError> {
+        if let Some(path) = &default_file {
+            let Some(filename) = path.file_name().and_then(|f| f.to_str()) else {
+                return Err(LoadSiteError::IncompatibleFilename(path.clone()));
+            };
+
+            // If the default file is specified, we should only try to parse
+            // based on formats that match the name, if it's possible to identify
+            // one.
+            let site = if filename.ends_with(".building.yaml") {
+                match BuildingMap::from_bytes(data) {
+                    Ok(building) => building
+                        .to_site()
+                        .map_err(LoadSiteError::LegacyConversion)?,
+                    Err(err) => {
+                        return Err(LoadSiteError::CorruptedBuildingFile {
+                            path: path.clone(),
+                            err,
+                        });
+                    }
+                }
+            } else if filename.ends_with(".json") {
+                Site::from_bytes_json(data)?
+            } else if filename.ends_with(".ron") {
+                Site::from_bytes_ron(data)
+                    .map_err(|err| LoadSiteError::RonParsingError(Box::new(err)))?
+            } else {
+                return Err(LoadSiteError::UnrecognizedFileType(path.clone()));
+            };
+
+            return Ok(Self {
+                site,
+                focus: false,
+                default_file,
+            });
+        }
+
+        // No file type was indicated, so try parsing the data with each option
+        // in order of how likely it will be used
+        let site = Site::from_bytes_json(data)
+            .map_err(|_| LoadSiteError::UnknownDataFormat)
+            .or_else(|_| {
+                BuildingMap::from_bytes(data)
+                    .map_err(|_| LoadSiteError::UnknownDataFormat)
+                    .and_then(|building| {
+                        building
+                            .to_site()
+                            .map_err(|_| LoadSiteError::UnknownDataFormat)
+                    })
+            })
+            .or_else(|_| {
+                Site::from_bytes_ron(data).map_err(|_| LoadSiteError::UnknownDataFormat)
+            })?;
+
+        Ok(Self {
+            site,
+            focus: false,
+            default_file,
+        })
+    }
 }
 
 #[derive(ThisError, Debug)]
+pub enum LoadSiteError {
+    #[error("Trying to load a site with an incompatible filename: {0}")]
+    IncompatibleFilename(PathBuf),
+    #[error("Failed to parse legacy building file named [{path}]: {err}")]
+    CorruptedBuildingFile {
+        path: PathBuf,
+        err: serde_yaml::Error,
+    },
+    #[error("Failed to convert a legacy building into a site: {0}")]
+    LegacyConversion(#[from] PortingError),
+    #[error("Failed parsing ron site file: {0}")]
+    RonParsingError(Box<dyn std::error::Error + Send + Sync + 'static>),
+    #[error("Failed parsing json site file: {0}")]
+    JsonParsingError(#[from] serde_json::Error),
+    #[error("Unrecognized file type: {0}")]
+    UnrecognizedFileType(PathBuf),
+    #[error("Cannot determine data format for raw data. It could not be parsed as .building.yaml, .site.json, or .site.ron")]
+    UnknownDataFormat,
+}
+
+trait LoadResult<T> {
+    fn for_site(self, site: Entity) -> Result<T, SiteLoadingError>;
+}
+
+impl<T> LoadResult<T> for Result<T, u32> {
+    fn for_site(self, site: Entity) -> Result<T, SiteLoadingError> {
+        self.map_err(|broken| SiteLoadingError::new(site, broken))
+    }
+}
+
+pub type LoadSiteResult = Result<LoadSite, LoadSiteError>;
+
+#[derive(ThisError, Debug)]
 #[error("The site has a broken internal reference: {broken}")]
-struct LoadSiteError {
+struct SiteLoadingError {
     site: Entity,
     broken: u32,
     // TODO(@mxgrey): reintroduce Backtrack when it's supported on stable
     // backtrace: Backtrace,
 }
 
-impl LoadSiteError {
+impl SiteLoadingError {
     fn new(site: Entity, broken: u32) -> Self {
         Self { site, broken }
-    }
-}
-
-trait LoadResult<T> {
-    fn for_site(self, site: Entity) -> Result<T, LoadSiteError>;
-}
-
-impl<T> LoadResult<T> for Result<T, u32> {
-    fn for_site(self, site: Entity) -> Result<T, LoadSiteError> {
-        self.map_err(|broken| LoadSiteError::new(site, broken))
     }
 }
 
@@ -81,7 +170,7 @@ fn generate_site_entities(
     commands: &mut Commands,
     model_loader: &mut ModelLoader,
     site_data: &rmf_site_format::Site,
-) -> Result<Entity, LoadSiteError> {
+) -> Result<Entity, SiteLoadingError> {
     let mut id_to_entity = HashMap::new();
     let mut highest_id = 0_u32;
     let mut consider_id = |consider| {
@@ -395,7 +484,7 @@ fn generate_site_entities(
         // an error instead
         let parent = id_to_entity
             .get(&parented_model_instance.parent)
-            .ok_or_else(|| LoadSiteError::new(site_id, parented_model_instance.parent))?;
+            .ok_or_else(|| SiteLoadingError::new(site_id, parented_model_instance.parent))?;
 
         let model_instance_entity = model_loader
             .spawn_model_instance(*parent, model_instance.clone())
