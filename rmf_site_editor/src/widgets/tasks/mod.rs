@@ -187,7 +187,6 @@ impl<'w, 's> ViewTasks<'w, 's> {
             .show(ui, |ui| {
                 ui.set_min_width(ui.available_width());
                 for (task_entity, task) in self.tasks.iter() {
-                    // TODO(@xiyuoh) add Visibility modifier to task modifier entities!
                     let scenario_count = count_scenarios_with_inclusion(
                         &self.scenarios,
                         task_entity,
