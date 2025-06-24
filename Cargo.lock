@@ -5176,6 +5176,7 @@ dependencies = [
  "bevy_obj",
  "bevy_stl",
  "bitfield 0.19.1",
+ "bytemuck",
  "clap",
  "crossbeam-channel",
  "dirs 5.0.1",

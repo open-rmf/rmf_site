@@ -22,7 +22,7 @@ jobs:
     - uses: actions/checkout@v3
     - name: Build rmf_site_format
       run: |
-        cd rmf_site_format
+        cd crates/rmf_site_format
         cargo build
     - name: Build rmf_site_editor
       run: cargo build

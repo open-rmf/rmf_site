@@ -272,7 +272,7 @@ mod tests {
 
     #[test]
     fn ron_roundtrip() {
-        let data = std::fs::read("../assets/demo_maps/office.building.yaml").unwrap();
+        let data = std::fs::read("../../assets/demo_maps/office.building.yaml").unwrap();
         let map = BuildingMap::from_bytes(&data).unwrap();
         let site_string = map.to_site().unwrap().to_string_ron().unwrap();
         println!("{site_string}");
@@ -281,7 +281,7 @@ mod tests {
 
     #[test]
     fn json_roundtrip() {
-        let data = std::fs::read("../assets/demo_maps/office.building.yaml").unwrap();
+        let data = std::fs::read("../../assets/demo_maps/office.building.yaml").unwrap();
         let map = BuildingMap::from_bytes(&data).unwrap();
         let site_string = map.to_site().unwrap().to_bytes_json().unwrap();
         Site::from_bytes_json(&site_string).unwrap();
@@ -289,7 +289,7 @@ mod tests {
 
     #[test]
     fn produce_json_string() {
-        let data = std::fs::read("../assets/demo_maps/office.building.yaml").unwrap();
+        let data = std::fs::read("../../assets/demo_maps/office.building.yaml").unwrap();
         let map = BuildingMap::from_bytes(&data).unwrap();
         let text = map.to_site().unwrap().to_string_json_pretty().unwrap();
         println!("{text}");
