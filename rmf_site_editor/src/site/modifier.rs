@@ -17,8 +17,8 @@
 
 use crate::{
     site::{
-        Affiliation, ChangeCurrentScenario, CurrentScenario, IssueKey, NameInSite, Property,
-        ScenarioMarker, ScenarioModifiers, UpdateProperty,
+        Affiliation, ChangeCurrentScenario, CurrentScenario, Inclusion, IssueKey, NameInSite,
+        Property, ScenarioMarker, ScenarioModifiers, StandardProperty, UpdateProperty,
     },
     Issue, ValidateWorkspace,
 };
@@ -40,6 +40,8 @@ impl<T: Property> Modifier<T> {
         Self(value)
     }
 }
+
+impl StandardProperty for Inclusion {}
 
 #[derive(Clone, Debug, Event)]
 pub struct AddModifier {
@@ -84,6 +86,23 @@ impl RemoveModifier {
     }
 }
 
+#[derive(Clone, Debug, Event, Copy)]
+pub struct UpdateModifier<T> {
+    pub scenario: Entity,
+    pub element: Entity,
+    pub update: T,
+}
+
+impl<T> UpdateModifier<T> {
+    pub fn new(scenario: Entity, element: Entity, update: T) -> Self {
+        Self {
+            scenario,
+            element,
+            update,
+        }
+    }
+}
+
 #[derive(SystemParam)]
 pub struct GetModifier<'w, 's, T: Component<Mutability = Mutable> + Clone + Default> {
     pub scenarios: Query<
@@ -99,6 +118,8 @@ pub struct GetModifier<'w, 's, T: Component<Mutability = Mutable> + Clone + Defa
 }
 
 impl<'w, 's, T: Component<Mutability = Mutable> + Clone + Default> GetModifier<'w, 's, T> {
+    /// Retrieves the element's modifier in a scenario or the nearest inherited modifier.
+    /// If None is returned, there is no modifier for the scenario-element pair in this scenario tree.
     pub fn get(&self, scenario: Entity, element: Entity) -> Option<&T> {
         let mut modifier: Option<&T> = None;
         let mut scenario_entity = scenario;

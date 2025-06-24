@@ -508,15 +508,23 @@ fn generate_site_entities(
                 model_instance.name.0,
             );
         }
-        if let Some(tasks) = site_data.tasks.get(model_instance_id) {
-            commands.entity(model_instance_entity).insert(tasks.clone());
-        }
     }
 
     for (model_description_entity, dependents) in model_description_dependents {
         commands
             .entity(model_description_entity)
             .insert(Dependents(dependents));
+    }
+
+    for (task_id, task_data) in &site_data.tasks {
+        let task_entity = commands
+            .spawn(task_data.clone())
+            .insert(SiteID(*task_id))
+            .insert(Category::Task)
+            .insert(ChildOf(site_id))
+            .id();
+        id_to_entity.insert(*task_id, task_entity);
+        consider_id(*task_id);
     }
 
     for (scenario_id, scenario_data) in &site_data.scenarios {
@@ -569,6 +577,38 @@ fn generate_site_entities(
                     "Model instance {} referenced by scenario {} is missing! This should \
                     not happen, please report this bug to the maintainers of rmf_site_editor.",
                     instance_id, scenario.properties.name.0
+                );
+            }
+        }
+        for (task_id, task_data) in scenario_data.tasks.iter() {
+            if let Some(task_entity) = id_to_entity.get(&task_id) {
+                if task_data.inclusion.is_some() || task_data.params.is_some() {
+                    let modifier_entity = commands
+                        .spawn(Affiliation(Some(*task_entity)))
+                        .insert(ChildOf(scenario_entity))
+                        .id();
+                    if let Some(inclusion) = task_data.inclusion {
+                        commands
+                            .entity(modifier_entity)
+                            .insert(Modifier::<Inclusion>::new(inclusion));
+                    }
+                    if let Some(params) = &task_data.params {
+                        commands
+                            .entity(modifier_entity)
+                            .insert(Modifier::<TaskParams>::new(params.clone()));
+                    }
+                    scenario_modifiers.insert(*task_entity, modifier_entity);
+                } else {
+                    error!(
+                        "Task {} does not have all required modifiers in scenario {}!",
+                        task_id, scenario.properties.name.0
+                    );
+                }
+            } else {
+                error!(
+                    "Task {} referenced by scenario {} is missing! This should \
+                    not happen, please report this bug to the maintainers of rmf_site_editor.",
+                    task_id, scenario.properties.name.0
                 );
             }
         }

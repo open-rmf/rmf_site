@@ -26,12 +26,29 @@ use std::collections::{BTreeMap, HashMap};
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct InstanceMarker;
 
+/// A modifier property used to describe whether an element is explicitly included
+/// or hidden in a scenario.
+#[derive(Serialize, Deserialize, Debug, Default, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub enum Inclusion {
+    Included,
+    #[default]
+    Hidden,
+}
+
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
 pub struct InstanceModifier {
     #[serde(default, skip_serializing_if = "is_default")]
     pub pose: Option<Pose>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub visibility: Option<bool>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
+pub struct TaskModifier {
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub inclusion: Option<Inclusion>,
+    pub params: Option<TaskParams>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -53,6 +70,7 @@ pub struct ScenarioMarker;
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct Scenario<T: RefTrait> {
     pub instances: BTreeMap<T, InstanceModifier>,
+    pub tasks: BTreeMap<T, TaskModifier>,
     #[serde(flatten)]
     pub properties: ScenarioBundle<T>,
 }
@@ -61,6 +79,7 @@ impl<T: RefTrait> Scenario<T> {
     pub fn from_name_parent(name: Option<String>, parent: Option<T>) -> Scenario<T> {
         Scenario {
             instances: BTreeMap::new(),
+            tasks: BTreeMap::new(),
             properties: ScenarioBundle::new(name, parent),
         }
     }
@@ -71,6 +90,7 @@ impl<T: RefTrait> Default for Scenario<T> {
     fn default() -> Self {
         Self {
             instances: BTreeMap::new(),
+            tasks: BTreeMap::new(),
             properties: ScenarioBundle::default(),
         }
     }
@@ -86,6 +106,15 @@ impl<T: RefTrait> Scenario<T> {
                 .map(|(id, instance)| {
                     let converted_id = id_map.get(&id).cloned().ok_or(id)?;
                     Ok((converted_id, instance))
+                })
+                .collect::<Result<_, _>>()?,
+            tasks: self
+                .tasks
+                .clone()
+                .into_iter()
+                .map(|(id, task)| {
+                    let converted_id = id_map.get(&id).cloned().ok_or(id)?;
+                    Ok((converted_id, task))
                 })
                 .collect::<Result<_, _>>()?,
             properties: self.properties.convert(id_map)?,

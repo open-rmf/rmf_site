@@ -27,9 +27,6 @@ pub use inspect_angle::*;
 pub mod inspect_asset_source;
 pub use inspect_asset_source::*;
 
-pub mod inspect_default_tasks;
-pub use inspect_default_tasks::*;
-
 pub mod inspect_door;
 pub use inspect_door::*;
 
@@ -101,9 +98,6 @@ pub use inspect_scale::*;
 
 pub mod inspect_side;
 pub use inspect_side::*;
-
-pub mod inspect_task;
-pub use inspect_task::*;
 
 pub mod inspect_texture;
 pub use inspect_texture::*;
@@ -233,8 +227,6 @@ impl Plugin for StandardInspectorPlugin {
                     Collision,
                     RecallCircleCollision,
                 >::new(),
-                InspectTaskPlugin::default(),
-                InspectDefaultTasksPlugin::default(),
             ));
     }
 }

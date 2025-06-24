@@ -19,11 +19,10 @@ use crate::{
     interaction::{Select, Selection},
     site::{
         AddModifier, Affiliation, CurrentScenario, Delete, Dependents, GetModifier, Group,
-        InstanceMarker, IssueKey, LastSetValue, ModelMarker, Modifier, NameInSite, Pending,
-        PendingModel, Pose, Property, ScenarioBundle, ScenarioMarker, ScenarioModifiers,
-        UpdateProperty,
+        Inclusion, InstanceMarker, IssueKey, LastSetValue, ModelMarker, Modifier, NameInSite,
+        Pending, PendingModel, Pose, Property, ScenarioBundle, ScenarioMarker, ScenarioModifiers,
+        UpdateModifier, UpdateProperty,
     },
-    widgets::view_model_instances::count_scenarios,
     CurrentWorkspace, Issue, ValidateWorkspace,
 };
 use bevy::ecs::{hierarchy::ChildOf, system::SystemState};
@@ -47,13 +46,6 @@ pub enum UpdateInstance {
     Modify(Pose),
     ResetPose,
     ResetVisibility,
-}
-
-#[derive(Clone, Debug, Event, Copy)]
-pub struct UpdateInstanceEvent {
-    pub scenario: Entity,
-    pub instance: Entity,
-    pub update: UpdateInstance,
 }
 
 impl Property for Pose {
@@ -254,7 +246,7 @@ pub fn check_selected_is_visible(
 pub fn update_model_instance_poses(
     current_scenario: Res<CurrentScenario>,
     mut change_current_scenario: EventReader<ChangeCurrentScenario>,
-    mut update_instance: EventWriter<UpdateInstanceEvent>,
+    mut update_instance: EventWriter<UpdateModifier<UpdateInstance>>,
     changed_instances: Query<(Entity, Ref<Pose>), (With<InstanceMarker>, Without<Pending>)>,
     changed_last_set_pose: Query<(), Changed<LastSetValue<Pose>>>,
 ) {
@@ -273,20 +265,20 @@ pub fn update_model_instance_poses(
         {
             // Only mark an instance as modified if its pose changed due to user
             // interaction, not because it was updated by scenarios
-            update_instance.write(UpdateInstanceEvent {
-                scenario: current_scenario_entity,
-                instance: entity,
-                update: UpdateInstance::Modify(new_pose.clone()),
-            });
+            update_instance.write(UpdateModifier::new(
+                current_scenario_entity,
+                entity,
+                UpdateInstance::Modify(new_pose.clone()),
+            ));
         }
     }
 }
 
 /// Handles updates to model instance modifiers for all scenarios
-pub fn handle_instance_updates(
+pub fn handle_instance_modifier_updates(
     mut commands: Commands,
     mut add_modifier: EventWriter<AddModifier>,
-    mut update_instance: EventReader<UpdateInstanceEvent>,
+    mut update_instance: EventReader<UpdateModifier<UpdateInstance>>,
     mut update_property: EventWriter<UpdateProperty>,
     mut pose_modifiers: Query<&mut Modifier<Pose>, With<Affiliation<Entity>>>,
     mut visibility_modifiers: Query<&mut Modifier<Visibility>, With<Affiliation<Entity>>>,
@@ -297,7 +289,7 @@ pub fn handle_instance_updates(
             continue;
         };
 
-        let modifier_entity = scenario_modifiers.get(&update.instance);
+        let modifier_entity = scenario_modifiers.get(&update.element);
         let pose_modifier = modifier_entity.and_then(|e| pose_modifiers.get_mut(*e).ok());
         let visibility_modifier =
             modifier_entity.and_then(|e| visibility_modifiers.get_mut(*e).ok());
@@ -320,7 +312,7 @@ pub fn handle_instance_updates(
                         .spawn(Modifier::<Visibility>::new(new_visibility))
                         .id();
                     add_modifier.write(AddModifier::new(
-                        update.instance,
+                        update.element,
                         modifier_entity,
                         update.scenario,
                     ));
@@ -330,7 +322,7 @@ pub fn handle_instance_updates(
                 if let Some(mut pose_modifier) = pose_modifier {
                     **pose_modifier = new_pose.clone();
                     commands
-                        .entity(update.instance)
+                        .entity(update.element)
                         .insert(LastSetValue::<Pose>::new(new_pose));
                     // Do not trigger PropertyPlugin<Pose> if pose for existing modifier
                     // was modified by user
@@ -342,7 +334,7 @@ pub fn handle_instance_updates(
                 } else {
                     let modifier_entity = commands.spawn(Modifier::<Pose>::new(new_pose)).id();
                     add_modifier.write(AddModifier::new(
-                        update.instance,
+                        update.element,
                         modifier_entity,
                         update.scenario,
                     ));
@@ -368,8 +360,50 @@ pub fn handle_instance_updates(
             }
         }
 
-        update_property.write(UpdateProperty::new(update.instance, update.scenario));
+        update_property.write(UpdateProperty::new(update.element, update.scenario));
     }
+}
+
+/// Count the number of scenarios an element is included in with the Visibility modifier
+pub fn count_scenarios_with_visibility(
+    scenarios: &Query<
+        (Entity, &ScenarioModifiers<Entity>, &Affiliation<Entity>),
+        With<ScenarioMarker>,
+    >,
+    element: Entity,
+    get_modifier: &GetModifier<Modifier<Visibility>>,
+) -> i32 {
+    scenarios.iter().fold(0, |x, (e, _, _)| {
+        match get_modifier
+            .get(e, element)
+            .map(|m| **m)
+            .unwrap_or(Visibility::Hidden)
+        {
+            Visibility::Hidden => x,
+            _ => x + 1,
+        }
+    })
+}
+
+/// Count the number of scenarios an element is included in with the Inclusion modifier
+pub fn count_scenarios_with_inclusion(
+    scenarios: &Query<
+        (Entity, &ScenarioModifiers<Entity>, &Affiliation<Entity>),
+        With<ScenarioMarker>,
+    >,
+    element: Entity,
+    get_modifier: &GetModifier<Modifier<Inclusion>>,
+) -> i32 {
+    scenarios.iter().fold(0, |x, (e, _, _)| {
+        match get_modifier
+            .get(e, element)
+            .map(|m| **m)
+            .unwrap_or(Inclusion::Hidden)
+        {
+            Inclusion::Hidden => x,
+            _ => x + 1,
+        }
+    })
 }
 
 /// Create a new scenario and its children entities
@@ -472,7 +506,7 @@ pub fn check_for_hidden_model_instances(
 ) {
     for root in validate_events.read() {
         for (instance_entity, instance_name, _) in instances.iter() {
-            if count_scenarios(&scenarios, instance_entity, &get_modifier) > 0 {
+            if count_scenarios_with_visibility(&scenarios, instance_entity, &get_modifier) > 0 {
                 continue;
             }
             let issue = Issue {
