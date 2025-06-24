@@ -23,7 +23,7 @@ use bevy_time::Time;
 use bevy_transform::prelude::*;
 use bevy_utils::prelude::*;
 
-/// Marks an entity's model to spin.
+/// Marks an entity's visual cue model to spin.
 #[derive(Debug, Component)]
 pub struct Spinning {
     period: f32,
@@ -41,7 +41,7 @@ impl Default for Spinning {
     }
 }
 
-/// Marks an entity's model to bob.
+/// Marks an entity's visual cue model to bob.
 #[derive(Debug, Component)]
 pub struct Bobbing {
     period: f32,
@@ -101,10 +101,10 @@ fn update_bobbing_animations(
     }
 }
 
-/// Plugin for running systems for different model animations.
-pub struct ModelAnimationsPlugin;
+/// Plugin for running systems for diferent visual cue animation components.
+pub struct VisualCueAnimationsPlugin;
 
-impl Plugin for ModelAnimationsPlugin {
+impl Plugin for VisualCueAnimationsPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,

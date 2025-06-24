@@ -2,7 +2,7 @@
 
 use bevy::prelude::*;
 use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
-use rmf_site_animate::{Bobbing, ModelAnimationsPlugin, Spinning};
+use rmf_site_animate::{Bobbing, VisualCueAnimationsPlugin, Spinning};
 
 fn main() {
     App::new()
@@ -11,7 +11,7 @@ fn main() {
         .add_plugins(EguiPlugin {
             enable_multipass_for_primary_context: false,
         })
-        .add_plugins(ModelAnimationsPlugin)
+        .add_plugins(VisualCueAnimationsPlugin)
         .add_plugins(WorldInspectorPlugin::default())
         .run();
 }

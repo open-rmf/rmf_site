@@ -24,7 +24,7 @@ pub mod keyboard;
 use keyboard::*;
 
 pub mod widgets;
-use rmf_site_animate::ModelAnimationsPlugin;
+use rmf_site_animate::VisualCueAnimationsPlugin;
 use widgets::*;
 pub mod occupancy;
 use occupancy::OccupancyPlugin;
@@ -214,7 +214,7 @@ impl Plugin for SiteEditor {
                 KeyboardInputPlugin,
                 SitePlugin,
                 InteractionPlugin::new().headless(self.headless_export.is_some()),
-                ModelAnimationsPlugin,
+                VisualCueAnimationsPlugin,
                 OccupancyPlugin,
                 WorkspacePlugin,
                 IssuePlugin,
