@@ -26,6 +26,16 @@ use std::collections::{BTreeMap, HashMap};
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct InstanceMarker;
 
+/// A modifier property used to describe whether an element is explicitly included
+/// or hidden in a scenario.
+#[derive(Serialize, Deserialize, Debug, Default, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub enum Inclusion {
+    Included,
+    #[default]
+    Hidden,
+}
+
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
 pub struct InstanceModifier {
     #[serde(default, skip_serializing_if = "is_default")]
@@ -35,85 +45,10 @@ pub struct InstanceModifier {
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub enum TaskModifier {
-    Added(AddedTask),
-    Inherited(InheritedTask),
-    #[default]
-    Hidden,
-}
-
-impl TaskModifier {
-    pub fn added(params: TaskParams) -> Self {
-        Self::Added(AddedTask { params })
-    }
-
-    pub fn inherited_with_params(params: TaskParams) -> Self {
-        Self::Inherited(InheritedTask {
-            modified_params: Some(params),
-            explicit_inclusion: false,
-        })
-    }
-
-    pub fn inherited_with_inclusion() -> Self {
-        Self::Inherited(InheritedTask {
-            modified_params: None,
-            explicit_inclusion: true,
-        })
-    }
-
-    pub fn params(&self) -> Option<TaskParams> {
-        match self {
-            TaskModifier::Added(added) => Some(added.params.clone()),
-            TaskModifier::Inherited(inherited) => inherited.modified_params.clone(),
-            TaskModifier::Hidden => None,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub struct RecallTask {
+pub struct TaskModifier {
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub inclusion: Option<Inclusion>,
     pub params: Option<TaskParams>,
-    pub modifier: Option<TaskModifier>,
-}
-
-impl Recall for RecallTask {
-    type Source = TaskModifier;
-
-    fn remember(&mut self, source: &TaskModifier) {
-        match source {
-            TaskModifier::Added(_) | TaskModifier::Inherited(_) => {
-                self.params = source.params();
-                self.modifier = Some(source.clone());
-            }
-            TaskModifier::Hidden => {
-                // We don't update if this TaskModifier is hidden
-            }
-        };
-    }
-}
-
-/// The task modifier was added by this scenario
-#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
-pub struct AddedTask {
-    pub params: TaskParams,
-}
-
-/// The task modifier was inherited from a parent scenario
-#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
-pub struct InheritedTask {
-    pub modified_params: Option<TaskParams>,
-    pub explicit_inclusion: bool,
-}
-
-impl InheritedTask {
-    pub fn modified(&self) -> bool {
-        if self.modified_params.is_some() || self.explicit_inclusion {
-            return true;
-        }
-        false
-    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

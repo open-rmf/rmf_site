@@ -19,8 +19,8 @@ use crate::{
     interaction::{Select, Selection},
     site::{
         AddModifier, Affiliation, CurrentScenario, Delete, Dependents, GetModifier, Group,
-        InstanceMarker, IssueKey, LastSetValue, ModelMarker, Modifier, NameInSite, Pending,
-        PendingModel, Pose, Property, ScenarioBundle, ScenarioMarker, ScenarioModifiers,
+        Inclusion, InstanceMarker, IssueKey, LastSetValue, ModelMarker, Modifier, NameInSite,
+        Pending, PendingModel, Pose, Property, ScenarioBundle, ScenarioMarker, ScenarioModifiers,
         UpdateModifier, UpdateProperty,
     },
     CurrentWorkspace, Issue, ValidateWorkspace,
@@ -364,6 +364,48 @@ pub fn handle_instance_modifier_updates(
     }
 }
 
+/// Count the number of scenarios an element is included in with the Visibility modifier
+pub fn count_scenarios_with_visibility(
+    scenarios: &Query<
+        (Entity, &ScenarioModifiers<Entity>, &Affiliation<Entity>),
+        With<ScenarioMarker>,
+    >,
+    element: Entity,
+    get_modifier: &GetModifier<Modifier<Visibility>>,
+) -> i32 {
+    scenarios.iter().fold(0, |x, (e, _, _)| {
+        match get_modifier
+            .get(e, element)
+            .map(|m| **m)
+            .unwrap_or(Visibility::Hidden)
+        {
+            Visibility::Hidden => x,
+            _ => x + 1,
+        }
+    })
+}
+
+/// Count the number of scenarios an element is included in with the Inclusion modifier
+pub fn count_scenarios_with_inclusion(
+    scenarios: &Query<
+        (Entity, &ScenarioModifiers<Entity>, &Affiliation<Entity>),
+        With<ScenarioMarker>,
+    >,
+    element: Entity,
+    get_modifier: &GetModifier<Modifier<Inclusion>>,
+) -> i32 {
+    scenarios.iter().fold(0, |x, (e, _, _)| {
+        match get_modifier
+            .get(e, element)
+            .map(|m| **m)
+            .unwrap_or(Inclusion::Hidden)
+        {
+            Inclusion::Hidden => x,
+            _ => x + 1,
+        }
+    })
+}
+
 /// Create a new scenario and its children entities
 pub fn handle_create_scenarios(
     mut commands: Commands,
@@ -464,12 +506,7 @@ pub fn check_for_hidden_model_instances(
 ) {
     for root in validate_events.read() {
         for (instance_entity, instance_name, _) in instances.iter() {
-            if count_scenarios::<Visibility, InstanceModifier>(
-                instance_entity,
-                &scenarios,
-                &get_modifier,
-            ) > 0
-            {
+            if count_scenarios_with_visibility(&scenarios, instance_entity, &get_modifier) > 0 {
                 continue;
             }
             let issue = Issue {

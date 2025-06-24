@@ -1388,7 +1388,11 @@ fn generate_scenarios(
             &Affiliation<Entity>,
         )>,
         Query<&SiteID, With<InstanceMarker>>,
-        Query<(&TaskModifier, &Affiliation<Entity>)>,
+        Query<(
+            Option<&Modifier<Inclusion>>,
+            Option<&Modifier<TaskParams>>,
+            &Affiliation<Entity>,
+        )>,
         Query<&SiteID, (With<Task>, Without<Pending>)>,
         Query<&Children>,
     )> = SystemState::new(world);
@@ -1413,7 +1417,10 @@ fn generate_scenarios(
                                 .is_ok_and(|(p, v, _)| p.is_some() || v.is_some())
                             {
                                 scenario_instance_modifiers.push(scenario_child);
-                            } else if task_modifiers.contains(scenario_child) {
+                            } else if task_modifiers
+                                .get(scenario_child)
+                                .is_ok_and(|(i, p, _)| i.is_some() || p.is_some())
+                            {
                                 scenario_task_modifiers.push(scenario_child);
                             }
                         }
@@ -1446,10 +1453,13 @@ fn generate_scenarios(
                                     .filter_map(|child_entity| {
                                         task_modifiers.get(*child_entity).ok()
                                     })
-                                    .filter_map(|(scenario_task, affiliation)| {
+                                    .filter_map(|(inclusion, task_params, affiliation)| {
                                         Some((
                                             affiliation.0.and_then(|e| tasks.get(e).ok())?.0,
-                                            scenario_task.clone(),
+                                            TaskModifier {
+                                                inclusion: inclusion.map(|i| **i),
+                                                params: task_params.map(|p| (**p).clone()),
+                                            },
                                         ))
                                     })
                                     .collect(),

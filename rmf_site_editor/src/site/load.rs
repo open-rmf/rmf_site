@@ -493,12 +493,28 @@ fn generate_site_entities(
         }
         for (task_id, task_data) in scenario_data.tasks.iter() {
             if let Some(task_entity) = id_to_entity.get(&task_id) {
-                let modifier_entity = commands
-                    .spawn(task_data.clone())
-                    .insert(Affiliation(Some(*task_entity)))
-                    .insert(ChildOf(scenario_entity))
-                    .id();
-                scenario_modifiers.insert(*task_entity, modifier_entity);
+                if task_data.inclusion.is_some() || task_data.params.is_some() {
+                    let modifier_entity = commands
+                        .spawn(Affiliation(Some(*task_entity)))
+                        .insert(ChildOf(scenario_entity))
+                        .id();
+                    if let Some(inclusion) = task_data.inclusion {
+                        commands
+                            .entity(modifier_entity)
+                            .insert(Modifier::<Inclusion>::new(inclusion));
+                    }
+                    if let Some(params) = &task_data.params {
+                        commands
+                            .entity(modifier_entity)
+                            .insert(Modifier::<TaskParams>::new(params.clone()));
+                    }
+                    scenario_modifiers.insert(*task_entity, modifier_entity);
+                } else {
+                    error!(
+                        "Task {} does not have all required modifiers in scenario {}!",
+                        task_id, scenario.properties.name.0
+                    );
+                }
             } else {
                 error!(
                     "Task {} referenced by scenario {} is missing! This should \

@@ -17,8 +17,8 @@
 
 use crate::{
     site::{
-        Affiliation, ChangeCurrentScenario, CurrentScenario, IssueKey, NameInSite, Property,
-        ScenarioMarker, ScenarioModifiers, UpdateProperty,
+        Affiliation, ChangeCurrentScenario, CurrentScenario, Inclusion, IssueKey, NameInSite,
+        Property, ScenarioMarker, ScenarioModifiers, StandardProperty, UpdateProperty,
     },
     Issue, ValidateWorkspace,
 };
@@ -40,6 +40,8 @@ impl<T: Property> Modifier<T> {
         Self(value)
     }
 }
+
+impl StandardProperty for Inclusion {}
 
 #[derive(Clone, Debug, Event)]
 pub struct AddModifier {

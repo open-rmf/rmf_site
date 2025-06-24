@@ -16,10 +16,10 @@
 */
 use crate::{
     site::{
-        count_scenarios, Affiliation, Category, Change, CurrentScenario, Delete,
-        DispatchTaskRequest, GetModifier, Group, Modifier, NameInSite, Pending, Robot,
-        RobotTaskRequest, ScenarioMarker, ScenarioModifiers, Task, TaskKinds, TaskModifier,
-        TaskParams, UpdateModifier, UpdateTaskModifier,
+        count_scenarios_with_inclusion, Affiliation, Category, Change, CurrentScenario, Delete,
+        DispatchTaskRequest, GetModifier, Group, Inclusion, Modifier, NameInSite, Pending, Robot,
+        RobotTaskRequest, ScenarioMarker, ScenarioModifiers, Task, TaskKinds, TaskParams,
+        UpdateModifier, UpdateTaskModifier,
     },
     widgets::prelude::*,
     Icons, Tile, WidgetSystem,
@@ -119,7 +119,8 @@ pub struct ViewTasks<'w, 's> {
     delete: EventWriter<'w, Delete>,
     edit_mode: EventWriter<'w, EditModeEvent>,
     edit_task: Res<'w, EditTask>,
-    get_modifier: GetModifier<'w, 's, TaskModifier>,
+    get_inclusion_modifier: GetModifier<'w, 's, Modifier<Inclusion>>,
+    get_params_modifier: GetModifier<'w, 's, Modifier<TaskParams>>,
     icons: Res<'w, Icons>,
     pending_tasks: Query<'w, 's, (Entity, &'static Task, &'static TaskParams), With<Pending>>,
     robots: Query<'w, 's, (Entity, &'static NameInSite), (With<Robot>, Without<Group>)>,
@@ -186,17 +187,19 @@ impl<'w, 's> ViewTasks<'w, 's> {
             .show(ui, |ui| {
                 ui.set_min_width(ui.available_width());
                 for (task_entity, task) in self.tasks.iter() {
-                    let scenario_count = count_scenarios::<TaskParams, TaskModifier>(
-                        task_entity,
+                    // TODO(@xiyuoh) add Visibility modifier to task modifier entities!
+                    let scenario_count = count_scenarios_with_inclusion(
                         &self.scenarios,
-                        &self.get_modifier,
+                        task_entity,
+                        &self.get_inclusion_modifier,
                     );
                     if show_task(
                         ui,
                         task_entity,
                         task,
                         current_scenario_entity,
-                        &self.get_modifier,
+                        &self.get_inclusion_modifier,
+                        &self.get_params_modifier,
                         &mut self.update_task_modifier,
                         &mut self.delete,
                         scenario_count,
@@ -265,10 +268,10 @@ impl<'w, 's> ViewTasks<'w, 's> {
                             });
                         });
                     });
-                    let Some(existing_task_params): Option<TaskParams> = self
-                        .get_modifier
+                    let Some(existing_task_params) = self
+                        .get_params_modifier
                         .get(current_scenario_entity, task_entity)
-                        .and_then(|modifier| modifier.get())
+                        .map(|modifier| (**modifier).clone())
                     else {
                         return;
                     };
@@ -319,16 +322,17 @@ fn show_task(
     task_entity: Entity,
     task: &Task,
     scenario: Entity,
-    get_modifier: &GetModifier<TaskModifier>,
+    get_inclusion_modifier: &GetModifier<Modifier<Inclusion>>,
+    get_params_modifier: &GetModifier<Modifier<TaskParams>>,
     update_task_modifier: &mut EventWriter<UpdateModifier<UpdateTaskModifier>>,
     delete: &mut EventWriter<Delete>,
     scenario_count: i32,
     icons: &Res<Icons>,
 ) -> bool {
-    let Some(task_modifier) = get_modifier.get(scenario, task_entity) else {
-        return false;
-    };
-    let present = task_modifier.check_inclusion(task_entity, scenario, get_modifier);
+    let present = get_inclusion_modifier
+        .get(scenario, task_entity)
+        .map(|i_modifier| **i_modifier == Inclusion::Included)
+        .unwrap_or(false);
     let color = if present {
         Color32::DARK_GRAY
     } else {
@@ -354,24 +358,47 @@ fn show_task(
                         delete.write(Delete::new(task_entity));
                     }
                     // Include/hide task
-                    // Toggle between 3 inclusion modes: Include -> Inherited -> Hidden
-                    // If this is a root scenario, we won't include the Inherited option
-                    if let Some(this_task_modifier) = get_modifier
+                    // Toggle between 3 inclusion modes: Included -> None (inherit from parent) -> Hidden
+                    // If this is a root scenario, we won't include the None option
+                    let inclusion_modifier = get_inclusion_modifier
                         .scenarios
                         .get(scenario)
                         .ok()
                         .and_then(|(scenario_modifiers, _)| scenario_modifiers.get(&task_entity))
-                        .and_then(|e| get_modifier.modifiers.get(*e).ok())
-                    {
-                        match this_task_modifier {
-                            TaskModifier::Added(_) => {
-                                if ui
-                                    .add(ImageButton::new(icons.show.egui()))
-                                    .on_hover_text("Task is included in this scenario")
-                                    .clicked()
+                        .and_then(|e| get_inclusion_modifier.modifiers.get(*e).ok());
+                    if let Some(inclusion_modifier) = inclusion_modifier {
+                        // Either explicitly included or hidden
+                        if **inclusion_modifier == Inclusion::Hidden {
+                            if ui
+                                .add(ImageButton::new(icons.hide.egui()))
+                                .on_hover_text("Task is hidden in this scenario")
+                                .clicked()
+                            {
+                                update_task_modifier.write(UpdateModifier::new(
+                                    scenario,
+                                    task_entity,
+                                    UpdateTaskModifier::Include,
+                                ));
+                            }
+                        } else {
+                            if ui
+                                .add(ImageButton::new(icons.show.egui()))
+                                .on_hover_text("Task is included in this scenario")
+                                .clicked()
+                            {
+                                if get_inclusion_modifier
+                                    .scenarios
+                                    .get(scenario)
+                                    .is_ok_and(|(_, a)| a.0.is_some())
                                 {
-                                    // If this is a root scenario or Added modifier, toggle to Hidden
-                                    // Note: all modifiers are Added in root scenarios
+                                    // If parent scenario exists, clicking this button toggles to ResetInclusion
+                                    update_task_modifier.write(UpdateModifier::new(
+                                        scenario,
+                                        task_entity,
+                                        UpdateTaskModifier::ResetInclusion,
+                                    ));
+                                } else {
+                                    // Otherwise, toggle to Hidden
                                     update_task_modifier.write(UpdateModifier::new(
                                         scenario,
                                         task_entity,
@@ -379,51 +406,9 @@ fn show_task(
                                     ));
                                 }
                             }
-                            TaskModifier::Inherited(inherited) => {
-                                if inherited.explicit_inclusion {
-                                    if ui
-                                        .add(ImageButton::new(icons.show.egui()))
-                                        .on_hover_text("Task is included in this scenario")
-                                        .clicked()
-                                    {
-                                        update_task_modifier.write(UpdateModifier::new(
-                                            scenario,
-                                            task_entity,
-                                            UpdateTaskModifier::ResetInclusion,
-                                        ));
-                                    }
-                                } else {
-                                    if ui
-                                        .add(ImageButton::new(icons.link.egui()))
-                                        .on_hover_text(
-                                            "Task inclusion is inherited in this scenario",
-                                        )
-                                        .clicked()
-                                    {
-                                        update_task_modifier.write(UpdateModifier::new(
-                                            scenario,
-                                            task_entity,
-                                            UpdateTaskModifier::Hide,
-                                        ));
-                                    }
-                                }
-                            }
-                            TaskModifier::Hidden => {
-                                if ui
-                                    .add(ImageButton::new(icons.hide.egui()))
-                                    .on_hover_text("Task is hidden in this scenario")
-                                    .clicked()
-                                {
-                                    update_task_modifier.write(UpdateModifier::new(
-                                        scenario,
-                                        task_entity,
-                                        UpdateTaskModifier::Include,
-                                    ));
-                                }
-                            }
                         }
                     } else {
-                        // Task is inherited
+                        // Modifier is inherited
                         if ui
                             .add(ImageButton::new(icons.link.egui()))
                             .on_hover_text("Task inclusion is inherited in this scenario")
@@ -453,9 +438,9 @@ fn show_task(
             }
             ui.separator();
 
-            let Some(task_params): Option<TaskParams> = task_modifier
-                .get()
-                .or_else(|| task_modifier.retrieve_inherited(task_entity, scenario, get_modifier))
+            let Some(task_params) = get_params_modifier
+                .get(scenario, task_entity)
+                .map(|m| (**m).clone())
             else {
                 return;
             };
@@ -541,26 +526,31 @@ fn show_task(
                             ui.end_row();
 
                             // Reset task parameters to parent scenario params (if any)
-                            match task_modifier {
-                                TaskModifier::Inherited(inherited) => {
-                                    if inherited.modified_params.is_some() {
-                                        if ui
-                                            .button("Reset Task Params")
-                                            .on_hover_text(
-                                                "Reset task parameters to parent scenario params",
-                                            )
-                                            .clicked()
-                                        {
-                                            update_task_modifier.write(UpdateModifier::new(
-                                                scenario,
-                                                task_entity,
-                                                UpdateTaskModifier::ResetParams,
-                                            ));
-                                        }
-                                        ui.end_row();
+                            if let Ok((scenario_modifiers, parent_scenario)) =
+                                get_params_modifier.scenarios.get(scenario)
+                            {
+                                if scenario_modifiers
+                                    .get(&task_entity)
+                                    .is_some_and(|e| get_params_modifier.modifiers.get(*e).is_ok())
+                                    && parent_scenario.0.is_some()
+                                {
+                                    // Only display reset button if this task has a TaskParams modifier
+                                    // and this is not a root scenario
+                                    if ui
+                                        .button("Reset Task Params")
+                                        .on_hover_text(
+                                            "Reset task parameters to parent scenario params",
+                                        )
+                                        .clicked()
+                                    {
+                                        update_task_modifier.write(UpdateModifier::new(
+                                            scenario,
+                                            task_entity,
+                                            UpdateTaskModifier::ResetParams,
+                                        ));
                                     }
+                                    ui.end_row();
                                 }
-                                TaskModifier::Added(_) | TaskModifier::Hidden => {}
                             }
                         });
                 });
