@@ -18,8 +18,9 @@
 use crate::{
     interaction::Selection,
     site::{
-        Affiliation, CurrentScenario, Delete, GetModifier, Group, Members, ModelMarker, Modifier,
-        NameInSite, ScenarioMarker, ScenarioModifiers, UpdateInstance, UpdateModifier,
+        count_scenarios_with_visibility, Affiliation, CurrentScenario, Delete, GetModifier, Group,
+        Members, ModelMarker, Modifier, NameInSite, ScenarioMarker, ScenarioModifiers,
+        UpdateInstance, UpdateModifier,
     },
     widgets::{prelude::*, SelectorWidget},
     Icons,
@@ -108,12 +109,11 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                         continue;
                                     };
                                     if affiliation.0.is_some_and(|e| e == desc_entity) {
-                                        let scenario_count =
-                                            count_scenarios::<Visibility, InstanceModifier>(
-                                                instance_entity,
-                                                &self.scenarios,
-                                                &self.get_modifier,
-                                            );
+                                        let scenario_count = count_scenarios_with_visibility(
+                                            &self.scenarios,
+                                            instance_entity,
+                                            &self.get_modifier,
+                                        );
                                         show_model_instance(
                                             ui,
                                             instance_name,
@@ -146,12 +146,11 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                 if let Ok((_, instance_name, _)) =
                                     self.model_instances.get_mut(*instance_entity)
                                 {
-                                    let scenario_count =
-                                        count_scenarios::<Visibility, InstanceModifier>(
-                                            *instance_entity,
-                                            &self.scenarios,
-                                            &self.get_modifier,
-                                        );
+                                    let scenario_count = count_scenarios_with_visibility(
+                                        &self.scenarios,
+                                        *instance_entity,
+                                        &self.get_modifier,
+                                    );
                                     show_model_instance(
                                         ui,
                                         instance_name,
@@ -170,27 +169,6 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                 });
         }
     }
-}
-
-/// Count the number of scenarios a model instance is included in
-pub fn count_scenarios(
-    scenarios: &Query<
-        (Entity, &ScenarioModifiers<Entity>, &Affiliation<Entity>),
-        With<ScenarioMarker>,
-    >,
-    instance: Entity,
-    get_modifier: &GetModifier<Modifier<Visibility>>,
-) -> i32 {
-    scenarios.iter().fold(0, |x, (e, _, _)| {
-        match get_modifier
-            .get(e, instance)
-            .map(|m| **m)
-            .unwrap_or(Visibility::Hidden)
-        {
-            Visibility::Hidden => x,
-            _ => x + 1,
-        }
-    })
 }
 
 /// Show a widget for users to interact with a model instance
@@ -238,11 +216,25 @@ fn show_model_instance(
                     .on_hover_text("Model instance is included in this scenario")
                     .clicked()
                 {
-                    update_instance.write(UpdateModifier::new(
-                        scenario,
-                        instance,
-                        UpdateInstance::Hide,
-                    ));
+                    if get_modifier
+                        .scenarios
+                        .get(scenario)
+                        .is_ok_and(|(_, a)| a.0.is_some())
+                    {
+                        // If parent scenario exists, clicking this button toggles to ResetVisibility
+                        update_instance.write(UpdateModifier::new(
+                            scenario,
+                            instance,
+                            UpdateInstance::ResetVisibility,
+                        ));
+                    } else {
+                        // Otherwise, toggle to Hidden
+                        update_instance.write(UpdateModifier::new(
+                            scenario,
+                            instance,
+                            UpdateInstance::Hide,
+                        ));
+                    }
                 }
             }
         } else {
