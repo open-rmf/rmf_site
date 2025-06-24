@@ -283,7 +283,9 @@ pub fn add_floor_visuals(
             .add_child(mesh_entity_id);
 
         for anchor in &new_floor.0 {
-            let mut deps = dependents.get_mut(*anchor).unwrap();
+            let Ok(mut deps) = dependents.get_mut(*anchor) else {
+                continue;
+            };
             deps.insert(e);
         }
     }
