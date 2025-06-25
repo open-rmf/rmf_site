@@ -223,8 +223,10 @@ impl Plugin for SitePlugin {
         .add_event::<RemoveScenario>()
         .add_event::<AddModifier>()
         .add_event::<RemoveModifier>()
-        .add_event::<UpdateModifier<UpdateInstance>>()
-        .add_event::<UpdateModifier<UpdateTaskModifier>>()
+        .add_event::<UpdateModifierEvent<Pose>>()
+        .add_event::<UpdateModifierEvent<Visibility>>()
+        .add_event::<UpdateModifierEvent<Inclusion>>()
+        .add_event::<UpdateModifierEvent<TaskParams>>()
         .add_event::<SaveSite>()
         .add_event::<ExportLights>()
         .add_event::<ConsiderAssociatedGraph>()
@@ -384,17 +386,11 @@ impl Plugin for SitePlugin {
                 update_level_visibility,
                 handle_remove_scenarios.before(update_current_scenario),
                 update_current_scenario.before(update_model_instance_poses),
-                update_model_instance_poses.before(handle_instance_modifier_updates),
-                handle_instance_modifier_updates.before(handle_create_scenarios),
+                update_model_instance_poses.before(handle_create_scenarios),
                 handle_create_scenarios.before(handle_scenario_modifiers),
                 handle_scenario_modifiers,
+                handle_task_edit,
             )
-                .run_if(AppState::in_displaying_mode())
-                .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
-        )
-        .add_systems(
-            PostUpdate,
-            (handle_task_edit, handle_task_modifier_updates)
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
         )

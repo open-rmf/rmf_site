@@ -18,7 +18,7 @@
 use crate::{
     site::{
         Affiliation, Change, CurrentScenario, Modifier, ScenarioMarker, ScenarioModifiers,
-        UpdateInstance, UpdateModifier,
+        UpdateModifier, UpdateModifierEvent,
     },
     widgets::{inspector::InspectAngle, prelude::*, Inspect},
 };
@@ -42,7 +42,7 @@ pub struct InspectPose<'w, 's> {
         ),
         With<ScenarioMarker>,
     >,
-    update_instance: EventWriter<'w, UpdateModifier<UpdateInstance>>,
+    update_modifier: EventWriter<'w, UpdateModifierEvent<Pose>>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectPose<'w, 's> {
@@ -77,10 +77,10 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPose<'w, 's> {
                         .on_hover_text("Reset to parent scenario pose")
                         .clicked()
                     {
-                        params.update_instance.write(UpdateModifier::new(
+                        params.update_modifier.write(UpdateModifierEvent::new(
                             scenario_entity,
                             selection,
-                            UpdateInstance::ResetPose,
+                            UpdateModifier::Reset,
                         ));
                     }
                 }

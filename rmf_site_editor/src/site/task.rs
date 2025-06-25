@@ -19,7 +19,6 @@ use crate::{
     site::{
         AddModifier, Affiliation, ChangeCurrentScenario, Delete, Inclusion, LastSetValue, Modifier,
         Pending, Property, ScenarioMarker, ScenarioModifiers, Task, TaskKind, TaskParams,
-        UpdateModifier, UpdateProperty,
     },
     widgets::tasks::{EditMode, EditModeEvent, EditTask},
     CurrentWorkspace,
@@ -41,8 +40,14 @@ impl FromWorld for TaskKinds {
 }
 
 impl Property for TaskParams {
-    fn get_fallback(_for_element: Entity, _in_scenario: Entity, _world: &mut World) -> TaskParams {
-        TaskParams::default()
+    fn get_fallback(for_element: Entity, _in_scenario: Entity, world: &mut World) -> TaskParams {
+        let mut state: SystemState<Query<&LastSetValue<TaskParams>>> = SystemState::new(world);
+        let last_set_params = state.get(world);
+
+        last_set_params
+            .get(for_element)
+            .map(|value| (**value).clone())
+            .unwrap_or(TaskParams::default())
     }
 
     fn insert(for_element: Entity, in_scenario: Entity, value: TaskParams, world: &mut World) {
@@ -182,15 +187,6 @@ impl Property for TaskParams {
     }
 }
 
-#[derive(Clone, Debug)]
-pub enum UpdateTaskModifier {
-    Include,
-    Hide,
-    Modify(TaskParams),
-    ResetInclusion,
-    ResetParams,
-}
-
 /// Updates the current EditTask entity based on the triggered edit mode event
 pub fn handle_task_edit(
     mut commands: Commands,
@@ -235,97 +231,5 @@ pub fn update_task_kind_component<T: TaskKind>(
                 }
             }
         }
-    }
-}
-
-// TODO(@xiyuoh) This system is very similar to handle_instance_modifier_updates,
-// we can probably use a generic system<T> to handle updates with just Modify and Reset
-// for each property
-pub fn handle_task_modifier_updates(
-    mut commands: Commands,
-    mut add_modifier: EventWriter<AddModifier>,
-    mut update_task_modifier: EventReader<UpdateModifier<UpdateTaskModifier>>,
-    mut update_property: EventWriter<UpdateProperty>,
-    mut inclusion_modifiers: Query<&mut Modifier<Inclusion>, With<Affiliation<Entity>>>,
-    mut params_modifiers: Query<&mut Modifier<TaskParams>, With<Affiliation<Entity>>>,
-    scenarios: Query<(&ScenarioModifiers<Entity>, &Affiliation<Entity>), With<ScenarioMarker>>,
-) {
-    for update in update_task_modifier.read() {
-        let Ok((scenario_modifiers, parent_scenario)) = scenarios.get(update.scenario) else {
-            continue;
-        };
-
-        let modifier_entity = scenario_modifiers.get(&update.element);
-        let inclusion_modifier = modifier_entity.and_then(|e| inclusion_modifiers.get_mut(*e).ok());
-        let params_modifier = modifier_entity.and_then(|e| params_modifiers.get_mut(*e).ok());
-
-        match &update.update {
-            UpdateTaskModifier::Include | UpdateTaskModifier::Hide => {
-                let new_inclusion = match update.update {
-                    UpdateTaskModifier::Include => Inclusion::Included,
-                    UpdateTaskModifier::Hide => Inclusion::Hidden,
-                    _ => continue,
-                };
-                if let Some(mut inclusion_modifier) = inclusion_modifier {
-                    **inclusion_modifier = new_inclusion;
-                } else if let Some(modifier_entity) = modifier_entity {
-                    commands
-                        .entity(*modifier_entity)
-                        .insert(Modifier::<Inclusion>::new(new_inclusion));
-                } else {
-                    let modifier_entity = commands
-                        .spawn(Modifier::<Inclusion>::new(new_inclusion))
-                        .id();
-                    add_modifier.write(AddModifier::new(
-                        update.element,
-                        modifier_entity,
-                        update.scenario,
-                    ));
-                }
-            }
-            UpdateTaskModifier::Modify(new_params) => {
-                if let Some(mut params_modifier) = params_modifier {
-                    **params_modifier = new_params.clone();
-                    commands
-                        .entity(update.element)
-                        .insert(LastSetValue::<TaskParams>::new(new_params.clone()));
-                } else if let Some(modifier_entity) = modifier_entity {
-                    commands
-                        .entity(*modifier_entity)
-                        .insert(Modifier::<TaskParams>::new(new_params.clone()));
-                } else {
-                    let modifier_entity = commands
-                        .spawn(Modifier::<TaskParams>::new(new_params.clone()))
-                        .id();
-                    add_modifier.write(AddModifier::new(
-                        update.element,
-                        modifier_entity,
-                        update.scenario,
-                    ));
-                }
-            }
-            UpdateTaskModifier::ResetParams | UpdateTaskModifier::ResetInclusion => {
-                // Only process resets if this is not a root scenario
-                if parent_scenario.0.is_some() {
-                    if let Some(modifier_entity) = modifier_entity {
-                        match update.update {
-                            UpdateTaskModifier::ResetParams => {
-                                commands
-                                    .entity(*modifier_entity)
-                                    .remove::<Modifier<TaskParams>>();
-                            }
-                            UpdateTaskModifier::ResetInclusion => {
-                                commands
-                                    .entity(*modifier_entity)
-                                    .remove::<Modifier<Inclusion>>();
-                            }
-                            _ => continue,
-                        }
-                    }
-                }
-            }
-        }
-
-        update_property.write(UpdateProperty::new(update.element, update.scenario));
     }
 }

@@ -20,7 +20,7 @@ use crate::{
     site::{
         count_scenarios_with_visibility, Affiliation, CurrentScenario, Delete, GetModifier, Group,
         Members, ModelMarker, Modifier, NameInSite, ScenarioMarker, ScenarioModifiers,
-        UpdateInstance, UpdateModifier,
+        UpdateModifier, UpdateModifierEvent,
     },
     widgets::{prelude::*, SelectorWidget},
     Icons,
@@ -72,7 +72,7 @@ pub struct ViewModelInstances<'w, 's> {
     selection: Res<'w, Selection>,
     selector: SelectorWidget<'w, 's>,
     delete: EventWriter<'w, Delete>,
-    update_instance: EventWriter<'w, UpdateModifier<UpdateInstance>>,
+    update_modifier: EventWriter<'w, UpdateModifierEvent<Visibility>>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for ViewModelInstances<'w, 's> {
@@ -120,7 +120,7 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                             instance_entity,
                                             &mut self.selector,
                                             &mut self.delete,
-                                            &mut self.update_instance,
+                                            &mut self.update_modifier,
                                             &self.get_modifier,
                                             current_scenario_entity,
                                             scenario_count,
@@ -157,7 +157,7 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                         *instance_entity,
                                         &mut self.selector,
                                         &mut self.delete,
-                                        &mut self.update_instance,
+                                        &mut self.update_modifier,
                                         &self.get_modifier,
                                         current_scenario_entity,
                                         scenario_count,
@@ -178,7 +178,7 @@ fn show_model_instance(
     instance: Entity,
     selector: &mut SelectorWidget,
     delete: &mut EventWriter<Delete>,
-    update_instance: &mut EventWriter<UpdateModifier<UpdateInstance>>,
+    update_modifier: &mut EventWriter<UpdateModifierEvent<Visibility>>,
     get_modifier: &GetModifier<Modifier<Visibility>>,
     scenario: Entity,
     scenario_count: i32,
@@ -204,10 +204,10 @@ fn show_model_instance(
                     .on_hover_text("Model instance is hidden in this scenario")
                     .clicked()
                 {
-                    update_instance.write(UpdateModifier::new(
+                    update_modifier.write(UpdateModifierEvent::new(
                         scenario,
                         instance,
-                        UpdateInstance::Include,
+                        UpdateModifier::Modify(Visibility::Inherited),
                     ));
                 }
             } else {
@@ -222,17 +222,17 @@ fn show_model_instance(
                         .is_ok_and(|(_, a)| a.0.is_some())
                     {
                         // If parent scenario exists, clicking this button toggles to ResetVisibility
-                        update_instance.write(UpdateModifier::new(
+                        update_modifier.write(UpdateModifierEvent::new(
                             scenario,
                             instance,
-                            UpdateInstance::ResetVisibility,
+                            UpdateModifier::Reset,
                         ));
                     } else {
                         // Otherwise, toggle to Hidden
-                        update_instance.write(UpdateModifier::new(
+                        update_modifier.write(UpdateModifierEvent::new(
                             scenario,
                             instance,
-                            UpdateInstance::Hide,
+                            UpdateModifier::Modify(Visibility::Hidden),
                         ));
                     }
                 }
@@ -244,10 +244,10 @@ fn show_model_instance(
                 .on_hover_text("Model instance visibility is inherited in this scenario")
                 .clicked()
             {
-                update_instance.write(UpdateModifier::new(
+                update_modifier.write(UpdateModifierEvent::new(
                     scenario,
                     instance,
-                    UpdateInstance::Hide,
+                    UpdateModifier::Modify(Visibility::Hidden),
                 ));
             }
         }

@@ -86,19 +86,41 @@ impl RemoveModifier {
     }
 }
 
-#[derive(Clone, Debug, Event, Copy)]
-pub struct UpdateModifier<T> {
-    pub scenario: Entity,
-    pub element: Entity,
-    pub update: T,
+#[derive(Clone, Debug, Copy)]
+pub enum UpdateModifier<T: Property> {
+    Modify(T),
+    Reset,
 }
 
-impl<T> UpdateModifier<T> {
-    pub fn new(scenario: Entity, element: Entity, update: T) -> Self {
+#[derive(Clone, Debug, Event, Copy)]
+pub struct UpdateModifierEvent<T: Property> {
+    pub scenario: Entity,
+    pub element: Entity,
+    pub update_mode: UpdateModifier<T>,
+    /// Whether to trigger an UpdateProperty event when updating the modifier
+    pub trigger_update_property: bool,
+}
+
+impl<T: Property> UpdateModifierEvent<T> {
+    pub fn new(scenario: Entity, element: Entity, update_mode: UpdateModifier<T>) -> Self {
         Self {
             scenario,
             element,
-            update,
+            update_mode,
+            trigger_update_property: true,
+        }
+    }
+
+    pub fn new_without_trigger(
+        scenario: Entity,
+        element: Entity,
+        update_mode: UpdateModifier<T>,
+    ) -> Self {
+        Self {
+            scenario,
+            element,
+            update_mode,
+            trigger_update_property: false,
         }
     }
 }

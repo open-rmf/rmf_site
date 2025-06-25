@@ -21,7 +21,7 @@ use crate::{
         AddModifier, Affiliation, CurrentScenario, Delete, Dependents, GetModifier, Group,
         Inclusion, InstanceMarker, IssueKey, LastSetValue, ModelMarker, Modifier, NameInSite,
         Pending, PendingModel, Pose, Property, ScenarioBundle, ScenarioMarker, ScenarioModifiers,
-        UpdateModifier, UpdateProperty,
+        UpdateModifier, UpdateModifierEvent, UpdateProperty,
     },
     CurrentWorkspace, Issue, ValidateWorkspace,
 };
@@ -39,15 +39,6 @@ pub struct CreateScenario {
     pub parent: Option<Entity>,
 }
 
-#[derive(Clone, Debug, Copy)]
-pub enum UpdateInstance {
-    Include,
-    Hide,
-    Modify(Pose),
-    ResetPose,
-    ResetVisibility,
-}
-
 impl Property for Pose {
     fn get_fallback(for_element: Entity, _in_scenario: Entity, world: &mut World) -> Pose {
         let mut state: SystemState<Query<&LastSetValue<Pose>>> = SystemState::new(world);
@@ -55,7 +46,7 @@ impl Property for Pose {
 
         last_set_pose
             .get(for_element)
-            .map(|value| value.0)
+            .map(|value| **value)
             .unwrap_or(Pose::default())
     }
 
@@ -246,7 +237,7 @@ pub fn check_selected_is_visible(
 pub fn update_model_instance_poses(
     current_scenario: Res<CurrentScenario>,
     mut change_current_scenario: EventReader<ChangeCurrentScenario>,
-    mut update_instance: EventWriter<UpdateModifier<UpdateInstance>>,
+    mut update_modifier: EventWriter<UpdateModifierEvent<Pose>>,
     changed_instances: Query<(Entity, Ref<Pose>), (With<InstanceMarker>, Without<Pending>)>,
     changed_last_set_pose: Query<(), Changed<LastSetValue<Pose>>>,
 ) {
@@ -265,102 +256,12 @@ pub fn update_model_instance_poses(
         {
             // Only mark an instance as modified if its pose changed due to user
             // interaction, not because it was updated by scenarios
-            update_instance.write(UpdateModifier::new(
+            update_modifier.write(UpdateModifierEvent::new_without_trigger(
                 current_scenario_entity,
                 entity,
-                UpdateInstance::Modify(new_pose.clone()),
+                UpdateModifier::Modify(new_pose.clone()),
             ));
         }
-    }
-}
-
-/// Handles updates to model instance modifiers for all scenarios
-pub fn handle_instance_modifier_updates(
-    mut commands: Commands,
-    mut add_modifier: EventWriter<AddModifier>,
-    mut update_instance: EventReader<UpdateModifier<UpdateInstance>>,
-    mut update_property: EventWriter<UpdateProperty>,
-    mut pose_modifiers: Query<&mut Modifier<Pose>, With<Affiliation<Entity>>>,
-    mut visibility_modifiers: Query<&mut Modifier<Visibility>, With<Affiliation<Entity>>>,
-    scenarios: Query<(&ScenarioModifiers<Entity>, &Affiliation<Entity>), With<ScenarioMarker>>,
-) {
-    for update in update_instance.read() {
-        let Ok((scenario_modifiers, parent_scenario)) = scenarios.get(update.scenario) else {
-            continue;
-        };
-
-        let modifier_entity = scenario_modifiers.get(&update.element);
-        let pose_modifier = modifier_entity.and_then(|e| pose_modifiers.get_mut(*e).ok());
-        let visibility_modifier =
-            modifier_entity.and_then(|e| visibility_modifiers.get_mut(*e).ok());
-
-        match update.update {
-            UpdateInstance::Include | UpdateInstance::Hide => {
-                let new_visibility = match update.update {
-                    UpdateInstance::Include => Visibility::Inherited,
-                    UpdateInstance::Hide => Visibility::Hidden,
-                    _ => continue,
-                };
-                if let Some(mut visibility_modifier) = visibility_modifier {
-                    **visibility_modifier = new_visibility;
-                } else if let Some(modifier_entity) = modifier_entity {
-                    commands
-                        .entity(*modifier_entity)
-                        .insert(Modifier::<Visibility>::new(new_visibility));
-                } else {
-                    let modifier_entity = commands
-                        .spawn(Modifier::<Visibility>::new(new_visibility))
-                        .id();
-                    add_modifier.write(AddModifier::new(
-                        update.element,
-                        modifier_entity,
-                        update.scenario,
-                    ));
-                }
-            }
-            UpdateInstance::Modify(new_pose) => {
-                if let Some(mut pose_modifier) = pose_modifier {
-                    **pose_modifier = new_pose.clone();
-                    commands
-                        .entity(update.element)
-                        .insert(LastSetValue::<Pose>::new(new_pose));
-                    // Do not trigger PropertyPlugin<Pose> if pose for existing modifier
-                    // was modified by user
-                    continue;
-                } else if let Some(modifier_entity) = modifier_entity {
-                    commands
-                        .entity(*modifier_entity)
-                        .insert(Modifier::<Pose>::new(new_pose));
-                } else {
-                    let modifier_entity = commands.spawn(Modifier::<Pose>::new(new_pose)).id();
-                    add_modifier.write(AddModifier::new(
-                        update.element,
-                        modifier_entity,
-                        update.scenario,
-                    ));
-                }
-            }
-            UpdateInstance::ResetPose | UpdateInstance::ResetVisibility => {
-                // Only process resets if this is not a root scenario
-                if parent_scenario.0.is_some() {
-                    if let Some(modifier_entity) = modifier_entity {
-                        match update.update {
-                            UpdateInstance::ResetPose => {
-                                commands.entity(*modifier_entity).remove::<Modifier<Pose>>();
-                            }
-                            UpdateInstance::ResetVisibility => {
-                                commands
-                                    .entity(*modifier_entity)
-                                    .remove::<Modifier<Visibility>>();
-                            }
-                            _ => continue,
-                        }
-                    }
-                }
-            }
-        }
-
-        update_property.write(UpdateProperty::new(update.element, update.scenario));
     }
 }
 

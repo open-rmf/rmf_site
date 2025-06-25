@@ -17,7 +17,7 @@
 
 use crate::site::{
     AddModifier, Affiliation, CurrentScenario, GetModifier, Modifier, ScenarioMarker,
-    ScenarioModifiers,
+    ScenarioModifiers, UpdateModifier, UpdateModifierEvent,
 };
 use bevy::{
     ecs::{component::Mutable, query::QueryFilter, system::SystemState},
@@ -70,7 +70,7 @@ impl UpdateProperty {
     }
 }
 
-#[derive(Component, Clone, Debug)]
+#[derive(Component, Clone, Debug, Deref, DerefMut)]
 pub struct LastSetValue<T: Property>(pub T);
 
 impl<T: Property> LastSetValue<T> {
@@ -94,12 +94,76 @@ impl<T: Property, F: QueryFilter + 'static + Send + Sync> Default for PropertyPl
 impl<T: Property, F: QueryFilter + 'static + Send + Sync> Plugin for PropertyPlugin<T, F> {
     fn build(&self, app: &mut App) {
         app.add_event::<UpdateProperty>()
-            .add_systems(PostUpdate, update_property_value::<T, F>)
+            .add_systems(
+                PostUpdate,
+                (
+                    handle_modifier_updates::<T, F>,
+                    update_property_value::<T, F>.after(handle_modifier_updates::<T, F>),
+                ),
+            )
             .add_observer(on_add_property::<T, F>)
             .add_observer(on_add_root_scenario::<T, F>);
     }
 }
 
+/// Handles any updates to property modifiers and process them accordingly before
+/// triggering updates to property values
+fn handle_modifier_updates<T: Property, F: QueryFilter + 'static + Send + Sync>(
+    mut commands: Commands,
+    mut add_modifier: EventWriter<AddModifier>,
+    mut update_modifier: EventReader<UpdateModifierEvent<T>>,
+    mut update_property: EventWriter<UpdateProperty>,
+    mut property_modifiers: Query<&mut Modifier<T>, With<Affiliation<Entity>>>,
+    elements: Query<(), (With<T>, F)>,
+    scenarios: Query<(&ScenarioModifiers<Entity>, &Affiliation<Entity>), With<ScenarioMarker>>,
+) {
+    for update in update_modifier.read() {
+        let Ok((scenario_modifiers, parent_scenario)) = scenarios.get(update.scenario) else {
+            continue;
+        };
+        if elements.get(update.element).is_err() {
+            // Only process modifier updates for elements registered to this plugin
+            continue;
+        }
+
+        let modifier_entity = scenario_modifiers.get(&update.element);
+        let property_modifier = modifier_entity.and_then(|e| property_modifiers.get_mut(*e).ok());
+
+        match &update.update_mode {
+            UpdateModifier::<T>::Modify(new_value) => {
+                if let Some(mut property_modifier) = property_modifier {
+                    **property_modifier = new_value.clone();
+                } else if let Some(modifier_entity) = modifier_entity {
+                    commands
+                        .entity(*modifier_entity)
+                        .insert(Modifier::<T>::new(new_value.clone()));
+                } else {
+                    let modifier_entity =
+                        commands.spawn(Modifier::<T>::new(new_value.clone())).id();
+                    add_modifier.write(AddModifier::new(
+                        update.element,
+                        modifier_entity,
+                        update.scenario,
+                    ));
+                }
+            }
+            UpdateModifier::<T>::Reset => {
+                // Only process resets if this is not a root scenario
+                if parent_scenario.0.is_some() {
+                    if let Some(modifier_entity) = modifier_entity {
+                        commands.entity(*modifier_entity).remove::<Modifier<T>>();
+                    }
+                }
+            }
+        }
+
+        if update.trigger_update_property {
+            update_property.write(UpdateProperty::new(update.element, update.scenario));
+        }
+    }
+}
+
+/// Updates the current scenario's property values based on changes to the property modifiers
 fn update_property_value<T: Property, F: QueryFilter + 'static + Send + Sync>(
     world: &mut World,
     values: &mut QueryState<&mut T, F>,
