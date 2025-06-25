@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    interaction::{Selection},
+    interaction::Selection,
     site::{AlignSiteDrawings, Delete},
     CreateNewWorkspace, CurrentWorkspace, WorkspaceLoader, WorkspaceSaver,
 };

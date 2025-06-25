@@ -1,6 +1,9 @@
 use bevy::prelude::*;
 use bevy_color::palettes::css as Colors;
-use bevy_inspector_egui::{bevy_egui::{EguiContext, EguiPlugin}, quick::WorldInspectorPlugin};
+use bevy_inspector_egui::{
+    bevy_egui::{EguiContext, EguiPlugin},
+    quick::WorldInspectorPlugin,
+};
 use bytemuck::TransparentWrapper;
 use rmf_site_camera::{
     CameraControlsBlocker, plugins::CameraSetupPlugin, resources::ProjectionMode,
@@ -72,11 +75,12 @@ fn setup(
 /// check current window hover status over ui element.
 pub fn window_hover_status(
     mut ui_hovered: ResMut<UiHoveredExample>,
-    mut windows: Query<&mut EguiContext>
+    mut windows: Query<&mut EguiContext>,
 ) {
-    let Ok(mut window) = windows.single_mut()
-    .inspect_err(|err| warn!("can't check window hover status: {:#}", err))
-     else {
+    let Ok(mut window) = windows
+        .single_mut()
+        .inspect_err(|err| warn!("can't check window hover status: {:#}", err))
+    else {
         return;
     };
     ui_hovered.0 = window.get_mut().is_pointer_over_area();

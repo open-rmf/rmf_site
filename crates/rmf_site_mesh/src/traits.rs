@@ -1,4 +1,6 @@
-use bevy_mod_outline::{GenerateOutlineNormalsError, GenerateOutlineNormalsSettings, OutlineMeshExt};
+use bevy_mod_outline::{
+    GenerateOutlineNormalsError, GenerateOutlineNormalsSettings, OutlineMeshExt,
+};
 use bevy_render::mesh::Mesh;
 
 pub trait WithOutlineMeshExt: Sized {

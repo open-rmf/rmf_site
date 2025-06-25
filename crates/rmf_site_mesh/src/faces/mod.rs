@@ -15,14 +15,13 @@
  *
 */
 
-use bevy_color::{Color};
+use bevy_color::Color;
 use bevy_math::prelude::*;
 use bevy_math::{Affine3A, primitives};
 use bevy_render::prelude::*;
 
 use bevy_render::primitives::Aabb;
 use std::collections::{BTreeMap, HashMap};
-
 
 use crate::*;
 

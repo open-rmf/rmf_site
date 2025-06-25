@@ -56,8 +56,8 @@ use crate::{
 pub mod components;
 pub mod plugins;
 pub mod resources;
-pub(crate) mod utils;
 mod systems;
+pub(crate) mod utils;
 
 /// RenderLayers are used to inform cameras which entities they should render.
 /// The General render layer is for things that should be visible to all
@@ -162,18 +162,18 @@ pub fn active_camera_maybe(active_cam: &ActiveCameraQuery) -> Result<Entity, Que
 #[derive(Reflect, Hash, Clone, PartialEq, Eq, Debug)]
 #[reflect(Clone)]
 pub struct TypeInfo {
-    /// set to `#[reflect(ignore)]` until https://github.com/jakobhellermann/bevy-inspector-egui/issues/267 
+    /// set to `#[reflect(ignore)]` until https://github.com/jakobhellermann/bevy-inspector-egui/issues/267
     /// is resolved
-    /// 
-    /// set to `Option` so `#[reflect(ignore)]` stops complaining about no [`TypeId`] [`Default`] impl. 
-    /// 
+    ///
+    /// set to `Option` so `#[reflect(ignore)]` stops complaining about no [`TypeId`] [`Default`] impl.
+    ///
     /// TODO: Set this back to just [`TypeId`] when mentioned issue is fixed.
     #[reflect(ignore)]
     type_id: Option<TypeId>,
     /// full crate path of the type
     type_name: String,
     /// short name of the type
-    /// 
+    ///
     /// TODO: Remove this in favor of a proper inspector reflection impl for type_name.
     type_name_short: String,
 }

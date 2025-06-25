@@ -153,7 +153,7 @@ pub fn update_cursor_command(
         else {
             return;
         };
-        
+
         let cursor_selection_new = pointers
             .single()
             .ok()
@@ -169,7 +169,7 @@ pub fn update_cursor_command(
                     *cursor_ray.direction,
                     *camera_transform.forward(),
                 )
-        });
+            });
         let cursor_selection = match cursor_command.cursor_selection {
             Some(selection) => selection,
             None => cursor_selection_new,

@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{interaction::*};
+use crate::interaction::*;
 use bevy::color::palettes::css as Colors;
 use bevy::ecs::hierarchy::ChildOf;
 use bevy::{math::primitives, math::Affine3A, prelude::*};

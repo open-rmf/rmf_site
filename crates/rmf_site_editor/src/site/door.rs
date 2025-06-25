@@ -29,7 +29,9 @@ use bevy::{
     },
 };
 use rmf_site_format::{Category, DoorType, Edge, DEFAULT_LEVEL_HEIGHT};
-use rmf_site_mesh::{flat_arc, flat_arrow_mesh_between, line_stroke_away_from, line_stroke_mesh, MeshBuffer, Radians};
+use rmf_site_mesh::{
+    flat_arc, flat_arrow_mesh_between, line_stroke_away_from, line_stroke_mesh, MeshBuffer, Radians,
+};
 use std::collections::{BTreeSet, HashMap};
 use uuid::Uuid;
 

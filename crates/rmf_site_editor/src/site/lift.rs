@@ -15,9 +15,7 @@
  *
 */
 
-use crate::{
-    interaction::Selectable, site::*, CurrentWorkspace, Issue, ValidateWorkspace,
-};
+use crate::{interaction::Selectable, site::*, CurrentWorkspace, Issue, ValidateWorkspace};
 use bevy::{
     ecs::{hierarchy::ChildOf, relationship::AncestorIter},
     prelude::*,
