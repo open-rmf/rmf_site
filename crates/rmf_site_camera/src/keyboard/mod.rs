@@ -15,12 +15,22 @@
  *
 */
 
-use super::{
-    utils::*, CameraCommandType, CameraControls, ProjectionMode, MAX_FOV, MAX_SCALE, MIN_FOV,
-    MIN_SCALE,
+use crate::{
+    ActiveCameraQuery, UserCameraDisplay, active_camera_maybe,
+    resources::{CameraConfig, CameraControls},
 };
-use crate::widgets::UserCameraDisplay;
-use bevy::{picking::mesh_picking::ray_cast::MeshRayCast, prelude::*, window::PrimaryWindow};
+
+use super::{CameraCommandType, MAX_FOV, MAX_SCALE, MIN_FOV, MIN_SCALE, ProjectionMode, utils::*};
+use bevy_ecs::prelude::*;
+use bevy_input::prelude::*;
+use bevy_math::prelude::*;
+use bevy_picking::prelude::*;
+use bevy_reflect::Reflect;
+use bevy_render::prelude::*;
+use bevy_time::Time;
+use bevy_transform::components::{GlobalTransform, Transform};
+use bevy_window::{PrimaryWindow, Window};
+use tracing::warn;
 
 // Keyboard control limits
 pub const MIN_RESPONSE_TIME: f32 = 0.25; // [s] time taken to reach minimum input, or to reset
@@ -31,7 +41,8 @@ pub const MAX_TRANSLATION_VEL: f32 = 8.0; // [m/s]
 pub const SCALE_ZOOM_SENSITIVITY: f32 = 0.035;
 pub const ORTHOGRAPHIC_PAN_SENSITIVITY: f32 = 0.015;
 
-#[derive(Resource)]
+#[derive(Resource, Reflect)]
+#[reflect(Resource)]
 pub struct KeyboardCommand {
     pub translation_delta: Vec3,
     pub rotation_delta: Quat,
@@ -76,11 +87,13 @@ impl KeyboardCommand {
     }
 }
 
-pub fn update_keyboard_command(
-    mut camera_controls: ResMut<CameraControls>,
+pub(crate) fn update_keyboard_command(
+    mut camera_config: ResMut<CameraConfig>,
+    camera_controls: ResMut<CameraControls>,
     mut keyboard_command: ResMut<KeyboardCommand>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     cameras: Query<(&Camera, &Projection, &Transform, &GlobalTransform)>,
+    active_camera: ActiveCameraQuery,
     mesh_ray_cast: MeshRayCast,
     time: Res<Time>,
     primary_windows: Query<&Window, With<PrimaryWindow>>,
@@ -91,16 +104,16 @@ pub fn update_keyboard_command(
         let is_shifting = keyboard_input.pressed(KeyCode::ShiftLeft)
             || keyboard_input.pressed(KeyCode::ShiftRight);
         let mut target_keyboard_motion = Vec2::ZERO;
-        if keyboard_input.pressed(KeyCode::ArrowUp) {
+        if keyboard_input.pressed(camera_controls.up) {
             target_keyboard_motion.y += 1.0;
         }
-        if keyboard_input.pressed(KeyCode::ArrowLeft) {
+        if keyboard_input.pressed(camera_controls.left) {
             target_keyboard_motion.x += -1.0;
         }
-        if keyboard_input.pressed(KeyCode::ArrowDown) {
+        if keyboard_input.pressed(camera_controls.down) {
             target_keyboard_motion.y += -1.0;
         }
-        if keyboard_input.pressed(KeyCode::ArrowRight) {
+        if keyboard_input.pressed(camera_controls.right) {
             target_keyboard_motion.x += 1.0;
         }
         if target_keyboard_motion.length() > 0.0 {
@@ -108,10 +121,10 @@ pub fn update_keyboard_command(
         }
 
         let mut target_zoom_motion = 0.0;
-        if keyboard_input.pressed(KeyCode::PageDown) {
+        if keyboard_input.pressed(camera_controls.zoom_out) {
             target_zoom_motion += -1.0;
         }
-        if keyboard_input.pressed(KeyCode::PageUp) {
+        if keyboard_input.pressed(camera_controls.zoom_in) {
             target_zoom_motion += 1.0;
         }
 
@@ -177,19 +190,16 @@ pub fn update_keyboard_command(
         }
 
         // Camera projection and transform
-        let active_camera_entity = match camera_controls.mode() {
-            ProjectionMode::Orthographic => camera_controls.orthographic_camera_entities[0],
-            ProjectionMode::Perspective => camera_controls.perspective_camera_entities[0],
-        };
-        let Ok((camera, camera_proj, camera_transform, camera_global_transform)) =
-            cameras.get(active_camera_entity)
-        else {
+        let Ok(active_camera_e) = active_camera_maybe(&active_camera) else {
             return;
         };
 
+        let (camera, camera_proj, camera_transform, camera_global_transform) =
+            cameras.get(active_camera_e).unwrap();
+
         // Set camera selection as orbit center, discard once orbit operation complete
         let camera_selection = match keyboard_command.camera_selection {
-            Some(camera_selection) => Some(camera_selection),
+            Some(camera_selection) => Ok(camera_selection),
             None => get_camera_selected_point(
                 &camera,
                 &camera_global_transform,
@@ -198,21 +208,24 @@ pub fn update_keyboard_command(
             ),
         };
 
-        let Some(camera_selection) = camera_selection else {
-            warn!("Point could not be calculated for camera");
+        let Ok(camera_selection) = camera_selection else {
+            warn!(
+                "Point could not be calculated for camera due to: {:#?}",
+                camera_selection
+            );
             return;
         };
 
         if command_type == CameraCommandType::Orbit {
-            camera_controls.orbit_center = Some(camera_selection);
+            camera_config.orbit_center = Some(camera_selection);
         }
         if keyboard_command.command_type == CameraCommandType::Orbit
             && keyboard_command.command_type != command_type
         {
-            camera_controls.orbit_center = None;
+            camera_config.orbit_center = None;
         }
 
-        match camera_controls.mode() {
+        match *active_camera.proj_mode {
             ProjectionMode::Orthographic => {
                 if let Projection::Orthographic(camera_proj) = camera_proj {
                     *keyboard_command = get_orthographic_command(

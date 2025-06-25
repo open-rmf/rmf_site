@@ -15,9 +15,12 @@
  *
 */
 
-use bevy::math::Ray3d;
-use bevy::picking::mesh_picking::ray_cast::{MeshRayCast, MeshRayCastSettings, RayCastVisibility};
-use bevy::prelude::*;
+use bevy_ecs::prelude::*;
+use bevy_math::Ray3d;
+use bevy_math::prelude::*;
+use bevy_picking::mesh_picking::ray_cast::{MeshRayCast, MeshRayCastSettings, RayCastVisibility};
+use bevy_render::prelude::*;
+use bevy_transform::components::{GlobalTransform, Transform};
 
 use super::{MAX_PITCH, MAX_SELECTION_DIST, MIN_SELECTION_DIST};
 use crate::UserCameraDisplay;
@@ -72,17 +75,19 @@ pub fn get_camera_selected_point(
     camera_global_transform: &GlobalTransform,
     user_camera_display: Option<Res<UserCameraDisplay>>,
     mut mesh_ray_cast: MeshRayCast,
-) -> Option<Vec3> {
+) -> Result<Vec3, anyhow::Error> {
     let available_viewport_center = user_camera_display
         // Assume that the camera spans the full window, covered by egui panels
-        .map(|display| display.region)
+        .map(|display: Res<'_, UserCameraDisplay>| display.region)
         // If egui panels aren't being used, then use the center of the whole camera
-        .or_else(|| camera.logical_viewport_rect())?
+        .or_else(|| camera.logical_viewport_rect())
+        .ok_or(anyhow::Error::msg(
+            "logical_viewport_rect() evaluates to none",
+        ))?
         .center();
 
-    let camera_ray = camera
-        .viewport_to_world(camera_global_transform, available_viewport_center)
-        .ok()?;
+    let camera_ray =
+        camera.viewport_to_world(camera_global_transform, available_viewport_center)?;
     let camera_ray = Ray3d::new(camera_ray.origin, camera_ray.direction);
     let ray_cast_setting = MeshRayCastSettings::default()
         .always_early_exit()
@@ -92,9 +97,9 @@ pub fn get_camera_selected_point(
     let intersections = mesh_ray_cast.cast_ray(camera_ray, &ray_cast_setting);
     if intersections.len() > 0 {
         let (_, ray_mesh_hit) = &intersections[0];
-        return Some(ray_mesh_hit.point);
+        return Ok(ray_mesh_hit.point);
     } else {
-        return Some(get_groundplane_else_default_selection(
+        return Ok(get_groundplane_else_default_selection(
             camera_ray.origin,
             *camera_ray.direction,
             *camera_ray.direction,

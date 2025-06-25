@@ -5243,6 +5243,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "rmf_site_camera"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bevy",
+ "bevy-inspector-egui",
+ "bevy_app",
+ "bevy_asset",
+ "bevy_color",
+ "bevy_core_pipeline",
+ "bevy_derive",
+ "bevy_ecs",
+ "bevy_gizmos",
+ "bevy_input",
+ "bevy_math",
+ "bevy_pbr",
+ "bevy_picking",
+ "bevy_reflect",
+ "bevy_render",
+ "bevy_time",
+ "bevy_transform",
+ "bevy_utils",
+ "bevy_window",
+ "bytemuck",
+ "nalgebra",
+ "tracing",
+]
+
+[[package]]
 name = "rmf_site_editor"
 version = "0.0.1"
 dependencies = [
@@ -5268,6 +5297,7 @@ dependencies = [
  "pathdiff",
  "rfd",
  "rmf_site_animate",
+ "rmf_site_camera",
  "rmf_site_format",
  "sdformat_rs",
  "serde",

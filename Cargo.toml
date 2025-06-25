@@ -27,12 +27,12 @@ rmf_site_format = { path = "crates/rmf_site_format" }
 rmf_site_editor = { path = "crates/rmf_site_editor" }
 rmf_site_editor_web = { path = "crates/rmf_site_editor_web" }
 rmf_site_animate = {path = "crates/rmf_site_animate"}
-
+rmf_site_camera = {path = "crates/rmf_site_camera"}
 serde_yaml = "0.8.23"
 serde_json = "*"
 ron = "0.10"
 thiserror = "*"
-glam = { version = "0.29" }
+glam = { version = "0.29" } # Ensure that this match's bevy_math's glam before updating.
 uuid = { version = "1.13"}
 yaserde = "0.7"
 sdformat_rs = { git = "https://github.com/open-rmf/sdf_rust_experimental", rev = "9fc35f2"}
@@ -59,7 +59,7 @@ gz-fuel = { git = "https://github.com/open-rmf/gz-fuel-rs", branch = "main" }
 ehttp = { version = "0.4"}
 nalgebra = "0.32.5"
 anyhow = "*"
-bevy_egui = "0.34" # ensure this matches other downstream crate's bevy_egui version (E.G: bevy-inspector-egui) before updating.
+bevy_egui = "0.34" # Ensure this matches other downstream crate's bevy_egui version (E.G: bevy-inspector-egui) before updating.
 bevy-inspector-egui = "0.31"
 bevy_impulse = { git = "https://github.com/open-rmf/bevy_impulse", branch = "release-0.4" }
 float_eq = "1.0"

@@ -15,32 +15,31 @@
  *
 */
 
+use std::collections::HashMap;
+
 use crate::interaction::*;
 use bevy::{picking::pointer::PointerInteraction, prelude::*};
+use bytemuck::TransparentWrapper;
+use rmf_site_camera::{plugins::BlockerRegistration, resources::BlockStatus};
 
-/// A resource to track what kind of picking blockers are currently active
-#[derive(Resource)]
-pub struct PickingBlockers {
-    /// An InteractionMask entity is being hovered over
-    pub masked: bool,
-    /// The UI is being hovered over
-    pub ui: bool,
-}
+/// The UI is being hovered over
+#[derive(Resource, Default, TransparentWrapper)]
+#[repr(transparent)]
+pub struct UiHovered(pub bool);
 
-impl PickingBlockers {
-    pub fn blocking(&self) -> bool {
-        self.masked || self.ui
-    }
-}
+/// An InteractionMask entity is being hovered over
+#[derive(Resource, Default, TransparentWrapper)]
+#[repr(transparent)]
+pub struct IteractionMaskHovered(pub bool);
 
-impl Default for PickingBlockers {
-    fn default() -> Self {
-        PickingBlockers {
-            masked: false,
-            ui: false,
-        }
-    }
-}
+#[derive(Reflect, Resource, Default, TransparentWrapper)]
+#[reflect(Resource)]
+#[repr(transparent)]
+pub struct PickingBlockers(pub HashMap<TypeInfo, bool>);
+
+pub type PickBlockerRegistration<T> = BlockerRegistration<T, PickingBlockers>;
+
+pub type PickBlockStatus = BlockStatus<PickingBlockers>;
 
 /// Keep track of what entity is currently picked by the cursor
 #[derive(Debug, Clone, Copy, Default, Resource)]
@@ -81,25 +80,23 @@ fn pick_topmost(
 // TODO(@mxgrey): Consider making this a service similar to hover_service and select_service
 pub fn update_picked(
     selectable: Query<&Selectable>,
-    blockers: Option<Res<PickingBlockers>>,
+    block_status: Res<PickBlockStatus>,
     pointers: Query<&PointerInteraction>,
     visual_cues: Query<&ComputedVisualCue>,
     mut picked: ResMut<Picked>,
     mut change_pick: EventWriter<ChangePick>,
 ) {
-    if let Some(blockers) = blockers {
-        if blockers.blocking() {
-            // If picking is masked, then nothing should be picked
-            if picked.current.is_some() {
-                change_pick.write(ChangePick {
-                    from: picked.current,
-                    to: None,
-                });
-                picked.current = None;
-            }
-
-            return;
+    if block_status.blocked() {
+        // If picking is masked, then nothing should be picked
+        if picked.current.is_some() {
+            change_pick.write(ChangePick {
+                from: picked.current,
+                to: None,
+            });
+            picked.current = None;
         }
+
+        return;
     }
 
     let current_picked = 'current_picked: {
