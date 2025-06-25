@@ -210,7 +210,7 @@ pub(crate) fn update_keyboard_command(
 
         let Ok(camera_selection) = camera_selection else {
             warn!(
-                "Point could not be calculated for camera due to: {:#?}",
+                "Point could not be calculated for camera, skipping controls update. Reason: {:#?}",
                 camera_selection
             );
             return;

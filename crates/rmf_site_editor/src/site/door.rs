@@ -18,7 +18,6 @@
 use crate::{
     interaction::{Hovered, Selectable},
     issue::*,
-    shapes::*,
     site::*,
 };
 use bevy::{
@@ -30,6 +29,7 @@ use bevy::{
     },
 };
 use rmf_site_format::{Category, DoorType, Edge, DEFAULT_LEVEL_HEIGHT};
+use rmf_site_mesh::{flat_arc, flat_arrow_mesh_between, line_stroke_away_from, line_stroke_mesh, MeshBuffer, Radians};
 use std::collections::{BTreeSet, HashMap};
 use uuid::Uuid;
 
@@ -212,6 +212,15 @@ fn door_swing_arc(
     let pivot = Vec3::new(0.0, pivot, DOOR_CUE_HEIGHT);
     let door_width = door_width / door_count as f32 + offset;
     let (initial_angle, sweep) = swing.swing_on_pivot(pivot_on);
+
+    let initial_angle = Radians(match initial_angle {
+        misc::Angle::Deg(n) => n.to_radians(),
+        misc::Angle::Rad(n) => n,
+    });
+    let sweep = Radians(match sweep {
+        misc::Angle::Deg(n) => n.to_radians(),
+        misc::Angle::Rad(n) => n,
+    });
     flat_arc(
         pivot,
         door_width,

@@ -153,16 +153,7 @@ pub fn update_cursor_command(
         else {
             return;
         };
-        // let Some((_, hit_data)) = pointers.single().ok().and_then(|(_, interactions)| {
-        //     interactions
-        //         .iter()
-        //         .find(|(_, hit)| hit.camera == active_camera_entity)
-        // }) else {
-        //     return;
-        // };
-        // let cursor_selection_new =
-        //     get_cursor_selected_point(&camera_transform, hit_data, cursor_ray);
-
+        
         let cursor_selection_new = pointers
             .single()
             .ok()

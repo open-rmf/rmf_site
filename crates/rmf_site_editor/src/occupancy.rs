@@ -17,7 +17,6 @@
 
 use crate::{
     interaction::ComputedVisualCue,
-    shapes::*,
     site::{Category, LevelElevation, NameOfSite, SiteAssets, LANE_LAYER_START},
 };
 use bevy::{
@@ -34,6 +33,7 @@ use std::{
     collections::{HashMap, HashSet},
     time::Instant,
 };
+use rmf_site_mesh::*;
 
 pub struct OccupancyPlugin;
 
