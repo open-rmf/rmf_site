@@ -3,13 +3,13 @@ use std::{
     ops::{Add, Mul, Neg},
 };
 
-use bevy_asset::{prelude::*, RenderAssetUsages};
+use bevy_asset::{RenderAssetUsages, prelude::*};
 use bevy_color::{Color, LinearRgba};
 use bevy_derive::Deref;
 use bevy_math::Affine3A;
 use bevy_mod_outline::ATTRIBUTE_OUTLINE_NORMAL;
-use bevy_render::{mesh::{Indices, PrimitiveTopology, VertexAttributeValues}};
 use bevy_reflect::prelude::*;
+use bevy_render::mesh::{Indices, PrimitiveTopology, VertexAttributeValues};
 
 pub mod faces;
 pub use faces::*;
@@ -115,7 +115,6 @@ impl From<Angle> for Degrees {
         }
     }
 }
-
 
 #[derive(Default, Debug, Clone)]
 pub struct MeshBuffer {

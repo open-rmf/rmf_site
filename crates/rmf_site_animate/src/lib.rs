@@ -15,10 +15,10 @@
  *
 */
 
-use bevy_reflect::Reflect;
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_math::Quat;
+use bevy_reflect::Reflect;
 use bevy_render::view::ViewVisibility;
 use bevy_time::Time;
 use bevy_transform::prelude::*;
@@ -107,12 +107,11 @@ pub struct VisualCueAnimationsPlugin;
 
 impl Plugin for VisualCueAnimationsPlugin {
     fn build(&self, app: &mut App) {
-        app
-        .register_type::<Bobbing>()
-        .register_type::<Spinning>()
-        .add_systems(
-            Update,
-            (update_spinning_animations, update_bobbing_animations),
-        );
+        app.register_type::<Bobbing>()
+            .register_type::<Spinning>()
+            .add_systems(
+                Update,
+                (update_spinning_animations, update_bobbing_animations),
+            );
     }
 }

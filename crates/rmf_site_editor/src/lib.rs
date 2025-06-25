@@ -34,8 +34,8 @@ use issue::*;
 pub mod demo_world;
 pub mod log;
 mod recency;
-use recency::*;
 use log::LogHistoryPlugin;
+use recency::*;
 
 pub mod interaction;
 pub mod main_menu;

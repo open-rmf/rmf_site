@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{CurrentWorkspace};
+use crate::CurrentWorkspace;
 use bevy::ecs::hierarchy::ChildOf;
 use bevy::prelude::*;
 use rmf_site_camera::{active_camera_maybe, resources::CameraConfig, ActiveCameraQuery};

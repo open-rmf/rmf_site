@@ -29,11 +29,11 @@ use bevy::{
     },
 };
 use itertools::Itertools;
+use rmf_site_mesh::*;
 use std::{
     collections::{HashMap, HashSet},
     time::Instant,
 };
-use rmf_site_mesh::*;
 
 pub struct OccupancyPlugin;
 
