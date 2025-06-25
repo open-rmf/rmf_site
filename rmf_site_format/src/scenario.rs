@@ -61,10 +61,21 @@ impl<T: RefTrait> Default for ScenarioModifiers<T> {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
-#[cfg_attr(feature = "bevy", reflect(Component))]
-pub struct ScenarioMarker;
+impl<T: RefTrait> ScenarioModifiers<T> {
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<ScenarioModifiers<U>, T> {
+        let modifiers = self
+            .0
+            .clone()
+            .into_iter()
+            .map(|(e_id, m_id)| {
+                let converted_e_id = id_map.get(&e_id).cloned().ok_or(e_id)?;
+                let converted_m_id = id_map.get(&m_id).cloned().ok_or(m_id)?;
+                Ok((converted_e_id, converted_m_id))
+            })
+            .collect::<Result<_, _>>()?;
+        Ok(ScenarioModifiers(modifiers))
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
@@ -129,7 +140,8 @@ const DEFAULT_SCENARIO_NAME: &'static str = "Default Scenario";
 pub struct ScenarioBundle<T: RefTrait> {
     pub name: NameInSite,
     pub parent_scenario: Affiliation<T>,
-    pub marker: ScenarioMarker,
+    #[serde(skip_serializing)]
+    pub scenario_modifiers: ScenarioModifiers<T>,
 }
 
 impl<T: RefTrait> ScenarioBundle<T> {
@@ -137,7 +149,7 @@ impl<T: RefTrait> ScenarioBundle<T> {
         ScenarioBundle {
             name: NameInSite(name.unwrap_or(DEFAULT_SCENARIO_NAME.to_string())),
             parent_scenario: Affiliation(parent),
-            marker: ScenarioMarker,
+            scenario_modifiers: ScenarioModifiers(HashMap::new()),
         }
     }
 }
@@ -147,7 +159,7 @@ impl<T: RefTrait> Default for ScenarioBundle<T> {
         Self {
             name: NameInSite(DEFAULT_SCENARIO_NAME.to_string()),
             parent_scenario: Affiliation::default(),
-            marker: ScenarioMarker,
+            scenario_modifiers: ScenarioModifiers::default(),
         }
     }
 }
@@ -157,7 +169,7 @@ impl<T: RefTrait> ScenarioBundle<T> {
         Ok(ScenarioBundle {
             name: self.name.clone(),
             parent_scenario: self.parent_scenario.convert(id_map)?,
-            marker: ScenarioMarker,
+            scenario_modifiers: self.scenario_modifiers.convert(id_map)?,
         })
     }
 }

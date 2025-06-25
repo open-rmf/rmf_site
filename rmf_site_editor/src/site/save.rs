@@ -114,7 +114,7 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
         >,
         Query<Entity, (With<ModelMarker>, With<Group>)>,
         Query<Entity, (With<ModelMarker>, Without<Group>, Without<Preview>)>,
-        Query<Entity, With<ScenarioMarker>>,
+        Query<Entity, With<ScenarioModifiers<Entity>>>,
         Query<Entity, (With<Task>, Without<Pending>)>,
         Query<
             Entity,
@@ -1375,7 +1375,10 @@ fn generate_scenarios(
     world: &mut World,
 ) -> Result<BTreeMap<u32, Scenario<u32>>, SiteGenerationError> {
     let mut state: SystemState<(
-        Query<(Entity, &NameInSite, &SiteID, &Affiliation<Entity>), With<ScenarioMarker>>,
+        Query<
+            (Entity, &NameInSite, &SiteID, &Affiliation<Entity>),
+            With<ScenarioModifiers<Entity>>,
+        >,
         Query<(
             Option<&Modifier<Pose>>,
             Option<&Modifier<Visibility>>,
@@ -1468,7 +1471,7 @@ fn generate_scenarios(
                                         ),
                                         None => Affiliation(None),
                                     },
-                                    marker: ScenarioMarker,
+                                    scenario_modifiers: ScenarioModifiers::default(),
                                 },
                             },
                         );

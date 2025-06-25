@@ -19,7 +19,7 @@ use crate::{interaction::CameraControls, CurrentWorkspace};
 use bevy::ecs::hierarchy::ChildOf;
 use bevy::prelude::*;
 use rmf_site_format::{
-    LevelElevation, LevelProperties, NameInSite, NameOfSite, Pose, ScenarioMarker,
+    LevelElevation, LevelProperties, NameInSite, NameOfSite, Pose, ScenarioModifiers,
     UserCameraPoseMarker,
 };
 
@@ -68,7 +68,7 @@ pub fn change_site(
     children: Query<&Children>,
     child_of: Query<&ChildOf>,
     levels: Query<Entity, With<LevelElevation>>,
-    scenarios: Query<Entity, With<ScenarioMarker>>,
+    scenarios: Query<Entity, With<ScenarioModifiers<Entity>>>,
 ) {
     let mut set_visibility = |entity, value| {
         if let Ok(mut v) = visibility.get_mut(entity) {

@@ -18,8 +18,8 @@ use crate::{
     site::{
         count_scenarios_with_inclusion, Affiliation, Category, Change, CurrentScenario, Delete,
         DispatchTaskRequest, GetModifier, Group, Inclusion, Modifier, NameInSite, Pending, Robot,
-        RobotTaskRequest, ScenarioMarker, ScenarioModifiers, Task, TaskKinds, TaskParams,
-        UpdateModifier, UpdateModifierEvent,
+        RobotTaskRequest, ScenarioModifiers, Task, TaskKinds, TaskParams, UpdateModifier,
+        UpdateModifierEvent,
     },
     widgets::prelude::*,
     Icons, Tile, WidgetSystem,
@@ -132,7 +132,6 @@ pub struct ViewTasks<'w, 's> {
             &'static ScenarioModifiers<Entity>,
             &'static Affiliation<Entity>,
         ),
-        With<ScenarioMarker>,
     >,
     task_kinds: ResMut<'w, TaskKinds>,
     task_widget: ResMut<'w, TaskWidget>,

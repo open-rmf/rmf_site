@@ -18,7 +18,7 @@
 use crate::{
     site::{
         AddModifier, Affiliation, ChangeCurrentScenario, Delete, Inclusion, LastSetValue, Modifier,
-        Pending, Property, ScenarioMarker, ScenarioModifiers, Task, TaskKind, TaskParams,
+        Pending, Property, ScenarioModifiers, Task, TaskKind, TaskParams,
     },
     widgets::tasks::{EditMode, EditModeEvent, EditTask},
     CurrentWorkspace,
@@ -56,10 +56,7 @@ impl Property for TaskParams {
         // moving this logic into StandardProperty instead
         let mut state: SystemState<(
             Query<(&mut Modifier<TaskParams>, &Affiliation<Entity>)>,
-            Query<
-                (Entity, &ScenarioModifiers<Entity>, Ref<Affiliation<Entity>>),
-                With<ScenarioMarker>,
-            >,
+            Query<(Entity, &ScenarioModifiers<Entity>, Ref<Affiliation<Entity>>)>,
         )> = SystemState::new(world);
         let (mut task_modifiers, scenarios) = state.get_mut(world);
 

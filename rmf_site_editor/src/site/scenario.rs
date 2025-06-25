@@ -20,8 +20,8 @@ use crate::{
     site::{
         AddModifier, Affiliation, CurrentScenario, Delete, Dependents, GetModifier, Group,
         Inclusion, InstanceMarker, IssueKey, LastSetValue, ModelMarker, Modifier, NameInSite,
-        Pending, PendingModel, Pose, Property, ScenarioBundle, ScenarioMarker, ScenarioModifiers,
-        UpdateModifier, UpdateModifierEvent, UpdateProperty,
+        Pending, PendingModel, Pose, Property, ScenarioBundle, ScenarioModifiers, UpdateModifier,
+        UpdateModifierEvent, UpdateProperty,
     },
     CurrentWorkspace, Issue, ValidateWorkspace,
 };
@@ -53,10 +53,7 @@ impl Property for Pose {
     fn insert(for_element: Entity, in_scenario: Entity, value: Pose, world: &mut World) {
         let mut modifier_state: SystemState<(
             Query<(&mut Modifier<Pose>, &Affiliation<Entity>)>,
-            Query<
-                (Entity, &ScenarioModifiers<Entity>, Ref<Affiliation<Entity>>),
-                With<ScenarioMarker>,
-            >,
+            Query<(Entity, &ScenarioModifiers<Entity>, Ref<Affiliation<Entity>>)>,
         )> = SystemState::new(world);
         let (mut pose_modifiers, scenarios) = modifier_state.get_mut(world);
 
@@ -267,10 +264,7 @@ pub fn update_model_instance_poses(
 
 /// Count the number of scenarios an element is included in with the Visibility modifier
 pub fn count_scenarios_with_visibility(
-    scenarios: &Query<
-        (Entity, &ScenarioModifiers<Entity>, &Affiliation<Entity>),
-        With<ScenarioMarker>,
-    >,
+    scenarios: &Query<(Entity, &ScenarioModifiers<Entity>, &Affiliation<Entity>)>,
     element: Entity,
     get_modifier: &GetModifier<Modifier<Visibility>>,
 ) -> i32 {
@@ -288,10 +282,7 @@ pub fn count_scenarios_with_visibility(
 
 /// Count the number of scenarios an element is included in with the Inclusion modifier
 pub fn count_scenarios_with_inclusion(
-    scenarios: &Query<
-        (Entity, &ScenarioModifiers<Entity>, &Affiliation<Entity>),
-        With<ScenarioMarker>,
-    >,
+    scenarios: &Query<(Entity, &ScenarioModifiers<Entity>, &Affiliation<Entity>)>,
     element: Entity,
     get_modifier: &GetModifier<Modifier<Inclusion>>,
 ) -> i32 {
@@ -341,7 +332,7 @@ pub fn handle_remove_scenarios(
     mut delete: EventWriter<Delete>,
     mut scenarios: Query<
         (Entity, &Affiliation<Entity>, Option<&mut Dependents>),
-        With<ScenarioMarker>,
+        With<ScenarioModifiers<Entity>>,
     >,
     children: Query<&Children>,
 ) {
@@ -400,10 +391,7 @@ pub fn check_for_hidden_model_instances(
         (Entity, &NameInSite, &Affiliation<Entity>),
         (With<ModelMarker>, Without<Group>),
     >,
-    scenarios: Query<
-        (Entity, &ScenarioModifiers<Entity>, &Affiliation<Entity>),
-        With<ScenarioMarker>,
-    >,
+    scenarios: Query<(Entity, &ScenarioModifiers<Entity>, &Affiliation<Entity>)>,
 ) {
     for root in validate_events.read() {
         for (instance_entity, instance_name, _) in instances.iter() {

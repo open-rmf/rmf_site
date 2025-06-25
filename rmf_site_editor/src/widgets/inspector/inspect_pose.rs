@@ -17,8 +17,8 @@
 
 use crate::{
     site::{
-        Affiliation, Change, CurrentScenario, Modifier, ScenarioMarker, ScenarioModifiers,
-        UpdateModifier, UpdateModifierEvent,
+        Affiliation, Change, CurrentScenario, Modifier, ScenarioModifiers, UpdateModifier,
+        UpdateModifierEvent,
     },
     widgets::{inspector::InspectAngle, prelude::*, Inspect},
 };
@@ -40,7 +40,6 @@ pub struct InspectPose<'w, 's> {
             &'static ScenarioModifiers<Entity>,
             &'static Affiliation<Entity>,
         ),
-        With<ScenarioMarker>,
     >,
     update_modifier: EventWriter<'w, UpdateModifierEvent<Pose>>,
 }

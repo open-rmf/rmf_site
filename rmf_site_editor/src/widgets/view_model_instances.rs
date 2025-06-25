@@ -19,8 +19,8 @@ use crate::{
     interaction::Selection,
     site::{
         count_scenarios_with_visibility, Affiliation, CurrentScenario, Delete, GetModifier, Group,
-        Members, ModelMarker, Modifier, NameInSite, ScenarioMarker, ScenarioModifiers,
-        UpdateModifier, UpdateModifierEvent,
+        Members, ModelMarker, Modifier, NameInSite, ScenarioModifiers, UpdateModifier,
+        UpdateModifierEvent,
     },
     widgets::{prelude::*, SelectorWidget},
     Icons,
@@ -51,7 +51,6 @@ pub struct ViewModelInstances<'w, 's> {
             &'static ScenarioModifiers<Entity>,
             &'static Affiliation<Entity>,
         ),
-        With<ScenarioMarker>,
     >,
     current_scenario: ResMut<'w, CurrentScenario>,
     get_modifier: GetModifier<'w, 's, Modifier<Visibility>>,

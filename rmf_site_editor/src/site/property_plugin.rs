@@ -16,8 +16,8 @@
 */
 
 use crate::site::{
-    AddModifier, Affiliation, CurrentScenario, GetModifier, Modifier, ScenarioMarker,
-    ScenarioModifiers, UpdateModifier, UpdateModifierEvent,
+    AddModifier, Affiliation, CurrentScenario, GetModifier, Modifier, ScenarioModifiers,
+    UpdateModifier, UpdateModifierEvent,
 };
 use bevy::{
     ecs::{component::Mutable, query::QueryFilter, system::SystemState},
@@ -115,7 +115,7 @@ fn handle_modifier_updates<T: Property, F: QueryFilter + 'static + Send + Sync>(
     mut update_property: EventWriter<UpdateProperty>,
     mut property_modifiers: Query<&mut Modifier<T>, With<Affiliation<Entity>>>,
     elements: Query<(), (With<T>, F)>,
-    scenarios: Query<(&ScenarioModifiers<Entity>, &Affiliation<Entity>), With<ScenarioMarker>>,
+    scenarios: Query<(&ScenarioModifiers<Entity>, &Affiliation<Entity>)>,
 ) {
     for update in update_modifier.read() {
         let Ok((scenario_modifiers, parent_scenario)) = scenarios.get(update.scenario) else {
@@ -255,7 +255,7 @@ fn on_add_property<T: Property, F: QueryFilter + 'static + Send + Sync>(
 fn on_add_root_scenario<T: Property, F: QueryFilter + 'static + Send + Sync>(
     trigger: Trigger<OnAdd, ScenarioModifiers<Entity>>,
     world: &mut World,
-    state: &mut SystemState<Query<&Affiliation<Entity>, With<ScenarioMarker>>>,
+    state: &mut SystemState<Query<&Affiliation<Entity>>>,
 ) {
     let scenarios = state.get_mut(world);
     if !scenarios.get(trigger.target()).is_ok_and(|p| p.0.is_none()) {
