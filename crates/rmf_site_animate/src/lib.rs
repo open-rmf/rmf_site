@@ -15,10 +15,17 @@
  *
 */
 
-use bevy::prelude::*;
+use bevy_reflect::Reflect;
+use bevy_app::prelude::*;
+use bevy_ecs::prelude::*;
+use bevy_math::Quat;
+use bevy_render::view::ViewVisibility;
+use bevy_time::Time;
+use bevy_transform::prelude::*;
+use bevy_utils::prelude::*;
 
-/// Used to mark halo meshes so their rotations can be animated
-#[derive(Debug, Component)]
+/// Marks an entity's visual cue model to spin.
+#[derive(Debug, Component, Reflect)]
 pub struct Spinning {
     period: f32,
 }
@@ -35,7 +42,8 @@ impl Default for Spinning {
     }
 }
 
-#[derive(Debug, Component)]
+/// Marks an entity's visual cue model to bob.
+#[derive(Debug, Component, Reflect)]
 pub struct Bobbing {
     period: f32,
     heights: (f32, f32),
@@ -69,18 +77,7 @@ impl From<(f32, f32)> for Bobbing {
     }
 }
 
-pub fn set_bobbing(
-    entity: Entity,
-    min_height: f32,
-    max_height: f32,
-    q_bobbing: &mut Query<&mut Bobbing>,
-) {
-    if let Some(mut b) = q_bobbing.get_mut(entity).ok() {
-        b.heights = (min_height, max_height);
-    }
-}
-
-pub fn update_spinning_animations(
+fn update_spinning_animations(
     mut spinners: Query<(&mut Transform, &Spinning, &ViewVisibility)>,
     now: Res<Time>,
 ) {
@@ -92,7 +89,7 @@ pub fn update_spinning_animations(
     }
 }
 
-pub fn update_bobbing_animations(
+fn update_bobbing_animations(
     mut bobbers: Query<(&mut Transform, &Bobbing, &ViewVisibility)>,
     now: Res<Time>,
 ) {
@@ -105,11 +102,15 @@ pub fn update_bobbing_animations(
     }
 }
 
-pub struct AnimationPlugin;
+/// Plugin for running systems for diferent visual cue animation components.
+pub struct VisualCueAnimationsPlugin;
 
-impl Plugin for AnimationPlugin {
+impl Plugin for VisualCueAnimationsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
+        app
+        .register_type::<Bobbing>()
+        .register_type::<Spinning>()
+        .add_systems(
             Update,
             (update_spinning_animations, update_bobbing_animations),
         );

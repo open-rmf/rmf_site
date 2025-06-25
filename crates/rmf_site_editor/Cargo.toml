@@ -31,6 +31,7 @@ thread_local = {workspace = true}
 geo = {workspace = true}
 thiserror = {workspace = true}
 rmf_site_format = { workspace = true, features = ["bevy"] }
+rmf_site_animate = {workspace = true}
 itertools = {workspace = true}
 bitfield = {workspace = true}
 crossbeam-channel = {workspace = true}
