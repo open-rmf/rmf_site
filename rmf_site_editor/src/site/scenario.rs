@@ -306,10 +306,10 @@ pub fn handle_create_scenarios(
     current_workspace: Res<CurrentWorkspace>,
 ) {
     for new in new_scenarios.read() {
-        let mut cmd = commands.spawn((
-            ScenarioBundle::<Entity>::new(new.name.clone(), new.parent.clone()),
-            ScenarioModifiers::<Entity>::default(),
-        ));
+        let mut cmd = commands.spawn((ScenarioBundle::<Entity>::new(
+            new.name.clone(),
+            new.parent.clone(),
+        ),));
 
         if let Some(site_entity) = current_workspace.root {
             cmd.insert(ChildOf(site_entity));

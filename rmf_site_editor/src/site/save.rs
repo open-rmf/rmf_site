@@ -114,7 +114,7 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
         >,
         Query<Entity, (With<ModelMarker>, With<Group>)>,
         Query<Entity, (With<ModelMarker>, Without<Group>, Without<Preview>)>,
-        Query<Entity, With<ScenarioModifiers<Entity>>>,
+        Query<(Entity, &Affiliation<Entity>), With<ScenarioModifiers<Entity>>>,
         Query<Entity, (With<Task>, Without<Pending>)>,
         Query<
             Entity,
@@ -214,14 +214,25 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
             }
         }
 
-        // Ensure root scenarios have the smallest Site_ID, since when deserializing, child scenarios would
-        // require parent scenarios to already be spawned and have its parent entity
-        if let Ok(scenario) = scenarios.get(*site_child) {
+        if let Ok((scenario, _)) = scenarios.get(*site_child) {
+            // Ensure root scenarios have the smallest Site_ID, since when deserializing, child scenarios would
+            // require parent scenarios to already be spawned and have its parent entity
             let mut queue = vec![scenario];
+            let mut target_scenario = scenario;
+            while let Ok((e, target_parent)) = scenarios.get(target_scenario) {
+                let Some(p) = target_parent.0 else {
+                    break;
+                };
+                queue.push(e);
+                target_scenario = p;
+            }
+            queue.reverse();
+
             while let Some(scenario) = queue.pop() {
                 if !site_ids.contains(scenario) {
                     new_entities.push(scenario);
                 }
+                // Assign site IDs for modifier entities
                 if let Ok(scenario_children) = children.get(scenario) {
                     for child in scenario_children {
                         queue.push(*child);
@@ -1375,26 +1386,27 @@ fn generate_scenarios(
     world: &mut World,
 ) -> Result<BTreeMap<u32, Scenario<u32>>, SiteGenerationError> {
     let mut state: SystemState<(
-        Query<
-            (Entity, &NameInSite, &SiteID, &Affiliation<Entity>),
-            With<ScenarioModifiers<Entity>>,
-        >,
+        Query<(
+            Entity,
+            &ScenarioModifiers<Entity>,
+            &NameInSite,
+            &SiteID,
+            &Affiliation<Entity>,
+        )>,
+        Query<&SiteID, Without<Pending>>,
         Query<(
             Option<&Modifier<Pose>>,
             Option<&Modifier<Visibility>>,
             &Affiliation<Entity>,
         )>,
-        Query<&SiteID, With<InstanceMarker>>,
         Query<(
             Option<&Modifier<Inclusion>>,
             Option<&Modifier<TaskParams>>,
             &Affiliation<Entity>,
         )>,
-        Query<&SiteID, (With<Task>, Without<Pending>)>,
         Query<&Children>,
     )> = SystemState::new(world);
-    let (scenarios, instance_modifiers, instances, task_modifiers, tasks, children) =
-        state.get(world);
+    let (scenarios, site_id, instance_modifiers, task_modifiers, children) = state.get(world);
     let mut res = BTreeMap::<u32, Scenario<u32>>::new();
 
     if let Ok(site_children) = children.get(site) {
@@ -1403,38 +1415,19 @@ fn generate_scenarios(
                 let mut queue = vec![entity];
 
                 while let Some(scenario) = queue.pop() {
-                    let mut scenario_instance_modifiers = Vec::new();
-                    let mut scenario_task_modifiers = Vec::new();
-                    if let Ok(scenario_children) = children.get(scenario) {
-                        for scenario_child in scenario_children.iter() {
-                            if scenarios.contains(scenario_child) {
-                                queue.push(scenario_child);
-                            } else if instance_modifiers
-                                .get(scenario_child)
-                                .is_ok_and(|(p, v, _)| p.is_some() || v.is_some())
-                            {
-                                scenario_instance_modifiers.push(scenario_child);
-                            } else if task_modifiers
-                                .get(scenario_child)
-                                .is_ok_and(|(i, p, _)| i.is_some() || p.is_some())
-                            {
-                                scenario_task_modifiers.push(scenario_child);
-                            }
-                        }
-                    }
-
-                    if let Ok((_, name, site_id, parent_scenario)) = scenarios.get(scenario) {
+                    if let Ok((_, scenario_modifiers, name, scenario_id, parent_scenario)) =
+                        scenarios.get(scenario)
+                    {
                         res.insert(
-                            site_id.0,
+                            scenario_id.0,
                             Scenario {
-                                instances: scenario_instance_modifiers
+                                instances: scenario_modifiers
                                     .iter()
-                                    .filter_map(|child_entity| {
-                                        instance_modifiers.get(*child_entity).ok()
-                                    })
+                                    .filter_map(|(_, e)| instance_modifiers.get(*e).ok())
+                                    .filter(|(p, v, _)| p.is_some() || v.is_some())
                                     .filter_map(|(pose, visibility, affiliation)| {
                                         Some((
-                                            affiliation.0.and_then(|e| instances.get(e).ok())?.0,
+                                            affiliation.0.and_then(|e| site_id.get(e).ok())?.0,
                                             InstanceModifier {
                                                 pose: pose.map(|p| **p),
                                                 visibility: visibility.map(|v| match **v {
@@ -1445,14 +1438,13 @@ fn generate_scenarios(
                                         ))
                                     })
                                     .collect(),
-                                tasks: scenario_task_modifiers
+                                tasks: scenario_modifiers
                                     .iter()
-                                    .filter_map(|child_entity| {
-                                        task_modifiers.get(*child_entity).ok()
-                                    })
+                                    .filter_map(|(_, e)| task_modifiers.get(*e).ok())
+                                    .filter(|(i, p, _)| i.is_some() || p.is_some())
                                     .filter_map(|(inclusion, task_params, affiliation)| {
                                         Some((
-                                            affiliation.0.and_then(|e| tasks.get(e).ok())?.0,
+                                            affiliation.0.and_then(|e| site_id.get(e).ok())?.0,
                                             TaskModifier {
                                                 inclusion: inclusion.map(|i| **i),
                                                 params: task_params.map(|p| (**p).clone()),
@@ -1466,12 +1458,24 @@ fn generate_scenarios(
                                         Some(parent) => Affiliation(
                                             scenarios
                                                 .get(parent)
-                                                .map(|(_, _, site_id, _)| site_id.0)
+                                                .map(|(_, _, _, site_id, _)| site_id.0)
                                                 .ok(),
                                         ),
                                         None => Affiliation(None),
                                     },
-                                    scenario_modifiers: ScenarioModifiers::default(),
+                                    scenario_modifiers: {
+                                        ScenarioModifiers(
+                                            scenario_modifiers
+                                                .iter()
+                                                .filter_map(|(element, modifier)| {
+                                                    Some((
+                                                        site_id.get(*element).ok()?.0,
+                                                        site_id.get(*modifier).ok()?.0,
+                                                    ))
+                                                })
+                                                .collect::<HashMap<u32, u32>>(),
+                                        )
+                                    },
                                 },
                             },
                         );

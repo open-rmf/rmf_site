@@ -48,10 +48,13 @@ pub struct InstanceModifier {
 pub struct TaskModifier {
     #[serde(default, skip_serializing_if = "is_default")]
     pub inclusion: Option<Inclusion>,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub params: Option<TaskParams>,
 }
 
+/// Maps a scenario element entity to its modifier entity, if any
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(transparent)]
 #[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
 pub struct ScenarioModifiers<T: RefTrait>(pub HashMap<T, T>);
 
@@ -80,7 +83,11 @@ impl<T: RefTrait> ScenarioModifiers<T> {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct Scenario<T: RefTrait> {
+    /// Maps instance entity to InstanceModifier data when saving to file
+    #[serde(default, skip_serializing_if = "is_default")]
     pub instances: BTreeMap<T, InstanceModifier>,
+    /// Maps task entity to TaskModifier data when saving to file
+    #[serde(default, skip_serializing_if = "is_default")]
     pub tasks: BTreeMap<T, TaskModifier>,
     #[serde(flatten)]
     pub properties: ScenarioBundle<T>,
@@ -140,7 +147,7 @@ const DEFAULT_SCENARIO_NAME: &'static str = "Default Scenario";
 pub struct ScenarioBundle<T: RefTrait> {
     pub name: NameInSite,
     pub parent_scenario: Affiliation<T>,
-    #[serde(skip_serializing)]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub scenario_modifiers: ScenarioModifiers<T>,
 }
 
