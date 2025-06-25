@@ -1,0 +1,58 @@
+[package]
+name = "rmf_site_editor"
+version = "0.0.1"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "librmf_site_editor"
+
+[[bin]]
+path = "src/main.rs"
+name = "rmf_site_editor"
+
+[[example]]
+name = "extending_site_editor"
+path = "examples/extending_menu.rs"
+
+[dependencies]
+bevy_mod_outline = {workspace = true}
+bevy_gltf_export = {workspace = true}
+bevy_stl = {workspace = true}
+bevy_obj = { workspace = true, features = ["scene"] }
+smallvec = {workspace = true}
+serde = { workspace = true, features = ["derive"] }
+serde_yaml = {workspace = true}
+serde_json = {workspace = true}
+futures-lite = {workspace = true}
+bevy = { workspace = true, features = ["pnm", "jpeg", "tga"] }
+dirs = {workspace = true}
+thread_local = {workspace = true}
+geo = {workspace = true}
+thiserror = {workspace = true}
+rmf_site_format = { workspace = true, features = ["bevy"] }
+itertools = {workspace = true}
+bitfield = {workspace = true}
+crossbeam-channel = {workspace = true}
+tracing = {workspace = true}
+tracing-subscriber = {workspace = true}
+rfd = {workspace = true}
+urdf-rs = {workspace = true}
+yaserde = {workspace = true}
+utm = {workspace = true}
+sdformat_rs = {workspace = true}
+gz-fuel = {workspace = true}
+pathdiff = {workspace = true}
+ehttp = { workspace = true, features = ["native-async"] }
+nalgebra = {workspace = true}
+anyhow = {workspace = true}
+uuid = { workspace = true, features = ["v4"] }
+bytemuck = {workspace = true}
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+clap = { workspace = true, features = ["color", "derive", "help", "usage", "suggestions"] }
+bevy_egui = {workspace = true}
+bevy_impulse = { workspace = true}
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+bevy_egui = { workspace = true, default-features = false, features = ["open_url", "default_fonts", "render"] }
+bevy_impulse = { workspace = true, features = ["single_threaded_async"]}
