@@ -801,7 +801,7 @@ mod tests {
 
     #[test]
     fn building_map_serialization() -> std::result::Result<(), Box<dyn Error>> {
-        let data = std::fs::read("../assets/demo_maps/office.building.yaml")?;
+        let data = std::fs::read("../../assets/demo_maps/office.building.yaml")?;
         let map = BuildingMap::from_bytes(&data)?;
         std::fs::create_dir_all("test_output")?;
         let out_file = std::fs::File::create("test_output/office.building.yaml")?;
@@ -811,7 +811,7 @@ mod tests {
 
     #[test]
     fn site_conversion() {
-        let data = std::fs::read("../assets/demo_maps/office.building.yaml").unwrap();
+        let data = std::fs::read("../../assets/demo_maps/office.building.yaml").unwrap();
         let map = BuildingMap::from_bytes(&data).unwrap();
         println!(
             "{}",
@@ -821,7 +821,7 @@ mod tests {
 
     #[test]
     fn site_yaml() {
-        let data = std::fs::read("../assets/demo_maps/office.building.yaml").unwrap();
+        let data = std::fs::read("../../assets/demo_maps/office.building.yaml").unwrap();
         let map = BuildingMap::from_bytes(&data).unwrap();
         println!(
             "{}",
