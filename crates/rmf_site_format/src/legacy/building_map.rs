@@ -212,12 +212,11 @@ impl BuildingMap {
         let default_scenario_id = site_id.next().unwrap();
         scenarios.insert(default_scenario_id, Scenario::default());
 
-        let mut legacy_robots = Vec::<Model>::new();
-
         for (level_name, level) in &self.levels {
             let level_id = site_id.next().unwrap();
             let mut vertex_to_anchor_id: HashMap<usize, u32> = Default::default();
             let mut level_anchors: BTreeMap<u32, Anchor> = BTreeMap::new();
+            let mut legacy_robots = Vec::<Model>::new();
             for (i, v) in level.vertices.iter().enumerate() {
                 let anchor_id = if v.4.lift_cabin.is_empty() {
                     // This is a regular level anchor, not inside a lift cabin
