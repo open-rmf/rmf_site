@@ -16,13 +16,14 @@
 */
 
 use crate::{
-    interaction::{ChangeProjectionMode, Selection},
+    interaction::Selection,
     site::{AlignSiteDrawings, Delete},
     CreateNewWorkspace, CurrentWorkspace, WorkspaceLoader, WorkspaceSaver,
 };
 use bevy::{prelude::*, window::PrimaryWindow};
 use bevy_egui::EguiContexts;
 use bevy_impulse::*;
+use rmf_site_camera::resources::ProjectionMode;
 
 #[derive(Debug, Clone, Copy, Resource)]
 pub struct DebugMode(pub bool);
@@ -55,7 +56,7 @@ fn handle_keyboard_input(
     mut egui_context: EguiContexts,
     mut delete: EventWriter<Delete>,
     mut new_workspace: EventWriter<CreateNewWorkspace>,
-    mut change_camera_mode: EventWriter<ChangeProjectionMode>,
+    mut projection_mode: ResMut<ProjectionMode>,
     mut debug_mode: ResMut<DebugMode>,
     mut align_site: EventWriter<AlignSiteDrawings>,
     current_workspace: Res<CurrentWorkspace>,
@@ -79,11 +80,11 @@ fn handle_keyboard_input(
     }
 
     if keyboard_input.just_pressed(KeyCode::F2) {
-        change_camera_mode.write(ChangeProjectionMode::to_orthographic());
+        *projection_mode = ProjectionMode::Orthographic;
     }
 
     if keyboard_input.just_pressed(KeyCode::F3) {
-        change_camera_mode.write(ChangeProjectionMode::to_perspective());
+        *projection_mode = ProjectionMode::Perspective;
     }
 
     if keyboard_input.just_pressed(KeyCode::Delete)

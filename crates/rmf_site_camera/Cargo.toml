@@ -1,0 +1,31 @@
+[package]
+name = "rmf_site_camera"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bevy_ecs = {workspace = true}
+bevy_math = {workspace = true}
+bevy_app = {workspace = true}
+bevy_render = {workspace = true}
+bevy_color = {workspace = true}
+bevy_core_pipeline = {workspace = true}
+bevy_reflect = {workspace = true}
+bevy_transform = {workspace = true}
+bevy_pbr = {workspace = true}
+bevy_utils = {workspace = true}
+bevy_picking = {workspace = true, features = ["bevy_mesh_picking_backend"]}
+bevy_asset = {workspace = true}
+bevy_window = {workspace = true}
+bevy_input = {workspace = true}
+bevy_time = {workspace = true}
+bevy_gizmos = {workspace = true}
+bevy_derive = {workspace = true}
+tracing = {workspace = true}
+anyhow = {workspace = true}
+nalgebra = {workspace = true}
+bytemuck = {workspace = true}
+
+[dev-dependencies]
+bevy = {workspace = true, features = ["dynamic_linking"]}
+bevy-inspector-egui = "*"

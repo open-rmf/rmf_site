@@ -44,7 +44,7 @@
 //! [2]: crate::widgets::show_panel_of_tiles
 
 use crate::{
-    interaction::{Hover, PickingBlockers},
+    interaction::{Hover, UiHovered},
     AppState,
 };
 use bevy::{
@@ -433,8 +433,8 @@ pub fn site_ui_layout(
     let ui_has_focus =
         ctx.wants_pointer_input() || ctx.wants_keyboard_input() || ctx.is_pointer_over_area();
 
-    if let Some(mut picking_blocker) = world.get_resource_mut::<PickingBlockers>() {
-        picking_blocker.ui = ui_has_focus;
+    if let Some(mut picking_blocker) = world.get_resource_mut::<UiHovered>() {
+        picking_blocker.0 = ui_has_focus;
     }
 
     if ui_has_focus {

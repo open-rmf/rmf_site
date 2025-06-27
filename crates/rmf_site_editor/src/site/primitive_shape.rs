@@ -21,10 +21,10 @@ use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 
 use crate::interaction::{DragPlaneBundle, Selectable, MODEL_PREVIEW_LAYER};
-use crate::shapes::make_cylinder;
 use crate::site::SiteAssets;
 
 use rmf_site_format::PrimitiveShape;
+use rmf_site_mesh::*;
 
 /// An empty component to mark this entity as a visual mesh
 #[derive(Component, Debug, Clone, Default, Reflect)]

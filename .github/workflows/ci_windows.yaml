@@ -33,7 +33,7 @@ jobs:
       run: |
         rustc -Vv
         cargo -V
-        cargo build
+        cargo build --all-targets
       shell: cmd
 
     - name: test

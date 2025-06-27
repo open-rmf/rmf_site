@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{interaction::Selectable, shapes::*, site::*, RecencyRanking};
+use crate::{interaction::Selectable, site::*, RecencyRanking};
 use bevy::{
     ecs::hierarchy::ChildOf,
     math::Affine3A,
@@ -27,6 +27,7 @@ use geo::{
     BooleanOps, CoordsIter, TriangulateSpade,
 };
 use rmf_site_format::{FloorMarker, Path, Texture};
+use rmf_site_mesh::*;
 
 pub const FALLBACK_FLOOR_SIZE: f32 = 0.1;
 pub const FLOOR_LAYER_START: f32 = DRAWING_LAYER_START + 0.001;

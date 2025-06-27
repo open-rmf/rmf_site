@@ -19,10 +19,11 @@ use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 
 pub mod alignment;
 pub use alignment::*;
+use rmf_site_camera::resources::ProjectionMode;
 
 use crate::AppState;
 use crate::{
-    interaction::{ChangeProjectionMode, Selection, SuppressHighlight},
+    interaction::{Selection, SuppressHighlight},
     site::{DrawingMarker, Edge, MeasurementMarker, NameOfSite, Pending, PreventDeletion},
     CurrentWorkspace, WorkspaceMarker,
 };
@@ -80,8 +81,8 @@ fn switch_edit_drawing_mode(
     mut workspace_visibility: Query<&mut Visibility, With<WorkspaceMarker>>,
     mut app_state: ResMut<NextState<AppState>>,
     mut local_tf: Query<&mut Transform>,
-    mut change_camera_mode: EventWriter<ChangeProjectionMode>,
     global_tf: Query<&GlobalTransform>,
+    mut projection_mode: ResMut<ProjectionMode>,
     current_workspace: Res<CurrentWorkspace>,
     child_of: Query<&ChildOf, With<DrawingMarker>>,
     is_site: Query<(), With<NameOfSite>>,
@@ -124,7 +125,7 @@ fn switch_edit_drawing_mode(
                 // constantly hovering over it anyway.
                 .insert(SuppressHighlight);
 
-            change_camera_mode.write(ChangeProjectionMode::to_orthographic());
+            *projection_mode = ProjectionMode::Orthographic;
 
             if let Ok(mut editor_tf) = local_tf.get_mut(current.editor) {
                 if let Ok(level_tf) = global_tf.get(level) {
@@ -158,7 +159,7 @@ fn switch_edit_drawing_mode(
         current.target = None;
 
         // This camera change would not be needed if we have an edit mode stack
-        change_camera_mode.write(ChangeProjectionMode::to_perspective());
+        *projection_mode = ProjectionMode::Perspective;
 
         if let Some(w) = current_workspace.root {
             if let Ok(mut v) = workspace_visibility.get_mut(w) {

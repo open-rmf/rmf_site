@@ -16,10 +16,11 @@
 */
 
 use crate::{
-    interaction::{DragPlaneBundle, HeadlightToggle, InteractionAssets},
+    interaction::{DragPlaneBundle, InteractionAssets},
     site::LightKind,
 };
 use bevy::prelude::*;
+use rmf_site_camera::HeadlightToggle;
 
 #[derive(Clone, Copy, Debug, Component)]
 pub struct LightBodies {
