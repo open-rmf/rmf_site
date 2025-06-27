@@ -877,7 +877,7 @@ mod tests {
 
     #[test]
     fn serialize_sdf() {
-        let data = std::fs::read("../assets/demo_maps/office.building.yaml").unwrap();
+        let data = std::fs::read("../../assets/demo_maps/office.building.yaml").unwrap();
         let map = BuildingMap::from_bytes(&data).unwrap();
         let site = map.to_site().unwrap();
         // Convert to an sdf
