@@ -15,9 +15,10 @@
  *
 */
 
-use crate::{interaction::VisualCue, site::*};
+use crate::{site::*};
 use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 use rmf_site_animate::Spinning;
+use rmf_site_picking::VisualCue;
 
 // TODO(@mxgrey): Consider using recency rankings for Locations so they don't
 // experience z-fighting.

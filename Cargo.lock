@@ -5300,6 +5300,7 @@ dependencies = [
  "rmf_site_camera",
  "rmf_site_format",
  "rmf_site_mesh",
+ "rmf_site_picking",
  "sdformat_rs",
  "serde",
  "serde_json",
@@ -5365,8 +5366,27 @@ dependencies = [
 name = "rmf_site_picking"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "bevy",
  "bevy-inspector-egui",
+ "bevy_app",
+ "bevy_asset",
+ "bevy_derive",
+ "bevy_ecs",
+ "bevy_impulse",
+ "bevy_input",
+ "bevy_math",
+ "bevy_pbr",
+ "bevy_picking",
+ "bevy_reflect",
+ "bevy_render",
+ "bevy_transform",
+ "bitfield 0.15.0",
+ "bytemuck",
+ "rmf_site_animate",
+ "rmf_site_camera",
+ "rmf_site_mesh",
+ "smallvec",
 ]
 
 [[package]]

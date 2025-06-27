@@ -33,9 +33,6 @@ pub use rmf_site_camera::*;
 pub mod category_visibility;
 pub use category_visibility::*;
 
-pub mod cursor;
-pub use cursor::*;
-
 pub mod edge;
 pub use edge::*;
 
@@ -66,8 +63,15 @@ pub use outline::*;
 pub mod path;
 pub use path::*;
 
-pub mod picking;
-pub use picking::*;
+// pub mod cursor;
+// pub use cursor::*;
+
+// pub mod picking;
+// pub use picking::*;
+
+
+
+use rmf_site_picking::*;
 
 pub mod point;
 pub use point::*;
@@ -78,11 +82,14 @@ pub use popup::*;
 pub mod preview;
 pub use preview::*;
 
-pub mod select;
-pub use select::*;
+pub mod select_impl;
+pub use select_impl::*;
 
-pub mod visual_cue;
-pub use visual_cue::*;
+// pub mod select;
+// pub use select::*;
+
+// pub mod visual_cue;
+// pub use visual_cue::*;
 
 use bevy::prelude::*;
 use bevy_mod_outline::OutlinePlugin;
@@ -233,7 +240,8 @@ impl Plugin for InteractionPlugin {
                     add_path_visual_cues,
                     add_outline_visualization,
                     add_highlight_visualization,
-                    add_cursor_hover_visualization,
+                    add_cursor_hover_visualization::<WallMarker>,
+                    add_cursor_hover_visualization::<FloorMarker>,
                     add_physical_light_visual_cues,
                     add_popups,
                 )
