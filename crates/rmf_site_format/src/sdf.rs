@@ -906,6 +906,7 @@ impl Site {
 #[cfg(test)]
 mod tests {
     use crate::legacy::building_map::BuildingMap;
+    use sdformat_rs::yaserde;
 
     #[test]
     fn serialize_sdf() {
