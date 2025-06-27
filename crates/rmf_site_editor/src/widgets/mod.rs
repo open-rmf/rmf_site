@@ -44,7 +44,6 @@
 //! [2]: crate::widgets::show_panel_of_tiles
 
 use crate::{
-    interaction::{Hover, UiHovered},
     AppState,
 };
 use bevy::{
@@ -102,6 +101,7 @@ pub mod properties_panel;
 pub use properties_panel::*;
 
 pub mod sdf_export_menu;
+use rmf_site_picking::{Hover, UiHovered};
 pub use sdf_export_menu::*;
 
 pub mod selector_widget;

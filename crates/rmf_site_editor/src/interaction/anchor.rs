@@ -21,6 +21,7 @@ use crate::{
     site::{Anchor, Category, Delete, Dependents, SiteAssets, Subordinate},
 };
 use bevy::{ecs::hierarchy::ChildOf, prelude::*};
+use rmf_site_picking::{Hovered, Selectable, Selected};
 
 /// Use this resource to indicate whether anchors should be constantly highlighted.
 /// This is used during anchor selection modes to make it easier for users to know

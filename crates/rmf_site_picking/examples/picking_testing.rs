@@ -1,3 +1,6 @@
+//! Example of setting up picking
+//! TODO: Add a picking example here.
+
 use bevy::prelude::*;
 use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
 

@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    interaction::{DragPlaneBundle, Preview, MODEL_PREVIEW_LAYER},
+    interaction::{DragPlaneBundle, MODEL_PREVIEW_LAYER},
     site::{CurrentScenario, Delete, SiteAssets, UpdateProperty},
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
     Issue, ValidateWorkspace,
@@ -40,6 +40,7 @@ use rmf_site_format::{
     Affiliation, AssetSource, Group, IssueKey, ModelInstance, ModelMarker, ModelProperty,
     NameInSite, Pending, Scale,
 };
+use rmf_site_picking::Preview;
 use smallvec::SmallVec;
 use std::{any::TypeId, collections::HashSet, fmt, future::Future};
 use thiserror::Error;
