@@ -5201,7 +5201,7 @@ dependencies = [
  "urdf-rs",
  "utm",
  "uuid",
- "yaserde",
+ "yaserde 0.12.0",
 ]
 
 [[package]]
@@ -5231,7 +5231,7 @@ dependencies = [
  "thiserror 2.0.12",
  "urdf-rs",
  "uuid",
- "yaserde",
+ "yaserde 0.12.0",
 ]
 
 [[package]]
@@ -5458,13 +5458,13 @@ dependencies = [
 [[package]]
 name = "sdformat_rs"
 version = "0.1.0"
-source = "git+https://github.com/open-rmf/sdf_rust_experimental?rev=9fc35f2#9fc35f2b5f55afab37a4c1906c395fc22d069322"
+source = "git+https://github.com/open-rmf/sdf_rust_experimental?branch=luca%2Fexperimental_params_new_yaserde#0bd26acbb29f1585348ebd44e5ec4a1a56a91d31"
 dependencies = [
  "convert_case",
  "nalgebra",
+ "xml-rs",
  "xmltree",
- "yaserde",
- "yaserde_derive",
+ "yaserde 0.12.0",
 ]
 
 [[package]]
@@ -5524,6 +5524,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "87607cb1398ed59d48732e575a4c28a7a8ebf2454b964fe3f224f2afc07909e1"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "serde_tokenstream"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "64060d864397305347a78851c51588fd283767e7e7589829e8121d65512340f1"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "serde",
+ "syn 2.0.101",
 ]
 
 [[package]]
@@ -6223,8 +6235,8 @@ dependencies = [
  "once_cell",
  "regex",
  "thiserror 1.0.69",
- "yaserde",
- "yaserde_derive",
+ "yaserde 0.7.1",
+ "yaserde_derive 0.7.1",
 ]
 
 [[package]]
@@ -7447,6 +7459,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "yaserde"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8bfa0d2b420fd005aa9b6f99f9584ebd964e6865d7ca787304cc1a3366c39231"
+dependencies = [
+ "log",
+ "xml-rs",
+ "yaserde_derive 0.12.0",
+]
+
+[[package]]
 name = "yaserde_derive"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7457,6 +7480,22 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
+ "xml-rs",
+]
+
+[[package]]
+name = "yaserde_derive"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1f785831c0e09e0f1a83f917054fd59c088f6561db5b2a42c1c3e1687329325f"
+dependencies = [
+ "heck 0.5.0",
+ "log",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "serde_tokenstream",
+ "syn 2.0.101",
  "xml-rs",
 ]
 
