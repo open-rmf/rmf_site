@@ -1,0 +1,11 @@
+[package]
+name = "rmf_site_picking"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+
+
+[dev-dependencies]
+bevy = {workspace = true, features = ["dynamic_linking"]}
+bevy-inspector-egui = {workspace = true}
