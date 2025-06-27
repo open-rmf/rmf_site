@@ -5201,7 +5201,6 @@ dependencies = [
  "urdf-rs",
  "utm",
  "uuid",
- "yaserde 0.12.0",
 ]
 
 [[package]]
@@ -5231,7 +5230,6 @@ dependencies = [
  "thiserror 2.0.12",
  "urdf-rs",
  "uuid",
- "yaserde 0.12.0",
 ]
 
 [[package]]
@@ -5458,7 +5456,7 @@ dependencies = [
 [[package]]
 name = "sdformat_rs"
 version = "0.1.0"
-source = "git+https://github.com/open-rmf/sdf_rust_experimental?branch=luca%2Fexperimental_params_new_yaserde#0bd26acbb29f1585348ebd44e5ec4a1a56a91d31"
+source = "git+https://github.com/open-rmf/sdf_rust_experimental?branch=luca%2Fexperimental_params_new_yaserde#84965254f9abb601719ca2e32bc377cff47d64dc"
 dependencies = [
  "convert_case",
  "nalgebra",
