@@ -15,10 +15,11 @@
  *
 */
 
-use crate::{interaction::Selectable, shapes::*, site::*};
+use crate::{interaction::Selectable, site::*};
 use bevy::{ecs::query::QueryEntityError, prelude::*};
 use bevy_mod_outline::GenerateOutlineNormalsError;
 use rmf_site_format::{Edge, WallMarker, DEFAULT_LEVEL_HEIGHT};
+use rmf_site_mesh::*;
 use thiserror::Error;
 
 pub const DEFAULT_WALL_THICKNESS: f32 = 0.1;

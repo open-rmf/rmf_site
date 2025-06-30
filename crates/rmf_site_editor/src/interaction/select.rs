@@ -737,7 +737,7 @@ pub fn hover_service<Filter: SystemParam + 'static>(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     touch_input: Res<Touches>,
     mut select: EventWriter<Select>,
-    blockers: Option<Res<PickingBlockers>>,
+    block_status: Res<PickBlockStatus>,
     filter: StaticSystemParam<Filter>,
     selection_blockers: Res<SelectionBlockers>,
 ) where
@@ -780,8 +780,8 @@ pub fn hover_service<Filter: SystemParam + 'static>(
 
     let clicked = mouse_button_input.just_pressed(MouseButton::Left)
         || touch_input.iter_just_pressed().next().is_some();
-    let blocked = blockers.filter(|x| x.blocking()).is_some();
 
+    let blocked = block_status.blocked();
     if clicked && !blocked {
         if let Some(new_select) = filter.on_click(Hover(hovering.0)) {
             select.write(new_select);
@@ -897,7 +897,7 @@ pub fn inspector_cursor_transform(
     In(ContinuousService { key }): ContinuousServiceInput<(), ()>,
     orders: ContinuousQuery<(), ()>,
     cursor: Res<Cursor>,
-    camera_controls: Res<CameraControls>,
+    active_camera: ActiveCameraQuery,
     pointers: Query<(&PointerId, &PointerInteraction)>,
     mut transforms: Query<&mut Transform>,
 ) {
@@ -912,7 +912,9 @@ pub fn inspector_cursor_transform(
     let Some((_, interactions)) = pointers.single().ok() else {
         return;
     };
-    let active_camera = camera_controls.active_camera();
+    let Ok(active_camera) = active_camera_maybe(&active_camera) else {
+        return;
+    };
     let Some((position, normal)) = interactions
         .iter()
         .find(|(_, hit_data)| hit_data.camera == active_camera)
