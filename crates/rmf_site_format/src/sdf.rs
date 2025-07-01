@@ -881,7 +881,7 @@ impl Site {
             .guided
             .locations
             .values()
-            .filter(|location| location.tags.iter().any(|tag| tag.is_charger()))
+            .filter(|location| location.tags.0.iter().any(|tag| tag.is_charger()))
             .collect();
         let mut charger_plugin = SdfPlugin {
             name: "register_component".into(),
