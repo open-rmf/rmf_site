@@ -140,10 +140,10 @@ impl NavGraph {
                 for (_, door) in &level.doors {
                     let door_name = &door.name.0;
                     let (v0, v1) = match (
-                        site.get_anchor(door.anchors.start()),
-                        site.get_anchor(door.anchors.end()),
+                        site.get_level_anchor(door.anchors.start()),
+                        site.get_level_anchor(door.anchors.end()),
                     ) {
-                        (Some(v0), Some(v1)) => (
+                        (Some((v0, _)), Some((v1, _))) => (
                             v0.translation_for_category(Category::Door),
                             v1.translation_for_category(Category::Door),
                         ),

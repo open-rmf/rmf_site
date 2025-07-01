@@ -135,8 +135,8 @@ impl LiftProperties<u32> {
             }
         };
         // Get the vector between the reference anchors
-        let left_anchor = site.get_anchor(self.reference_anchors.left())?;
-        let right_anchor = site.get_anchor(self.reference_anchors.right())?;
+        let left_anchor = site.anchors.get(&self.reference_anchors.left())?;
+        let right_anchor = site.anchors.get(&self.reference_anchors.right())?;
         let left_trans = left_anchor.translation_for_category(Category::Lift);
         let right_trans = right_anchor.translation_for_category(Category::Lift);
         let yaw = (left_trans[0] - right_trans[0]).atan2(left_trans[1] - right_trans[1]);
