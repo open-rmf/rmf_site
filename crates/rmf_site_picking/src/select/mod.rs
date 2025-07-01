@@ -25,18 +25,33 @@ use bevy_input::prelude::*;
 use bevy_math::Ray3d;
 use bevy_picking::pointer::{PointerId, PointerInteraction};
 use bevy_transform::components::Transform;
+use bytemuck::TransparentWrapper;
+use std::fmt::Debug;
 use rmf_site_camera::{active_camera_maybe, ActiveCameraQuery};
-use std::{borrow::Borrow, collections::HashSet, error::Error};
+use std::{collections::HashSet, error::Error, marker::PhantomData};
 
-use crate::{ChangePick, Cursor, PickBlockStatus, Picked};
+use crate::{ChangePick, Cursor, PickBlockStatus, Picked, Preview};
 
 
 pub const SELECT_ANCHOR_MODE_LABEL: &'static str = "select_anchor";
 
-#[derive(Default)]
-pub struct SelectionPlugin {}
+type SelectionService = Service<(), ()>;
 
-impl Plugin for SelectionPlugin {
+#[derive(Default)]
+pub struct SelectionPlugin<
+    // Default selection workflow for this plugin. !!! Ensure this plugin is 
+    DefaultService
+>
+    where
+         DefaultService: Debug + Send + Sync + Resource + FromWorld + TransparentWrapper<SelectionService> + 'static
+{
+    pub _a: PhantomData<DefaultService>
+}
+
+impl<T> Plugin for SelectionPlugin<T> 
+    where
+        T:  Debug + Send + Sync + Resource + FromWorld + TransparentWrapper<SelectionService> + 'static
+{
     fn build(&self, app: &mut App) {
         app.configure_sets(
             Update,
@@ -75,11 +90,14 @@ impl Plugin for SelectionPlugin {
         //     AnchorSelectionPlugin::default(),
         //     ObjectPlacementPlugin::default(),
         // ));
-
-        let inspector_service = app.world().resource::<InspectorService>().inspector_service;
+        let default_selection_service = app.world().get_resource::<T>();
+        let Some(default_selection_service) = default_selection_service else {
+            panic!("{:#?}'s plugin, must be initialized before this plugin", default_selection_service);
+        };
+        let default_selection_service = TransparentWrapper::peel_ref(default_selection_service).clone();
         let new_selector_service = app.spawn_event_streaming_service::<RunSelector>(Update);
         let selection_workflow = app.world_mut().spawn_io_workflow(build_selection_workflow(
-            inspector_service,
+            default_selection_service,
             new_selector_service,
         ));
 
@@ -114,7 +132,7 @@ impl Plugin for SelectionPlugin {
 /// want to customize the inspector service, then you could use this to build a
 /// customized selection workflow by passingin a custom inspector service.
 pub fn build_selection_workflow(
-    inspector_service: Service<(), ()>,
+    default_service: Service<(), ()>,
     new_selector_service: Service<(), (), StreamOf<RunSelector>>,
 ) -> impl FnOnce(Scope<(), ()>, &mut Builder) -> DeliverySettings {
     move |scope, builder| {
@@ -137,7 +155,7 @@ pub fn build_selection_workflow(
         let run_service_buffer = builder.create_buffer::<RunSelector>(BufferSettings::keep_last(1));
         let input = scope.input.fork_clone(builder);
         // Run the default inspector service
-        let inspector = input.clone_chain(builder).then_node(inspector_service);
+        let inspector = input.clone_chain(builder).then_node(default_service);
 
         // Create a node that reads RunSelector events from the world and streams
         // them into the workflow.
@@ -463,10 +481,12 @@ pub enum SelectionServiceStages {
 }
 
 #[derive(Resource)]
-pub struct InspectorService {
-    /// Workflow that updates the [`Selection`] as well as [`Hovered`] and
-    /// [`Selected`] states in the application.
-    pub inspector_service: Service<(), ()>,
+pub struct KeyboardServices {
+    pub keyboard_just_pressed: Service<(), (), StreamOf<KeyCode>>,
+}
+
+#[derive(Resource)]
+pub struct InspectorServiceConfigs {
     /// Workflow that outputs hover and select streams that are compatible with
     /// a general inspector. This service never terminates.
     pub inspector_select_service: Service<(), (), (Hover, Select)>,
@@ -474,58 +494,90 @@ pub struct InspectorService {
     pub selection_update: Service<Select, ()>,
 }
 
-// #[derive(Default)]
-// pub struct InspectorServicePlugin {}
+/// Workflow that updates the [`Selection`] as well as [`Hovered`] and
+/// [`Selected`] states in the application.
+#[derive(Resource, TransparentWrapper)]
+#[repr(transparent)]
+pub struct InspectorService(pub Service<(), ()>);
 
-// impl Plugin for InspectorServicePlugin {
-//     fn build(&self, app: &mut App) {
-//         let inspector_select_service = app.spawn_selection_service::<InspectorFilter>();
-//         let inspector_cursor_transform = app.spawn_continuous_service(
-//             Update,
-//             inspector_cursor_transform.configure(|config: ScheduleConfigs<ScheduleSystem>| {
-//                 config.in_set(SelectionServiceStages::Pick)
-//             }),
-//         );
-//         let selection_update = app.spawn_service(selection_update);
-//         let keyboard_just_pressed = app
-//             .world()
-//             .resource::<KeyboardServices>()
-//             .keyboard_just_pressed;
+#[derive(SystemParam)]
+pub struct InspectorFilter<'w, 's> {
+    selectables: Query<'w, 's, &'static Selectable, (
+        Without<Preview>, 
+        // TODO: uncomment this when this is moved back into rmf_site_editor
+        // Without<Pending>
+    )>,
+}
 
-//         let inspector_service = app.world_mut().spawn_workflow(|scope, builder| {
-//             let fork_input = scope.input.fork_clone(builder);
-//             fork_input
-//                 .clone_chain(builder)
-//                 .then(inspector_cursor_transform)
-//                 .unused();
-//             fork_input
-//                 .clone_chain(builder)
-//                 .then_node(keyboard_just_pressed)
-//                 .streams
-//                 .chain(builder)
-//                 .inner()
-//                 .then(deselect_on_esc.into_blocking_callback())
-//                 .unused();
-//             let selection = fork_input
-//                 .clone_chain(builder)
-//                 .then_node(inspector_select_service);
-//             selection
-//                 .streams
-//                 .1
-//                 .chain(builder)
-//                 .then(selection_update)
-//                 .unused();
-//             builder.connect(selection.output, scope.terminate);
-//         });
+impl<'w, 's> SelectionFilter for InspectorFilter<'w, 's> {
+    fn filter_pick(&mut self, select: Entity) -> Option<Entity> {
+        self.selectables
+            .get(select)
+            .ok()
+            .map(|selectable| selectable.element)
+    }
+    fn filter_select(&mut self, target: Entity) -> Option<Entity> {
+        Some(target)
+    }
+    fn on_click(&mut self, hovered: Hover) -> Option<Select> {
+        Some(Select::new(hovered.0))
+    }
+}
 
-//         app.world_mut().insert_resource(InspectorService {
-//             inspector_service,
-//             inspector_select_service,
-//             inspector_cursor_transform,
-//             selection_update,
-//         });
-//     }
-// }
+#[derive(Default)]
+pub struct InspectorServicePlugin;
+
+impl Plugin for InspectorServicePlugin {
+    fn build(&self, app: &mut App) {
+        let inspector_select_service = app.spawn_selection_service::<InspectorFilter>();
+        let inspector_cursor_transform = app.spawn_continuous_service(
+            Update,
+            inspector_cursor_transform.configure(|config: ScheduleConfigs<ScheduleSystem>| {
+                config.in_set(SelectionServiceStages::Pick)
+            }),
+        );
+        let selection_update = app.spawn_service(selection_update);
+        let keyboard_just_pressed = app
+            .world()
+            .resource::<KeyboardServices>()
+            .keyboard_just_pressed;
+
+        let inspector_service = app.world_mut().spawn_workflow(|scope, builder| {
+            let fork_input = scope.input.fork_clone(builder);
+            fork_input
+                .clone_chain(builder)
+                .then(inspector_cursor_transform)
+                .unused();
+            fork_input
+                .clone_chain(builder)
+                .then_node(keyboard_just_pressed)
+                .streams
+                .chain(builder)
+                .inner()
+                .then(deselect_on_esc.into_blocking_callback())
+                .unused();
+            let selection = fork_input
+                .clone_chain(builder)
+                .then_node(inspector_select_service);
+            selection
+                .streams
+                .1
+                .chain(builder)
+                .then(selection_update)
+                .unused();
+            builder.connect(selection.output, scope.terminate);
+        });
+
+        app.world_mut().insert_resource(InspectorServiceConfigs {
+            inspector_select_service,
+            inspector_cursor_transform,
+            selection_update,
+        });
+        app.world_mut().insert_resource(InspectorService(
+            inspector_service,
+        ));
+    }
+}
 
 pub fn deselect_on_esc(In(code): In<KeyCode>, mut select: EventWriter<Select>) {
     if matches!(code, KeyCode::Escape) {

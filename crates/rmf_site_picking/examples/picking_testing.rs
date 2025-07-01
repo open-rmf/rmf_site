@@ -3,6 +3,7 @@
 
 use bevy::prelude::*;
 use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
+use rmf_site_picking::{InspectorService, InspectorServicePlugin, SelectionPlugin};
 
 fn main() {
     App::new()
@@ -10,6 +11,8 @@ fn main() {
         .add_plugins(EguiPlugin {
             enable_multipass_for_primary_context: false
         })
+        .add_plugins(InspectorServicePlugin)
+        .add_plugins(SelectionPlugin::<InspectorService>)
         .add_plugins(WorldInspectorPlugin::default())
         .add_systems(Startup, setup)
         .run();

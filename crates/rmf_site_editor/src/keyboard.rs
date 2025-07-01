@@ -152,7 +152,7 @@ pub fn keyboard_just_pressed_stream(
     }
 }
 
-#[derive(Resource)]
-pub struct KeyboardServices {
-    pub keyboard_just_pressed: Service<(), (), StreamOf<KeyCode>>,
-}
+// #[derive(Resource)]
+// pub struct KeyboardServices {
+//     pub keyboard_just_pressed: Service<(), (), StreamOf<KeyCode>>,
+// }
