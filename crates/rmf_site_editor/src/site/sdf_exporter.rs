@@ -412,30 +412,18 @@ fn append_collisions_and_visuals<'a>(
     collision_data: &mut Vec<MeshData<'a>>,
     visual_data: &mut Vec<MeshData<'a>>,
 ) {
-    // TODO(luca) don't do full descendant iter here or we might add twice?
-    // Iterate through children and select all meshes
-    for model_child in DescendantIter::new(&q_children, model) {
-        if q_collisions.contains(model_child) {
-            // Now iterate through the children of the collision and add them
-            for entity in DescendantIter::new(&q_children, model_child) {
-                let Some((mesh, _)) = get_mesh_and_material(entity) else {
-                    continue;
-                };
-                let Ok(tf) = q_global_tfs.get(entity) else {
-                    continue;
-                };
-                let mut tf = tf.compute_transform();
-                tf.translation.z = tf.translation.z + elevation;
-                // Non static meshes have their translation in the SDF element, not in the
-                // gltf node
-                collision_data.push(MeshData {
-                    mesh,
-                    material: None,
-                    transform: is_static.then_some(tf),
-                });
-            }
-        } else if q_visuals.contains(model_child) {
-            // Now iterate through the children of the visuals and add them
+    // For non static models, we want every submesh to be translated to the origin by applying the
+    // inverse of the model root's global transform.
+    // This is done because the pose of non static models is set through SDF, not the GLB itself
+    // but we want to preserve relative poses of the model's submeshes
+    let root_inverse_pose = if !is_static {
+        q_global_tfs.get(model).ok().map(|tf| tf.affine().inverse())
+    } else {
+        None
+    };
+
+    let add_children_data =
+        |model_child: Entity, data_vec: &mut Vec<MeshData<'a>>, add_material: bool| {
             for entity in DescendantIter::new(&q_children, model_child) {
                 let Some((mesh, material)) = get_mesh_and_material(entity) else {
                     continue;
@@ -443,14 +431,26 @@ fn append_collisions_and_visuals<'a>(
                 let Ok(tf) = q_global_tfs.get(entity) else {
                     continue;
                 };
-                let mut tf = tf.compute_transform();
+                let mut tf = tf.affine();
+                if let Some(root_inverse_pose) = root_inverse_pose {
+                    tf = root_inverse_pose * tf;
+                }
+                let mut tf = Transform::from_matrix(tf.into());
                 tf.translation.z = tf.translation.z + elevation;
-                visual_data.push(MeshData {
+                data_vec.push(MeshData {
                     mesh,
-                    material: Some(material),
-                    transform: is_static.then_some(tf),
+                    material: add_material.then_some(material),
+                    transform: Some(tf),
                 });
             }
+        };
+
+    // Iterate through children and select all meshes
+    for model_child in DescendantIter::new(&q_children, model) {
+        if q_collisions.contains(model_child) {
+            add_children_data(model_child, collision_data, false);
+        } else if q_visuals.contains(model_child) {
+            add_children_data(model_child, visual_data, true);
         }
     }
 }
