@@ -66,11 +66,6 @@ pub use path::*;
 pub mod cursor;
 pub use cursor::*;
 
-// pub mod picking;
-// pub use picking::*;
-
-
-
 use rmf_site_picking::*;
 
 pub mod point;
@@ -84,12 +79,6 @@ pub use preview::*;
 
 pub mod select_impl;
 pub use select_impl::*;
-
-// pub mod select;
-// pub use select::*;
-
-// pub mod visual_cue;
-// pub use visual_cue::*;
 
 use bevy::prelude::*;
 use bevy_mod_outline::OutlinePlugin;

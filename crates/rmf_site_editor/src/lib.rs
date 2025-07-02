@@ -1,8 +1,8 @@
 use bevy::{
     app::ScheduleRunnerPlugin, asset::UnapprovedPathMode, log::LogPlugin,
-    pbr::DirectionalLightShadowMap, prelude::*,
+    pbr::DirectionalLightShadowMap, prelude::*, window::PrimaryWindow,
 };
-use bevy_egui::EguiPlugin;
+use bevy_egui::{EguiContexts, EguiPlugin};
 #[cfg(not(target_arch = "wasm32"))]
 use clap::Parser;
 use main_menu::MainMenuPlugin;
@@ -64,6 +64,18 @@ use bevy::render::{
     RenderPlugin,
 };
 pub use osm_slippy_map::*;
+
+use crate::site::{AlignSiteDrawings, Delete};
+
+
+#[derive(Debug, Clone, Copy, Resource)]
+pub struct DebugMode(pub bool);
+
+impl FromWorld for DebugMode {
+    fn from_world(_: &mut World) -> Self {
+        DebugMode(false)
+    }
+}
 
 #[cfg_attr(not(target_arch = "wasm32"), derive(Parser))]
 pub struct CommandLineArgs {
@@ -240,7 +252,7 @@ impl Plugin for SiteEditor {
                     enable_multipass_for_primary_context: false,
                 },
                 ExitConfirmationPlugin,
-                KeyboardInputPlugin,
+                EditorInputPlugin,
                 SitePlugin,
                 InteractionPlugin::new().headless(self.is_headless()),
                 VisualCueAnimationsPlugin,

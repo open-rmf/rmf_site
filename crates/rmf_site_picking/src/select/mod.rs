@@ -31,7 +31,7 @@ use std::fmt::Debug;
 use rmf_site_camera::{active_camera_maybe, ActiveCameraQuery};
 use std::{collections::HashSet, error::Error, marker::PhantomData};
 
-use crate::{ChangePick, PickBlockStatus, Picked};
+use crate::{ChangePick, KeyboardServicePlugin, KeyboardServices, PickBlockStatus, Picked};
 
 
 pub const SELECT_ANCHOR_MODE_LABEL: &'static str = "select_anchor";
@@ -94,11 +94,9 @@ impl<T> Plugin for SelectionPlugin<T>
                     .in_set(SelectionServiceStages::SelectFlush),
             ),
         );
-        // .add_plugins((
-        //     InspectorServicePlugin::default(),
-        //     AnchorSelectionPlugin::default(),
-        //     ObjectPlacementPlugin::default(),
-        // ));
+        app.add_plugins(
+            KeyboardServicePlugin
+        );
         let default_selection_service = app.world().get_resource::<T>();
         let Some(default_selection_service) = default_selection_service else {
             panic!("{:#?}'s plugin, must be initialized before this plugin", default_selection_service);
@@ -487,11 +485,6 @@ pub enum SelectionServiceStages {
     HoverFlush,
     Select,
     SelectFlush,
-}
-
-#[derive(Resource)]
-pub struct KeyboardServices {
-    pub keyboard_just_pressed: Service<(), (), StreamOf<KeyCode>>,
 }
 
 #[derive(Resource)]
