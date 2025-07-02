@@ -5387,6 +5387,7 @@ dependencies = [
  "rmf_site_camera",
  "rmf_site_mesh",
  "smallvec",
+ "tracing",
 ]
 
 [[package]]

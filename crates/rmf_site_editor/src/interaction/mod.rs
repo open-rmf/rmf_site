@@ -63,8 +63,8 @@ pub use outline::*;
 pub mod path;
 pub use path::*;
 
-// pub mod cursor;
-// pub use cursor::*;
+pub mod cursor;
+pub use cursor::*;
 
 // pub mod picking;
 // pub use picking::*;
@@ -184,7 +184,10 @@ impl Plugin for InteractionPlugin {
             .add_plugins((
                 CameraSetupPlugin,
                 ModelPreviewPlugin,
-                SelectionPlugin::default(),
+                InspectorServicePlugin::default(),
+                AnchorSelectionPlugin::default(),
+                ObjectPlacementPlugin::default(),
+                SelectionPlugin::<InspectorService>::default(),
             ));
 
         if !self.headless {
@@ -240,8 +243,8 @@ impl Plugin for InteractionPlugin {
                     add_path_visual_cues,
                     add_outline_visualization,
                     add_highlight_visualization,
-                    add_cursor_hover_visualization::<WallMarker>,
-                    add_cursor_hover_visualization::<FloorMarker>,
+                    add_cursor_hover_visualization,
+                    add_cursor_hover_visualization,
                     add_physical_light_visual_cues,
                     add_popups,
                 )
@@ -265,20 +268,20 @@ impl Plugin for InteractionPlugin {
     }
 }
 
-pub fn set_visibility(entity: Entity, q_visibility: &mut Query<&mut Visibility>, visible: bool) {
-    if let Some(mut visibility) = q_visibility.get_mut(entity).ok() {
-        let v = if visible {
-            Visibility::Inherited
-        } else {
-            Visibility::Hidden
-        };
+// pub fn set_visibility(entity: Entity, q_visibility: &mut Query<&mut Visibility>, visible: bool) {
+//     if let Some(mut visibility) = q_visibility.get_mut(entity).ok() {
+//         let v = if visible {
+//             Visibility::Inherited
+//         } else {
+//             Visibility::Hidden
+//         };
 
-        // Avoid a mutable access if nothing actually needs to change
-        if *visibility != v {
-            *visibility = v;
-        }
-    }
-}
+//         // Avoid a mutable access if nothing actually needs to change
+//         if *visibility != v {
+//             *visibility = v;
+//         }
+//     }
+// }
 
 fn set_material(
     entity: Entity,
