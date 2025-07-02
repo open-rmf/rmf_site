@@ -576,15 +576,7 @@ impl Site {
                         plugin_element.name = "plugin".into();
                         plugin_element.data = ElementData::Nested(slotcar.elements);
                         replacement.0.push(plugin_element);
-                        // Extract the name as the content of the asset source after the last '/'
-                        let asset_path = unsafe {
-                            model_description_bundle
-                                .source
-                                .0
-                                .as_unvalidated_asset_path()
-                        };
-                        // Unwrap safe because split will always have at least one item
-                        let model_name = asset_path.split("/").last().unwrap();
+                        let model_name = model_description_bundle.source.0.model_name();
                         world.include.push(SdfWorldInclude {
                             uri: format!("model://{}", model_name),
                             experimental_params: Some(replacement),
