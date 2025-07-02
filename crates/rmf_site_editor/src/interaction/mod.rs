@@ -27,8 +27,8 @@ pub use anchor::*;
 pub mod assets;
 pub use assets::*;
 
-pub mod camera_controls;
-pub use camera_controls::*;
+use rmf_site_camera::plugins::{BlockerRegistryPlugin, CameraSetupPlugin};
+pub use rmf_site_camera::*;
 
 pub mod category_visibility;
 pub use category_visibility::*;
@@ -143,9 +143,14 @@ impl Plugin for InteractionPlugin {
             .add_plugins(MeshPickingPlugin)
             .init_resource::<InteractionAssets>()
             .init_resource::<Cursor>()
-            .init_resource::<CameraControls>()
-            .init_resource::<Picked>()
             .init_resource::<PickingBlockers>()
+            .init_resource::<UiHovered>()
+            .init_resource::<IteractionMaskHovered>()
+            .add_plugins(CameraControlsBlocker::<UiHovered>::default())
+            .add_plugins(BlockerRegistryPlugin::<PickingBlockers>::default())
+            .add_plugins(PickBlockerRegistration::<UiHovered>::default())
+            .add_plugins(PickBlockerRegistration::<IteractionMaskHovered>::default())
+            .init_resource::<Picked>()
             .init_resource::<GizmoState>()
             .init_resource::<CurrentEditDrawing>()
             .init_resource::<CurrentLevel>()
@@ -170,7 +175,7 @@ impl Plugin for InteractionPlugin {
                 CategoryVisibilityPlugin::<WallMarker>::visible(true),
             ))
             .add_plugins((
-                CameraControlsPlugin,
+                CameraSetupPlugin,
                 ModelPreviewPlugin,
                 SelectionPlugin::default(),
             ));
