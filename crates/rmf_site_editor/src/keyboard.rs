@@ -23,7 +23,7 @@ use bevy::{prelude::*, window::PrimaryWindow};
 use bevy_egui::EguiContexts;
 use bevy_impulse::*;
 use rmf_site_camera::resources::ProjectionMode;
-use rmf_site_picking::Selection;
+use rmf_site_picking::{KeyboardServices, Selection};
 
 #[derive(Debug, Clone, Copy, Resource)]
 pub struct DebugMode(pub bool);

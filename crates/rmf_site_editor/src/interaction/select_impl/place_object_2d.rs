@@ -16,9 +16,11 @@
 */
 
 use crate::{
-    interaction::extract_selector_input, site::{ModelInstance, ModelLoader}
+    interaction::*, site::{ModelInstance, ModelLoader}
 };
-use bevy::prelude::ButtonInput;
+use bevy::prelude::*;
+use bevy_impulse::*;
+use rmf_site_format::Category;
 use tracing::{error, info, warn};
 
 pub const PLACE_OBJECT_2D_MODE_LABEL: &'static str = "place_object_2d";

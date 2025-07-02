@@ -26,31 +26,40 @@ use bevy_math::Ray3d;
 use bevy_picking::pointer::{PointerId, PointerInteraction};
 use bevy_transform::components::Transform;
 use bytemuck::TransparentWrapper;
+use tracing::warn;
 use std::fmt::Debug;
 use rmf_site_camera::{active_camera_maybe, ActiveCameraQuery};
 use std::{collections::HashSet, error::Error, marker::PhantomData};
 
-use crate::{ChangePick, Cursor, PickBlockStatus, Picked, Preview};
+use crate::{ChangePick, PickBlockStatus, Picked};
 
 
 pub const SELECT_ANCHOR_MODE_LABEL: &'static str = "select_anchor";
 
 type SelectionService = Service<(), ()>;
 
-#[derive(Default)]
 pub struct SelectionPlugin<
     // Default selection workflow for this plugin. !!! Ensure this plugin is 
     DefaultService
 >
     where
-         DefaultService: Debug + Send + Sync + Resource + FromWorld + TransparentWrapper<SelectionService> + 'static
+         DefaultService: Debug + Send + Sync + Resource + TransparentWrapper<SelectionService> + 'static
 {
     pub _a: PhantomData<DefaultService>
 }
 
+impl<T> Default for SelectionPlugin<T> 
+    where
+        T: Debug + Send + Sync + Resource + TransparentWrapper<SelectionService> + 'static
+{
+    fn default() -> Self {
+        Self { _a: Default::default() }
+    }
+}
+
 impl<T> Plugin for SelectionPlugin<T> 
     where
-        T:  Debug + Send + Sync + Resource + FromWorld + TransparentWrapper<SelectionService> + 'static
+        T:  Debug + Send + Sync + Resource + TransparentWrapper<SelectionService> + 'static
 {
     fn build(&self, app: &mut App) {
         app.configure_sets(
@@ -494,17 +503,22 @@ pub struct InspectorServiceConfigs {
     pub selection_update: Service<Select, ()>,
 }
 
+/// A unit component that indicates the entity is only for previewing and
+/// should never be interacted with. This is applied to the "anchor" that is
+/// attached to the cursor.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct Preview;
+
 /// Workflow that updates the [`Selection`] as well as [`Hovered`] and
 /// [`Selected`] states in the application.
-#[derive(Resource, TransparentWrapper)]
+#[derive(Resource, Debug, TransparentWrapper)]
 #[repr(transparent)]
 pub struct InspectorService(pub Service<(), ()>);
 
 #[derive(SystemParam)]
-pub struct InspectorFilter<'w, 's> {
+struct InspectorFilter<'w, 's> {
     selectables: Query<'w, 's, &'static Selectable, (
         Without<Preview>, 
-        // TODO: uncomment this when this is moved back into rmf_site_editor
         // Without<Pending>
     )>,
 }
@@ -893,14 +907,18 @@ pub fn clear_hover_select(
     }
 }
 
+
+/// Frame for cursor
+#[derive(Component)]
+pub struct CursorFrame;
+
 /// Update the virtual cursor (dagger and circle) transform while in inspector mode
 pub fn inspector_cursor_transform(
     In(ContinuousService { key }): ContinuousServiceInput<(), ()>,
     orders: ContinuousQuery<(), ()>,
-    cursor: Res<Cursor>,
+    mut cursor: Query<&mut Transform, With<CursorFrame>>,
     active_camera: ActiveCameraQuery,
     pointers: Query<(&PointerId, &PointerInteraction)>,
-    mut transforms: Query<&mut Transform>,
 ) {
     let Some(orders) = orders.view(&key) else {
         return;
@@ -928,11 +946,12 @@ pub fn inspector_cursor_transform(
         return;
     };
 
-    let mut transform = match transforms.get_mut(cursor.frame) {
-        Ok(transform) => transform,
-        Err(_) => {
+    let mut transform= match cursor.single_mut() {
+        Ok(trans) => trans,
+        Err(err) => {
+            warn!("Could not get cursor transform. Reason: {:#?}", err);
             return;
-        }
+        },
     };
 
     let ray = Ray3d::new(position, normal);
