@@ -572,7 +572,7 @@ impl Site {
                             .insert("element_id".into(), slotcar.name);
                         plugin_element
                             .attributes
-                            .insert("action".into(), "replace".into());
+                            .insert("action".into(), "modify".into());
                         plugin_element.name = "plugin".into();
                         plugin_element.data = ElementData::Nested(slotcar.elements);
                         replacement.0.push(plugin_element);
