@@ -12,7 +12,7 @@ fn main() {
             enable_multipass_for_primary_context: false
         })
         .add_plugins(InspectorServicePlugin)
-        .add_plugins(SelectionPlugin::<InspectorService>)
+        .add_plugins(SelectionPlugin::<InspectorService>::default())
         .add_plugins(WorldInspectorPlugin::default())
         .add_systems(Startup, setup)
         .run();
