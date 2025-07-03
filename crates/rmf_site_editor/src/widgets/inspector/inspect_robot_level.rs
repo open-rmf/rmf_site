@@ -74,12 +74,6 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectRobotLevel<'w, 's> {
                             level_name.0.clone(),
                         );
                     }
-                    // Add an option to remove selected robot from any level
-                    ui.selectable_value(
-                        &mut new_level_entity,
-                        None,
-                        "Remove from all levels".to_string(),
-                    );
                 });
         });
 

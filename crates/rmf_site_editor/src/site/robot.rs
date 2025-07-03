@@ -15,15 +15,19 @@
  *
 */
 
-use crate::site::{
-    AddModifier, Affiliation, ChangeCurrentScenario, LastSetValue, LevelElevation, Modifier,
-    Property, Robot, RobotLevel, ScenarioModifiers,
+use crate::{
+    site::{
+        AddModifier, Affiliation, ChangeCurrentScenario, IssueKey, LastSetValue, LevelElevation,
+        Modifier, NameInSite, Property, Robot, RobotLevel, ScenarioModifiers,
+    },
+    Issue, ValidateWorkspace,
 };
 use bevy::ecs::{hierarchy::ChildOf, system::SystemState};
 use bevy::prelude::*;
 use std::collections::{HashMap, HashSet};
+use uuid::Uuid;
 
-/// Implement scenario property for ChildOf to set a robot model's parent level
+/// Implement scenario property for RobotLevel to modify a robot model's parent level
 /// across different scenario
 impl Property for RobotLevel<Entity> {
     fn get_fallback(
@@ -187,16 +191,70 @@ pub fn update_robot_level(
 ) {
     for (robot_entity, robot_level) in robot_levels.iter() {
         if robot_level.is_changed() && !robot_level.is_added() {
-            match robot_level.0.filter(|e| level_elevation.get(*e).is_ok()) {
-                Some(level_entity) => {
-                    commands.entity(robot_entity).insert(ChildOf(level_entity));
-                }
-                None => {
-                    // If no RobotLevel found, we'll remove the parent of this robot.
-                    // Users will be able to insert this robot into a level of their
-                    // choice via the InspectRobotLevel widget.
-                    commands.entity(robot_entity).remove::<ChildOf>();
-                }
+            if let Some(level_entity) = robot_level.0.filter(|e| level_elevation.get(*e).is_ok()) {
+                commands.entity(robot_entity).insert(ChildOf(level_entity));
+            }
+        }
+    }
+}
+
+/// Unique UUID to identify issue of invalid RobotLevels
+pub const INVALID_ROBOT_LEVEL_ISSUE_UUID: Uuid =
+    Uuid::from_u128(0x7e6937c359ff4ec88a23c7cef2683e7fu128);
+
+pub fn check_for_invalid_robot_levels(
+    mut commands: Commands,
+    mut validate_events: EventReader<ValidateWorkspace>,
+    child_of: Query<&ChildOf>,
+    level_modifiers: Query<(Entity, &Modifier<RobotLevel<Entity>>, &Affiliation<Entity>)>,
+    levels: Query<Entity, With<LevelElevation>>,
+    robots: Query<&NameInSite, With<Robot>>,
+    scenarios: Query<&NameInSite, With<ScenarioModifiers<Entity>>>,
+) {
+    for root in validate_events.read() {
+        for (modifier_entity, level_modifier, affiliation) in level_modifiers.iter() {
+            let Ok(scenario_entity) = child_of.get(modifier_entity).map(|co| co.parent()) else {
+                continue;
+            };
+            if let Some((robot_name, robot_entity)) =
+                affiliation.0.and_then(|e| robots.get(e).ok().zip(Some(e)))
+            {
+                let brief = if let Some(level_entity) = level_modifier.0 {
+                    if levels.get(level_entity).is_ok() {
+                        continue;
+                    }
+                    // RobotLevel is not pointing to a valid Level entity
+                    format!(
+                        "Robot {:?} has an invalid RobotLevel inserted in scenario {:?}: {:?}",
+                        robot_name,
+                        scenarios
+                            .get(scenario_entity)
+                            .map(|n| n.0.clone())
+                            .unwrap_or(format!("{:?}", scenario_entity)),
+                        level_entity
+                    )
+                } else {
+                    format!(
+                        "Robot {:?} has no RobotLevel inserted in scenario {:?}",
+                        robot_name,
+                        scenarios
+                            .get(scenario_entity)
+                            .map(|n| n.0.clone())
+                            .unwrap_or(format!("{:?}", scenario_entity)),
+                    )
+                };
+
+                let issue = Issue {
+                    key: IssueKey {
+                        entities: [robot_entity].into(),
+                        kind: INVALID_ROBOT_LEVEL_ISSUE_UUID,
+                    },
+                    brief,
+                    hint: "Check that the Robot Level for this robot is assigned to a valid level."
+                        .to_string(),
+                };
+                let issue_id = commands.spawn(issue).id();
+                commands.entity(**root).add_child(issue_id);
             }
         }
     }
