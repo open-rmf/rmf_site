@@ -4,11 +4,7 @@ use bevy_app::prelude::*;
 use bytemuck::TransparentWrapper;
 
 use crate::resources::{BlockStatus, CameraConfig, CameraControls};
-use crate::{
-    resources::{CameraControlBlockers, OrbitMarkerMaterial, PanMarkerMaterial, PickMarkerMesh},
-    systems::*,
-    *,
-};
+use crate::*;
 
 /// Plugin to add a blocker to a registry of blockers.
 ///
