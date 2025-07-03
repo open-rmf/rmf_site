@@ -15,15 +15,14 @@
  *
 */
 
-use crate::{
-    interaction::Selectable, shapes::*, site::*, CurrentWorkspace, Issue, ValidateWorkspace,
-};
+use crate::{interaction::Selectable, site::*, CurrentWorkspace, Issue, ValidateWorkspace};
 use bevy::{
     ecs::{hierarchy::ChildOf, relationship::AncestorIter},
     prelude::*,
     render::primitives::Aabb,
 };
 use rmf_site_format::{Edge, LiftCabin};
+use rmf_site_mesh::*;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
 use uuid::Uuid;

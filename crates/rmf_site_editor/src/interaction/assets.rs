@@ -15,10 +15,11 @@
  *
 */
 
-use crate::{interaction::*, shapes::*};
+use crate::interaction::*;
 use bevy::color::palettes::css as Colors;
 use bevy::ecs::hierarchy::ChildOf;
 use bevy::{math::primitives, math::Affine3A, prelude::*};
+use rmf_site_mesh::*;
 
 #[derive(Clone, Debug, Resource)]
 pub struct InteractionAssets {

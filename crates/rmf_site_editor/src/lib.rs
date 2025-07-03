@@ -8,7 +8,6 @@ use clap::Parser;
 use main_menu::MainMenuPlugin;
 
 pub mod aabb;
-pub mod animate;
 pub mod autoload;
 pub use autoload::*;
 
@@ -25,6 +24,7 @@ pub mod keyboard;
 use keyboard::*;
 
 pub mod widgets;
+use rmf_site_animate::VisualCueAnimationsPlugin;
 use widgets::*;
 pub mod occupancy;
 use occupancy::OccupancyPlugin;
@@ -34,9 +34,8 @@ use issue::*;
 pub mod demo_world;
 pub mod log;
 mod recency;
-use recency::*;
-mod shapes;
 use log::LogHistoryPlugin;
+use recency::*;
 
 pub mod interaction;
 pub mod main_menu;
@@ -54,7 +53,6 @@ pub mod wireframe;
 use wireframe::*;
 
 use aabb::AabbUpdatePlugin;
-use animate::AnimationPlugin;
 use interaction::InteractionPlugin;
 use site::{OSMViewPlugin, SitePlugin};
 use site_asset_io::SiteAssetIoPlugin;
@@ -245,7 +243,7 @@ impl Plugin for SiteEditor {
                 KeyboardInputPlugin,
                 SitePlugin,
                 InteractionPlugin::new().headless(self.is_headless()),
-                AnimationPlugin,
+                VisualCueAnimationsPlugin,
                 OccupancyPlugin,
                 WorkspacePlugin,
                 IssuePlugin,

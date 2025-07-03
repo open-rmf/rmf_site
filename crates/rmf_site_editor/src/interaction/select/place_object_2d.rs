@@ -153,7 +153,7 @@ pub fn place_object_2d_find_placement(
     mut transforms: Query<&mut Transform>,
     intersect_ground_params: IntersectGroundPlaneParams,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
-    blockers: Option<Res<PickingBlockers>>,
+    block_status: Res<PickBlockStatus>,
 ) {
     let Some(mut orders) = orders.get_mut(&key) else {
         return;
@@ -178,7 +178,8 @@ pub fn place_object_2d_find_placement(
         }
 
         let clicked = mouse_button_input.just_pressed(MouseButton::Left);
-        let blocked = blockers.filter(|x| x.blocking()).is_some();
+        let blocked = block_status.blocked();
+
         if clicked && !blocked {
             order.respond(intersection);
         }
