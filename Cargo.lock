@@ -5583,7 +5583,7 @@ dependencies = [
 [[package]]
 name = "sdformat_rs"
 version = "0.1.0"
-source = "git+https://github.com/open-rmf/sdf_rust_experimental?branch=luca%2Fexperimental_params_new_yaserde#84965254f9abb601719ca2e32bc377cff47d64dc"
+source = "git+https://github.com/open-rmf/sdf_rust_experimental?branch=luca%2Fexperimental_params_new_yaserde#6adbebcb55b05026f24b37f4ce82ba90d0d38446"
 dependencies = [
  "convert_case",
  "nalgebra",

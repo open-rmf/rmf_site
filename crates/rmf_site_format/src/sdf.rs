@@ -189,11 +189,11 @@ fn make_sdf_door(
                 pose: Some(pose),
                 axis: Some(SdfJointAxis {
                     xyz: Vector3d::new(0.0, door.towards.sign().into(), 0.0),
-                    limit: SdfJointAxisLimit {
+                    limit: Some(SdfJointAxisLimit {
                         lower: 0.0,
                         upper: door_length as f64,
                         ..Default::default()
-                    },
+                    }),
                     ..Default::default()
                 }),
                 ..Default::default()
@@ -237,11 +237,11 @@ fn make_sdf_door(
                 r#type: "revolute".into(),
                 axis: Some(SdfJointAxis {
                     xyz: Vector3d::new(0.0, 0.0, z),
-                    limit: SdfJointAxisLimit {
+                    limit: Some(SdfJointAxisLimit {
                         lower,
                         upper,
                         ..Default::default()
-                    },
+                    }),
                     ..Default::default()
                 }),
                 pose: Some(pose),
@@ -286,11 +286,11 @@ fn make_sdf_door(
                     pose: Some(right_pose),
                     axis: Some(SdfJointAxis {
                         xyz: Vector3d::new(0.0, -1.0, 0.0),
-                        limit: SdfJointAxisLimit {
+                        limit: Some(SdfJointAxisLimit {
                             lower: 0.0,
                             upper: right_length as f64,
                             ..Default::default()
-                        },
+                        }),
                         ..Default::default()
                     }),
                     ..Default::default()
@@ -303,11 +303,11 @@ fn make_sdf_door(
                     pose: Some(left_pose),
                     axis: Some(SdfJointAxis {
                         xyz: Vector3d::new(0.0, -1.0, 0.0),
-                        limit: SdfJointAxisLimit {
+                        limit: Some(SdfJointAxisLimit {
                             lower: -left_length as f64,
                             upper: 0.0,
                             ..Default::default()
-                        },
+                        }),
                         ..Default::default()
                     }),
                     ..Default::default()
@@ -356,11 +356,11 @@ fn make_sdf_door(
                     r#type: "revolute".into(),
                     axis: Some(SdfJointAxis {
                         xyz: Vector3d::new(0.0, 0.0, z),
-                        limit: SdfJointAxisLimit {
+                        limit: Some(SdfJointAxisLimit {
                             lower: 0.0,
                             upper,
                             ..Default::default()
-                        },
+                        }),
                         ..Default::default()
                     }),
                     pose: Some(right_pose),
@@ -373,11 +373,11 @@ fn make_sdf_door(
                     r#type: "revolute".into(),
                     axis: Some(SdfJointAxis {
                         xyz: Vector3d::new(0.0, 0.0, z),
-                        limit: SdfJointAxisLimit {
+                        limit: Some(SdfJointAxisLimit {
                             lower: -upper,
                             upper: 0.0,
                             ..Default::default()
-                        },
+                        }),
                         ..Default::default()
                     }),
                     pose: Some(left_pose),
@@ -704,11 +704,11 @@ impl Site {
                 child: "platform".into(),
                 axis: Some(SdfJointAxis {
                     xyz: Vector3d::new(0.0, 0.0, 1.0),
-                    limit: SdfJointAxisLimit {
+                    limit: Some(SdfJointAxisLimit {
                         lower: -std::f64::INFINITY,
                         upper: std::f64::INFINITY,
                         ..Default::default()
-                    },
+                    }),
                     ..Default::default()
                 }),
                 ..Default::default()
