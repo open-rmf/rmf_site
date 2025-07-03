@@ -15,9 +15,7 @@
  *
 */
 
-use crate::{
-    site::{Category, LevelElevation, NameOfSite, SiteAssets, LANE_LAYER_START},
-};
+use crate::site::{Category, LevelElevation, NameOfSite, SiteAssets, LANE_LAYER_START};
 use bevy::{
     ecs::{hierarchy::ChildOf, relationship::AncestorIter},
     math::{swizzles::*, Affine3A, Mat3A, Vec2, Vec3A},

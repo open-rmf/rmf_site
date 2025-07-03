@@ -10,7 +10,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(EguiPlugin {
-            enable_multipass_for_primary_context: false
+            enable_multipass_for_primary_context: false,
         })
         .add_plugins(CameraSetupPlugin)
         .add_plugins(InspectorServicePlugin)
@@ -29,7 +29,7 @@ fn setup(
     // circular base
     commands.spawn((
         Mesh3d(meshes.add(Circle::new(4.0))),
-        MeshMaterial3d(materials.add(Color::Srgba(Srgba::GREEN * 0.25) )),
+        MeshMaterial3d(materials.add(Color::Srgba(Srgba::GREEN * 0.25))),
         Transform::from_xyz(0.0, 0.0, -0.5),
         Name::new("base_plate"),
     ));

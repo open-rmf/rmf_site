@@ -16,7 +16,8 @@
 */
 
 use crate::{
-    site::{AlignSiteDrawings, Delete}, CreateNewWorkspace, CurrentWorkspace, DebugMode, WorkspaceLoader, WorkspaceSaver
+    site::{AlignSiteDrawings, Delete},
+    CreateNewWorkspace, CurrentWorkspace, DebugMode, WorkspaceLoader, WorkspaceSaver,
 };
 use bevy::{prelude::*, window::PrimaryWindow};
 use bevy_egui::EguiContexts;
@@ -31,7 +32,6 @@ impl Plugin for EditorInputPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<DebugMode>()
             .add_systems(Last, handle_keyboard_input);
-
     }
 }
 

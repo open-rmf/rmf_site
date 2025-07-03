@@ -43,9 +43,7 @@
 //! [1]: crate::widgets::PanelWidget
 //! [2]: crate::widgets::show_panel_of_tiles
 
-use crate::{
-    AppState,
-};
+use crate::AppState;
 use bevy::{
     ecs::{
         system::{SystemParam, SystemState},

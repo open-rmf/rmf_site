@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{site::*};
+use crate::site::*;
 use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 use rmf_site_animate::Spinning;
 use rmf_site_picking::VisualCue;

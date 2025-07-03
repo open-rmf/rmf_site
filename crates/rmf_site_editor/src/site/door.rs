@@ -15,10 +15,7 @@
  *
 */
 
-use crate::{
-    issue::*,
-    site::*,
-};
+use crate::{issue::*, site::*};
 use bevy::{
     ecs::{hierarchy::ChildOf, relationship::AncestorIter},
     prelude::*,

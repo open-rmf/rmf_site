@@ -27,8 +27,7 @@ pub use anchor::*;
 pub mod assets;
 pub use assets::*;
 
-use rmf_site_camera::plugins::{BlockerRegistryPlugin, CameraSetupPlugin};
-pub use rmf_site_camera::*;
+use rmf_site_camera::plugins::CameraSetupPlugin;
 
 pub mod category_visibility;
 pub use category_visibility::*;
@@ -241,26 +240,10 @@ impl Plugin for InteractionPlugin {
                 PostUpdate,
                 (move_anchor.before(update_anchor_transforms), move_pose)
                     .run_if(in_state(InteractionState::Enable)),
-            )
-            ;
+            );
         }
     }
 }
-
-// pub fn set_visibility(entity: Entity, q_visibility: &mut Query<&mut Visibility>, visible: bool) {
-//     if let Some(mut visibility) = q_visibility.get_mut(entity).ok() {
-//         let v = if visible {
-//             Visibility::Inherited
-//         } else {
-//             Visibility::Hidden
-//         };
-
-//         // Avoid a mutable access if nothing actually needs to change
-//         if *visibility != v {
-//             *visibility = v;
-//         }
-//     }
-// }
 
 fn set_material(
     entity: Entity,

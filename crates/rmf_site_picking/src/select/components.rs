@@ -5,7 +5,6 @@ use bevy_ecs::prelude::*;
 #[derive(Component)]
 pub struct SelectorInput<T>(pub T);
 
-
 /// This component is put on entities with meshes to mark them as items that can
 /// be interacted with to
 #[derive(Component, Clone, Copy, Debug)]

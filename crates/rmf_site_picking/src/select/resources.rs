@@ -33,6 +33,7 @@ impl Default for SelectionBlockers {
     }
 }
 
+/// Misc Inspector services.
 #[derive(Resource)]
 pub struct InspectorServiceConfigs {
     /// Workflow that outputs hover and select streams that are compatible with

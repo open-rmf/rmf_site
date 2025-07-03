@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{interaction::main_view_render_layers, site::CurrentLevel};
+use crate::site::CurrentLevel;
 use bevy::{
     ecs::hierarchy::ChildOf,
     pbr::CubemapVisibleEntities,
@@ -28,6 +28,7 @@ use bevy::{
         view::VisibleEntities,
     },
 };
+use rmf_site_camera::main_view_render_layers;
 use rmf_site_format::{Category, Light, LightKind, NameInSite, Pose};
 use std::collections::{BTreeMap, HashMap};
 

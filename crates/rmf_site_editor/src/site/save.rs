@@ -26,10 +26,7 @@ use std::{
 };
 use thiserror::Error as ThisError;
 
-use crate::{
-    exit_confirmation::SiteChanged, recency::RecencyRanking, site::*,
-    ExportFormat,
-};
+use crate::{exit_confirmation::SiteChanged, recency::RecencyRanking, site::*, ExportFormat};
 use rmf_site_format::*;
 
 #[derive(Event)]
