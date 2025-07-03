@@ -18,18 +18,23 @@
 use std::collections::HashMap;
 
 use bevy_ecs::prelude::*;
+use bevy_egui::EguiContext;
 use bevy_picking::pointer::PointerInteraction;
 use bevy_reflect::prelude::*;
 
 use bytemuck::TransparentWrapper;
 use rmf_site_camera::{plugins::BlockerRegistration, resources::BlockStatus, TypeInfo};
 
+pub(crate) mod plugins;
+
+use tracing::warn;
+
 use crate::*;
 
 /// The UI is being hovered over
 #[derive(Resource, Default, TransparentWrapper)]
 #[repr(transparent)]
-pub struct UiHovered(pub bool);
+pub struct UiFocused(pub bool);
 
 /// An InteractionMask entity is being hovered over
 #[derive(Resource, Default, TransparentWrapper)]
@@ -62,7 +67,7 @@ pub struct ChangePick {
     pub to: Option<Entity>,
 }
 
-fn pick_topmost(
+pub(crate) fn pick_topmost(
     picks: impl Iterator<Item = Entity>,
     selectable: &Query<&Selectable>,
 ) -> Option<Entity> {
@@ -82,7 +87,7 @@ fn pick_topmost(
 }
 
 // TODO(@mxgrey): Consider making this a service similar to hover_service and select_service
-pub fn update_picked(
+pub(crate) fn update_picked(
     selectable: Query<&Selectable>,
     block_status: Res<PickBlockStatus>,
     pointers: Query<&PointerInteraction>,
@@ -143,4 +148,21 @@ pub fn update_picked(
         });
         picked.current = current_picked;
     }
+}
+
+
+pub(crate) fn check_ui_focus(
+    mut window: Query<&mut EguiContext>,
+    mut ui_status: ResMut<UiFocused>
+) {
+    let Ok(mut ctx) = window.single_mut()
+    .inspect_err(|err| warn!("couldn't check ui focus status. Reason: {:#}", err)) else {
+        return
+    };
+    let ctx = ctx.get_mut();
+
+    let ui_has_focus = ctx.wants_pointer_input() || ctx.wants_keyboard_input() || ctx.is_pointer_over_area();
+
+    ui_status.0 = ui_has_focus;
+
 }

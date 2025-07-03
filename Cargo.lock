@@ -5373,6 +5373,7 @@ dependencies = [
  "bevy_asset",
  "bevy_derive",
  "bevy_ecs",
+ "bevy_egui",
  "bevy_impulse",
  "bevy_input",
  "bevy_math",

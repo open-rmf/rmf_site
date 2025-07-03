@@ -3,6 +3,7 @@
 
 use bevy::prelude::*;
 use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
+use rmf_site_camera::plugins::CameraSetupPlugin;
 use rmf_site_picking::{InspectorService, InspectorServicePlugin, SelectionPlugin};
 
 fn main() {
@@ -11,6 +12,7 @@ fn main() {
         .add_plugins(EguiPlugin {
             enable_multipass_for_primary_context: false
         })
+        .add_plugins(CameraSetupPlugin)
         .add_plugins(InspectorServicePlugin)
         .add_plugins(SelectionPlugin::<InspectorService>::default())
         .add_plugins(WorldInspectorPlugin::default())
@@ -27,8 +29,9 @@ fn setup(
     // circular base
     commands.spawn((
         Mesh3d(meshes.add(Circle::new(4.0))),
-        MeshMaterial3d(materials.add(Color::WHITE)),
-        Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+        MeshMaterial3d(materials.add(Color::Srgba(Srgba::GREEN * 0.25) )),
+        Transform::from_xyz(0.0, 0.0, -0.5),
+        Name::new("base_plate"),
     ));
     // cube
     commands.spawn((
@@ -43,10 +46,5 @@ fn setup(
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
-    ));
-    // camera
-    commands.spawn((
-        Camera3d::default(),
-        Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }

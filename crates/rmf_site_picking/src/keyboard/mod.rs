@@ -34,7 +34,7 @@ impl Plugin for KeyboardServicePlugin {
 }
 
 
-pub fn keyboard_just_pressed_stream(
+fn keyboard_just_pressed_stream(
     In(ContinuousService { key }): ContinuousServiceInput<(), (), StreamOf<KeyCode>>,
     mut orders: ContinuousQuery<(), (), StreamOf<KeyCode>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,

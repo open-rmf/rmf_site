@@ -139,19 +139,10 @@ impl Plugin for InteractionPlugin {
             .add_plugins(MeshPickingPlugin)
             .init_resource::<InteractionAssets>()
             .init_resource::<Cursor>()
-            .init_resource::<PickingBlockers>()
-            .init_resource::<UiHovered>()
-            .init_resource::<IteractionMaskHovered>()
-            .add_plugins(CameraControlsBlocker::<UiHovered>::default())
-            .add_plugins(BlockerRegistryPlugin::<PickingBlockers>::default())
-            .add_plugins(PickBlockerRegistration::<UiHovered>::default())
-            .add_plugins(PickBlockerRegistration::<IteractionMaskHovered>::default())
-            .init_resource::<Picked>()
             .init_resource::<GizmoState>()
             .init_resource::<CurrentEditDrawing>()
             .init_resource::<CurrentLevel>()
             .insert_resource(HighlightAnchors(false))
-            .add_event::<ChangePick>()
             .add_event::<MoveTo>()
             .add_event::<GizmoClicked>()
             .add_event::<SpawnPreview>()
@@ -186,7 +177,6 @@ impl Plugin for InteractionPlugin {
                     make_lift_doormat_gizmo,
                     update_doormats_for_level_change,
                     update_physical_light_visual_cues,
-                    make_selectable_entities_pickable,
                     update_anchor_visual_cues.after(SelectionServiceStages::Select),
                     update_popups.after(SelectionServiceStages::Select),
                     update_unassigned_anchor_cues,
@@ -252,7 +242,7 @@ impl Plugin for InteractionPlugin {
                 (move_anchor.before(update_anchor_transforms), move_pose)
                     .run_if(in_state(InteractionState::Enable)),
             )
-            .add_systems(First, update_picked);
+            ;
         }
     }
 }

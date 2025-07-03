@@ -101,7 +101,7 @@ pub mod properties_panel;
 pub use properties_panel::*;
 
 pub mod sdf_export_menu;
-use rmf_site_picking::{Hover, UiHovered};
+use rmf_site_picking::{Hover, UiFocused};
 pub use sdf_export_menu::*;
 
 pub mod selector_widget;
@@ -430,12 +430,12 @@ pub fn site_ui_layout(
 
     let mut egui_context = egui_context_state.get_mut(world);
     let mut ctx = egui_context.ctx_mut().clone();
-    let ui_has_focus =
-        ctx.wants_pointer_input() || ctx.wants_keyboard_input() || ctx.is_pointer_over_area();
 
-    if let Some(mut picking_blocker) = world.get_resource_mut::<UiHovered>() {
-        picking_blocker.0 = ui_has_focus;
-    }
+    let ui_has_focus = if let Some(picking_blocker) = world.get_resource::<UiFocused>() {
+        picking_blocker.0.clone()
+    } else {
+        false
+    };
 
     if ui_has_focus {
         // If the UI has focus and there were no hover events emitted by the UI,

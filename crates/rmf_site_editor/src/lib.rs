@@ -65,9 +65,6 @@ use bevy::render::{
 };
 pub use osm_slippy_map::*;
 
-use crate::site::{AlignSiteDrawings, Delete};
-
-
 #[derive(Debug, Clone, Copy, Resource)]
 pub struct DebugMode(pub bool);
 
