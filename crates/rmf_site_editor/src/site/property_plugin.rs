@@ -101,6 +101,7 @@ impl<T: Property, F: QueryFilter + 'static + Send + Sync> Plugin for PropertyPlu
                     update_property_value::<T, F>.after(handle_modifier_updates::<T, F>),
                 ),
             )
+            .add_event::<UpdateModifierEvent<T>>()
             .add_observer(on_add_property::<T, F>)
             .add_observer(on_add_root_scenario::<T, F>);
     }

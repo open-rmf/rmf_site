@@ -223,10 +223,6 @@ impl Plugin for SitePlugin {
         .add_event::<RemoveScenario>()
         .add_event::<AddModifier>()
         .add_event::<RemoveModifier>()
-        .add_event::<UpdateModifierEvent<Pose>>()
-        .add_event::<UpdateModifierEvent<Visibility>>()
-        .add_event::<UpdateModifierEvent<Inclusion>>()
-        .add_event::<UpdateModifierEvent<TaskParams>>()
         .add_event::<SaveSite>()
         .add_event::<ExportLights>()
         .add_event::<ConsiderAssociatedGraph>()
@@ -288,6 +284,7 @@ impl Plugin for SitePlugin {
             ChangePlugin::<Task>::default(),
             PropertyPlugin::<Pose, With<InstanceMarker>>::default(),
             PropertyPlugin::<Visibility, With<InstanceMarker>>::default(),
+            PropertyPlugin::<Inclusion, With<Task>>::default(),
             PropertyPlugin::<TaskParams, With<Task>>::default(),
             SlotcarSdfPlugin,
         ))
