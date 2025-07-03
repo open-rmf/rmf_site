@@ -16,7 +16,8 @@
 */
 
 use crate::{
-    interaction::*, site::{ModelInstance, ModelLoader}
+    interaction::*,
+    site::{ModelInstance, ModelLoader},
 };
 use bevy::prelude::*;
 use bevy_impulse::*;

@@ -232,10 +232,7 @@ impl FromWorld for Cursor {
             .id();
 
         let cursor = world
-            .spawn((
-                VisualCue::no_outline(),
-                CursorFrame
-            ))
+            .spawn((VisualCue::no_outline(), CursorFrame))
             .add_children(&[
                 halo,
                 dagger,

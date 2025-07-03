@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{site::*};
+use crate::site::*;
 use bevy::{core_pipeline::tonemapping::Tonemapping, prelude::*};
 use rmf_site_format::{PhysicalCameraProperties, Pose};
 use rmf_site_picking::Selectable;

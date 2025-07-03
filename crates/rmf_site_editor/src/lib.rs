@@ -1,8 +1,8 @@
 use bevy::{
     app::ScheduleRunnerPlugin, asset::UnapprovedPathMode, log::LogPlugin,
-    pbr::DirectionalLightShadowMap, prelude::*, window::PrimaryWindow,
+    pbr::DirectionalLightShadowMap, prelude::*,
 };
-use bevy_egui::{EguiContexts, EguiPlugin};
+use bevy_egui::EguiPlugin;
 #[cfg(not(target_arch = "wasm32"))]
 use clap::Parser;
 use main_menu::MainMenuPlugin;

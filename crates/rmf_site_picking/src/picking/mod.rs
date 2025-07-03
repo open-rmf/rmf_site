@@ -23,7 +23,7 @@ use bevy_picking::pointer::PointerInteraction;
 use bevy_reflect::prelude::*;
 
 use bytemuck::TransparentWrapper;
-use rmf_site_camera::{plugins::BlockerRegistration, resources::BlockStatus, TypeInfo};
+use rmf_site_camera::{TypeInfo, plugins::BlockerRegistration, resources::BlockStatus};
 
 pub(crate) mod plugins;
 
@@ -150,19 +150,20 @@ pub(crate) fn update_picked(
     }
 }
 
-
 pub(crate) fn check_ui_focus(
     mut window: Query<&mut EguiContext>,
-    mut ui_status: ResMut<UiFocused>
+    mut ui_status: ResMut<UiFocused>,
 ) {
-    let Ok(mut ctx) = window.single_mut()
-    .inspect_err(|err| warn!("couldn't check ui focus status. Reason: {:#}", err)) else {
-        return
+    let Ok(mut ctx) = window
+        .single_mut()
+        .inspect_err(|err| warn!("couldn't check ui focus status. Reason: {:#}", err))
+    else {
+        return;
     };
     let ctx = ctx.get_mut();
 
-    let ui_has_focus = ctx.wants_pointer_input() || ctx.wants_keyboard_input() || ctx.is_pointer_over_area();
+    let ui_has_focus =
+        ctx.wants_pointer_input() || ctx.wants_keyboard_input() || ctx.is_pointer_over_area();
 
     ui_status.0 = ui_has_focus;
-
 }

@@ -15,23 +15,12 @@
  *
 */
 
-use anyhow::{anyhow, Error as Anyhow};
-use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{prelude::*, system::{ScheduleSystem, StaticSystemParam, SystemParam}};
+use anyhow::{Error as Anyhow, anyhow};
 use bevy_app::prelude::*;
+use bevy_ecs::system::{ScheduleSystem, SystemParam};
 use bevy_impulse::*;
-use bevy_math::prelude::*;
-use bevy_input::prelude::*;
-use bevy_math::Ray3d;
-use bevy_picking::pointer::{PointerId, PointerInteraction};
-use bevy_transform::components::Transform;
-use bytemuck::TransparentWrapper;
-use tracing::warn;
+use std::error::Error;
 use std::fmt::Debug;
-use rmf_site_camera::{active_camera_maybe, plugins::BlockerRegistryPlugin, ActiveCameraQuery, CameraControlsBlocker};
-use std::{collections::HashSet, error::Error, marker::PhantomData};
-
-use crate::{ChangePick, IteractionMaskHovered, KeyboardServicePlugin, KeyboardServices, PickBlockStatus, PickBlockerRegistration, Picked, PickingBlockers, UiFocused};
 
 pub mod components;
 pub use components::*;
@@ -47,8 +36,6 @@ pub use events::*;
 
 mod systems;
 pub(crate) use systems::*;
-
-pub const SELECT_ANCHOR_MODE_LABEL: &'static str = "select_anchor";
 
 #[derive(Debug, Clone, Copy)]
 pub struct SelectionCandidate {
@@ -165,10 +152,15 @@ pub enum SelectionServiceStages {
 
 #[derive(SystemParam)]
 struct InspectorFilter<'w, 's> {
-    selectables: Query<'w, 's, &'static Selectable, (
-        Without<Preview>, 
-        // Without<Pending>
-    )>,
+    selectables: Query<
+        'w,
+        's,
+        &'static Selectable,
+        (
+            Without<Preview>,
+            // Without<Pending>
+        ),
+    >,
 }
 
 impl<'w, 's> SelectionFilter for InspectorFilter<'w, 's> {

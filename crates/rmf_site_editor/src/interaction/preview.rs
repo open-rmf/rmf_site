@@ -24,10 +24,8 @@ use bevy::{
     window::{PresentMode, WindowClosed, WindowRef},
 };
 
-use crate::interaction::DEFAULT_CAMERA_EV100;
-
+use rmf_site_camera::*;
 use rmf_site_format::{NameInSite, PhysicalCameraProperties, PreviewableMarker};
-
 /// Instruction to spawn a preview for the given entity
 /// TODO None to encode "Clear all"
 #[derive(Debug, Clone, Copy, Default, PartialEq, Event)]

@@ -22,13 +22,15 @@ use bevy::ecs::{hierarchy::ChildOf, schedule::ScheduleConfigs, system::ScheduleS
 use bevy::prelude::*;
 use bevy_impulse::*;
 
-use crate::interaction::{set_visibility, Cursor, GizmoBlockers, HighlightAnchors, IntersectGroundPlaneParams};
+use crate::interaction::{
+    set_visibility, Cursor, GizmoBlockers, HighlightAnchors, IntersectGroundPlaneParams,
+};
 use crate::site::{AnchorBundle, CurrentEditDrawing, DrawingMarker};
 use crate::workspace::CurrentWorkspace;
 use crate::{interaction::select_impl::*, site::CurrentLevel};
+use rmf_site_format::*;
 use rmf_site_format::{Fiducial, Floor, LevelElevation, Location, Path, Point};
 use rmf_site_picking::*;
-use rmf_site_format::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Resource)]
 pub enum AnchorScope {

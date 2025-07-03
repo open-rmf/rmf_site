@@ -27,6 +27,8 @@ pub use select_anchor::*;
 use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_picking::Preview;
 
+pub const SELECT_ANCHOR_MODE_LABEL: &'static str = "select_anchor";
+
 #[derive(SystemParam)]
 pub struct InspectorFilter<'w, 's> {
     selectables: Query<'w, 's, &'static Selectable, (Without<Preview>, Without<Pending>)>,

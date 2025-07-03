@@ -16,8 +16,8 @@
 */
 
 use bevy_app::{App, Last, Plugin};
-use bevy_impulse::*;
 use bevy_ecs::prelude::*;
+use bevy_impulse::*;
 use bevy_input::prelude::*;
 
 pub struct KeyboardServicePlugin;
@@ -32,7 +32,6 @@ impl Plugin for KeyboardServicePlugin {
         });
     }
 }
-
 
 fn keyboard_just_pressed_stream(
     In(ContinuousService { key }): ContinuousServiceInput<(), (), StreamOf<KeyCode>>,

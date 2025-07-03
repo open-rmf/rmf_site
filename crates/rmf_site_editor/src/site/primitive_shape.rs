@@ -19,9 +19,10 @@ use bevy::ecs::{hierarchy::ChildOf, relationship::AncestorIter, system::EntityCo
 use bevy::math::primitives;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
+use rmf_site_camera::MODEL_PREVIEW_LAYER;
 use rmf_site_picking::Selectable;
 
-use crate::interaction::{DragPlaneBundle, MODEL_PREVIEW_LAYER};
+use crate::interaction::DragPlaneBundle;
 use crate::site::SiteAssets;
 
 use rmf_site_format::PrimitiveShape;

@@ -1,5 +1,8 @@
+use bevy_ecs::{
+    prelude::*,
+    system::{StaticSystemParam, SystemParam},
+};
 use bevy_impulse::*;
-use bevy_ecs::{prelude::*, system::{StaticSystemParam, SystemParam}};
 use bevy_input::prelude::*;
 use bevy_math::prelude::*;
 use bevy_picking::pointer::{PointerId, PointerInteraction};
@@ -306,12 +309,12 @@ pub fn inspector_cursor_transform(
         return;
     };
 
-    let mut transform= match cursor.single_mut() {
+    let mut transform = match cursor.single_mut() {
         Ok(trans) => trans,
         Err(err) => {
             warn!("Could not get cursor transform. Reason: {:#?}", err);
             return;
-        },
+        }
     };
 
     let ray = Ray3d::new(position, normal);

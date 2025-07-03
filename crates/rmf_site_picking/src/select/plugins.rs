@@ -1,42 +1,46 @@
 use std::marker::PhantomData;
 
 use bevy_ecs::system::ScheduleSystem;
-use bevy_impulse::{flush_impulses, AddContinuousServicesExt, AddServicesExt, IntoBlockingCallback, QuickContinuousServiceBuild, RequestExt, RunCommandsOnWorldExt, ScheduleConfigs, Service, SpawnWorkflowExt};
+use bevy_impulse::{
+    AddContinuousServicesExt, AddServicesExt, IntoBlockingCallback, QuickContinuousServiceBuild,
+    RequestExt, RunCommandsOnWorldExt, ScheduleConfigs, Service, SpawnWorkflowExt, flush_impulses,
+};
 use bytemuck::TransparentWrapper;
 use std::fmt::Debug;
 
 use bevy_app::prelude::*;
-use rmf_site_camera::{CameraControlsBlocker};
+use rmf_site_camera::CameraControlsBlocker;
 
-use crate::{select::InspectorFilter, *, picking::plugins::PickingRMFPlugin};
-
+use crate::{picking::plugins::PickingRMFPlugin, select::InspectorFilter, *};
 
 type SelectionService = Service<(), ()>;
 
-/// Plugin for default selection behaviour within rmf_site. 
-/// 
+/// Plugin for default selection behaviour within rmf_site.
+///
 /// [`T`] is the default service for selection behaviour within this plugin.
-/// 
+///
 /// !!! Ensure [`T`]'s assocaited plugin is initialized before this one or this plugin will crash !!!
 pub struct SelectionPlugin<T>
-    where
-         T: Debug + Send + Sync + Resource + TransparentWrapper<SelectionService> + 'static
+where
+    T: Debug + Send + Sync + Resource + TransparentWrapper<SelectionService> + 'static,
 {
-    pub _a: PhantomData<T>
+    pub _a: PhantomData<T>,
 }
 
-impl<T> Default for SelectionPlugin<T> 
-    where
-        T: Debug + Send + Sync + Resource + TransparentWrapper<SelectionService> + 'static
+impl<T> Default for SelectionPlugin<T>
+where
+    T: Debug + Send + Sync + Resource + TransparentWrapper<SelectionService> + 'static,
 {
     fn default() -> Self {
-        Self { _a: Default::default() }
+        Self {
+            _a: Default::default(),
+        }
     }
 }
 
-impl<T> Plugin for SelectionPlugin<T> 
-    where
-        T:  Debug + Send + Sync + Resource + TransparentWrapper<SelectionService> + 'static
+impl<T> Plugin for SelectionPlugin<T>
+where
+    T: Debug + Send + Sync + Resource + TransparentWrapper<SelectionService> + 'static,
 {
     fn build(&self, app: &mut App) {
         app.configure_sets(
@@ -59,7 +63,6 @@ impl<T> Plugin for SelectionPlugin<T>
         .add_event::<Hover>()
         .add_event::<RunSelector>()
         .add_plugins(CameraControlsBlocker::<UiFocused>::default())
-
         .init_resource::<UiFocused>()
         .init_resource::<IteractionMaskHovered>()
         .add_systems(
@@ -76,14 +79,16 @@ impl<T> Plugin for SelectionPlugin<T>
                     .in_set(SelectionServiceStages::SelectFlush),
             ),
         )
-        .add_systems(Update, make_selectable_entities_pickable)
-
-        ;
+        .add_systems(Update, make_selectable_entities_pickable);
         let default_selection_service = app.world().get_resource::<T>();
         let Some(default_selection_service) = default_selection_service else {
-            panic!("{:#?}'s plugin, must be initialized before this plugin", default_selection_service);
+            panic!(
+                "{:#?}'s plugin, must be initialized before this plugin",
+                default_selection_service
+            );
         };
-        let default_selection_service = TransparentWrapper::peel_ref(default_selection_service).clone();
+        let default_selection_service =
+            TransparentWrapper::peel_ref(default_selection_service).clone();
         let new_selector_service = app.spawn_event_streaming_service::<RunSelector>(Update);
         let selection_workflow = app.world_mut().spawn_io_workflow(build_selection_workflow(
             default_selection_service,
@@ -97,14 +102,13 @@ impl<T> Plugin for SelectionPlugin<T>
     }
 }
 
+/// Plugin for selection behaviour for open_rmf site's inspector.
 #[derive(Default)]
 pub struct InspectorServicePlugin;
 
 impl Plugin for InspectorServicePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(
-            KeyboardServicePlugin
-        );
+        app.add_plugins(KeyboardServicePlugin);
         let inspector_select_service = app.spawn_selection_service::<InspectorFilter>();
         let inspector_cursor_transform = app.spawn_continuous_service(
             Update,
@@ -149,8 +153,7 @@ impl Plugin for InspectorServicePlugin {
             inspector_cursor_transform,
             selection_update,
         });
-        app.world_mut().insert_resource(InspectorService(
-            inspector_service,
-        ));
+        app.world_mut()
+            .insert_resource(InspectorService(inspector_service));
     }
 }

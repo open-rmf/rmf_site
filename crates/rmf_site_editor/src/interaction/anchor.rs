@@ -17,7 +17,8 @@
 
 use crate::{
     interaction::{gizmo::Gizmo, IntersectGroundPlaneParams, *},
-    site::{Anchor, Category, Delete, Dependents, SiteAssets, Subordinate}, DebugMode,
+    site::{Anchor, Category, Delete, Dependents, SiteAssets, Subordinate},
+    DebugMode,
 };
 use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 use rmf_site_picking::{Hovered, Selectable, Selected};
