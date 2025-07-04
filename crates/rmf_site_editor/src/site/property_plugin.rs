@@ -31,6 +31,7 @@ use smallvec::SmallVec;
 use std::{collections::HashSet, fmt::Debug};
 
 pub trait Property: Component<Mutability = Mutable> + Debug + Default + Clone {
+    /// Provides the fallback value for each property if no modifier value can be found.
     fn get_fallback(_for_element: Entity, _in_scenario: Entity, _world: &mut World) -> Self;
 
     /// Inserts a new modifier for an element in the specified scenario. This is triggered
@@ -39,6 +40,71 @@ pub trait Property: Component<Mutability = Mutable> + Debug + Default + Clone {
 
     /// Inserts new modifiers elements in a newly added root scenario.
     fn insert_on_new_scenario(_in_scenario: Entity, _world: &mut World);
+
+    /// Helper function to create the Modifier for the given scenario-element pair.
+    /// If this property modifier already exists, its value will be updated.
+    /// If a modifier entity already exists for this scenario-element pair, the new
+    /// modifier will be inserted.
+    /// In both cases, the new modifier will not be returned.
+    fn create_modifier(
+        for_element: Entity,
+        in_scenario: Entity,
+        value: Self,
+        world: &mut World,
+    ) -> Option<Modifier<Self>> {
+        let mut modifier_state: SystemState<(
+            Query<(&mut Modifier<Self>, &Affiliation<Entity>)>,
+            Query<(Entity, &ScenarioModifiers<Entity>, Ref<Affiliation<Entity>>)>,
+        )> = SystemState::new(world);
+        let (mut modifiers, scenarios) = modifier_state.get_mut(world);
+
+        // Insert modifier entities for this scenario
+        let Ok((_, scenario_modifiers, _)) = scenarios.get(in_scenario) else {
+            return None;
+        };
+
+        // If this modifier already exists for this scenario, update it
+        if let Some((mut modifier, _)) = scenario_modifiers
+            .get(&for_element)
+            .and_then(|e| modifiers.get_mut(*e).ok())
+        {
+            **modifier = value.clone();
+            return None;
+        }
+
+        // If a modifier entity already exists for this scenario-element pair, insert the property modifier
+        let modifier_entity = scenario_modifiers.get(&for_element).cloned();
+        if let Some(modifier_entity) = modifier_entity {
+            world
+                .commands()
+                .entity(modifier_entity)
+                .insert(Modifier::<Self>::new(value.clone()));
+            return None;
+        }
+
+        Some(Modifier::<Self>::new(value.clone()))
+    }
+
+    /// Helper function that returns the element entities that have existing modifiers
+    /// for this property
+    fn elements_with_modifiers(
+        in_scenario: Entity,
+        children: &Query<&Children>,
+        modifiers: &Query<(&Modifier<Self>, &Affiliation<Entity>)>,
+    ) -> HashSet<Entity> {
+        let mut have_element = HashSet::new();
+        if let Ok(scenario_children) = children.get(in_scenario) {
+            for child in scenario_children {
+                if let Ok((_, a)) = modifiers.get(*child) {
+                    if let Some(a) = a.0 {
+                        have_element.insert(a);
+                    }
+                }
+            }
+        }
+
+        have_element
+    }
 }
 
 pub trait StandardProperty: Component<Mutability = Mutable> + Debug + Default + Clone {}
@@ -243,6 +309,9 @@ fn update_property_value<T: Property, F: QueryFilter + 'static + Send + Sync>(
     }
 }
 
+/// When an entity has been newly inserted with Property T, this observer will
+/// call T::insert so that the appropriate modifiers can be created for this
+/// Property via the callback.
 fn on_add_property<T: Property, F: QueryFilter + 'static + Send + Sync>(
     trigger: Trigger<OnAdd, T>,
     world: &mut World,
@@ -258,6 +327,9 @@ fn on_add_property<T: Property, F: QueryFilter + 'static + Send + Sync>(
     T::insert(trigger.target(), scenario_entity, value.clone(), world);
 }
 
+/// When a new scenario has been created, this observer checks that it is a root
+/// scenario and calls T::insert_on_new_scenario so that the appropriate modifiers
+/// can be created for this Property via the callback.
 fn on_add_root_scenario<T: Property, F: QueryFilter + 'static + Send + Sync>(
     trigger: Trigger<OnAdd, ScenarioModifiers<Entity>>,
     world: &mut World,

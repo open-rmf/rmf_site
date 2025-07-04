@@ -51,31 +51,12 @@ impl Property for Pose {
     }
 
     fn insert(for_element: Entity, in_scenario: Entity, value: Pose, world: &mut World) {
-        let mut modifier_state: SystemState<(
-            Query<(&mut Modifier<Pose>, &Affiliation<Entity>)>,
-            Query<(Entity, &ScenarioModifiers<Entity>, Ref<Affiliation<Entity>>)>,
-        )> = SystemState::new(world);
-        let (mut pose_modifiers, scenarios) = modifier_state.get_mut(world);
+        let mut scenario_state: SystemState<
+            Query<(Entity, &ScenarioModifiers<Entity>, &Affiliation<Entity>)>,
+        > = SystemState::new(world);
+        let scenarios = scenario_state.get_mut(world);
 
-        // Insert instance pose modifier entities when new model instances are spawned and placed
-        let Ok((_, scenario_modifiers, _)) = scenarios.get(in_scenario) else {
-            return;
-        };
-        let mut new_pose_modifiers = Vec::<(Modifier<Pose>, Entity)>::new();
-        let mut new_visibility_modifiers = Vec::<(Modifier<Visibility>, Entity)>::new();
-
-        if let Some((mut pose_modifier, _)) = scenario_modifiers
-            .get(&for_element)
-            .and_then(|e| pose_modifiers.get_mut(*e).ok())
-        {
-            // If an instance pose modifier entity already exists for this scenario, update it
-            **pose_modifier = value.clone();
-        } else {
-            // If pose modifier entity does not exist in this scenario, spawn one
-            new_pose_modifiers.push((Modifier::<Pose>::new(value.clone()), in_scenario));
-        }
-
-        // Retrieve root scenario of current scenario
+        // Insert visibility modifier into all root scenarios outside of the current tree as hidden
         let mut current_root_entity: Entity = in_scenario;
         while let Ok((_, _, parent_scenario)) = scenarios.get(current_root_entity) {
             if let Some(parent_scenario_entity) = parent_scenario.0 {
@@ -84,7 +65,7 @@ impl Property for Pose {
                 break;
             }
         }
-        // Insert visibility modifier into all root scenarios outside of the current tree as hidden
+        let mut new_visibility_modifiers = Vec::<(Modifier<Visibility>, Entity)>::new();
         for (scenario_entity, _, parent_scenario) in scenarios.iter() {
             if parent_scenario.0.is_some() || scenario_entity == current_root_entity {
                 continue;
@@ -96,24 +77,21 @@ impl Property for Pose {
         }
 
         // Spawn all new modifier entities
-        let new_current_scenario_modifiers = new_pose_modifiers
-            .iter()
-            .map(|(modifier, scenario)| {
-                (
-                    world
-                        .spawn(modifier.clone())
-                        // Mark all newly spawned instances as visible
-                        .insert(Modifier::<Visibility>::new(Visibility::Inherited))
-                        .id(),
-                    *scenario,
-                )
-            })
-            .collect::<Vec<(Entity, Entity)>>();
         let mut new_modifier_entities = new_visibility_modifiers
             .iter()
             .map(|(modifier, scenario)| (world.spawn(modifier.clone()).id(), *scenario))
             .collect::<Vec<(Entity, Entity)>>();
-        new_modifier_entities.extend(new_current_scenario_modifiers);
+        let pose_modifier = Self::create_modifier(for_element, in_scenario, value, world);
+        if let Some(pose_modifier) = pose_modifier {
+            new_modifier_entities.push((
+                world
+                    .spawn(pose_modifier)
+                    // Mark all newly spawned instances as visible
+                    .insert(Modifier::<Visibility>::new(Visibility::Inherited))
+                    .id(),
+                in_scenario,
+            ));
+        }
 
         let mut events_state: SystemState<EventWriter<AddModifier>> = SystemState::new(world);
         let mut add_modifier = events_state.get_mut(world);
@@ -154,16 +132,8 @@ impl Property for Visibility {
         let (children, visibility_modifiers, model_instances) = instance_state.get_mut(world);
 
         // Spawn visibility modifier entities when new root scenarios are created
-        let mut have_instance = HashSet::new();
-        if let Ok(scenario_children) = children.get(in_scenario) {
-            for child in scenario_children {
-                if let Ok((_, a)) = visibility_modifiers.get(*child) {
-                    if let Some(a) = a.0 {
-                        have_instance.insert(a);
-                    }
-                }
-            }
-        }
+        let have_instance =
+            Self::elements_with_modifiers(in_scenario, &children, &visibility_modifiers);
 
         let mut target_instances = HashSet::new();
         for instance_entity in model_instances.iter() {
