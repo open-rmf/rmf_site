@@ -51,34 +51,12 @@ impl Property for TaskParams {
     }
 
     fn insert(for_element: Entity, in_scenario: Entity, value: TaskParams, world: &mut World) {
-        // TODO(@xiyuoh) the insert() implementation across Properties are actually quite similar,
-        // there is significant overlap between Property impl for TaskParams and Pose. Consider
-        // moving this logic into StandardProperty instead
-        let mut state: SystemState<(
-            Query<(&mut Modifier<TaskParams>, &Affiliation<Entity>)>,
-            Query<(Entity, &ScenarioModifiers<Entity>, Ref<Affiliation<Entity>>)>,
-        )> = SystemState::new(world);
-        let (mut task_modifiers, scenarios) = state.get_mut(world);
+        let mut scenario_state: SystemState<
+            Query<(Entity, &ScenarioModifiers<Entity>, &Affiliation<Entity>)>,
+        > = SystemState::new(world);
+        let scenarios = scenario_state.get_mut(world);
 
-        // Insert task modifier entities when new tasks are created
-        let Ok((_, scenario_modifiers, _)) = scenarios.get(in_scenario) else {
-            return;
-        };
-        let mut new_task_modifiers = Vec::<(Modifier<TaskParams>, Entity)>::new();
-        let mut new_inclusion_modifiers = Vec::<(Modifier<Inclusion>, Entity)>::new();
-
-        if let Some((mut task_modifier, _)) = scenario_modifiers
-            .get(&for_element)
-            .and_then(|e| task_modifiers.get_mut(*e).ok())
-        {
-            // If a task modifier entity already exists for this scenario, update it
-            **task_modifier = value.clone()
-        } else {
-            // If root modifier entity does not exist in this scenario, spawn one
-            new_task_modifiers.push((Modifier::<TaskParams>::new(value.clone()), in_scenario));
-        }
-
-        // Retrieve root scenario of current scenario
+        // Insert inclusion modifier into all root scenarios outside of the current tree as hidden
         let mut current_root_entity: Entity = in_scenario;
         while let Ok((_, _, parent_scenario)) = scenarios.get(current_root_entity) {
             if let Some(parent_scenario_entity) = parent_scenario.0 {
@@ -87,7 +65,7 @@ impl Property for TaskParams {
                 break;
             }
         }
-        // Insert task modifier into all root scenarios outside of the current tree as hidden
+        let mut new_inclusion_modifiers = Vec::<(Modifier<Inclusion>, Entity)>::new();
         for (scenario_entity, _, parent_scenario) in scenarios.iter() {
             if parent_scenario.0.is_some() || scenario_entity == current_root_entity {
                 continue;
@@ -99,24 +77,21 @@ impl Property for TaskParams {
         }
 
         // Spawn all new modifier entities
-        let new_current_scenario_modifiers = new_task_modifiers
-            .iter()
-            .map(|(modifier, scenario)| {
-                (
-                    world
-                        .spawn(modifier.clone())
-                        // Mark all newly spawned instances as included
-                        .insert(Modifier::<Inclusion>::new(Inclusion::Included))
-                        .id(),
-                    *scenario,
-                )
-            })
-            .collect::<Vec<(Entity, Entity)>>();
         let mut new_modifier_entities = new_inclusion_modifiers
             .iter()
             .map(|(modifier, scenario)| (world.spawn(modifier.clone()).id(), *scenario))
             .collect::<Vec<(Entity, Entity)>>();
-        new_modifier_entities.extend(new_current_scenario_modifiers);
+        let task_modifier = Self::create_modifier(for_element, in_scenario, value, world);
+        if let Some(task_modifier) = task_modifier {
+            new_modifier_entities.push((
+                world
+                    .spawn(task_modifier.clone())
+                    // Mark all newly spawned instances as included
+                    .insert(Modifier::<Inclusion>::new(Inclusion::Included))
+                    .id(),
+                in_scenario,
+            ))
+        }
 
         let mut events_state: SystemState<EventWriter<AddModifier>> = SystemState::new(world);
         let mut add_modifier = events_state.get_mut(world);
@@ -132,25 +107,15 @@ impl Property for TaskParams {
     fn insert_on_new_scenario(in_scenario: Entity, world: &mut World) {
         let mut state: SystemState<(
             Query<&Children>,
-            Query<(&Modifier<Inclusion>, &Affiliation<Entity>)>,
+            Query<(&Modifier<TaskParams>, &Affiliation<Entity>)>,
             Query<Entity, (With<Task>, Without<Pending>)>,
         )> = SystemState::new(world);
-        let (children, task_modifiers, task_entity) = state.get_mut(world);
+        let (children, task_modifiers, task_entities) = state.get_mut(world);
 
-        // Insert task modifier entities when new root scenarios are created
-        let mut have_task = HashSet::new();
-        if let Ok(scenario_children) = children.get(in_scenario) {
-            for child in scenario_children {
-                if let Ok((_, a)) = task_modifiers.get(*child) {
-                    if let Some(a) = a.0 {
-                        have_task.insert(a);
-                    }
-                }
-            }
-        }
+        let have_task = Self::elements_with_modifiers(in_scenario, &children, &task_modifiers);
 
         let mut target_tasks = HashSet::new();
-        for task_entity in task_entity.iter() {
+        for task_entity in task_entities.iter() {
             if !have_task.contains(&task_entity) {
                 target_tasks.insert(task_entity);
             }
