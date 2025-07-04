@@ -16,15 +16,19 @@
 */
 
 use crate::site::{
-    AddModifier, Affiliation, CurrentScenario, GetModifier, Modifier, ScenarioModifiers,
-    UpdateModifier, UpdateModifierEvent,
+    AddModifier, Affiliation, CurrentScenario, GetModifier, Modifier, RemoveModifier,
+    ScenarioModifiers, UpdateModifier, UpdateModifierEvent,
 };
 use bevy::{
-    ecs::{component::Mutable, query::QueryFilter, system::SystemState},
+    ecs::{
+        component::{ComponentInfo, Mutable},
+        query::QueryFilter,
+        system::SystemState,
+    },
     prelude::*,
 };
 use smallvec::SmallVec;
-use std::fmt::Debug;
+use std::{collections::HashSet, fmt::Debug};
 
 pub trait Property: Component<Mutability = Mutable> + Debug + Default + Clone {
     fn get_fallback(_for_element: Entity, _in_scenario: Entity, _world: &mut World) -> Self;
@@ -103,7 +107,8 @@ impl<T: Property, F: QueryFilter + 'static + Send + Sync> Plugin for PropertyPlu
             )
             .add_event::<UpdateModifierEvent<T>>()
             .add_observer(on_add_property::<T, F>)
-            .add_observer(on_add_root_scenario::<T, F>);
+            .add_observer(on_add_root_scenario::<T, F>)
+            .add_observer(on_remove_modifier::<T>);
     }
 }
 
@@ -264,4 +269,84 @@ fn on_add_root_scenario<T: Property, F: QueryFilter + 'static + Send + Sync>(
     }
 
     T::insert_on_new_scenario(trigger.target(), world);
+}
+
+/// Whenever a Modifier<T> component has been removed from a modifier entity, this
+/// observer checks that the entity is not empty (has no other Modiifers). If
+/// empty, the modifier entity will be sent for removal and despawn.
+fn on_remove_modifier<T: Property>(
+    trigger: Trigger<OnRemove, Modifier<T>>,
+    world: &mut World,
+    state: &mut SystemState<(
+        Res<CurrentScenario>,
+        Query<(Entity, &ScenarioModifiers<Entity>)>,
+        Query<&Affiliation<Entity>>,
+        EventWriter<RemoveModifier>,
+    )>,
+) {
+    let modifier_entity = trigger.target();
+    let Ok(components_info) = world
+        .inspect_entity(modifier_entity)
+        .map(|c| c.cloned().collect::<Vec<ComponentInfo>>())
+    else {
+        return;
+    };
+
+    // Count number of components that are not ChildOf or Affiliation
+    let mut modifier_components: usize = 0;
+    for info in components_info.iter() {
+        if world
+            .component_id::<Affiliation<Entity>>()
+            .is_some_and(|id| id == info.id())
+        {
+            continue;
+        }
+        if world
+            .component_id::<ChildOf>()
+            .is_some_and(|id| id == info.id())
+        {
+            continue;
+        }
+        modifier_components += 1;
+    }
+
+    // Target entity has existing modifier components, ignore
+    if modifier_components > 0 {
+        return;
+    }
+
+    let (current_scenario, scenarios, affiliation, mut remove_modifier) = state.get_mut(world);
+
+    // Check that this modifier entity has an affiliated element
+    let Some(element) = affiliation.get(modifier_entity).ok().and_then(|a| a.0) else {
+        return;
+    };
+    // Check that this element-modifier pair exists in the current scenario,
+    // else search for the target scenario
+    if let Some(scenario_entity) = current_scenario.0 {
+        if scenarios
+            .get(scenario_entity)
+            .is_ok_and(|(_, scenario_modifiers)| {
+                scenario_modifiers
+                    .get(&element)
+                    .is_some_and(|e| *e == modifier_entity)
+            })
+        {
+            remove_modifier.write(RemoveModifier::new(element, scenario_entity));
+        }
+    }
+
+    // The current scenario wasn't the target scenario, loop over scenario
+    // modifiers to find
+    for (scenario_entity, scenario_modifiers) in scenarios.iter() {
+        if scenario_modifiers
+            .get(&element)
+            .is_some_and(|e| *e == modifier_entity)
+        {
+            remove_modifier.write(RemoveModifier::new(element, scenario_entity));
+            return;
+        }
+    }
+    // Target scenario entity can't be found, this is an invalid modifier,
+    // do nothing
 }

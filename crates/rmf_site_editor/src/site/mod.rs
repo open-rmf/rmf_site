@@ -435,14 +435,6 @@ impl Plugin for SitePlugin {
                 add_physical_camera_visuals,
                 check_selected_is_visible,
                 check_for_missing_root_modifiers::<InstanceMarker>,
-                handle_empty_modifiers::<
-                    Pose,
-                    (Without<Modifier<Pose>>, Without<Modifier<Visibility>>),
-                >,
-                handle_empty_modifiers::<
-                    Visibility,
-                    (Without<Modifier<Pose>>, Without<Modifier<Visibility>>),
-                >,
             )
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
