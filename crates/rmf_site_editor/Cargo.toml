@@ -41,7 +41,6 @@ tracing = {workspace = true}
 tracing-subscriber = {workspace = true}
 rfd = {workspace = true}
 urdf-rs = {workspace = true}
-yaserde = {workspace = true}
 utm = {workspace = true}
 sdformat_rs = {workspace = true}
 gz-fuel = {workspace = true}

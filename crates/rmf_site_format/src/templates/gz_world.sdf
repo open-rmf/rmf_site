@@ -4,6 +4,7 @@
     <physics name="10ms" type="ode">
       <max_step_size>0.01</max_step_size>
       <real_time_factor>1.0</real_time_factor>
+      <real_time_update_rate>100</real_time_update_rate>
     </physics>
     <plugin
       filename="libgz-sim-physics-system.so"
@@ -26,10 +27,18 @@
       name="lift">
     </plugin>
 
+    <!-- TODO(luca) these fields are set as required in the specification but seem not to be in
+      practice (rightly so because not everyone wants to manually specify gravity, earth
+      magnetic field and atmosphere model) -->
+    <gravity>0 0 -9.8</gravity>
+    <magnetic_field>5.64e-6 2.29e-5 -4.24e-5</magnetic_field>
+    <atmosphere type="adiabatic" />
+
     <scene>
       <ambient>1 1 1</ambient>
       <background>0.8 0.8 0.8</background>
       <grid>false</grid>
+      <shadows>true</shadows>
     </scene>
 
     <gui fullscreen="0">
