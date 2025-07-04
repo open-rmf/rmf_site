@@ -532,6 +532,39 @@ fn generate_site_entities(
             Some(parent_id) => *id_to_entity.get(&parent_id).unwrap_or(&site_id),
             None => site_id,
         };
+
+        // Spawn modifier entities
+        for (element_id, modifier_id) in scenario_data.properties.scenario_modifiers.iter() {
+            if let Some(element_entity) = id_to_entity.get(element_id) {
+                let mut modifier_cmd = commands.spawn(Affiliation(Some(*element_entity)));
+                id_to_entity.insert(*modifier_id, modifier_cmd.id());
+
+                // Insert instance modifier components
+                if let Some(instance_modifier) = scenario_data.instances.get(element_id) {
+                    if let Some(pose) = instance_modifier.pose {
+                        modifier_cmd.insert(Modifier::<Pose>::new(pose));
+                    }
+                    if let Some(vis) = instance_modifier.visibility {
+                        let visibility = if vis {
+                            Visibility::Inherited
+                        } else {
+                            Visibility::Hidden
+                        };
+                        modifier_cmd.insert(Modifier::<Visibility>::new(visibility));
+                    }
+                }
+                // Insert task modifier components
+                if let Some(task_modifier) = scenario_data.tasks.get(element_id) {
+                    if let Some(inclusion) = task_modifier.inclusion {
+                        modifier_cmd.insert(Modifier::<Inclusion>::new(inclusion));
+                    }
+                    if let Some(params) = &task_modifier.params {
+                        modifier_cmd.insert(Modifier::<TaskParams>::new(params.clone()));
+                    }
+                }
+            }
+        }
+
         let scenario = scenario_data.convert(&id_to_entity).for_site(site_id)?;
         let scenario_entity = commands
             .spawn(scenario.properties.clone())
@@ -541,78 +574,12 @@ fn generate_site_entities(
         id_to_entity.insert(*scenario_id, scenario_entity);
         consider_id(*scenario_id);
 
-        // Spawn instance modifier entities
-        let mut scenario_modifiers: ScenarioModifiers<Entity> = ScenarioModifiers::default();
-        for (instance_id, instance) in scenario_data.instances.iter() {
-            if let Some(instance_entity) = id_to_entity.get(&instance_id) {
-                if instance.pose.is_some() || instance.visibility.is_some() {
-                    let modifier_entity = commands
-                        .spawn(Affiliation(Some(*instance_entity)))
-                        .insert(ChildOf(scenario_entity))
-                        .id();
-                    if let Some(pose) = instance.pose {
-                        commands
-                            .entity(modifier_entity)
-                            .insert(Modifier::<Pose>::new(pose));
-                    }
-                    if let Some(vis) = instance.visibility {
-                        let visibility = if vis {
-                            Visibility::Inherited
-                        } else {
-                            Visibility::Hidden
-                        };
-                        commands
-                            .entity(modifier_entity)
-                            .insert(Modifier::<Visibility>::new(visibility));
-                    }
-                    scenario_modifiers.insert(*instance_entity, modifier_entity);
-                } else {
-                    error!(
-                        "Model instance {} does not have all required modifiers in scenario {}!",
-                        instance_id, scenario.properties.name.0
-                    );
-                }
-            } else {
-                error!(
-                    "Model instance {} referenced by scenario {} is missing! This should \
-                    not happen, please report this bug to the maintainers of rmf_site_editor.",
-                    instance_id, scenario.properties.name.0
-                );
-            }
+        // Set all modifier entities to be children of scenario
+        for (_, modifier_entity) in scenario.properties.scenario_modifiers.iter() {
+            commands
+                .entity(*modifier_entity)
+                .insert(ChildOf(scenario_entity));
         }
-        for (task_id, task_data) in scenario_data.tasks.iter() {
-            if let Some(task_entity) = id_to_entity.get(&task_id) {
-                if task_data.inclusion.is_some() || task_data.params.is_some() {
-                    let modifier_entity = commands
-                        .spawn(Affiliation(Some(*task_entity)))
-                        .insert(ChildOf(scenario_entity))
-                        .id();
-                    if let Some(inclusion) = task_data.inclusion {
-                        commands
-                            .entity(modifier_entity)
-                            .insert(Modifier::<Inclusion>::new(inclusion));
-                    }
-                    if let Some(params) = &task_data.params {
-                        commands
-                            .entity(modifier_entity)
-                            .insert(Modifier::<TaskParams>::new(params.clone()));
-                    }
-                    scenario_modifiers.insert(*task_entity, modifier_entity);
-                } else {
-                    error!(
-                        "Task {} does not have all required modifiers in scenario {}!",
-                        task_id, scenario.properties.name.0
-                    );
-                }
-            } else {
-                error!(
-                    "Task {} referenced by scenario {} is missing! This should \
-                    not happen, please report this bug to the maintainers of rmf_site_editor.",
-                    task_id, scenario.properties.name.0
-                );
-            }
-        }
-        commands.entity(scenario_entity).insert(scenario_modifiers);
     }
 
     let nav_graph_rankings = match RecencyRanking::<NavGraphMarker>::from_u32(
