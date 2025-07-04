@@ -569,6 +569,7 @@ impl BuildingMap {
                 scenario
                     .properties
                     .scenario_modifiers
+                    .0
                     .insert(*id, modifier_id);
             });
 
