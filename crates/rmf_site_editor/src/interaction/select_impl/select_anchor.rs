@@ -15,12 +15,22 @@
  *
 */
 
+use std::borrow::Borrow;
+use std::collections::HashSet;
+
 use bevy::ecs::{hierarchy::ChildOf, schedule::ScheduleConfigs, system::ScheduleSystem};
 use bevy::prelude::*;
 use bevy_impulse::*;
 
-use crate::{interaction::select::*, site::CurrentLevel};
+use crate::interaction::{
+    set_visibility, Cursor, GizmoBlockers, HighlightAnchors, IntersectGroundPlaneParams,
+};
+use crate::site::{AnchorBundle, CurrentEditDrawing, DrawingMarker};
+use crate::workspace::CurrentWorkspace;
+use crate::{interaction::select_impl::*, site::CurrentLevel};
+use rmf_site_format::*;
 use rmf_site_format::{Fiducial, Floor, LevelElevation, Location, Path, Point};
+use rmf_site_picking::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Resource)]
 pub enum AnchorScope {
@@ -452,7 +462,7 @@ pub fn build_anchor_selection_workflow<State: 'static + Send + Sync>(
     }
 }
 
-pub fn print_if_err(err: Option<Anyhow>) {
+pub fn print_if_err(err: Option<anyhow::Error>) {
     if let Some(err) = err {
         error!("{err}");
     }

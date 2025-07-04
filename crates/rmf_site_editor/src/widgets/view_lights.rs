@@ -16,7 +16,6 @@
 */
 
 use crate::{
-    interaction::{HeadlightToggle, Select},
     site::{
         Angle, Category, ExportLights, Light, LightKind, PhysicalLightToggle, Pose, Recall,
         RecallLightKind, Rotation, SiteID,
@@ -37,6 +36,8 @@ use bevy_egui::egui::{CollapsingHeader, Ui};
 use futures_lite::future;
 #[cfg(not(target_arch = "wasm32"))]
 use rfd::AsyncFileDialog;
+use rmf_site_camera::HeadlightToggle;
+use rmf_site_picking::Select;
 use std::cmp::Reverse;
 use std::collections::BTreeMap;
 

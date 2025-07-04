@@ -17,10 +17,11 @@
 
 use crate::{
     interaction::{gizmo::Gizmo, IntersectGroundPlaneParams, *},
-    keyboard::DebugMode,
     site::{Anchor, Category, Delete, Dependents, SiteAssets, Subordinate},
+    DebugMode,
 };
 use bevy::{ecs::hierarchy::ChildOf, prelude::*};
+use rmf_site_picking::{Hovered, Selectable, Selected};
 
 /// Use this resource to indicate whether anchors should be constantly highlighted.
 /// This is used during anchor selection modes to make it easier for users to know

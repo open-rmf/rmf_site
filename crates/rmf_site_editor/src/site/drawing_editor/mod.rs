@@ -20,10 +20,11 @@ use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 pub mod alignment;
 pub use alignment::*;
 use rmf_site_camera::resources::ProjectionMode;
+use rmf_site_picking::Selection;
 
 use crate::AppState;
 use crate::{
-    interaction::{Selection, SuppressHighlight},
+    interaction::SuppressHighlight,
     site::{DrawingMarker, Edge, MeasurementMarker, NameOfSite, Pending, PreventDeletion},
     CurrentWorkspace, WorkspaceMarker,
 };

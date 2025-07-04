@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    interaction::{DragPlaneBundle, Preview, MODEL_PREVIEW_LAYER},
+    interaction::DragPlaneBundle,
     site::{CurrentScenario, Delete, SiteAssets, UpdateProperty},
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
     Issue, ValidateWorkspace,
@@ -36,10 +36,12 @@ use bevy::{
 };
 use bevy_impulse::*;
 use bevy_mod_outline::{GenerateOutlineNormalsSettings, OutlineMeshExt};
+use rmf_site_camera::MODEL_PREVIEW_LAYER;
 use rmf_site_format::{
     Affiliation, AssetSource, Group, IssueKey, ModelInstance, ModelMarker, ModelProperty,
     NameInSite, Pending, Scale,
 };
+use rmf_site_picking::Preview;
 use smallvec::SmallVec;
 use std::{any::TypeId, collections::HashSet, fmt, future::Future};
 use thiserror::Error;

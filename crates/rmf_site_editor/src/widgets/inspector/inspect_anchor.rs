@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    interaction::{Hover, MoveTo},
+    interaction::MoveTo,
     site::{Anchor, Category, Dependents, Subordinate},
     widgets::{
         inspector::{Inspect, InspectPoseComponent},
@@ -26,6 +26,7 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{DragValue, ImageButton, Ui};
+use rmf_site_picking::Hover;
 use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(SystemParam)]

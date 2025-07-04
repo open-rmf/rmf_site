@@ -15,11 +15,11 @@
  *
 */
 
-use crate::interaction::VisualCue;
 use crate::site::*;
 use crate::{Issue, ValidateWorkspace};
 use bevy::ecs::{hierarchy::ChildOf, relationship::AncestorIter};
 use bevy::prelude::*;
+use rmf_site_picking::VisualCue;
 use std::collections::HashMap;
 use uuid::Uuid;
 

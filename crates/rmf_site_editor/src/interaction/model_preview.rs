@@ -15,7 +15,7 @@
  *
 */
 
-use crate::interaction::{Preview, DEFAULT_CAMERA_EV100, MODEL_PREVIEW_LAYER};
+use crate::interaction::Preview;
 use bevy::render::render_resource::{
     Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
@@ -29,8 +29,8 @@ use bevy::{
     },
 };
 use bevy_egui::{egui::TextureId, EguiContexts};
+use rmf_site_camera::*;
 use rmf_site_format::Model;
-
 #[derive(Resource)]
 pub struct ModelPreviewCamera {
     pub camera_entity: Entity,

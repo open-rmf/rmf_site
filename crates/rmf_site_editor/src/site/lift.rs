@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{interaction::Selectable, site::*, CurrentWorkspace, Issue, ValidateWorkspace};
+use crate::{site::*, CurrentWorkspace, Issue, ValidateWorkspace};
 use bevy::{
     ecs::{hierarchy::ChildOf, relationship::AncestorIter},
     prelude::*,
@@ -23,6 +23,7 @@ use bevy::{
 };
 use rmf_site_format::{Edge, LiftCabin};
 use rmf_site_mesh::*;
+use rmf_site_picking::Selectable;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
 use uuid::Uuid;

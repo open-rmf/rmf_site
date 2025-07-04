@@ -16,7 +16,6 @@
 */
 
 use crate::{interaction::*, site::*};
-use bevy::prelude::*;
 
 #[derive(Component, Default)]
 pub struct PointVisualCue {

@@ -23,6 +23,7 @@ opt-level = 3
 [workspace.dependencies]
 serde = { version = "1.0" }
 
+rmf_site_picking = { path = "crates/rmf_site_picking" }
 rmf_site_format = { path = "crates/rmf_site_format" }
 rmf_site_editor = { path = "crates/rmf_site_editor" }
 rmf_site_editor_web = { path = "crates/rmf_site_editor_web" }

@@ -16,7 +16,6 @@
 */
 
 use crate::{
-    interaction::{Select, Selection},
     site::{
         AddModifier, Affiliation, CurrentScenario, Delete, Dependents, GetModifier, Group,
         Inclusion, InstanceMarker, IssueKey, LastSetValue, ModelMarker, Modifier, NameInSite,
@@ -27,6 +26,7 @@ use crate::{
 };
 use bevy::ecs::{hierarchy::ChildOf, system::SystemState};
 use bevy::prelude::*;
+use rmf_site_picking::{Select, Selection};
 use std::collections::HashSet;
 use uuid::Uuid;
 

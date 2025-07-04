@@ -1,4 +1,4 @@
-use crate::{components::*, resources::*, *};
+use crate::*;
 use tracing::warn;
 
 /// init cameras for project

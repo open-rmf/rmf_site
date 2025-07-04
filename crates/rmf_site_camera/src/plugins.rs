@@ -4,15 +4,11 @@ use bevy_app::prelude::*;
 use bytemuck::TransparentWrapper;
 
 use crate::resources::{BlockStatus, CameraConfig, CameraControls};
-use crate::{
-    resources::{CameraControlBlockers, OrbitMarkerMaterial, PanMarkerMaterial, PickMarkerMesh},
-    systems::*,
-    *,
-};
+use crate::*;
 
 /// Plugin to add a blocker to a registry of blockers.
 ///
-/// E.G: [`UiHovered`] -> CameraControlBlockers to block camera controls on ui hovered.
+/// E.G: [`UiFocused`] -> CameraControlBlockers to block camera controls on ui hovered.
 #[derive(Default)]
 pub struct BlockerRegistration<Blocker, Registry>
 where
