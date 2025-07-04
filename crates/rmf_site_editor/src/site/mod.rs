@@ -282,10 +282,10 @@ impl Plugin for SitePlugin {
             ChangePlugin::<ModelProperty<IsStatic>>::default(),
             ChangePlugin::<ModelProperty<Robot>>::default(),
             ChangePlugin::<Task>::default(),
-            PropertyPlugin::<Pose, With<InstanceMarker>>::default(),
-            PropertyPlugin::<Visibility, With<InstanceMarker>>::default(),
-            PropertyPlugin::<Inclusion, With<Task>>::default(),
-            PropertyPlugin::<TaskParams, With<Task>>::default(),
+            PropertyPlugin::<Pose, InstanceMarker>::default(),
+            PropertyPlugin::<Visibility, InstanceMarker>::default(),
+            PropertyPlugin::<Inclusion, Task>::default(),
+            PropertyPlugin::<TaskParams, Task>::default(),
             SlotcarSdfPlugin,
         ))
         .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
@@ -384,8 +384,7 @@ impl Plugin for SitePlugin {
                 handle_remove_scenarios.before(update_current_scenario),
                 update_current_scenario.before(update_model_instance_poses),
                 update_model_instance_poses.before(handle_create_scenarios),
-                handle_create_scenarios.before(handle_scenario_modifiers),
-                handle_scenario_modifiers,
+                handle_create_scenarios,
                 handle_task_edit,
             )
                 .run_if(AppState::in_displaying_mode())
@@ -439,6 +438,7 @@ impl Plugin for SitePlugin {
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
         )
-        .add_observer(handle_cleanup_modifiers::<InstanceMarker>);
+        .add_observer(remove_scenario_modifiers)
+        .add_observer(add_scenario_modifiers);
     }
 }
