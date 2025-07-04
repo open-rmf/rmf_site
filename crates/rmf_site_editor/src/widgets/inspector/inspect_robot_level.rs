@@ -17,7 +17,7 @@
 
 use crate::{
     site::{
-        CurrentScenario, GetModifier, LevelElevation, Modifier, NameInSite, RobotLevel,
+        CurrentScenario, GetModifier, LevelElevation, Modifier, NameInSite, Robot, RobotLevel,
         UpdateModifier, UpdateModifierEvent,
     },
     widgets::{prelude::*, Inspect},
@@ -30,6 +30,7 @@ pub struct InspectRobotLevel<'w, 's> {
     current_scenario: Res<'w, CurrentScenario>,
     get_modifier: GetModifier<'w, 's, Modifier<RobotLevel<Entity>>>,
     levels: Query<'w, 's, (Entity, &'static NameInSite), With<LevelElevation>>,
+    robots: Query<'w, 's, (), With<Robot>>,
     update_modifier: EventWriter<'w, UpdateModifierEvent<RobotLevel<Entity>>>,
 }
 
@@ -43,6 +44,9 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectRobotLevel<'w, 's> {
         world: &mut World,
     ) {
         let mut params = state.get_mut(world);
+        if params.robots.get(selection).is_err() {
+            return;
+        }
         let Some(current_scenario_entity) = params.current_scenario.0 else {
             return;
         };

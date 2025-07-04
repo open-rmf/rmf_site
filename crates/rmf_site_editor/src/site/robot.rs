@@ -24,7 +24,7 @@ use crate::{
 };
 use bevy::ecs::{hierarchy::ChildOf, system::SystemState};
 use bevy::prelude::*;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use uuid::Uuid;
 
 /// Implement scenario property for RobotLevel to modify a robot model's parent level
@@ -58,7 +58,12 @@ impl Property for RobotLevel<Entity> {
         RobotLevel(lowest_level)
     }
 
-    fn insert(for_element: Entity, in_scenario: Entity, value: Self, world: &mut World) {
+    fn insert(
+        for_element: Entity,
+        in_scenario: Entity,
+        _value: RobotLevel<Entity>, // Value is unused for RobotLevel
+        world: &mut World,
+    ) {
         let mut state: SystemState<(Query<&ChildOf>, Query<(), With<LevelElevation>>)> =
             SystemState::new(world);
         let (child_of, levels) = state.get(world);
@@ -75,46 +80,13 @@ impl Property for RobotLevel<Entity> {
             .entity(for_element)
             .insert(RobotLevel(level_entity));
 
-        // Create modifier for this robot
-        let mut modifier_state: SystemState<(
-            Query<(&mut Modifier<RobotLevel<Entity>>, &Affiliation<Entity>)>,
-            Query<(Entity, &ScenarioModifiers<Entity>, Ref<Affiliation<Entity>>)>,
-        )> = SystemState::new(world);
-        let (mut level_modifiers, scenarios) = modifier_state.get_mut(world);
-
-        let Ok((_, scenario_modifiers, _)) = scenarios.get(in_scenario) else {
-            return;
-        };
-        let mut new_level_modifiers = Vec::<(Modifier<RobotLevel<Entity>>, Entity)>::new();
-
-        if let Some((mut level_modifier, _)) = scenario_modifiers
-            .get(&for_element)
-            .and_then(|e| level_modifiers.get_mut(*e).ok())
-        {
-            // If a robot level modifier already exists for this scenario, update it
-            **level_modifier = value.clone();
-        } else {
-            // If a robot level modifier does not exist in this scenario, insert one
-            new_level_modifiers.push((
-                Modifier::<RobotLevel<Entity>>::new(value.clone()),
-                in_scenario,
-            ));
-        }
-
-        // Spawn all new modifier entities
-        let new_modifier_entities = new_level_modifiers
-            .iter()
-            .map(|(modifier, scenario)| (world.spawn(modifier.clone()).id(), *scenario))
-            .collect::<Vec<(Entity, Entity)>>();
-
-        let mut events_state: SystemState<EventWriter<AddModifier>> = SystemState::new(world);
-        let mut add_modifier = events_state.get_mut(world);
-        for (modifier_entity, scenario_entity) in new_modifier_entities.iter() {
-            add_modifier.write(AddModifier::new(
-                for_element,
-                *modifier_entity,
-                *scenario_entity,
-            ));
+        let level_modifier =
+            Self::create_modifier(for_element, in_scenario, RobotLevel(level_entity), world);
+        if let Some(level_modifier) = level_modifier {
+            let modifier_entity = world.spawn(level_modifier).id();
+            let mut events_state: SystemState<EventWriter<AddModifier>> = SystemState::new(world);
+            let mut add_modifier = events_state.get_mut(world);
+            add_modifier.write(AddModifier::new(for_element, modifier_entity, in_scenario));
         }
     }
 
@@ -123,23 +95,13 @@ impl Property for RobotLevel<Entity> {
             Query<&ChildOf>,
             Query<&Children>,
             Query<(), With<LevelElevation>>,
-            Query<(&mut Modifier<RobotLevel<Entity>>, &Affiliation<Entity>)>,
+            Query<(&Modifier<RobotLevel<Entity>>, &Affiliation<Entity>)>,
             Query<Entity, With<Robot>>,
         )> = SystemState::new(world);
         let (child_of, children, levels, level_modifiers, robot_instances) =
             modifier_state.get_mut(world);
 
-        // Spawn visibility modifier entities when new root scenarios are created
-        let mut have_robot = HashSet::new();
-        if let Ok(scenario_children) = children.get(in_scenario) {
-            for child in scenario_children {
-                if let Ok((_, a)) = level_modifiers.get(*child) {
-                    if let Some(a) = a.0 {
-                        have_robot.insert(a);
-                    }
-                }
-            }
-        }
+        let have_robot = Self::elements_with_modifiers(in_scenario, &children, &level_modifiers);
 
         let mut target_robots = HashMap::<Entity, Option<Entity>>::new();
         for robot_entity in robot_instances.iter() {
