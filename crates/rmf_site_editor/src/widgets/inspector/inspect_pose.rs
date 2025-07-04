@@ -28,6 +28,7 @@ use rmf_site_format::{Pose, Rotation};
 
 #[derive(SystemParam)]
 pub struct InspectPose<'w, 's> {
+    commands: Commands<'w, 's>,
     poses: Query<'w, 's, &'static Pose>,
     change_pose: EventWriter<'w, Change<Pose>>,
     current_scenario: Res<'w, CurrentScenario>,
@@ -41,7 +42,6 @@ pub struct InspectPose<'w, 's> {
             &'static Affiliation<Entity>,
         ),
     >,
-    update_modifier: EventWriter<'w, UpdateModifierEvent<Pose>>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectPose<'w, 's> {
@@ -76,7 +76,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPose<'w, 's> {
                         .on_hover_text("Reset to parent scenario pose")
                         .clicked()
                     {
-                        params.update_modifier.write(UpdateModifierEvent::new(
+                        params.commands.trigger(UpdateModifierEvent::<Pose>::new(
                             scenario_entity,
                             selection,
                             UpdateModifier::Reset,

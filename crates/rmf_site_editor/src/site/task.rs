@@ -17,8 +17,8 @@
 
 use crate::{
     site::{
-        AddModifier, Affiliation, ChangeCurrentScenario, Delete, Inclusion, LastSetValue, Modifier,
-        Pending, Property, ScenarioModifiers, Task, TaskKind, TaskParams,
+        AddModifier, Affiliation, ChangeCurrentScenario, Delete, Element, Inclusion, LastSetValue,
+        Modifier, Pending, Property, ScenarioModifiers, Task, TaskKind, TaskParams,
     },
     widgets::tasks::{EditMode, EditModeEvent, EditTask},
     CurrentWorkspace,
@@ -38,6 +38,8 @@ impl FromWorld for TaskKinds {
         TaskKinds(HashMap::new())
     }
 }
+
+impl Element for Task {}
 
 impl Property for TaskParams {
     fn get_fallback(for_element: Entity, _in_scenario: Entity, world: &mut World) -> TaskParams {
@@ -93,10 +95,8 @@ impl Property for TaskParams {
             ))
         }
 
-        let mut events_state: SystemState<EventWriter<AddModifier>> = SystemState::new(world);
-        let mut add_modifier = events_state.get_mut(world);
         for (modifier_entity, scenario_entity) in new_modifier_entities.iter() {
-            add_modifier.write(AddModifier::new(
+            world.trigger(AddModifier::new(
                 for_element,
                 *modifier_entity,
                 *scenario_entity,
@@ -133,18 +133,16 @@ impl Property for TaskParams {
             ));
         }
 
-        let mut events_state: SystemState<(
-            EventWriter<AddModifier>,
-            EventWriter<ChangeCurrentScenario>,
-        )> = SystemState::new(world);
-        let (mut add_modifier, mut change_current_scenario) = events_state.get_mut(world);
         for (task_entity, modifier_entity) in new_modifiers.iter() {
-            add_modifier.write(AddModifier::new(
+            world.trigger(AddModifier::new(
                 *task_entity,
                 *modifier_entity,
                 in_scenario,
             ));
         }
+        let mut events_state: SystemState<EventWriter<ChangeCurrentScenario>> =
+            SystemState::new(world);
+        let mut change_current_scenario = events_state.get_mut(world);
         change_current_scenario.write(ChangeCurrentScenario(in_scenario));
     }
 }

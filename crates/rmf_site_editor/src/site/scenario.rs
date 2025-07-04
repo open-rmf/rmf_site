@@ -18,7 +18,7 @@
 use crate::{
     interaction::{Select, Selection},
     site::{
-        AddModifier, Affiliation, CurrentScenario, Delete, Dependents, GetModifier, Group,
+        AddModifier, Affiliation, CurrentScenario, Delete, Dependents, Element, GetModifier, Group,
         Inclusion, InstanceMarker, IssueKey, LastSetValue, ModelMarker, Modifier, NameInSite,
         Pending, PendingModel, Pose, Property, ScenarioBundle, ScenarioModifiers, UpdateModifier,
         UpdateModifierEvent, UpdateProperty,
@@ -38,6 +38,8 @@ pub struct CreateScenario {
     pub name: Option<String>,
     pub parent: Option<Entity>,
 }
+
+impl Element for InstanceMarker {}
 
 impl Property for Pose {
     fn get_fallback(for_element: Entity, _in_scenario: Entity, world: &mut World) -> Pose {
@@ -93,10 +95,8 @@ impl Property for Pose {
             ));
         }
 
-        let mut events_state: SystemState<EventWriter<AddModifier>> = SystemState::new(world);
-        let mut add_modifier = events_state.get_mut(world);
         for (modifier_entity, scenario_entity) in new_modifier_entities.iter() {
-            add_modifier.write(AddModifier::new(
+            world.trigger(AddModifier::new(
                 for_element,
                 *modifier_entity,
                 *scenario_entity,
@@ -154,33 +154,32 @@ impl Property for Visibility {
             ));
         }
 
-        let mut events_state: SystemState<(
-            EventWriter<AddModifier>,
-            EventWriter<ChangeCurrentScenario>,
-        )> = SystemState::new(world);
-        let (mut add_modifier, mut change_current_scenario) = events_state.get_mut(world);
         for (instance_entity, modifier_entity) in new_modifiers.iter() {
-            add_modifier.write(AddModifier::new(
+            world.trigger(AddModifier::new(
                 *instance_entity,
                 *modifier_entity,
                 in_scenario,
             ));
         }
+
+        let mut events_state: SystemState<EventWriter<ChangeCurrentScenario>> =
+            SystemState::new(world);
+        let mut change_current_scenario = events_state.get_mut(world);
         change_current_scenario.write(ChangeCurrentScenario(in_scenario));
     }
 }
 
 /// Handles updates when the current scenario has changed, and trigger property updates for scenario elements
 pub fn update_current_scenario(
+    mut commands: Commands,
     mut change_current_scenario: EventReader<ChangeCurrentScenario>,
     mut current_scenario: ResMut<CurrentScenario>,
-    mut update_property: EventWriter<UpdateProperty>,
     instances: Query<Entity, (With<InstanceMarker>, Without<PendingModel>)>,
 ) {
     if let Some(ChangeCurrentScenario(scenario_entity)) = change_current_scenario.read().last() {
         *current_scenario = CurrentScenario(Some(*scenario_entity));
         for instance_entity in instances.iter() {
-            update_property.write(UpdateProperty::new(instance_entity, *scenario_entity));
+            commands.trigger(UpdateProperty::new(instance_entity, *scenario_entity));
         }
     }
 }
@@ -202,9 +201,9 @@ pub fn check_selected_is_visible(
 
 /// Tracks pose changes for instances in the current scenario to update its properties
 pub fn update_model_instance_poses(
+    mut commands: Commands,
     current_scenario: Res<CurrentScenario>,
     mut change_current_scenario: EventReader<ChangeCurrentScenario>,
-    mut update_modifier: EventWriter<UpdateModifierEvent<Pose>>,
     changed_instances: Query<(Entity, Ref<Pose>), (With<InstanceMarker>, Without<Pending>)>,
     changed_last_set_pose: Query<(), Changed<LastSetValue<Pose>>>,
 ) {
@@ -223,7 +222,7 @@ pub fn update_model_instance_poses(
         {
             // Only mark an instance as modified if its pose changed due to user
             // interaction, not because it was updated by scenarios
-            update_modifier.write(UpdateModifierEvent::new_without_trigger(
+            commands.trigger(UpdateModifierEvent::<Pose>::new_without_trigger(
                 current_scenario_entity,
                 entity,
                 UpdateModifier::Modify(new_pose.clone()),

@@ -18,12 +18,12 @@
 use crate::{
     site::{
         Affiliation, ChangeCurrentScenario, CurrentScenario, Inclusion, IssueKey, NameInSite,
-        Property, ScenarioModifiers, StandardProperty, UpdateProperty,
+        Property, ScenarioModifiers, StandardProperty, Trashcan, UpdateProperty,
     },
     Issue, ValidateWorkspace,
 };
 use bevy::{
-    ecs::{component::Mutable, hierarchy::ChildOf, system::SystemParam, world::OnDespawn},
+    ecs::{component::Mutable, hierarchy::ChildOf, system::SystemParam},
     prelude::*,
 };
 use std::fmt::Debug;
@@ -165,82 +165,75 @@ impl<'w, 's, T: Component<Mutability = Mutable> + Clone + Default> GetModifier<'
     }
 }
 
-/// Handles additions and removals of scenario modifiers
-pub fn handle_scenario_modifiers(
+/// Handles additions of scenario modifiers
+pub fn add_scenario_modifiers(
+    trigger: Trigger<AddModifier>,
     mut commands: Commands,
-    mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
-    mut add_modifier: EventReader<AddModifier>,
-    mut remove_modifier: EventReader<RemoveModifier>,
     mut scenarios: Query<(&mut ScenarioModifiers<Entity>, &Affiliation<Entity>)>,
-    mut update_property: EventWriter<UpdateProperty>,
-    current_scenario: Res<CurrentScenario>,
 ) {
-    for remove in remove_modifier.read() {
-        let Ok((mut scenario_modifiers, _)) = scenarios.get_mut(remove.in_scenario) else {
-            continue;
-        };
-        if let Some(modifier) = scenario_modifiers.remove(&remove.for_element) {
-            commands.entity(modifier).despawn();
-        }
-
-        if current_scenario.0.is_some_and(|e| e == remove.in_scenario) {
-            change_current_scenario.write(ChangeCurrentScenario(remove.in_scenario));
-        };
-    }
-
-    for add in add_modifier.read() {
-        let scenario_entity = if add.to_root {
-            let mut target_scenario = add.in_scenario;
-            let mut root_scenario: Option<Entity> = None;
-            while root_scenario.is_none() {
-                let Ok((_, parent_scenario)) = scenarios.get(target_scenario) else {
-                    break;
-                };
-                if let Some(parent_entity) = parent_scenario.0 {
-                    target_scenario = parent_entity;
-                } else {
-                    root_scenario = Some(target_scenario);
-                    break;
-                }
-            }
-            if let Some(root_scenario_entity) = root_scenario {
-                root_scenario_entity
+    let event = trigger.event();
+    let scenario_entity = if event.to_root {
+        let mut target_scenario = event.in_scenario;
+        let mut root_scenario: Option<Entity> = None;
+        while root_scenario.is_none() {
+            let Ok((_, parent_scenario)) = scenarios.get(target_scenario) else {
+                break;
+            };
+            if let Some(parent_entity) = parent_scenario.0 {
+                target_scenario = parent_entity;
             } else {
-                error!("No root scenario found for the current scenario tree!");
-                continue;
+                root_scenario = Some(target_scenario);
+                break;
             }
-        } else {
-            add.in_scenario
-        };
-
-        let Ok((mut scenario_modifiers, _)) = scenarios.get_mut(scenario_entity) else {
-            continue;
-        };
-        // If a modifier entity already exists, we ignore and despawn incoming modifier
-        // entity.
-        if scenario_modifiers.contains_key(&add.for_element) {
-            commands.entity(add.modifier).despawn();
-        } else {
-            commands
-                .entity(add.modifier)
-                .insert(Affiliation(Some(add.for_element)))
-                .insert(ChildOf(scenario_entity));
-            scenario_modifiers.insert(add.for_element, add.modifier);
         }
+        if let Some(root_scenario_entity) = root_scenario {
+            root_scenario_entity
+        } else {
+            error!("No root scenario found for the current scenario tree!");
+            return;
+        }
+    } else {
+        event.in_scenario
+    };
 
-        update_property.write(UpdateProperty::new(add.for_element, add.in_scenario));
+    let Ok((mut scenario_modifiers, _)) = scenarios.get_mut(scenario_entity) else {
+        return;
+    };
+    // If a modifier entity already exists, we ignore and despawn incoming modifier
+    // entity.
+    if scenario_modifiers.contains_key(&event.for_element) {
+        commands.entity(event.modifier).despawn();
+    } else {
+        commands
+            .entity(event.modifier)
+            .insert(Affiliation(Some(event.for_element)))
+            .insert(ChildOf(scenario_entity));
+        scenario_modifiers.insert(event.for_element, event.modifier);
     }
+
+    commands.trigger(UpdateProperty::new(event.for_element, event.in_scenario));
 }
 
-/// Handles cleanup of scenario modifiers when elements are despawned
-pub fn handle_cleanup_modifiers<M: Component<Mutability = Mutable> + Debug + Default + Clone>(
-    trigger: Trigger<OnDespawn, M>,
-    scenarios: Query<Entity, With<ScenarioModifiers<Entity>>>,
-    mut remove_modifier: EventWriter<RemoveModifier>,
+/// Handles removals of scenario modifiers
+pub fn remove_scenario_modifiers(
+    trigger: Trigger<RemoveModifier>,
+    mut commands: Commands,
+    mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
+    mut scenarios: Query<(&mut ScenarioModifiers<Entity>, &Affiliation<Entity>)>,
+    current_scenario: Res<CurrentScenario>,
+    trashcan: Res<Trashcan>,
 ) {
-    for scenario_entity in scenarios.iter() {
-        remove_modifier.write(RemoveModifier::new(trigger.target(), scenario_entity));
+    let event = trigger.event();
+    let Ok((mut scenario_modifiers, _)) = scenarios.get_mut(event.in_scenario) else {
+        return;
+    };
+    if let Some(modifier) = scenario_modifiers.remove(&event.for_element) {
+        commands.entity(modifier).insert(ChildOf(trashcan.0));
     }
+
+    if current_scenario.0.is_some_and(|e| e == event.in_scenario) {
+        change_current_scenario.write(ChangeCurrentScenario(event.in_scenario));
+    };
 }
 
 /// Unique UUID to identify issue of missing root scenario modifiers

@@ -22,12 +22,11 @@ use crate::site::{
 use bevy::{
     ecs::{
         component::{ComponentInfo, Mutable},
-        query::QueryFilter,
         system::SystemState,
+        world::OnDespawn,
     },
     prelude::*,
 };
-use smallvec::SmallVec;
 use std::{collections::HashSet, fmt::Debug};
 
 pub trait Property: Component<Mutability = Mutable> + Debug + Default + Clone {
@@ -149,11 +148,16 @@ impl<T: Property> LastSetValue<T> {
     }
 }
 
-pub struct PropertyPlugin<T: Property, F: QueryFilter + 'static + Send + Sync> {
-    _ignore: std::marker::PhantomData<(T, F)>,
+/// A scenario Element may have its Property T values changed across various scenarios
+pub trait Element: Component<Mutability = Mutable> + Debug + Clone + 'static + Send + Sync {}
+
+/// The PropertyPlugin helps to manage Property T values for Elements across
+/// various scenarios.
+pub struct PropertyPlugin<T: Property, E: Element> {
+    _ignore: std::marker::PhantomData<(T, E)>,
 }
 
-impl<T: Property, F: QueryFilter + 'static + Send + Sync> Default for PropertyPlugin<T, F> {
+impl<T: Property, E: Element> Default for PropertyPlugin<T, E> {
     fn default() -> Self {
         Self {
             _ignore: Default::default(),
@@ -161,161 +165,141 @@ impl<T: Property, F: QueryFilter + 'static + Send + Sync> Default for PropertyPl
     }
 }
 
-impl<T: Property, F: QueryFilter + 'static + Send + Sync> Plugin for PropertyPlugin<T, F> {
+impl<T: Property, E: Element> Plugin for PropertyPlugin<T, E> {
     fn build(&self, app: &mut App) {
         app.add_event::<UpdateProperty>()
-            .add_systems(
-                PostUpdate,
-                (
-                    handle_modifier_updates::<T, F>,
-                    update_property_value::<T, F>.after(handle_modifier_updates::<T, F>),
-                ),
-            )
             .add_event::<UpdateModifierEvent<T>>()
-            .add_observer(on_add_property::<T, F>)
-            .add_observer(on_add_root_scenario::<T, F>)
+            .add_observer(on_update_modifier_event::<T, E>)
+            .add_observer(on_update_property::<T, E>)
+            .add_observer(on_add_property::<T, E>)
+            .add_observer(on_add_root_scenario::<T>)
+            .add_observer(on_remove_element::<E>)
             .add_observer(on_remove_modifier::<T>);
     }
 }
 
 /// Handles any updates to property modifiers and process them accordingly before
 /// triggering updates to property values
-fn handle_modifier_updates<T: Property, F: QueryFilter + 'static + Send + Sync>(
+fn on_update_modifier_event<T: Property, E: Element>(
+    trigger: Trigger<UpdateModifierEvent<T>>,
     mut commands: Commands,
-    mut add_modifier: EventWriter<AddModifier>,
-    mut update_modifier: EventReader<UpdateModifierEvent<T>>,
-    mut update_property: EventWriter<UpdateProperty>,
     mut property_modifiers: Query<&mut Modifier<T>, With<Affiliation<Entity>>>,
-    elements: Query<(), (With<T>, F)>,
+    elements: Query<(), (With<T>, With<E>)>,
     scenarios: Query<(&ScenarioModifiers<Entity>, &Affiliation<Entity>)>,
 ) {
-    for update in update_modifier.read() {
-        let Ok((scenario_modifiers, parent_scenario)) = scenarios.get(update.scenario) else {
-            continue;
-        };
-        if elements.get(update.element).is_err() {
-            // Only process modifier updates for elements registered to this plugin
-            continue;
-        }
+    let event = trigger.event();
+    let Ok((scenario_modifiers, parent_scenario)) = scenarios.get(event.scenario) else {
+        return;
+    };
+    if elements.get(event.element).is_err() {
+        // Only process modifier updates for elements registered to this plugin
+        return;
+    }
 
-        let modifier_entity = scenario_modifiers.get(&update.element);
-        let property_modifier = modifier_entity.and_then(|e| property_modifiers.get_mut(*e).ok());
+    let modifier_entity = scenario_modifiers.get(&event.element);
+    let property_modifier = modifier_entity.and_then(|e| property_modifiers.get_mut(*e).ok());
 
-        match &update.update_mode {
-            UpdateModifier::<T>::Modify(new_value) => {
-                if let Some(mut property_modifier) = property_modifier {
-                    **property_modifier = new_value.clone();
-                } else if let Some(modifier_entity) = modifier_entity {
-                    commands
-                        .entity(*modifier_entity)
-                        .insert(Modifier::<T>::new(new_value.clone()));
-                } else {
-                    let modifier_entity =
-                        commands.spawn(Modifier::<T>::new(new_value.clone())).id();
-                    add_modifier.write(AddModifier::new(
-                        update.element,
-                        modifier_entity,
-                        update.scenario,
-                    ));
-                }
-            }
-            UpdateModifier::<T>::Reset => {
-                // Only process resets if this is not a root scenario
-                if parent_scenario.0.is_some() {
-                    if let Some(modifier_entity) = modifier_entity {
-                        commands.entity(*modifier_entity).remove::<Modifier<T>>();
-                    }
-                }
+    match &event.update_mode {
+        UpdateModifier::<T>::Modify(new_value) => {
+            if let Some(mut property_modifier) = property_modifier {
+                **property_modifier = new_value.clone();
+            } else if let Some(modifier_entity) = modifier_entity {
+                commands
+                    .entity(*modifier_entity)
+                    .insert(Modifier::<T>::new(new_value.clone()));
+            } else {
+                let modifier_entity = commands.spawn(Modifier::<T>::new(new_value.clone())).id();
+                commands.trigger(AddModifier::new(
+                    event.element,
+                    modifier_entity,
+                    event.scenario,
+                ));
             }
         }
-
-        if update.trigger_update_property {
-            update_property.write(UpdateProperty::new(update.element, update.scenario));
+        UpdateModifier::<T>::Reset => {
+            // Only process resets if this is not a root scenario
+            if parent_scenario.0.is_some() {
+                if let Some(modifier_entity) = modifier_entity {
+                    commands.entity(*modifier_entity).remove::<Modifier<T>>();
+                }
+            }
         }
+    }
+
+    if event.trigger_update_property {
+        commands.trigger(UpdateProperty::new(event.element, event.scenario));
     }
 }
 
 /// Updates the current scenario's property values based on changes to the property modifiers
-fn update_property_value<T: Property, F: QueryFilter + 'static + Send + Sync>(
+fn on_update_property<T: Property, E: Element>(
+    trigger: Trigger<UpdateProperty>,
     world: &mut World,
-    values: &mut QueryState<&mut T, F>,
-    read_events_state: &mut SystemState<EventReader<UpdateProperty>>,
-    add_modifier_state: &mut SystemState<EventWriter<AddModifier>>,
+    values: &mut QueryState<&mut T, With<E>>,
     scenario_state: &mut SystemState<(Commands, Res<CurrentScenario>, GetModifier<Modifier<T>>)>,
 ) {
-    let mut update_property_events = read_events_state.get_mut(world);
-    if update_property_events.is_empty() {
+    let event = trigger.event();
+    let fallback_value = T::get_fallback(event.for_element, event.in_scenario, world);
+    let (mut commands, current_scenario, get_modifier) = scenario_state.get(world);
+    // Only update current scenario properties
+    if !current_scenario.0.is_some_and(|e| e == event.in_scenario) {
         return;
     }
-    let mut update_property = SmallVec::<[UpdateProperty; 8]>::new();
-    for event in update_property_events.read() {
-        update_property.push(*event);
+    // Only update elements registered for this plugin
+    if !values.get(world, event.for_element).is_ok() {
+        return;
     }
 
-    for event in update_property.iter() {
-        let fallback_value = T::get_fallback(event.for_element, event.in_scenario, world);
-        let (mut commands, current_scenario, get_modifier) = scenario_state.get(world);
-        // Only update current scenario properties
-        if !current_scenario.0.is_some_and(|e| e == event.in_scenario) {
-            continue;
-        }
-        // Only update elements registered for this plugin
-        if !values.get(world, event.for_element).is_ok() {
-            continue;
-        }
-
-        let new_value: T =
-            if let Some(modifier) = get_modifier.get(event.in_scenario, event.for_element) {
-                (**modifier).clone()
+    let new_value: T =
+        if let Some(modifier) = get_modifier.get(event.in_scenario, event.for_element) {
+            (**modifier).clone()
+        } else {
+            // No modifier exists in this tree for this scenario/element pairing
+            // Make sure that a modifier for this property exists in the current scenario tree
+            if let Some(modifier_entity) = get_modifier
+                .scenarios
+                .get(event.in_scenario)
+                .ok()
+                .and_then(|(scenario_modifiers, _)| scenario_modifiers.get(&event.for_element))
+            {
+                commands
+                    .entity(*modifier_entity)
+                    .insert(Modifier::<T>::new(fallback_value));
+                scenario_state.apply(world);
             } else {
-                // No modifier exists in this tree for this scenario/element pairing
-                // Make sure that a modifier for this property exists in the current scenario tree
-                if let Some(modifier_entity) =
-                    get_modifier.scenarios.get(event.in_scenario).ok().and_then(
-                        |(scenario_modifiers, _)| scenario_modifiers.get(&event.for_element),
-                    )
-                {
-                    commands
-                        .entity(*modifier_entity)
-                        .insert(Modifier::<T>::new(fallback_value));
-                    scenario_state.apply(world);
-                } else {
-                    // Modifier entity does not exist, add one
-                    let root_modifier_entity =
-                        commands.spawn(Modifier::<T>::new(fallback_value)).id();
-                    scenario_state.apply(world);
-                    let mut add_modifier = add_modifier_state.get_mut(world);
-                    add_modifier.write(AddModifier::new_to_root(
-                        event.for_element,
-                        root_modifier_entity,
-                        event.in_scenario,
-                    ));
-                }
-                continue;
-            };
+                // Modifier entity does not exist, add one
+                let root_modifier_entity = commands.spawn(Modifier::<T>::new(fallback_value)).id();
+                commands.trigger(AddModifier::new_to_root(
+                    event.for_element,
+                    root_modifier_entity,
+                    event.in_scenario,
+                ));
+                scenario_state.apply(world);
+            }
+            return;
+        };
 
-        let changed = values
-            .get_mut(world, event.for_element)
-            .is_ok_and(|mut value| {
-                *value = new_value.clone();
-                true
-            });
-        if changed {
-            world
-                .commands()
-                .entity(event.for_element)
-                .insert(LastSetValue::<T>::new(new_value));
-        }
+    let changed = values
+        .get_mut(world, event.for_element)
+        .is_ok_and(|mut value| {
+            *value = new_value.clone();
+            true
+        });
+    if changed {
+        world
+            .commands()
+            .entity(event.for_element)
+            .insert(LastSetValue::<T>::new(new_value));
     }
 }
 
 /// When an entity has been newly inserted with Property T, this observer will
 /// call T::insert so that the appropriate modifiers can be created for this
 /// Property via the callback.
-fn on_add_property<T: Property, F: QueryFilter + 'static + Send + Sync>(
+fn on_add_property<T: Property, E: Element>(
     trigger: Trigger<OnAdd, T>,
     world: &mut World,
-    state: &mut SystemState<(Query<&T, F>, Res<CurrentScenario>)>,
+    state: &mut SystemState<(Query<&T, With<E>>, Res<CurrentScenario>)>,
 ) {
     let (values, current_scenario) = state.get_mut(world);
     let Ok(value) = values.get(trigger.target()) else {
@@ -330,7 +314,7 @@ fn on_add_property<T: Property, F: QueryFilter + 'static + Send + Sync>(
 /// When a new scenario has been created, this observer checks that it is a root
 /// scenario and calls T::insert_on_new_scenario so that the appropriate modifiers
 /// can be created for this Property via the callback.
-fn on_add_root_scenario<T: Property, F: QueryFilter + 'static + Send + Sync>(
+fn on_add_root_scenario<T: Property + 'static + Send + Sync>(
     trigger: Trigger<OnAdd, ScenarioModifiers<Entity>>,
     world: &mut World,
     state: &mut SystemState<Query<&Affiliation<Entity>>>,
@@ -343,17 +327,28 @@ fn on_add_root_scenario<T: Property, F: QueryFilter + 'static + Send + Sync>(
     T::insert_on_new_scenario(trigger.target(), world);
 }
 
-/// Whenever a Modifier<T> component has been removed from a modifier entity, this
+/// Handles cleanup of scenario modifiers when elements are despawned
+pub fn on_remove_element<E: Element>(
+    trigger: Trigger<OnDespawn, E>,
+    scenarios: Query<Entity, With<ScenarioModifiers<Entity>>>,
+    mut commands: Commands,
+) {
+    for scenario_entity in scenarios.iter() {
+        commands.trigger(RemoveModifier::new(trigger.target(), scenario_entity));
+    }
+}
+
+/// Whenever a Modifier<T> component has been removed from a modifier entit`y, this
 /// observer checks that the entity is not empty (has no other Modiifers). If
 /// empty, the modifier entity will be sent for removal and despawn.
 fn on_remove_modifier<T: Property>(
     trigger: Trigger<OnRemove, Modifier<T>>,
     world: &mut World,
     state: &mut SystemState<(
+        Commands,
         Res<CurrentScenario>,
         Query<(Entity, &ScenarioModifiers<Entity>)>,
         Query<&Affiliation<Entity>>,
-        EventWriter<RemoveModifier>,
     )>,
 ) {
     let modifier_entity = trigger.target();
@@ -364,38 +359,30 @@ fn on_remove_modifier<T: Property>(
         return;
     };
 
-    // Count number of components that are not ChildOf or Affiliation
+    // Count number of Modifier components
     let mut modifier_components: usize = 0;
     for info in components_info.iter() {
-        if world
-            .component_id::<Affiliation<Entity>>()
-            .is_some_and(|id| id == info.id())
-        {
-            continue;
+        let component_name = info.name();
+        if component_name.to_string().contains("Modifier") {
+            modifier_components += 1;
         }
-        if world
-            .component_id::<ChildOf>()
-            .is_some_and(|id| id == info.id())
-        {
-            continue;
-        }
-        modifier_components += 1;
     }
 
-    // Target entity has existing modifier components, ignore
-    if modifier_components > 0 {
+    // OnRemove is run before the component is actually removed, so there would
+    // be at least one Modifier component attached to the entity during this check
+    if modifier_components > 1 {
+        // Target entity has existing modifier components, ignore
         return;
     }
 
-    let (current_scenario, scenarios, affiliation, mut remove_modifier) = state.get_mut(world);
-
+    let (mut commands, current_scenario, scenarios, affiliation) = state.get_mut(world);
     // Check that this modifier entity has an affiliated element
     let Some(element) = affiliation.get(modifier_entity).ok().and_then(|a| a.0) else {
         return;
     };
-    // Check that this element-modifier pair exists in the current scenario,
-    // else search for the target scenario
-    if let Some(scenario_entity) = current_scenario.0 {
+    let scenario_entity: Option<Entity> = if let Some(scenario_entity) = current_scenario.0 {
+        // Check that this element-modifier pair exists in the current scenario,
+        // else search for the target scenario
         if scenarios
             .get(scenario_entity)
             .is_ok_and(|(_, scenario_modifiers)| {
@@ -404,21 +391,28 @@ fn on_remove_modifier<T: Property>(
                     .is_some_and(|e| *e == modifier_entity)
             })
         {
-            remove_modifier.write(RemoveModifier::new(element, scenario_entity));
+            Some(scenario_entity)
+        } else {
+            None
         }
-    }
+    } else {
+        // The current scenario wasn't the target scenario, loop over scenario
+        // modifiers to find
+        let mut scenario: Option<Entity> = None;
+        for (scenario_entity, scenario_modifiers) in scenarios.iter() {
+            if scenario_modifiers
+                .get(&element)
+                .is_some_and(|e| *e == modifier_entity)
+            {
+                scenario = Some(scenario_entity);
+                break;
+            }
+        }
+        scenario
+    };
 
-    // The current scenario wasn't the target scenario, loop over scenario
-    // modifiers to find
-    for (scenario_entity, scenario_modifiers) in scenarios.iter() {
-        if scenario_modifiers
-            .get(&element)
-            .is_some_and(|e| *e == modifier_entity)
-        {
-            remove_modifier.write(RemoveModifier::new(element, scenario_entity));
-            return;
-        }
+    if let Some(scenario_entity) = scenario_entity {
+        commands.trigger(RemoveModifier::new(element, scenario_entity));
+        state.apply(world);
     }
-    // Target scenario entity can't be found, this is an invalid modifier,
-    // do nothing
 }

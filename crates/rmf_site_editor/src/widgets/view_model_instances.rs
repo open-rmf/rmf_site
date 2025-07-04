@@ -43,6 +43,7 @@ impl Plugin for ViewModelInstancesPlugin {
 
 #[derive(SystemParam)]
 pub struct ViewModelInstances<'w, 's> {
+    commands: Commands<'w, 's>,
     scenarios: Query<
         'w,
         's,
@@ -71,7 +72,6 @@ pub struct ViewModelInstances<'w, 's> {
     selection: Res<'w, Selection>,
     selector: SelectorWidget<'w, 's>,
     delete: EventWriter<'w, Delete>,
-    update_modifier: EventWriter<'w, UpdateModifierEvent<Visibility>>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for ViewModelInstances<'w, 's> {
@@ -115,11 +115,11 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                         );
                                         show_model_instance(
                                             ui,
+                                            &mut self.commands,
                                             instance_name,
                                             instance_entity,
                                             &mut self.selector,
                                             &mut self.delete,
-                                            &mut self.update_modifier,
                                             &self.get_modifier,
                                             current_scenario_entity,
                                             scenario_count,
@@ -152,11 +152,11 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                     );
                                     show_model_instance(
                                         ui,
+                                        &mut self.commands,
                                         instance_name,
                                         *instance_entity,
                                         &mut self.selector,
                                         &mut self.delete,
-                                        &mut self.update_modifier,
                                         &self.get_modifier,
                                         current_scenario_entity,
                                         scenario_count,
@@ -173,11 +173,11 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
 /// Show a widget for users to interact with a model instance
 fn show_model_instance(
     ui: &mut Ui,
+    commands: &mut Commands,
     name: &NameInSite,
     instance: Entity,
     selector: &mut SelectorWidget,
     delete: &mut EventWriter<Delete>,
-    update_modifier: &mut EventWriter<UpdateModifierEvent<Visibility>>,
     get_modifier: &GetModifier<Modifier<Visibility>>,
     scenario: Entity,
     scenario_count: i32,
@@ -203,7 +203,7 @@ fn show_model_instance(
                     .on_hover_text("Model instance is hidden in this scenario")
                     .clicked()
                 {
-                    update_modifier.write(UpdateModifierEvent::new(
+                    commands.trigger(UpdateModifierEvent::<Visibility>::new(
                         scenario,
                         instance,
                         UpdateModifier::Modify(Visibility::Inherited),
@@ -221,14 +221,14 @@ fn show_model_instance(
                         .is_ok_and(|(_, a)| a.0.is_some())
                     {
                         // If parent scenario exists, clicking this button toggles to ResetVisibility
-                        update_modifier.write(UpdateModifierEvent::new(
+                        commands.trigger(UpdateModifierEvent::<Visibility>::new(
                             scenario,
                             instance,
                             UpdateModifier::Reset,
                         ));
                     } else {
                         // Otherwise, toggle to Hidden
-                        update_modifier.write(UpdateModifierEvent::new(
+                        commands.trigger(UpdateModifierEvent::<Visibility>::new(
                             scenario,
                             instance,
                             UpdateModifier::Modify(Visibility::Hidden),
@@ -243,7 +243,7 @@ fn show_model_instance(
                 .on_hover_text("Model instance visibility is inherited in this scenario")
                 .clicked()
             {
-                update_modifier.write(UpdateModifierEvent::new(
+                commands.trigger(UpdateModifierEvent::<Visibility>::new(
                     scenario,
                     instance,
                     UpdateModifier::Modify(Visibility::Hidden),

@@ -17,8 +17,8 @@
 
 use crate::{
     site::{
-        AddModifier, Affiliation, ChangeCurrentScenario, IssueKey, LastSetValue, LevelElevation,
-        Modifier, NameInSite, Property, Robot, RobotLevel, ScenarioModifiers,
+        AddModifier, Affiliation, ChangeCurrentScenario, Element, IssueKey, LastSetValue,
+        LevelElevation, Modifier, NameInSite, Property, Robot, RobotLevel, ScenarioModifiers,
     },
     Issue, ValidateWorkspace,
 };
@@ -26,6 +26,8 @@ use bevy::ecs::{hierarchy::ChildOf, system::SystemState};
 use bevy::prelude::*;
 use std::collections::HashMap;
 use uuid::Uuid;
+
+impl Element for Robot {}
 
 /// Implement scenario property for RobotLevel to modify a robot model's parent level
 /// across different scenario

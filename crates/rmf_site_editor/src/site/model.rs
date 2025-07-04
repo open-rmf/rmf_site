@@ -794,12 +794,11 @@ pub fn make_models_selectable(
 pub fn make_models_visible(
     In(req): In<ModelLoadingRequest>,
     mut commands: Commands,
-    mut update_property: EventWriter<UpdateProperty>,
     current_scenario: Res<CurrentScenario>,
 ) -> ModelLoadingRequest {
     if let Some(current_scenario_entity) = current_scenario.0 {
         commands.entity(req.parent).remove::<PendingModel>();
-        update_property.write(UpdateProperty::new(req.parent, current_scenario_entity));
+        commands.trigger(UpdateProperty::new(req.parent, current_scenario_entity));
     }
     req
 }
