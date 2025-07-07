@@ -9,6 +9,7 @@ bevy_egui = {workspace = true}
 bevy_app = {workspace = true}
 smallvec = {workspace = true}
 tracing = {workspace = true}
+
 [dev-dependencies]
 bevy = {workspace = true, features = ["dynamic_linking"]}
 bevy-inspector-egui = {workspace = true}

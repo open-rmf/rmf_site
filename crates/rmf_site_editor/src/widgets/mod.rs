@@ -63,9 +63,6 @@ use console::*;
 pub mod creation;
 use creation::*;
 
-pub mod canvas_tooltips;
-pub use canvas_tooltips::*;
-
 pub mod diagnostics;
 use diagnostics::*;
 
@@ -80,9 +77,6 @@ pub use inspector::*;
 
 pub mod move_layer;
 pub use move_layer::*;
-
-pub mod properties_panel;
-pub use properties_panel::*;
 
 pub mod sdf_export_menu;
 use rmf_site_picking::{Hover, UiFocused};
@@ -131,15 +125,39 @@ pub mod prelude {
     //! implementing and inserting their own widgets.
 
     pub use super::{
-        properties_panel::*, CanvasTooltips, Inspect,
-        InspectionPlugin, PropertiesPanel,
-        PropertiesTilePlugin, 
+        Inspect,
+        InspectionPlugin,
     };
     pub use bevy::ecs::{
         system::{SystemParam, SystemState},
         world::World,
     };
     pub use bevy_egui::egui::Ui;
+}
+
+/// This plugins produces the standard properties panel. This is the panel which
+/// includes widgets to display and edit all the properties in a site that we
+/// expect are needed by common use cases of the editor.
+#[derive(Default)]
+pub struct StandardPropertiesPanelPlugin {}
+
+impl Plugin for StandardPropertiesPanelPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_plugins((
+            PropertiesPanelPlugin::new(PanelSide::Right),
+            ViewLevelsPlugin::default(),
+            ViewScenariosPlugin::default(),
+            ViewModelInstancesPlugin::default(),
+            ViewNavGraphsPlugin::default(),
+            ViewLayersPlugin::default(),
+            StandardTasksPlugin::default(),
+            StandardInspectorPlugin::default(),
+            ViewGroupsPlugin::default(),
+            ViewLightsPlugin::default(),
+            ViewOccupancyPlugin::default(),
+            BuildingPreviewPlugin::default(),
+        ));
+    }
 }
 
 /// This plugin provides the standard UI layout that was designed for the common

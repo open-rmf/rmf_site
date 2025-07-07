@@ -15,38 +15,9 @@
  *
 */
 
-use crate::widgets::{
-    BuildingPreviewPlugin, StandardInspectorPlugin,
-    StandardTasksPlugin, ViewGroupsPlugin, ViewLayersPlugin, ViewLevelsPlugin,
-    ViewLightsPlugin, ViewModelInstancesPlugin, ViewNavGraphsPlugin, ViewOccupancyPlugin,
-    ViewScenariosPlugin,
-};
-use bevy::{ecs::hierarchy::ChildOf, prelude::*};
-use rmf_site_ui::*;
-/// This plugins produces the standard properties panel. This is the panel which
-/// includes widgets to display and edit all the properties in a site that we
-/// expect are needed by common use cases of the editor.
-#[derive(Default)]
-pub struct StandardPropertiesPanelPlugin {}
+use bevy_app::prelude::*;
 
-impl Plugin for StandardPropertiesPanelPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_plugins((
-            PropertiesPanelPlugin::new(PanelSide::Right),
-            ViewLevelsPlugin::default(),
-            ViewScenariosPlugin::default(),
-            ViewModelInstancesPlugin::default(),
-            ViewNavGraphsPlugin::default(),
-            ViewLayersPlugin::default(),
-            StandardTasksPlugin::default(),
-            StandardInspectorPlugin::default(),
-            ViewGroupsPlugin::default(),
-            ViewLightsPlugin::default(),
-            ViewOccupancyPlugin::default(),
-            BuildingPreviewPlugin::default(),
-        ));
-    }
-}
+use crate::*;
 
 /// Use this plugin to add a single tile into the properties panel.
 ///
