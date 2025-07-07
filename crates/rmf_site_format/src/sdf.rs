@@ -503,6 +503,10 @@ impl Site {
                 let parented_model_instance = self.model_instances.get(model_instance_id).ok_or(
                     SdfConversionError::BrokenModelInstanceReference(*model_instance_id),
                 )?;
+                if parented_model_instance.parent != *level_id {
+                    continue;
+                }
+
                 let Some(model_description_id) = parented_model_instance.bundle.description.0
                 else {
                     continue;
