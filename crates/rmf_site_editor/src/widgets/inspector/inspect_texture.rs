@@ -30,6 +30,7 @@ use rmf_site_format::{
     Affiliation, FloorMarker, Group, NameInSite, RecallAssetSource, Texture, TextureGroup,
     WallMarker,
 };
+use rmf_site_ui::WidgetSystem;
 
 #[derive(Default)]
 pub struct InspectTexturePlugin {}

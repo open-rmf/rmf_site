@@ -23,6 +23,7 @@ use crate::{
 use bevy::prelude::*;
 use bevy_egui::egui::{Grid, Ui};
 use rmf_site_format::PhysicalCameraProperties;
+use rmf_site_ui::WidgetSystem;
 
 #[derive(SystemParam)]
 pub struct InspectPhysicalCameraProperties<'w, 's> {

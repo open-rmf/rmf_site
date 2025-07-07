@@ -25,6 +25,7 @@ use crate::{
 use bevy::{math::Quat, prelude::*};
 use bevy_egui::egui::{ComboBox, DragValue, Grid, Ui};
 use rmf_site_format::{Pose, Rotation};
+use rmf_site_ui::WidgetSystem;
 
 #[derive(SystemParam)]
 pub struct InspectPose<'w, 's> {

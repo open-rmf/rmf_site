@@ -17,7 +17,6 @@
 
 use crate::*;
 
-use bevy_ecs::prelude::*;
 use bevy_egui::egui;
 use smallvec::SmallVec;
 use tracing::error;

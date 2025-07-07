@@ -26,6 +26,7 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Button, CollapsingHeader, Ui};
+use rmf_site_ui::{Tile, WidgetSystem};
 use std::any::TypeId;
 
 /// Add a widget for viewing different kinds of groups.

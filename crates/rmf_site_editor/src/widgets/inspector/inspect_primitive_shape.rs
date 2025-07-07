@@ -21,6 +21,7 @@ use crate::{
 };
 use bevy::prelude::*;
 use rmf_site_format::{PrimitiveShape, RecallPrimitiveShape};
+use rmf_site_ui::WidgetSystem;
 
 #[derive(SystemParam)]
 pub struct InspectPrimitiveShape<'w, 's> {

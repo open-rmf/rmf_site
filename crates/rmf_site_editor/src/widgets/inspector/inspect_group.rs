@@ -22,6 +22,7 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, RichText, Ui};
+use rmf_site_ui::WidgetSystem;
 
 #[derive(SystemParam)]
 pub struct InspectGroup<'w, 's> {

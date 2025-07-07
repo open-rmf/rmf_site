@@ -22,6 +22,7 @@ use crate::{
 use bevy::prelude::*;
 use bevy_egui::egui::{DragValue, Grid, Ui};
 use rmf_site_format::{Affiliation, Scale};
+use rmf_site_ui::WidgetSystem;
 
 #[derive(SystemParam)]
 pub struct InspectScale<'w, 's> {

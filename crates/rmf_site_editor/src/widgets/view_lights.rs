@@ -40,6 +40,7 @@ use rmf_site_camera::HeadlightToggle;
 use rmf_site_picking::Select;
 use std::cmp::Reverse;
 use std::collections::BTreeMap;
+use rmf_site_ui::*;
 
 /// Add a plugin for viewing and editing a list of all lights
 #[derive(Default)]

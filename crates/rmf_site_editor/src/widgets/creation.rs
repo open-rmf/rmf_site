@@ -23,8 +23,8 @@ use crate::{
         NameInSite, Recall, RecallAssetSource, Scale,
     },
     widgets::{
-        AssetGalleryStatus, HeaderTilePlugin, Icons, InspectAssetSourceComponent,
-        InspectScaleComponent, Tile, WidgetSystem,
+        AssetGalleryStatus, Icons, InspectAssetSourceComponent,
+        InspectScaleComponent,
     },
     AppState, CurrentWorkspace,
 };
@@ -35,6 +35,7 @@ use bevy::ecs::{
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{self, Button, ComboBox, Ui};
+use rmf_site_ui::*;
 
 /// This plugin creates a standard set of site object creation buttons
 #[derive(Default)]

@@ -18,11 +18,12 @@
 use crate::{
     interaction::MoveTo,
     site::*,
-    widgets::{inspector::*, prelude::*},
+    widgets::inspector::*,
     CurrentWorkspace,
 };
 use bevy::prelude::*;
 use bevy_egui::egui::DragValue;
+use rmf_site_ui::*;
 
 #[derive(SystemParam)]
 pub struct InspectGeography<'w, 's> {

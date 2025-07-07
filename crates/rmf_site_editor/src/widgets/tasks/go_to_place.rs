@@ -18,7 +18,6 @@ use super::{EditTask, TaskWidget};
 use crate::{
     site::{update_task_kind_component, LocationTags, NameInSite, Task, TaskKind, TaskKinds},
     widgets::prelude::*,
-    Tile, WidgetSystem,
 };
 use bevy::{
     ecs::{
@@ -29,6 +28,7 @@ use bevy::{
 };
 use bevy_egui::egui::ComboBox;
 use rmf_site_format::GoToPlace;
+use rmf_site_ui::*;
 
 #[derive(Default)]
 pub struct GoToPlacePlugin {}

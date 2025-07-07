@@ -20,7 +20,7 @@ use crate::site::{
     CollisionMeshMarker, DoorMarker, FiducialMarker, FloorMarker, LaneMarker, LiftCabin,
     LiftCabinDoorMarker, LocationTags, MeasurementMarker, VisualMeshMarker, WallMarker,
 };
-use crate::widgets::menu_bar::{MenuEvent, MenuItem, ViewMenu};
+use rmf_site_ui::*;
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 

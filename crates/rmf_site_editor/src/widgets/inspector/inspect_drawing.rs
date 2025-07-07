@@ -22,6 +22,7 @@ use crate::{
 };
 use bevy::prelude::*;
 use bevy_egui::egui::Button;
+use rmf_site_ui::WidgetSystem;
 
 #[derive(SystemParam)]
 pub struct InspectDrawing<'w, 's> {

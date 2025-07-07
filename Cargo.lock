@@ -5301,6 +5301,7 @@ dependencies = [
  "rmf_site_format",
  "rmf_site_mesh",
  "rmf_site_picking",
+ "rmf_site_ui",
  "sdformat_rs",
  "serde",
  "serde_json",

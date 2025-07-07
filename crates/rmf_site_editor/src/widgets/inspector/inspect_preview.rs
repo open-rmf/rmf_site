@@ -21,6 +21,7 @@ use crate::{
     widgets::{prelude::*, Inspect},
 };
 use bevy::prelude::*;
+use rmf_site_ui::WidgetSystem;
 
 #[derive(SystemParam)]
 pub struct InspectPreview<'w, 's> {

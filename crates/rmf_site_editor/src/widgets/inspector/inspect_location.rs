@@ -21,6 +21,7 @@ use crate::{
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{ComboBox, ImageButton, RichText, Ui};
+use rmf_site_ui::WidgetSystem;
 use smallvec::SmallVec;
 
 #[derive(SystemParam)]

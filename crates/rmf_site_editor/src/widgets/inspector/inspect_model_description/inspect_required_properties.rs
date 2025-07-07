@@ -25,6 +25,7 @@ use crate::{
     CurrentWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
+use rmf_site_ui::*;
 
 #[derive(SystemParam)]
 pub struct InspectModelScale<'w, 's> {

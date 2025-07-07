@@ -28,6 +28,7 @@ use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, ImageButton, ScrollArea, Ui};
 use rmf_site_format::{InstanceMarker, SiteID};
 use rmf_site_picking::Selection;
+use rmf_site_ui::*;
 
 const INSTANCES_VIEWER_HEIGHT: f32 = 200.0;
 

@@ -26,6 +26,7 @@ use crate::{
 use bevy::prelude::*;
 use bevy_egui::egui::{DragValue, ImageButton, Ui};
 use rmf_site_picking::{Hover, Selection};
+use rmf_site_ui::*;
 
 #[derive(SystemParam)]
 pub struct InspectLayer<'w, 's> {

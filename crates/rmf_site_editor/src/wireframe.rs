@@ -15,7 +15,6 @@
  *
 */
 
-use crate::widgets::menu_bar::{MenuEvent, MenuItem, ViewMenu};
 use bevy::ecs::{
     hierarchy::ChildOf,
     relationship::{AncestorIter, DescendantIter},
@@ -24,6 +23,7 @@ use bevy::pbr::wireframe::{Wireframe, WireframePlugin};
 use bevy::prelude::*;
 
 use rmf_site_format::{ModelMarker, PrimitiveShape};
+use rmf_site_ui::*;
 
 #[derive(Default)]
 pub struct SiteWireframePlugin;
