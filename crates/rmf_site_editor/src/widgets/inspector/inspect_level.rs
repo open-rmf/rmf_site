@@ -27,11 +27,11 @@ use bevy_egui::egui::{ComboBox, Ui};
 
 #[derive(SystemParam)]
 pub struct InspectLevel<'w, 's> {
+    commands: Commands<'w, 's>,
     current_scenario: Res<'w, CurrentScenario>,
     get_modifier: GetModifier<'w, 's, Modifier<OnLevel<Entity>>>,
     levels: Query<'w, 's, (Entity, &'static NameInSite), With<LevelElevation>>,
     robots: Query<'w, 's, (), With<Robot>>,
-    update_modifier: EventWriter<'w, UpdateModifierEvent<OnLevel<Entity>>>,
 }
 
 impl<'w, 's> ShareableWidget for InspectLevel<'w, 's> {}
@@ -90,20 +90,24 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectLevel<'w, 's> {
                 .on_hover_text("Reset to parent scenario level")
                 .clicked()
             {
-                params.update_modifier.write(UpdateModifierEvent::new(
-                    current_scenario_entity,
-                    selection,
-                    UpdateModifier::Reset,
-                ));
+                params
+                    .commands
+                    .trigger(UpdateModifierEvent::<OnLevel<Entity>>::new(
+                        current_scenario_entity,
+                        selection,
+                        UpdateModifier::Reset,
+                    ));
             }
         }
 
         if new_level_entity != selected_level_entity {
-            params.update_modifier.write(UpdateModifierEvent::new(
-                current_scenario_entity,
-                selection,
-                UpdateModifier::Modify(OnLevel(new_level_entity)),
-            ));
+            params
+                .commands
+                .trigger(UpdateModifierEvent::<OnLevel<Entity>>::new(
+                    current_scenario_entity,
+                    selection,
+                    UpdateModifier::Modify(OnLevel(new_level_entity)),
+                ));
         }
     }
 }

@@ -86,9 +86,7 @@ impl Property for OnLevel<Entity> {
             Self::create_modifier(for_element, in_scenario, OnLevel(level_entity), world);
         if let Some(level_modifier) = level_modifier {
             let modifier_entity = world.spawn(level_modifier).id();
-            let mut events_state: SystemState<EventWriter<AddModifier>> = SystemState::new(world);
-            let mut add_modifier = events_state.get_mut(world);
-            add_modifier.write(AddModifier::new(for_element, modifier_entity, in_scenario));
+            world.trigger(AddModifier::new(for_element, modifier_entity, in_scenario));
         }
     }
 
@@ -130,18 +128,16 @@ impl Property for OnLevel<Entity> {
             ));
         }
 
-        let mut events_state: SystemState<(
-            EventWriter<AddModifier>,
-            EventWriter<ChangeCurrentScenario>,
-        )> = SystemState::new(world);
-        let (mut add_modifier, mut change_current_scenario) = events_state.get_mut(world);
         for (instance_entity, modifier_entity) in new_modifiers.iter() {
-            add_modifier.write(AddModifier::new(
+            world.trigger(AddModifier::new(
                 *instance_entity,
                 *modifier_entity,
                 in_scenario,
             ));
         }
+        let mut events_state: SystemState<EventWriter<ChangeCurrentScenario>> =
+            SystemState::new(world);
+        let mut change_current_scenario = events_state.get_mut(world);
         change_current_scenario.write(ChangeCurrentScenario(in_scenario));
     }
 }
