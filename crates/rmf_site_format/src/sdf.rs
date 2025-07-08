@@ -189,11 +189,11 @@ fn make_sdf_door(
                 pose: Some(pose),
                 axis: Some(SdfJointAxis {
                     xyz: Vector3d::new(0.0, door.towards.sign().into(), 0.0),
-                    limit: SdfJointAxisLimit {
+                    limit: Some(SdfJointAxisLimit {
                         lower: 0.0,
                         upper: door_length as f64,
                         ..Default::default()
-                    },
+                    }),
                     ..Default::default()
                 }),
                 ..Default::default()
@@ -237,11 +237,11 @@ fn make_sdf_door(
                 r#type: "revolute".into(),
                 axis: Some(SdfJointAxis {
                     xyz: Vector3d::new(0.0, 0.0, z),
-                    limit: SdfJointAxisLimit {
+                    limit: Some(SdfJointAxisLimit {
                         lower,
                         upper,
                         ..Default::default()
-                    },
+                    }),
                     ..Default::default()
                 }),
                 pose: Some(pose),
@@ -286,11 +286,11 @@ fn make_sdf_door(
                     pose: Some(right_pose),
                     axis: Some(SdfJointAxis {
                         xyz: Vector3d::new(0.0, -1.0, 0.0),
-                        limit: SdfJointAxisLimit {
+                        limit: Some(SdfJointAxisLimit {
                             lower: 0.0,
                             upper: right_length as f64,
                             ..Default::default()
-                        },
+                        }),
                         ..Default::default()
                     }),
                     ..Default::default()
@@ -303,11 +303,11 @@ fn make_sdf_door(
                     pose: Some(left_pose),
                     axis: Some(SdfJointAxis {
                         xyz: Vector3d::new(0.0, -1.0, 0.0),
-                        limit: SdfJointAxisLimit {
+                        limit: Some(SdfJointAxisLimit {
                             lower: -left_length as f64,
                             upper: 0.0,
                             ..Default::default()
-                        },
+                        }),
                         ..Default::default()
                     }),
                     ..Default::default()
@@ -356,11 +356,11 @@ fn make_sdf_door(
                     r#type: "revolute".into(),
                     axis: Some(SdfJointAxis {
                         xyz: Vector3d::new(0.0, 0.0, z),
-                        limit: SdfJointAxisLimit {
+                        limit: Some(SdfJointAxisLimit {
                             lower: 0.0,
                             upper,
                             ..Default::default()
-                        },
+                        }),
                         ..Default::default()
                     }),
                     pose: Some(right_pose),
@@ -373,11 +373,11 @@ fn make_sdf_door(
                     r#type: "revolute".into(),
                     axis: Some(SdfJointAxis {
                         xyz: Vector3d::new(0.0, 0.0, z),
-                        limit: SdfJointAxisLimit {
+                        limit: Some(SdfJointAxisLimit {
                             lower: -upper,
                             upper: 0.0,
                             ..Default::default()
-                        },
+                        }),
                         ..Default::default()
                     }),
                     pose: Some(left_pose),
@@ -497,8 +497,6 @@ impl Site {
                 }],
                 ..Default::default()
             });
-            // TODO(luca) We need this because there is no concept of ingestor or dispenser in
-            // rmf_site yet. Remove when there is
             for (model_instance_id, _) in &default_scenario.instances {
                 let parented_model_instance = self.model_instances.get(model_instance_id).ok_or(
                     SdfConversionError::BrokenModelInstanceReference(*model_instance_id),
@@ -517,6 +515,8 @@ impl Site {
                     )?;
 
                 let mut added = false;
+                // TODO(luca) We need this because there is no concept of ingestor or dispenser in
+                // rmf_site yet. Remove when there is
                 if model_description_bundle.source.0
                     == AssetSource::Search("OpenRobotics/TeleportIngestor".to_string())
                 {
@@ -539,10 +539,9 @@ impl Site {
                     added = true;
                 }
                 // Non static models are included separately and are not part of the static world
-                // TODO(luca) this will duplicate multiple instances of the model since it uses
-                // NameInSite instead of AssetSource for the URI, fix
                 else if !model_description_bundle.is_static.0 .0 {
                     let mut model_plugins: Vec<SdfPlugin> = Vec::new();
+                    let mut slotcar_definition = None;
                     for (label, export_data) in parented_model_instance.bundle.export_data.0.iter()
                     {
                         let mut sdf_plugin = SdfPlugin {
@@ -555,41 +554,75 @@ impl Site {
                                 sdf_plugin.elements.push(element.clone());
                             }
                         }
-                        model_plugins.push(sdf_plugin);
+                        if label == "slotcar" {
+                            slotcar_definition = Some(sdf_plugin);
+                        } else {
+                            model_plugins.push(sdf_plugin);
+                        }
                     }
-                    world.model.push(SdfModel {
-                        name: parented_model_instance.bundle.name.0.clone(),
-                        r#static: Some(model_description_bundle.is_static.0 .0),
-                        pose: Some(parented_model_instance.bundle.pose.to_sdf()),
-                        link: vec![SdfLink {
-                            name: "link".into(),
-                            collision: vec![SdfCollision {
-                                name: "collision".into(),
-                                geometry: SdfGeometry::Mesh(SdfMeshShape {
-                                    uri: format!(
-                                        "meshes/model_{}_collision.glb",
-                                        model_description_id
-                                    ),
-                                    ..Default::default()
-                                }),
-                                ..Default::default()
-                            }],
-                            visual: vec![SdfVisual {
-                                name: "visual".into(),
-                                geometry: SdfGeometry::Mesh(SdfMeshShape {
-                                    uri: format!(
-                                        "meshes/model_{}_visual.glb",
-                                        model_description_id
-                                    ),
-                                    ..Default::default()
-                                }),
-                                ..Default::default()
-                            }],
+                    // For slotcar robots we just want to include them and add experimental
+                    // params update
+                    if let Some(slotcar) = slotcar_definition {
+                        let mut replacement = SdfParams::default();
+                        let mut plugin_element = XmlElement::default();
+                        plugin_element
+                            .attributes
+                            .insert("name".into(), slotcar.name.clone());
+                        plugin_element
+                            .attributes
+                            .insert("filename".into(), slotcar.filename);
+                        plugin_element
+                            .attributes
+                            .insert("element_id".into(), slotcar.name);
+                        plugin_element
+                            .attributes
+                            .insert("action".into(), "modify".into());
+                        plugin_element.name = "plugin".into();
+                        plugin_element.data = ElementData::Nested(slotcar.elements);
+                        replacement.0.push(plugin_element);
+                        let model_name = model_description_bundle.source.0.model_name();
+                        world.include.push(SdfWorldInclude {
+                            uri: format!("model://{}", model_name),
+                            experimental_params: Some(replacement),
+                            name: Some(parented_model_instance.bundle.name.0.clone()),
+                            pose: Some(parented_model_instance.bundle.pose.to_sdf()),
                             ..Default::default()
-                        }],
-                        plugin: model_plugins,
-                        ..Default::default()
-                    });
+                        });
+                    } else {
+                        world.model.push(SdfModel {
+                            name: parented_model_instance.bundle.name.0.clone(),
+                            r#static: Some(model_description_bundle.is_static.0 .0),
+                            pose: Some(parented_model_instance.bundle.pose.to_sdf()),
+                            link: vec![SdfLink {
+                                name: "link".into(),
+                                collision: vec![SdfCollision {
+                                    name: "collision".into(),
+                                    geometry: SdfGeometry::Mesh(SdfMeshShape {
+                                        uri: format!(
+                                            "meshes/model_{}_collision.glb",
+                                            model_description_id
+                                        ),
+                                        ..Default::default()
+                                    }),
+                                    ..Default::default()
+                                }],
+                                visual: vec![SdfVisual {
+                                    name: "visual".into(),
+                                    geometry: SdfGeometry::Mesh(SdfMeshShape {
+                                        uri: format!(
+                                            "meshes/model_{}_visual.glb",
+                                            model_description_id
+                                        ),
+                                        ..Default::default()
+                                    }),
+                                    ..Default::default()
+                                }],
+                                ..Default::default()
+                            }],
+                            plugin: model_plugins,
+                            ..Default::default()
+                        });
+                    }
                     added = true;
                 }
                 if added {
@@ -675,11 +708,11 @@ impl Site {
                 child: "platform".into(),
                 axis: Some(SdfJointAxis {
                     xyz: Vector3d::new(0.0, 0.0, 1.0),
-                    limit: SdfJointAxisLimit {
+                    limit: Some(SdfJointAxisLimit {
                         lower: -std::f64::INFINITY,
                         upper: std::f64::INFINITY,
                         ..Default::default()
-                    },
+                    }),
                     ..Default::default()
                 }),
                 ..Default::default()
@@ -862,15 +895,6 @@ impl Site {
                 }
             }
         }
-        // TODO(luca) these fields are set as required in the specification but seem not to be in
-        // practice (rightly so because not everyone wants to manually specify gravity, earth
-        // magnetic field and atmosphere model)
-        world.atmosphere = SdfAtmosphere {
-            r#type: "adiabatic".to_string(),
-            ..Default::default()
-        };
-        world.gravity = Vector3d::new(0.0, 0.0, -9.80);
-        world.magnetic_field = Vector3d::new(5.64e-6, 2.29e-5, -4.24e-5);
         Ok(root)
     }
 }
@@ -878,6 +902,7 @@ impl Site {
 #[cfg(test)]
 mod tests {
     use crate::legacy::building_map::BuildingMap;
+    use sdformat_rs::yaserde;
 
     #[test]
     fn serialize_sdf() {
