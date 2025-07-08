@@ -392,15 +392,18 @@ pub fn update_floors_for_changed_lifts(
     anchors: AnchorParams,
     textures: Query<(Option<&TextureImage>, &Texture)>,
     mut mesh_assets: ResMut<Assets<Mesh>>,
-    mut mesh_handles: Query<&mut Mesh3d>,
+    mesh_handles: Query<&Mesh3d>,
 ) {
     if changed_lifts.is_empty() && removed_lifts.is_empty() {
         return;
     }
     for (e, segments, path, texture_source) in floors.iter() {
         let (_, texture) = from_texture_source(texture_source, &textures);
-        if let Ok(mut mesh) = mesh_handles.get_mut(segments.mesh) {
-            *mesh = Mesh3d(mesh_assets.add(make_floor_mesh(e, path, &texture, &anchors, &lifts)));
+        if let Ok(mesh_handle) = mesh_handles.get(segments.mesh) {
+            let Some(mesh) = mesh_assets.get_mut(&mesh_handle.0) else {
+                continue;
+            };
+            *mesh = make_floor_mesh(e, path, &texture, &anchors, &lifts);
         }
     }
 }
