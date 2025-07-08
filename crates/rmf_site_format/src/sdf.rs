@@ -102,8 +102,8 @@ fn make_sdf_door_link(mesh_prefix: &str, link_name: &str) -> SdfLink {
 }
 
 fn make_sdf_door(
-    left_anchor: Anchor,
-    right_anchor: Anchor,
+    left_anchor: &Anchor,
+    right_anchor: &Anchor,
     offset: Vec3,
     ros_interface: bool,
     kind: &DoorType,
@@ -189,11 +189,11 @@ fn make_sdf_door(
                 pose: Some(pose),
                 axis: Some(SdfJointAxis {
                     xyz: Vector3d::new(0.0, door.towards.sign().into(), 0.0),
-                    limit: SdfJointAxisLimit {
+                    limit: Some(SdfJointAxisLimit {
                         lower: 0.0,
                         upper: door_length as f64,
                         ..Default::default()
-                    },
+                    }),
                     ..Default::default()
                 }),
                 ..Default::default()
@@ -237,11 +237,11 @@ fn make_sdf_door(
                 r#type: "revolute".into(),
                 axis: Some(SdfJointAxis {
                     xyz: Vector3d::new(0.0, 0.0, z),
-                    limit: SdfJointAxisLimit {
+                    limit: Some(SdfJointAxisLimit {
                         lower,
                         upper,
                         ..Default::default()
-                    },
+                    }),
                     ..Default::default()
                 }),
                 pose: Some(pose),
@@ -286,11 +286,11 @@ fn make_sdf_door(
                     pose: Some(right_pose),
                     axis: Some(SdfJointAxis {
                         xyz: Vector3d::new(0.0, -1.0, 0.0),
-                        limit: SdfJointAxisLimit {
+                        limit: Some(SdfJointAxisLimit {
                             lower: 0.0,
                             upper: right_length as f64,
                             ..Default::default()
-                        },
+                        }),
                         ..Default::default()
                     }),
                     ..Default::default()
@@ -303,11 +303,11 @@ fn make_sdf_door(
                     pose: Some(left_pose),
                     axis: Some(SdfJointAxis {
                         xyz: Vector3d::new(0.0, -1.0, 0.0),
-                        limit: SdfJointAxisLimit {
+                        limit: Some(SdfJointAxisLimit {
                             lower: -left_length as f64,
                             upper: 0.0,
                             ..Default::default()
-                        },
+                        }),
                         ..Default::default()
                     }),
                     ..Default::default()
@@ -356,11 +356,11 @@ fn make_sdf_door(
                     r#type: "revolute".into(),
                     axis: Some(SdfJointAxis {
                         xyz: Vector3d::new(0.0, 0.0, z),
-                        limit: SdfJointAxisLimit {
+                        limit: Some(SdfJointAxisLimit {
                             lower: 0.0,
                             upper,
                             ..Default::default()
-                        },
+                        }),
                         ..Default::default()
                     }),
                     pose: Some(right_pose),
@@ -373,11 +373,11 @@ fn make_sdf_door(
                     r#type: "revolute".into(),
                     axis: Some(SdfJointAxis {
                         xyz: Vector3d::new(0.0, 0.0, z),
-                        limit: SdfJointAxisLimit {
+                        limit: Some(SdfJointAxisLimit {
                             lower: -upper,
                             upper: 0.0,
                             ..Default::default()
-                        },
+                        }),
                         ..Default::default()
                     }),
                     pose: Some(left_pose),
@@ -421,20 +421,18 @@ fn make_sdf_door(
 
 impl Site {
     pub fn to_sdf(&self) -> Result<SdfRoot, SdfConversionError> {
-        let get_anchor = |id: u32| -> Result<Anchor, SdfConversionError> {
+        let get_anchor = |id: u32| -> Result<&Anchor, SdfConversionError> {
             self.get_anchor(id)
                 .ok_or(SdfConversionError::BrokenAnchorReference(id))
-                .cloned()
         };
         let get_level = |id: u32| -> Result<&Level, SdfConversionError> {
             self.levels
                 .get(&id)
                 .ok_or(SdfConversionError::BrokenLevelReference(id))
         };
-        let mut root = match WORLD_TEMPLATE.clone() {
-            Ok(root) => root,
-            Err(err) => return Err(SdfConversionError::CorruptedWorldTemplate(err)),
-        };
+        let mut root = WORLD_TEMPLATE
+            .clone()
+            .map_err(SdfConversionError::CorruptedWorldTemplate)?;
         let world = &mut root.world[0];
         let mut min_elevation = f32::MAX;
         let mut max_elevation = f32::MIN;
@@ -443,6 +441,8 @@ impl Site {
             filename: "toggle_floors".into(),
             ..Default::default()
         };
+        let chargers_plugin = self.generate_chargers_plugin()?;
+        world.plugin.push(chargers_plugin);
         // Only export default scenario into SDF for now
         let (_, default_scenario) = self
             .scenarios
@@ -497,12 +497,14 @@ impl Site {
                 }],
                 ..Default::default()
             });
-            // TODO(luca) We need this because there is no concept of ingestor or dispenser in
-            // rmf_site yet. Remove when there is
             for (model_instance_id, _) in &default_scenario.instances {
                 let parented_model_instance = self.model_instances.get(model_instance_id).ok_or(
                     SdfConversionError::BrokenModelInstanceReference(*model_instance_id),
                 )?;
+                if parented_model_instance.parent != *level_id {
+                    continue;
+                }
+
                 let Some(model_description_id) = parented_model_instance.bundle.description.0
                 else {
                     continue;
@@ -513,6 +515,8 @@ impl Site {
                     )?;
 
                 let mut added = false;
+                // TODO(luca) We need this because there is no concept of ingestor or dispenser in
+                // rmf_site yet. Remove when there is
                 if model_description_bundle.source.0
                     == AssetSource::Search("OpenRobotics/TeleportIngestor".to_string())
                 {
@@ -535,10 +539,9 @@ impl Site {
                     added = true;
                 }
                 // Non static models are included separately and are not part of the static world
-                // TODO(luca) this will duplicate multiple instances of the model since it uses
-                // NameInSite instead of AssetSource for the URI, fix
                 else if !model_description_bundle.is_static.0 .0 {
                     let mut model_plugins: Vec<SdfPlugin> = Vec::new();
+                    let mut slotcar_definition = None;
                     for (label, export_data) in parented_model_instance.bundle.export_data.0.iter()
                     {
                         let mut sdf_plugin = SdfPlugin {
@@ -551,41 +554,75 @@ impl Site {
                                 sdf_plugin.elements.push(element.clone());
                             }
                         }
-                        model_plugins.push(sdf_plugin);
+                        if label == "slotcar" {
+                            slotcar_definition = Some(sdf_plugin);
+                        } else {
+                            model_plugins.push(sdf_plugin);
+                        }
                     }
-                    world.model.push(SdfModel {
-                        name: parented_model_instance.bundle.name.0.clone(),
-                        r#static: Some(model_description_bundle.is_static.0 .0),
-                        pose: Some(parented_model_instance.bundle.pose.to_sdf()),
-                        link: vec![SdfLink {
-                            name: "link".into(),
-                            collision: vec![SdfCollision {
-                                name: "collision".into(),
-                                geometry: SdfGeometry::Mesh(SdfMeshShape {
-                                    uri: format!(
-                                        "meshes/model_{}_collision.glb",
-                                        model_description_id
-                                    ),
-                                    ..Default::default()
-                                }),
-                                ..Default::default()
-                            }],
-                            visual: vec![SdfVisual {
-                                name: "visual".into(),
-                                geometry: SdfGeometry::Mesh(SdfMeshShape {
-                                    uri: format!(
-                                        "meshes/model_{}_visual.glb",
-                                        model_description_id
-                                    ),
-                                    ..Default::default()
-                                }),
-                                ..Default::default()
-                            }],
+                    // For slotcar robots we just want to include them and add experimental
+                    // params update
+                    if let Some(slotcar) = slotcar_definition {
+                        let mut replacement = SdfParams::default();
+                        let mut plugin_element = XmlElement::default();
+                        plugin_element
+                            .attributes
+                            .insert("name".into(), slotcar.name.clone());
+                        plugin_element
+                            .attributes
+                            .insert("filename".into(), slotcar.filename);
+                        plugin_element
+                            .attributes
+                            .insert("element_id".into(), slotcar.name);
+                        plugin_element
+                            .attributes
+                            .insert("action".into(), "modify".into());
+                        plugin_element.name = "plugin".into();
+                        plugin_element.data = ElementData::Nested(slotcar.elements);
+                        replacement.0.push(plugin_element);
+                        let model_name = model_description_bundle.source.0.model_name();
+                        world.include.push(SdfWorldInclude {
+                            uri: format!("model://{}", model_name),
+                            experimental_params: Some(replacement),
+                            name: Some(parented_model_instance.bundle.name.0.clone()),
+                            pose: Some(parented_model_instance.bundle.pose.to_sdf()),
                             ..Default::default()
-                        }],
-                        plugin: model_plugins,
-                        ..Default::default()
-                    });
+                        });
+                    } else {
+                        world.model.push(SdfModel {
+                            name: parented_model_instance.bundle.name.0.clone(),
+                            r#static: Some(model_description_bundle.is_static.0 .0),
+                            pose: Some(parented_model_instance.bundle.pose.to_sdf()),
+                            link: vec![SdfLink {
+                                name: "link".into(),
+                                collision: vec![SdfCollision {
+                                    name: "collision".into(),
+                                    geometry: SdfGeometry::Mesh(SdfMeshShape {
+                                        uri: format!(
+                                            "meshes/model_{}_collision.glb",
+                                            model_description_id
+                                        ),
+                                        ..Default::default()
+                                    }),
+                                    ..Default::default()
+                                }],
+                                visual: vec![SdfVisual {
+                                    name: "visual".into(),
+                                    geometry: SdfGeometry::Mesh(SdfMeshShape {
+                                        uri: format!(
+                                            "meshes/model_{}_visual.glb",
+                                            model_description_id
+                                        ),
+                                        ..Default::default()
+                                    }),
+                                    ..Default::default()
+                                }],
+                                ..Default::default()
+                            }],
+                            plugin: model_plugins,
+                            ..Default::default()
+                        });
+                    }
                     added = true;
                 }
                 if added {
@@ -620,11 +657,10 @@ impl Site {
             toggle_floors_plugin.elements.push(floor_models_ele);
         }
         for (lift_id, lift) in &self.lifts {
-            let get_lift_anchor = |id: u32| -> Result<Anchor, SdfConversionError> {
+            let get_lift_anchor = |id: u32| -> Result<&Anchor, SdfConversionError> {
                 lift.cabin_anchors
                     .get(&id)
                     .ok_or(SdfConversionError::BrokenAnchorReference(id))
-                    .cloned()
             };
             // Cabin
             let LiftCabin::Rect(ref cabin) = lift.properties.cabin;
@@ -671,11 +707,11 @@ impl Site {
                 child: "platform".into(),
                 axis: Some(SdfJointAxis {
                     xyz: Vector3d::new(0.0, 0.0, 1.0),
-                    limit: SdfJointAxisLimit {
+                    limit: Some(SdfJointAxisLimit {
                         lower: -std::f64::INFINITY,
                         upper: std::f64::INFINITY,
                         ..Default::default()
-                    },
+                    }),
                     ..Default::default()
                 }),
                 ..Default::default()
@@ -858,22 +894,73 @@ impl Site {
                 }
             }
         }
-        // TODO(luca) these fields are set as required in the specification but seem not to be in
-        // practice (rightly so because not everyone wants to manually specify gravity, earth
-        // magnetic field and atmosphere model)
-        world.atmosphere = SdfAtmosphere {
-            r#type: "adiabatic".to_string(),
+        Ok(root)
+    }
+
+    fn generate_chargers_plugin(&self) -> Result<SdfPlugin, SdfConversionError> {
+        let get_anchor_and_elevations =
+            |id: u32| -> Result<(&Anchor, Vec<f32>), SdfConversionError> {
+                let (anchor, level) = self
+                    .get_anchor_and_level(id)
+                    .ok_or(SdfConversionError::BrokenAnchorReference(id))?;
+                let elevations = if let Some(level) = level {
+                    vec![level.properties.elevation.0]
+                } else {
+                    self.levels
+                        .values()
+                        .map(|l| l.properties.elevation.0)
+                        .collect()
+                };
+                Ok((anchor, elevations))
+            };
+        let charger_locations: Vec<_> = self
+            .navigation
+            .guided
+            .locations
+            .values()
+            .filter(|location| location.tags.0.iter().any(|tag| tag.is_charger()))
+            .collect();
+        let mut charger_plugin = SdfPlugin {
+            name: "register_component".into(),
+            filename: "libregister_component.so".into(),
             ..Default::default()
         };
-        world.gravity = Vector3d::new(0.0, 0.0, -9.80);
-        world.magnetic_field = Vector3d::new(5.64e-6, 2.29e-5, -4.24e-5);
-        Ok(root)
+        let mut component = XmlElement {
+            name: "component".into(),
+            ..Default::default()
+        };
+        component
+            .attributes
+            .insert("name".into(), "Chargers".into());
+        let mut component_data = ElementMap::default();
+        for location in charger_locations.iter() {
+            let (anchor, elevations) = get_anchor_and_elevations(location.anchor.0)?;
+            let tf = anchor.translation_for_category(Category::Site);
+            for elevation in elevations.iter() {
+                let element = XmlElement {
+                    name: "rmf_charger".into(),
+                    attributes: [
+                        ("name".into(), location.name.0.clone()),
+                        ("x".into(), tf[0].to_string()),
+                        ("y".into(), tf[1].to_string()),
+                        ("z".into(), elevation.to_string()),
+                    ]
+                    .into(),
+                    ..Default::default()
+                };
+                component_data.push(element);
+            }
+        }
+        component.data = ElementData::Nested(component_data);
+        charger_plugin.elements.push(component);
+        Ok(charger_plugin)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::legacy::building_map::BuildingMap;
+    use sdformat_rs::yaserde;
 
     #[test]
     fn serialize_sdf() {
