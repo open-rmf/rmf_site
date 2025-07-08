@@ -16,10 +16,10 @@ fn main() {
             // (rydb): this crashed the last time I set this to true. Keeping as false for now
             enable_multipass_for_primary_context: false,
         })
-        .init_resource::<UiHoveredExample>()
+        .init_resource::<UiFocusedExample>()
         .add_plugins(MeshPickingPlugin)
         .add_plugins(CameraSetupPlugin)
-        .add_plugins(CameraControlsBlocker::<UiHoveredExample>::default())
+        .add_plugins(CameraControlsBlocker::<UiFocusedExample>::default())
         .add_plugins(WorldInspectorPlugin::default())
         .add_systems(Startup, setup)
         .add_systems(Update, camera_config)
@@ -30,7 +30,7 @@ fn main() {
 #[derive(Reflect, Resource, TransparentWrapper, Default)]
 #[reflect(Resource)]
 #[repr(transparent)]
-pub struct UiHoveredExample(pub bool);
+pub struct UiFocusedExample(pub bool);
 
 fn camera_config(mut projection_mode: ResMut<ProjectionMode>, keys: Res<ButtonInput<KeyCode>>) {
     if keys.just_pressed(KeyCode::F2) {
@@ -74,7 +74,7 @@ fn setup(
 
 /// check current window hover status over ui element.
 pub fn window_hover_status(
-    mut ui_hovered: ResMut<UiHoveredExample>,
+    mut ui_hovered: ResMut<UiFocusedExample>,
     mut windows: Query<&mut EguiContext>,
 ) {
     let Ok(mut window) = windows

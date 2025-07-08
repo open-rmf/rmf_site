@@ -107,9 +107,9 @@ pub use inspect_texture::*;
 
 pub mod inspect_value;
 pub use inspect_value::*;
+use rmf_site_picking::Selection;
 
 use crate::{
-    interaction::Selection,
     site::{Category, SiteID},
     widgets::prelude::*,
 };

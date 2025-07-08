@@ -27,14 +27,10 @@ pub use anchor::*;
 pub mod assets;
 pub use assets::*;
 
-use rmf_site_camera::plugins::{BlockerRegistryPlugin, CameraSetupPlugin};
-pub use rmf_site_camera::*;
+use rmf_site_camera::plugins::CameraSetupPlugin;
 
 pub mod category_visibility;
 pub use category_visibility::*;
-
-pub mod cursor;
-pub use cursor::*;
 
 pub mod edge;
 pub use edge::*;
@@ -66,8 +62,10 @@ pub use outline::*;
 pub mod path;
 pub use path::*;
 
-pub mod picking;
-pub use picking::*;
+pub mod cursor;
+pub use cursor::*;
+
+use rmf_site_picking::*;
 
 pub mod point;
 pub use point::*;
@@ -78,11 +76,8 @@ pub use popup::*;
 pub mod preview;
 pub use preview::*;
 
-pub mod select;
-pub use select::*;
-
-pub mod visual_cue;
-pub use visual_cue::*;
+pub mod select_impl;
+pub use select_impl::*;
 
 use bevy::prelude::*;
 use bevy_mod_outline::OutlinePlugin;
@@ -143,19 +138,10 @@ impl Plugin for InteractionPlugin {
             .add_plugins(MeshPickingPlugin)
             .init_resource::<InteractionAssets>()
             .init_resource::<Cursor>()
-            .init_resource::<PickingBlockers>()
-            .init_resource::<UiHovered>()
-            .init_resource::<IteractionMaskHovered>()
-            .add_plugins(CameraControlsBlocker::<UiHovered>::default())
-            .add_plugins(BlockerRegistryPlugin::<PickingBlockers>::default())
-            .add_plugins(PickBlockerRegistration::<UiHovered>::default())
-            .add_plugins(PickBlockerRegistration::<IteractionMaskHovered>::default())
-            .init_resource::<Picked>()
             .init_resource::<GizmoState>()
             .init_resource::<CurrentEditDrawing>()
             .init_resource::<CurrentLevel>()
             .insert_resource(HighlightAnchors(false))
-            .add_event::<ChangePick>()
             .add_event::<MoveTo>()
             .add_event::<GizmoClicked>()
             .add_event::<SpawnPreview>()
@@ -177,7 +163,10 @@ impl Plugin for InteractionPlugin {
             .add_plugins((
                 CameraSetupPlugin,
                 ModelPreviewPlugin,
-                SelectionPlugin::default(),
+                InspectorServicePlugin::default(),
+                AnchorSelectionPlugin::default(),
+                ObjectPlacementPlugin::default(),
+                SelectionPlugin::<InspectorService>::default(),
             ));
 
         if !self.headless {
@@ -187,7 +176,6 @@ impl Plugin for InteractionPlugin {
                     make_lift_doormat_gizmo,
                     update_doormats_for_level_change,
                     update_physical_light_visual_cues,
-                    make_selectable_entities_pickable,
                     update_anchor_visual_cues.after(SelectionServiceStages::Select),
                     update_popups.after(SelectionServiceStages::Select),
                     update_unassigned_anchor_cues,
@@ -234,6 +222,7 @@ impl Plugin for InteractionPlugin {
                     add_outline_visualization,
                     add_highlight_visualization,
                     add_cursor_hover_visualization,
+                    add_cursor_hover_visualization,
                     add_physical_light_visual_cues,
                     add_popups,
                 )
@@ -251,23 +240,7 @@ impl Plugin for InteractionPlugin {
                 PostUpdate,
                 (move_anchor.before(update_anchor_transforms), move_pose)
                     .run_if(in_state(InteractionState::Enable)),
-            )
-            .add_systems(First, update_picked);
-        }
-    }
-}
-
-pub fn set_visibility(entity: Entity, q_visibility: &mut Query<&mut Visibility>, visible: bool) {
-    if let Some(mut visibility) = q_visibility.get_mut(entity).ok() {
-        let v = if visible {
-            Visibility::Inherited
-        } else {
-            Visibility::Hidden
-        };
-
-        // Avoid a mutable access if nothing actually needs to change
-        if *visibility != v {
-            *visibility = v;
+            );
         }
     }
 }

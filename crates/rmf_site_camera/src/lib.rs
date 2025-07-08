@@ -47,16 +47,18 @@ use cursor::{CursorCommand, update_cursor_command};
 mod keyboard;
 use keyboard::{KeyboardCommand, update_keyboard_command};
 
-use crate::{
-    components::{OrthographicCameraRoot, PerspectiveCameraRoot},
-    plugins::BlockerRegistration,
-    resources::{BlockStatus, CameraControlBlockers, ProjectionMode},
-};
-
 pub mod components;
+pub use components::*;
+
 pub mod plugins;
+pub use plugins::*;
+
 pub mod resources;
+pub use resources::*;
+
 mod systems;
+pub(crate) use systems::*;
+
 pub(crate) mod utils;
 
 /// RenderLayers are used to inform cameras which entities they should render.

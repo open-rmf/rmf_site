@@ -65,6 +65,15 @@ use bevy::render::{
 };
 pub use osm_slippy_map::*;
 
+#[derive(Debug, Clone, Copy, Resource)]
+pub struct DebugMode(pub bool);
+
+impl FromWorld for DebugMode {
+    fn from_world(_: &mut World) -> Self {
+        DebugMode(false)
+    }
+}
+
 #[cfg_attr(not(target_arch = "wasm32"), derive(Parser))]
 pub struct CommandLineArgs {
     /// Filename of a Site (.site.ron / .site.json) or Building (.building.yaml) file to load.
@@ -240,7 +249,7 @@ impl Plugin for SiteEditor {
                     enable_multipass_for_primary_context: false,
                 },
                 ExitConfirmationPlugin,
-                KeyboardInputPlugin,
+                EditorInputPlugin,
                 SitePlugin,
                 InteractionPlugin::new().headless(self.is_headless()),
                 VisualCueAnimationsPlugin,

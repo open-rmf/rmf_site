@@ -16,12 +16,12 @@
 */
 
 use crate::{
-    interaction::{Hover, Select, Selection},
     site::SiteID,
     widgets::{prelude::*, Icons},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Button, Ui};
+use rmf_site_picking::{Hover, Select, Selection};
 
 /// A widget that can be used to select entities.
 #[derive(SystemParam)]

@@ -16,7 +16,6 @@
 */
 
 use crate::{
-    interaction::{Select, Selection},
     log::Log,
     site::{
         Category, CurrentLevel, Dependents, LevelElevation, LevelProperties, NameInSite,
@@ -32,6 +31,7 @@ use bevy::{
     prelude::*,
 };
 use rmf_site_format::{Edge, Path, Point};
+use rmf_site_picking::{Select, Selection};
 use std::collections::HashSet;
 
 /// There are instances where Bevy panics if an entity that is computed to be
