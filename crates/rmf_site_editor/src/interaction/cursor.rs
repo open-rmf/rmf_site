@@ -232,7 +232,7 @@ impl FromWorld for Cursor {
             .id();
 
         let cursor = world
-            .spawn(VisualCue::no_outline())
+            .spawn((VisualCue::no_outline(), CursorFrame))
             .add_children(&[
                 halo,
                 dagger,
@@ -257,12 +257,6 @@ impl FromWorld for Cursor {
         }
     }
 }
-
-/// A unit component that indicates the entity is only for previewing and
-/// should never be interacted with. This is applied to the "anchor" that is
-/// attached to the cursor.
-#[derive(Component, Clone, Copy, Debug)]
-pub struct Preview;
 
 #[derive(SystemParam)]
 pub struct IntersectGroundPlaneParams<'w, 's> {
@@ -303,6 +297,21 @@ impl<'w, 's> IntersectGroundPlaneParams<'w, 's> {
             .map(|distance| ray.get_point(distance))?;
 
         Some(Transform::from_translation(p).with_rotation(aligned_z_axis(*plane.normal)))
+    }
+}
+
+pub fn set_visibility(entity: Entity, q_visibility: &mut Query<&mut Visibility>, visible: bool) {
+    if let Some(mut visibility) = q_visibility.get_mut(entity).ok() {
+        let v = if visible {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
+
+        // Avoid a mutable access if nothing actually needs to change
+        if *visibility != v {
+            *visibility = v;
+        }
     }
 }
 

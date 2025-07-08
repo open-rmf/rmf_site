@@ -15,10 +15,10 @@
  *
 */
 
-use crate::interaction::Selectable;
 use crate::site::*;
 use bevy::prelude::*;
 use rmf_site_format::{Edge, MeasurementMarker};
+use rmf_site_picking::Selectable;
 
 // Used as an offset relative to its parent drawing (given by ranking)
 pub const DEFAULT_MEASUREMENT_OFFSET: f32 = (FLOOR_LAYER_START - DRAWING_LAYER_START) / 10.0;

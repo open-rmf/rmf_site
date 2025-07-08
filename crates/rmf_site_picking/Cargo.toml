@@ -1,0 +1,31 @@
+[package]
+name = "rmf_site_picking"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bevy_ecs = {workspace = true}
+bevy_app = {workspace = true}
+bevy_reflect = {workspace = true}
+bevy_picking = {workspace = true}
+bevy_render = {workspace = true}
+bevy_derive = {workspace = true}
+tracing = {workspace = true}
+bevy_input = {workspace = true}
+bevy_asset = {workspace = true}
+bevy_pbr = {workspace = true}
+bevy_math = {workspace = true}
+bevy_transform = {workspace = true}
+bevy_impulse = {workspace = true}
+bytemuck = {workspace = true}
+anyhow = {workspace = true}
+bitfield = {workspace = true}
+smallvec = {workspace = true}
+rmf_site_camera = {workspace = true}
+rmf_site_mesh = {workspace = true}
+rmf_site_animate = {workspace = true}
+bevy_egui = {workspace = true}
+
+[dev-dependencies]
+bevy = {workspace = true, features = ["dynamic_linking"]}
+bevy-inspector-egui = {workspace = true}

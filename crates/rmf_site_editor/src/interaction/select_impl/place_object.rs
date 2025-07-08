@@ -16,13 +16,20 @@
 */
 
 use crate::{
-    interaction::select::*,
+    interaction::{spawn_place_object_2d_workflow, PlaceObject2d},
     site::{CurrentLevel, ModelInstance},
 };
-use bevy::ecs::{
-    prelude::Command,
-    system::{SystemParam, SystemState},
+use bevy::{
+    app::{App, Plugin},
+    ecs::{
+        prelude::*,
+        system::{SystemParam, SystemState},
+    },
+    prelude::{Deref, DerefMut},
 };
+use bevy_impulse::{testing::Resource, Service};
+use rmf_site_picking::{RunSelector, SelectorInput};
+use tracing::warn;
 
 #[derive(Default)]
 pub struct ObjectPlacementPlugin {}
