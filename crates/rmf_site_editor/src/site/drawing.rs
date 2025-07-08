@@ -16,7 +16,6 @@
 */
 
 use crate::{
-    interaction::Selectable,
     site::{
         get_current_workspace_path, Anchor, DefaultFile, FiducialMarker, GlobalDrawingVisibility,
         LayerVisibility, MeasurementMarker, MeasurementSegment, RecencyRank,
@@ -27,6 +26,7 @@ use crate::{
 use bevy::{asset::LoadState, ecs::hierarchy::ChildOf, math::Affine3A, prelude::*};
 use rmf_site_format::{AssetSource, Category, DrawingProperties, PixelsPerMeter, Pose};
 use rmf_site_mesh::*;
+use rmf_site_picking::Selectable;
 use std::path::PathBuf;
 
 #[derive(Bundle, Debug, Clone)]
