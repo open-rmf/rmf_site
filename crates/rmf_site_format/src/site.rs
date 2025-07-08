@@ -233,11 +233,23 @@ impl Site {
         ron::de::from_bytes(s)
     }
 
-    /// Returns the anchor and its level, given the id
-    pub fn get_level_anchor(&self, id: u32) -> Option<(&Anchor, &Level)> {
-        self.levels
-            .values()
-            .find_map(|l| l.anchors.get(&id).map(|a| (a, l)))
+    /// Returns an anchor and its level (if it's a level anchor), given the id
+    pub fn get_anchor_and_level(&self, id: u32) -> Option<(&Anchor, Option<&Level>)> {
+        self.anchors
+            .get(&id)
+            .map(|site_anchor| (site_anchor, None))
+            .or_else(|| {
+                self.levels.values().find_map(|l| {
+                    l.anchors
+                        .get(&id)
+                        .map(|level_anchor| (level_anchor, Some(l)))
+                })
+            })
+    }
+
+    /// Returns an anchor given the id
+    pub fn get_anchor(&self, id: u32) -> Option<&Anchor> {
+        self.get_anchor_and_level(id).map(|(a, _)| a)
     }
 
     #[allow(non_snake_case)]

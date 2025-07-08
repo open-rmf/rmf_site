@@ -422,8 +422,7 @@ fn make_sdf_door(
 impl Site {
     pub fn to_sdf(&self) -> Result<SdfRoot, SdfConversionError> {
         let get_anchor = |id: u32| -> Result<&Anchor, SdfConversionError> {
-            self.get_level_anchor(id)
-                .map(|(anchor, _)| anchor)
+            self.get_anchor(id)
                 .ok_or(SdfConversionError::BrokenAnchorReference(id))
         };
         let get_level = |id: u32| -> Result<&Level, SdfConversionError> {
@@ -899,11 +898,21 @@ impl Site {
     }
 
     fn generate_chargers_plugin(&self) -> Result<SdfPlugin, SdfConversionError> {
-        let get_anchor = |id: u32| -> Result<(&Anchor, f32), SdfConversionError> {
-            self.get_level_anchor(id)
-                .map(|(anchor, level)| (anchor, level.properties.elevation.0))
-                .ok_or(SdfConversionError::BrokenAnchorReference(id))
-        };
+        let get_anchor_and_elevations =
+            |id: u32| -> Result<(&Anchor, Vec<f32>), SdfConversionError> {
+                let (anchor, level) = self
+                    .get_anchor_and_level(id)
+                    .ok_or(SdfConversionError::BrokenAnchorReference(id))?;
+                let elevations = if let Some(level) = level {
+                    vec![level.properties.elevation.0]
+                } else {
+                    self.levels
+                        .values()
+                        .map(|l| l.properties.elevation.0)
+                        .collect()
+                };
+                Ok((anchor, elevations))
+            };
         let charger_locations: Vec<_> = self
             .navigation
             .guided
@@ -925,20 +934,22 @@ impl Site {
             .insert("name".into(), "Chargers".into());
         let mut component_data = ElementMap::default();
         for location in charger_locations.iter() {
-            let (anchor, elevation) = get_anchor(location.anchor.0)?;
+            let (anchor, elevations) = get_anchor_and_elevations(location.anchor.0)?;
             let tf = anchor.translation_for_category(Category::Site);
-            let element = XmlElement {
-                name: "rmf_charger".into(),
-                attributes: [
-                    ("name".into(), location.name.0.clone()),
-                    ("x".into(), tf[0].to_string()),
-                    ("y".into(), tf[1].to_string()),
-                    ("z".into(), elevation.to_string()),
-                ]
-                .into(),
-                ..Default::default()
-            };
-            component_data.push(element);
+            for elevation in elevations.iter() {
+                let element = XmlElement {
+                    name: "rmf_charger".into(),
+                    attributes: [
+                        ("name".into(), location.name.0.clone()),
+                        ("x".into(), tf[0].to_string()),
+                        ("y".into(), tf[1].to_string()),
+                        ("z".into(), elevation.to_string()),
+                    ]
+                    .into(),
+                    ..Default::default()
+                };
+                component_data.push(element);
+            }
         }
         component.data = ElementData::Nested(component_data);
         charger_plugin.elements.push(component);
