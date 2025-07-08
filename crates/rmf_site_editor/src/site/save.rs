@@ -1474,7 +1474,7 @@ fn generate_scenarios(
                                                         site_id.get(*modifier).ok()?.0,
                                                     ))
                                                 })
-                                                .collect::<HashMap<u32, u32>>(),
+                                                .collect::<BTreeMap<u32, u32>>(),
                                         )
                                     },
                                 },
