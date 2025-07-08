@@ -432,7 +432,6 @@ impl Plugin for SitePlugin {
                 update_affiliations,
                 update_members_of_groups.after(update_affiliations),
                 update_model_scales,
-                update_robot_level,
                 handle_new_primitive_shapes,
                 add_drawing_visuals,
                 handle_loaded_drawing,
@@ -445,6 +444,7 @@ impl Plugin for SitePlugin {
                 .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
         )
         .add_observer(remove_scenario_modifiers)
-        .add_observer(add_scenario_modifiers);
+        .add_observer(add_scenario_modifiers)
+        .add_observer(update_robot_level);
     }
 }

@@ -145,15 +145,14 @@ impl Property for OnLevel<Entity> {
 /// This system monitors changes to the OnLevel for each robot and updates its parent
 /// level accordingly
 pub fn update_robot_level(
+    trigger: Trigger<OnReplace, LastSetValue<OnLevel<Entity>>>,
     mut commands: Commands,
-    robot_levels: Query<(Entity, Ref<OnLevel<Entity>>), With<Robot>>,
+    robot_levels: Query<(Entity, &OnLevel<Entity>), With<Robot>>,
     level_elevation: Query<(), With<LevelElevation>>,
 ) {
-    for (robot_entity, robot_level) in robot_levels.iter() {
-        if robot_level.is_changed() && !robot_level.is_added() {
-            if let Some(level_entity) = robot_level.0.filter(|e| level_elevation.get(*e).is_ok()) {
-                commands.entity(robot_entity).insert(ChildOf(level_entity));
-            }
+    if let Ok((robot_entity, robot_level)) = robot_levels.get(trigger.target()) {
+        if let Some(level_entity) = robot_level.0.filter(|e| level_elevation.get(*e).is_ok()) {
+            commands.entity(robot_entity).insert(ChildOf(level_entity));
         }
     }
 }
