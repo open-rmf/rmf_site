@@ -289,7 +289,7 @@ impl Plugin for SitePlugin {
             PropertyPlugin::<Visibility, InstanceMarker>::default(),
             PropertyPlugin::<Inclusion, Task>::default(),
             PropertyPlugin::<TaskParams, Task>::default(),
-            PropertyPlugin::<RobotLevel<Entity>, Robot>::default(),
+            PropertyPlugin::<OnLevel<Entity>, Robot>::default(),
             SlotcarSdfPlugin,
         ))
         .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")

@@ -18,7 +18,7 @@
 use crate::{
     site::{
         AddModifier, Affiliation, ChangeCurrentScenario, Element, IssueKey, LastSetValue,
-        LevelElevation, Modifier, NameInSite, Property, Robot, RobotLevel, ScenarioModifiers,
+        LevelElevation, Modifier, NameInSite, OnLevel, Property, Robot, ScenarioModifiers,
     },
     Issue, ValidateWorkspace,
 };
@@ -29,16 +29,16 @@ use uuid::Uuid;
 
 impl Element for Robot {}
 
-/// Implement scenario property for RobotLevel to modify a robot model's parent level
+/// Implement scenario property for OnLevel to modify a robot model's parent level
 /// across different scenario
-impl Property for RobotLevel<Entity> {
+impl Property for OnLevel<Entity> {
     fn get_fallback(
         for_element: Entity,
         _in_scenario: Entity,
         world: &mut World,
-    ) -> RobotLevel<Entity> {
+    ) -> OnLevel<Entity> {
         let mut state: SystemState<(
-            Query<&LastSetValue<RobotLevel<Entity>>>,
+            Query<&LastSetValue<OnLevel<Entity>>>,
             Query<(Entity, &LevelElevation)>,
         )> = SystemState::new(world);
         let (last_set_level, levels) = state.get(world);
@@ -57,20 +57,20 @@ impl Property for RobotLevel<Entity> {
             }
         }
 
-        RobotLevel(lowest_level)
+        OnLevel(lowest_level)
     }
 
     fn insert(
         for_element: Entity,
         in_scenario: Entity,
-        _value: RobotLevel<Entity>, // Value is unused for RobotLevel
+        _value: OnLevel<Entity>, // Value is unused for OnLevel
         world: &mut World,
     ) {
         let mut state: SystemState<(Query<&ChildOf>, Query<(), With<LevelElevation>>)> =
             SystemState::new(world);
         let (child_of, levels) = state.get(world);
 
-        // When a new RobotLevel component is inserted (as a required component of Robot),
+        // When a new OnLevel component is inserted (as a required component of Robot),
         // we want to make sure that the data reflect the robot's current parent level.
         let level_entity = child_of
             .get(for_element)
@@ -80,10 +80,10 @@ impl Property for RobotLevel<Entity> {
         world
             .commands()
             .entity(for_element)
-            .insert(RobotLevel(level_entity));
+            .insert(OnLevel(level_entity));
 
         let level_modifier =
-            Self::create_modifier(for_element, in_scenario, RobotLevel(level_entity), world);
+            Self::create_modifier(for_element, in_scenario, OnLevel(level_entity), world);
         if let Some(level_modifier) = level_modifier {
             let modifier_entity = world.spawn(level_modifier).id();
             let mut events_state: SystemState<EventWriter<AddModifier>> = SystemState::new(world);
@@ -97,7 +97,7 @@ impl Property for RobotLevel<Entity> {
             Query<&ChildOf>,
             Query<&Children>,
             Query<(), With<LevelElevation>>,
-            Query<(&Modifier<RobotLevel<Entity>>, &Affiliation<Entity>)>,
+            Query<(&Modifier<OnLevel<Entity>>, &Affiliation<Entity>)>,
             Query<Entity, With<Robot>>,
         )> = SystemState::new(world);
         let (child_of, children, levels, level_modifiers, robot_instances) =
@@ -108,7 +108,7 @@ impl Property for RobotLevel<Entity> {
         let mut target_robots = HashMap::<Entity, Option<Entity>>::new();
         for robot_entity in robot_instances.iter() {
             if !have_robot.contains(&robot_entity) {
-                // When new root scenarios are created, insert the correct RobotLevel based on the
+                // When new root scenarios are created, insert the correct OnLevel based on the
                 // parent level entity of each robot model
                 let level_entity = child_of
                     .get(robot_entity)
@@ -125,7 +125,7 @@ impl Property for RobotLevel<Entity> {
                 *robot,
                 world
                     .commands()
-                    .spawn(Modifier::<RobotLevel<Entity>>::new(RobotLevel(*level)))
+                    .spawn(Modifier::<OnLevel<Entity>>::new(OnLevel(*level)))
                     .id(),
             ));
         }
@@ -146,11 +146,11 @@ impl Property for RobotLevel<Entity> {
     }
 }
 
-/// This system monitors changes to the RobotLevel for each robot and updates its parent
+/// This system monitors changes to the OnLevel for each robot and updates its parent
 /// level accordingly
 pub fn update_robot_level(
     mut commands: Commands,
-    robot_levels: Query<(Entity, Ref<RobotLevel<Entity>>), With<Robot>>,
+    robot_levels: Query<(Entity, Ref<OnLevel<Entity>>), With<Robot>>,
     level_elevation: Query<(), With<LevelElevation>>,
 ) {
     for (robot_entity, robot_level) in robot_levels.iter() {
@@ -162,7 +162,7 @@ pub fn update_robot_level(
     }
 }
 
-/// Unique UUID to identify issue of invalid RobotLevels
+/// Unique UUID to identify issue of invalid OnLevels
 pub const INVALID_ROBOT_LEVEL_ISSUE_UUID: Uuid =
     Uuid::from_u128(0x7e6937c359ff4ec88a23c7cef2683e7fu128);
 
@@ -170,7 +170,7 @@ pub fn check_for_invalid_robot_levels(
     mut commands: Commands,
     mut validate_events: EventReader<ValidateWorkspace>,
     child_of: Query<&ChildOf>,
-    level_modifiers: Query<(Entity, &Modifier<RobotLevel<Entity>>, &Affiliation<Entity>)>,
+    level_modifiers: Query<(Entity, &Modifier<OnLevel<Entity>>, &Affiliation<Entity>)>,
     levels: Query<Entity, With<LevelElevation>>,
     robots: Query<&NameInSite, With<Robot>>,
     scenarios: Query<&NameInSite, With<ScenarioModifiers<Entity>>>,
@@ -187,9 +187,9 @@ pub fn check_for_invalid_robot_levels(
                     if levels.get(level_entity).is_ok() {
                         continue;
                     }
-                    // RobotLevel is not pointing to a valid Level entity
+                    // OnLevel is not pointing to a valid Level entity
                     format!(
-                        "Robot {:?} has an invalid RobotLevel inserted in scenario {:?}: {:?}",
+                        "Robot {:?} has an invalid OnLevel inserted in scenario {:?}: {:?}",
                         robot_name,
                         scenarios
                             .get(scenario_entity)
@@ -199,7 +199,7 @@ pub fn check_for_invalid_robot_levels(
                     )
                 } else {
                     format!(
-                        "Robot {:?} has no RobotLevel inserted in scenario {:?}",
+                        "Robot {:?} has no OnLevel inserted in scenario {:?}",
                         robot_name,
                         scenarios
                             .get(scenario_entity)

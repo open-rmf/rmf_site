@@ -17,7 +17,7 @@
 
 use crate::{
     site::{
-        CurrentScenario, GetModifier, LevelElevation, Modifier, NameInSite, Robot, RobotLevel,
+        CurrentScenario, GetModifier, LevelElevation, Modifier, NameInSite, OnLevel, Robot,
         UpdateModifier, UpdateModifierEvent,
     },
     widgets::{prelude::*, Inspect},
@@ -26,17 +26,17 @@ use bevy::prelude::*;
 use bevy_egui::egui::{ComboBox, Ui};
 
 #[derive(SystemParam)]
-pub struct InspectRobotLevel<'w, 's> {
+pub struct InspectLevel<'w, 's> {
     current_scenario: Res<'w, CurrentScenario>,
-    get_modifier: GetModifier<'w, 's, Modifier<RobotLevel<Entity>>>,
+    get_modifier: GetModifier<'w, 's, Modifier<OnLevel<Entity>>>,
     levels: Query<'w, 's, (Entity, &'static NameInSite), With<LevelElevation>>,
     robots: Query<'w, 's, (), With<Robot>>,
-    update_modifier: EventWriter<'w, UpdateModifierEvent<RobotLevel<Entity>>>,
+    update_modifier: EventWriter<'w, UpdateModifierEvent<OnLevel<Entity>>>,
 }
 
-impl<'w, 's> ShareableWidget for InspectRobotLevel<'w, 's> {}
+impl<'w, 's> ShareableWidget for InspectLevel<'w, 's> {}
 
-impl<'w, 's> WidgetSystem<Inspect> for InspectRobotLevel<'w, 's> {
+impl<'w, 's> WidgetSystem<Inspect> for InspectLevel<'w, 's> {
     fn show(
         Inspect { selection, .. }: Inspect,
         ui: &mut Ui,
@@ -102,7 +102,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectRobotLevel<'w, 's> {
             params.update_modifier.write(UpdateModifierEvent::new(
                 current_scenario_entity,
                 selection,
-                UpdateModifier::Modify(RobotLevel(new_level_entity)),
+                UpdateModifier::Modify(OnLevel(new_level_entity)),
             ));
         }
     }

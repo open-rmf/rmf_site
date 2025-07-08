@@ -21,30 +21,9 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-#[serde(transparent)]
-#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
-pub struct RobotLevel<T: RefTrait>(pub Option<T>);
-
-impl<T: RefTrait> Default for RobotLevel<T> {
-    fn default() -> Self {
-        RobotLevel(None)
-    }
-}
-
-impl<T: RefTrait> RobotLevel<T> {
-    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<RobotLevel<U>, T> {
-        if let Some(x) = self.0 {
-            Ok(RobotLevel(Some(id_map.get(&x).ok_or(x)?.clone())))
-        } else {
-            Ok(RobotLevel(None))
-        }
-    }
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
-#[cfg_attr(feature = "bevy", require(RobotLevel<Entity>))]
+#[cfg_attr(feature = "bevy", require(OnLevel<Entity>))]
 pub struct Robot {
     pub properties: HashMap<String, serde_json::Value>,
 }
