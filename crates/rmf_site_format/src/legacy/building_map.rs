@@ -271,9 +271,9 @@ impl BuildingMap {
                 };
 
                 vertex_to_anchor_id.insert(i, anchor_id);
-                if let Some(mut location) = v.make_location(anchor_id) {
-                    location.mutex =
-                        get_mutex_affiliation(&v.4.mutex.1, &mut mutex_groups, &mut site_id);
+                let mutex_affiliation =
+                    get_mutex_affiliation(&v.4.mutex.1, &mut mutex_groups, &mut site_id);
+                if let Some(location) = v.make_location(anchor_id, mutex_affiliation) {
                     let id = site_id.next().unwrap();
                     if let Some(robot_data) = v.spawn_robot(id.clone()) {
                         legacy_robots.push(robot_data);

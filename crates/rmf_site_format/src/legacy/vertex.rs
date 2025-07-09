@@ -1,7 +1,7 @@
 use super::rbmf::*;
 use crate::{
-    is_default, legacy::model::Model, AssociatedGraphs, Location, LocationTag, LocationTags,
-    NameInSite,
+    is_default, legacy::model::Model, Affiliation, AssociatedGraphs, Location, LocationTag,
+    LocationTags, NameInSite,
 };
 use glam::DVec2;
 use serde::{Deserialize, Serialize};
@@ -44,7 +44,7 @@ impl Vertex {
         DVec2::new(self.0, self.1)
     }
 
-    pub fn make_location(&self, anchor: u32) -> Option<Location<u32>> {
+    pub fn make_location(&self, anchor: u32, mutex: Affiliation<u32>) -> Option<Location<u32>> {
         let mut tags = Vec::new();
         let me = &self.4;
         if me.is_charger.1 {
@@ -73,7 +73,7 @@ impl Vertex {
                 anchor: anchor.into(),
                 tags: LocationTags(tags),
                 name: NameInSite(name.unwrap_or_default()),
-                mutex: Default::default(),
+                mutex,
                 graphs: AssociatedGraphs::All,
             });
         }
