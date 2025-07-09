@@ -17,8 +17,8 @@
 
 use crate::{
     site::{
-        Affiliation, Change, CurrentScenario, Modifier, ScenarioMarker, ScenarioModifiers,
-        UpdateInstance, UpdateModifier,
+        Affiliation, Change, CurrentScenario, Modifier, ScenarioModifiers, UpdateModifier,
+        UpdateModifierEvent,
     },
     widgets::{inspector::InspectAngle, prelude::*, Inspect},
 };
@@ -28,6 +28,7 @@ use rmf_site_format::{Pose, Rotation};
 
 #[derive(SystemParam)]
 pub struct InspectPose<'w, 's> {
+    commands: Commands<'w, 's>,
     poses: Query<'w, 's, &'static Pose>,
     change_pose: EventWriter<'w, Change<Pose>>,
     current_scenario: Res<'w, CurrentScenario>,
@@ -40,9 +41,7 @@ pub struct InspectPose<'w, 's> {
             &'static ScenarioModifiers<Entity>,
             &'static Affiliation<Entity>,
         ),
-        With<ScenarioMarker>,
     >,
-    update_instance: EventWriter<'w, UpdateModifier<UpdateInstance>>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectPose<'w, 's> {
@@ -77,10 +76,10 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPose<'w, 's> {
                         .on_hover_text("Reset to parent scenario pose")
                         .clicked()
                     {
-                        params.update_instance.write(UpdateModifier::new(
+                        params.commands.trigger(UpdateModifierEvent::<Pose>::new(
                             scenario_entity,
                             selection,
-                            UpdateInstance::ResetPose,
+                            UpdateModifier::Reset,
                         ));
                     }
                 }
