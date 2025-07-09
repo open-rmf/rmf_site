@@ -53,14 +53,13 @@ pub struct TaskModifier {
 }
 
 /// Maps a scenario element entity to its modifier entity, if any
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[serde(transparent)]
+#[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
-pub struct ScenarioModifiers<T: RefTrait>(pub BTreeMap<T, T>);
+pub struct ScenarioModifiers<T: RefTrait>(pub HashMap<T, T>);
 
 impl<T: RefTrait> Default for ScenarioModifiers<T> {
     fn default() -> Self {
-        Self(BTreeMap::new())
+        Self(HashMap::new())
     }
 }
 
@@ -89,6 +88,7 @@ pub struct Scenario<T: RefTrait> {
     /// Maps task entity to TaskModifier data when saving to file
     #[serde(default, skip_serializing_if = "is_default")]
     pub tasks: BTreeMap<T, TaskModifier>,
+    #[serde(flatten)]
     pub properties: ScenarioBundle<T>,
 }
 
@@ -146,7 +146,7 @@ const DEFAULT_SCENARIO_NAME: &'static str = "Default Scenario";
 pub struct ScenarioBundle<T: RefTrait> {
     pub name: NameInSite,
     pub parent_scenario: Affiliation<T>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(skip)]
     pub scenario_modifiers: ScenarioModifiers<T>,
 }
 
@@ -155,7 +155,7 @@ impl<T: RefTrait> ScenarioBundle<T> {
         ScenarioBundle {
             name: NameInSite(name.unwrap_or(DEFAULT_SCENARIO_NAME.to_string())),
             parent_scenario: Affiliation(parent),
-            scenario_modifiers: ScenarioModifiers(BTreeMap::new()),
+            scenario_modifiers: ScenarioModifiers(HashMap::new()),
         }
     }
 }

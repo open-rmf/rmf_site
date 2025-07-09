@@ -562,16 +562,6 @@ impl BuildingMap {
                         },
                     );
             }
-            // Insert scenario modifiers
-            let scenario = scenarios.get_mut(&default_scenario_id).unwrap();
-            scenario.instances.iter().for_each(|(id, _)| {
-                let modifier_id = site_id.next().unwrap();
-                scenario
-                    .properties
-                    .scenario_modifiers
-                    .0
-                    .insert(*id, modifier_id);
-            });
 
             let mut physical_cameras = BTreeMap::new();
             for cam in &level.physical_cameras {
