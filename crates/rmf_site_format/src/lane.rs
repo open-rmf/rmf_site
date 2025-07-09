@@ -32,6 +32,8 @@ pub struct Lane<T: RefTrait> {
     /// The properties of the lane when traveling in reverse
     #[serde(default, skip_serializing_if = "is_default")]
     pub reverse: ReverseLane,
+    /// The mutex that might be affiliated to this lane
+    pub mutex: Affiliation<T>,
     /// What graphs this lane is associated with
     pub graphs: AssociatedGraphs<T>,
     /// Marker that tells bevy the entity is a Lane-type
@@ -199,6 +201,7 @@ impl<T: RefTrait> Lane<T> {
             anchors: self.anchors.convert(id_map)?,
             forward: self.forward.clone(),
             reverse: self.reverse.clone(),
+            mutex: self.mutex.convert(id_map)?,
             graphs: self.graphs.convert(id_map)?,
             marker: Default::default(),
         })
@@ -211,6 +214,7 @@ impl<T: RefTrait> From<Edge<T>> for Lane<T> {
             anchors: edge,
             forward: Default::default(),
             reverse: Default::default(),
+            mutex: Default::default(),
             graphs: Default::default(),
             marker: Default::default(),
         }

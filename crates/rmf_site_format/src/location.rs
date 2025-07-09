@@ -62,6 +62,7 @@ pub struct Location<T: RefTrait> {
     pub anchor: Point<T>,
     pub tags: LocationTags,
     pub name: NameInSite,
+    pub mutex: Affiliation<T>,
     pub graphs: AssociatedGraphs<T>,
 }
 
@@ -82,6 +83,7 @@ impl<T: RefTrait> Location<T> {
             anchor: self.anchor.convert(id_map)?,
             tags: self.tags.clone(),
             name: self.name.clone(),
+            mutex: self.mutex.convert(id_map)?,
             graphs: self.graphs.convert(id_map)?,
         })
     }
@@ -93,6 +95,7 @@ impl<T: RefTrait> From<Point<T>> for Location<T> {
             anchor,
             tags: Default::default(),
             name: NameInSite("<Unnamed>".to_string()),
+            mutex: Default::default(),
             graphs: AssociatedGraphs::All,
         }
     }

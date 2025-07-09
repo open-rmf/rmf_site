@@ -394,6 +394,16 @@ fn generate_site_entities(
         consider_id(*fiducial_id);
     }
 
+    for (group_id, group) in &site_data.navigation.guided.mutex_groups {
+        let group_entity = commands
+            .spawn(group.clone())
+            .insert(SiteID(*group_id))
+            .insert(ChildOf(site_id))
+            .id();
+        id_to_entity.insert(*group_id, group_entity);
+        consider_id(*group_id);
+    }
+
     for (nav_graph_id, nav_graph_data) in &site_data.navigation.guided.graphs {
         let nav_graph = commands
             .spawn((Transform::default(), Visibility::default()))

@@ -19,7 +19,7 @@ use crate::{
     interaction::ObjectPlacement,
     site::{
         Affiliation, Change, Delete, FiducialMarker, Group, MergeGroups, ModelInstance,
-        ModelMarker, NameInSite, SiteID, Texture,
+        ModelMarker, MutexMarker, NameInSite, SiteID, Texture,
     },
     widgets::{prelude::*, SelectorWidget},
     AppState, CurrentWorkspace, Icons,
@@ -55,6 +55,12 @@ pub struct ViewGroups<'w, 's> {
         's,
         (&'static NameInSite, Option<&'static SiteID>),
         (With<ModelMarker>, With<Group>),
+    >,
+    mutexes: Query<
+        'w,
+        's,
+        (&'static NameInSite, Option<&'static SiteID>),
+        (With<MutexMarker>, With<Group>),
     >,
     icons: Res<'w, Icons>,
     group_view_modes: ResMut<'w, GroupViewModes>,
@@ -124,6 +130,16 @@ impl<'w, 's> ViewGroups<'w, 's> {
                 children,
                 &self.fiducials,
                 &mut modes.fiducials,
+                &self.icons,
+                &mut self.events,
+                ui,
+            );
+        });
+        CollapsingHeader::new("Mutexes").show(ui, |ui| {
+            Self::show_groups(
+                children,
+                &self.mutexes,
+                &mut modes.mutexes,
                 &self.icons,
                 &mut self.events,
                 ui,
@@ -275,6 +291,7 @@ pub struct GroupViewModes {
     textures: GroupViewMode,
     fiducials: GroupViewMode,
     model_descriptions: GroupViewMode,
+    mutexes: GroupViewMode,
 }
 
 impl GroupViewModes {

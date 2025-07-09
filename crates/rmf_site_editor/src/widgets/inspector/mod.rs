@@ -78,6 +78,9 @@ pub use inspect_model_description::*;
 pub mod inspect_motion;
 pub use inspect_motion::*;
 
+pub mod inspect_mutex;
+pub use inspect_mutex::*;
+
 pub mod inspect_name;
 pub use inspect_name::*;
 
@@ -194,6 +197,7 @@ impl Plugin for StandardInspectorPlugin {
                 // Reached the tuple limit
             ))
             .add_plugins((
+                InspectMutexPlugin::default(),
                 InspectionPlugin::<InspectPose>::new(),
                 InspectionPlugin::<InspectScale>::new(),
                 InspectionPlugin::<InspectLight>::new(),

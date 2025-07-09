@@ -26,6 +26,8 @@ pub struct VertexProperties {
     pub dock_name: RbmfString,
     #[serde(default, skip_serializing_if = "is_default")]
     pub lift_cabin: RbmfString,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub mutex: RbmfString,
 }
 
 #[derive(Deserialize, Serialize, Clone, Default)]
@@ -66,10 +68,12 @@ impl Vertex {
         if tags.is_empty() && name.is_none() {
             return None;
         } else {
+            // Mutex population needs knowledge of the site mutex groups
             return Some(Location {
                 anchor: anchor.into(),
                 tags: LocationTags(tags),
                 name: NameInSite(name.unwrap_or_default()),
+                mutex: Default::default(),
                 graphs: AssociatedGraphs::All,
             });
         }
