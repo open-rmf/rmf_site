@@ -32,8 +32,8 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{DragValue, Grid, Ui};
+use rmf_site_egui::*;
 use serde_json::{Map, Value};
-use rmf_site_ui::*;
 use smallvec::SmallVec;
 
 #[derive(SystemParam)]

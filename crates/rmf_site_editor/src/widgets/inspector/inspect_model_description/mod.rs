@@ -25,9 +25,9 @@ use bevy::{
     prelude::*,
 };
 use bevy_egui::egui::{CollapsingHeader, ComboBox, RichText, Ui};
+use rmf_site_egui::*;
 use smallvec::SmallVec;
 use std::{collections::HashMap, fmt::Debug};
-use rmf_site_ui::*;
 
 use crate::{
     site::{

@@ -17,7 +17,7 @@
 
 use crate::{AppState, WorkspaceSaver};
 use bevy::{ecs::hierarchy::ChildOf, prelude::*};
-use rmf_site_ui::*;
+use rmf_site_egui::*;
 
 /// Keeps track of which entity is associated to the export sdf button.
 #[derive(Resource)]

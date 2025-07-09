@@ -22,7 +22,7 @@ use crate::{
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{Button, Ui};
-use rmf_site_ui::*;
+use rmf_site_egui::*;
 
 #[derive(Default)]
 pub struct BuildingPreviewPlugin {}

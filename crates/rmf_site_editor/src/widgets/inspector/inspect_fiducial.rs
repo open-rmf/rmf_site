@@ -24,7 +24,7 @@ use bevy::{
     prelude::*,
 };
 use bevy_egui::egui::{ComboBox, ImageButton, Ui};
-use rmf_site_ui::*;
+use rmf_site_egui::*;
 
 #[derive(Resource, Default)]
 pub struct SearchForFiducial(pub String);

@@ -37,10 +37,10 @@ use futures_lite::future;
 #[cfg(not(target_arch = "wasm32"))]
 use rfd::AsyncFileDialog;
 use rmf_site_camera::HeadlightToggle;
+use rmf_site_egui::*;
 use rmf_site_picking::Select;
 use std::cmp::Reverse;
 use std::collections::BTreeMap;
-use rmf_site_ui::*;
 
 /// Add a plugin for viewing and editing a list of all lights
 #[derive(Default)]

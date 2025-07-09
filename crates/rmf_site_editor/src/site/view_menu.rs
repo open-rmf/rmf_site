@@ -20,9 +20,9 @@ use crate::site::{
     CollisionMeshMarker, DoorMarker, FiducialMarker, FloorMarker, LaneMarker, LiftCabin,
     LiftCabinDoorMarker, LocationTags, MeasurementMarker, VisualMeshMarker, WallMarker,
 };
-use rmf_site_ui::*;
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
+use rmf_site_egui::*;
 
 #[derive(SystemParam)]
 struct VisibilityEvents<'w> {

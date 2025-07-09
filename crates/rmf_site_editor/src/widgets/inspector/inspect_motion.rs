@@ -25,10 +25,10 @@ use crate::{
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{ComboBox, RichText, Ui};
+use rmf_site_egui::WidgetSystem;
 use rmf_site_format::{
     Angle, Dock, Motion, OrientationConstraint, RecallMotion, RecallReverseLane, ReverseLane,
 };
-use rmf_site_ui::WidgetSystem;
 
 #[derive(SystemParam)]
 pub struct InspectMotion<'w, 's> {

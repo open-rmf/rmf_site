@@ -27,8 +27,8 @@ use bevy::{
     prelude::*,
 };
 use bevy_egui::egui::DragValue;
+use rmf_site_egui::*;
 use rmf_site_format::WaitFor;
-use rmf_site_ui::*;
 
 #[derive(Default)]
 pub struct WaitForPlugin {}

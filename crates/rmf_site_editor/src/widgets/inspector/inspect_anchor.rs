@@ -26,8 +26,8 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{DragValue, ImageButton, Ui};
+use rmf_site_egui::*;
 use rmf_site_picking::Hover;
-use rmf_site_ui::*;
 use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(SystemParam)]

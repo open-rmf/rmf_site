@@ -28,8 +28,8 @@ use bevy::{
     prelude::*,
 };
 use bevy_egui::egui::{Align, Button, CollapsingHeader, Color32, Layout, Ui};
+use rmf_site_egui::*;
 use std::collections::HashMap;
-use rmf_site_ui::*;
 
 /// Add a plugin for viewing and editing a list of all levels
 #[derive(Default)]

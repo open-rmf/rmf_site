@@ -25,8 +25,8 @@ use crate::{
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{Grid, Ui};
+use rmf_site_egui::*;
 use rmf_site_format::{Edge, Side};
-use rmf_site_ui::*;
 
 #[derive(SystemParam)]
 pub struct InspectEdge<'w, 's> {

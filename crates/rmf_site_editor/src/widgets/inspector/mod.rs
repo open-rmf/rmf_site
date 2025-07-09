@@ -106,10 +106,7 @@ pub mod inspect_value;
 pub use inspect_value::*;
 use rmf_site_picking::Selection;
 
-use crate::{
-    site::{Category, SiteID},
-    widgets::prelude::*,
-};
+use crate::site::{Category, SiteID};
 use bevy::{
     ecs::{
         hierarchy::ChildOf,
@@ -118,8 +115,8 @@ use bevy::{
     prelude::*,
 };
 use bevy_egui::egui::{CollapsingHeader, Ui};
+use rmf_site_egui::*;
 use rmf_site_format::*;
-use rmf_site_ui::*;
 use smallvec::SmallVec;
 
 /// Use this plugin to add a single inspection tile into the [`MainInspector`]

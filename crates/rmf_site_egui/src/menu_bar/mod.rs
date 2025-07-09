@@ -15,9 +15,9 @@
  *
 */
 
+use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_egui::egui::{self, Button, Ui};
-use bevy_app::prelude::*;
 
 use crate::*;
 
@@ -27,14 +27,11 @@ pub struct MenuBarPlugin {}
 
 impl Plugin for MenuBarPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((
-            HeaderPanelPlugin::default(),
-            MenuDropdownPlugin::default(),
-        ))
-        .add_event::<MenuEvent>()
-        .init_resource::<FileMenu>()
-        .init_resource::<ToolMenu>()
-        .init_resource::<ViewMenu>();
+        app.add_plugins((HeaderPanelPlugin::default(), MenuDropdownPlugin::default()))
+            .add_event::<MenuEvent>()
+            .init_resource::<FileMenu>()
+            .init_resource::<ToolMenu>()
+            .init_resource::<ViewMenu>();
     }
 }
 
@@ -288,7 +285,7 @@ pub fn render_sub_menu(
                 if ui.add_enabled(!disabled, button).clicked() {
                     extension_events.write(MenuEvent::MenuClickEvent(*entity));
                 }
-            },
+            }
             &MenuItem::CheckBox(ref title, mut value) => {
                 if ui
                     .add_enabled(!disabled, egui::Checkbox::new(&mut value, title))
@@ -296,7 +293,7 @@ pub fn render_sub_menu(
                 {
                     extension_events.write(MenuEvent::MenuClickEvent(*entity));
                 }
-            },
+            }
         }
         return;
     }

@@ -18,7 +18,7 @@
 use crate::log::*;
 use bevy::prelude::*;
 use bevy_egui::egui::{self, CollapsingHeader, Color32, RichText};
-use rmf_site_ui::*;
+use rmf_site_egui::*;
 
 /// This widget provides a console that displays information, warning, and error
 /// messages.

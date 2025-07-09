@@ -44,15 +44,8 @@
 //! [2]: crate::widgets::show_panel_of_tiles
 
 use crate::AppState;
-use bevy::{
-    ecs::{
-        system::SystemState,
-    },
-    prelude::*,
-};
-use bevy_egui::{
-    egui, EguiContexts
-};
+use bevy::{ecs::system::SystemState, prelude::*};
+use bevy_egui::{egui, EguiContexts};
 
 pub mod building_preview;
 use building_preview::*;
@@ -79,8 +72,8 @@ pub mod move_layer;
 pub use move_layer::*;
 
 pub mod sdf_export_menu;
+use rmf_site_egui::*;
 use rmf_site_picking::{Hover, UiFocused};
-use rmf_site_ui::*;
 pub use sdf_export_menu::*;
 
 pub mod selector_widget;
@@ -124,10 +117,7 @@ pub mod prelude {
     //! we expect downstream users are likely to want easy access to if they are
     //! implementing and inserting their own widgets.
 
-    pub use super::{
-        Inspect,
-        InspectionPlugin,
-    };
+    pub use super::{Inspect, InspectionPlugin};
     pub use bevy::ecs::{
         system::{SystemParam, SystemState},
         world::World,

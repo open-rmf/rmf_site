@@ -5298,10 +5298,10 @@ dependencies = [
  "rfd",
  "rmf_site_animate",
  "rmf_site_camera",
+ "rmf_site_egui",
  "rmf_site_format",
  "rmf_site_mesh",
  "rmf_site_picking",
- "rmf_site_ui",
  "sdformat_rs",
  "serde",
  "serde_json",
@@ -5325,6 +5325,19 @@ dependencies = [
  "getrandom 0.3.3",
  "rmf_site_editor",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "rmf_site_egui"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "bevy-inspector-egui",
+ "bevy_app",
+ "bevy_ecs",
+ "bevy_egui",
+ "smallvec",
+ "tracing",
 ]
 
 [[package]]
@@ -5388,19 +5401,6 @@ dependencies = [
  "rmf_site_animate",
  "rmf_site_camera",
  "rmf_site_mesh",
- "smallvec",
- "tracing",
-]
-
-[[package]]
-name = "rmf_site_ui"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "bevy-inspector-egui",
- "bevy_app",
- "bevy_ecs",
- "bevy_egui",
  "smallvec",
  "tracing",
 ]

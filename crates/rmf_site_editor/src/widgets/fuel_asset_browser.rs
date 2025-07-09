@@ -30,7 +30,7 @@ use bevy::{
 };
 use bevy_egui::egui::{self, Button, ComboBox, ImageSource, RichText, ScrollArea, Ui, Window};
 use gz_fuel::FuelModel;
-use rmf_site_ui::*;
+use rmf_site_egui::*;
 
 /// Add a [`FuelAssetBrowser`] widget to your application.
 pub struct FuelAssetBrowserPlugin;

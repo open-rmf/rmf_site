@@ -25,8 +25,8 @@ use crate::{
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{ComboBox, DragValue, Ui};
+use rmf_site_egui::WidgetSystem;
 use rmf_site_format::{DoorType, RecallDoorType, Swing};
-use rmf_site_ui::WidgetSystem;
 
 #[derive(SystemParam)]
 pub struct InspectDoor<'w, 's> {

@@ -15,10 +15,13 @@
  *
 */
 
-use bevy_ecs::{prelude::*, system::{BoxedSystem, SystemState}};
+use bevy_ecs::{
+    prelude::*,
+    system::{BoxedSystem, SystemState},
+};
 use bevy_egui::{
-    egui::{self, Ui},
     EguiContexts,
+    egui::{self, Ui},
 };
 use smallvec::SmallVec;
 use tracing::error;

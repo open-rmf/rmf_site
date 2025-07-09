@@ -27,8 +27,8 @@ use bevy::{
     prelude::*,
 };
 use bevy_egui::egui::ComboBox;
+use rmf_site_egui::*;
 use rmf_site_format::GoToPlace;
-use rmf_site_ui::*;
 
 #[derive(Default)]
 pub struct GoToPlacePlugin {}

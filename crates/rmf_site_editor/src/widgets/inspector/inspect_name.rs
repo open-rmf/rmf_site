@@ -21,8 +21,8 @@ use crate::{
 };
 use bevy::prelude::*;
 use bevy_egui::egui::Ui;
+use rmf_site_egui::*;
 use rmf_site_format::NameInSite;
-use rmf_site_ui::*;
 
 #[derive(SystemParam)]
 pub struct InspectName<'w, 's> {

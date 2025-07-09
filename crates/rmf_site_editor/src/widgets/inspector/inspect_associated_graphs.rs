@@ -24,7 +24,7 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{ComboBox, ImageButton, Ui};
-use rmf_site_ui::WidgetSystem;
+use rmf_site_egui::WidgetSystem;
 use smallvec::SmallVec;
 use std::collections::BTreeMap;
 

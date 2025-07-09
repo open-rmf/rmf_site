@@ -22,8 +22,8 @@ use bevy::ecs::{
 use bevy::pbr::wireframe::{Wireframe, WireframePlugin};
 use bevy::prelude::*;
 
+use rmf_site_egui::*;
 use rmf_site_format::{ModelMarker, PrimitiveShape};
-use rmf_site_ui::*;
 
 #[derive(Default)]
 pub struct SiteWireframePlugin;

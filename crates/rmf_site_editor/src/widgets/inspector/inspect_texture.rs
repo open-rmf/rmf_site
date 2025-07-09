@@ -26,11 +26,11 @@ use bevy::{
     prelude::*,
 };
 use bevy_egui::egui::{ComboBox, Grid, ImageButton, Ui};
+use rmf_site_egui::WidgetSystem;
 use rmf_site_format::{
     Affiliation, FloorMarker, Group, NameInSite, RecallAssetSource, Texture, TextureGroup,
     WallMarker,
 };
-use rmf_site_ui::WidgetSystem;
 
 #[derive(Default)]
 pub struct InspectTexturePlugin {}
