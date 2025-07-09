@@ -231,12 +231,6 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
                 if !site_ids.contains(scenario) {
                     new_entities.push(scenario);
                 }
-                // Assign site IDs for modifier entities
-                if let Ok(scenario_children) = children.get(scenario) {
-                    for child in scenario_children {
-                        queue.push(*child);
-                    }
-                }
             }
         }
 
@@ -1462,19 +1456,8 @@ fn generate_scenarios(
                                         ),
                                         None => Affiliation(None),
                                     },
-                                    scenario_modifiers: {
-                                        ScenarioModifiers(
-                                            scenario_modifiers
-                                                .iter()
-                                                .filter_map(|(element, modifier)| {
-                                                    Some((
-                                                        site_id.get(*element).ok()?.0,
-                                                        site_id.get(*modifier).ok()?.0,
-                                                    ))
-                                                })
-                                                .collect::<BTreeMap<u32, u32>>(),
-                                        )
-                                    },
+                                    // ScenarioModifiers are not serialized
+                                    scenario_modifiers: ScenarioModifiers::default(),
                                 },
                             },
                         );
