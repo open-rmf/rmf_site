@@ -105,6 +105,9 @@ pub use primitive_shape::*;
 pub mod recall_plugin;
 pub use recall_plugin::RecallPlugin;
 
+pub mod robot;
+pub use robot::*;
+
 pub mod robot_properties;
 pub use robot_properties::*;
 
@@ -286,6 +289,7 @@ impl Plugin for SitePlugin {
             PropertyPlugin::<Visibility, InstanceMarker>::default(),
             PropertyPlugin::<Inclusion, Task>::default(),
             PropertyPlugin::<TaskParams, Task>::default(),
+            PropertyPlugin::<OnLevel<Entity>, Robot>::default(),
             SlotcarSdfPlugin,
         ))
         .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
@@ -311,6 +315,7 @@ impl Plugin for SitePlugin {
                 check_for_close_unconnected_anchors,
                 check_for_orphan_model_instances,
                 check_for_hidden_model_instances,
+                check_for_invalid_robot_levels,
                 fetch_image_for_texture,
                 detect_last_selected_texture::<FloorMarker>,
                 apply_last_selected_texture::<FloorMarker>
@@ -439,6 +444,7 @@ impl Plugin for SitePlugin {
                 .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
         )
         .add_observer(remove_scenario_modifiers)
-        .add_observer(add_scenario_modifiers);
+        .add_observer(add_scenario_modifiers)
+        .add_observer(update_robot_level);
     }
 }
