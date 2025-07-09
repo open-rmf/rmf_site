@@ -564,6 +564,16 @@ fn generate_site_entities(
                         .entity(modifier_entity)
                         .insert(Modifier::<Visibility>::new(visibility));
                 }
+                if let Some(level_entity) = instance_modifier
+                    .on_level
+                    .and_then(|level_id| id_to_entity.get(&level_id))
+                {
+                    commands
+                        .entity(modifier_entity)
+                        .insert(Modifier::<OnLevel<Entity>>::new(OnLevel(Some(
+                            *level_entity,
+                        ))));
+                }
                 commands.trigger(AddModifier::new(
                     *instance_entity,
                     modifier_entity,

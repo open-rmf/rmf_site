@@ -537,6 +537,7 @@ impl BuildingMap {
                         InstanceModifier {
                             pose: Some(model_pose),
                             visibility: Some(true),
+                            on_level: None,
                         },
                     );
             }
@@ -559,6 +560,7 @@ impl BuildingMap {
                         InstanceModifier {
                             pose: Some(model_pose),
                             visibility: Some(true),
+                            on_level: None,
                         },
                     );
             }

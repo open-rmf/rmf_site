@@ -42,6 +42,8 @@ pub struct InstanceModifier {
     pub pose: Option<Pose>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub visibility: Option<bool>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub on_level: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
