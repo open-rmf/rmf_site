@@ -39,6 +39,9 @@ pub struct CreateScenario {
     pub parent: Option<Entity>,
 }
 
+#[derive(Clone, Copy, Debug, Default, Deref, DerefMut, Resource)]
+pub struct DefaultScenario(pub Option<Entity>);
+
 #[derive(Clone, Debug, Copy)]
 pub enum UpdateInstance {
     Include,
@@ -223,6 +226,32 @@ pub fn update_current_scenario(
         *current_scenario = CurrentScenario(Some(*scenario_entity));
         for instance_entity in instances.iter() {
             update_property.write(UpdateProperty::new(instance_entity, *scenario_entity));
+        }
+    }
+}
+
+#[derive(Clone, Debug, Event)]
+pub struct ChangeDefaultScenario(pub Option<Entity>);
+
+/// Handles updates when the default scenario has changed
+pub fn update_default_scenario(
+    mut change_default_scenario: EventReader<ChangeDefaultScenario>,
+    mut default_scenario: ResMut<DefaultScenario>,
+    mut remove_scenario_requests: EventReader<RemoveScenario>,
+    scenarios: Query<&Affiliation<Entity>, With<ScenarioModifiers<Entity>>>,
+) {
+    if let Some(ChangeDefaultScenario(optional_entity)) = change_default_scenario.read().last() {
+        default_scenario.0 = *optional_entity;
+    }
+
+    // If the default scenario has been removed, set default scenario to its parent if any, otherwise None
+    for request in remove_scenario_requests.read() {
+        if default_scenario.0 == Some(request.0) {
+            default_scenario.0 = scenarios
+                .get(request.0)
+                .ok()
+                .and_then(|affiliation| affiliation.0);
+            break;
         }
     }
 }
