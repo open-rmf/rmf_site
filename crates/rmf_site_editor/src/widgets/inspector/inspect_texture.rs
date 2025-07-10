@@ -25,7 +25,7 @@ use bevy::{
     ecs::{hierarchy::ChildOf, system::SystemParam},
     prelude::*,
 };
-use bevy_egui::egui::{ComboBox, Grid, ImageButton, Ui};
+use bevy_egui::egui::{ComboBox, Grid, ImageButton, TextEdit, Ui, Widget};
 use rmf_site_format::{
     Affiliation, FloorMarker, Group, NameInSite, RecallAssetSource, Texture, TextureGroup,
     WallMarker,
@@ -206,7 +206,9 @@ impl<'w, 's> InspectTextureAffiliation<'w, 's> {
                 }
             }
 
-            ui.text_edit_singleline(search)
+            TextEdit::singleline(search)
+                .desired_width(ui.available_width())
+                .ui(ui)
                 .on_hover_text("Search for or create a new texture");
         });
 

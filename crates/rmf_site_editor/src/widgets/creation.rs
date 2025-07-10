@@ -34,7 +34,7 @@ use bevy::ecs::{
     system::{SystemParam, SystemState},
 };
 use bevy::prelude::*;
-use bevy_egui::egui::{self, Button, ComboBox, Ui};
+use bevy_egui::egui::{self, Button, ComboBox, TextEdit, Ui};
 
 /// This plugin creates a standard set of site object creation buttons
 #[derive(Default)]
@@ -503,7 +503,9 @@ impl<'w, 's> WidgetSystem<Tile> for ModelCreation<'w, 's> {
                                 ui.add_space(2.0);
                                 ui.horizontal(|ui| {
                                     ui.label("Name");
-                                    ui.text_edit_singleline(&mut params.pending.name);
+                                    TextEdit::singleline(&mut params.pending.name)
+                                        .desired_width(ui.available_width())
+                                        .show(ui);
                                 });
 
                                 ui.add_space(10.0);

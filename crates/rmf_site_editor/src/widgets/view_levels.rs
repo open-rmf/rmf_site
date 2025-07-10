@@ -27,7 +27,7 @@ use bevy::{
     ecs::{hierarchy::ChildOf, relationship::AncestorIter, system::SystemParam},
     prelude::*,
 };
-use bevy_egui::egui::{CollapsingHeader, DragValue, ImageButton, Ui};
+use bevy_egui::egui::{CollapsingHeader, DragValue, ImageButton, TextEdit, Ui, Widget};
 use std::cmp::{Ordering, Reverse};
 
 /// Add a plugin for viewing and editing a list of all levels
@@ -87,7 +87,10 @@ impl<'w, 's> ViewLevels<'w, 's> {
                     .on_hover_text("Elevation for the new level");
 
                 let mut show_name = self.display_levels.new_name.clone();
-                ui.text_edit_singleline(&mut show_name)
+
+                TextEdit::singleline(&mut show_name)
+                    .desired_width(ui.available_width())
+                    .ui(ui)
                     .on_hover_text("Name for the new level");
 
                 if make_new_level {
@@ -184,7 +187,9 @@ impl<'w, 's> ViewLevels<'w, 's> {
                         any_dragging = true;
                     }
 
-                    ui.text_edit_singleline(&mut shown_name)
+                    TextEdit::singleline(&mut shown_name)
+                        .desired_width(ui.available_width())
+                        .ui(ui)
                         .on_hover_text("Name of the level");
                 });
 

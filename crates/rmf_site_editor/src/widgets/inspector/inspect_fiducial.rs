@@ -23,7 +23,7 @@ use bevy::{
     ecs::{hierarchy::ChildOf, system::SystemParam},
     prelude::*,
 };
-use bevy_egui::egui::{ComboBox, ImageButton, Ui};
+use bevy_egui::egui::{ComboBox, ImageButton, TextEdit, Ui, Widget};
 
 #[derive(Resource, Default)]
 pub struct SearchForFiducial(pub String);
@@ -230,7 +230,9 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectFiducial<'w, 's> {
                     }
                 }
 
-                ui.text_edit_singleline(search)
+                TextEdit::singleline(search)
+                    .desired_width(ui.available_width())
+                    .ui(ui)
                     .on_hover_text("Search or add a group name for this fiducial");
             });
 

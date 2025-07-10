@@ -25,7 +25,7 @@ use crate::{
     AppState, CurrentWorkspace, Icons,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{Button, CollapsingHeader, Ui};
+use bevy_egui::egui::{Button, CollapsingHeader, TextEdit, Ui, Widget};
 use std::any::TypeId;
 
 /// Add a widget for viewing different kinds of groups.
@@ -252,7 +252,11 @@ impl<'w, 's> ViewGroups<'w, 's> {
                 }
 
                 let mut new_name = name.0.clone();
-                if ui.text_edit_singleline(&mut new_name).changed() {
+                if TextEdit::singleline(&mut new_name)
+                    .desired_width(ui.available_width())
+                    .ui(ui)
+                    .changed()
+                {
                     events.name.write(Change::new(NameInSite(new_name), *child));
                 }
             });
