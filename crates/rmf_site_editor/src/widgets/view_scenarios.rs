@@ -227,11 +227,10 @@ fn show_scenario_widget(
             change_current_scenario.write(ChangeCurrentScenario(entity));
         }
         ui.colored_label(Color32::DARK_GRAY, scenario_version_str.clone());
-        // Insert default icon here
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             ui.add(Image::new(icons.home.egui()));
             let is_default = default_scenario.0.is_some_and(|e| e == entity);
-            let mut toggle_default = is_default.clone();
+            let mut toggle_default = is_default;
             ui.checkbox(&mut toggle_default, "")
                 .on_hover_text("Make this the default scenario");
             if toggle_default && !is_default {
