@@ -125,7 +125,8 @@ use smallvec::SmallVec;
 /// ```no_run
 /// use bevy::prelude::{App, Query, Entity, Res};
 /// use librmf_site_editor::{SiteEditor, site::NameInSite, widgets::prelude::*};
-///
+/// use rmf_site_egui::*;
+/// 
 /// #[derive(SystemParam)]
 /// pub struct HelloSelection<'w, 's> {
 ///     names: Query<'w, 's, &'static NameInSite>,
