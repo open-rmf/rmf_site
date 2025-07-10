@@ -314,6 +314,7 @@ impl Plugin for SitePlugin {
                 check_for_close_unconnected_anchors,
                 check_for_orphan_model_instances,
                 check_for_hidden_model_instances,
+                check_for_accidentally_moved_instances,
                 fetch_image_for_texture,
                 detect_last_selected_texture::<FloorMarker>,
                 apply_last_selected_texture::<FloorMarker>
