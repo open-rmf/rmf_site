@@ -20,6 +20,7 @@ use crate::{
     widgets::{prelude::*, Inspect},
 };
 use bevy::prelude::*;
+use rmf_site_egui::WidgetSystem;
 use rmf_site_format::{PrimitiveShape, RecallPrimitiveShape};
 
 #[derive(SystemParam)]

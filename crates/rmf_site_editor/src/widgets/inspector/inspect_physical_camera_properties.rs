@@ -22,6 +22,7 @@ use crate::{
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{Grid, Ui};
+use rmf_site_egui::WidgetSystem;
 use rmf_site_format::PhysicalCameraProperties;
 
 #[derive(SystemParam)]

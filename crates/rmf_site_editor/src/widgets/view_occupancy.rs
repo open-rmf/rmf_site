@@ -18,6 +18,7 @@
 use crate::{occupancy::CalculateGrid, widgets::prelude::*, AppState};
 use bevy::prelude::*;
 use bevy_egui::egui::{CollapsingHeader, DragValue, Ui};
+use rmf_site_egui::*;
 use std::collections::HashSet;
 
 /// Add a widget that provides a button for producing an occupancy grid

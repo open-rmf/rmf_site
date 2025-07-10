@@ -25,6 +25,7 @@ use crate::{
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{DragValue, ImageButton, Ui};
+use rmf_site_egui::*;
 use rmf_site_picking::{Hover, Selection};
 
 #[derive(SystemParam)]

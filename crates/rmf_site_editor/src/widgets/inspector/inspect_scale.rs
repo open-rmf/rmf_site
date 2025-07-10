@@ -21,6 +21,7 @@ use crate::{
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{DragValue, Grid, Ui};
+use rmf_site_egui::WidgetSystem;
 use rmf_site_format::{Affiliation, Scale};
 
 #[derive(SystemParam)]

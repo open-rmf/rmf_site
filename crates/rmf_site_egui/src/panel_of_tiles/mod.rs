@@ -15,11 +15,11 @@
  *
 */
 
-use crate::widgets::prelude::*;
+use crate::*;
 
-use bevy::prelude::*;
 use bevy_egui::egui;
 use smallvec::SmallVec;
+use tracing::error;
 
 /// Input type for [`WidgetSystem`]s that can be put into a "Panel of Tiles"
 /// widget, such as the [`PropertiesPanel`]. See [`PropertiesTilePlugin`] for a

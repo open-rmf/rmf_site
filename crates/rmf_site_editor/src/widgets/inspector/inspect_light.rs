@@ -21,6 +21,7 @@ use crate::{
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{color_picker::color_edit_button_rgb, ComboBox, DragValue, Ui};
+use rmf_site_egui::WidgetSystem;
 
 #[derive(SystemParam)]
 pub struct InspectLight<'w, 's> {

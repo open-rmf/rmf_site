@@ -22,10 +22,7 @@ use crate::{
         IsStatic, Members, ModelDescriptionBundle, ModelInstance, ModelMarker, ModelProperty,
         NameInSite, Recall, RecallAssetSource, Scale,
     },
-    widgets::{
-        AssetGalleryStatus, HeaderTilePlugin, Icons, InspectAssetSourceComponent,
-        InspectScaleComponent, Tile, WidgetSystem,
-    },
+    widgets::{AssetGalleryStatus, Icons, InspectAssetSourceComponent, InspectScaleComponent},
     AppState, CurrentWorkspace,
 };
 
@@ -35,6 +32,7 @@ use bevy::ecs::{
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{self, Button, ComboBox, Ui};
+use rmf_site_egui::*;
 
 /// This plugin creates a standard set of site object creation buttons
 #[derive(Default)]

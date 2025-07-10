@@ -20,6 +20,7 @@ use crate::{
     widgets::{prelude::*, Inspect, InspectOptionF32},
 };
 use bevy::prelude::*;
+use rmf_site_egui::WidgetSystem;
 
 #[derive(SystemParam)]
 pub struct InspectMeasurement<'w, 's> {

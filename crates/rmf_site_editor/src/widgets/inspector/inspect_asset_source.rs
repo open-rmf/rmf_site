@@ -27,6 +27,7 @@ use rmf_site_format::{Affiliation, AssetSource, RecallAssetSource};
 
 #[cfg(not(target_arch = "wasm32"))]
 use rfd::FileDialog;
+use rmf_site_egui::WidgetSystem;
 
 pub struct InspectAssetSourceComponent<'a> {
     pub source: &'a AssetSource,

@@ -26,6 +26,7 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, DragValue, Ui};
+use rmf_site_egui::WidgetSystem;
 use rmf_site_format::lift::*;
 
 #[derive(Default)]

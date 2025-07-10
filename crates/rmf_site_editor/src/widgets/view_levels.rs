@@ -28,6 +28,7 @@ use bevy::{
     prelude::*,
 };
 use bevy_egui::egui::{CollapsingHeader, DragValue, ImageButton, Ui};
+use rmf_site_egui::*;
 use std::cmp::{Ordering, Reverse};
 
 /// Add a plugin for viewing and editing a list of all levels

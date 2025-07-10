@@ -26,6 +26,7 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, ImageButton, ScrollArea, Ui};
+use rmf_site_egui::*;
 use rmf_site_format::{InstanceMarker, SiteID};
 use rmf_site_picking::Selection;
 
