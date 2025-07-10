@@ -89,6 +89,13 @@ impl AssetSource {
             AssetSource::Package(path) => String::from("package://") + path,
         }
     }
+
+    /// Extracts the model name (the content of the source after its last '/').
+    pub fn model_name(&self) -> String {
+        let asset_path = unsafe { self.as_unvalidated_asset_path() };
+        // Unwrap safe because split will always have at least one item
+        asset_path.split("/").last().unwrap().into()
+    }
 }
 
 impl Default for AssetSource {

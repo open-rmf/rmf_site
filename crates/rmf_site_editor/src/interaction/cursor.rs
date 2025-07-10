@@ -258,12 +258,6 @@ impl FromWorld for Cursor {
     }
 }
 
-// /// A unit component that indicates the entity is only for previewing and
-// /// should never be interacted with. This is applied to the "anchor" that is
-// /// attached to the cursor.
-// #[derive(Component, Clone, Copy, Debug)]
-// pub struct Preview;
-
 #[derive(SystemParam)]
 pub struct IntersectGroundPlaneParams<'w, 's> {
     active_camera: ActiveCameraQuery<'w, 's>,

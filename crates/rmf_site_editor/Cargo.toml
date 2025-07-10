@@ -35,7 +35,6 @@ rmf_site_animate = {workspace = true}
 rmf_site_camera = {workspace = true}
 rmf_site_mesh = {workspace = true}
 rmf_site_picking = {workspace = true}
-rmf_site_egui = {workspace = true}
 itertools = {workspace = true}
 bitfield = {workspace = true}
 crossbeam-channel = {workspace = true}
@@ -43,7 +42,6 @@ tracing = {workspace = true}
 tracing-subscriber = {workspace = true}
 rfd = {workspace = true}
 urdf-rs = {workspace = true}
-yaserde = {workspace = true}
 utm = {workspace = true}
 sdformat_rs = {workspace = true}
 gz-fuel = {workspace = true}
