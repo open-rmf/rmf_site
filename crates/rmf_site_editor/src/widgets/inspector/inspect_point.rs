@@ -34,8 +34,8 @@ pub struct InspectPoint<'w, 's> {
         's,
         (
             &'static ChildOf,
-            &'static Point<Entity>,
-            Option<&'static Original<Point<Entity>>>,
+            &'static Point,
+            Option<&'static Original<Point>>,
         ),
     >,
     scopes: Query<'w, 's, (Option<&'static NameOfSite>, Option<&'static DrawingMarker>)>,

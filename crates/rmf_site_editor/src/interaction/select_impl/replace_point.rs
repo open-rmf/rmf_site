@@ -52,7 +52,7 @@ pub struct ReplacePoint {
     pub point: Entity,
     /// The original value of the point. This is None until setup occurs, then
     /// its value will be available.
-    pub original: Option<Point<Entity>>,
+    pub original: Option<Point>,
     /// The scope that the point exists in
     pub scope: AnchorScope,
     /// Keeps track of whether the replacement really happened. If false, the
@@ -74,7 +74,7 @@ impl ReplacePoint {
     pub fn set_chosen(
         &mut self,
         chosen: Entity,
-        points: &mut Query<&mut Point<Entity>>,
+        points: &mut Query<&mut Point>,
         commands: &mut Commands,
     ) -> SelectionNodeResult {
         let mut point_mut = points.get_mut(self.point).or_broken_query()?;
@@ -94,7 +94,7 @@ impl Borrow<AnchorScope> for ReplacePoint {
 pub fn replace_point_setup(
     In(key): In<BufferKey<ReplacePoint>>,
     mut access: BufferAccessMut<ReplacePoint>,
-    mut points: Query<&'static mut Point<Entity>>,
+    mut points: Query<&'static mut Point>,
     cursor: Res<Cursor>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
@@ -114,7 +114,7 @@ pub fn on_hover_for_replace_point(
     mut access: BufferAccessMut<ReplacePoint>,
     mut cursor: ResMut<Cursor>,
     mut visibility: Query<&mut Visibility>,
-    mut points: Query<&mut Point<Entity>>,
+    mut points: Query<&mut Point>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
@@ -137,7 +137,7 @@ pub fn on_hover_for_replace_point(
 pub fn on_select_for_replace_point(
     In((selection, key)): In<(SelectionCandidate, BufferKey<ReplacePoint>)>,
     mut access: BufferAccessMut<ReplacePoint>,
-    mut points: Query<&mut Point<Entity>>,
+    mut points: Query<&mut Point>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
@@ -151,7 +151,7 @@ pub fn on_select_for_replace_point(
 pub fn cleanup_replace_point(
     In(key): In<BufferKey<ReplacePoint>>,
     mut access: BufferAccessMut<ReplacePoint>,
-    mut points: Query<&'static mut Point<Entity>>,
+    mut points: Query<&'static mut Point>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
@@ -160,7 +160,7 @@ pub fn cleanup_replace_point(
     commands
         .get_entity(state.point)
         .or_broken_query()?
-        .remove::<Original<Point<Entity>>>();
+        .remove::<Original<Point>>();
 
     if state.replaced {
         // The anchor was fully replaced, so nothing furtehr to do

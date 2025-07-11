@@ -105,15 +105,8 @@ impl<T> UpdateModifier<T> {
 
 #[derive(SystemParam)]
 pub struct GetModifier<'w, 's, T: Component<Mutability = Mutable> + Clone + Default> {
-    pub scenarios: Query<
-        'w,
-        's,
-        (
-            &'static ScenarioModifiers<Entity>,
-            &'static Affiliation<Entity>,
-        ),
-        With<ScenarioMarker>,
-    >,
+    pub scenarios:
+        Query<'w, 's, (&'static ScenarioModifiers, &'static Affiliation), With<ScenarioMarker>>,
     pub modifiers: Query<'w, 's, &'static T>,
 }
 
@@ -153,10 +146,7 @@ pub fn handle_scenario_modifiers(
     mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
     mut add_modifier: EventReader<AddModifier>,
     mut remove_modifier: EventReader<RemoveModifier>,
-    mut scenarios: Query<
-        (&mut ScenarioModifiers<Entity>, &Affiliation<Entity>),
-        With<ScenarioMarker>,
-    >,
+    mut scenarios: Query<(&mut ScenarioModifiers, &Affiliation), With<ScenarioMarker>>,
     mut update_property: EventWriter<UpdateProperty>,
     current_scenario: Res<CurrentScenario>,
 ) {
@@ -233,10 +223,10 @@ pub fn handle_cleanup_modifiers<M: Component<Mutability = Mutable> + Debug + Def
 pub fn handle_empty_modifiers<T: Property, F: QueryFilter>(
     mut remove_modifier: EventWriter<RemoveModifier>,
     mut removals: RemovedComponents<Modifier<T>>,
-    affiliation: Query<&Affiliation<Entity>>,
+    affiliation: Query<&Affiliation>,
     current_scenario: Res<CurrentScenario>,
     modifiers: Query<(), F>,
-    scenarios: Query<(Entity, &ScenarioModifiers<Entity>), With<ScenarioMarker>>,
+    scenarios: Query<(Entity, &ScenarioModifiers), With<ScenarioMarker>>,
 ) {
     if !removals.is_empty() {
         for modifier_entity in removals.read() {
@@ -288,14 +278,7 @@ pub const MISSING_ROOT_MODIFIER_ISSUE_UUID: Uuid =
 pub fn check_for_missing_root_modifiers<M: Component<Mutability = Mutable>>(
     mut commands: Commands,
     mut validate_events: EventReader<ValidateWorkspace>,
-    scenarios: Query<
-        (
-            &ScenarioModifiers<Entity>,
-            &NameInSite,
-            &Affiliation<Entity>,
-        ),
-        With<ScenarioMarker>,
-    >,
+    scenarios: Query<(&ScenarioModifiers, &NameInSite, &Affiliation), With<ScenarioMarker>>,
     elements: Query<(Entity, Option<&NameInSite>), With<M>>,
 ) {
     for root in validate_events.read() {

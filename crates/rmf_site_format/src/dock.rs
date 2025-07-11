@@ -15,9 +15,11 @@
  *
 */
 
+use bevy::prelude::Reflect;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct Dock {
     /// Name of the docking maneuver that is performed for this dock
     pub name: String,

@@ -17,7 +17,8 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Deref, DerefMut};
+use bevy::prelude::{Bundle, Component, Deref, DerefMut, Reflect, ReflectComponent};
+use bevy_ecs::prelude::Entity;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -45,29 +46,30 @@ impl Default for LevelProperties {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(transparent)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct LevelElevation(pub f32);
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Level {
     pub properties: LevelProperties,
-    pub anchors: BTreeMap<u32, Anchor>,
+    pub anchors: BTreeMap<Entity, Anchor>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub doors: BTreeMap<u32, Door<u32>>,
+    pub doors: BTreeMap<Entity, Door>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub drawings: BTreeMap<u32, Drawing>,
+    pub drawings: BTreeMap<Entity, Drawing>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub floors: BTreeMap<u32, Floor<u32>>,
+    pub floors: BTreeMap<Entity, Floor>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub lights: BTreeMap<u32, Light>,
+    pub lights: BTreeMap<Entity, Light>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub physical_cameras: BTreeMap<u32, PhysicalCamera>,
+    pub physical_cameras: BTreeMap<Entity, PhysicalCamera>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub walls: BTreeMap<u32, Wall<u32>>,
+    pub walls: BTreeMap<Entity, Wall>,
     #[serde(default, skip_serializing_if = "RankingsInLevel::is_empty")]
     pub rankings: RankingsInLevel,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub user_camera_poses: BTreeMap<u32, UserCameraPose>,
+    pub user_camera_poses: BTreeMap<Entity, UserCameraPose>,
 }
 
 impl Level {
@@ -90,9 +92,9 @@ impl Level {
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct RankingsInLevel {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub floors: Vec<u32>,
+    pub floors: Vec<Entity>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub drawings: Vec<u32>,
+    pub drawings: Vec<Entity>,
 }
 
 impl RankingsInLevel {

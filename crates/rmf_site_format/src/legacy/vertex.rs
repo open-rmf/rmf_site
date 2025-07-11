@@ -3,6 +3,7 @@ use crate::{
     is_default, legacy::model::Model, AssociatedGraphs, Location, LocationTag, LocationTags,
     NameInSite,
 };
+use bevy_ecs::prelude::Entity;
 use glam::DVec2;
 use serde::{Deserialize, Serialize};
 
@@ -42,7 +43,7 @@ impl Vertex {
         DVec2::new(self.0, self.1)
     }
 
-    pub fn make_location(&self, anchor: u32) -> Option<Location<u32>> {
+    pub fn make_location(&self, anchor: Entity) -> Option<Location> {
         let mut tags = Vec::new();
         let me = &self.4;
         if me.is_charger.1 {
@@ -75,7 +76,7 @@ impl Vertex {
         }
     }
 
-    pub fn spawn_robot(&self, anchor: u32) -> Option<Model> {
+    pub fn spawn_robot(&self, anchor: Entity) -> Option<Model> {
         let me = &self.4;
         if !me.spawn_robot_name.is_empty() && !me.spawn_robot_type.is_empty() {
             return Some(Model {
@@ -85,7 +86,7 @@ impl Vertex {
                 x: self.0,
                 y: self.1,
                 yaw: self.2,
-                location: Some(anchor),
+                location: Some(anchor.index()),
                 ..Default::default()
             });
         }

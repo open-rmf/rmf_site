@@ -31,15 +31,11 @@ pub struct InspectPose<'w, 's> {
     poses: Query<'w, 's, &'static Pose>,
     change_pose: EventWriter<'w, Change<Pose>>,
     current_scenario: Res<'w, CurrentScenario>,
-    pose_modifiers: Query<'w, 's, (&'static Modifier<Pose>, &'static Affiliation<Entity>)>,
+    pose_modifiers: Query<'w, 's, (&'static Modifier<Pose>, &'static Affiliation)>,
     scenarios: Query<
         'w,
         's,
-        (
-            Entity,
-            &'static ScenarioModifiers<Entity>,
-            &'static Affiliation<Entity>,
-        ),
+        (Entity, &'static ScenarioModifiers, &'static Affiliation),
         With<ScenarioMarker>,
     >,
     update_instance: EventWriter<'w, UpdateModifier<UpdateInstance>>,

@@ -17,7 +17,7 @@
 
 use crate::{Anchor, Category, NameInSite, Pose, Rotation};
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component};
+use bevy::prelude::{Bundle, Component, Reflect, ReflectComponent};
 use glam::{Affine3A, Quat, Vec3};
 use serde::{Deserialize, Serialize};
 
@@ -30,7 +30,8 @@ pub struct UserCameraPose {
 }
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct UserCameraPoseMarker;
 
 impl UserCameraPose {

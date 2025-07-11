@@ -124,7 +124,7 @@ impl Cursor {
         &mut self,
         commands: &mut Commands,
         model_loader: &mut ModelLoader,
-        model_instance: Option<ModelInstance<Entity>>,
+        model_instance: Option<ModelInstance>,
     ) {
         self.remove_preview(commands);
         self.preview_model = model_instance.map(|instance| {

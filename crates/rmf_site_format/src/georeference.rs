@@ -5,6 +5,7 @@ use bevy::prelude::*;
 
 /// Geographic Offset for the
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct GeographicOffset {
     /// Contains the latitude and longitude pair for
     pub anchor: (f32, f32),
@@ -16,7 +17,8 @@ pub struct GeographicOffset {
     pub visible: bool,
 }
 
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default)]
 #[serde(transparent)]
 pub struct GeographicComponent(pub Option<GeographicOffset>);

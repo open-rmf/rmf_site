@@ -17,14 +17,15 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity};
+use bevy::prelude::{Bundle, Component, Deref, DerefMut, Reflect, ReflectComponent};
+use bevy_ecs::prelude::Entity;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
-pub struct Measurement<T: RefTrait> {
-    pub anchors: Edge<T>,
+pub struct Measurement {
+    pub anchors: Edge,
     #[serde(skip_serializing_if = "is_default")]
     pub distance: Distance,
     #[serde(skip)]
@@ -33,11 +34,13 @@ pub struct Measurement<T: RefTrait> {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 #[serde(transparent)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct Distance(pub Option<f32>);
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct MeasurementMarker;
 
 impl Default for Distance {
@@ -46,19 +49,8 @@ impl Default for Distance {
     }
 }
 
-#[cfg(feature = "bevy")]
-impl Measurement<Entity> {
-    pub fn to_u32(&self, anchors: Edge<u32>) -> Measurement<u32> {
-        Measurement {
-            anchors,
-            distance: self.distance,
-            marker: Default::default(),
-        }
-    }
-}
-
-impl<T: RefTrait> Measurement<T> {
-    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Measurement<U>, T> {
+impl Measurement {
+    pub fn convert(&self, id_map: &HashMap<Entity, Entity>) -> Result<Measurement, Entity> {
         Ok(Measurement {
             anchors: self.anchors.convert(id_map)?,
             distance: self.distance,
@@ -67,8 +59,8 @@ impl<T: RefTrait> Measurement<T> {
     }
 }
 
-impl<T: RefTrait> From<Edge<T>> for Measurement<T> {
-    fn from(anchors: Edge<T>) -> Self {
+impl From<Edge> for Measurement {
+    fn from(anchors: Edge) -> Self {
         Self {
             anchors,
             distance: Default::default(),

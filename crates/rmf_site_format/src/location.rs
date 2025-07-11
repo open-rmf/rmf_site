@@ -17,11 +17,13 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Deref, DerefMut};
+use bevy::prelude::{Bundle, Component, Deref, DerefMut, Reflect, ReflectComponent};
+use bevy_ecs::prelude::Entity;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub enum LocationTag {
     Charger,
     ParkingSpot,
@@ -58,16 +60,17 @@ impl LocationTag {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
-pub struct Location<T: RefTrait> {
-    pub anchor: Point<T>,
+pub struct Location {
+    pub anchor: Point,
     pub tags: LocationTags,
     pub name: NameInSite,
-    pub graphs: AssociatedGraphs<T>,
+    pub graphs: AssociatedGraphs,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(transparent)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct LocationTags(pub Vec<LocationTag>);
 
 impl Default for LocationTags {
@@ -76,8 +79,8 @@ impl Default for LocationTags {
     }
 }
 
-impl<T: RefTrait> Location<T> {
-    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Location<U>, T> {
+impl Location {
+    pub fn convert(&self, id_map: &HashMap<Entity, Entity>) -> Result<Location, Entity> {
         Ok(Location {
             anchor: self.anchor.convert(id_map)?,
             tags: self.tags.clone(),
@@ -87,8 +90,8 @@ impl<T: RefTrait> Location<T> {
     }
 }
 
-impl<T: RefTrait> From<Point<T>> for Location<T> {
-    fn from(anchor: Point<T>) -> Self {
+impl From<Point> for Location {
+    fn from(anchor: Point) -> Self {
         Self {
             anchor,
             tags: Default::default(),

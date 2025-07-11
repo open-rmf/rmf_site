@@ -38,7 +38,7 @@ pub enum MeshCreationError {
 
 fn make_wall(
     entity: Entity,
-    wall: &Edge<Entity>,
+    wall: &Edge,
     texture: &Texture,
     anchors: &AnchorParams,
 ) -> Result<Mesh, MeshCreationError> {
@@ -68,7 +68,7 @@ fn make_wall(
 
 pub fn add_wall_visual(
     mut commands: Commands,
-    walls: Query<(Entity, &Edge<Entity>, &Affiliation<Entity>), Added<WallMarker>>,
+    walls: Query<(Entity, &Edge, &Affiliation), Added<WallMarker>>,
     anchors: AnchorParams,
     textures: Query<(Option<&TextureImage>, &Texture)>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
@@ -118,7 +118,7 @@ pub fn add_wall_visual(
 }
 
 pub fn update_walls_for_moved_anchors(
-    walls: Query<(Entity, &Edge<Entity>, &Affiliation<Entity>, &Mesh3d), With<WallMarker>>,
+    walls: Query<(Entity, &Edge, &Affiliation, &Mesh3d), With<WallMarker>>,
     anchors: AnchorParams,
     textures: Query<(Option<&TextureImage>, &Texture)>,
     changed_anchors: Query<
@@ -152,20 +152,14 @@ pub fn update_walls_for_moved_anchors(
 pub fn update_walls(
     walls: Query<
         (
-            &Edge<Entity>,
-            &Affiliation<Entity>,
+            &Edge,
+            &Affiliation,
             &Mesh3d,
             &MeshMaterial3d<StandardMaterial>,
         ),
         With<WallMarker>,
     >,
-    changed_walls: Query<
-        Entity,
-        (
-            With<WallMarker>,
-            Or<(Changed<Affiliation<Entity>>, Changed<Edge<Entity>>)>,
-        ),
-    >,
+    changed_walls: Query<Entity, (With<WallMarker>, Or<(Changed<Affiliation>, Changed<Edge>)>)>,
     changed_texture_sources: Query<
         &Members,
         (With<Group>, Or<(Changed<TextureImage>, Changed<Texture>)>),

@@ -21,7 +21,7 @@ use bevy::{
     color::Color,
     prelude::{
         Bundle, Component, DirectionalLight as BevyDirectionalLight, PointLight as BevyPointLight,
-        SpotLight as BevySpotLight,
+        Reflect, ReflectComponent, SpotLight as BevySpotLight,
     },
 };
 use serde::{Deserialize, Serialize};
@@ -35,7 +35,8 @@ pub struct Light {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
 pub enum LightKind {
     Point(PointLight),
     Spot(SpotLight),
@@ -178,6 +179,7 @@ fn bool_true() -> bool {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct PointLight {
     #[serde(default = "white")]
     pub color: [f32; 3],
@@ -218,6 +220,7 @@ impl Default for PointLight {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct SpotLight {
     #[serde(default = "white")]
     pub color: [f32; 3],
@@ -258,6 +261,7 @@ impl Default for SpotLight {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct DirectionalLight {
     #[serde(default = "white")]
     pub color: [f32; 3],

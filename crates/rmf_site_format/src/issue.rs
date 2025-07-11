@@ -15,15 +15,17 @@
  *
 */
 
-use crate::RefTrait;
+use bevy::prelude::Reflect;
+use bevy_ecs::prelude::Entity;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Hash, PartialEq, Eq, Debug, Clone, Ord, PartialOrd)]
-pub struct IssueKey<T: RefTrait> {
+#[cfg_attr(feature = "bevy", derive(Reflect))]
+pub struct IssueKey {
     /// Denotes which entities this issue affects
-    pub entities: BTreeSet<T>,
+    pub entities: BTreeSet<Entity>,
     /// Uuid of the type of issue
     pub kind: Uuid,
 }

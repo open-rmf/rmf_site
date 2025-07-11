@@ -17,12 +17,14 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component};
+use bevy::prelude::{Bundle, Component, Reflect, ReflectComponent};
+use bevy_ecs::prelude::Entity;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct PixelsPerMeter(pub f32);
 
 impl Default for PixelsPerMeter {
@@ -41,11 +43,11 @@ pub struct Drawing {
     // #[serde(flatten)]
     pub properties: DrawingProperties,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub anchors: BTreeMap<u32, Anchor>,
+    pub anchors: BTreeMap<Entity, Anchor>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub fiducials: BTreeMap<u32, Fiducial<u32>>,
+    pub fiducials: BTreeMap<Entity, Fiducial>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub measurements: BTreeMap<u32, Measurement<u32>>,
+    pub measurements: BTreeMap<Entity, Measurement>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

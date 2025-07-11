@@ -215,6 +215,98 @@ impl Plugin for SitePlugin {
         .init_resource::<ExportHandlers>()
         .init_resource::<Trashcan>()
         .init_resource::<PhysicalLightToggle>()
+        .register_type::<NameOfSite>()
+        .register_type::<PixelsPerMeter>()
+        .register_type::<Category>()
+        // TODO(luca) categorized
+        .register_type::<LevelElevation>()
+        .register_type::<FiducialMarker>()
+        .register_type::<TaskParams>()
+        .register_type::<GoToPlace>()
+        .register_type::<WaitFor>()
+        .register_type::<Anchor>()
+        .register_type::<UserCameraPoseMarker>()
+        .register_type::<LevelVisits>()
+        .register_type::<LiftCabinDoorMarker>()
+        .register_type::<InitialLevel>()
+        .register_type::<LiftCabin>()
+        .register_type::<RectangularLiftCabin>()
+        .register_type::<LiftCabinDoorPlacement>()
+        .register_type::<WallMarker>()
+        .register_type::<NavGraphMarker>()
+        .register_type::<DisplayColor>()
+        .register_type::<AssociatedGraphs>()
+        .register_type::<PhysicalCameraProperties>()
+        .register_type::<Edge>()
+        .register_type::<PrimitiveShape>()
+        .register_type::<LightKind>()
+        .register_type::<PointLight>()
+        .register_type::<SpotLight>()
+        .register_type::<DirectionalLight>()
+        .register_type::<Robot>()
+        .register_type::<Texture>()
+        .register_type::<InstanceMarker>()
+        .register_type::<Inclusion>()
+        .register_type::<InstanceModifier>()
+        .register_type::<TaskModifier>()
+        .register_type::<ScenarioModifiers>()
+        .register_type::<ScenarioMarker>()
+        .register_type::<Scenario>()
+        .register_type::<ScenarioBundle>()
+        .register_type::<LocationTag>()
+        .register_type::<LocationTags>()
+        .register_type::<Path>()
+        .register_type::<Distance>()
+        .register_type::<MeasurementMarker>()
+        .register_type::<FloorMarker>()
+        .register_type::<Mobility>()
+        .register_type::<DifferentialDrive>()
+        .register_type::<Collision>()
+        .register_type::<CircleCollision>()
+        .register_type::<PowerSource>()
+        .register_type::<Battery>()
+        .register_type::<PowerDissipation>()
+        .register_type::<MechanicalSystem>()
+        .register_type::<AmbientSystem>()
+        .register_type::<GeographicOffset>()
+        .register_type::<GeographicComponent>()
+        .register_type::<AssetSource>()
+        .register_type::<Point>()
+        .register_type::<LayerVisibility>()
+        .register_type::<GlobalFloorVisibility>()
+        .register_type::<GlobalDrawingVisibility>()
+        .register_type::<PreferredSemiTransparency>()
+        .register_type::<Model>()
+        .register_type::<ModelMarker>()
+        // TODO(luca) model properties, they are generic
+        .register_type::<ModelProperty<Robot>>()
+        .register_type::<ExportData>()
+        .register_type::<ExportWith>()
+        .register_type::<Dock>()
+        .register_type::<Side>()
+        .register_type::<Scale>()
+        .register_type::<Angle>()
+        .register_type::<Rotation>()
+        .register_type::<Pose>()
+        .register_type::<NameInSite>()
+        .register_type::<IsStatic>()
+        .register_type::<Group>()
+        .register_type::<Affiliation>()
+        .register_type::<IssueKey>()
+        // TODO(luca) Might need custom registration
+        //.register_type::<FilteredIssues>()
+        // .register_type::<FilteredIssueKinds>()
+        .register_type::<LaneMarker>()
+        .register_type::<Motion>()
+        .register_type::<OrientationConstraint>()
+        .register_type::<ReverseLane>()
+        .register_type::<DoorType>()
+        .register_type::<SingleSlidingDoor>()
+        .register_type::<DoubleSlidingDoor>()
+        .register_type::<SingleSwingDoor>()
+        .register_type::<DoubleSwingDoor>()
+        .register_type::<Swing>()
+        .register_type::<DoorMarker>()
         .add_event::<LoadSite>()
         .add_event::<ImportNavGraphs>()
         .add_event::<ChangeCurrentSite>()
@@ -231,8 +323,8 @@ impl Plugin for SitePlugin {
         .add_event::<ConsiderLocationTag>()
         .add_event::<MergeGroups>()
         .add_plugins((
-            ChangePlugin::<AssociatedGraphs<Entity>>::default(),
-            RecallPlugin::<RecallAssociatedGraphs<Entity>>::default(),
+            ChangePlugin::<AssociatedGraphs>::default(),
+            RecallPlugin::<RecallAssociatedGraphs>::default(),
             ChangePlugin::<Motion>::default(),
             RecallPlugin::<RecallMotion>::default(),
             ChangePlugin::<ReverseLane>::default(),
@@ -248,8 +340,8 @@ impl Plugin for SitePlugin {
             ChangePlugin::<DoorType>::default(),
             RecallPlugin::<RecallDoorType>::default(),
             ChangePlugin::<LevelElevation>::default(),
-            ChangePlugin::<LiftCabin<Entity>>::default(),
-            RecallPlugin::<RecallLiftCabin<Entity>>::default(),
+            ChangePlugin::<LiftCabin>::default(),
+            RecallPlugin::<RecallLiftCabin>::default(),
             ChangePlugin::<AssetSource>::default(),
             RecallPlugin::<RecallAssetSource>::default(),
             ChangePlugin::<PrimitiveShape>::default(),
@@ -268,7 +360,7 @@ impl Plugin for SitePlugin {
             ChangePlugin::<GlobalFloorVisibility>::default(),
             ChangePlugin::<GlobalDrawingVisibility>::default(),
             ChangePlugin::<PreferredSemiTransparency>::default(),
-            ChangePlugin::<Affiliation<Entity>>::default(),
+            ChangePlugin::<Affiliation>::default(),
             RecencyRankingPlugin::<NavGraphMarker>::default(),
             RecencyRankingPlugin::<FloorMarker>::default(),
             RecencyRankingPlugin::<DrawingMarker>::default(),
@@ -297,7 +389,7 @@ impl Plugin for SitePlugin {
         )
         .add_issue_type(&DUPLICATED_DOCK_NAME_ISSUE_UUID, "Duplicated dock name")
         .add_issue_type(&UNCONNECTED_ANCHORS_ISSUE_UUID, "Unconnected anchors")
-        .add_systems(Update, (load_site, import_nav_graph))
+        .add_systems(Update, (load_site, spam_change_site, import_nav_graph))
         .add_systems(
             PreUpdate,
             (

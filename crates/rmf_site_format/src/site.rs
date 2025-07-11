@@ -17,7 +17,8 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity};
+use bevy::prelude::{Bundle, Component, Deref, DerefMut, Reflect, ReflectComponent};
+use bevy_ecs::prelude::Entity;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
@@ -30,34 +31,35 @@ pub use ron::ser::PrettyConfig as Style;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
-pub struct SiteProperties<T: RefTrait> {
+pub struct SiteProperties {
     pub name: NameOfSite,
     #[serde(skip_serializing_if = "GeographicComponent::is_none")]
     pub geographic_offset: GeographicComponent,
     // TODO(luca) group these into an IssueFilters?
     #[serde(default, skip_serializing_if = "FilteredIssues::is_empty")]
-    pub filtered_issues: FilteredIssues<T>,
+    pub filtered_issues: FilteredIssues,
     #[serde(default, skip_serializing_if = "FilteredIssueKinds::is_empty")]
     pub filtered_issue_kinds: FilteredIssueKinds,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
-pub struct FilteredIssues<T: RefTrait>(pub BTreeSet<IssueKey<T>>);
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
+pub struct FilteredIssues(pub BTreeSet<IssueKey>);
 
 // TODO(luca) It seems just deriving default results in compile errors
-impl<T: RefTrait> Default for FilteredIssues<T> {
+impl Default for FilteredIssues {
     fn default() -> Self {
         Self(BTreeSet::default())
     }
 }
 
-impl<T: RefTrait> FilteredIssues<T> {
+impl FilteredIssues {
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
-    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<FilteredIssues<U>, T> {
+    pub fn convert(&self, id_map: &HashMap<Entity, Entity>) -> Result<FilteredIssues, Entity> {
         let mut issues = BTreeSet::new();
         for issue in self.0.iter() {
             let entities = issue
@@ -75,7 +77,8 @@ impl<T: RefTrait> FilteredIssues<T> {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct FilteredIssueKinds(pub BTreeSet<Uuid>);
 
 impl FilteredIssueKinds {
@@ -84,7 +87,7 @@ impl FilteredIssueKinds {
     }
 }
 
-impl<T: RefTrait> Default for SiteProperties<T> {
+impl Default for SiteProperties {
     fn default() -> Self {
         Self {
             name: NameOfSite("new_site".to_owned()),
@@ -95,8 +98,8 @@ impl<T: RefTrait> Default for SiteProperties<T> {
     }
 }
 
-impl<T: RefTrait> SiteProperties<T> {
-    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<SiteProperties<U>, T> {
+impl SiteProperties {
+    pub fn convert(&self, id_map: &HashMap<Entity, Entity>) -> Result<SiteProperties, Entity> {
         Ok(SiteProperties {
             name: self.name.clone(),
             geographic_offset: self.geographic_offset.clone(),
@@ -114,48 +117,49 @@ pub struct Site {
     // TODO(MXG): Should we use a different name for this to distinguish it
     // from level anchors, or does the grouping make the intent obvious enough?
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub anchors: BTreeMap<u32, Anchor>,
+    pub anchors: BTreeMap<Entity, Anchor>,
     /// Properties that are tied to the whole site
-    pub properties: SiteProperties<u32>,
+    pub properties: SiteProperties,
     /// Properties of each level
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub levels: BTreeMap<u32, Level>,
+    pub levels: BTreeMap<Entity, Level>,
     /// The groups of textures being used in the site
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub textures: BTreeMap<u32, TextureGroup>,
+    pub textures: BTreeMap<Entity, TextureGroup>,
     /// The fiducial groups that exist in the site
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub fiducial_groups: BTreeMap<u32, FiducialGroup>,
+    pub fiducial_groups: BTreeMap<Entity, FiducialGroup>,
     /// The fiducial instances that exist in Cartesian space
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub fiducials: BTreeMap<u32, Fiducial<u32>>,
+    pub fiducials: BTreeMap<Entity, Fiducial>,
     /// Properties of each lift
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub lifts: BTreeMap<u32, Lift<u32>>,
+    pub lifts: BTreeMap<Entity, Lift>,
     /// Data related to navigation
     #[serde(default, skip_serializing_if = "Navigation::is_empty")]
     pub navigation: Navigation,
 
     /// Scenarios that exist in the site
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub scenarios: BTreeMap<u32, Scenario<u32>>,
+    pub scenarios: BTreeMap<Entity, Scenario>,
     /// Model descriptions available in this site
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub model_descriptions: BTreeMap<u32, ModelDescriptionBundle>,
+    pub model_descriptions: BTreeMap<Entity, ModelDescriptionBundle>,
     /// Robots available in this site
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub robots: BTreeMap<u32, Robot>,
+    pub robots: BTreeMap<Entity, Robot>,
     /// Model instances that exist in the site
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub model_instances: BTreeMap<u32, Parented<u32, ModelInstance<u32>>>,
+    pub model_instances: BTreeMap<Entity, Parented<ModelInstance>>,
     /// Tasks available in this site
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub tasks: BTreeMap<u32, Task>,
+    pub tasks: BTreeMap<Entity, Task>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(transparent)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct NameOfSite(pub String);
 
 fn default_style_config() -> Style {
@@ -234,7 +238,7 @@ impl Site {
     }
 
     /// Returns an anchor and its level (if it's a level anchor), given the id
-    pub fn get_anchor_and_level(&self, id: u32) -> Option<(&Anchor, Option<&Level>)> {
+    pub fn get_anchor_and_level(&self, id: Entity) -> Option<(&Anchor, Option<&Level>)> {
         self.anchors
             .get(&id)
             .map(|site_anchor| (site_anchor, None))
@@ -248,7 +252,7 @@ impl Site {
     }
 
     /// Returns an anchor given the id
-    pub fn get_anchor(&self, id: u32) -> Option<&Anchor> {
+    pub fn get_anchor(&self, id: Entity) -> Option<&Anchor> {
         self.get_anchor_and_level(id).map(|(a, _)| a)
     }
 
@@ -257,7 +261,7 @@ impl Site {
         let mut site = Site::default();
         site.properties.name = NameOfSite(name);
         site.levels.insert(
-            1,
+            Entity::from_raw(1),
             Level::new(
                 LevelProperties {
                     name: NameInSite("L1".to_owned()),
@@ -270,13 +274,6 @@ impl Site {
         site
     }
 }
-
-pub trait RefTrait: Ord + Eq + Copy + Send + Sync + Hash + 'static {}
-
-impl RefTrait for u32 {}
-
-#[cfg(feature = "bevy")]
-impl RefTrait for Entity {}
 
 #[cfg(test)]
 mod tests {

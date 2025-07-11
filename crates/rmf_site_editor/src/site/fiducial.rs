@@ -49,7 +49,7 @@ pub fn add_unused_fiducial_tracker(
     new_fiducial_scope: Query<Entity, Or<(Added<DrawingMarker>, Added<NameOfSite>)>>,
     sites: Query<(), With<NameOfSite>>,
     child_of: Query<&ChildOf>,
-    fiducials: Query<&Affiliation<Entity>, With<FiducialMarker>>,
+    fiducials: Query<&Affiliation, With<FiducialMarker>>,
     fiducial_groups: Query<(Entity, &NameInSite, &ChildOf), (With<Group>, With<FiducialMarker>)>,
     children: Query<&Children>,
 ) {
@@ -78,14 +78,14 @@ pub fn update_fiducial_usage_tracker(
     changed_fiducials: Query<
         &ChildOf,
         (
-            Or<(Changed<Affiliation<Entity>>, Changed<ChildOf>)>,
+            Or<(Changed<Affiliation>, Changed<ChildOf>)>,
             With<FiducialMarker>,
         ),
     >,
     sites: Query<(), With<NameOfSite>>,
     child_of: Query<&ChildOf>,
     children: Query<&Children>,
-    fiducials: Query<&Affiliation<Entity>, With<FiducialMarker>>,
+    fiducials: Query<&Affiliation, With<FiducialMarker>>,
     fiducial_groups: Query<(Entity, &NameInSite, &ChildOf), (With<Group>, With<FiducialMarker>)>,
     changed_fiducial_groups: Query<
         Entity,
@@ -179,7 +179,7 @@ fn find_parent_site(
 fn reset_fiducial_usage(
     scope: Entity,
     tracker: &mut FiducialUsage,
-    fiducials: &Query<&Affiliation<Entity>, With<FiducialMarker>>,
+    fiducials: &Query<&Affiliation, With<FiducialMarker>>,
     fiducial_groups: &Query<(Entity, &NameInSite, &ChildOf), (With<Group>, With<FiducialMarker>)>,
     children: &Query<&Children>,
 ) {
@@ -209,7 +209,7 @@ fn reset_fiducial_usage(
 
 pub fn add_fiducial_visuals(
     mut commands: Commands,
-    fiducials: Query<(Entity, &Point<Entity>, Option<&Transform>), Added<FiducialMarker>>,
+    fiducials: Query<(Entity, &Point, Option<&Transform>), Added<FiducialMarker>>,
     fiducial_groups: Query<Entity, (Added<FiducialMarker>, With<Group>)>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
@@ -241,10 +241,7 @@ pub fn add_fiducial_visuals(
 
 pub fn assign_orphan_fiducials_to_parent(
     mut commands: Commands,
-    orphans: Query<
-        (Entity, &Point<Entity>),
-        (With<FiducialMarker>, Without<ChildOf>, Without<Pending>),
-    >,
+    orphans: Query<(Entity, &Point), (With<FiducialMarker>, Without<ChildOf>, Without<Pending>)>,
     anchors: Query<&ChildOf, With<Anchor>>,
 ) {
     for (e, point) in &orphans {
@@ -261,11 +258,8 @@ pub fn assign_orphan_fiducials_to_parent(
 
 pub fn update_changed_fiducial(
     mut fiducials: Query<
-        (Entity, &Point<Entity>, &mut Transform),
-        (
-            With<FiducialMarker>,
-            Or<(Changed<Point<Entity>>, Changed<ChildOf>)>,
-        ),
+        (Entity, &Point, &mut Transform),
+        (With<FiducialMarker>, Or<(Changed<Point>, Changed<ChildOf>)>),
     >,
     anchors: AnchorParams,
 ) {
@@ -282,7 +276,7 @@ pub fn update_changed_fiducial(
 }
 
 pub fn update_fiducial_for_moved_anchors(
-    mut fiducials: Query<(Entity, &Point<Entity>, &mut Transform), With<FiducialMarker>>,
+    mut fiducials: Query<(Entity, &Point, &mut Transform), With<FiducialMarker>>,
     anchors: AnchorParams,
     changed_anchors: Query<
         &Dependents,
@@ -319,7 +313,7 @@ pub fn check_for_fiducials_without_affiliation(
     mut commands: Commands,
     mut validate_events: EventReader<ValidateWorkspace>,
     child_of: Query<&ChildOf>,
-    fiducial_affiliations: Query<(Entity, &Affiliation<Entity>), With<FiducialMarker>>,
+    fiducial_affiliations: Query<(Entity, &Affiliation), With<FiducialMarker>>,
 ) {
     const ISSUE_HINT: &str = "Fiducial affiliations are used by the site editor to map matching \
                             fiducials between different floors or drawings and calculate their \

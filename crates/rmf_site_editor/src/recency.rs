@@ -39,28 +39,15 @@ impl<T: Component> RecencyRanking<T> {
         }
     }
 
-    pub fn entities(&self) -> &Vec<Entity> {
-        &self.entities
-    }
-
-    pub fn from_u32(ranking: &Vec<u32>, id_to_entity: &HashMap<u32, Entity>) -> Result<Self, u32> {
-        let entities: Result<Vec<Entity>, u32> = ranking
-            .iter()
-            .map(|id| id_to_entity.get(id).copied().ok_or(*id))
-            .collect();
-        let entities = entities?;
-        Ok(Self {
+    pub fn from_entities(entities: Vec<Entity>) -> Self {
+        Self {
             entities,
             _ignore: default(),
-        })
+        }
     }
 
-    pub fn to_u32(&self, site_ids: &Query<&SiteID>) -> Vec<u32> {
-        self.entities
-            .iter()
-            .filter_map(|e| site_ids.get(*e).ok().copied())
-            .map(|s| s.0)
-            .collect()
+    pub fn entities(&self) -> &Vec<Entity> {
+        &self.entities
     }
 }
 

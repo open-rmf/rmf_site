@@ -17,7 +17,7 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component};
+use bevy::prelude::{Bundle, Component, Reflect, ReflectComponent};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -31,7 +31,8 @@ pub struct PhysicalCamera {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct PhysicalCameraProperties {
     pub width: u32,
     pub height: u32,

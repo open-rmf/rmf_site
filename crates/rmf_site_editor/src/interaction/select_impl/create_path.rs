@@ -51,7 +51,7 @@ pub fn spawn_create_path_service(
 
 pub struct CreatePath {
     /// Function pointer for spawning an initial path.
-    pub spawn_path: fn(Path<Entity>, &mut Commands) -> Entity,
+    pub spawn_path: fn(Path, &mut Commands) -> Entity,
     /// The path which is being built. This will initially be [`None`] until setup
     /// happens, then `spawn_path` will be used to create this. For all the
     /// services in the `create_path` workflow besides setup, this should
@@ -80,7 +80,7 @@ pub struct CreatePath {
 
 impl CreatePath {
     pub fn new(
-        spawn_path: fn(Path<Entity>, &mut Commands) -> Entity,
+        spawn_path: fn(Path, &mut Commands) -> Entity,
         minimum_points: usize,
         allow_inner_loops: bool,
         implied_complete_loop: bool,
@@ -100,7 +100,7 @@ impl CreatePath {
     pub fn set_last(
         &self,
         chosen: Entity,
-        path_mut: &mut Path<Entity>,
+        path_mut: &mut Path,
         commands: &mut Commands,
     ) -> SelectionNodeResult {
         let path = self.path.or_broken_state()?;
@@ -127,8 +127,8 @@ impl Borrow<AnchorScope> for CreatePath {
     }
 }
 
-pub fn create_path_with_texture<T: Bundle + From<Path<Entity>>>(
-    path: Path<Entity>,
+pub fn create_path_with_texture<T: Bundle + From<Path>>(
+    path: Path,
     commands: &mut Commands,
 ) -> Entity {
     let new_bundle: T = path.into();
@@ -161,7 +161,7 @@ pub fn on_hover_for_create_path(
     mut access: BufferAccessMut<CreatePath>,
     mut cursor: ResMut<Cursor>,
     mut visibility: Query<&mut Visibility>,
-    mut paths: Query<&mut Path<Entity>>,
+    mut paths: Query<&mut Path>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
@@ -186,7 +186,7 @@ pub fn on_hover_for_create_path(
 pub fn on_select_for_create_path(
     In((selection, key)): In<(SelectionCandidate, BufferKey<CreatePath>)>,
     mut access: BufferAccessMut<CreatePath>,
-    mut paths: Query<&mut Path<Entity>>,
+    mut paths: Query<&mut Path>,
     mut commands: Commands,
     cursor: Res<Cursor>,
 ) -> SelectionNodeResult {
@@ -245,7 +245,7 @@ pub fn on_select_for_create_path(
 pub fn cleanup_create_path(
     In(key): In<BufferKey<CreatePath>>,
     mut access: BufferAccessMut<CreatePath>,
-    mut paths: Query<&'static mut Path<Entity>>,
+    mut paths: Query<&'static mut Path>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;

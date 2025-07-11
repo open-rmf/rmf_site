@@ -26,7 +26,7 @@ use bevy_egui::egui::{CollapsingHeader, RichText, Ui};
 #[derive(SystemParam)]
 pub struct InspectGroup<'w, 's> {
     is_group: Query<'w, 's, (), With<Group>>,
-    affiliation: Query<'w, 's, &'static Affiliation<Entity>, Without<ModelMarker>>,
+    affiliation: Query<'w, 's, &'static Affiliation, Without<ModelMarker>>,
     names: Query<'w, 's, &'static NameInSite>,
     textures: Query<'w, 's, &'static Texture>,
     members: Query<'w, 's, &'static Members>,

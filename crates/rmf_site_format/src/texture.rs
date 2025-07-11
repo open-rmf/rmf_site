@@ -17,11 +17,12 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component};
+use bevy::prelude::{Bundle, Component, Reflect, ReflectComponent};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct Texture {
     pub source: AssetSource,
     #[serde(skip_serializing_if = "Option::is_none")]

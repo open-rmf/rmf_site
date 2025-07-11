@@ -194,7 +194,7 @@ impl<'w, 's> ViewGroups<'w, 's> {
                                 .on_hover_text("Add a new model instance of this group")
                                 .clicked()
                             {
-                                let model_instance: ModelInstance<Entity> = ModelInstance {
+                                let model_instance: ModelInstance = ModelInstance {
                                     description: Affiliation(Some(child.clone())),
                                     ..Default::default()
                                 };

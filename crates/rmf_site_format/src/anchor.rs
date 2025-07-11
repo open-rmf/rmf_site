@@ -19,7 +19,7 @@ use crate::{Categorized, Category, Pose};
 #[cfg(feature = "bevy")]
 use bevy::{
     ecs::{hierarchy::ChildOf, query::QueryEntityError, system::SystemParam},
-    prelude::{Component, Entity, GlobalTransform, Query, Transform},
+    prelude::{Component, Entity, GlobalTransform, Query, Reflect, ReflectComponent, Transform},
 };
 use glam::{Vec2, Vec3};
 use serde::{Deserialize, Serialize};
@@ -28,7 +28,8 @@ use serde::{Deserialize, Serialize};
 // TODO(MXG): Change this to untagged for a cleaner looking format once this
 // issue is resolved: https://github.com/ron-rs/ron/issues/217
 // #[serde(untagged)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
 pub enum Anchor {
     Translate2D([f32; 2]),
     CategorizedTranslate2D(Categorized<[f32; 2]>),

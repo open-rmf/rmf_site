@@ -12,6 +12,7 @@ use crate::{
     Scenario, Site, SiteProperties, Task, Texture as SiteTexture, TextureGroup, UserCameraPose,
     DEFAULT_NAV_GRAPH_COLORS,
 };
+use bevy_ecs::prelude::Entity;
 use glam::{DAffine2, DMat3, DQuat, DVec2, DVec3, EulerRot};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -191,36 +192,36 @@ impl BuildingMap {
         let mut site_anchors = BTreeMap::new();
         let mut levels = BTreeMap::new();
         let mut level_name_to_id = BTreeMap::new();
-        let mut lanes = BTreeMap::<u32, SiteLane<u32>>::new();
+        let mut lanes = BTreeMap::<Entity, SiteLane>::new();
         let mut locations = BTreeMap::new();
-        let mut textures: BTreeMap<u32, SiteTexture> = BTreeMap::new();
-        let mut floor_texture_map: HashMap<FloorParameters, u32> = HashMap::new();
-        let mut wall_texture_map: HashMap<WallProperties, u32> = HashMap::new();
-        let mut lift_cabin_anchors: BTreeMap<String, Vec<(u32, Anchor)>> = BTreeMap::new();
+        let mut textures: BTreeMap<Entity, SiteTexture> = BTreeMap::new();
+        let mut floor_texture_map: HashMap<FloorParameters, Entity> = HashMap::new();
+        let mut wall_texture_map: HashMap<WallProperties, Entity> = HashMap::new();
+        let mut lift_cabin_anchors: BTreeMap<String, Vec<(Entity, Anchor)>> = BTreeMap::new();
 
         let mut building_id_to_nav_graph_id = BTreeMap::new();
 
-        let mut fiducial_groups: BTreeMap<u32, FiducialGroup> = BTreeMap::new();
-        let mut cartesian_fiducials: HashMap<u32, Vec<DVec2>> = HashMap::new();
+        let mut fiducial_groups: BTreeMap<Entity, FiducialGroup> = BTreeMap::new();
+        let mut cartesian_fiducials: HashMap<Entity, Vec<DVec2>> = HashMap::new();
 
-        let mut model_descriptions: BTreeMap<u32, ModelDescriptionBundle> = BTreeMap::new();
-        let mut robots: BTreeMap<u32, Robot> = BTreeMap::new();
-        let mut model_instances: BTreeMap<u32, Parented<u32, ModelInstance<u32>>> = BTreeMap::new();
-        let mut model_description_name_map = HashMap::<String, u32>::new();
-        let mut scenarios: BTreeMap<u32, Scenario<u32>> = BTreeMap::new();
-        let tasks: BTreeMap<u32, Task> = BTreeMap::new(); // Tasks not supported in legacy
-        let default_scenario_id = site_id.next().unwrap();
+        let mut model_descriptions: BTreeMap<Entity, ModelDescriptionBundle> = BTreeMap::new();
+        let mut robots: BTreeMap<Entity, Robot> = BTreeMap::new();
+        let mut model_instances: BTreeMap<Entity, Parented<ModelInstance>> = BTreeMap::new();
+        let mut model_description_name_map = HashMap::<String, Entity>::new();
+        let mut scenarios: BTreeMap<Entity, Scenario> = BTreeMap::new();
+        let tasks: BTreeMap<Entity, Task> = BTreeMap::new(); // Tasks not supported in legacy
+        let default_scenario_id = Entity::from_raw(site_id.next().unwrap());
         scenarios.insert(default_scenario_id, Scenario::default());
 
         for (level_name, level) in &self.levels {
-            let level_id = site_id.next().unwrap();
-            let mut vertex_to_anchor_id: HashMap<usize, u32> = Default::default();
-            let mut level_anchors: BTreeMap<u32, Anchor> = BTreeMap::new();
+            let level_id = Entity::from_raw(site_id.next().unwrap());
+            let mut vertex_to_anchor_id: HashMap<usize, Entity> = Default::default();
+            let mut level_anchors: BTreeMap<Entity, Anchor> = BTreeMap::new();
             let mut legacy_robots = Vec::<Model>::new();
             for (i, v) in level.vertices.iter().enumerate() {
                 let anchor_id = if v.4.lift_cabin.is_empty() {
                     // This is a regular level anchor, not inside a lift cabin
-                    let anchor_id = site_id.next().unwrap();
+                    let anchor_id = Entity::from_raw(site_id.next().unwrap());
                     let anchor = [v.0 as f32, v.1 as f32];
                     level_anchors.insert(anchor_id, anchor.into());
                     anchor_id
@@ -241,7 +242,7 @@ impl BuildingMap {
                     } else {
                         // This is a new cabin anchor so we need to create an
                         // ID for it
-                        let anchor_id = site_id.next().unwrap();
+                        let anchor_id = Entity::from_raw(site_id.next().unwrap());
                         lift_cabin_anchors.push((anchor_id, [x, y].into()));
                         anchor_id
                     }
@@ -249,7 +250,7 @@ impl BuildingMap {
 
                 vertex_to_anchor_id.insert(i, anchor_id);
                 if let Some(location) = v.make_location(anchor_id) {
-                    let id = site_id.next().unwrap();
+                    let id = Entity::from_raw(site_id.next().unwrap());
                     if let Some(robot_data) = v.spawn_robot(id.clone()) {
                         legacy_robots.push(robot_data);
                     }
@@ -260,7 +261,7 @@ impl BuildingMap {
             let mut doors = BTreeMap::new();
             for door in &level.doors {
                 let site_door = door.to_site(&vertex_to_anchor_id)?;
-                doors.insert(site_id.next().unwrap(), site_door);
+                doors.insert(Entity::from_raw(site_id.next().unwrap()), site_door);
             }
 
             let mut rankings = RankingsInLevel::default();
@@ -268,7 +269,7 @@ impl BuildingMap {
             let mut feature_info = HashMap::new();
             let mut primary_drawing_info = None;
             if !level.drawing.filename.is_empty() {
-                let primary_drawing_id = site_id.next().unwrap();
+                let primary_drawing_id = Entity::from_raw(site_id.next().unwrap());
                 let drawing_name = Path::new(&level.drawing.filename)
                     .file_stem()
                     .unwrap_or_default()
@@ -299,7 +300,7 @@ impl BuildingMap {
                 primary_drawing_info = Some((primary_drawing_id, drawing_tf));
 
                 for fiducial in &level.fiducials {
-                    let anchor_id = site_id.next().unwrap();
+                    let anchor_id = Entity::from_raw(site_id.next().unwrap());
                     // Do not add this anchor to the vertex_to_anchor_id map
                     // because this fiducial is not really recognized as a
                     // vertex to the building format.
@@ -319,7 +320,7 @@ impl BuildingMap {
                             *group_id
                         } else {
                             // The group does not exist yet, so let's create it
-                            let group_id = site_id.next().unwrap();
+                            let group_id = Entity::from_raw(site_id.next().unwrap());
                             fiducial_groups
                                 .insert(group_id, FiducialGroup::new(NameInSite(name.clone())));
                             group_id
@@ -333,7 +334,7 @@ impl BuildingMap {
                         Affiliation(Some(group_id))
                     };
                     drawing_fiducials.insert(
-                        site_id.next().unwrap(),
+                        Entity::from_raw(site_id.next().unwrap()),
                         SiteFiducial {
                             affiliation,
                             anchor: anchor_id.into(),
@@ -346,8 +347,8 @@ impl BuildingMap {
                     // Do not add this anchor to the vertex_to_anchor_id map because
                     // this fiducial is not really recognized as a vertex to the
                     // building format.
-                    let anchor_id = site_id.next().unwrap();
-                    let fiducial_id = site_id.next().unwrap();
+                    let anchor_id = Entity::from_raw(site_id.next().unwrap());
+                    let fiducial_id = Entity::from_raw(site_id.next().unwrap());
                     drawing_anchors.insert(anchor_id, [feature.x as f32, feature.y as f32].into());
 
                     drawing_fiducials.insert(
@@ -380,7 +381,8 @@ impl BuildingMap {
                     let right = level_anchors.remove_entry(&edge.right()).unwrap();
                     drawing_anchors.insert(left.0, left.1);
                     drawing_anchors.insert(right.0, right.1);
-                    measurements.insert(site_id.next().unwrap(), site_measurement);
+                    measurements
+                        .insert(Entity::from_raw(site_id.next().unwrap()), site_measurement);
                     // TODO(MXG): Have rankings for measurements
                 }
 
@@ -403,7 +405,7 @@ impl BuildingMap {
             }
 
             for (name, layer) in &level.layers {
-                let drawing_id = site_id.next().unwrap();
+                let drawing_id = Entity::from_raw(site_id.next().unwrap());
                 let pose = Pose {
                     trans: [
                         layer.transform.translation_x as f32,
@@ -419,8 +421,8 @@ impl BuildingMap {
                     // Do not add this anchor to the vertex_to_anchor_id map because
                     // this fiducial is not really recognized as a vertex to the
                     // building format.
-                    let anchor_id = site_id.next().unwrap();
-                    let fiducial_id = site_id.next().unwrap();
+                    let anchor_id = Entity::from_raw(site_id.next().unwrap());
+                    let fiducial_id = Entity::from_raw(site_id.next().unwrap());
                     drawing_anchors.insert(anchor_id, [feature.x as f32, feature.y as f32].into());
 
                     drawing_fiducials.insert(
@@ -461,7 +463,7 @@ impl BuildingMap {
             }
 
             for (i, constraint) in level.constraints.iter().enumerate() {
-                let fiducial_group_id = site_id.next().unwrap();
+                let fiducial_group_id = Entity::from_raw(site_id.next().unwrap());
                 let group_name = constraint
                     .ids
                     .iter()
@@ -513,7 +515,7 @@ impl BuildingMap {
                     &mut floor_texture_map,
                     &mut site_id,
                 )?;
-                let id = site_id.next().unwrap();
+                let id = Entity::from_raw(site_id.next().unwrap());
                 floors.insert(id, site_floor);
                 rankings.floors.push(id);
             }
@@ -565,12 +567,12 @@ impl BuildingMap {
 
             let mut physical_cameras = BTreeMap::new();
             for cam in &level.physical_cameras {
-                physical_cameras.insert(site_id.next().unwrap(), cam.to_site());
+                physical_cameras.insert(Entity::from_raw(site_id.next().unwrap()), cam.to_site());
             }
 
             let mut lights = BTreeMap::new();
             for light in &level.lights {
-                lights.insert(site_id.next().unwrap(), light.clone());
+                lights.insert(Entity::from_raw(site_id.next().unwrap()), light.clone());
             }
 
             let mut walls = BTreeMap::new();
@@ -581,12 +583,12 @@ impl BuildingMap {
                     &mut wall_texture_map,
                     &mut site_id,
                 )?;
-                walls.insert(site_id.next().unwrap(), site_wall);
+                walls.insert(Entity::from_raw(site_id.next().unwrap()), site_wall);
             }
 
             let mut user_camera_poses = BTreeMap::new();
             user_camera_poses.insert(
-                site_id.next().unwrap(),
+                Entity::from_raw(site_id.next().unwrap()),
                 UserCameraPose::from_anchors("default", level_anchors.values()),
             );
 
@@ -660,7 +662,7 @@ impl BuildingMap {
 
                 let graph_id = building_id_to_nav_graph_id
                     .entry(lane.2.graph_idx.1)
-                    .or_insert(site_id.next().unwrap());
+                    .or_insert(Entity::from_raw(site_id.next().unwrap()));
 
                 let site_lane = SiteLane {
                     anchors: [left, right].into(),
@@ -670,13 +672,13 @@ impl BuildingMap {
                     marker: LaneMarker,
                 };
 
-                lanes.insert(site_id.next().unwrap(), site_lane);
+                lanes.insert(Entity::from_raw(site_id.next().unwrap()), site_lane);
             }
         }
 
         let mut lifts = BTreeMap::new();
         for (name, lift) in &self.lifts {
-            let lift_id = site_id.next().unwrap();
+            let lift_id = Entity::from_raw(site_id.next().unwrap());
             lifts.insert(
                 lift_id,
                 lift.to_site(
@@ -702,16 +704,16 @@ impl BuildingMap {
             );
         }
 
-        let cartesian_fiducials: BTreeMap<u32, SiteFiducial<u32>> = cartesian_fiducials
+        let cartesian_fiducials: BTreeMap<Entity, SiteFiducial> = cartesian_fiducials
             .into_iter()
             .map(|(group_id, locations)| {
                 let p = locations
                     .iter()
                     .fold(DVec2::ZERO, |base, next| base + *next)
                     / locations.len() as f64;
-                let anchor_id = site_id.next().unwrap();
+                let anchor_id = Entity::from_raw(site_id.next().unwrap());
                 site_anchors.insert(anchor_id, [p.x as f32, p.y as f32].into());
-                let fiducial_id = site_id.next().unwrap();
+                let fiducial_id = Entity::from_raw(site_id.next().unwrap());
                 (
                     fiducial_id,
                     SiteFiducial {
@@ -777,9 +779,9 @@ impl BuildingMap {
 }
 
 struct FeatureInfo {
-    fiducial_id: u32,
-    on_anchor: u32,
-    in_drawing: u32,
+    fiducial_id: Entity,
+    on_anchor: Entity,
+    in_drawing: Entity,
     /// name comes from the `name` field of features, if it has one
     name: Option<String>,
 }

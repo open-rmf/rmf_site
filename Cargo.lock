@@ -5385,6 +5385,7 @@ name = "rmf_site_format"
 version = "0.0.1"
 dependencies = [
  "bevy",
+ "bevy_ecs",
  "float_eq",
  "glam",
  "once_cell",

@@ -178,9 +178,11 @@ pub fn retrieve_robot_property_kind<
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct Mobility {
     pub kind: String,
+    #[reflect(ignore)]
     pub config: Value,
 }
 
@@ -332,9 +334,11 @@ impl Recall for RecallDifferentialDrive {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct Collision {
     pub kind: String,
+    #[reflect(ignore)]
     pub config: Value,
 }
 
@@ -439,9 +443,11 @@ impl Recall for RecallCircleCollision {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct PowerSource {
     pub kind: String,
+    #[reflect(ignore)]
     pub config: Value,
 }
 
@@ -579,8 +585,10 @@ impl Recall for RecallBattery {
 
 // TODO(@xiyuoh) Update RobotProperty trait to accommodate properties that can accommodate multiple Kinds
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct PowerDissipation {
+    #[reflect(ignore)]
     pub config: Value,
 }
 

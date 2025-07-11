@@ -50,11 +50,8 @@ impl Property for TaskParams {
         // there is significant overlap between Property impl for TaskParams and Pose. Consider
         // moving this logic into StandardProperty instead
         let mut state: SystemState<(
-            Query<(&mut Modifier<TaskParams>, &Affiliation<Entity>)>,
-            Query<
-                (Entity, &ScenarioModifiers<Entity>, Ref<Affiliation<Entity>>),
-                With<ScenarioMarker>,
-            >,
+            Query<(&mut Modifier<TaskParams>, &Affiliation)>,
+            Query<(Entity, &ScenarioModifiers, Ref<Affiliation>), With<ScenarioMarker>>,
         )> = SystemState::new(world);
         let (mut task_modifiers, scenarios) = state.get_mut(world);
 
@@ -130,7 +127,7 @@ impl Property for TaskParams {
     fn insert_on_new_scenario(in_scenario: Entity, world: &mut World) {
         let mut state: SystemState<(
             Query<&Children>,
-            Query<(&Modifier<Inclusion>, &Affiliation<Entity>)>,
+            Query<(&Modifier<Inclusion>, &Affiliation)>,
             Query<Entity, (With<Task>, Without<Pending>)>,
         )> = SystemState::new(world);
         let (children, task_modifiers, task_entity) = state.get_mut(world);
@@ -246,9 +243,9 @@ pub fn handle_task_modifier_updates(
     mut add_modifier: EventWriter<AddModifier>,
     mut update_task_modifier: EventReader<UpdateModifier<UpdateTaskModifier>>,
     mut update_property: EventWriter<UpdateProperty>,
-    mut inclusion_modifiers: Query<&mut Modifier<Inclusion>, With<Affiliation<Entity>>>,
-    mut params_modifiers: Query<&mut Modifier<TaskParams>, With<Affiliation<Entity>>>,
-    scenarios: Query<(&ScenarioModifiers<Entity>, &Affiliation<Entity>), With<ScenarioMarker>>,
+    mut inclusion_modifiers: Query<&mut Modifier<Inclusion>, With<Affiliation>>,
+    mut params_modifiers: Query<&mut Modifier<TaskParams>, With<Affiliation>>,
+    scenarios: Query<(&ScenarioModifiers, &Affiliation), With<ScenarioMarker>>,
 ) {
     for update in update_task_modifier.read() {
         let Ok((scenario_modifiers, parent_scenario)) = scenarios.get(update.scenario) else {

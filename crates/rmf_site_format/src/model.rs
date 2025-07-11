@@ -17,12 +17,13 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Reflect, ReflectComponent};
+use bevy::prelude::{Bundle, Component, Entity, Reflect, ReflectComponent};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct Model {
     /// Name of the model
     pub name: NameInSite,
@@ -62,17 +63,20 @@ impl Default for Model {
 /// Defines a property in a model description, that will be added to all instances
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct ModelProperty<T: Default + Clone>(pub T);
 
 /// Stores additional model description export data for plugins, to be updated by relevant plugins
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub struct ExportWith(pub HashMap<String, serde_json::Value>);
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
+pub struct ExportWith(#[reflect(ignore)] pub HashMap<String, serde_json::Value>);
 
 /// Stores additional model instance export data when generating Sdf
 #[derive(Debug, Default, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub struct ExportData(pub HashMap<String, sdformat_rs::XmlElement>);
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
+pub struct ExportData(#[reflect(ignore)] pub HashMap<String, sdformat_rs::XmlElement>);
 
 /// Bundle with all required components for a valid model description
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -109,10 +113,10 @@ impl Default for ModelDescriptionBundle {
 /// Bundle with all required components for a valid model instance
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
-pub struct ModelInstance<T: RefTrait> {
+pub struct ModelInstance {
     pub name: NameInSite,
     pub pose: Pose,
-    pub description: Affiliation<T>,
+    pub description: Affiliation,
     #[serde(skip)]
     pub export_data: ExportData,
     #[serde(skip)]
@@ -121,7 +125,7 @@ pub struct ModelInstance<T: RefTrait> {
     pub instance_marker: InstanceMarker,
 }
 
-impl<T: RefTrait> Default for ModelInstance<T> {
+impl Default for ModelInstance {
     fn default() -> Self {
         Self {
             name: NameInSite("<Unnamed>".to_string()),
@@ -134,8 +138,8 @@ impl<T: RefTrait> Default for ModelInstance<T> {
     }
 }
 
-impl<T: RefTrait> ModelInstance<T> {
-    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<ModelInstance<U>, T> {
+impl ModelInstance {
+    pub fn convert(&self, id_map: &HashMap<Entity, Entity>) -> Result<ModelInstance, Entity> {
         Ok(ModelInstance {
             name: self.name.clone(),
             pose: self.pose.clone(),

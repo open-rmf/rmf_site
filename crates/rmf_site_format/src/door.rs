@@ -17,7 +17,7 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Entity};
+use bevy::prelude::{Bundle, Component, Entity, Reflect, ReflectComponent};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -25,9 +25,9 @@ pub const DEFAULT_DOOR_THICKNESS: f32 = 0.05;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
-pub struct Door<T: RefTrait> {
+pub struct Door {
     /// (left_anchor, right_anchor)
-    pub anchors: Edge<T>,
+    pub anchors: Edge,
     /// Name of the door. RMF requires each door name to be unique among all
     /// doors in the site.
     pub name: NameInSite,
@@ -38,7 +38,8 @@ pub struct Door<T: RefTrait> {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
 pub enum DoorType {
     SingleSliding(SingleSlidingDoor),
     DoubleSliding(DoubleSlidingDoor),
@@ -106,6 +107,7 @@ impl Default for DoorType {
 
 /// A single door that slides to one side
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct SingleSlidingDoor {
     /// Which side the door slides towards
     pub towards: Side,
@@ -127,6 +129,7 @@ impl From<SingleSlidingDoor> for DoorType {
 
 /// Two doors that each slide towards their own side
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct DoubleSlidingDoor {
     /// Length of the left door divided by the length of the right door
     pub left_right_ratio: f32,
@@ -159,6 +162,7 @@ impl From<DoubleSlidingDoor> for DoorType {
 
 /// A single door that swings along a pivot on the left or right side
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct SingleSwingDoor {
     /// Which anchor (Left or Right) does the door pivot on
     pub pivot_on: Side,
@@ -184,6 +188,7 @@ impl From<SingleSwingDoor> for DoorType {
 /// Two doors, one left and one right, that each swing on their own pivot.
 /// It is assumed their swinging parameters are symmetrical.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct DoubleSwingDoor {
     pub swing: Swing,
     /// Length of the left door divided by the length of the right door
@@ -226,6 +231,7 @@ impl From<Model> for DoorType {
 /// with the left and right sides of their body aligned with the left and right
 /// anchor points of the door.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub enum Swing {
     /// Swing forwards up to this (positive) angle
     Forward(Angle),
@@ -297,7 +303,8 @@ impl Swing {
 }
 
 #[derive(Clone, Copy, Debug, Default)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct DoorMarker;
 
 #[derive(Clone, Debug, Default)]
@@ -387,20 +394,8 @@ impl Recall for RecallDoorType {
     }
 }
 
-#[cfg(feature = "bevy")]
-impl Door<Entity> {
-    pub fn to_u32(&self, anchors: Edge<u32>) -> Door<u32> {
-        Door {
-            anchors,
-            name: self.name.clone(),
-            kind: self.kind.clone(),
-            marker: Default::default(),
-        }
-    }
-}
-
-impl<T: RefTrait> Door<T> {
-    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Door<U>, T> {
+impl Door {
+    pub fn convert(&self, id_map: &HashMap<Entity, Entity>) -> Result<Door, Entity> {
         Ok(Door {
             anchors: self.anchors.convert(id_map)?,
             name: self.name.clone(),
@@ -410,8 +405,8 @@ impl<T: RefTrait> Door<T> {
     }
 }
 
-impl<T: RefTrait> From<Edge<T>> for Door<T> {
-    fn from(edge: Edge<T>) -> Self {
+impl From<Edge> for Door {
+    fn from(edge: Edge) -> Self {
         Door {
             anchors: edge,
             name: NameInSite("<Unnamed>".to_string()),

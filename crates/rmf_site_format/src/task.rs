@@ -22,13 +22,14 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fmt;
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Reflect, Component))]
 pub struct TaskParams {
     #[serde(default, skip_serializing_if = "is_default")]
     pub unix_millis_earliest_start_time: Option<i32>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub unix_millis_request_time: Option<i32>,
     #[serde(default, skip_serializing_if = "is_default")]
+    #[reflect(ignore)]
     pub priority: Option<serde_json::Value>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub labels: Vec<String>,

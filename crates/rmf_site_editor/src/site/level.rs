@@ -36,7 +36,7 @@ pub fn update_level_visibility(
 
 pub fn assign_orphan_levels_to_site(
     mut commands: Commands,
-    new_levels: Query<Entity, (Without<ChildOf>, Added<LevelElevation>)>,
+    new_levels: Query<Entity, (Without<ChildOf>, With<LevelElevation>)>,
     open_sites: Query<Entity, With<NameOfSite>>,
     current_workspace: Res<CurrentWorkspace>,
 ) {

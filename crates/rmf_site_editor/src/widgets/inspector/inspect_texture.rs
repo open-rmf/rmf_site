@@ -46,7 +46,7 @@ pub struct InspectTextureAffiliation<'w, 's> {
     with_texture: Query<
         'w,
         's,
-        (&'static Category, &'static Affiliation<Entity>),
+        (&'static Category, &'static Affiliation),
         Or<(With<FloorMarker>, With<WallMarker>)>,
     >,
     texture_groups: Query<'w, 's, (&'static NameInSite, &'static Texture), With<Group>>,
@@ -55,7 +55,7 @@ pub struct InspectTextureAffiliation<'w, 's> {
     icons: Res<'w, Icons>,
     search_for_texture: ResMut<'w, SearchForTexture>,
     commands: Commands<'w, 's>,
-    change_affiliation: EventWriter<'w, Change<Affiliation<Entity>>>,
+    change_affiliation: EventWriter<'w, Change<Affiliation>>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectTextureAffiliation<'w, 's> {

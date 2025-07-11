@@ -15,25 +15,26 @@
  *
 */
 
-use crate::RefTrait;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Component, Deref, DerefMut};
+use bevy::prelude::{Component, Deref, DerefMut, Reflect, ReflectComponent};
+use bevy_ecs::prelude::Entity;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 #[serde(transparent)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
-pub struct Point<T>(pub T);
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
+pub struct Point(#[entities] pub Entity);
 
-impl<T: RefTrait> From<T> for Point<T> {
-    fn from(anchor: T) -> Self {
+impl From<Entity> for Point {
+    fn from(anchor: Entity) -> Self {
         Self(anchor)
     }
 }
 
-impl<T: RefTrait> Point<T> {
-    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Point<U>, T> {
+impl Point {
+    pub fn convert(&self, id_map: &HashMap<Entity, Entity>) -> Result<Point, Entity> {
         Ok(Point(id_map.get(&self.0).ok_or(self.0)?.clone()))
     }
 }

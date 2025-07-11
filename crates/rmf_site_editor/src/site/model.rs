@@ -430,7 +430,7 @@ pub struct ModelLoader<'w, 's> {
     model_instances: Query<
         'w,
         's,
-        (Entity, &'static Affiliation<Entity>),
+        (Entity, &'static Affiliation),
         (With<ModelMarker>, Without<Group>, With<AssetSource>),
     >,
 }
@@ -442,7 +442,7 @@ impl<'w, 's> ModelLoader<'w, 's> {
     pub fn spawn_model_instance(
         &mut self,
         parent: Entity,
-        instance: ModelInstance<Entity>,
+        instance: ModelInstance,
     ) -> EntityCommands<'_> {
         self.spawn_model_instance_impulse(parent, instance, move |impulse| {
             impulse.detach();
@@ -454,7 +454,7 @@ impl<'w, 's> ModelLoader<'w, 's> {
     pub fn spawn_model_instance_impulse(
         &mut self,
         parent: Entity,
-        instance: ModelInstance<Entity>,
+        instance: ModelInstance,
         impulse: impl FnOnce(Impulse<InstanceSpawningResult, ()>),
     ) -> EntityCommands<'_> {
         let affiliation = instance.description.clone();
@@ -709,11 +709,11 @@ pub enum ModelLoadingErrorKind {
 #[derive(Clone, Debug)]
 pub struct InstanceSpawningRequest {
     pub parent: Entity,
-    pub affiliation: Affiliation<Entity>,
+    pub affiliation: Affiliation,
 }
 
 impl InstanceSpawningRequest {
-    pub fn new(parent: Entity, affiliation: Affiliation<Entity>) -> Self {
+    pub fn new(parent: Entity, affiliation: Affiliation) -> Self {
         Self {
             parent,
             affiliation,
@@ -862,7 +862,7 @@ pub fn propagate_model_property<Property: Component + Clone + std::fmt::Debug>(
 pub fn update_model_instances<T: Component + Default + Clone>(
     mut commands: Commands,
     model_properties: Query<Ref<ModelProperty<T>>, (With<ModelMarker>, With<Group>)>,
-    model_instances: Query<(Entity, Ref<Affiliation<Entity>>), (With<ModelMarker>, Without<Group>)>,
+    model_instances: Query<(Entity, Ref<Affiliation>), (With<ModelMarker>, Without<Group>)>,
     mut removals: RemovedComponents<ModelProperty<T>>,
 ) {
     // Removals
@@ -890,7 +890,7 @@ pub fn update_model_instances<T: Component + Default + Clone>(
 }
 
 pub type ModelPropertyQuery<'w, 's, P> =
-    Query<'w, 's, &'static Affiliation<Entity>, (With<ModelMarker>, Without<Group>, With<P>)>;
+    Query<'w, 's, &'static Affiliation, (With<ModelMarker>, Without<Group>, With<P>)>;
 
 /// Unique UUID to identify issue of orphan model instance
 pub const ORPHAN_MODEL_INSTANCE_ISSUE_UUID: Uuid =
@@ -900,7 +900,7 @@ pub fn check_for_orphan_model_instances(
     mut commands: Commands,
     mut validate_events: EventReader<ValidateWorkspace>,
     mut orphan_instances: Query<
-        (Entity, &NameInSite, &Affiliation<Entity>),
+        (Entity, &NameInSite, &Affiliation),
         (With<ModelMarker>, Without<Group>, Without<ChildOf>),
     >,
     model_descriptions: Query<&NameInSite, (With<ModelMarker>, With<Group>)>,

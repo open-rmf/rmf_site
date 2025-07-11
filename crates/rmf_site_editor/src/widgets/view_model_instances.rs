@@ -46,11 +46,7 @@ pub struct ViewModelInstances<'w, 's> {
     scenarios: Query<
         'w,
         's,
-        (
-            Entity,
-            &'static ScenarioModifiers<Entity>,
-            &'static Affiliation<Entity>,
-        ),
+        (Entity, &'static ScenarioModifiers, &'static Affiliation),
         With<ScenarioMarker>,
     >,
     current_scenario: ResMut<'w, CurrentScenario>,
@@ -63,12 +59,8 @@ pub struct ViewModelInstances<'w, 's> {
         (Entity, &'static NameInSite, Option<&'static SiteID>),
         (With<ModelMarker>, With<Group>),
     >,
-    model_instances: Query<
-        'w,
-        's,
-        (Entity, &'static NameInSite, &'static Affiliation<Entity>),
-        With<InstanceMarker>,
-    >,
+    model_instances:
+        Query<'w, 's, (Entity, &'static NameInSite, &'static Affiliation), With<InstanceMarker>>,
     selection: Res<'w, Selection>,
     selector: SelectorWidget<'w, 's>,
     delete: EventWriter<'w, Delete>,

@@ -1,4 +1,5 @@
 use crate::*;
+use bevy_ecs::prelude::Entity;
 use glam::Affine2;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -47,7 +48,7 @@ impl NavGraph {
             };
 
             let lanes_with_anchor = {
-                let mut lanes_with_anchor: HashMap<u32, Vec<u32>> = HashMap::new();
+                let mut lanes_with_anchor: HashMap<Entity, Vec<Entity>> = HashMap::new();
                 for (lane_id, lane) in &site.navigation.guided.lanes {
                     if !lane.graphs.includes(graph_id) {
                         continue;
@@ -279,7 +280,7 @@ impl NavLaneProperties {
 pub struct NavVertex(pub f32, pub f32, pub NavVertexProperties);
 
 impl NavVertex {
-    fn from_anchor(anchor: &Anchor, location: Option<&Location<u32>>) -> Self {
+    fn from_anchor(anchor: &Anchor, location: Option<&Location>) -> Self {
         let p = anchor.translation_for_category(Category::General);
         Self(p[0], p[1], NavVertexProperties::from_location(location))
     }
@@ -302,7 +303,7 @@ pub struct NavVertexProperties {
 }
 
 impl NavVertexProperties {
-    fn from_location(location: Option<&Location<u32>>) -> Self {
+    fn from_location(location: Option<&Location>) -> Self {
         let mut props = Self::default();
         let location = match location {
             Some(l) => l,

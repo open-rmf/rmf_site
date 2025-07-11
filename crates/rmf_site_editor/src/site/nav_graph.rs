@@ -42,7 +42,7 @@ impl<'w, 's> GraphSelect<'w, 's> {
     // sensitive to ranks.
     pub fn display_style(
         &self,
-        associated_graphs: &AssociatedGraphs<Entity>,
+        associated_graphs: &AssociatedGraphs,
     ) -> (Handle<StandardMaterial>, f32) {
         match associated_graphs {
             AssociatedGraphs::All => self
@@ -88,7 +88,7 @@ impl<'w, 's> GraphSelect<'w, 's> {
         ))
     }
 
-    pub fn should_display(&self, associated_graphs: &AssociatedGraphs<Entity>) -> bool {
+    pub fn should_display(&self, associated_graphs: &AssociatedGraphs) -> bool {
         match associated_graphs {
             AssociatedGraphs::All => {
                 self.graphs.is_empty()

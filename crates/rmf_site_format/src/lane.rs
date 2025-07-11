@@ -17,15 +17,15 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component};
+use bevy::prelude::{Bundle, Component, Entity, Reflect, ReflectComponent};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
-pub struct Lane<T: RefTrait> {
+pub struct Lane {
     /// The endpoints of the lane (start, end)
-    pub anchors: Edge<T>,
+    pub anchors: Edge,
     /// The properties of the lane when traveling forwards
     #[serde(default, skip_serializing_if = "is_default")]
     pub forward: Motion,
@@ -33,18 +33,20 @@ pub struct Lane<T: RefTrait> {
     #[serde(default, skip_serializing_if = "is_default")]
     pub reverse: ReverseLane,
     /// What graphs this lane is associated with
-    pub graphs: AssociatedGraphs<T>,
+    pub graphs: AssociatedGraphs,
     /// Marker that tells bevy the entity is a Lane-type
     #[serde(skip)]
     pub marker: LaneMarker,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct LaneMarker;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct Motion {
     #[serde(default, skip_serializing_if = "OrientationConstraint::is_none")]
     pub orientation_constraint: OrientationConstraint,
@@ -96,6 +98,7 @@ impl Recall for RecallMotion {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub enum OrientationConstraint {
     None,
     Forwards,
@@ -141,7 +144,8 @@ impl Default for OrientationConstraint {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
 pub enum ReverseLane {
     Same,
     Disable,
@@ -193,8 +197,8 @@ impl Recall for RecallReverseLane {
     }
 }
 
-impl<T: RefTrait> Lane<T> {
-    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Lane<U>, T> {
+impl Lane {
+    pub fn convert(&self, id_map: &HashMap<Entity, Entity>) -> Result<Lane, Entity> {
         Ok(Lane {
             anchors: self.anchors.convert(id_map)?,
             forward: self.forward.clone(),
@@ -205,8 +209,8 @@ impl<T: RefTrait> Lane<T> {
     }
 }
 
-impl<T: RefTrait> From<Edge<T>> for Lane<T> {
-    fn from(edge: Edge<T>) -> Self {
+impl From<Edge> for Lane {
+    fn from(edge: Edge) -> Self {
         Lane {
             anchors: edge,
             forward: Default::default(),

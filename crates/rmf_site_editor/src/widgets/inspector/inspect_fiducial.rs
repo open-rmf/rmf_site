@@ -72,14 +72,13 @@ impl Plugin for InspectFiducialPlugin {
 
 #[derive(SystemParam)]
 pub struct InspectFiducial<'w, 's> {
-    fiducials:
-        Query<'w, 's, (&'static Affiliation<Entity>, &'static ChildOf), With<FiducialMarker>>,
+    fiducials: Query<'w, 's, (&'static Affiliation, &'static ChildOf), With<FiducialMarker>>,
     group_names: Query<'w, 's, &'static NameInSite, (With<Group>, With<FiducialMarker>)>,
     usage: Query<'w, 's, &'static FiducialUsage>,
     icons: Res<'w, Icons>,
     search_for_fiducial: ResMut<'w, SearchForFiducial>,
     commands: Commands<'w, 's>,
-    change_affiliation: EventWriter<'w, Change<Affiliation<Entity>>>,
+    change_affiliation: EventWriter<'w, Change<Affiliation>>,
     names: Query<'w, 's, &'static NameInSite>,
 }
 
@@ -114,7 +113,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectFiducial<'w, 's> {
         panel.align(ui, |ui| {
             ui.separator();
             ui.label("Affiliation");
-            let get_group_name = |affiliation: Affiliation<Entity>| {
+            let get_group_name = |affiliation: Affiliation| {
                 if let Some(group) = affiliation.0 {
                     if let Ok(name) = params.group_names.get(group) {
                         Some(name.0.clone())

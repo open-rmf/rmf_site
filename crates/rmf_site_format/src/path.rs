@@ -15,20 +15,21 @@
  *
 */
 
-use crate::RefTrait;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Component, Deref, DerefMut};
+use bevy::prelude::{Component, Deref, DerefMut, Reflect, ReflectComponent};
+use bevy_ecs::prelude::Entity;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(transparent)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
-pub struct Path<T: RefTrait>(pub Vec<T>);
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
+pub struct Path(#[entities] pub Vec<Entity>);
 
-impl<T: RefTrait> Path<T> {
-    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Path<U>, T> {
-        let path: Result<Vec<U>, T> = self
+impl Path {
+    pub fn convert(&self, id_map: &HashMap<Entity, Entity>) -> Result<Path, Entity> {
+        let path: Result<Vec<Entity>, Entity> = self
             .0
             .iter()
             .map(|a| id_map.get(a).cloned().ok_or(*a))

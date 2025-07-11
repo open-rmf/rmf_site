@@ -220,12 +220,8 @@ where
 #[derive(SystemParam)]
 struct InspectModelDescription<'w, 's> {
     commands: Commands<'w, 's>,
-    model_instances: Query<
-        'w,
-        's,
-        &'static Affiliation<Entity>,
-        (With<ModelMarker>, Without<Group>, With<NameInSite>),
-    >,
+    model_instances:
+        Query<'w, 's, &'static Affiliation, (With<ModelMarker>, Without<Group>, With<NameInSite>)>,
     model_descriptions: Query<'w, 's, &'static NameInSite, (With<ModelMarker>, With<Group>)>,
     model_properties: Res<'w, ModelPropertyData>,
     inspect_model_description: Res<'w, ModelDescriptionInspector>,
@@ -379,7 +375,7 @@ pub struct InspectSelectedModelDescription<'w, 's> {
         (With<ModelMarker>, With<Group>),
     >,
     model_loader: ModelLoader<'w, 's>,
-    change_affiliation: EventWriter<'w, Change<Affiliation<Entity>>>,
+    change_affiliation: EventWriter<'w, Change<Affiliation>>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectSelectedModelDescription<'w, 's> {

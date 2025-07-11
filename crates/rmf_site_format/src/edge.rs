@@ -15,85 +15,110 @@
  *
 */
 
-use crate::{RefTrait, Side};
+use crate::Side;
 #[cfg(feature = "bevy")]
-use bevy::prelude::Component;
+use bevy::prelude::{Component, Deref, DerefMut, Reflect, ReflectComponent};
+use bevy_ecs::{
+    entity::MapEntities,
+    prelude::{Entity, EntityMapper},
+};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(transparent)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub struct Edge<T>([T; 2]);
+#[cfg_attr(feature = "bevy", derive(Component, Reflect, Deref, DerefMut))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
+pub struct Edge(#[entities] TwoArray);
 
-impl<T: RefTrait> Edge<T> {
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "bevy", derive(Reflect, Deref, DerefMut))]
+pub struct TwoArray([Entity; 2]);
+
+impl From<TwoArray> for Edge {
+    fn from(a: TwoArray) -> Edge {
+        Edge(a)
+    }
+}
+
+// TODO(luca) it seems MapEntities should already be implemented for [Entity; 2] but
+// the compiler doesn't seem to find it?
+impl MapEntities for TwoArray {
+    fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
+        for entities in self.0.iter_mut() {
+            entities.map_entities(entity_mapper);
+        }
+    }
+}
+
+impl Edge {
     /// Create a new edge of this type using the given anchors. All other
     /// properties of the edge should have sensible default values.
-    pub fn new(left: T, right: T) -> Self {
-        Self([left, right])
+    pub fn new(left: Entity, right: Entity) -> Self {
+        Self(TwoArray([left, right]))
     }
 
-    pub fn array(&self) -> [T; 2] {
-        self.0
+    pub fn array(&self) -> [Entity; 2] {
+        *self.0
     }
 
-    pub fn array_mut(&mut self) -> &mut [T; 2] {
+    pub fn array_mut(&mut self) -> &mut [Entity; 2] {
         &mut self.0
     }
 
-    pub fn left(&self) -> T {
+    pub fn left(&self) -> Entity {
         self.0[0]
     }
 
-    pub fn left_mut(&mut self) -> &mut T {
+    pub fn left_mut(&mut self) -> &mut Entity {
         self.0.get_mut(0).unwrap()
     }
 
-    pub fn right(&self) -> T {
+    pub fn right(&self) -> Entity {
         self.0[1]
     }
 
-    pub fn right_mut(&mut self) -> &mut T {
+    pub fn right_mut(&mut self) -> &mut Entity {
         self.0.get_mut(1).unwrap()
     }
 
-    pub fn start(&self) -> T {
+    pub fn start(&self) -> Entity {
         self.left()
     }
 
-    pub fn start_mut(&mut self) -> &mut T {
+    pub fn start_mut(&mut self) -> &mut Entity {
         self.left_mut()
     }
 
-    pub fn end(&self) -> T {
+    pub fn end(&self) -> Entity {
         self.right()
     }
 
-    pub fn end_mut(&mut self) -> &mut T {
+    pub fn end_mut(&mut self) -> &mut Entity {
         self.right_mut()
     }
 
-    pub fn side(&self, side: Side) -> T {
+    pub fn side(&self, side: Side) -> Entity {
         match side {
             Side::Left => self.left(),
             Side::Right => self.right(),
         }
     }
 
-    pub fn side_mut(&mut self, side: Side) -> &mut T {
+    pub fn side_mut(&mut self, side: Side) -> &mut Entity {
         match side {
             Side::Left => self.left_mut(),
             Side::Right => self.right_mut(),
         }
     }
 
-    pub fn with_side_of(mut self, side: Side, value: T) -> Self {
+    pub fn with_side_of(mut self, side: Side, value: Entity) -> Self {
         *self.side_mut(side) = value;
         self
     }
 
     pub fn in_reverse(&self) -> Self {
-        Self([self.right(), self.left()])
+        Self(TwoArray([self.right(), self.left()]))
     }
 
     pub fn is_reverse_of(&self, other: &Self) -> bool {
@@ -101,17 +126,17 @@ impl<T: RefTrait> Edge<T> {
     }
 }
 
-impl<T: RefTrait> From<[T; 2]> for Edge<T> {
-    fn from(array: [T; 2]) -> Self {
-        Self(array)
+impl From<[Entity; 2]> for Edge {
+    fn from(array: [Entity; 2]) -> Self {
+        Self(TwoArray(array))
     }
 }
 
-impl<T: RefTrait> Edge<T> {
-    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Edge<U>, T> {
-        Ok(Edge([
+impl Edge {
+    pub fn convert(&self, id_map: &HashMap<Entity, Entity>) -> Result<Edge, Entity> {
+        Ok(Edge(TwoArray([
             id_map.get(&self.left()).ok_or(self.left())?.clone(),
             id_map.get(&self.right()).ok_or(self.right())?.clone(),
-        ]))
+        ])))
     }
 }

@@ -18,6 +18,7 @@
 use crate::{
     Anchor, Angle, AssetSource, Category, DoorType, Level, LiftCabin, Pose, Rotation, Site, Swing,
 };
+use bevy_ecs::prelude::Entity;
 use glam::Vec3;
 use once_cell::sync::Lazy;
 use sdformat_rs::*;
@@ -34,9 +35,9 @@ pub enum SdfConversionError {
     #[error("An asset that can't be converted to an sdf world was found")]
     UnsupportedAssetType,
     #[error("Entity [{0}] referenced a non existing anchor")]
-    BrokenAnchorReference(u32),
+    BrokenAnchorReference(Entity),
     #[error("Entity [{0}] referenced a non existing level")]
-    BrokenLevelReference(u32),
+    BrokenLevelReference(Entity),
     #[error("Parsing lift cabin for lift [{0}] failed")]
     LiftParsingError(String),
     #[error("Lift [{0}] had no initial level where it could be spawned")]
@@ -44,9 +45,9 @@ pub enum SdfConversionError {
     #[error("Unable to find any scenarios")]
     UnableToFindScenario,
     #[error("Entity [{0}] referenced a non existing model instance")]
-    BrokenModelInstanceReference(u32),
+    BrokenModelInstanceReference(Entity),
     #[error("Entity [{0}] referenced a non existing model description")]
-    BrokenModelDescriptionReference(u32),
+    BrokenModelDescriptionReference(Entity),
     #[error("Failed deserializing world template: {0}")]
     CorruptedWorldTemplate(String),
 }
@@ -421,11 +422,11 @@ fn make_sdf_door(
 
 impl Site {
     pub fn to_sdf(&self) -> Result<SdfRoot, SdfConversionError> {
-        let get_anchor = |id: u32| -> Result<&Anchor, SdfConversionError> {
+        let get_anchor = |id: Entity| -> Result<&Anchor, SdfConversionError> {
             self.get_anchor(id)
                 .ok_or(SdfConversionError::BrokenAnchorReference(id))
         };
-        let get_level = |id: u32| -> Result<&Level, SdfConversionError> {
+        let get_level = |id: Entity| -> Result<&Level, SdfConversionError> {
             self.levels
                 .get(&id)
                 .ok_or(SdfConversionError::BrokenLevelReference(id))
@@ -657,7 +658,7 @@ impl Site {
             toggle_floors_plugin.elements.push(floor_models_ele);
         }
         for (lift_id, lift) in &self.lifts {
-            let get_lift_anchor = |id: u32| -> Result<&Anchor, SdfConversionError> {
+            let get_lift_anchor = |id: Entity| -> Result<&Anchor, SdfConversionError> {
                 lift.cabin_anchors
                     .get(&id)
                     .ok_or(SdfConversionError::BrokenAnchorReference(id))
@@ -698,7 +699,7 @@ impl Site {
             elements.push(("dx_min_cabin", "0.001".to_string()));
             elements.push(("f_max_cabin", "25323.0".to_string()));
             elements.push(("cabin_joint_name", "cabin_joint".to_string()));
-            let mut levels: BTreeMap<u32, ElementMap> = BTreeMap::new();
+            let mut levels: BTreeMap<Entity, ElementMap> = BTreeMap::new();
             let mut lift_models = Vec::new();
             let mut lift_joints = vec![SdfJoint {
                 name: "cabin_joint".into(),
@@ -899,7 +900,7 @@ impl Site {
 
     fn generate_chargers_plugin(&self) -> Result<SdfPlugin, SdfConversionError> {
         let get_anchor_and_elevations =
-            |id: u32| -> Result<(&Anchor, Vec<f32>), SdfConversionError> {
+            |id: Entity| -> Result<(&Anchor, Vec<f32>), SdfConversionError> {
                 let (anchor, level) = self
                     .get_anchor_and_level(id)
                     .ok_or(SdfConversionError::BrokenAnchorReference(id))?;

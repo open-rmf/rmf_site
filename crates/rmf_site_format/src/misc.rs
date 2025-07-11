@@ -15,9 +15,9 @@
  *
 */
 
-use crate::RefTrait;
 #[cfg(feature = "bevy")]
 use bevy::prelude::*;
+use bevy_ecs::prelude::Entity;
 use glam::{Quat, Vec2, Vec3};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -25,6 +25,7 @@ use std::collections::HashMap;
 pub const DEFAULT_LEVEL_HEIGHT: f32 = 3.0;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub enum Side {
     Left,
     Right,
@@ -474,8 +475,8 @@ pub struct SiteID(pub u32);
 
 /// Helper structure to serialize / deserialize entities with parents
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Parented<P: RefTrait, T> {
-    pub parent: P,
+pub struct Parented<T> {
+    pub parent: Entity,
     #[serde(flatten)]
     pub bundle: T,
 }
@@ -497,35 +498,37 @@ pub struct Original<T>(pub T);
 
 /// Marks that an entity represents a group
 #[derive(Clone, Copy, Debug, Default)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct Group;
 
 /// Affiliates an entity with a group.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(transparent)]
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
-pub struct Affiliation<T: RefTrait>(pub Option<T>);
+#[cfg_attr(feature = "bevy", reflect(Component))]
+pub struct Affiliation(#[entities] pub Option<Entity>);
 
-impl<T: RefTrait> From<T> for Affiliation<T> {
-    fn from(value: T) -> Self {
+impl From<Entity> for Affiliation {
+    fn from(value: Entity) -> Self {
         Affiliation(Some(value))
     }
 }
 
-impl<T: RefTrait> From<Option<T>> for Affiliation<T> {
-    fn from(value: Option<T>) -> Self {
+impl From<Option<Entity>> for Affiliation {
+    fn from(value: Option<Entity>) -> Self {
         Affiliation(value)
     }
 }
 
-impl<T: RefTrait> Default for Affiliation<T> {
+impl Default for Affiliation {
     fn default() -> Self {
         Affiliation(None)
     }
 }
 
-impl<T: RefTrait> Affiliation<T> {
-    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Affiliation<U>, T> {
+impl Affiliation {
+    pub fn convert(&self, id_map: &HashMap<Entity, Entity>) -> Result<Affiliation, Entity> {
         if let Some(x) = self.0 {
             Ok(Affiliation(Some(id_map.get(&x).ok_or(x)?.clone())))
         } else {

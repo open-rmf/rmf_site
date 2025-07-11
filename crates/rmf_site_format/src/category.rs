@@ -113,6 +113,7 @@ impl Category {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(transparent)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct Categorized<T>(pub(crate) BTreeMap<Category, T>);
 
 impl<T> Categorized<T> {

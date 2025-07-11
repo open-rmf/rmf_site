@@ -115,7 +115,7 @@ pub fn add_outline_visualization(
         Or<(
             Added<WallMarker>,
             Added<DoorType>,
-            Added<LiftCabin<Entity>>,
+            Added<LiftCabin>,
             Added<MeasurementMarker>,
             Added<FiducialMarker>,
             Added<FloorMarker>,

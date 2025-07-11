@@ -23,7 +23,7 @@ use uuid::Uuid;
 
 #[derive(Component, Debug, Clone)]
 pub struct Issue {
-    pub key: IssueKey<Entity>,
+    pub key: IssueKey,
     /// Short description of the issue
     pub brief: String,
     /// Hint on how to approach solving the issue
@@ -59,7 +59,7 @@ impl Plugin for IssuePlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<ValidateWorkspace>()
             .add_plugins((
-                ChangePlugin::<FilteredIssues<Entity>>::default(),
+                ChangePlugin::<FilteredIssues>::default(),
                 ChangePlugin::<FilteredIssueKinds>::default(),
             ))
             .init_resource::<IssueDictionary>()

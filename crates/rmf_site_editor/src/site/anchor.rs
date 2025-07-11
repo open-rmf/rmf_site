@@ -108,7 +108,7 @@ pub fn assign_orphan_anchors_to_parent(
     mut orphan_anchors: Query<(Entity, &mut Anchor), Without<ChildOf>>,
     mut commands: Commands,
     mut current_level: ResMut<CurrentLevel>,
-    lifts: Query<(&LiftCabin<Entity>, &ChildCabinAnchorGroup, &GlobalTransform)>,
+    lifts: Query<(&LiftCabin, &ChildCabinAnchorGroup, &GlobalTransform)>,
     lift_anchor_groups: Query<&GlobalTransform, With<CabinAnchorGroup>>,
 ) {
     for (e_anchor, mut anchor) in &mut orphan_anchors {

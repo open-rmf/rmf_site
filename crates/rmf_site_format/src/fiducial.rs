@@ -15,9 +15,9 @@
  *
 */
 
-use crate::{Affiliation, Group, NameInSite, Point, RefTrait};
+use crate::{Affiliation, Group, NameInSite, Point};
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component};
+use bevy::prelude::{Bundle, Component, Entity, Reflect, ReflectComponent};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -25,12 +25,12 @@ use std::collections::HashMap;
 /// to other drawings and levels.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
-pub struct Fiducial<T: RefTrait> {
+pub struct Fiducial {
     /// The anchor that represents the position of this fiducial.
-    pub anchor: Point<T>,
+    pub anchor: Point,
     /// Affiliation of this fiducial. This affiliation must be unique within the
     /// parent level or parent drawing of the fiducial.
-    pub affiliation: Affiliation<T>,
+    pub affiliation: Affiliation,
     #[serde(skip)]
     pub marker: FiducialMarker,
 }
@@ -57,11 +57,12 @@ impl FiducialGroup {
 }
 
 #[derive(Clone, Copy, Debug, Default)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct FiducialMarker;
 
-impl<T: RefTrait> Fiducial<T> {
-    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Fiducial<U>, T> {
+impl Fiducial {
+    pub fn convert(&self, id_map: &HashMap<Entity, Entity>) -> Result<Fiducial, Entity> {
         Ok(Fiducial {
             anchor: self.anchor.convert(id_map)?,
             affiliation: self.affiliation.convert(id_map)?,
@@ -70,8 +71,8 @@ impl<T: RefTrait> Fiducial<T> {
     }
 }
 
-impl<T: RefTrait> From<Point<T>> for Fiducial<T> {
-    fn from(anchor: Point<T>) -> Self {
+impl From<Point> for Fiducial {
+    fn from(anchor: Point) -> Self {
         Self {
             anchor,
             affiliation: Default::default(),

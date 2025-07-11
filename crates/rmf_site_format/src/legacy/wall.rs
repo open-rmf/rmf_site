@@ -1,5 +1,6 @@
 use super::{rbmf::*, PortingError, Result};
 use crate::{Affiliation, AssetSource, Texture, Wall as SiteWall, DEFAULT_LEVEL_HEIGHT};
+use bevy_ecs::prelude::Entity;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, HashMap},
@@ -48,11 +49,11 @@ pub struct Wall(pub usize, pub usize, pub WallProperties);
 impl Wall {
     pub fn to_site(
         &self,
-        vertex_to_anchor_id: &HashMap<usize, u32>,
-        textures: &mut BTreeMap<u32, Texture>,
-        texture_map: &mut HashMap<WallProperties, u32>,
+        vertex_to_anchor_id: &HashMap<usize, Entity>,
+        textures: &mut BTreeMap<Entity, Texture>,
+        texture_map: &mut HashMap<WallProperties, Entity>,
         site_id: &mut RangeFrom<u32>,
-    ) -> Result<SiteWall<u32>> {
+    ) -> Result<SiteWall> {
         let left_anchor = vertex_to_anchor_id
             .get(&self.0)
             .ok_or(PortingError::InvalidVertex(self.0))?;
@@ -82,7 +83,7 @@ impl Wall {
                 }
             };
 
-            let texture_site_id = site_id.next().unwrap();
+            let texture_site_id = Entity::from_raw(site_id.next().unwrap());
             textures.insert(texture_site_id, texture);
             texture_site_id
         });

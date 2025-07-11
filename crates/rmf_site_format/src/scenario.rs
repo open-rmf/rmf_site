@@ -18,6 +18,7 @@
 use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Bundle, Component, Deref, DerefMut, Reflect, ReflectComponent};
+use bevy_ecs::prelude::Entity;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 
@@ -29,13 +30,15 @@ pub struct InstanceMarker;
 /// A modifier property used to describe whether an element is explicitly included
 /// or hidden in a scenario.
 #[derive(Serialize, Deserialize, Debug, Default, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
 pub enum Inclusion {
     Included,
     #[default]
     Hidden,
 }
 
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
 pub struct InstanceModifier {
     #[serde(default, skip_serializing_if = "is_default")]
@@ -45,6 +48,7 @@ pub struct InstanceModifier {
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct TaskModifier {
     #[serde(default, skip_serializing_if = "is_default")]
     pub inclusion: Option<Inclusion>,
@@ -52,10 +56,11 @@ pub struct TaskModifier {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
-pub struct ScenarioModifiers<T: RefTrait>(pub HashMap<T, T>);
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
+pub struct ScenarioModifiers(pub HashMap<Entity, Entity>);
 
-impl<T: RefTrait> Default for ScenarioModifiers<T> {
+impl Default for ScenarioModifiers {
     fn default() -> Self {
         Self(HashMap::new())
     }
@@ -67,16 +72,18 @@ impl<T: RefTrait> Default for ScenarioModifiers<T> {
 pub struct ScenarioMarker;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub struct Scenario<T: RefTrait> {
-    pub instances: BTreeMap<T, InstanceModifier>,
-    pub tasks: BTreeMap<T, TaskModifier>,
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
+pub struct Scenario {
+    pub instances: BTreeMap<Entity, InstanceModifier>,
+    #[reflect(ignore)]
+    pub tasks: BTreeMap<Entity, TaskModifier>,
     #[serde(flatten)]
-    pub properties: ScenarioBundle<T>,
+    pub properties: ScenarioBundle,
 }
 
-impl<T: RefTrait> Scenario<T> {
-    pub fn from_name_parent(name: Option<String>, parent: Option<T>) -> Scenario<T> {
+impl Scenario {
+    pub fn from_name_parent(name: Option<String>, parent: Option<Entity>) -> Scenario {
         Scenario {
             instances: BTreeMap::new(),
             tasks: BTreeMap::new(),
@@ -86,7 +93,7 @@ impl<T: RefTrait> Scenario<T> {
 }
 
 // Create a root scenario without parent
-impl<T: RefTrait> Default for Scenario<T> {
+impl Default for Scenario {
     fn default() -> Self {
         Self {
             instances: BTreeMap::new(),
@@ -96,8 +103,8 @@ impl<T: RefTrait> Default for Scenario<T> {
     }
 }
 
-impl<T: RefTrait> Scenario<T> {
-    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Scenario<U>, T> {
+impl Scenario {
+    pub fn convert(&self, id_map: &HashMap<Entity, Entity>) -> Result<Scenario, Entity> {
         Ok(Scenario {
             instances: self
                 .instances
@@ -107,7 +114,7 @@ impl<T: RefTrait> Scenario<T> {
                     let converted_id = id_map.get(&id).cloned().ok_or(id)?;
                     Ok((converted_id, instance))
                 })
-                .collect::<Result<_, _>>()?,
+                .collect::<Result<_, Entity>>()?,
             tasks: self
                 .tasks
                 .clone()
@@ -116,7 +123,7 @@ impl<T: RefTrait> Scenario<T> {
                     let converted_id = id_map.get(&id).cloned().ok_or(id)?;
                     Ok((converted_id, task))
                 })
-                .collect::<Result<_, _>>()?,
+                .collect::<Result<_, Entity>>()?,
             properties: self.properties.convert(id_map)?,
         })
     }
@@ -125,15 +132,15 @@ impl<T: RefTrait> Scenario<T> {
 const DEFAULT_SCENARIO_NAME: &'static str = "Default Scenario";
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Bundle))]
-pub struct ScenarioBundle<T: RefTrait> {
+#[cfg_attr(feature = "bevy", derive(Bundle, Reflect))]
+pub struct ScenarioBundle {
     pub name: NameInSite,
-    pub parent_scenario: Affiliation<T>,
+    pub parent_scenario: Affiliation,
     pub marker: ScenarioMarker,
 }
 
-impl<T: RefTrait> ScenarioBundle<T> {
-    pub fn new(name: Option<String>, parent: Option<T>) -> ScenarioBundle<T> {
+impl ScenarioBundle {
+    pub fn new(name: Option<String>, parent: Option<Entity>) -> ScenarioBundle {
         ScenarioBundle {
             name: NameInSite(name.unwrap_or(DEFAULT_SCENARIO_NAME.to_string())),
             parent_scenario: Affiliation(parent),
@@ -142,7 +149,7 @@ impl<T: RefTrait> ScenarioBundle<T> {
     }
 }
 
-impl<T: RefTrait> Default for ScenarioBundle<T> {
+impl Default for ScenarioBundle {
     fn default() -> Self {
         Self {
             name: NameInSite(DEFAULT_SCENARIO_NAME.to_string()),
@@ -152,8 +159,8 @@ impl<T: RefTrait> Default for ScenarioBundle<T> {
     }
 }
 
-impl<T: RefTrait> ScenarioBundle<T> {
-    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<ScenarioBundle<U>, T> {
+impl ScenarioBundle {
+    pub fn convert(&self, id_map: &HashMap<Entity, Entity>) -> Result<ScenarioBundle, Entity> {
         Ok(ScenarioBundle {
             name: self.name.clone(),
             parent_scenario: self.parent_scenario.convert(id_map)?,

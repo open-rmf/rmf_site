@@ -29,7 +29,7 @@ struct VisibilityEvents<'w> {
     doors: EventWriter<'w, SetCategoryVisibility<DoorMarker>>,
     floors: EventWriter<'w, SetCategoryVisibility<FloorMarker>>,
     lanes: EventWriter<'w, SetCategoryVisibility<LaneMarker>>,
-    lift_cabins: EventWriter<'w, SetCategoryVisibility<LiftCabin<Entity>>>,
+    lift_cabins: EventWriter<'w, SetCategoryVisibility<LiftCabin>>,
     lift_cabin_doors: EventWriter<'w, SetCategoryVisibility<LiftCabinDoorMarker>>,
     locations: EventWriter<'w, SetCategoryVisibility<LocationTags>>,
     fiducials: EventWriter<'w, SetCategoryVisibility<FiducialMarker>>,
@@ -83,7 +83,7 @@ impl FromWorld for ViewMenuItems {
             ))
             .insert(ChildOf(view_header))
             .id();
-        let default_visibility = world.resource::<CategoryVisibility<LiftCabin<Entity>>>();
+        let default_visibility = world.resource::<CategoryVisibility<LiftCabin>>();
         let lifts = world
             .spawn(MenuItem::CheckBox(
                 "Lifts".to_string(),

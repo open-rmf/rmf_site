@@ -17,6 +17,7 @@ glam = { workspace = true, features = ["serde"] }
 uuid = { workspace = true, features = ["v4", "serde"] }
 # add features=["bevy"] to a dependent Cargo.toml to get the bevy-related features
 bevy = { workspace = true, optional = true }
+bevy_ecs = {workspace = true, features = ["serialize"] }
 sdformat_rs = { workspace = true }
 # We depend on a bugfix released specifically in 0.7.3
 urdf-rs = { workspace = true, optional = true }

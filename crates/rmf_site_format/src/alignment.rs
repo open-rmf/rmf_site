@@ -1,31 +1,23 @@
 use super::legacy::building_map::BuildingMap;
-use crate::RefTrait;
+use bevy_ecs::prelude::Entity;
 use glam::{DAffine2, DMat2, DVec2};
 use std::collections::HashMap;
 
-pub struct SiteVariables<T: RefTrait> {
-    pub fiducials: Vec<FiducialVariables<T>>,
-    pub drawings: HashMap<T, DrawingVariables<T>>,
+#[derive(Default)]
+pub struct SiteVariables {
+    pub fiducials: Vec<FiducialVariables>,
+    pub drawings: HashMap<Entity, DrawingVariables>,
 }
 
-impl<T: RefTrait> Default for SiteVariables<T> {
-    fn default() -> Self {
-        Self {
-            fiducials: Default::default(),
-            drawings: Default::default(),
-        }
-    }
-}
-
-pub struct DrawingVariables<T: RefTrait> {
+pub struct DrawingVariables {
     pub position: DVec2,
     pub yaw: f64,
     pub scale: f64,
-    pub fiducials: Vec<FiducialVariables<T>>,
+    pub fiducials: Vec<FiducialVariables>,
     pub measurements: Vec<MeasurementVariables>,
 }
 
-impl<T: RefTrait> DrawingVariables<T> {
+impl DrawingVariables {
     pub fn new(position: DVec2, yaw: f64, scale: f64) -> Self {
         Self {
             position,
@@ -37,8 +29,8 @@ impl<T: RefTrait> DrawingVariables<T> {
     }
 }
 
-pub struct FiducialVariables<T: RefTrait> {
-    pub group: T,
+pub struct FiducialVariables {
+    pub group: Entity,
     pub position: DVec2,
 }
 
@@ -65,14 +57,14 @@ impl Alignment {
     }
 }
 
-pub fn align_site<T: RefTrait>(site_variables: &SiteVariables<T>) -> HashMap<T, Alignment> {
+pub fn align_site(site_variables: &SiteVariables) -> HashMap<Entity, Alignment> {
     let mut drawing_map = HashMap::new();
     let mut measurements = Vec::new();
     let mut fiducials = Vec::new();
     let mut group_map = HashMap::new();
     let mut u = Vec::new();
 
-    let mut incorporate_fiducials = |vars: &[FiducialVariables<T>]| {
+    let mut incorporate_fiducials = |vars: &[FiducialVariables]| {
         let mut drawing_fiducials = Vec::new();
         for FiducialVariables { group, position } in vars {
             let num_groups = group_map.len();

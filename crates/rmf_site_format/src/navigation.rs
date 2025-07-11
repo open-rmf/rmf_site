@@ -16,6 +16,7 @@
 */
 
 use crate::*;
+use bevy_ecs::prelude::Entity;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -34,15 +35,15 @@ impl Navigation {
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Guided {
     /// Properties of each nav graph
-    pub graphs: BTreeMap<u32, NavGraph>,
+    pub graphs: BTreeMap<Entity, NavGraph>,
     /// The "ranking" of the graphs, which indicates which is displayed on top.
     /// Each element is the unique ID of a NavGraph entity. IDs that come
     /// earlier in the array will be displayed over IDs that come later.
-    pub ranking: Vec<u32>,
+    pub ranking: Vec<Entity>,
     /// Properties of each robot traffic lane
-    pub lanes: BTreeMap<u32, Lane<u32>>,
+    pub lanes: BTreeMap<Entity, Lane>,
     /// Properties of each special location
-    pub locations: BTreeMap<u32, Location<u32>>,
+    pub locations: BTreeMap<Entity, Location>,
 }
 
 impl Guided {

@@ -16,13 +16,15 @@
 */
 
 #[cfg(feature = "bevy")]
-use bevy::prelude::Component;
+use bevy::prelude::{Component, Reflect, ReflectComponent};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct Robot {
+    #[reflect(ignore)]
     pub properties: HashMap<String, serde_json::Value>,
 }
 

@@ -49,7 +49,7 @@ pub fn spawn_create_point_service(
 
 pub struct CreatePoint {
     /// Function pointer for spawning a point.
-    pub spawn_point: fn(Point<Entity>, &mut Commands) -> Entity,
+    pub spawn_point: fn(Point, &mut Commands) -> Entity,
     /// The point which is being created. This will initially be [`None`] until
     /// setup happens, then `spawn_point` will be used to create this. For all
     /// the services in the `create_point` workflow besides setup, this should
@@ -62,7 +62,7 @@ pub struct CreatePoint {
 }
 
 impl CreatePoint {
-    pub fn new<T: Bundle + From<Point<Entity>>>(repeating: bool, scope: AnchorScope) -> Self {
+    pub fn new<T: Bundle + From<Point>>(repeating: bool, scope: AnchorScope) -> Self {
         Self {
             spawn_point: create_point::<T>,
             point: None,
@@ -85,10 +85,7 @@ impl Borrow<AnchorScope> for CreatePoint {
     }
 }
 
-fn create_point<T: Bundle + From<Point<Entity>>>(
-    point: Point<Entity>,
-    commands: &mut Commands,
-) -> Entity {
+fn create_point<T: Bundle + From<Point>>(point: Point, commands: &mut Commands) -> Entity {
     let new_bundle: T = point.into();
     commands.spawn((new_bundle, Pending)).id()
 }
@@ -112,7 +109,7 @@ pub fn create_point_setup(
 fn change_point(
     chosen: Entity,
     point: Entity,
-    points: &mut Query<&mut Point<Entity>>,
+    points: &mut Query<&mut Point>,
     commands: &mut Commands,
 ) -> SelectionNodeResult {
     let mut point_mut = points.get_mut(point).or_broken_query()?;
@@ -131,7 +128,7 @@ pub fn on_hover_for_create_point(
     mut access: BufferAccessMut<CreatePoint>,
     mut cursor: ResMut<Cursor>,
     mut visibility: Query<&mut Visibility>,
-    mut points: Query<&mut Point<Entity>>,
+    mut points: Query<&mut Point>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
@@ -156,7 +153,7 @@ pub fn on_select_for_create_point(
     In((selection, key)): In<(SelectionCandidate, BufferKey<CreatePoint>)>,
     mut access: BufferAccessMut<CreatePoint>,
     cursor: Res<Cursor>,
-    mut points: Query<&mut Point<Entity>>,
+    mut points: Query<&mut Point>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
@@ -179,7 +176,7 @@ pub fn on_select_for_create_point(
 pub fn cleanup_create_point(
     In(key): In<BufferKey<CreatePoint>>,
     mut access: BufferAccessMut<CreatePoint>,
-    points: Query<&'static Point<Entity>>,
+    points: Query<&'static Point>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
