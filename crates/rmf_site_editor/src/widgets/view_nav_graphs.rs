@@ -29,6 +29,7 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, ImageButton, Ui};
+use rmf_site_egui::*;
 
 /// Add a widget for viewing and editing navigation graphs.
 #[derive(Default)]
