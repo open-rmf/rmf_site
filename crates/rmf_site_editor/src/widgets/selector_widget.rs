@@ -21,6 +21,7 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Button, Ui};
+use rmf_site_egui::{ShareableWidget, WidgetSystem};
 use rmf_site_picking::{Hover, Select, Selection};
 
 /// A widget that can be used to select entities.

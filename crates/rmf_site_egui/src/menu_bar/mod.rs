@@ -15,12 +15,11 @@
  *
 */
 
-use crate::widgets::prelude::*;
-use crate::widgets::{HeaderPanelPlugin, HeaderTilePlugin, StandardCreationPlugin};
-
-use bevy::ecs::{hierarchy::ChildOf, query::Has};
-use bevy::prelude::*;
+use bevy_app::prelude::*;
+use bevy_ecs::prelude::*;
 use bevy_egui::egui::{self, Button, Ui};
+
+use crate::*;
 
 /// Add the standard menu bar to the application.
 #[derive(Default)]
@@ -28,15 +27,11 @@ pub struct MenuBarPlugin {}
 
 impl Plugin for MenuBarPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((
-            HeaderPanelPlugin::default(),
-            MenuDropdownPlugin::default(),
-            StandardCreationPlugin::default(),
-        ))
-        .add_event::<MenuEvent>()
-        .init_resource::<FileMenu>()
-        .init_resource::<ToolMenu>()
-        .init_resource::<ViewMenu>();
+        app.add_plugins((HeaderPanelPlugin::default(), MenuDropdownPlugin::default()))
+            .add_event::<MenuEvent>()
+            .init_resource::<FileMenu>()
+            .init_resource::<ToolMenu>()
+            .init_resource::<ViewMenu>();
     }
 }
 
@@ -148,7 +143,7 @@ impl MenuItem {
 
     pub fn checkbox_value_mut(&mut self) -> Option<&mut bool> {
         match self {
-            MenuItem::CheckBox(_, ref mut value) => Some(value),
+            &mut MenuItem::CheckBox(_, ref mut value) => Some(value),
             _ => None,
         }
     }
@@ -284,14 +279,14 @@ pub fn render_sub_menu(
         match e {
             MenuItem::Text(item) => {
                 let mut button = Button::new(&item.text);
-                if let Some(ref shortcut) = &item.shortcut {
+                if let Some(shortcut) = &item.shortcut {
                     button = button.shortcut_text(shortcut);
                 }
                 if ui.add_enabled(!disabled, button).clicked() {
                     extension_events.write(MenuEvent::MenuClickEvent(*entity));
                 }
             }
-            MenuItem::CheckBox(title, mut value) => {
+            &MenuItem::CheckBox(ref title, mut value) => {
                 if ui
                     .add_enabled(!disabled, egui::Checkbox::new(&mut value, title))
                     .clicked()

@@ -24,6 +24,7 @@ use crate::{
 };
 use bevy::{math::Quat, prelude::*};
 use bevy_egui::egui::{ComboBox, DragValue, Grid, Ui};
+use rmf_site_egui::WidgetSystem;
 use rmf_site_format::{Pose, Rotation};
 
 #[derive(SystemParam)]

@@ -21,6 +21,7 @@ use crate::{
 };
 use bevy::prelude::*;
 use bevy_egui::egui::Ui;
+use rmf_site_egui::*;
 use rmf_site_format::NameInSite;
 
 #[derive(SystemParam)]
