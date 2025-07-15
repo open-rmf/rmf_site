@@ -24,6 +24,7 @@ use crate::{
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{ComboBox, Ui};
+use rmf_site_egui::{ShareableWidget, WidgetSystem};
 
 #[derive(SystemParam)]
 pub struct InspectLevel<'w, 's> {
