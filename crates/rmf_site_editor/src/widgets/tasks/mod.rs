@@ -18,8 +18,8 @@ use crate::{
     site::{
         count_scenarios_with_inclusion, Affiliation, Category, Change, CurrentScenario, Delete,
         DispatchTaskRequest, GetModifier, Group, Inclusion, Modifier, NameInSite, Pending, Robot,
-        RobotTaskRequest, ScenarioMarker, ScenarioModifiers, Task, TaskKinds, TaskParams,
-        UpdateModifier, UpdateTaskModifier,
+        RobotTaskRequest, ScenarioModifiers, Task, TaskKinds, TaskParams, UpdateModifier,
+        UpdateModifierEvent,
     },
     Icons,
 };
@@ -132,12 +132,10 @@ pub struct ViewTasks<'w, 's> {
             &'static ScenarioModifiers<Entity>,
             &'static Affiliation<Entity>,
         ),
-        With<ScenarioMarker>,
     >,
     task_kinds: ResMut<'w, TaskKinds>,
     task_widget: ResMut<'w, TaskWidget>,
     tasks: Query<'w, 's, (Entity, &'static Task), Without<Pending>>,
-    update_task_modifier: EventWriter<'w, UpdateModifier<UpdateTaskModifier>>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for ViewTasks<'w, 's> {
@@ -194,12 +192,12 @@ impl<'w, 's> ViewTasks<'w, 's> {
                     );
                     if show_task(
                         ui,
+                        &mut self.commands,
                         task_entity,
                         task,
                         current_scenario_entity,
                         &self.get_inclusion_modifier,
                         &self.get_params_modifier,
-                        &mut self.update_task_modifier,
                         &mut self.delete,
                         scenario_count,
                         &self.icons,
@@ -253,7 +251,6 @@ impl<'w, 's> ViewTasks<'w, 's> {
                     &self.task_kinds,
                     &self.robots,
                     &mut self.change_task,
-                    &mut self.update_task_modifier,
                 );
             } else {
                 if let Ok((_, existing_task)) = self.tasks.get_mut(task_entity) {
@@ -285,7 +282,6 @@ impl<'w, 's> ViewTasks<'w, 's> {
                         &self.task_kinds,
                         &self.robots,
                         &mut self.change_task,
-                        &mut self.update_task_modifier,
                     );
                 }
             }
@@ -318,12 +314,12 @@ impl<'w, 's> ViewTasks<'w, 's> {
 /// wishes to edit the task.
 fn show_task(
     ui: &mut Ui,
+    commands: &mut Commands,
     task_entity: Entity,
     task: &Task,
     scenario: Entity,
     get_inclusion_modifier: &GetModifier<Modifier<Inclusion>>,
     get_params_modifier: &GetModifier<Modifier<TaskParams>>,
-    update_task_modifier: &mut EventWriter<UpdateModifier<UpdateTaskModifier>>,
     delete: &mut EventWriter<Delete>,
     scenario_count: i32,
     icons: &Res<Icons>,
@@ -373,10 +369,10 @@ fn show_task(
                                 .on_hover_text("Task is hidden in this scenario")
                                 .clicked()
                             {
-                                update_task_modifier.write(UpdateModifier::new(
+                                commands.trigger(UpdateModifierEvent::<Inclusion>::new(
                                     scenario,
                                     task_entity,
-                                    UpdateTaskModifier::Include,
+                                    UpdateModifier::Modify(Inclusion::Included),
                                 ));
                             }
                         } else {
@@ -391,17 +387,17 @@ fn show_task(
                                     .is_ok_and(|(_, a)| a.0.is_some())
                                 {
                                     // If parent scenario exists, clicking this button toggles to ResetInclusion
-                                    update_task_modifier.write(UpdateModifier::new(
+                                    commands.trigger(UpdateModifierEvent::<Inclusion>::new(
                                         scenario,
                                         task_entity,
-                                        UpdateTaskModifier::ResetInclusion,
+                                        UpdateModifier::Reset,
                                     ));
                                 } else {
                                     // Otherwise, toggle to Hidden
-                                    update_task_modifier.write(UpdateModifier::new(
+                                    commands.trigger(UpdateModifierEvent::<Inclusion>::new(
                                         scenario,
                                         task_entity,
-                                        UpdateTaskModifier::Hide,
+                                        UpdateModifier::Modify(Inclusion::Hidden),
                                     ));
                                 }
                             }
@@ -413,10 +409,10 @@ fn show_task(
                             .on_hover_text("Task inclusion is inherited in this scenario")
                             .clicked()
                         {
-                            update_task_modifier.write(UpdateModifier::new(
+                            commands.trigger(UpdateModifierEvent::<Inclusion>::new(
                                 scenario,
                                 task_entity,
-                                UpdateTaskModifier::Hide,
+                                UpdateModifier::Modify(Inclusion::Hidden),
                             ));
                         }
                     }
@@ -542,10 +538,10 @@ fn show_task(
                                         )
                                         .clicked()
                                     {
-                                        update_task_modifier.write(UpdateModifier::new(
+                                        commands.trigger(UpdateModifierEvent::<TaskParams>::new(
                                             scenario,
                                             task_entity,
-                                            UpdateTaskModifier::ResetParams,
+                                            UpdateModifier::Reset,
                                         ));
                                     }
                                     ui.end_row();
@@ -567,7 +563,6 @@ fn edit_task(
     task_kinds: &ResMut<TaskKinds>,
     robots: &Query<(Entity, &NameInSite), (With<Robot>, Without<Group>)>,
     change_task: &mut EventWriter<Change<Task>>,
-    update_task_modifier: &mut EventWriter<UpdateModifier<UpdateTaskModifier>>,
 ) {
     Grid::new("edit_task_".to_owned() + &task_entity.index().to_string())
         .num_columns(2)
@@ -805,10 +800,10 @@ fn edit_task(
                     }
 
                     if new_task_params != *task_params {
-                        update_task_modifier.write(UpdateModifier::new(
+                        commands.trigger(UpdateModifierEvent::<TaskParams>::new(
                             scenario,
                             task_entity,
-                            UpdateTaskModifier::Modify(new_task_params),
+                            UpdateModifier::Modify(new_task_params),
                         ));
                     }
                 });

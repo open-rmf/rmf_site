@@ -18,8 +18,8 @@
 use crate::{
     site::{
         count_scenarios_with_visibility, Affiliation, CurrentScenario, Delete, GetModifier, Group,
-        Members, ModelMarker, Modifier, NameInSite, ScenarioMarker, ScenarioModifiers,
-        UpdateInstance, UpdateModifier,
+        Members, ModelMarker, Modifier, NameInSite, ScenarioModifiers, UpdateModifier,
+        UpdateModifierEvent,
     },
     widgets::{prelude::*, SelectorWidget},
     Icons,
@@ -44,6 +44,7 @@ impl Plugin for ViewModelInstancesPlugin {
 
 #[derive(SystemParam)]
 pub struct ViewModelInstances<'w, 's> {
+    commands: Commands<'w, 's>,
     scenarios: Query<
         'w,
         's,
@@ -52,7 +53,6 @@ pub struct ViewModelInstances<'w, 's> {
             &'static ScenarioModifiers<Entity>,
             &'static Affiliation<Entity>,
         ),
-        With<ScenarioMarker>,
     >,
     current_scenario: ResMut<'w, CurrentScenario>,
     get_modifier: GetModifier<'w, 's, Modifier<Visibility>>,
@@ -73,7 +73,6 @@ pub struct ViewModelInstances<'w, 's> {
     selection: Res<'w, Selection>,
     selector: SelectorWidget<'w, 's>,
     delete: EventWriter<'w, Delete>,
-    update_instance: EventWriter<'w, UpdateModifier<UpdateInstance>>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for ViewModelInstances<'w, 's> {
@@ -117,11 +116,11 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                         );
                                         show_model_instance(
                                             ui,
+                                            &mut self.commands,
                                             instance_name,
                                             instance_entity,
                                             &mut self.selector,
                                             &mut self.delete,
-                                            &mut self.update_instance,
                                             &self.get_modifier,
                                             current_scenario_entity,
                                             scenario_count,
@@ -154,11 +153,11 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                     );
                                     show_model_instance(
                                         ui,
+                                        &mut self.commands,
                                         instance_name,
                                         *instance_entity,
                                         &mut self.selector,
                                         &mut self.delete,
-                                        &mut self.update_instance,
                                         &self.get_modifier,
                                         current_scenario_entity,
                                         scenario_count,
@@ -175,11 +174,11 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
 /// Show a widget for users to interact with a model instance
 fn show_model_instance(
     ui: &mut Ui,
+    commands: &mut Commands,
     name: &NameInSite,
     instance: Entity,
     selector: &mut SelectorWidget,
     delete: &mut EventWriter<Delete>,
-    update_instance: &mut EventWriter<UpdateModifier<UpdateInstance>>,
     get_modifier: &GetModifier<Modifier<Visibility>>,
     scenario: Entity,
     scenario_count: i32,
@@ -205,10 +204,10 @@ fn show_model_instance(
                     .on_hover_text("Model instance is hidden in this scenario")
                     .clicked()
                 {
-                    update_instance.write(UpdateModifier::new(
+                    commands.trigger(UpdateModifierEvent::<Visibility>::new(
                         scenario,
                         instance,
-                        UpdateInstance::Include,
+                        UpdateModifier::Modify(Visibility::Inherited),
                     ));
                 }
             } else {
@@ -223,17 +222,17 @@ fn show_model_instance(
                         .is_ok_and(|(_, a)| a.0.is_some())
                     {
                         // If parent scenario exists, clicking this button toggles to ResetVisibility
-                        update_instance.write(UpdateModifier::new(
+                        commands.trigger(UpdateModifierEvent::<Visibility>::new(
                             scenario,
                             instance,
-                            UpdateInstance::ResetVisibility,
+                            UpdateModifier::Reset,
                         ));
                     } else {
                         // Otherwise, toggle to Hidden
-                        update_instance.write(UpdateModifier::new(
+                        commands.trigger(UpdateModifierEvent::<Visibility>::new(
                             scenario,
                             instance,
-                            UpdateInstance::Hide,
+                            UpdateModifier::Modify(Visibility::Hidden),
                         ));
                     }
                 }
@@ -245,10 +244,10 @@ fn show_model_instance(
                 .on_hover_text("Model instance visibility is inherited in this scenario")
                 .clicked()
             {
-                update_instance.write(UpdateModifier::new(
+                commands.trigger(UpdateModifierEvent::<Visibility>::new(
                     scenario,
                     instance,
-                    UpdateInstance::Hide,
+                    UpdateModifier::Modify(Visibility::Hidden),
                 ));
             }
         }
