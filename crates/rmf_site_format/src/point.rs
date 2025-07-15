@@ -19,7 +19,7 @@
 use bevy::prelude::{Component, Deref, DerefMut, Reflect, ReflectComponent};
 use bevy_ecs::prelude::Entity;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use bevy::platform::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 #[serde(transparent)]

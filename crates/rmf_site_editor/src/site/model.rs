@@ -39,7 +39,7 @@ use bevy_mod_outline::{GenerateOutlineNormalsSettings, OutlineMeshExt};
 use rmf_site_camera::MODEL_PREVIEW_LAYER;
 use rmf_site_format::{
     Affiliation, AssetSource, Group, IssueKey, ModelInstance, ModelMarker, ModelProperty,
-    NameInSite, Pending, Scale,
+    NameInSite, Pending, Scale, Pose, ExportData,
 };
 use rmf_site_picking::Preview;
 use smallvec::SmallVec;
@@ -409,10 +409,12 @@ fn instance_spawn_request_into_model_load_request(
     descriptions: Query<&ModelProperty<AssetSource>>,
 ) -> Result<ModelLoadingRequest, InstanceSpawningError> {
     let Some(affiliation) = request.affiliation.0 else {
+        panic!();
         return Err(InstanceSpawningError::NoAffiliation);
     };
 
     let Ok(source) = descriptions.get(affiliation) else {
+        panic!();
         return Err(InstanceSpawningError::AffiliationMissing);
     };
 
@@ -710,6 +712,40 @@ pub enum ModelLoadingErrorKind {
 pub struct InstanceSpawningRequest {
     pub parent: Entity,
     pub affiliation: Affiliation,
+}
+
+// Will also have a ModelInstance bundle
+#[derive(Clone, Debug, Component, Reflect)]
+#[reflect(Component)]
+pub struct DeferredInstanceSpawningRequest {
+    #[entities]
+    pub parent: Entity,
+}
+
+pub fn process_deferred_model_spawning_requests(
+    mut commands: Commands,
+    mut model_loader: ModelLoader,
+    requests: Query<(Entity, &DeferredInstanceSpawningRequest, &NameInSite, &Pose, &Affiliation, &ExportData)>,
+    descriptions: Query<(Entity, &ModelProperty<AssetSource>)>,
+) {
+    /*
+    for (e, d) in &descriptions {
+        info!("Description for entity {:?} is {:?}", e, d);
+    }
+    */
+    for (e, req, name, pose, description, export_data) in &requests {
+        let instance = ModelInstance {
+            name: name.clone(),
+            pose: pose.clone(),
+            description: description.clone(),
+            export_data: export_data.clone(),
+            ..default()
+        };
+        info!("Spawning model for entity {:?} with parent {:?} and description {:?}", e, req.parent, instance.description);
+        let model_instance_entity = model_loader
+            .spawn_model_instance(req.parent, instance);
+        commands.entity(e).remove::<DeferredInstanceSpawningRequest>();
+    }
 }
 
 impl InstanceSpawningRequest {

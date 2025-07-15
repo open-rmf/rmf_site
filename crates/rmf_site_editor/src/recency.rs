@@ -23,11 +23,13 @@ use std::{
     ops::Deref,
 };
 
-#[derive(Debug, Clone, Component)]
+#[derive(Debug, Clone, Component, Reflect)]
+#[reflect(Component)]
 pub struct RecencyRanking<T: Component> {
     /// Entities are ordered from lowest to highest rank. Higher ranks should be
     /// displayed over lower ranks.
-    entities: Vec<Entity>,
+    #[entities] entities: Vec<Entity>,
+    #[reflect(ignore)]
     _ignore: PhantomData<T>,
 }
 

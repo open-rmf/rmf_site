@@ -28,6 +28,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct Light {
     pub pose: Pose,
     pub kind: LightKind,

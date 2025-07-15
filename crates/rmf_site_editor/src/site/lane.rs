@@ -99,8 +99,11 @@ pub fn add_lane_visuals(
 ) {
     for (e, edge, associated_graphs) in &lanes {
         for anchor in &edge.array() {
+            warn!("Finding dependent for {:?}", anchor);
             if let Ok(mut deps) = dependents.get_mut(*anchor) {
                 deps.insert(e);
+            } else {
+                panic!();
             }
         }
 

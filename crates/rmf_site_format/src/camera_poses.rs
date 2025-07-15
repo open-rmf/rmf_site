@@ -23,6 +23,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct UserCameraPose {
     pub pose: Pose,
     pub name: NameInSite,

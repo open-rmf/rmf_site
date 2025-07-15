@@ -34,6 +34,7 @@ impl Default for PixelsPerMeter {
 }
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct Drawing {
     // Even though round trip flattening is supposed to work after
     // https://github.com/ron-rs/ron/pull/455, it seems it currently fails
@@ -52,6 +53,7 @@ pub struct Drawing {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct DrawingProperties {
     pub name: NameInSite,
     pub source: AssetSource,

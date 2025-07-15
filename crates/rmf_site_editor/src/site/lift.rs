@@ -28,16 +28,19 @@ use std::collections::BTreeSet;
 use std::collections::HashMap;
 use uuid::Uuid;
 
-#[derive(Clone, Copy, Debug, Component, Deref, DerefMut)]
-pub struct ChildLiftCabinGroup(pub Entity);
+#[derive(Reflect, Clone, Copy, Debug, Component, Deref, DerefMut)]
+#[reflect(Component)]
+pub struct ChildLiftCabinGroup(#[entities] pub Entity);
 
-#[derive(Clone, Copy, Debug, Component, Deref, DerefMut)]
-pub struct ChildCabinAnchorGroup(pub Entity);
+#[derive(Reflect, Clone, Copy, Debug, Component, Deref, DerefMut)]
+#[reflect(Component)]
+pub struct ChildCabinAnchorGroup(#[entities] pub Entity);
 
-#[derive(Clone, Copy, Debug, Component, Default)]
+#[derive(Clone, Copy, Debug, Component, Default, Reflect)]
+#[reflect(Component)]
 pub struct CabinAnchorGroup;
 
-#[derive(Clone, Copy, Debug, Bundle)]
+#[derive(Clone, Copy, Debug, Bundle, Reflect)]
 pub struct CabinAnchorGroupBundle {
     tag: CabinAnchorGroup,
     category: Category,

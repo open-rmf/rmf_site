@@ -15,6 +15,8 @@
  *
 */
 
+#[cfg(feature = "bevy")]
+use bevy::prelude::{Bundle, Component, Deref, DerefMut, Reflect, ReflectComponent};
 use crate::{CURRENT_MAJOR_VERSION, CURRENT_MINOR_VERSION};
 use serde::{de::Visitor, Deserialize, Serialize};
 
@@ -35,6 +37,7 @@ use serde::{de::Visitor, Deserialize, Serialize};
 /// the parser has changed and older versions of the parser can no longer read
 /// the new data.
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct SemVer(pub u32, pub u32);
 
 impl SemVer {

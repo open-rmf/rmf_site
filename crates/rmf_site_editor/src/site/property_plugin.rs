@@ -113,6 +113,7 @@ fn update_property_value<T: Property, F: QueryFilter + 'static + Send + Sync>(
     }
     let mut update_property = SmallVec::<[UpdateProperty; 8]>::new();
     for event in update_property_events.read() {
+        info!("Received update property value! {:?}", event);
         update_property.push(*event);
     }
 
@@ -139,6 +140,7 @@ fn update_property_value<T: Property, F: QueryFilter + 'static + Send + Sync>(
                         |(scenario_modifiers, _)| scenario_modifiers.get(&event.for_element),
                     )
                 {
+                    info!("Found modifier for entity {:?}", modifier_entity);
                     commands
                         .entity(*modifier_entity)
                         .insert(Modifier::<T>::new(fallback_value));

@@ -19,7 +19,7 @@ use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Bundle, Component, Entity, Reflect, ReflectComponent};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use bevy::platform::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
@@ -81,6 +81,7 @@ pub struct ExportData(#[reflect(ignore)] pub HashMap<String, sdformat_rs::XmlEle
 /// Bundle with all required components for a valid model description
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct ModelDescriptionBundle {
     pub name: NameInSite,
     pub source: ModelProperty<AssetSource>,
@@ -112,7 +113,7 @@ impl Default for ModelDescriptionBundle {
 
 /// Bundle with all required components for a valid model instance
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Bundle))]
+#[cfg_attr(feature = "bevy", derive(Bundle, Reflect))]
 pub struct ModelInstance {
     pub name: NameInSite,
     pub pose: Pose,

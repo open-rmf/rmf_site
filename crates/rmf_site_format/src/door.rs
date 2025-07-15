@@ -19,12 +19,13 @@ use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Bundle, Component, Entity, Reflect, ReflectComponent};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use bevy::platform::collections::HashMap;
 
 pub const DEFAULT_DOOR_THICKNESS: f32 = 0.05;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct Door {
     /// (left_anchor, right_anchor)
     pub anchors: Edge,

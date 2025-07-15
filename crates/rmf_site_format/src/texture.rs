@@ -37,6 +37,7 @@ pub struct Texture {
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct TextureGroup {
     pub name: NameInSite,
     // The flatten attribute currently does not work correctly for the .ron

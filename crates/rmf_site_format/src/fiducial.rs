@@ -19,12 +19,13 @@ use crate::{Affiliation, Group, NameInSite, Point};
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Bundle, Component, Entity, Reflect, ReflectComponent};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use bevy::platform::collections::HashMap;
 
 /// Mark a point within a drawing or level to serve as a ground truth relative
 /// to other drawings and levels.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct Fiducial {
     /// The anchor that represents the position of this fiducial.
     pub anchor: Point,
@@ -37,6 +38,7 @@ pub struct Fiducial {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct FiducialGroup {
     /// Name of this group
     pub name: NameInSite,

@@ -20,7 +20,8 @@ use crate::*;
 use bevy::prelude::{Bundle, Component, Deref, DerefMut, Query, Reflect, ReflectComponent, With};
 use bevy_ecs::prelude::Entity;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeSet, HashMap};
+use std::collections::BTreeSet;
+use bevy::platform::collections::HashMap;
 
 pub const DEFAULT_NAV_GRAPH_COLORS: [[f32; 3]; 8] = [
     [1.0, 0.5, 0.3],
@@ -35,6 +36,7 @@ pub const DEFAULT_NAV_GRAPH_COLORS: [[f32; 3]; 8] = [
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct NavGraph {
     pub name: NameInSite,
     pub color: DisplayColor,
@@ -70,7 +72,7 @@ pub struct DisplayColor(pub [f32; 3]);
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub enum AssociatedGraphs {
     All,
-    Only(BTreeSet<Entity>),
+    Only(#[entities] BTreeSet<Entity>),
     AllExcept(BTreeSet<Entity>),
 }
 

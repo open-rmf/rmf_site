@@ -38,7 +38,8 @@ pub struct ChangeCurrentWorkspace {
 pub struct CreateNewWorkspace;
 
 /// Apply this component to all workspace types
-#[derive(Component)]
+#[derive(Component, Reflect)]
+#[reflect(Component)]
 pub struct WorkspaceMarker;
 
 /// Used as a resource that keeps track of the current workspace

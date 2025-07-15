@@ -20,7 +20,7 @@ use bevy::prelude::*;
 use bevy_ecs::prelude::Entity;
 use glam::{Quat, Vec2, Vec3};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use bevy::platform::collections::HashMap;
 
 pub const DEFAULT_LEVEL_HEIGHT: f32 = 3.0;
 
@@ -465,16 +465,19 @@ impl Default for IsStatic {
 /// Marker component for previewable entities
 #[derive(Clone, Copy, Debug, Default)]
 #[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct PreviewableMarker;
 
 /// This component is applied to each site element that gets loaded in order to
 /// remember what its original ID within the Site file was.
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]
 #[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct SiteID(pub u32);
 
 /// Helper structure to serialize / deserialize entities with parents
 #[derive(Serialize, Deserialize, Clone, Debug)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct Parented<T> {
     pub parent: Entity,
     #[serde(flatten)]
@@ -487,6 +490,7 @@ pub struct Parented<T> {
 /// into the Site data structure.
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct Pending;
 
 /// The Original component indicates that an element is being modified but not
@@ -494,6 +498,7 @@ pub struct Pending;
 /// value instead of the apparent current value.
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct Original<T>(pub T);
 
 /// Marks that an entity represents a group

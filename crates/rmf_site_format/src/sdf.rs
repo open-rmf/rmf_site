@@ -498,7 +498,7 @@ impl Site {
                 }],
                 ..Default::default()
             });
-            for (model_instance_id, _) in &default_scenario.instances {
+            for (model_instance_id, _) in &default_scenario.instances.0 {
                 let parented_model_instance = self.model_instances.get(model_instance_id).ok_or(
                     SdfConversionError::BrokenModelInstanceReference(*model_instance_id),
                 )?;

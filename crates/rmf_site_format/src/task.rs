@@ -70,9 +70,11 @@ impl TaskParams {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct TaskRequest {
     pub category: String,
     #[serde(default, skip_serializing_if = "is_default")]
+    #[reflect(ignore)]
     pub description: serde_json::Value,
     #[serde(default, skip_serializing_if = "is_default")]
     pub description_display: Option<String>,
@@ -152,6 +154,7 @@ pub trait TaskRequestType {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct DispatchTaskRequest {
     pub request: TaskRequest,
 }
@@ -177,6 +180,7 @@ impl DispatchTaskRequest {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct RobotTaskRequest {
     pub robot: String,
     pub fleet: String,
@@ -231,6 +235,7 @@ impl RobotTaskRequest {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub enum Task {
     Dispatch(DispatchTaskRequest),
     Direct(RobotTaskRequest),

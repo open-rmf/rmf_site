@@ -27,7 +27,7 @@ use crate::{
 use bevy::ecs::{hierarchy::ChildOf, system::SystemState};
 use bevy::prelude::*;
 use rmf_site_picking::{Select, Selection};
-use std::collections::HashSet;
+use bevy::platform::collections::HashSet;
 use uuid::Uuid;
 
 #[derive(Clone, Copy, Debug, Event)]
@@ -219,6 +219,7 @@ pub fn update_current_scenario(
     if let Some(ChangeCurrentScenario(scenario_entity)) = change_current_scenario.read().last() {
         *current_scenario = CurrentScenario(Some(*scenario_entity));
         for instance_entity in instances.iter() {
+            info!("Found instance {:?}", instance_entity);
             update_property.write(UpdateProperty::new(instance_entity, *scenario_entity));
         }
     }

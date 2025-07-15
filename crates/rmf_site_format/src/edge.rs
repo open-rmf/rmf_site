@@ -15,51 +15,28 @@
  *
 */
 
-use crate::Side;
+use bevy_ecs::prelude::Entity;
+use crate::{Side};
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Component, Deref, DerefMut, Reflect, ReflectComponent};
-use bevy_ecs::{
-    entity::MapEntities,
-    prelude::{Entity, EntityMapper},
-};
+use bevy::prelude::{Reflect, ReflectComponent, Component};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use bevy::platform::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(transparent)]
-#[cfg_attr(feature = "bevy", derive(Component, Reflect, Deref, DerefMut))]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
-pub struct Edge(#[entities] TwoArray);
-
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy", derive(Reflect, Deref, DerefMut))]
-pub struct TwoArray([Entity; 2]);
-
-impl From<TwoArray> for Edge {
-    fn from(a: TwoArray) -> Edge {
-        Edge(a)
-    }
-}
-
-// TODO(luca) it seems MapEntities should already be implemented for [Entity; 2] but
-// the compiler doesn't seem to find it?
-impl MapEntities for TwoArray {
-    fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
-        for entities in self.0.iter_mut() {
-            entities.map_entities(entity_mapper);
-        }
-    }
-}
+pub struct Edge(#[entities] [Entity; 2]);
 
 impl Edge {
     /// Create a new edge of this type using the given anchors. All other
     /// properties of the edge should have sensible default values.
     pub fn new(left: Entity, right: Entity) -> Self {
-        Self(TwoArray([left, right]))
+        Self([left, right])
     }
 
     pub fn array(&self) -> [Entity; 2] {
-        *self.0
+        self.0
     }
 
     pub fn array_mut(&mut self) -> &mut [Entity; 2] {
@@ -118,7 +95,7 @@ impl Edge {
     }
 
     pub fn in_reverse(&self) -> Self {
-        Self(TwoArray([self.right(), self.left()]))
+        Self([self.right(), self.left()])
     }
 
     pub fn is_reverse_of(&self, other: &Self) -> bool {
@@ -128,15 +105,15 @@ impl Edge {
 
 impl From<[Entity; 2]> for Edge {
     fn from(array: [Entity; 2]) -> Self {
-        Self(TwoArray(array))
+        Self(array)
     }
 }
 
 impl Edge {
     pub fn convert(&self, id_map: &HashMap<Entity, Entity>) -> Result<Edge, Entity> {
-        Ok(Edge(TwoArray([
+        Ok(Edge([
             id_map.get(&self.left()).ok_or(self.left())?.clone(),
             id_map.get(&self.right()).ok_or(self.right())?.clone(),
-        ])))
+        ]))
     }
 }

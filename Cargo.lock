@@ -501,7 +501,7 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 [[package]]
 name = "bevy"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "bevy_dylib",
  "bevy_internal",
@@ -555,7 +555,7 @@ dependencies = [
 [[package]]
 name = "bevy_a11y"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "accesskit",
  "bevy_app",
@@ -567,7 +567,7 @@ dependencies = [
 [[package]]
 name = "bevy_animation"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "bevy_app",
  "bevy_asset",
@@ -600,7 +600,7 @@ dependencies = [
 [[package]]
 name = "bevy_app"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "bevy_derive",
  "bevy_ecs",
@@ -622,7 +622,7 @@ dependencies = [
 [[package]]
 name = "bevy_asset"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "async-broadcast",
  "async-fs",
@@ -661,7 +661,7 @@ dependencies = [
 [[package]]
 name = "bevy_asset_macros"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "bevy_macro_utils",
  "proc-macro2",
@@ -672,7 +672,7 @@ dependencies = [
 [[package]]
 name = "bevy_audio"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "bevy_app",
  "bevy_asset",
@@ -689,7 +689,7 @@ dependencies = [
 [[package]]
 name = "bevy_color"
 version = "0.16.1"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "bevy_math",
  "bevy_reflect",
@@ -704,7 +704,7 @@ dependencies = [
 [[package]]
 name = "bevy_core_pipeline"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "bevy_app",
  "bevy_asset",
@@ -733,7 +733,7 @@ dependencies = [
 [[package]]
 name = "bevy_derive"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "bevy_macro_utils",
  "quote",
@@ -743,7 +743,7 @@ dependencies = [
 [[package]]
 name = "bevy_diagnostic"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "bevy_app",
  "bevy_ecs",
@@ -760,7 +760,7 @@ dependencies = [
 [[package]]
 name = "bevy_dylib"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "bevy_internal",
 ]
@@ -768,7 +768,7 @@ dependencies = [
 [[package]]
 name = "bevy_ecs"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "arrayvec",
  "bevy_ecs_macros",
@@ -795,7 +795,7 @@ dependencies = [
 [[package]]
 name = "bevy_ecs_macros"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "bevy_macro_utils",
  "proc-macro2",
@@ -843,7 +843,7 @@ dependencies = [
 [[package]]
 name = "bevy_encase_derive"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "bevy_macro_utils",
  "encase_derive_impl",
@@ -852,7 +852,7 @@ dependencies = [
 [[package]]
 name = "bevy_gilrs"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "bevy_app",
  "bevy_ecs",
@@ -868,7 +868,7 @@ dependencies = [
 [[package]]
 name = "bevy_gizmos"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "bevy_app",
  "bevy_asset",
@@ -892,7 +892,7 @@ dependencies = [
 [[package]]
 name = "bevy_gizmos_macros"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "bevy_macro_utils",
  "proc-macro2",
@@ -903,7 +903,7 @@ dependencies = [
 [[package]]
 name = "bevy_gltf"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "base64 0.22.1",
  "bevy_animation",
@@ -956,7 +956,7 @@ dependencies = [
 [[package]]
 name = "bevy_image"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "bevy_app",
  "bevy_asset",
@@ -1020,7 +1020,7 @@ dependencies = [
 [[package]]
 name = "bevy_input"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "bevy_app",
  "bevy_ecs",
@@ -1037,7 +1037,7 @@ dependencies = [
 [[package]]
 name = "bevy_input_focus"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "bevy_app",
  "bevy_ecs",
@@ -1052,7 +1052,7 @@ dependencies = [
 [[package]]
 name = "bevy_internal"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "bevy_a11y",
  "bevy_animation",
@@ -1094,7 +1094,7 @@ dependencies = [
 [[package]]
 name = "bevy_log"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "android_log-sys",
  "bevy_app",
@@ -1110,7 +1110,7 @@ dependencies = [
 [[package]]
 name = "bevy_macro_utils"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "parking_lot",
  "proc-macro2",
@@ -1122,7 +1122,7 @@ dependencies = [
 [[package]]
 name = "bevy_math"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "approx",
  "bevy_reflect",
@@ -1141,7 +1141,7 @@ dependencies = [
 [[package]]
 name = "bevy_mesh"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "bevy_asset",
  "bevy_derive",
@@ -1165,7 +1165,7 @@ dependencies = [
 [[package]]
 name = "bevy_mikktspace"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "glam",
 ]
@@ -1200,7 +1200,7 @@ dependencies = [
 [[package]]
 name = "bevy_pbr"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "bevy_app",
  "bevy_asset",
@@ -1233,7 +1233,7 @@ dependencies = [
 [[package]]
 name = "bevy_picking"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "bevy_app",
  "bevy_asset",
@@ -1257,7 +1257,7 @@ dependencies = [
 [[package]]
 name = "bevy_platform"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "cfg-if",
  "critical-section",
@@ -1274,12 +1274,12 @@ dependencies = [
 [[package]]
 name = "bevy_ptr"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 
 [[package]]
 name = "bevy_reflect"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "assert_type_match",
  "bevy_platform",
@@ -1305,7 +1305,7 @@ dependencies = [
 [[package]]
 name = "bevy_reflect_derive"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "bevy_macro_utils",
  "proc-macro2",
@@ -1317,7 +1317,7 @@ dependencies = [
 [[package]]
 name = "bevy_render"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "async-channel",
  "bevy_app",
@@ -1368,7 +1368,7 @@ dependencies = [
 [[package]]
 name = "bevy_render_macros"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "bevy_macro_utils",
  "proc-macro2",
@@ -1379,7 +1379,7 @@ dependencies = [
 [[package]]
 name = "bevy_scene"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "bevy_app",
  "bevy_asset",
@@ -1399,7 +1399,7 @@ dependencies = [
 [[package]]
 name = "bevy_sprite"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "bevy_app",
  "bevy_asset",
@@ -1428,7 +1428,7 @@ dependencies = [
 [[package]]
 name = "bevy_state"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "bevy_app",
  "bevy_ecs",
@@ -1443,7 +1443,7 @@ dependencies = [
 [[package]]
 name = "bevy_state_macros"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "bevy_macro_utils",
  "proc-macro2",
@@ -1465,7 +1465,7 @@ dependencies = [
 [[package]]
 name = "bevy_tasks"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "async-channel",
  "async-executor",
@@ -1486,7 +1486,7 @@ dependencies = [
 [[package]]
 name = "bevy_text"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "bevy_app",
  "bevy_asset",
@@ -1515,7 +1515,7 @@ dependencies = [
 [[package]]
 name = "bevy_time"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "bevy_app",
  "bevy_ecs",
@@ -1529,7 +1529,7 @@ dependencies = [
 [[package]]
 name = "bevy_transform"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "bevy_app",
  "bevy_ecs",
@@ -1546,7 +1546,7 @@ dependencies = [
 [[package]]
 name = "bevy_ui"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "accesskit",
  "bevy_a11y",
@@ -1580,7 +1580,7 @@ dependencies = [
 [[package]]
 name = "bevy_utils"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "bevy_platform",
  "thread_local",
@@ -1589,7 +1589,7 @@ dependencies = [
 [[package]]
 name = "bevy_window"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "android-activity",
  "bevy_app",
@@ -1608,7 +1608,7 @@ dependencies = [
 [[package]]
 name = "bevy_winit"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 dependencies = [
  "accesskit",
  "accesskit_winit",
@@ -7867,9 +7867,9 @@ dependencies = [
 [[patch.unused]]
 name = "bevy_dev_tools"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"
 
 [[patch.unused]]
 name = "bevy_remote"
 version = "0.16.0"
-source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
+source = "git+https://github.com/luca-della-vedova/bevy?branch=luca%2Fspecialize-panic-map-entities#a3df377781314db876201cbeee393363e987c5c6"

@@ -1,7 +1,7 @@
 use super::legacy::building_map::BuildingMap;
 use bevy_ecs::prelude::Entity;
 use glam::{DAffine2, DMat2, DVec2};
-use std::collections::HashMap;
+use bevy::platform::collections::HashMap;
 
 #[derive(Default)]
 pub struct SiteVariables {

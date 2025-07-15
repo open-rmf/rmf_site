@@ -17,8 +17,8 @@
 
 use crate::site::*;
 use crate::CurrentWorkspace;
-use bevy::prelude::*;
-use std::collections::HashSet;
+use bevy::{ecs::entity::MapEntities, prelude::*};
+use bevy::platform::collections::HashSet;
 use std::path::PathBuf;
 
 pub fn line_stroke_transform(p_start: &Vec3, p_end: &Vec3, width: f32) -> Transform {
@@ -81,8 +81,9 @@ impl EdgeLabels {
     }
 }
 
-#[derive(Component, Debug, Default, Clone, Deref, DerefMut)]
-pub struct Dependents(pub HashSet<Entity>);
+#[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
+#[reflect(Component)]
+pub struct Dependents(#[entities] pub HashSet<Entity>);
 
 impl Dependents {
     pub fn single(dependent: Entity) -> Self {

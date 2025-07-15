@@ -142,7 +142,7 @@ pub mod wall;
 pub use wall::*;
 
 use crate::recency::{RecencyRank, RecencyRankingPlugin};
-use crate::{AppState, RegisterIssueType};
+use crate::{AppState, RegisterIssueType, WorkspaceMarker, RecencyRanking};
 pub use rmf_site_format::{DirectionalLight, PointLight, SpotLight, Style, *};
 
 use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
@@ -215,6 +215,15 @@ impl Plugin for SitePlugin {
         .init_resource::<ExportHandlers>()
         .init_resource::<Trashcan>()
         .init_resource::<PhysicalLightToggle>()
+        .register_type::<std::collections::BTreeSet<Entity>>()
+        .register_type_data::<std::collections::BTreeSet<Entity>, ReflectSerialize>()
+        .register_type_data::<std::collections::BTreeSet<Entity>, ReflectDeserialize>()
+        .register_type::<std::collections::BTreeSet<uuid::Uuid>>()
+        .register_type_data::<std::collections::BTreeSet<uuid::Uuid>, ReflectSerialize>()
+        .register_type_data::<std::collections::BTreeSet<uuid::Uuid>, ReflectDeserialize>()
+        .register_type::<std::collections::BTreeSet<IssueKey>>()
+        .register_type_data::<std::collections::BTreeSet<IssueKey>, ReflectSerialize>()
+        .register_type_data::<std::collections::BTreeSet<IssueKey>, ReflectDeserialize>()
         .register_type::<NameOfSite>()
         .register_type::<PixelsPerMeter>()
         .register_type::<Category>()
@@ -249,6 +258,10 @@ impl Plugin for SitePlugin {
         .register_type::<Inclusion>()
         .register_type::<InstanceModifier>()
         .register_type::<TaskModifier>()
+        .register_type::<Modifier<Pose>>()
+        .register_type::<Modifier<Visibility>>()
+        .register_type::<Modifier<Inclusion>>()
+        .register_type::<Modifier<TaskParams>>()
         .register_type::<ScenarioModifiers>()
         .register_type::<ScenarioMarker>()
         .register_type::<Scenario>()
@@ -279,6 +292,9 @@ impl Plugin for SitePlugin {
         .register_type::<Model>()
         .register_type::<ModelMarker>()
         // TODO(luca) model properties, they are generic
+        .register_type::<ModelProperty<AssetSource>>()
+        .register_type::<ModelProperty<Scale>>()
+        .register_type::<ModelProperty<IsStatic>>()
         .register_type::<ModelProperty<Robot>>()
         .register_type::<ExportData>()
         .register_type::<ExportWith>()
@@ -293,9 +309,10 @@ impl Plugin for SitePlugin {
         .register_type::<Group>()
         .register_type::<Affiliation>()
         .register_type::<IssueKey>()
+        .register_type::<Site>()
         // TODO(luca) Might need custom registration
-        //.register_type::<FilteredIssues>()
-        // .register_type::<FilteredIssueKinds>()
+        .register_type::<FilteredIssues>()
+        .register_type::<FilteredIssueKinds>()
         .register_type::<LaneMarker>()
         .register_type::<Motion>()
         .register_type::<OrientationConstraint>()
@@ -307,6 +324,19 @@ impl Plugin for SitePlugin {
         .register_type::<DoubleSwingDoor>()
         .register_type::<Swing>()
         .register_type::<DoorMarker>()
+        // Custom ones from load.rs
+        .register_type::<AnchorBundle>()
+        .register_type::<DrawingBundle>()
+        .register_type::<CabinAnchorGroupBundle>()
+        .register_type::<ModelDescriptionBundle>()
+        .register_type::<Dependents>()
+        .register_type::<Subordinate>()
+        .register_type::<WorkspaceMarker>()
+        .register_type::<RecencyRanking<NavGraphMarker>>()
+        .register_type::<RecencyRanking<FloorMarker>>()
+        .register_type::<RecencyRanking<DrawingMarker>>()
+        // Custom ones in other places
+        .register_type::<DeferredInstanceSpawningRequest>()
         .add_event::<LoadSite>()
         .add_event::<ImportNavGraphs>()
         .add_event::<ChangeCurrentSite>()
@@ -527,6 +557,7 @@ impl Plugin for SitePlugin {
                 update_affiliations,
                 update_members_of_groups.after(update_affiliations),
                 update_model_scales,
+                process_deferred_model_spawning_requests,
                 handle_new_primitive_shapes,
                 add_drawing_visuals,
                 handle_loaded_drawing,

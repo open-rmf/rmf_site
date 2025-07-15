@@ -17,13 +17,13 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Deref, DerefMut, Reflect, ReflectComponent};
+use bevy::prelude::{Bundle, ReflectDefault, Component, Deref, DerefMut, Reflect, ReflectComponent};
 use bevy_ecs::prelude::Entity;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Bundle))]
+#[cfg_attr(feature = "bevy", derive(Bundle, Reflect))]
 pub struct LevelProperties {
     pub name: NameInSite,
     pub elevation: LevelElevation,
@@ -51,6 +51,8 @@ impl Default for LevelProperties {
 pub struct LevelElevation(pub f32);
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Default))]
 pub struct Level {
     pub properties: LevelProperties,
     pub anchors: BTreeMap<Entity, Anchor>,
@@ -90,6 +92,8 @@ impl Level {
 }
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Default))]
 pub struct RankingsInLevel {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub floors: Vec<Entity>,

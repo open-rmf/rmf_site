@@ -17,20 +17,21 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Deref, DerefMut, Reflect, ReflectComponent};
+use bevy::prelude::{ReflectDefault, Bundle, Component, Deref, DerefMut, Reflect, ReflectComponent};
 use bevy_ecs::prelude::Entity;
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::{BTreeMap, BTreeSet, HashMap},
+    collections::{BTreeMap, BTreeSet},
     hash::Hash,
     io,
 };
 use uuid::Uuid;
+use bevy::platform::collections::HashMap;
 
 pub use ron::ser::PrettyConfig as Style;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "bevy", derive(Bundle))]
+#[cfg_attr(feature = "bevy", derive(Bundle, Reflect))]
 pub struct SiteProperties {
     pub name: NameOfSite,
     #[serde(skip_serializing_if = "GeographicComponent::is_none")]
@@ -110,6 +111,8 @@ impl SiteProperties {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Default))]
 pub struct Site {
     /// The site data format that is being used
     pub format_version: SemVer,

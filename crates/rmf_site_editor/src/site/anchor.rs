@@ -26,7 +26,7 @@ use rmf_site_format::{Anchor, LevelElevation, LiftCabin};
 use std::collections::HashMap;
 use uuid::Uuid;
 
-#[derive(Bundle, Debug)]
+#[derive(Reflect, Bundle, Debug)]
 pub struct AnchorBundle {
     anchor: Anchor,
     transform: Transform,
@@ -89,7 +89,8 @@ impl AnchorBundle {
 /// entity and therefore cannot be interacted with directly by users. Optionally
 /// the entity that controls the anchor can be specified so that users can be
 /// guided towards how to modify the anchor or understand its purpose.
-#[derive(Component, Debug, Default, Clone, Copy)]
+#[derive(Reflect, Component, Debug, Default, Clone, Copy)]
+#[reflect(Component)]
 pub struct Subordinate(pub Option<Entity>);
 
 pub fn update_anchor_transforms(

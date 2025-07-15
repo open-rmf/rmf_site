@@ -18,9 +18,12 @@
 use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Bundle, Component, Deref, DerefMut, Reflect, ReflectComponent};
-use bevy_ecs::prelude::Entity;
+// use bevy::reflect::Map;
+use bevy_ecs::prelude::{EntityMapper, Entity};
+use bevy_ecs::entity::MapEntities;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
+use bevy::platform::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
@@ -58,11 +61,31 @@ pub struct TaskModifier {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut, Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
-pub struct ScenarioModifiers(pub HashMap<Entity, Entity>);
+// pub struct ScenarioModifiers(#[entities] pub HashMap<Entity, Entity>);
+pub struct ScenarioModifiers(#[entities] EntityHashMap);
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Deref, DerefMut, Reflect))]
+pub struct EntityHashMap(pub HashMap<Entity, Entity>);
+
+impl MapEntities for EntityHashMap {
+    fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
+        dbg!(&self.0);
+        self.0 = self.0
+            .drain()
+            .map(|(mut key_entities, mut value_entities)| {
+                key_entities.map_entities(entity_mapper);
+                value_entities.map_entities(entity_mapper);
+                (key_entities, value_entities)
+            })
+            .collect();
+        dbg!(&self.0);
+    }
+}
 
 impl Default for ScenarioModifiers {
     fn default() -> Self {
-        Self(HashMap::new())
+        Self(EntityHashMap(HashMap::new()))
     }
 }
 
@@ -71,34 +94,40 @@ impl Default for ScenarioModifiers {
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct ScenarioMarker;
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct Scenario {
-    pub instances: BTreeMap<Entity, InstanceModifier>,
-    #[reflect(ignore)]
-    pub tasks: BTreeMap<Entity, TaskModifier>,
+    //pub instances: BTreeMap<Entity, InstanceModifier>,
+    //pub tasks: BTreeMap<Entity, TaskModifier>,
+    #[entities] pub instances: ScenarioModifierMap<InstanceModifier>,
+    #[entities] pub tasks: ScenarioModifierMap<TaskModifier>,
     #[serde(flatten)]
     pub properties: ScenarioBundle,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Deref, DerefMut, Reflect))]
+pub struct ScenarioModifierMap<T: std::fmt::Debug + Clone + PartialEq>(pub BTreeMap<Entity, T>);
+
+impl<T: std::fmt::Debug + Clone + PartialEq> MapEntities for ScenarioModifierMap<T> {
+    fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
+        let mut mapped = BTreeMap::new();
+        panic!();
+        while let Some((mut entity, instance)) = self.0.pop_first() {
+            entity.map_entities(entity_mapper);
+            mapped.insert(entity, instance);
+        }
+        self.0 = mapped;
+    }
 }
 
 impl Scenario {
     pub fn from_name_parent(name: Option<String>, parent: Option<Entity>) -> Scenario {
         Scenario {
-            instances: BTreeMap::new(),
-            tasks: BTreeMap::new(),
+            instances: ScenarioModifierMap::default(),
+            tasks: ScenarioModifierMap::default(),
             properties: ScenarioBundle::new(name, parent),
-        }
-    }
-}
-
-// Create a root scenario without parent
-impl Default for Scenario {
-    fn default() -> Self {
-        Self {
-            instances: BTreeMap::new(),
-            tasks: BTreeMap::new(),
-            properties: ScenarioBundle::default(),
         }
     }
 }
@@ -106,24 +135,26 @@ impl Default for Scenario {
 impl Scenario {
     pub fn convert(&self, id_map: &HashMap<Entity, Entity>) -> Result<Scenario, Entity> {
         Ok(Scenario {
-            instances: self
+            instances: ScenarioModifierMap(self
                 .instances
+                .0
                 .clone()
                 .into_iter()
                 .map(|(id, instance)| {
                     let converted_id = id_map.get(&id).cloned().ok_or(id)?;
                     Ok((converted_id, instance))
                 })
-                .collect::<Result<_, Entity>>()?,
-            tasks: self
+                .collect::<Result<_, Entity>>()?),
+            tasks: ScenarioModifierMap(self
                 .tasks
+                .0
                 .clone()
                 .into_iter()
                 .map(|(id, task)| {
                     let converted_id = id_map.get(&id).cloned().ok_or(id)?;
                     Ok((converted_id, task))
                 })
-                .collect::<Result<_, Entity>>()?,
+                .collect::<Result<_, Entity>>()?),
             properties: self.properties.convert(id_map)?,
         })
     }

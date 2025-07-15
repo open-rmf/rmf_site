@@ -32,7 +32,8 @@ use bevy::{
 use std::fmt::Debug;
 use uuid::Uuid;
 
-#[derive(Component, Debug, Default, Clone, Deref, DerefMut)]
+#[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
+#[reflect(Component)]
 pub struct Modifier<T: Property>(T);
 
 impl<T: Property> Modifier<T> {

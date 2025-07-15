@@ -27,7 +27,8 @@ use bevy::{
 use bevy_ecs::prelude::Entity;
 use glam::{Vec2, Vec3};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet};
+use bevy::platform::collections::HashMap;
 
 pub const DEFAULT_CABIN_WALL_THICKNESS: f32 = 0.1;
 pub const DEFAULT_CABIN_DOOR_THICKNESS: f32 = 0.05;
@@ -36,6 +37,7 @@ pub const DEFAULT_CABIN_WIDTH: f32 = 1.5;
 pub const DEFAULT_CABIN_DEPTH: f32 = 1.65;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct Lift {
     /// The cabin doors that the lift cabin has
     pub cabin_doors: BTreeMap<Entity, LiftCabinDoor>,
@@ -48,6 +50,7 @@ pub struct Lift {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct LiftCabinDoor {
     /// What kind of door is this
     pub kind: DoorType,
@@ -103,6 +106,7 @@ pub struct LiftCabinDoorMarker;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct LiftProperties {
     /// Name of this lift. This must be unique within the site.
     pub name: NameInSite,

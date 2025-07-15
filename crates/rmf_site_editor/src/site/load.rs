@@ -22,10 +22,10 @@ use bevy::{
         system::{SystemParam, SystemState},
     },
     prelude::*,
+    platform::collections::{HashMap, HashSet},
 };
 use rmf_site_format::legacy::{building_map::BuildingMap, PortingError};
 use std::{
-    collections::{HashMap, HashSet},
     path::PathBuf,
 };
 use thiserror::Error as ThisError;
@@ -286,14 +286,13 @@ fn generate_site_entities(
             });
 
         // TODO(MXG): Log when a RecencyRanking fails to load correctly.
+        // TODO(luca) remove unwrap
+        let floor_entities = level_data.rankings.floors.iter().filter_map(|e| id_to_entity.get(e).copied()).collect();
+        let drawing_entities = level_data.rankings.drawings.iter().filter_map(|e| id_to_entity.get(e).copied()).collect();
         commands
             .entity(level_entity)
-            .insert(RecencyRanking::<FloorMarker>::from_entities(
-                level_data.rankings.floors.clone(),
-            ))
-            .insert(RecencyRanking::<DrawingMarker>::from_entities(
-                level_data.rankings.drawings.clone(),
-            ));
+            .insert(RecencyRanking::<FloorMarker>::from_entities(floor_entities))
+            .insert(RecencyRanking::<DrawingMarker>::from_entities(drawing_entities));
         id_to_entity.insert(*level_id, level_entity);
     }
 
@@ -380,7 +379,7 @@ fn generate_site_entities(
             .insert(ChildOf(site_id))
             .id();
         id_to_entity.insert(*model_description_id, model_description_entity);
-        model_description_dependents.insert(*model_description_id, HashSet::new());
+        model_description_dependents.insert(model_description_entity, HashSet::new());
         info!(
             "Description entity for {} is {:?}",
             model_description.name.0, model_description_entity
@@ -427,11 +426,20 @@ fn generate_site_entities(
             .get(&parented_model_instance.parent)
             .ok_or_else(|| SiteLoadingError::new(site_id, parented_model_instance.parent))?;
 
+        let model_instance_entity = commands.spawn(DeferredInstanceSpawningRequest {
+                parent: *parent,
+            })
+            .insert(model_instance.clone())
+            .insert(Category::Model)
+            .id();
+        id_to_entity.insert(*model_instance_id, model_instance_entity);
+        /*
         let model_instance_entity = model_loader
             .spawn_model_instance(*parent, model_instance.clone())
             .insert(Category::Model)
             .id();
         id_to_entity.insert(*model_instance_id, model_instance_entity);
+        */
 
         info!(
             "Model {} with entity {:?} looking for description entity {:?}",
@@ -449,19 +457,22 @@ fn generate_site_entities(
             error!(
                 "Model description missing for instance {}. This should \
                 not happen, please report this bug to the maintainers of \
-                rmf_site_editor.",
-                model_instance.name.0,
+                rmf_site_editor. Tried to look for {:?}",
+                model_instance.name.0, model_instance.description.0
             );
         }
     }
 
-    for (model_description_id, dependents) in model_description_dependents {
+    for (model_description_entity, dependents) in model_description_dependents {
+        /*
         let Some(model_description_entity) = id_to_entity.get(&model_description_id) else {
             warn!("Invalid model description entity!");
             continue;
         };
+        */
+        info!("Trying to add dependents {:?} to entity {:?}", dependents, model_description_entity);
         commands
-            .entity(*model_description_entity)
+            .entity(model_description_entity)
             .insert(Dependents(dependents));
     }
 
@@ -490,18 +501,21 @@ fn generate_site_entities(
         // Spawn instance modifier entities
         let mut scenario_modifiers: ScenarioModifiers = ScenarioModifiers::default();
         for (instance_id, instance) in scenario_data.instances.iter() {
-            if let Some(instance_entity) = id_to_entity.get(&instance_id) {
+            if let Some(instance_entity) = id_to_entity.get(instance_id) {
                 if instance.pose.is_some() || instance.visibility.is_some() {
                     let modifier_entity = commands
                         .spawn(Affiliation(Some(*instance_entity)))
                         .insert(ChildOf(scenario_entity))
                         .id();
+                    info!("Spawned modifier {:?} for instance {:?} child of scenario {:?}", modifier_entity, instance_entity, scenario_entity);
                     if let Some(pose) = instance.pose {
+                        info!("Found pose of {:?}", pose);
                         commands
                             .entity(modifier_entity)
                             .insert(Modifier::<Pose>::new(pose));
                     }
                     if let Some(vis) = instance.visibility {
+                        info!("Found visibility of {:?}", vis);
                         let visibility = if vis {
                             Visibility::Inherited
                         } else {
@@ -527,7 +541,7 @@ fn generate_site_entities(
             }
         }
         for (task_id, task_data) in scenario_data.tasks.iter() {
-            if let Some(task_entity) = id_to_entity.get(&task_id) {
+            if let Some(task_entity) = id_to_entity.get(task_id) {
                 if task_data.inclusion.is_some() || task_data.params.is_some() {
                     let modifier_entity = commands
                         .spawn(Affiliation(Some(*task_entity)))
@@ -561,11 +575,10 @@ fn generate_site_entities(
         commands.entity(scenario_entity).insert(scenario_modifiers);
     }
 
+    let navgraph_entities = site_data.navigation.guided.ranking.iter().filter_map(|e| id_to_entity.get(e).copied()).collect();
     commands
         .entity(site_id)
-        .insert(RecencyRanking::<NavGraphMarker>::from_entities(
-            site_data.navigation.guided.ranking.clone(),
-        ));
+        .insert(RecencyRanking::<NavGraphMarker>::from_entities(navgraph_entities));
 
     // Make the lift cabin anchors that are used by doors subordinate
     for (lift_id, lift_data) in &site_data.lifts {
@@ -584,9 +597,6 @@ fn generate_site_entities(
     }
     world.flush();
 
-    for t in type_registry.read().iter() {
-        info!("{:?}", t);
-    }
     let scene = DynamicScene::from_world(&world);
     info!("{}", scene.serialize(&type_registry.read()).unwrap());
     return Ok(scene);
@@ -654,8 +664,8 @@ pub fn spam_change_site(
     sites: Query<Entity, With<NameOfSite>>,
     mut count: Local<Count>,
 ) {
-    //return;
-    if count.0 < 10 {
+    // return;
+    if count.0 < 5 {
         info!("Looking for site to change to");
         for site in &sites {
             info!("Found site to change to");

@@ -18,10 +18,11 @@
 use bevy::{
     ecs::{event::Events, hierarchy::ChildOf, system::SystemState},
     prelude::*,
+    platform::collections::HashMap,
 };
 use rmf_site_picking::Preview;
 use std::{
-    collections::{BTreeMap, BTreeSet, HashMap},
+    collections::{BTreeMap, BTreeSet},
     path::PathBuf,
 };
 use thiserror::Error as ThisError;
@@ -1196,7 +1197,7 @@ fn generate_scenarios(
                         res.insert(
                             site_id,
                             Scenario {
-                                instances: scenario_instance_modifiers
+                                instances: ScenarioModifierMap(scenario_instance_modifiers
                                     .iter()
                                     .filter_map(|child_entity| {
                                         instance_modifiers.get(*child_entity).ok()
@@ -1213,8 +1214,8 @@ fn generate_scenarios(
                                             },
                                         ))
                                     })
-                                    .collect(),
-                                tasks: scenario_task_modifiers
+                                    .collect()),
+                                tasks: ScenarioModifierMap(scenario_task_modifiers
                                     .iter()
                                     .filter_map(|child_entity| {
                                         task_modifiers.get(*child_entity).ok()
@@ -1228,7 +1229,7 @@ fn generate_scenarios(
                                             },
                                         ))
                                     })
-                                    .collect(),
+                                    .collect()),
                                 properties: ScenarioBundle {
                                     name: name.clone(),
                                     parent_scenario: match parent_scenario.0 {

@@ -164,8 +164,11 @@ pub fn change_site(
                     .filter(|child| scenarios.get(*child).is_ok())
                     .next();
                 if let Some(new_scenario) = any_scenario {
+                    info!("Found scenario!");
                     change_current_scenario.write(ChangeCurrentScenario(new_scenario));
                 } else {
+                    info!("No scenario found!");
+                    panic!();
                     create_new_scenario.write(CreateScenario {
                         name: None,
                         parent: None,

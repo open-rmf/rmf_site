@@ -16,11 +16,13 @@
 */
 
 use crate::*;
+use bevy::prelude::Reflect;
 use bevy_ecs::prelude::Entity;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct Navigation {
     #[serde(default, skip_serializing_if = "Guided::is_empty")]
     pub guided: Guided,
@@ -33,6 +35,7 @@ impl Navigation {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct Guided {
     /// Properties of each nav graph
     pub graphs: BTreeMap<Entity, NavGraph>,

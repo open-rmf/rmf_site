@@ -29,7 +29,7 @@ use rmf_site_mesh::*;
 use rmf_site_picking::Selectable;
 use std::path::PathBuf;
 
-#[derive(Bundle, Debug, Clone)]
+#[derive(Reflect, Bundle, Debug, Clone)]
 pub struct DrawingBundle {
     pub properties: DrawingProperties,
     pub category: Category,
@@ -56,7 +56,8 @@ impl DrawingBundle {
     }
 }
 
-#[derive(Component, Clone, Copy, Debug, Default)]
+#[derive(Reflect, Component, Clone, Copy, Debug, Default)]
+#[reflect(Component)]
 pub struct DrawingMarker;
 
 pub const DRAWING_LAYER_START: f32 = 0.0;

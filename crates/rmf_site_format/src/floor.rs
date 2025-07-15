@@ -20,10 +20,11 @@ use crate::*;
 use bevy::prelude::{Bundle, Component, Reflect, ReflectComponent};
 use bevy_ecs::prelude::Entity;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use bevy::platform::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct Floor {
     pub anchors: Path,
     #[serde(default, skip_serializing_if = "is_default")]
