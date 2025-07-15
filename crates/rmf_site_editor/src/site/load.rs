@@ -434,8 +434,8 @@ fn generate_site_entities(
             .id();
         id_to_entity.insert(*model_instance_id, model_instance_entity);
         /*
-        let model_instance_entity = model_loader
-            .spawn_model_instance(*parent, model_instance.clone())
+        let model_instance_entity = 
+            model_loader.spawn_model_instance(*parent, model_instance.clone())
             .insert(Category::Model)
             .id();
         id_to_entity.insert(*model_instance_id, model_instance_entity);

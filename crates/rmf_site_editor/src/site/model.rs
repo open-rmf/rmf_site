@@ -714,7 +714,6 @@ pub struct InstanceSpawningRequest {
     pub affiliation: Affiliation,
 }
 
-// Will also have a ModelInstance bundle
 #[derive(Clone, Debug, Component, Reflect)]
 #[reflect(Component)]
 pub struct DeferredInstanceSpawningRequest {
@@ -726,13 +725,8 @@ pub fn process_deferred_model_spawning_requests(
     mut commands: Commands,
     mut model_loader: ModelLoader,
     requests: Query<(Entity, &DeferredInstanceSpawningRequest, &NameInSite, &Pose, &Affiliation, &ExportData)>,
-    descriptions: Query<(Entity, &ModelProperty<AssetSource>)>,
+    descriptions: Query<&ModelProperty<AssetSource>>,
 ) {
-    /*
-    for (e, d) in &descriptions {
-        info!("Description for entity {:?} is {:?}", e, d);
-    }
-    */
     for (e, req, name, pose, description, export_data) in &requests {
         let instance = ModelInstance {
             name: name.clone(),
@@ -741,9 +735,9 @@ pub fn process_deferred_model_spawning_requests(
             export_data: export_data.clone(),
             ..default()
         };
-        info!("Spawning model for entity {:?} with parent {:?} and description {:?}", e, req.parent, instance.description);
+        let source = descriptions.get(description.0.unwrap()).unwrap();
         let model_instance_entity = model_loader
-            .spawn_model_instance(req.parent, instance);
+            .update_asset_source(e, source.0.clone());
         commands.entity(e).remove::<DeferredInstanceSpawningRequest>();
     }
 }
