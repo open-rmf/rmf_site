@@ -479,10 +479,6 @@ fn show_task(
                     ui.label("Requester:");
                     ui.label(task_request.requester().unwrap_or("None".to_string()));
                     ui.end_row();
-
-                    ui.label("Fleet name:");
-                    ui.label(task_request.fleet_name().unwrap_or("None".to_string()));
-                    ui.end_row();
                 });
 
             CollapsingHeader::new("More details")
@@ -492,6 +488,12 @@ fn show_task(
                     Grid::new("task_details_".to_owned() + &task_entity.index().to_string())
                         .num_columns(2)
                         .show(ui, |ui| {
+                            if task.is_dispatch() {
+                                ui.label("Fleet:");
+                                ui.label(task_request.fleet_name().unwrap_or("None".to_string()));
+                                ui.end_row();
+                            }
+
                             // TODO(@xiyuoh) Add status/queued information
                             ui.label("Start time:");
                             ui.label(
@@ -569,11 +571,10 @@ fn edit_task(
     change_task: &mut EventWriter<Change<Task>>,
     update_task_modifier: &mut EventWriter<UpdateModifier<UpdateTaskModifier>>,
 ) {
+    let mut new_task = task.clone();
     Grid::new("edit_task_".to_owned() + &task_entity.index().to_string())
         .num_columns(2)
         .show(ui, |ui| {
-            let mut new_task = task.clone();
-
             // Select Request Type
             let mut is_robot_task_request = new_task.is_direct();
             ui.label("Request Type:");
@@ -680,36 +681,33 @@ fn edit_task(
                 *new_task_request.requester_mut() = None;
             }
             ui.end_row();
-
-            // Fleet name
-            ui.label("Fleet name:").on_hover_text(
-                "(Optional) The name of the fleet that should perform this task. \
-                If specified, other fleets will not bid for this task.",
-            );
-            // TODO(@xiyuoh) when available, insert combobox of registered fleets
-            let fleet_name = new_task_request
-                .fleet_name_mut()
-                .get_or_insert(String::new());
-            ui.text_edit_singleline(fleet_name);
-            if fleet_name.is_empty() {
-                *new_task_request.fleet_name_mut() = None;
-            }
-            ui.end_row();
-
-            if new_task != *task {
-                change_task.write(Change::new(new_task, task_entity));
-            } else {
-            }
         });
 
     // More
+    let mut new_task_params = task_params.clone();
     CollapsingHeader::new("More")
         .default_open(false)
         .show(ui, |ui| {
             Grid::new("edit_task_details")
                 .num_columns(2)
                 .show(ui, |ui| {
-                    let mut new_task_params = task_params.clone();
+                    // Fleet name
+                    if new_task.is_dispatch() {
+                        ui.label("Fleet name:").on_hover_text(
+                            "(Optional) The name of the fleet that should perform this task. \
+                        If specified, other fleets will not bid for this task.",
+                        );
+                        // TODO(@xiyuoh) when available, insert combobox of registered fleets
+                        let new_task_request = new_task.request_mut();
+                        let fleet_name = new_task_request
+                            .fleet_name_mut()
+                            .get_or_insert(String::new());
+                        ui.text_edit_singleline(fleet_name);
+                        if fleet_name.is_empty() {
+                            *new_task_request.fleet_name_mut() = None;
+                        }
+                        ui.end_row();
+                    }
 
                     // Start time
                     ui.label("Start Time:")
@@ -803,14 +801,18 @@ fn edit_task(
                     for i in remove_labels.drain(..).rev() {
                         new_task_params.labels_mut().remove(i);
                     }
-
-                    if new_task_params != *task_params {
-                        update_task_modifier.write(UpdateModifier::new(
-                            scenario,
-                            task_entity,
-                            UpdateTaskModifier::Modify(new_task_params),
-                        ));
-                    }
                 });
         });
+
+    if new_task != *task {
+        change_task.write(Change::new(new_task, task_entity));
+    }
+
+    if new_task_params != *task_params {
+        update_task_modifier.write(UpdateModifier::new(
+            scenario,
+            task_entity,
+            UpdateTaskModifier::Modify(new_task_params),
+        ));
+    }
 }

@@ -23,12 +23,16 @@ use std::collections::HashMap;
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct Robot {
+    // TODO(@xiyuoh) Fleet name is a string for now, we probably want some kind of
+    // fleet registration at some point
+    pub fleet: String,
     pub properties: HashMap<String, serde_json::Value>,
 }
 
 impl Default for Robot {
     fn default() -> Self {
         Self {
+            fleet: String::new(),
             properties: HashMap::new(),
         }
     }

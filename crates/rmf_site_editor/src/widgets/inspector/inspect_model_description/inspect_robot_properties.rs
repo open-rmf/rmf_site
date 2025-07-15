@@ -29,7 +29,7 @@ use bevy::{
     ecs::{component::Mutable, hierarchy::ChildOf, system::SystemParam},
     prelude::Component,
 };
-use bevy_egui::egui::{ComboBox, Ui};
+use bevy_egui::egui::{ComboBox, TextEdit, Ui};
 use rmf_site_format::robot_properties::*;
 use serde_json::{Error, Value};
 use smallvec::SmallVec;
@@ -123,7 +123,7 @@ impl RobotPropertiesInspector {
 struct InspectRobotProperties<'w, 's> {
     model_instances: ModelPropertyQuery<'w, 's, Robot>,
     model_descriptions:
-        Query<'w, 's, &'static ModelProperty<Robot>, (With<ModelMarker>, With<Group>)>,
+        Query<'w, 's, &'static mut ModelProperty<Robot>, (With<ModelMarker>, With<Group>)>,
     inspect_robot_properties: Res<'w, RobotPropertiesInspector>,
     children: Query<'w, 's, &'static Children>,
 }
@@ -139,7 +139,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectRobotProperties<'w, 's> {
         state: &mut SystemState<Self>,
         world: &mut World,
     ) {
-        let params = state.get_mut(world);
+        let mut params = state.get_mut(world);
         let Some(description_entity) = get_selected_description_entity(
             selection,
             &params.model_instances,
@@ -148,9 +148,18 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectRobotProperties<'w, 's> {
             return;
         };
         // Ensure that this widget is displayed only when there is a valid Robot property
-        let Ok(ModelProperty(_robot)) = params.model_descriptions.get(description_entity) else {
+        let Ok(mut robot_model_property) = params.model_descriptions.get_mut(description_entity)
+        else {
             return;
         };
+
+        ui.horizontal(|ui| {
+            ui.label("Fleet:");
+            TextEdit::singleline(&mut robot_model_property.0.fleet)
+                .desired_width(ui.available_width())
+                .show(ui);
+        });
+
         ui.label("Robot Properties");
 
         let children: Result<SmallVec<[_; 16]>, _> = params
