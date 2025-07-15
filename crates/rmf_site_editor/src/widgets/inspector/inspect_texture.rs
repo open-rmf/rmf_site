@@ -26,6 +26,7 @@ use bevy::{
     prelude::*,
 };
 use bevy_egui::egui::{ComboBox, Grid, ImageButton, TextEdit, Ui, Widget};
+use rmf_site_egui::WidgetSystem;
 use rmf_site_format::{
     Affiliation, FloorMarker, Group, NameInSite, RecallAssetSource, Texture, TextureGroup,
     WallMarker,

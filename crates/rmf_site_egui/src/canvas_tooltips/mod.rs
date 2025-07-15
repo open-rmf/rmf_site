@@ -15,7 +15,7 @@
  *
 */
 
-use bevy::ecs::prelude::Resource;
+use bevy_ecs::prelude::Resource;
 use bevy_egui::egui::{self, Context};
 use std::borrow::Cow;
 

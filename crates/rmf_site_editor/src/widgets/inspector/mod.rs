@@ -106,10 +106,7 @@ pub mod inspect_value;
 pub use inspect_value::*;
 use rmf_site_picking::Selection;
 
-use crate::{
-    site::{Category, SiteID},
-    widgets::prelude::*,
-};
+use crate::site::{Category, SiteID};
 use bevy::{
     ecs::{
         hierarchy::ChildOf,
@@ -118,6 +115,7 @@ use bevy::{
     prelude::*,
 };
 use bevy_egui::egui::{CollapsingHeader, Ui};
+use rmf_site_egui::*;
 use rmf_site_format::*;
 use smallvec::SmallVec;
 
@@ -127,6 +125,7 @@ use smallvec::SmallVec;
 /// ```no_run
 /// use bevy::prelude::{App, Query, Entity, Res};
 /// use librmf_site_editor::{SiteEditor, site::NameInSite, widgets::prelude::*};
+/// use rmf_site_egui::*;
 ///
 /// #[derive(SystemParam)]
 /// pub struct HelloSelection<'w, 's> {

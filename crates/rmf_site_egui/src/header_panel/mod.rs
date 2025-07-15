@@ -15,12 +15,8 @@
  *
 */
 
-use crate::widgets::{
-    show_panel_of_tiles, PanelConfig, PanelSide, PanelWidget, ScrollConfig, Tile, Widget,
-    WidgetSystem,
-};
-use bevy::{ecs::hierarchy::ChildOf, prelude::*};
-
+use crate::*;
+use bevy_app::prelude::*;
 pub struct HeaderTilePlugin<W>
 where
     W: WidgetSystem<Tile> + 'static + Send + Sync,
