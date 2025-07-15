@@ -422,7 +422,7 @@ pub fn update_lift_door_availability(
                                     .insert(LiftCabinDoor {
                                         kind: DoorType::DoubleSliding(DoubleSlidingDoor::default()),
                                         reference_anchors: anchors.into(),
-                                        visits: LevelVisits(BTreeSet::from_iter([toggle.on_level])),
+                                        visits: LevelVisits(EntityBTreeSet(BTreeSet::from_iter([toggle.on_level]))),
                                         marker: Default::default(),
                                     })
                                     .insert(Dependents::single(toggle.for_lift));

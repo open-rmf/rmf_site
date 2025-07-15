@@ -24,7 +24,8 @@ use bevy::{
     },
     render::primitives::Aabb,
 };
-use bevy_ecs::prelude::Entity;
+use bevy_ecs::prelude::{EntityMapper, Entity};
+use bevy_ecs::entity::MapEntities;
 use glam::{Vec2, Vec3};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -76,13 +77,29 @@ impl LiftCabinDoor {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq)]
 #[serde(transparent)]
 #[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut, Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
-pub struct LevelVisits(pub BTreeSet<Entity>);
+pub struct LevelVisits(#[entities] pub EntityBTreeSet);
 
-impl Default for LevelVisits {
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(transparent)]
+#[cfg_attr(feature = "bevy", derive(Deref, DerefMut, Reflect))]
+pub struct EntityBTreeSet(pub BTreeSet<Entity>);
+
+impl MapEntities for EntityBTreeSet {
+    fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
+        let mut mapped = BTreeSet::new();
+        while let Some(mut entity) = self.0.pop_first() {
+            entity.map_entities(entity_mapper);
+            mapped.insert(entity);
+        }
+        self.0 = mapped;
+    }
+}
+
+impl Default for EntityBTreeSet {
     fn default() -> Self {
         Self(BTreeSet::new())
     }
@@ -95,7 +112,7 @@ impl LevelVisits {
             .iter()
             .map(|level| id_map.get(level).copied().ok_or(*level))
             .collect();
-        Ok(LevelVisits(set?))
+        Ok(LevelVisits(EntityBTreeSet(set?)))
     }
 }
 
@@ -182,7 +199,7 @@ impl LiftProperties {
 #[serde(transparent)]
 #[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut, Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
-pub struct InitialLevel(pub Option<Entity>);
+pub struct InitialLevel(#[entities] pub Option<Entity>);
 
 impl Default for InitialLevel {
     fn default() -> Self {

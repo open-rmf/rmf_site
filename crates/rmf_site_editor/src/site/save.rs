@@ -567,12 +567,12 @@ fn generate_lifts(
                         LiftCabinDoor {
                             kind: door_type.clone(),
                             reference_anchors: validate_level_door_anchors(*child, edge)?,
-                            visits: LevelVisits(
+                            visits: LevelVisits(EntityBTreeSet(
                                 visits
                                     .iter()
                                     .map(|level| get_level_id(*level))
                                     .collect::<Result<_, _>>()?,
-                            ),
+                            )),
                             marker: Default::default(),
                         },
                     );
