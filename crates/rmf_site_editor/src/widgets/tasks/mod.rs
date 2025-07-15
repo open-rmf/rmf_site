@@ -21,8 +21,7 @@ use crate::{
         RobotTaskRequest, ScenarioModifiers, Task, TaskKinds, TaskParams, UpdateModifier,
         UpdateModifierEvent,
     },
-    widgets::prelude::*,
-    Icons, Tile, WidgetSystem,
+    Icons,
 };
 use bevy::{
     ecs::{
@@ -35,6 +34,7 @@ use bevy_egui::egui::{
     Align, CollapsingHeader, Color32, ComboBox, DragValue, Frame, Grid, ImageButton, Layout,
     Stroke, TextEdit, Ui,
 };
+use rmf_site_egui::*;
 use serde_json::Value;
 use smallvec::SmallVec;
 
