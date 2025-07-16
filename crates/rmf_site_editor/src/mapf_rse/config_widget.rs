@@ -16,17 +16,17 @@
 */
 
 use super::*;
+use crate::{
+    occupancy::{CalculateGrid, Grid},
+    prelude::SystemState,
+    site::{CurrentLevel, GoToPlace, Robot, Task, TaskKind},
+    widgets::view_occupancy::OccupancyDisplay,
+};
 use bevy::{
     ecs::{hierarchy::ChildOf, system::SystemParam},
     prelude::*,
 };
 use bevy_egui::egui::{CollapsingHeader, ComboBox, DragValue, Grid as EguiGrid, Ui};
-use crate::{
-    occupancy::{CalculateGrid, Grid},
-    site::{CurrentLevel, GoToPlace, Robot, Task, TaskKind},
-    widgets::view_occupancy::OccupancyDisplay,
-    prelude::SystemState,
-};
 use rmf_site_egui::{Tile, WidgetSystem};
 
 #[derive(SystemParam)]

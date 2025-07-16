@@ -16,13 +16,10 @@
 */
 
 use super::*;
-use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{
-    CollapsingHeader, DragValue, Slider,
-    SliderClamping, Ui,
-};
-use rmf_site_egui::{Tile, WidgetSystem};
 use crate::prelude::SystemState;
+use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy_egui::egui::{CollapsingHeader, DragValue, Slider, SliderClamping, Ui};
+use rmf_site_egui::{Tile, WidgetSystem};
 
 #[derive(Resource, Debug, Clone)]
 pub struct SimulationConfig {

@@ -15,16 +15,16 @@
  *
 */
 
-use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 use crate::{
     site::{
         CircleCollision, Collision, DifferentialDrive, Mobility, RobotProperty, RobotPropertyKind,
     },
     workspace::CurrentWorkspace,
 };
+use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 use rmf_site_format::{
-    AssetSource, Category, Group, IsStatic, ModelDescriptionBundle, ModelProperty,
-    NameInSite, Robot
+    AssetSource, Category, Group, IsStatic, ModelDescriptionBundle, ModelProperty, NameInSite,
+    Robot,
 };
 
 /// Loads the TinyRobot model into the scene with differential drive and a mobile robot marker for convenience

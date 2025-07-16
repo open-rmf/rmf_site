@@ -26,14 +26,14 @@ use std::{
     time::{Duration, Instant},
 };
 
-use mapf::negotiation::*;
 use crate::{
     occupancy::{Cell, Grid},
     site::{
         Affiliation, Anchor, CircleCollision, CurrentLevel, DifferentialDrive, GoToPlace, Group,
-        LocationTags, ModelMarker, NameInSite, Point, Pose, Robot, Task as RobotTask
+        LocationTags, ModelMarker, NameInSite, Point, Pose, Robot, Task as RobotTask,
     },
 };
+use mapf::negotiation::*;
 
 use mapf::negotiation::{Agent, Obstacle, Scenario as MapfScenario};
 

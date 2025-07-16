@@ -16,13 +16,12 @@
 */
 
 use super::*;
+use crate::prelude::SystemState;
 use bevy::ecs::system::SystemParam;
 use bevy_egui::egui::{
-    self, Align, CollapsingHeader, Color32, Frame, Response,
-    ScrollArea, Stroke, Ui
+    self, Align, CollapsingHeader, Color32, Frame, Response, ScrollArea, Stroke, Ui,
 };
-use rmf_site_egui::{TryShowWidgetWorld, Widget, PanelWidget, PanelWidgetInput, WidgetSystem};
-use crate::prelude::SystemState;
+use rmf_site_egui::{PanelWidget, PanelWidgetInput, TryShowWidgetWorld, Widget, WidgetSystem};
 
 #[derive(Default)]
 pub struct NegotiationDebugPlugin;

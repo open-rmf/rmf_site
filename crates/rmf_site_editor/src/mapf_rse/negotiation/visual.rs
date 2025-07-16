@@ -16,9 +16,9 @@
 */
 
 use super::*;
+use crate::site::line_stroke_transform;
 use bevy::ecs::hierarchy::ChildOf;
 use bevy::math::prelude::Rectangle;
-use crate::site::line_stroke_transform;
 
 pub const DEFAULT_PATH_WIDTH: f32 = 0.2;
 
