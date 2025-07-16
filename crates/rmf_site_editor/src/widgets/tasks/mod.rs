@@ -21,7 +21,7 @@ use crate::{
         RobotTaskRequest, ScenarioMarker, ScenarioModifiers, Task, TaskKinds, TaskParams,
         TaskRequest, UpdateModifier, UpdateTaskModifier,
     },
-    widgets::prelude::*,
+    widgets::{prelude::*, RenderUiSet},
     Icons, Tile, WidgetSystem,
 };
 use bevy::{
@@ -31,9 +31,12 @@ use bevy::{
     },
     prelude::*,
 };
-use bevy_egui::egui::{
-    Align, CollapsingHeader, Color32, ComboBox, DragValue, Frame, Grid, ImageButton, Layout,
-    Stroke, TextEdit, Ui,
+use bevy_egui::{
+    egui::{
+        Align, Align2, CollapsingHeader, Color32, ComboBox, DragValue, Frame, Grid, ImageButton,
+        Layout, Stroke, TextEdit, Ui, Window,
+    },
+    EguiContexts,
 };
 use serde_json::Value;
 use smallvec::SmallVec;
@@ -63,7 +66,9 @@ impl Plugin for MainTasksPlugin {
         app.init_resource::<TaskWidget>()
             .init_resource::<TaskKinds>()
             .init_resource::<EditTask>()
-            .add_event::<EditModeEvent>();
+            .init_resource::<CreateTaskDialog>()
+            .add_event::<EditModeEvent>()
+            .add_systems(Update, show_create_task_dialog.after(RenderUiSet));
     }
 }
 
@@ -77,6 +82,11 @@ impl TaskWidget {
     pub fn get(&self) -> Entity {
         self.id
     }
+}
+
+#[derive(Resource, Default)]
+pub struct CreateTaskDialog {
+    pub visible: bool,
 }
 
 impl FromWorld for TaskWidget {
@@ -122,7 +132,6 @@ pub struct ViewTasks<'w, 's> {
     get_inclusion_modifier: GetModifier<'w, 's, Modifier<Inclusion>>,
     get_params_modifier: GetModifier<'w, 's, Modifier<TaskParams>>,
     icons: Res<'w, Icons>,
-    pending_tasks: Query<'w, 's, (Entity, &'static Task, &'static TaskParams), With<Pending>>,
     robots: Query<'w, 's, (Entity, &'static NameInSite), (With<Robot>, Without<Group>)>,
     scenarios: Query<
         'w,
@@ -218,49 +227,7 @@ impl<'w, 's> ViewTasks<'w, 's> {
         ui.add_space(10.0);
         ui.separator();
 
-        let mut reset_edit: bool = false;
-
-        if let Some(task_entity) = self.edit_task.0 {
-            if let Ok((_, pending_task, pending_task_params)) =
-                self.pending_tasks.get_mut(task_entity)
-            {
-                ui.horizontal(|ui| {
-                    ui.label("Creating Task");
-                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if ui.button("Cancel").clicked() {
-                            reset_edit = true;
-                        }
-                        ui.add_enabled_ui(pending_task.is_valid(), |ui| {
-                            // TODO(@xiyuoh) Also check validity of TaskKind (e.g. GoToPlace)
-                            if ui
-                                .button("Add Task")
-                                .on_hover_text("Add this task to the current scenario")
-                                .clicked()
-                            {
-                                self.commands.entity(task_entity).remove::<Pending>();
-                                reset_edit = true;
-                            }
-                        });
-                    });
-                });
-                ui.separator();
-
-                show_editable_task(
-                    ui,
-                    &mut self.commands,
-                    task_entity,
-                    pending_task,
-                    &pending_task_params,
-                    current_scenario_entity,
-                    true,
-                    &self.get_params_modifier,
-                    &self.robots,
-                    &self.task_kinds,
-                    &mut self.change_task,
-                    &mut self.update_task_modifier,
-                );
-            }
-        } else {
+        if self.edit_task.0.is_none() {
             if ui.button("✚ Create New Task").clicked() {
                 let new_task = self
                     .commands
@@ -274,13 +241,6 @@ impl<'w, 's> ViewTasks<'w, 's> {
                     mode: EditMode::New(new_task),
                 });
             }
-        }
-
-        if reset_edit {
-            self.edit_mode.write(EditModeEvent {
-                scenario: current_scenario_entity,
-                mode: EditMode::Edit(None),
-            });
         }
     }
 }
@@ -666,6 +626,84 @@ fn show_editable_task(
             ));
         }
     }
+}
+
+fn show_create_task_dialog(
+    mut commands: Commands,
+    mut contexts: EguiContexts,
+    mut create_task_dialog: ResMut<CreateTaskDialog>,
+    mut change_task: EventWriter<Change<Task>>,
+    mut edit_mode: EventWriter<EditModeEvent>,
+    mut update_task_modifier: EventWriter<UpdateModifier<UpdateTaskModifier>>,
+    current_scenario: Res<CurrentScenario>,
+    edit_task: Res<EditTask>,
+    get_params_modifier: GetModifier<Modifier<TaskParams>>,
+    pending_tasks: Query<(&Task, &TaskParams), With<Pending>>,
+    robots: Query<(Entity, &NameInSite), (With<Robot>, Without<Group>)>,
+    task_kinds: ResMut<TaskKinds>,
+) {
+    if !create_task_dialog.visible {
+        return;
+    }
+    let Some(current_scenario_entity) = current_scenario.0 else {
+        return;
+    };
+    let Some(task_entity) = edit_task.0 else {
+        return;
+    };
+    let Ok((pending_task, pending_task_params)) = pending_tasks.get(task_entity) else {
+        return;
+    };
+
+    Window::new("Creating New Task")
+        .collapsible(false)
+        .resizable(false)
+        .anchor(Align2::CENTER_CENTER, [0.0, 0.0])
+        .show(contexts.ctx_mut(), |ui| {
+            show_editable_task(
+                ui,
+                &mut commands,
+                task_entity,
+                pending_task,
+                pending_task_params,
+                current_scenario_entity,
+                true,
+                &get_params_modifier,
+                &robots,
+                &task_kinds,
+                &mut change_task,
+                &mut update_task_modifier,
+            );
+            ui.separator();
+
+            let mut reset_edit: bool = false;
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                if ui.button("Cancel").clicked() {
+                    reset_edit = true;
+                }
+                ui.add_enabled_ui(pending_task.is_valid(), |ui| {
+                    // TODO(@xiyuoh) Also check validity of TaskKind (e.g. GoToPlace)
+                    if ui
+                        .button("Add Task")
+                        .on_hover_text("Add this task to the current scenario")
+                        .clicked()
+                    {
+                        commands.entity(task_entity).remove::<Pending>();
+                        reset_edit = true;
+                    }
+                });
+            });
+
+            if reset_edit {
+                edit_mode.write(EditModeEvent {
+                    scenario: current_scenario_entity,
+                    mode: EditMode::Edit(None),
+                });
+                create_task_dialog.visible = false;
+            }
+
+            // TODO(@xiyuoh) show child widgets!
+        });
 }
 
 fn edit_request_type_widget(

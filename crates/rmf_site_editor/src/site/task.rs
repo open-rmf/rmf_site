@@ -21,7 +21,7 @@ use crate::{
         Pending, Property, ScenarioMarker, ScenarioModifiers, Task, TaskKind, TaskParams,
         UpdateModifier, UpdateProperty,
     },
-    widgets::tasks::{EditMode, EditModeEvent, EditTask},
+    widgets::tasks::{CreateTaskDialog, EditMode, EditModeEvent, EditTask},
     CurrentWorkspace,
 };
 use bevy::ecs::{hierarchy::ChildOf, system::SystemState};
@@ -194,6 +194,7 @@ pub enum UpdateTaskModifier {
 /// Updates the current EditTask entity based on the triggered edit mode event
 pub fn handle_task_edit(
     mut commands: Commands,
+    mut create_task_dialog: ResMut<CreateTaskDialog>,
     mut delete: EventWriter<Delete>,
     mut edit_mode: EventReader<EditModeEvent>,
     mut edit_task: ResMut<EditTask>,
@@ -208,6 +209,7 @@ pub fn handle_task_edit(
                     commands.entity(task_entity).insert(ChildOf(site_entity));
                 }
                 edit_task.0 = Some(task_entity);
+                create_task_dialog.visible = true;
             }
             EditMode::Edit(task_entity) => {
                 if let Some(pending_task) = edit_task.0.filter(|e| pending_tasks.get(*e).is_ok()) {
