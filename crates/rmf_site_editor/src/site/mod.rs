@@ -337,6 +337,7 @@ impl Plugin for SitePlugin {
         .register_type::<RecencyRanking<DrawingMarker>>()
         // Custom ones in other places
         .register_type::<DeferredInstanceSpawningRequest>()
+        .register_type::<DefaultFile>()
         .add_event::<LoadSite>()
         .add_event::<ImportNavGraphs>()
         .add_event::<ChangeCurrentSite>()

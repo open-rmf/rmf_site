@@ -23,7 +23,7 @@ use crate::{
     },
     CurrentWorkspace,
 };
-use bevy::{asset::LoadState, ecs::hierarchy::ChildOf, math::Affine3A, prelude::*};
+use bevy::{asset::LoadState, ecs::{relationship::AncestorIter, hierarchy::ChildOf}, math::Affine3A, prelude::*};
 use rmf_site_format::{AssetSource, Category, DrawingProperties, PixelsPerMeter, Pose};
 use rmf_site_mesh::*;
 use rmf_site_picking::Selectable;
@@ -81,21 +81,14 @@ pub fn add_drawing_visuals(
     mut commands: Commands,
     changed_drawings: Query<(Entity, &AssetSource), (With<DrawingMarker>, Changed<AssetSource>)>,
     asset_server: Res<AssetServer>,
-    current_workspace: Res<CurrentWorkspace>,
     site_files: Query<&DefaultFile>,
+    parents: Query<&ChildOf>,
 ) {
-    if changed_drawings.is_empty() {
-        return;
-    }
-
-    // TODO(luca) depending on when this system is executed, this function might be called between
-    // the creation of the drawing and the change of the workspace, making this silently fail
-    // Look into reordering systems, or adding a marker component, to make sure this doesn't happen
-    let file_path = match get_current_workspace_path(current_workspace, site_files) {
-        Some(file_path) => file_path,
-        None => PathBuf::new(),
-    };
     for (e, source) in &changed_drawings {
+        let Some(file_path) = AncestorIter::new(&parents, e).find_map(|p| site_files.get(p).ok()) else {
+            warn!("Drawing found without a site parent");
+            continue;
+        };
         // Append file name to path if it's a local file
         // TODO(luca) cleanup
         let asset_source = match source {

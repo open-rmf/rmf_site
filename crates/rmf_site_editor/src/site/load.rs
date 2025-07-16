@@ -32,7 +32,8 @@ use thiserror::Error as ThisError;
 
 /// This component is given to the site to keep track of what file it should be
 /// saved to by default.
-#[derive(Component, Clone, Debug, Deref)]
+#[derive(Reflect, Component, Clone, Debug, Deref)]
+#[reflect(Component)]
 pub struct DefaultFile(pub PathBuf);
 
 #[derive(Event, Clone)]
@@ -171,19 +172,24 @@ impl SiteLoadingError {
 
 fn generate_site_entities(
     model_loader: &mut ModelLoader,
-    site_data: &rmf_site_format::Site,
+    site_event: &LoadSite,
     type_registry: &AppTypeRegistry,
 ) -> Result<DynamicScene, SiteLoadingError> {
     let mut world = World::new();
     world.insert_resource(type_registry.clone());
     let mut commands: Commands = world.commands();
     let mut id_to_entity = HashMap::new();
+    let site_data = &site_event.site;
 
     let site_id = commands
         .spawn((Transform::IDENTITY, Visibility::Hidden))
         .insert(Category::Site)
         .insert(WorkspaceMarker)
         .id();
+
+    if let Some(path) = &site_event.default_file {
+        commands.entity(site_id).insert(DefaultFile(path.clone()));
+    }
 
     for (anchor_id, anchor) in &site_data.anchors {
         let anchor_entity = commands
@@ -615,7 +621,7 @@ pub fn load_site(
     mut change_current_site: EventWriter<ChangeCurrentSite>,
 ) {
     for cmd in load_sites.read() {
-        let site = match generate_site_entities(&mut model_loader, &cmd.site, &type_registry) {
+        let site = match generate_site_entities(&mut model_loader, &cmd, &type_registry) {
             Ok(site) => site,
             Err(err) => {
                 commands.entity(err.site).despawn();
