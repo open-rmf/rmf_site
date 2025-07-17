@@ -41,11 +41,11 @@ pub struct Drawing {
     // #[serde(flatten)]
     pub properties: DrawingProperties,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub anchors: BTreeMap<u32, Anchor>,
+    pub anchors: BTreeMap<SiteID, Anchor>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub fiducials: BTreeMap<u32, Fiducial<u32>>,
+    pub fiducials: BTreeMap<SiteID, Fiducial>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub measurements: BTreeMap<u32, Measurement<u32>>,
+    pub measurements: BTreeMap<SiteID, Measurement>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

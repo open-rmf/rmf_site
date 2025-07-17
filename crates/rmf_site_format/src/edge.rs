@@ -15,79 +15,80 @@
  *
 */
 
-use crate::{RefTrait, Side};
+use crate::{Side, SiteID};
 #[cfg(feature = "bevy")]
 use bevy::prelude::Component;
+use bevy_ecs::prelude::Entity;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(transparent)]
 #[cfg_attr(feature = "bevy", derive(Component))]
-pub struct Edge<T>([T; 2]);
+pub struct Edge([SiteID; 2]);
 
-impl<T: RefTrait> Edge<T> {
+impl Edge {
     /// Create a new edge of this type using the given anchors. All other
     /// properties of the edge should have sensible default values.
-    pub fn new(left: T, right: T) -> Self {
+    pub fn new(left: SiteID, right: SiteID) -> Self {
         Self([left, right])
     }
 
-    pub fn array(&self) -> [T; 2] {
+    pub fn array(&self) -> [SiteID; 2] {
         self.0
     }
 
-    pub fn array_mut(&mut self) -> &mut [T; 2] {
+    pub fn array_mut(&mut self) -> &mut [SiteID; 2] {
         &mut self.0
     }
 
-    pub fn left(&self) -> T {
+    pub fn left(&self) -> SiteID {
         self.0[0]
     }
 
-    pub fn left_mut(&mut self) -> &mut T {
+    pub fn left_mut(&mut self) -> &mut SiteID {
         self.0.get_mut(0).unwrap()
     }
 
-    pub fn right(&self) -> T {
+    pub fn right(&self) -> SiteID {
         self.0[1]
     }
 
-    pub fn right_mut(&mut self) -> &mut T {
+    pub fn right_mut(&mut self) -> &mut SiteID {
         self.0.get_mut(1).unwrap()
     }
 
-    pub fn start(&self) -> T {
+    pub fn start(&self) -> SiteID {
         self.left()
     }
 
-    pub fn start_mut(&mut self) -> &mut T {
+    pub fn start_mut(&mut self) -> &mut SiteID {
         self.left_mut()
     }
 
-    pub fn end(&self) -> T {
+    pub fn end(&self) -> SiteID {
         self.right()
     }
 
-    pub fn end_mut(&mut self) -> &mut T {
+    pub fn end_mut(&mut self) -> &mut SiteID {
         self.right_mut()
     }
 
-    pub fn side(&self, side: Side) -> T {
+    pub fn side(&self, side: Side) -> SiteID {
         match side {
             Side::Left => self.left(),
             Side::Right => self.right(),
         }
     }
 
-    pub fn side_mut(&mut self, side: Side) -> &mut T {
+    pub fn side_mut(&mut self, side: Side) -> &mut SiteID {
         match side {
             Side::Left => self.left_mut(),
             Side::Right => self.right_mut(),
         }
     }
 
-    pub fn with_side_of(mut self, side: Side, value: T) -> Self {
+    pub fn with_side_of(mut self, side: Side, value: SiteID) -> Self {
         *self.side_mut(side) = value;
         self
     }
@@ -101,17 +102,21 @@ impl<T: RefTrait> Edge<T> {
     }
 }
 
-impl<T: RefTrait> From<[T; 2]> for Edge<T> {
-    fn from(array: [T; 2]) -> Self {
+impl From<[SiteID; 2]> for Edge {
+    fn from(array: [SiteID; 2]) -> Self {
         Self(array)
     }
 }
 
-impl<T: RefTrait> Edge<T> {
-    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Edge<U>, T> {
+impl Edge {
+    pub fn convert(&self, id_map: &HashMap<SiteID, Entity>) -> Result<Edge, SiteID> {
         Ok(Edge([
-            id_map.get(&self.left()).ok_or(self.left())?.clone(),
-            id_map.get(&self.right()).ok_or(self.right())?.clone(),
+            id_map.get(&self.left()).ok_or(self.left())?.clone().into(),
+            id_map
+                .get(&self.right())
+                .ok_or(self.right())?
+                .clone()
+                .into(),
         ]))
     }
 }

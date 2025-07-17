@@ -33,34 +33,34 @@ pub const DEFAULT_CABIN_WIDTH: f32 = 1.5;
 pub const DEFAULT_CABIN_DEPTH: f32 = 1.65;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Lift<T: RefTrait> {
+pub struct Lift {
     /// The cabin doors that the lift cabin has
-    pub cabin_doors: BTreeMap<T, LiftCabinDoor<T>>,
+    pub cabin_doors: BTreeMap<SiteID, LiftCabinDoor>,
     /// Properties that define the lift
-    pub properties: LiftProperties<T>,
+    pub properties: LiftProperties,
     /// Anchors that are inside the cabin of the lift and exist in the map of
     /// the cabin's interior.
-    pub cabin_anchors: BTreeMap<T, Anchor>,
+    pub cabin_anchors: BTreeMap<SiteID, Anchor>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
-pub struct LiftCabinDoor<T: RefTrait> {
+pub struct LiftCabinDoor {
     /// What kind of door is this
     pub kind: DoorType,
     /// Anchors that define the level door positioning for level doors.
     /// The key of this map is the cabin door ID and the value is a pair of
     /// anchor IDs associated with that cabin door, used to mark the location of
     /// where a level door is (or would be) located.
-    pub reference_anchors: Edge<T>,
+    pub reference_anchors: Edge,
     /// The IDs of the levels that this door can visit
-    pub visits: LevelVisits<T>,
+    pub visits: LevelVisits,
     #[serde(skip)]
     pub marker: LiftCabinDoorMarker,
 }
 
-impl<T: RefTrait> LiftCabinDoor<T> {
-    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<LiftCabinDoor<U>, T> {
+impl LiftCabinDoor {
+    pub fn convert(&self, id_map: &HashMap<SiteID, Entity>) -> Result<LiftCabinDoor, SiteID> {
         Ok(LiftCabinDoor {
             kind: self.kind.clone(),
             reference_anchors: self.reference_anchors.convert(id_map)?,
@@ -73,20 +73,20 @@ impl<T: RefTrait> LiftCabinDoor<T> {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(transparent)]
 #[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
-pub struct LevelVisits<T: RefTrait>(pub BTreeSet<T>);
+pub struct LevelVisits(pub BTreeSet<SiteID>);
 
-impl<T: RefTrait> Default for LevelVisits<T> {
+impl Default for LevelVisits {
     fn default() -> Self {
         Self(BTreeSet::new())
     }
 }
 
-impl<T: RefTrait> LevelVisits<T> {
-    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<LevelVisits<U>, T> {
-        let set: Result<BTreeSet<U>, T> = self
+impl LevelVisits {
+    pub fn convert(&self, id_map: &HashMap<SiteID, Entity>) -> Result<LevelVisits, SiteID> {
+        let set: Result<BTreeSet<SiteID>, SiteID> = self
             .0
             .iter()
-            .map(|level| id_map.get(level).copied().ok_or(*level))
+            .map(|level| id_map.get(level).map(|e| (*e).into()).ok_or(*level))
             .collect();
         Ok(LevelVisits(set?))
     }
@@ -98,24 +98,24 @@ pub struct LiftCabinDoorMarker;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
-pub struct LiftProperties<T: RefTrait> {
+pub struct LiftProperties {
     /// Name of this lift. This must be unique within the site.
     pub name: NameInSite,
     /// These anchors define the canonical reference frame of the lift. Both
     /// anchors must be site-wide anchors.
-    pub reference_anchors: Edge<T>,
+    pub reference_anchors: Edge,
     /// Description of the cabin for the lift.
-    pub cabin: LiftCabin<T>,
+    pub cabin: LiftCabin,
     /// When this is true, the lift is only for decoration and will not be
     /// responsive during a simulation.
     pub is_static: IsStatic,
     /// What is the initial level for this lift. If nothing is specified, the
     /// lift will start on the lowest level.
     #[serde(skip_serializing_if = "is_default")]
-    pub initial_level: InitialLevel<T>,
+    pub initial_level: InitialLevel,
 }
 
-impl LiftProperties<u32> {
+impl LiftProperties {
     /// Returns the pose of the lift cabin center in global coordinates.
     pub fn center(&self, site: &Site) -> Option<Pose> {
         // Center of the aabb
@@ -172,9 +172,9 @@ impl LiftProperties<u32> {
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(transparent)]
 #[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
-pub struct InitialLevel<T: RefTrait>(pub Option<T>);
+pub struct InitialLevel(pub Option<SiteID>);
 
-impl<T: RefTrait> Default for InitialLevel<T> {
+impl Default for InitialLevel {
     fn default() -> Self {
         Self(None)
     }
@@ -182,9 +182,9 @@ impl<T: RefTrait> Default for InitialLevel<T> {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
-pub enum LiftCabin<T: RefTrait> {
+pub enum LiftCabin {
     /// The lift cabin is defined by some parameters.
-    Rect(RectangularLiftCabin<T>),
+    Rect(RectangularLiftCabin),
     // TODO(MXG): Support Models as lift cabins
     // The model pose is relative to the center point of the two Lift anchors,
     // with the y-axis facing the left anchor. The lift doors should open along
@@ -192,14 +192,14 @@ pub enum LiftCabin<T: RefTrait> {
     // Model(Model),
 }
 
-impl<T: RefTrait> Default for LiftCabin<T> {
+impl Default for LiftCabin {
     fn default() -> Self {
         LiftCabin::Rect(Default::default())
     }
 }
 
-impl<T: RefTrait> LiftCabin<T> {
-    pub fn remove_door(&mut self, door: T) {
+impl LiftCabin {
+    pub fn remove_door(&mut self, door: SiteID) {
         match self {
             Self::Rect(params) => {
                 for face in RectFace::iter_all() {
@@ -213,7 +213,7 @@ impl<T: RefTrait> LiftCabin<T> {
         }
     }
 
-    pub fn level_door_anchors(&self, door: T) -> Option<[Anchor; 2]> {
+    pub fn level_door_anchors(&self, door: SiteID) -> Option<[Anchor; 2]> {
         match self {
             Self::Rect(params) => {
                 for (face, placement) in &params.doors() {
@@ -227,7 +227,7 @@ impl<T: RefTrait> LiftCabin<T> {
         None
     }
 
-    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<LiftCabin<U>, T> {
+    pub fn convert(&self, id_map: &HashMap<SiteID, Entity>) -> Result<LiftCabin, SiteID> {
         let result = match self {
             LiftCabin::Rect(cabin) => LiftCabin::Rect(cabin.convert(id_map)?),
         };
@@ -250,14 +250,14 @@ impl<T: RefTrait> LiftCabin<T> {
 
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "bevy", derive(Component))]
-pub struct RecallLiftCabin<T: RefTrait> {
-    pub rect_doors: [Option<LiftCabinDoorPlacement<T>>; 4],
+pub struct RecallLiftCabin {
+    pub rect_doors: [Option<LiftCabinDoorPlacement>; 4],
     pub wall_thickness: Option<f32>,
     pub gap: Option<f32>,
     pub shift: Option<f32>,
 }
 
-impl<T: RefTrait> Default for RecallLiftCabin<T> {
+impl Default for RecallLiftCabin {
     fn default() -> Self {
         Self {
             rect_doors: Default::default(),
@@ -268,8 +268,8 @@ impl<T: RefTrait> Default for RecallLiftCabin<T> {
     }
 }
 
-impl<T: RefTrait> Recall for RecallLiftCabin<T> {
-    type Source = LiftCabin<T>;
+impl Recall for RecallLiftCabin {
+    type Source = LiftCabin;
 
     fn remember(&mut self, source: &Self::Source) {
         match source {
@@ -293,15 +293,15 @@ impl<T: RefTrait> Recall for RecallLiftCabin<T> {
     }
 }
 
-impl<T: RefTrait> RecallLiftCabin<T> {
-    pub fn rect_door(&self, face: RectFace) -> &Option<LiftCabinDoorPlacement<T>> {
+impl RecallLiftCabin {
+    pub fn rect_door(&self, face: RectFace) -> &Option<LiftCabinDoorPlacement> {
         &self.rect_doors[face as usize]
     }
 }
 
 /// A lift cabin that is defined entirely by a standard set of parameters.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct RectangularLiftCabin<T: RefTrait> {
+pub struct RectangularLiftCabin {
     /// How wide is the interior of the cabin, along the axis formed by the
     /// anchor points.
     pub width: f32,
@@ -325,19 +325,19 @@ pub struct RectangularLiftCabin<T: RefTrait> {
     // as an array.
     /// The placement of the cabin's front door, if it has one
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub front_door: Option<LiftCabinDoorPlacement<T>>,
+    pub front_door: Option<LiftCabinDoorPlacement>,
     /// The placement of the cabin's back door, if it has one
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub back_door: Option<LiftCabinDoorPlacement<T>>,
+    pub back_door: Option<LiftCabinDoorPlacement>,
     /// The placement of the cabin's left door, if it has one
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub left_door: Option<LiftCabinDoorPlacement<T>>,
+    pub left_door: Option<LiftCabinDoorPlacement>,
     /// The placement of the cabin's right door, if it has one
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub right_door: Option<LiftCabinDoorPlacement<T>>,
+    pub right_door: Option<LiftCabinDoorPlacement>,
 }
 
-impl<T: RefTrait> Default for RectangularLiftCabin<T> {
+impl Default for RectangularLiftCabin {
     fn default() -> Self {
         Self {
             width: DEFAULT_CABIN_WIDTH,
@@ -353,7 +353,7 @@ impl<T: RefTrait> Default for RectangularLiftCabin<T> {
     }
 }
 
-impl<T: RefTrait> RectangularLiftCabin<T> {
+impl RectangularLiftCabin {
     pub fn thickness(&self) -> f32 {
         self.wall_thickness.unwrap_or(DEFAULT_CABIN_WALL_THICKNESS)
     }
@@ -373,7 +373,7 @@ impl<T: RefTrait> RectangularLiftCabin<T> {
         }
     }
 
-    pub fn doors(&self) -> [(RectFace, &Option<LiftCabinDoorPlacement<T>>); 4] {
+    pub fn doors(&self) -> [(RectFace, &Option<LiftCabinDoorPlacement>); 4] {
         [
             (RectFace::Front, &self.front_door),
             (RectFace::Back, &self.back_door),
@@ -382,7 +382,7 @@ impl<T: RefTrait> RectangularLiftCabin<T> {
         ]
     }
 
-    pub fn doors_mut(&mut self) -> [(RectFace, &mut Option<LiftCabinDoorPlacement<T>>); 4] {
+    pub fn doors_mut(&mut self) -> [(RectFace, &mut Option<LiftCabinDoorPlacement>); 4] {
         [
             (RectFace::Front, &mut self.front_door),
             (RectFace::Back, &mut self.back_door),
@@ -391,7 +391,7 @@ impl<T: RefTrait> RectangularLiftCabin<T> {
         ]
     }
 
-    pub fn door(&self, face: RectFace) -> &Option<LiftCabinDoorPlacement<T>> {
+    pub fn door(&self, face: RectFace) -> &Option<LiftCabinDoorPlacement> {
         match face {
             RectFace::Front => &self.front_door,
             RectFace::Back => &self.back_door,
@@ -400,7 +400,7 @@ impl<T: RefTrait> RectangularLiftCabin<T> {
         }
     }
 
-    pub fn door_mut(&mut self, face: RectFace) -> &mut Option<LiftCabinDoorPlacement<T>> {
+    pub fn door_mut(&mut self, face: RectFace) -> &mut Option<LiftCabinDoorPlacement> {
         match face {
             RectFace::Front => &mut self.front_door,
             RectFace::Back => &mut self.back_door,
@@ -456,10 +456,10 @@ impl<T: RefTrait> RectangularLiftCabin<T> {
         ])
     }
 
-    pub fn convert<U: RefTrait>(
+    pub fn convert(
         &self,
-        id_map: &HashMap<T, U>,
-    ) -> Result<RectangularLiftCabin<U>, T> {
+        id_map: &HashMap<SiteID, Entity>,
+    ) -> Result<RectangularLiftCabin, SiteID> {
         Ok(RectangularLiftCabin {
             width: self.width,
             depth: self.depth,
@@ -475,7 +475,7 @@ impl<T: RefTrait> RectangularLiftCabin<T> {
 }
 
 #[cfg(feature = "bevy")]
-impl<T: RefTrait> RectangularLiftCabin<T> {
+impl RectangularLiftCabin {
     pub fn aabb(&self) -> Aabb {
         let front_door_t = self
             .front_door
@@ -502,8 +502,8 @@ impl<T: RefTrait> RectangularLiftCabin<T> {
     pub fn level_doormats(
         &self,
         length: f32,
-        recall: Option<&RecallLiftCabin<T>>,
-    ) -> [(RectFace, Option<T>, Aabb); 4] {
+        recall: Option<&RecallLiftCabin>,
+    ) -> [(RectFace, Option<SiteID>, Aabb); 4] {
         let n = Vec3::new(
             self.depth / 2.0 + 1.5 * self.thickness() + length / 2.0,
             self.width / 2.0 + 1.5 * self.thickness() + length / 2.0,
@@ -528,9 +528,9 @@ impl<T: RefTrait> RectangularLiftCabin<T> {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
-pub struct LiftCabinDoorPlacement<T: RefTrait> {
+pub struct LiftCabinDoorPlacement {
     /// Reference to the actual door entity
-    pub door: T,
+    pub door: SiteID,
     /// How wide is the lift cabin door
     pub width: f32,
     /// Set the thickness of the door. If set to None, 10cm will be used.
@@ -544,25 +544,25 @@ pub struct LiftCabinDoorPlacement<T: RefTrait> {
     pub custom_gap: Option<f32>,
 }
 
-impl<T: RefTrait> LiftProperties<T> {
-    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<LiftProperties<U>, T> {
+impl LiftProperties {
+    pub fn convert(&self, id_map: &HashMap<SiteID, Entity>) -> Result<LiftProperties, SiteID> {
+        let initial_level = if let Some(l) = self.initial_level.0 {
+            Some(id_map.get(&l).map(|e| (*e).into()).ok_or(*l)?)
+        } else {
+            None
+        };
         Ok(LiftProperties {
             name: self.name.clone(),
             reference_anchors: self.reference_anchors.convert(id_map)?,
             cabin: self.cabin.convert(id_map)?,
             is_static: self.is_static,
-            initial_level: InitialLevel(
-                self.initial_level
-                    .0
-                    .map(|id| id_map.get(&id).unwrap())
-                    .copied(),
-            ),
+            initial_level: InitialLevel(initial_level),
         })
     }
 }
 
-impl<T: RefTrait> From<Edge<T>> for LiftProperties<T> {
-    fn from(edge: Edge<T>) -> Self {
+impl From<Edge> for LiftProperties {
+    fn from(edge: Edge) -> Self {
         LiftProperties {
             name: Default::default(),
             reference_anchors: edge,
@@ -580,46 +580,23 @@ pub type QueryLiftDoor<'w, 's> = Query<
     (
         &'static SiteID,
         &'static DoorType,
-        &'static Edge<Entity>,
-        Option<&'static Original<Edge<Entity>>>,
-        &'static LevelVisits<Entity>,
+        &'static Edge,
+        Option<&'static Original<Edge>>,
+        &'static LevelVisits,
     ),
     (With<LiftCabinDoorMarker>, Without<Pending>),
 >;
 
-#[cfg(feature = "bevy")]
-impl LiftCabin<Entity> {
-    pub fn to_u32(&self, doors: &QueryLiftDoor) -> LiftCabin<u32> {
-        match self {
-            LiftCabin::Rect(cabin) => LiftCabin::Rect(cabin.to_u32(doors)),
-        }
-    }
-}
-
-#[cfg(feature = "bevy")]
-impl RectangularLiftCabin<Entity> {
-    pub fn to_u32(&self, doors: &QueryLiftDoor) -> RectangularLiftCabin<u32> {
-        RectangularLiftCabin {
-            width: self.width,
-            depth: self.depth,
-            wall_thickness: self.wall_thickness,
-            gap: self.gap,
-            shift: self.shift,
-            front_door: self.front_door.as_ref().map(|d| d.to_u32(doors)),
-            back_door: self.back_door.as_ref().map(|d| d.to_u32(doors)),
-            left_door: self.left_door.as_ref().map(|d| d.to_u32(doors)),
-            right_door: self.right_door.as_ref().map(|d| d.to_u32(doors)),
-        }
-    }
-}
-
-impl<T: RefTrait> LiftCabinDoorPlacement<T> {
-    pub fn convert<U: RefTrait>(
+impl LiftCabinDoorPlacement {
+    pub fn convert(
         &self,
-        id_map: &HashMap<T, U>,
-    ) -> Result<LiftCabinDoorPlacement<U>, T> {
+        id_map: &HashMap<SiteID, Entity>,
+    ) -> Result<LiftCabinDoorPlacement, SiteID> {
         Ok(LiftCabinDoorPlacement {
-            door: id_map.get(&self.door).ok_or(self.door)?.clone(),
+            door: id_map
+                .get(&self.door)
+                .map(|e| (*e).into())
+                .ok_or(self.door)?,
             width: self.width,
             thickness: self.thickness,
             shifted: self.shifted,
@@ -628,21 +605,8 @@ impl<T: RefTrait> LiftCabinDoorPlacement<T> {
     }
 }
 
-#[cfg(feature = "bevy")]
-impl LiftCabinDoorPlacement<Entity> {
-    pub fn to_u32(&self, doors: &QueryLiftDoor) -> LiftCabinDoorPlacement<u32> {
-        LiftCabinDoorPlacement {
-            door: doors.get(self.door).unwrap().0 .0,
-            width: self.width,
-            thickness: self.thickness,
-            shifted: self.shifted,
-            custom_gap: self.custom_gap,
-        }
-    }
-}
-
-impl<T: RefTrait> LiftCabinDoorPlacement<T> {
-    pub fn new(door: T, width: f32) -> Self {
+impl LiftCabinDoorPlacement {
+    pub fn new(door: SiteID, width: f32) -> Self {
         LiftCabinDoorPlacement {
             door,
             width,

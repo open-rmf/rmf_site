@@ -15,15 +15,15 @@
  *
 */
 
-use crate::RefTrait;
+use crate::SiteID;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Hash, PartialEq, Eq, Debug, Clone, Ord, PartialOrd)]
-pub struct IssueKey<T: RefTrait> {
+pub struct IssueKey {
     /// Denotes which entities this issue affects
-    pub entities: BTreeSet<T>,
+    pub entities: BTreeSet<SiteID>,
     /// Uuid of the type of issue
     pub kind: Uuid,
 }
