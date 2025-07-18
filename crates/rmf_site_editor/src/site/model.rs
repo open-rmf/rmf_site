@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::DragPlaneBundle,
-    site::{CurrentScenario, Delete, SiteAssets, UpdateProperty},
+    site::{CurrentScenario, Delete, SiteAssets, UpdateProperty, CircleCollision},
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
     Issue, ValidateWorkspace,
 };
@@ -32,6 +32,7 @@ use bevy::{
     gltf::Gltf,
     prelude::*,
     render::view::RenderLayers,
+    render::mesh::VertexAttributeValues,
     scene::SceneInstance,
 };
 use bevy_impulse::*;
@@ -39,7 +40,7 @@ use bevy_mod_outline::{GenerateOutlineNormalsSettings, OutlineMeshExt};
 use rmf_site_camera::MODEL_PREVIEW_LAYER;
 use rmf_site_format::{
     Affiliation, AssetSource, Group, IssueKey, ModelInstance, ModelMarker, ModelProperty,
-    NameInSite, Pending, Scale,
+    NameInSite, Pending, Scale, Robot
 };
 use rmf_site_picking::Preview;
 use smallvec::SmallVec;
@@ -599,6 +600,7 @@ impl ModelLoadingServices {
                     .then(propagate_model_properties.into_blocking_callback())
                     .then(make_models_selectable.into_blocking_callback())
                     .then(make_models_visible.into_blocking_callback())
+                    .then(insert_robot_collision_model.into_blocking_callback())
                     .map_block(|req| {
                         Ok(ModelLoadingSuccess {
                             request: req,
@@ -737,6 +739,53 @@ pub fn update_model_scales(
             tf.scale = **scale;
         }
     }
+}
+
+pub fn insert_robot_collision_model(
+    In(req): In<ModelLoadingRequest>,
+    mut commands: Commands,
+    robots : Query<(), With<Robot>>,
+    mesh_handles : Query<&Mesh3d>,
+    all_children: Query<&Children>,
+    meshes : Res<Assets<Mesh>>
+) -> ModelLoadingRequest {
+    if robots.get(req.parent).is_err(){
+        return req;
+    }
+
+    // TODO(Nielsen): Is allocation of 16 sufficient?
+    let mut queue: SmallVec<[Entity; 16]> = SmallVec::new();
+    queue.push(req.parent);
+
+    let mut max_dist_to_mesh_vertex = 0.0;
+
+    while let Some(e) = queue.pop() {
+        if let Ok(mesh_handle) = mesh_handles.get(e){
+            if let Some(mesh) = meshes.get(mesh_handle){
+                if let Some(VertexAttributeValues::Float32x3(positions)) = mesh.attribute(Mesh::ATTRIBUTE_POSITION){
+                    for p in positions {
+                        let dist_to_mesh_vertex = (p[0]*p[0] + p[1] * p[1]).sqrt();
+                        if dist_to_mesh_vertex > max_dist_to_mesh_vertex{
+                            max_dist_to_mesh_vertex = dist_to_mesh_vertex;
+                        }
+                    }
+                }
+            }
+        }
+
+        if let Ok(children) = all_children.get(e) {
+            for child in children {
+                queue.push(*child);
+            }
+        }
+    }
+
+    commands.entity(req.parent).insert(CircleCollision {
+        radius: max_dist_to_mesh_vertex,
+        offset: [0.0, 0.0],
+    });
+
+    req
 }
 
 pub fn make_models_selectable(
