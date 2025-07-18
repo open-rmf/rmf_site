@@ -31,7 +31,7 @@ pub struct Members(Vec<Entity>);
 struct LastAffiliation(Option<Entity>);
 
 pub fn update_affiliations(
-    mut affiliations: Query<&mut Affiliation<Entity>>,
+    mut affiliations: Query<&mut Affiliation>,
     mut merge_groups: EventReader<MergeGroups>,
     mut deleted_groups: RemovedComponents<Group>,
 ) {
@@ -54,7 +54,7 @@ pub fn update_affiliations(
 
 pub fn update_members_of_groups(
     mut commands: Commands,
-    changed_affiliation: Query<(Entity, &Affiliation<Entity>), Changed<Affiliation<Entity>>>,
+    changed_affiliation: Query<(Entity, &Affiliation), Changed<Affiliation>>,
 ) {
     for (e, affiliation) in &changed_affiliation {
         commands.entity(e).set_membership(affiliation.0);

@@ -35,7 +35,7 @@ pub fn update_lane_visual_cues(
         (
             With<LaneMarker>,
             Without<AnchorVisualization>,
-            Or<(Changed<Hovered>, Changed<Selected>, Changed<Edge<Entity>>)>,
+            Or<(Changed<Hovered>, Changed<Selected>, Changed<Edge>)>,
         ),
     >,
     mut materials: Query<&mut MeshMaterial3d<StandardMaterial>>,

@@ -22,12 +22,12 @@ use bevy::prelude::*;
 pub struct EdgeVisualCue {
     /// If the edge is using support from some anchors, the entities of those
     /// anchors will be saved here.
-    supporters: Option<Edge<Entity>>,
+    supporters: Option<Edge>,
 }
 
 pub fn add_edge_visual_cues(
     mut commands: Commands,
-    new_edges: Query<(Entity, &Edge<Entity>), Without<EdgeVisualCue>>,
+    new_edges: Query<(Entity, &Edge), Without<EdgeVisualCue>>,
 ) {
     for (e, edge) in &new_edges {
         commands.entity(e).insert(EdgeVisualCue {
@@ -42,14 +42,14 @@ pub fn update_edge_visual_cues(
             Entity,
             &Hovered,
             &Selected,
-            &Edge<Entity>,
+            &Edge,
             &mut EdgeVisualCue,
         ),
         (
             Without<AnchorVisualization>,
-            Without<Point<Entity>>,
-            Without<Path<Entity>>,
-            Or<(Changed<Hovered>, Changed<Selected>, Changed<Edge<Entity>>)>,
+            Without<Point>,
+            Without<Path>,
+            Or<(Changed<Hovered>, Changed<Selected>, Changed<Edge>)>,
         ),
     >,
     mut anchors: Query<(&mut Hovered, &mut Selected), With<AnchorVisualization>>,

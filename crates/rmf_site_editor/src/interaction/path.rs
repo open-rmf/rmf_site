@@ -20,12 +20,12 @@ use bevy::prelude::*;
 
 #[derive(Component, Default)]
 pub struct PathVisualCue {
-    supporters: Option<Path<Entity>>,
+    supporters: Option<Path>,
 }
 
 pub fn add_path_visual_cues(
     mut commands: Commands,
-    new_paths: Query<(Entity, &Path<Entity>), Without<PointVisualCue>>,
+    new_paths: Query<(Entity, &Path), Without<PointVisualCue>>,
 ) {
     for (e, path) in &new_paths {
         commands.entity(e).insert(PathVisualCue {
@@ -40,14 +40,14 @@ pub fn update_path_visual_cues(
             Entity,
             &Hovered,
             &Selected,
-            &Path<Entity>,
+            &Path,
             &mut PathVisualCue,
         ),
         (
             Without<AnchorVisualization>,
-            Without<Edge<Entity>>,
-            Without<Point<Entity>>,
-            Or<(Changed<Hovered>, Changed<Selected>, Changed<Path<Entity>>)>,
+            Without<Edge>,
+            Without<Point>,
+            Or<(Changed<Hovered>, Changed<Selected>, Changed<Path>)>,
         ),
     >,
     mut anchors: Query<(&mut Hovered, &mut Selected), With<AnchorVisualization>>,

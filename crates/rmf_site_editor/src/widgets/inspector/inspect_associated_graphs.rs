@@ -34,14 +34,14 @@ pub struct InspectAssociatedGraphs<'w, 's> {
         'w,
         's,
         (
-            &'static AssociatedGraphs<Entity>,
-            &'static RecallAssociatedGraphs<Entity>,
+            &'static AssociatedGraphs,
+            &'static RecallAssociatedGraphs,
         ),
     >,
     graphs: Query<'w, 's, (Entity, &'static NameInSite), With<NavGraphMarker>>,
     icons: Res<'w, Icons>,
     consider_graph: EventWriter<'w, ConsiderAssociatedGraph>,
-    change_associated_graphs: EventWriter<'w, Change<AssociatedGraphs<Entity>>>,
+    change_associated_graphs: EventWriter<'w, Change<AssociatedGraphs>>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectAssociatedGraphs<'w, 's> {

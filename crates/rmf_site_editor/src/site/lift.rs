@@ -88,7 +88,7 @@ pub struct ToggleLiftDoorAvailability {
 
 fn make_lift_transform(
     entity: Entity,
-    reference_anchors: &Edge<Entity>,
+    reference_anchors: &Edge,
     anchors: &AnchorParams,
 ) -> Transform {
     let p_start = anchors
@@ -116,8 +116,8 @@ fn make_lift_transform(
 
 pub fn add_tags_to_lift(
     mut commands: Commands,
-    new_lifts: Query<(Entity, &Edge<Entity>), Added<LiftCabin<Entity>>>,
-    orphan_lifts: Query<Entity, (With<LiftCabin<Entity>>, Without<ChildOf>)>,
+    new_lifts: Query<(Entity, &Edge), Added<LiftCabin>>,
+    orphan_lifts: Query<Entity, (With<LiftCabin>, Without<ChildOf>)>,
     open_sites: Query<Entity, With<NameOfSite>>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     current_workspace: Res<CurrentWorkspace>,
@@ -152,18 +152,18 @@ pub fn update_lift_cabin(
     lifts: Query<
         (
             Entity,
-            &LiftCabin<Entity>,
-            Option<&RecallLiftCabin<Entity>>,
+            &LiftCabin,
+            Option<&RecallLiftCabin>,
             Option<&ChildCabinAnchorGroup>,
             Option<&ChildLiftCabinGroup>,
             &ChildOf,
         ),
-        Or<(Changed<LiftCabin<Entity>>, Changed<ChildOf>)>,
+        Or<(Changed<LiftCabin>, Changed<ChildOf>)>,
     >,
     mut cabin_anchor_groups: Query<&mut Transform, With<CabinAnchorGroup>>,
-    level_visits: Query<&LevelVisits<Entity>>,
+    level_visits: Query<&LevelVisits>,
     children: Query<&Children>,
-    doors: Query<&Edge<Entity>, With<LiftCabinDoorMarker>>,
+    doors: Query<&Edge, With<LiftCabinDoorMarker>>,
     mut anchors: Query<&mut Anchor>,
     assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -320,8 +320,8 @@ pub fn update_lift_cabin(
 
 pub fn update_lift_edge(
     mut lifts: Query<
-        (Entity, &Edge<Entity>, &mut Transform),
-        (Changed<Edge<Entity>>, With<LiftCabin<Entity>>),
+        (Entity, &Edge, &mut Transform),
+        (Changed<Edge>, With<LiftCabin>),
     >,
     anchors: AnchorParams,
 ) {
@@ -331,7 +331,7 @@ pub fn update_lift_edge(
 }
 
 pub fn update_lift_for_moved_anchors(
-    mut lifts: Query<(Entity, &Edge<Entity>, &mut Transform), With<LiftCabin<Entity>>>,
+    mut lifts: Query<(Entity, &Edge, &mut Transform), With<LiftCabin>>,
     anchors: AnchorParams,
     changed_anchors: Query<
         &Dependents,
@@ -354,11 +354,11 @@ pub fn update_lift_door_availability(
     mut commands: Commands,
     mut toggles: EventReader<ToggleLiftDoorAvailability>,
     mut lifts: Query<(
-        &mut LiftCabin<Entity>,
-        Option<&RecallLiftCabin<Entity>>,
+        &mut LiftCabin,
+        Option<&RecallLiftCabin>,
         &ChildCabinAnchorGroup,
     )>,
-    mut doors: Query<(Entity, &Edge<Entity>, &mut LevelVisits<Entity>), With<LiftCabinDoorMarker>>,
+    mut doors: Query<(Entity, &Edge, &mut LevelVisits), With<LiftCabinDoorMarker>>,
     dependents: Query<&Dependents, With<Anchor>>,
     current_level: Res<CurrentLevel>,
     new_levels: Query<(), Added<LevelElevation>>,
@@ -575,8 +575,8 @@ pub fn update_lift_door_availability(
 fn remove_door(
     cabin_door: Entity,
     commands: &mut Commands,
-    cabin: &mut LiftCabin<Entity>,
-    doors: &Query<(Entity, &Edge<Entity>, &mut LevelVisits<Entity>), With<LiftCabinDoorMarker>>,
+    cabin: &mut LiftCabin,
+    doors: &Query<(Entity, &Edge, &mut LevelVisits), With<LiftCabinDoorMarker>>,
     dependents: &Query<&Dependents, With<Anchor>>,
 ) {
     cabin.remove_door(cabin_door);
@@ -628,7 +628,7 @@ pub fn check_for_duplicated_lift_names(
     mut commands: Commands,
     mut validate_events: EventReader<ValidateWorkspace>,
     child_of: Query<&ChildOf>,
-    lift_names: Query<(Entity, &NameInSite), With<LiftCabin<Entity>>>,
+    lift_names: Query<(Entity, &NameInSite), With<LiftCabin>>,
 ) {
     const ISSUE_HINT: &str = "Lifts use their names as identifiers with RMF and each lift should \
                               have a unique name, rename the affected lifts";

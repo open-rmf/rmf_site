@@ -160,7 +160,7 @@ pub struct InspectAssetSource<'w, 's> {
         'w,
         's,
         (&'static AssetSource, &'static RecallAssetSource),
-        Without<Affiliation<Entity>>,
+        Without<Affiliation>,
     >,
     default_file: Query<'w, 's, &'static DefaultFile>,
     current_workspace: Res<'w, CurrentWorkspace>,

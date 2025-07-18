@@ -28,7 +28,7 @@ pub fn update_model_instance_visual_cues(
         ),
     >,
     mut model_instances: Query<
-        (&mut Selected, &mut Hovered, &mut Affiliation<Entity>),
+        (&mut Selected, &mut Hovered, &mut Affiliation),
         (With<ModelMarker>, Without<Group>),
     >,
 ) {

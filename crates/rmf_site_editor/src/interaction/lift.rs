@@ -62,7 +62,7 @@ pub fn handle_lift_doormat_clicks(
     }
 }
 
-pub fn dirty_changed_lifts(mut lifts: Query<&mut Hovered, Changed<LiftCabin<Entity>>>) {
+pub fn dirty_changed_lifts(mut lifts: Query<&mut Hovered, Changed<LiftCabin>>) {
     for mut lift in &mut lifts {
         // This is a hack to force the outline to re-render after the lift cabin
         // has been reconstructed since any changes to the lift cabin will lazily

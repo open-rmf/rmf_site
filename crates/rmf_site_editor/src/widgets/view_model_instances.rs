@@ -49,8 +49,8 @@ pub struct ViewModelInstances<'w, 's> {
         's,
         (
             Entity,
-            &'static ScenarioModifiers<Entity>,
-            &'static Affiliation<Entity>,
+            &'static ScenarioModifiers,
+            &'static Affiliation,
         ),
         With<ScenarioMarker>,
     >,
@@ -67,7 +67,7 @@ pub struct ViewModelInstances<'w, 's> {
     model_instances: Query<
         'w,
         's,
-        (Entity, &'static NameInSite, &'static Affiliation<Entity>),
+        (Entity, &'static NameInSite, &'static Affiliation),
         With<InstanceMarker>,
     >,
     selection: Res<'w, Selection>,
@@ -90,7 +90,7 @@ impl<'w, 's> WidgetSystem<Tile> for ViewModelInstances<'w, 's> {
 impl<'w, 's> ViewModelInstances<'w, 's> {
     pub fn show_widget(&mut self, ui: &mut Ui) {
         if let Some(current_scenario_entity) = self.current_scenario.0 {
-            let mut unaffiliated_instances = Vec::<Entity>::new();
+            let mut unaffiliated_instances = Vec::new();
             ScrollArea::vertical()
                 .max_height(INSTANCES_VIEWER_HEIGHT)
                 .auto_shrink([false, false])

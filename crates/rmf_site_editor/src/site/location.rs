@@ -47,8 +47,8 @@ fn location_halo_tf(tag: &LocationTag) -> Transform {
 
 // TODO(@mxgrey): Refactor this implementation with should_display_lane using traits and generics
 fn should_display_point(
-    point: &Point<Entity>,
-    associated: &AssociatedGraphs<Entity>,
+    point: &Point,
+    associated: &AssociatedGraphs,
     child_of: &Query<&ChildOf>,
     levels: &Query<(), With<LevelElevation>>,
     current_level: &Res<CurrentLevel>,
@@ -68,8 +68,8 @@ pub fn add_location_visuals(
     locations: Query<
         (
             Entity,
-            &Point<Entity>,
-            &AssociatedGraphs<Entity>,
+            &Point,
+            &AssociatedGraphs,
             &LocationTags,
         ),
         Added<LocationTags>,
@@ -154,12 +154,12 @@ pub fn update_changed_location(
     mut locations: Query<
         (
             Entity,
-            &Point<Entity>,
-            &AssociatedGraphs<Entity>,
+            &Point,
+            &AssociatedGraphs,
             &mut Visibility,
             &mut Transform,
         ),
-        (Changed<Point<Entity>>, Without<NavGraphMarker>),
+        (Changed<Point>, Without<NavGraphMarker>),
     >,
     anchors: AnchorParams,
     child_of: Query<&ChildOf>,
@@ -193,7 +193,7 @@ pub fn update_changed_location(
 }
 
 pub fn update_location_for_moved_anchors(
-    mut locations: Query<(Entity, &Point<Entity>, &mut Transform), With<LocationTags>>,
+    mut locations: Query<(Entity, &Point, &mut Transform), With<LocationTags>>,
     anchors: AnchorParams,
     changed_anchors: Query<
         &Dependents,
@@ -288,8 +288,8 @@ pub fn update_location_for_changed_location_tags(
 pub fn update_visibility_for_locations(
     mut locations: Query<
         (
-            &Point<Entity>,
-            &AssociatedGraphs<Entity>,
+            &Point,
+            &AssociatedGraphs,
             &mut Visibility,
             &mut MeshMaterial3d<StandardMaterial>,
             // &mut
@@ -302,7 +302,7 @@ pub fn update_visibility_for_locations(
     graphs: GraphSelect,
     locations_with_changed_association: Query<
         Entity,
-        (With<LocationTags>, Changed<AssociatedGraphs<Entity>>),
+        (With<LocationTags>, Changed<AssociatedGraphs>),
     >,
     graph_changed_visibility: Query<
         (),

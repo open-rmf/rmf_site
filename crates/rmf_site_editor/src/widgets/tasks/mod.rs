@@ -129,8 +129,8 @@ pub struct ViewTasks<'w, 's> {
         's,
         (
             Entity,
-            &'static ScenarioModifiers<Entity>,
-            &'static Affiliation<Entity>,
+            &'static ScenarioModifiers,
+            &'static Affiliation,
         ),
         With<ScenarioMarker>,
     >,

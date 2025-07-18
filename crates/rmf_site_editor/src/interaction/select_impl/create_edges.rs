@@ -48,14 +48,14 @@ pub fn spawn_create_edges_service(
 }
 
 pub struct CreateEdges {
-    pub spawn_edge: fn(Edge<Entity>, &mut Commands) -> Entity,
+    pub spawn_edge: fn(Edge, &mut Commands) -> Entity,
     pub preview_edge: Option<PreviewEdge>,
     pub continuity: EdgeContinuity,
     pub scope: AnchorScope,
 }
 
 impl CreateEdges {
-    pub fn new<T: Bundle + From<Edge<Entity>>>(
+    pub fn new<T: Bundle + From<Edge>>(
         continuity: EdgeContinuity,
         scope: AnchorScope,
     ) -> Self {
@@ -67,7 +67,7 @@ impl CreateEdges {
         }
     }
 
-    pub fn new_with_texture<T: Bundle + From<Edge<Entity>>>(
+    pub fn new_with_texture<T: Bundle + From<Edge>>(
         continuity: EdgeContinuity,
         scope: AnchorScope,
     ) -> Self {
@@ -98,16 +98,16 @@ impl Borrow<AnchorScope> for CreateEdges {
     }
 }
 
-fn create_edge<T: Bundle + From<Edge<Entity>>>(
-    edge: Edge<Entity>,
+fn create_edge<T: Bundle + From<Edge>>(
+    edge: Edge,
     commands: &mut Commands,
 ) -> Entity {
     let new_bundle: T = edge.into();
     commands.spawn((new_bundle, Pending)).id()
 }
 
-fn create_edge_with_texture<T: Bundle + From<Edge<Entity>>>(
-    edge: Edge<Entity>,
+fn create_edge_with_texture<T: Bundle + From<Edge>>(
+    edge: Edge,
     commands: &mut Commands,
 ) -> Entity {
     let new_bundle: T = edge.into();
@@ -129,7 +129,7 @@ pub struct PreviewEdge {
 impl PreviewEdge {
     pub fn cleanup(
         &self,
-        edges: &Query<&'static Edge<Entity>>,
+        edges: &Query<&'static Edge>,
         commands: &mut Commands,
     ) -> SelectionNodeResult {
         let edge = edges.get(self.edge).or_broken_query()?;
@@ -182,7 +182,7 @@ pub fn on_hover_for_create_edges(
     mut access: BufferAccessMut<CreateEdges>,
     mut cursor: ResMut<Cursor>,
     mut visibility: Query<&mut Visibility>,
-    mut edges: Query<&mut Edge<Entity>>,
+    mut edges: Query<&mut Edge>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
@@ -235,7 +235,7 @@ pub fn on_hover_for_create_edges(
 pub fn on_select_for_create_edges(
     In((selection, key)): In<(SelectionCandidate, BufferKey<CreateEdges>)>,
     mut access: BufferAccessMut<CreateEdges>,
-    mut edges: Query<&mut Edge<Entity>>,
+    mut edges: Query<&mut Edge>,
     mut commands: Commands,
     cursor: Res<Cursor>,
 ) -> SelectionNodeResult {
@@ -331,7 +331,7 @@ pub fn on_select_for_create_edges(
 pub fn on_keyboard_for_create_edges(
     In((button, key)): In<(KeyCode, BufferKey<CreateEdges>)>,
     mut access: BufferAccessMut<CreateEdges>,
-    mut edges: Query<&'static mut Edge<Entity>>,
+    mut edges: Query<&'static mut Edge>,
     cursor: Res<Cursor>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
@@ -388,7 +388,7 @@ pub fn on_keyboard_for_create_edges(
 pub fn cleanup_create_edges(
     In(key): In<BufferKey<CreateEdges>>,
     mut access: BufferAccessMut<CreateEdges>,
-    edges: Query<&'static Edge<Entity>>,
+    edges: Query<&'static Edge>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;

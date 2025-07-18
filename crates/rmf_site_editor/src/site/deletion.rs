@@ -111,9 +111,9 @@ impl Delete {
 struct DeletionParams<'w, 's> {
     commands: Commands<'w, 's>,
     preventions: Query<'w, 's, &'static PreventDeletion>,
-    edges: Query<'w, 's, &'static Edge<Entity>>,
-    points: Query<'w, 's, &'static Point<Entity>>,
-    paths: Query<'w, 's, &'static Path<Entity>>,
+    edges: Query<'w, 's, &'static Edge>,
+    points: Query<'w, 's, &'static Point>,
+    paths: Query<'w, 's, &'static Path>,
     child_of: Query<'w, 's, &'static ChildOf>,
     dependents: Query<'w, 's, &'static mut Dependents>,
     children: Query<'w, 's, &'static Children>,

@@ -224,7 +224,7 @@ struct InspectModelDescription<'w, 's> {
     model_instances: Query<
         'w,
         's,
-        &'static Affiliation<Entity>,
+        &'static Affiliation,
         (With<ModelMarker>, Without<Group>, With<NameInSite>),
     >,
     model_descriptions: Query<'w, 's, &'static NameInSite, (With<ModelMarker>, With<Group>)>,
@@ -380,7 +380,7 @@ pub struct InspectSelectedModelDescription<'w, 's> {
         (With<ModelMarker>, With<Group>),
     >,
     model_loader: ModelLoader<'w, 's>,
-    change_affiliation: EventWriter<'w, Change<Affiliation<Entity>>>,
+    change_affiliation: EventWriter<'w, Change<Affiliation>>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectSelectedModelDescription<'w, 's> {

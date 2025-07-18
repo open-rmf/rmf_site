@@ -308,8 +308,8 @@ fn calculate_grid(
 fn get_levels_of_sites(
     levels: &Query<Entity, With<LevelElevation>>,
     child_of: &Query<&ChildOf>,
-) -> HashMap<Entity, Vec<Entity>> {
-    let mut levels_of_sites: HashMap<Entity, Vec<Entity>> = HashMap::new();
+) -> HashMap<Entity, Vec> {
+    let mut levels_of_sites: HashMap<Entity, Vec> = HashMap::new();
     for level in levels {
         if let Ok(child_of) = child_of.get(level) {
             levels_of_sites
@@ -353,7 +353,7 @@ fn collect_physical_entities(
         Option<&Category>,
         Option<&ComputedVisualCue>,
     )>,
-) -> Vec<Entity> {
+) -> Vec {
     let mut physical_entities = Vec::new();
     for (e, _, _, _) in meshes {
         let mut e_meta = e;

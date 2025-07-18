@@ -197,10 +197,10 @@ fn restore_edited_drawing(edit: &EditDrawing, commands: &mut Commands) {
 fn assign_drawing_parent_to_new_measurements(
     mut commands: Commands,
     changed_measurement: Query<
-        (Entity, &Edge<Entity>),
+        (Entity, &Edge),
         (
             Without<Pending>,
-            (With<MeasurementMarker>, Changed<Edge<Entity>>),
+            (With<MeasurementMarker>, Changed<Edge>),
         ),
     >,
     child_of: Query<&ChildOf>,

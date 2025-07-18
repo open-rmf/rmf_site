@@ -32,7 +32,7 @@ pub struct MeasurementSegment(pub Entity);
 
 pub fn add_measurement_visuals(
     mut commands: Commands,
-    measurements: Query<(Entity, &Edge<Entity>, Option<&Transform>), Added<MeasurementMarker>>,
+    measurements: Query<(Entity, &Edge, Option<&Transform>), Added<MeasurementMarker>>,
     anchors: AnchorParams,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
@@ -83,7 +83,7 @@ pub fn add_measurement_visuals(
 
 fn update_measurement_visual(
     entity: Entity,
-    edge: &Edge<Entity>,
+    edge: &Edge,
     anchors: &AnchorParams,
     transform: &mut Transform,
 ) {
@@ -100,8 +100,8 @@ fn update_measurement_visual(
 
 pub fn update_changed_measurement(
     measurements: Query<
-        (&Edge<Entity>, &MeasurementSegment),
-        (Changed<Edge<Entity>>, With<MeasurementMarker>),
+        (&Edge, &MeasurementSegment),
+        (Changed<Edge>, With<MeasurementMarker>),
     >,
     anchors: AnchorParams,
     mut transforms: Query<&mut Transform>,
@@ -114,7 +114,7 @@ pub fn update_changed_measurement(
 }
 
 pub fn update_measurement_for_moved_anchors(
-    measurements: Query<(&Edge<Entity>, &MeasurementSegment), With<MeasurementMarker>>,
+    measurements: Query<(&Edge, &MeasurementSegment), With<MeasurementMarker>>,
     anchors: AnchorParams,
     changed_anchors: Query<
         &Dependents,

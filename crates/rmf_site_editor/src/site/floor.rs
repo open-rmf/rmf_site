@@ -55,7 +55,7 @@ fn make_fallback_floor_mesh_at_avg(positions: Vec<Vec3>) -> Mesh {
 
 fn make_fallback_floor_mesh_near_path(
     entity: Entity,
-    path: &Path<Entity>,
+    path: &Path,
     anchors: &AnchorParams,
 ) -> Mesh {
     let mut positions: Vec<Vec3> = Vec::new();
@@ -69,10 +69,10 @@ fn make_fallback_floor_mesh_near_path(
 
 fn make_floor_mesh(
     entity: Entity,
-    anchor_path: &Path<Entity>,
+    anchor_path: &Path,
     texture: &Texture,
     anchors: &AnchorParams,
-    lifts: &Query<(&Transform, &LiftCabin<Entity>)>,
+    lifts: &Query<(&Transform, &LiftCabin)>,
 ) -> Mesh {
     if anchor_path.len() == 0 {
         return Mesh::new(
@@ -136,7 +136,7 @@ fn make_floor_mesh(
         let to_subtract = match cabin {
             LiftCabin::Rect(params) => {
                 let w = params.thickness();
-                let gap_for_door = |d: &Option<LiftCabinDoorPlacement<Entity>>| -> f32 {
+                let gap_for_door = |d: &Option<LiftCabinDoorPlacement>| -> f32 {
                     d.map(|d| d.custom_gap.unwrap_or(params.gap()))
                         .unwrap_or(DEFAULT_CABIN_GAP)
                         + w
@@ -230,8 +230,8 @@ pub fn add_floor_visuals(
     floors: Query<
         (
             Entity,
-            &Path<Entity>,
-            &Affiliation<Entity>,
+            &Path,
+            &Affiliation,
             Option<&RecencyRank<FloorMarker>>,
             Option<&LayerVisibility>,
             Option<&ChildOf>,
@@ -244,7 +244,7 @@ pub fn add_floor_visuals(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     default_floor_vis: Query<(&GlobalFloorVisibility, &RecencyRanking<DrawingMarker>)>,
-    lifts: Query<(&Transform, &LiftCabin<Entity>)>,
+    lifts: Query<(&Transform, &LiftCabin)>,
 ) {
     for (e, new_floor, texture_source, rank, vis, child_of) in &floors {
         let (base_color_texture, texture) = from_texture_source(texture_source, &textures);
@@ -305,7 +305,7 @@ pub fn update_changed_floor_ranks(
 }
 
 pub fn update_floors_for_moved_anchors(
-    floors: Query<(Entity, &FloorSegments, &Path<Entity>, &Affiliation<Entity>), With<FloorMarker>>,
+    floors: Query<(Entity, &FloorSegments, &Path, &Affiliation), With<FloorMarker>>,
     anchors: AnchorParams,
     textures: Query<(Option<&TextureImage>, &Texture)>,
     changed_anchors: Query<
@@ -317,7 +317,7 @@ pub fn update_floors_for_moved_anchors(
     >,
     mut mesh_assets: ResMut<Assets<Mesh>>,
     mesh_handles: Query<&Mesh3d>,
-    lifts: Query<(&Transform, &LiftCabin<Entity>)>,
+    lifts: Query<(&Transform, &LiftCabin)>,
 ) {
     for dependents in &changed_anchors {
         for dependent in dependents.iter() {
@@ -335,12 +335,12 @@ pub fn update_floors_for_moved_anchors(
 }
 
 pub fn update_floors(
-    floors: Query<(&FloorSegments, &Path<Entity>, &Affiliation<Entity>), With<FloorMarker>>,
+    floors: Query<(&FloorSegments, &Path, &Affiliation), With<FloorMarker>>,
     changed_floors: Query<
         Entity,
         (
             With<FloorMarker>,
-            Or<(Changed<Affiliation<Entity>>, Changed<Path<Entity>>)>,
+            Or<(Changed<Affiliation>, Changed<Path>)>,
         ),
     >,
     changed_texture_sources: Query<
@@ -353,7 +353,7 @@ pub fn update_floors(
     material_handles: Query<&MeshMaterial3d<StandardMaterial>>,
     anchors: AnchorParams,
     textures: Query<(Option<&TextureImage>, &Texture)>,
-    lifts: Query<(&Transform, &LiftCabin<Entity>)>,
+    lifts: Query<(&Transform, &LiftCabin)>,
 ) {
     for e in changed_floors.iter().chain(
         changed_texture_sources
@@ -379,16 +379,16 @@ pub fn update_floors(
 }
 
 pub fn update_floors_for_changed_lifts(
-    lifts: Query<(&Transform, &LiftCabin<Entity>)>,
+    lifts: Query<(&Transform, &LiftCabin)>,
     changed_lifts: Query<
         (),
         Or<(
-            Changed<LiftCabin<Entity>>,
-            (With<LiftCabin<Entity>>, Changed<GlobalTransform>),
+            Changed<LiftCabin>,
+            (With<LiftCabin>, Changed<GlobalTransform>),
         )>,
     >,
-    removed_lifts: RemovedComponents<LiftCabin<Entity>>,
-    floors: Query<(Entity, &FloorSegments, &Path<Entity>, &Affiliation<Entity>), With<FloorMarker>>,
+    removed_lifts: RemovedComponents<LiftCabin>,
+    floors: Query<(Entity, &FloorSegments, &Path, &Affiliation), With<FloorMarker>>,
     anchors: AnchorParams,
     textures: Query<(Option<&TextureImage>, &Texture)>,
     mut mesh_assets: ResMut<Assets<Mesh>>,

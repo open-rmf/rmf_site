@@ -109,8 +109,8 @@ pub struct GetModifier<'w, 's, T: Component<Mutability = Mutable> + Clone + Defa
         'w,
         's,
         (
-            &'static ScenarioModifiers<Entity>,
-            &'static Affiliation<Entity>,
+            &'static ScenarioModifiers,
+            &'static Affiliation,
         ),
         With<ScenarioMarker>,
     >,
@@ -154,7 +154,7 @@ pub fn handle_scenario_modifiers(
     mut add_modifier: EventReader<AddModifier>,
     mut remove_modifier: EventReader<RemoveModifier>,
     mut scenarios: Query<
-        (&mut ScenarioModifiers<Entity>, &Affiliation<Entity>),
+        (&mut ScenarioModifiers, &Affiliation),
         With<ScenarioMarker>,
     >,
     mut update_property: EventWriter<UpdateProperty>,
@@ -233,10 +233,10 @@ pub fn handle_cleanup_modifiers<M: Component<Mutability = Mutable> + Debug + Def
 pub fn handle_empty_modifiers<T: Property, F: QueryFilter>(
     mut remove_modifier: EventWriter<RemoveModifier>,
     mut removals: RemovedComponents<Modifier<T>>,
-    affiliation: Query<&Affiliation<Entity>>,
+    affiliation: Query<&Affiliation>,
     current_scenario: Res<CurrentScenario>,
     modifiers: Query<(), F>,
-    scenarios: Query<(Entity, &ScenarioModifiers<Entity>), With<ScenarioMarker>>,
+    scenarios: Query<(Entity, &ScenarioModifiers), With<ScenarioMarker>>,
 ) {
     if !removals.is_empty() {
         for modifier_entity in removals.read() {
@@ -290,9 +290,9 @@ pub fn check_for_missing_root_modifiers<M: Component<Mutability = Mutable>>(
     mut validate_events: EventReader<ValidateWorkspace>,
     scenarios: Query<
         (
-            &ScenarioModifiers<Entity>,
+            &ScenarioModifiers,
             &NameInSite,
-            &Affiliation<Entity>,
+            &Affiliation,
         ),
         With<ScenarioMarker>,
     >,

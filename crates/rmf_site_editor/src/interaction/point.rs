@@ -21,12 +21,12 @@ use crate::{interaction::*, site::*};
 pub struct PointVisualCue {
     /// If the point is using support from an anchor, the entity of that
     /// anchor will be saved here.
-    supporter: Option<Point<Entity>>,
+    supporter: Option<Point>,
 }
 
 pub fn add_point_visual_cues(
     mut commands: Commands,
-    new_points: Query<(Entity, &Point<Entity>), Without<PointVisualCue>>,
+    new_points: Query<(Entity, &Point), Without<PointVisualCue>>,
 ) {
     for (e, point) in &new_points {
         commands.entity(e).insert(PointVisualCue {
@@ -41,14 +41,14 @@ pub fn update_point_visual_cues(
             Entity,
             &Hovered,
             &Selected,
-            &Point<Entity>,
+            &Point,
             &mut PointVisualCue,
         ),
         (
             Without<AnchorVisualization>,
-            Without<Edge<Entity>>,
-            Without<Path<Entity>>,
-            Or<(Changed<Hovered>, Changed<Selected>, Changed<Point<Entity>>)>,
+            Without<Edge>,
+            Without<Path>,
+            Or<(Changed<Hovered>, Changed<Selected>, Changed<Point>)>,
         ),
     >,
     mut anchors: Query<(&mut Hovered, &mut Selected), With<AnchorVisualization>>,

@@ -542,7 +542,7 @@ fn generate_site_entities(
         consider_id(*scenario_id);
 
         // Spawn instance modifier entities
-        let mut scenario_modifiers: ScenarioModifiers<Entity> = ScenarioModifiers::default();
+        let mut scenario_modifiers: ScenarioModifiers = ScenarioModifiers::default();
         for (instance_id, instance) in scenario_data.instances.iter() {
             if let Some(instance_entity) = id_to_entity.get(&instance_id) {
                 if instance.pose.is_some() || instance.visibility.is_some() {
@@ -730,7 +730,7 @@ pub struct ImportNavGraphParams<'w, 's> {
             &'static ChildOf,
             &'static Children,
         ),
-        With<LiftCabin<Entity>>,
+        With<LiftCabin>,
     >,
     cabin_anchor_groups: Query<'w, 's, &'static Children, With<CabinAnchorGroup>>,
     anchors: Query<'w, 's, (Entity, &'static Anchor)>,

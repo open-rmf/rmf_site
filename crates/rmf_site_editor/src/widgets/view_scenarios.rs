@@ -48,7 +48,7 @@ pub struct ViewScenarios<'w, 's> {
     scenarios: Query<
         'w,
         's,
-        (Entity, &'static NameInSite, &'static Affiliation<Entity>),
+        (Entity, &'static NameInSite, &'static Affiliation),
         With<ScenarioMarker>,
     >,
     change_name: EventWriter<'w, Change<NameInSite>>,
@@ -195,9 +195,9 @@ fn show_scenario_widget(
     current_scenario: &mut CurrentScenario,
     scenario_entity: Entity,
     scenario_version: Vec<u32>,
-    scenario_children: &HashMap<Entity, Vec<Entity>>,
+    scenario_children: &HashMap<Entity, Vec>,
     q_scenario: &Query<
-        (Entity, &'static NameInSite, &'static Affiliation<Entity>),
+        (Entity, &'static NameInSite, &'static Affiliation),
         With<ScenarioMarker>,
     >,
     icons: &Res<Icons>,

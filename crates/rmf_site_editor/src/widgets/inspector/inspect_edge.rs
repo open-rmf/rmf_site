@@ -35,8 +35,8 @@ pub struct InspectEdge<'w, 's> {
         's,
         (
             &'static Category,
-            &'static Edge<Entity>,
-            Option<&'static Original<Edge<Entity>>>,
+            &'static Edge,
+            Option<&'static Original<Edge>>,
             Option<&'static EdgeLabels>,
         ),
     >,
@@ -116,7 +116,7 @@ impl<'w, 's> InspectEdge<'w, 's> {
     fn show_anchor(
         side: Side,
         id: Entity,
-        edge: Edge<Entity>,
+        edge: Edge,
         labels: EdgeLabels,
         category: Category,
         panel: PanelSide,

@@ -61,9 +61,9 @@ impl Property for Pose {
 
     fn insert(for_element: Entity, in_scenario: Entity, value: Pose, world: &mut World) {
         let mut modifier_state: SystemState<(
-            Query<(&mut Modifier<Pose>, &Affiliation<Entity>)>,
+            Query<(&mut Modifier<Pose>, &Affiliation)>,
             Query<
-                (Entity, &ScenarioModifiers<Entity>, Ref<Affiliation<Entity>>),
+                (Entity, &ScenarioModifiers, Ref<Affiliation>),
                 With<ScenarioMarker>,
             >,
         )> = SystemState::new(world);
@@ -160,7 +160,7 @@ impl Property for Visibility {
     fn insert_on_new_scenario(in_scenario: Entity, world: &mut World) {
         let mut instance_state: SystemState<(
             Query<&Children>,
-            Query<(&Modifier<Visibility>, &Affiliation<Entity>)>,
+            Query<(&Modifier<Visibility>, &Affiliation)>,
             Query<Entity, (With<InstanceMarker>, Without<Pending>)>,
         )> = SystemState::new(world);
         let (children, visibility_modifiers, model_instances) = instance_state.get_mut(world);
@@ -280,9 +280,9 @@ pub fn handle_instance_modifier_updates(
     mut add_modifier: EventWriter<AddModifier>,
     mut update_instance: EventReader<UpdateModifier<UpdateInstance>>,
     mut update_property: EventWriter<UpdateProperty>,
-    mut pose_modifiers: Query<&mut Modifier<Pose>, With<Affiliation<Entity>>>,
-    mut visibility_modifiers: Query<&mut Modifier<Visibility>, With<Affiliation<Entity>>>,
-    scenarios: Query<(&ScenarioModifiers<Entity>, &Affiliation<Entity>), With<ScenarioMarker>>,
+    mut pose_modifiers: Query<&mut Modifier<Pose>, With<Affiliation>>,
+    mut visibility_modifiers: Query<&mut Modifier<Visibility>, With<Affiliation>>,
+    scenarios: Query<(&ScenarioModifiers, &Affiliation), With<ScenarioMarker>>,
 ) {
     for update in update_instance.read() {
         let Ok((scenario_modifiers, parent_scenario)) = scenarios.get(update.scenario) else {
@@ -367,7 +367,7 @@ pub fn handle_instance_modifier_updates(
 /// Count the number of scenarios an element is included in with the Visibility modifier
 pub fn count_scenarios_with_visibility(
     scenarios: &Query<
-        (Entity, &ScenarioModifiers<Entity>, &Affiliation<Entity>),
+        (Entity, &ScenarioModifiers, &Affiliation),
         With<ScenarioMarker>,
     >,
     element: Entity,
@@ -388,7 +388,7 @@ pub fn count_scenarios_with_visibility(
 /// Count the number of scenarios an element is included in with the Inclusion modifier
 pub fn count_scenarios_with_inclusion(
     scenarios: &Query<
-        (Entity, &ScenarioModifiers<Entity>, &Affiliation<Entity>),
+        (Entity, &ScenarioModifiers, &Affiliation),
         With<ScenarioMarker>,
     >,
     element: Entity,
@@ -415,8 +415,8 @@ pub fn handle_create_scenarios(
 ) {
     for new in new_scenarios.read() {
         let mut cmd = commands.spawn((
-            ScenarioBundle::<Entity>::new(new.name.clone(), new.parent.clone()),
-            ScenarioModifiers::<Entity>::default(),
+            ScenarioBundle::new(new.name.clone(), new.parent.clone()),
+            ScenarioModifiers::default(),
         ));
 
         if let Some(site_entity) = current_workspace.root {
@@ -496,11 +496,11 @@ pub fn check_for_hidden_model_instances(
     mut validate_events: EventReader<ValidateWorkspace>,
     get_modifier: GetModifier<Modifier<Visibility>>,
     instances: Query<
-        (Entity, &NameInSite, &Affiliation<Entity>),
+        (Entity, &NameInSite, &Affiliation),
         (With<ModelMarker>, Without<Group>),
     >,
     scenarios: Query<
-        (Entity, &ScenarioModifiers<Entity>, &Affiliation<Entity>),
+        (Entity, &ScenarioModifiers, &Affiliation),
         With<ScenarioMarker>,
     >,
 ) {

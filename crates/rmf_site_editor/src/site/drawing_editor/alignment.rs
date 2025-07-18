@@ -45,9 +45,9 @@ pub struct OptimizationParams<'w, 's> {
     >,
     anchors: Query<'w, 's, &'static Anchor>,
     fiducials:
-        Query<'w, 's, (&'static Affiliation<Entity>, &'static Point<Entity>), With<FiducialMarker>>,
+        Query<'w, 's, (&'static Affiliation, &'static Point), With<FiducialMarker>>,
     measurements:
-        Query<'w, 's, (&'static Edge<Entity>, &'static Distance), With<MeasurementMarker>>,
+        Query<'w, 's, (&'static Edge, &'static Distance), With<MeasurementMarker>>,
 }
 
 pub fn align_site_drawings(
@@ -57,7 +57,7 @@ pub fn align_site_drawings(
     mut params: OptimizationParams,
 ) {
     for AlignSiteDrawings(site) in events.read() {
-        let mut site_variables = SiteVariables::<Entity>::default();
+        let mut site_variables = SiteVariables::default();
         let Ok(children) = sites.get(*site) else {
             continue;
         };
@@ -84,7 +84,7 @@ pub fn align_site_drawings(
                 let Ok((drawing_children, pose, ppm)) = params.drawings.get(*level_child) else {
                     continue;
                 };
-                let mut drawing_variables = DrawingVariables::<Entity>::new(
+                let mut drawing_variables = DrawingVariables::new(
                     Vec2::from_slice(&pose.trans).as_dvec2(),
                     pose.rot.yaw().radians() as f64,
                     (1.0 / ppm.0) as f64,

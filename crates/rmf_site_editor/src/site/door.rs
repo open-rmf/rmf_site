@@ -99,7 +99,7 @@ pub struct DoorSegments {
 
 fn make_door_visuals(
     entity: Entity,
-    edge: &Edge<Entity>,
+    edge: &Edge,
     anchors: &AnchorParams,
     kind: &DoorType,
 ) -> (Transform, Vec<Transform>, Mesh, Mesh) {
@@ -291,9 +291,9 @@ fn make_door_cues(door_width: f32, kind: &DoorType) -> (Mesh, Mesh) {
 pub fn add_door_visuals(
     mut commands: Commands,
     new_doors: Query<
-        (Entity, &Edge<Entity>, &DoorType, Option<&Visibility>),
+        (Entity, &Edge, &DoorType, Option<&Visibility>),
         (
-            Or<(Added<DoorType>, Added<Edge<Entity>>)>,
+            Or<(Added<DoorType>, Added<Edge>)>,
             Without<DoorSegments>,
         ),
     >,
@@ -368,7 +368,7 @@ pub fn add_door_visuals(
 fn update_door_visuals(
     commands: &mut Commands,
     entity: Entity,
-    edge: &Edge<Entity>,
+    edge: &Edge,
     kind: &DoorType,
     segments: &DoorSegments,
     anchors: &AnchorParams,
@@ -421,12 +421,12 @@ pub fn update_changed_door(
     mut doors: Query<
         (
             Entity,
-            &Edge<Entity>,
+            &Edge,
             &DoorType,
             &mut DoorSegments,
             &mut Hovered,
         ),
-        Or<(Changed<Edge<Entity>>, Changed<DoorType>)>,
+        Or<(Changed<Edge>, Changed<DoorType>)>,
     >,
     anchors: AnchorParams,
     mut transforms: Query<&mut Transform>,
@@ -460,7 +460,7 @@ pub fn update_changed_door(
 
 pub fn update_door_for_moved_anchors(
     mut commands: Commands,
-    mut doors: Query<(Entity, &Edge<Entity>, &DoorType, &DoorSegments)>,
+    mut doors: Query<(Entity, &Edge, &DoorType, &DoorSegments)>,
     anchors: AnchorParams,
     changed_anchors: Query<
         &Dependents,

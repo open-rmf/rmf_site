@@ -123,7 +123,7 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
             ),
         >,
         Query<Entity, (With<LevelElevation>, Without<Pending>)>,
-        Query<Entity, (With<LiftCabin<Entity>>, Without<Pending>)>,
+        Query<Entity, (With<LiftCabin>, Without<Pending>)>,
         Query<
             Entity,
             (
@@ -325,8 +325,8 @@ fn generate_levels(
         Query<&SiteID, With<Group>>,
         Query<
             (
-                &Edge<Entity>,
-                Option<&Original<Edge<Entity>>>,
+                &Edge,
+                Option<&Original<Edge>>,
                 &NameInSite,
                 &DoorType,
                 &SiteID,
@@ -347,18 +347,18 @@ fn generate_levels(
         >,
         Query<
             (
-                &Point<Entity>,
-                Option<&Original<Point<Entity>>>,
-                &Affiliation<Entity>,
+                &Point,
+                Option<&Original<Point>>,
+                &Affiliation,
                 &SiteID,
             ),
             (With<FiducialMarker>, Without<Pending>),
         >,
         Query<
             (
-                &Path<Entity>,
-                Option<&Original<Path<Entity>>>,
-                &Affiliation<Entity>,
+                &Path,
+                Option<&Original<Path>>,
+                &Affiliation,
                 &PreferredSemiTransparency,
                 &SiteID,
             ),
@@ -367,8 +367,8 @@ fn generate_levels(
         Query<(&LightKind, &Pose, &SiteID)>,
         Query<
             (
-                &Edge<Entity>,
-                Option<&Original<Edge<Entity>>>,
+                &Edge,
+                Option<&Original<Edge>>,
                 &Distance,
                 &SiteID,
             ),
@@ -377,9 +377,9 @@ fn generate_levels(
         Query<(&NameInSite, &Pose, &PhysicalCameraProperties, &SiteID), Without<Pending>>,
         Query<
             (
-                &Edge<Entity>,
-                Option<&Original<Edge<Entity>>>,
-                &Affiliation<Entity>,
+                &Edge,
+                Option<&Original<Edge>>,
+                &Affiliation,
                 &SiteID,
             ),
             (With<WallMarker>, Without<Pending>),
@@ -639,11 +639,11 @@ type QueryLift<'w, 's> = Query<
     (
         Entity,
         &'static NameInSite,
-        &'static Edge<Entity>,
-        Option<&'static Original<Edge<Entity>>>,
-        &'static LiftCabin<Entity>,
+        &'static Edge,
+        Option<&'static Original<Edge>>,
+        &'static LiftCabin,
         &'static IsStatic,
-        &'static InitialLevel<Entity>,
+        &'static InitialLevel,
         &'static SiteID,
         &'static ChildOf,
     ),
@@ -692,7 +692,7 @@ fn generate_lifts(
         Ok(site_id.0)
     };
 
-    let get_anchor_id_edge = |edge: &Edge<Entity>| {
+    let get_anchor_id_edge = |edge: &Edge| {
         let left = get_anchor_id(edge.left())?;
         let right = get_anchor_id(edge.right())?;
         Ok(Edge::new(left, right))
@@ -719,7 +719,7 @@ fn generate_lifts(
         })
     };
 
-    let validate_site_anchors = |edge: &Edge<Entity>| {
+    let validate_site_anchors = |edge: &Edge| {
         validate_site_anchor(edge.left())?;
         validate_site_anchor(edge.right())?;
         Ok(())
@@ -754,7 +754,7 @@ fn generate_lifts(
             Err(SiteGenerationError::InvalidLiftDoorReference { door, anchor })
         };
 
-        let validate_level_door_anchors = |door: Entity, edge: &Edge<Entity>| {
+        let validate_level_door_anchors = |door: Entity, edge: &Edge| {
             validate_level_door_anchor(door, edge.left())?;
             validate_level_door_anchor(door, edge.right())?;
             get_anchor_id_edge(edge)
@@ -826,7 +826,7 @@ fn generate_fiducials(
         Query<&SiteID, (With<Anchor>, Without<Pending>)>,
         Query<&SiteID, (With<Group>, Without<Pending>)>,
         Query<
-            (&Point<Entity>, &Affiliation<Entity>, &SiteID),
+            (&Point, &Affiliation, &SiteID),
             (With<FiducialMarker>, Without<Pending>),
         >,
         Query<&Children>,
@@ -969,11 +969,11 @@ fn generate_lanes(
     let mut state: SystemState<(
         Query<
             (
-                &Edge<Entity>,
-                Option<&Original<Edge<Entity>>>,
+                &Edge,
+                Option<&Original<Edge>>,
                 &Motion,
                 &ReverseLane,
-                &AssociatedGraphs<Entity>,
+                &AssociatedGraphs,
                 &SiteID,
                 &ChildOf,
             ),
@@ -992,7 +992,7 @@ fn generate_lanes(
         Ok(site_id.0)
     };
 
-    let get_anchor_id_edge = |edge: &Edge<Entity>| {
+    let get_anchor_id_edge = |edge: &Edge| {
         let left = get_anchor_id(edge.left())?;
         let right = get_anchor_id(edge.right())?;
         Ok(Edge::new(left, right))
@@ -1032,11 +1032,11 @@ fn generate_locations(
     let mut state: SystemState<(
         Query<
             (
-                &Point<Entity>,
-                Option<&Original<Point<Entity>>>,
+                &Point,
+                Option<&Original<Point>>,
                 &LocationTags,
                 &NameInSite,
-                &AssociatedGraphs<Entity>,
+                &AssociatedGraphs,
                 &SiteID,
                 &ChildOf,
             ),
@@ -1113,7 +1113,7 @@ fn generate_site_properties(
     let mut state: SystemState<(
         Query<(
             &NameOfSite,
-            &FilteredIssues<Entity>,
+            &FilteredIssues,
             &FilteredIssueKinds,
             &GeographicComponent,
         )>,
@@ -1270,7 +1270,7 @@ fn generate_model_instances(
     let mut state: SystemState<(
         Query<(&SiteID, &ExportWith), (With<ModelMarker>, With<Group>, Without<Pending>)>,
         Query<
-            (Entity, &SiteID, &NameInSite, &Pose, &Affiliation<Entity>),
+            (Entity, &SiteID, &NameInSite, &Pose, &Affiliation),
             (With<ModelMarker>, Without<Group>, Without<Pending>),
         >,
         Query<(Entity, &SiteID), With<LevelElevation>>,
@@ -1374,17 +1374,17 @@ fn generate_scenarios(
     world: &mut World,
 ) -> Result<BTreeMap<u32, Scenario<u32>>, SiteGenerationError> {
     let mut state: SystemState<(
-        Query<(Entity, &NameInSite, &SiteID, &Affiliation<Entity>), With<ScenarioMarker>>,
+        Query<(Entity, &NameInSite, &SiteID, &Affiliation), With<ScenarioMarker>>,
         Query<(
             Option<&Modifier<Pose>>,
             Option<&Modifier<Visibility>>,
-            &Affiliation<Entity>,
+            &Affiliation,
         )>,
         Query<&SiteID, With<InstanceMarker>>,
         Query<(
             Option<&Modifier<Inclusion>>,
             Option<&Modifier<TaskParams>>,
-            &Affiliation<Entity>,
+            &Affiliation,
         )>,
         Query<&SiteID, (With<Task>, Without<Pending>)>,
         Query<&Children>,
