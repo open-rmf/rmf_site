@@ -1,7 +1,7 @@
 use super::{rbmf::*, PortingError, Result};
 use crate::{
     Affiliation, Angle, AssetSource, Floor as SiteFloor, FloorMarker, Path,
-    PreferredSemiTransparency, Texture,
+    PreferredSemiTransparency, SiteID, Texture,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -25,11 +25,11 @@ pub struct Floor {
 impl Floor {
     pub fn to_site(
         &self,
-        vertex_to_anchor_id: &HashMap<usize, u32>,
-        textures: &mut BTreeMap<u32, Texture>,
-        texture_map: &mut HashMap<FloorParameters, u32>,
+        vertex_to_anchor_id: &HashMap<usize, SiteID>,
+        textures: &mut BTreeMap<SiteID, Texture>,
+        texture_map: &mut HashMap<FloorParameters, SiteID>,
         site_id: &mut RangeFrom<u32>,
-    ) -> Result<SiteFloor<u32>> {
+    ) -> Result<SiteFloor> {
         let mut anchors = Vec::new();
         for v in &self.vertices {
             let anchor = *vertex_to_anchor_id
@@ -63,7 +63,7 @@ impl Floor {
                     }
                 };
 
-                let texture_site_id = site_id.next().unwrap();
+                let texture_site_id = SiteID::from(site_id.next().unwrap());
                 textures.insert(texture_site_id, texture);
                 texture_site_id
             });

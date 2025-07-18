@@ -25,9 +25,9 @@ pub const DEFAULT_DOOR_THICKNESS: f32 = 0.05;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
-pub struct Door<T: RefTrait> {
+pub struct Door {
     /// (left_anchor, right_anchor)
-    pub anchors: Edge<T>,
+    pub anchors: Edge,
     /// Name of the door. RMF requires each door name to be unique among all
     /// doors in the site.
     pub name: NameInSite,
@@ -387,20 +387,8 @@ impl Recall for RecallDoorType {
     }
 }
 
-#[cfg(feature = "bevy")]
-impl Door<Entity> {
-    pub fn to_u32(&self, anchors: Edge<u32>) -> Door<u32> {
-        Door {
-            anchors,
-            name: self.name.clone(),
-            kind: self.kind.clone(),
-            marker: Default::default(),
-        }
-    }
-}
-
-impl<T: RefTrait> Door<T> {
-    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Door<U>, T> {
+impl Door {
+    pub fn convert(&self, id_map: &HashMap<SiteID, Entity>) -> Result<Door, SiteID> {
         Ok(Door {
             anchors: self.anchors.convert(id_map)?,
             name: self.name.clone(),
@@ -410,8 +398,8 @@ impl<T: RefTrait> Door<T> {
     }
 }
 
-impl<T: RefTrait> From<Edge<T>> for Door<T> {
-    fn from(edge: Edge<T>) -> Self {
+impl From<Edge> for Door {
+    fn from(edge: Edge) -> Self {
         Door {
             anchors: edge,
             name: NameInSite("<Unnamed>".to_string()),

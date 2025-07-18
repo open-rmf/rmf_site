@@ -2,7 +2,7 @@ use super::{PortingError, Result};
 use crate::{
     Anchor, DoorType, DoubleSlidingDoor, Edge, InitialLevel, IsStatic, LevelVisits,
     Lift as SiteLift, LiftCabin, LiftCabinDoor, LiftCabinDoorPlacement, LiftProperties, NameInSite,
-    RectFace, RectangularLiftCabin,
+    RectFace, RectangularLiftCabin, SiteID,
 };
 use glam::DVec2;
 use serde::{Deserialize, Serialize};
@@ -69,14 +69,14 @@ impl Lift {
         &self,
         lift_name: &String,
         site_id: &mut RangeFrom<u32>,
-        site_anchors: &mut BTreeMap<u32, Anchor>,
-        level_name_to_id: &BTreeMap<String, u32>,
-        all_lift_cabin_anchors: &BTreeMap<String, Vec<(u32, Anchor)>>,
-    ) -> Result<SiteLift<u32>> {
+        site_anchors: &mut BTreeMap<SiteID, Anchor>,
+        level_name_to_id: &BTreeMap<String, SiteID>,
+        all_lift_cabin_anchors: &BTreeMap<String, Vec<(SiteID, Anchor)>>,
+    ) -> Result<SiteLift> {
         let ref_anchor_positions = self.calculate_anchors();
         let reference_anchors = {
-            let left = site_id.next().unwrap();
-            let right = site_id.next().unwrap();
+            let left = SiteID::from(site_id.next().unwrap());
+            let right = SiteID::from(site_id.next().unwrap());
             site_anchors.insert(left, ref_anchor_positions[0].into());
             site_anchors.insert(right, ref_anchor_positions[1].into());
             Edge::new(left, right)
@@ -96,7 +96,7 @@ impl Lift {
         let mut right_door = None;
 
         for (door_name, door) in &self.doors {
-            let id = site_id.next().unwrap();
+            let id = SiteID::from(site_id.next().unwrap());
             cabin_door_name_to_id.insert(door_name.clone(), id);
 
             let dx = door.x as f32;
@@ -241,7 +241,7 @@ impl Lift {
         };
 
         let door_level_visits = {
-            let mut door_level_visits: BTreeMap<u32, LevelVisits<u32>> = BTreeMap::new();
+            let mut door_level_visits: BTreeMap<SiteID, LevelVisits> = BTreeMap::new();
             for (level_name, door_names) in &self.level_doors {
                 let level = *level_name_to_id
                     .get(level_name)
@@ -261,7 +261,7 @@ impl Lift {
             door_level_visits
         };
 
-        let mut cabin_anchors: BTreeMap<u32, Anchor> = [all_lift_cabin_anchors.get(lift_name)]
+        let mut cabin_anchors: BTreeMap<SiteID, Anchor> = [all_lift_cabin_anchors.get(lift_name)]
             .into_iter()
             .filter_map(|x| x)
             .flat_map(|x| x)
@@ -274,8 +274,8 @@ impl Lift {
                 if let (Some([left, right]), Some(p)) =
                     (cabin.level_door_anchors(face), cabin.door(face))
                 {
-                    let left_id = site_id.next().unwrap();
-                    let right_id = site_id.next().unwrap();
+                    let left_id = SiteID::from(site_id.next().unwrap());
+                    let right_id = SiteID::from(site_id.next().unwrap());
                     cabin_anchors.insert(left_id, left);
                     cabin_anchors.insert(right_id, right);
                     cabin_doors.insert(

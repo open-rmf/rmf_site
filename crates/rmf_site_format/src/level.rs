@@ -51,23 +51,23 @@ pub struct LevelElevation(pub f32);
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Level {
     pub properties: LevelProperties,
-    pub anchors: BTreeMap<u32, Anchor>,
+    pub anchors: BTreeMap<SiteID, Anchor>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub doors: BTreeMap<u32, Door<u32>>,
+    pub doors: BTreeMap<SiteID, Door>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub drawings: BTreeMap<u32, Drawing>,
+    pub drawings: BTreeMap<SiteID, Drawing>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub floors: BTreeMap<u32, Floor<u32>>,
+    pub floors: BTreeMap<SiteID, Floor>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub lights: BTreeMap<u32, Light>,
+    pub lights: BTreeMap<SiteID, Light>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub physical_cameras: BTreeMap<u32, PhysicalCamera>,
+    pub physical_cameras: BTreeMap<SiteID, PhysicalCamera>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub walls: BTreeMap<u32, Wall<u32>>,
+    pub walls: BTreeMap<SiteID, Wall>,
     #[serde(default, skip_serializing_if = "RankingsInLevel::is_empty")]
     pub rankings: RankingsInLevel,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub user_camera_poses: BTreeMap<u32, UserCameraPose>,
+    pub user_camera_poses: BTreeMap<SiteID, UserCameraPose>,
 }
 
 impl Level {
@@ -90,9 +90,9 @@ impl Level {
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct RankingsInLevel {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub floors: Vec<u32>,
+    pub floors: Vec<SiteID>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub drawings: Vec<u32>,
+    pub drawings: Vec<SiteID>,
 }
 
 impl RankingsInLevel {

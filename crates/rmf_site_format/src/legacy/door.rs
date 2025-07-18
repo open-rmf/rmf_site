@@ -1,7 +1,7 @@
 use super::{rbmf::*, PortingError, Result};
 use crate::{
     Angle, Door as SiteDoor, DoubleSlidingDoor, DoubleSwingDoor, NameInSite, Side,
-    SingleSlidingDoor, SingleSwingDoor, Swing,
+    SingleSlidingDoor, SingleSwingDoor, SiteID, Swing,
 };
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt::Display};
@@ -67,7 +67,7 @@ impl Door {
         }
     }
 
-    pub fn to_site(&self, vertex_to_anchor_id: &HashMap<usize, u32>) -> Result<SiteDoor<u32>> {
+    pub fn to_site(&self, vertex_to_anchor_id: &HashMap<usize, SiteID>) -> Result<SiteDoor> {
         let type_: DoorType = self.2.type_.1.as_str().into();
         let kind = match type_ {
             DoorType::SingleSliding => SingleSlidingDoor {

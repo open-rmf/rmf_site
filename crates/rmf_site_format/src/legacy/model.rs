@@ -1,6 +1,7 @@
 use crate::{
     Affiliation, Angle, AssetSource, InstanceMarker, IsStatic, ModelDescriptionBundle,
     ModelInstance, ModelMarker, ModelProperty, NameInSite, Parented, Pose, Robot, Rotation, Scale,
+    SiteID,
 };
 use glam::DVec2;
 use serde::{Deserialize, Serialize};
@@ -21,7 +22,7 @@ pub struct Model {
     #[serde(rename = "z")]
     pub z_offset: f64,
     pub yaw: f64,
-    pub location: Option<u32>,
+    pub location: Option<SiteID>,
 }
 
 impl Model {
@@ -31,17 +32,17 @@ impl Model {
 
     pub fn to_site(
         &self,
-        model_description_name_map: &mut HashMap<String, u32>,
-        model_descriptions: &mut BTreeMap<u32, ModelDescriptionBundle>,
-        model_instances: &mut BTreeMap<u32, Parented<u32, ModelInstance<u32>>>,
+        model_description_name_map: &mut HashMap<String, SiteID>,
+        model_descriptions: &mut BTreeMap<SiteID, ModelDescriptionBundle>,
+        model_instances: &mut BTreeMap<SiteID, Parented<ModelInstance>>,
         site_id: &mut RangeFrom<u32>,
-        level_id: u32,
-        robots: Option<&mut BTreeMap<u32, Robot>>,
-    ) -> (u32, Pose) {
+        level_id: SiteID,
+        robots: Option<&mut BTreeMap<SiteID, Robot>>,
+    ) -> (SiteID, Pose) {
         let model_description_id = match model_description_name_map.get(&self.model_name) {
-            Some(id) => *id,
+            Some(id) => SiteID::from(*id),
             None => {
-                let id = site_id.next().unwrap();
+                let id = SiteID::from(site_id.next().unwrap());
                 model_description_name_map.insert(self.model_name.clone(), id);
                 model_descriptions.insert(
                     id,
@@ -60,7 +61,7 @@ impl Model {
             }
         };
 
-        let model_instance_id = site_id.next().unwrap();
+        let model_instance_id = SiteID::from(site_id.next().unwrap());
         let pose = Pose {
             trans: [self.x as f32, self.y as f32, self.z_offset as f32],
             rot: Rotation::Yaw(Angle::Deg(self.yaw.to_degrees() as f32)),

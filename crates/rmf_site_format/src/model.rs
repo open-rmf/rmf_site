@@ -18,6 +18,7 @@
 use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Bundle, Component, Reflect, ReflectComponent};
+use bevy_ecs::prelude::Entity;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -109,10 +110,10 @@ impl Default for ModelDescriptionBundle {
 /// Bundle with all required components for a valid model instance
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
-pub struct ModelInstance<T: RefTrait> {
+pub struct ModelInstance {
     pub name: NameInSite,
     pub pose: Pose,
-    pub description: Affiliation<T>,
+    pub description: Affiliation,
     #[serde(skip)]
     pub export_data: ExportData,
     #[serde(skip)]
@@ -121,7 +122,7 @@ pub struct ModelInstance<T: RefTrait> {
     pub instance_marker: InstanceMarker,
 }
 
-impl<T: RefTrait> Default for ModelInstance<T> {
+impl Default for ModelInstance {
     fn default() -> Self {
         Self {
             name: NameInSite("<Unnamed>".to_string()),
@@ -134,8 +135,8 @@ impl<T: RefTrait> Default for ModelInstance<T> {
     }
 }
 
-impl<T: RefTrait> ModelInstance<T> {
-    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<ModelInstance<U>, T> {
+impl ModelInstance {
+    pub fn convert(&self, id_map: &HashMap<SiteID, Entity>) -> Result<ModelInstance, SiteID> {
         Ok(ModelInstance {
             name: self.name.clone(),
             pose: self.pose.clone(),

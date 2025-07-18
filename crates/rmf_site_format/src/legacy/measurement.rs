@@ -1,5 +1,5 @@
 use super::{rbmf::*, PortingError, Result};
-use crate::{Distance, Measurement as SiteMeasurement};
+use crate::{Distance, Measurement as SiteMeasurement, SiteID};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -14,10 +14,7 @@ pub struct MeasurementProperties {
 pub struct Measurement(pub usize, pub usize, pub MeasurementProperties);
 
 impl Measurement {
-    pub fn to_site(
-        &self,
-        vertex_to_anchor_id: &HashMap<usize, u32>,
-    ) -> Result<SiteMeasurement<u32>> {
+    pub fn to_site(&self, vertex_to_anchor_id: &HashMap<usize, SiteID>) -> Result<SiteMeasurement> {
         let left_anchor = vertex_to_anchor_id
             .get(&self.0)
             .ok_or(PortingError::InvalidVertex(self.0))?;

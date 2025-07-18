@@ -23,8 +23,8 @@ use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
-pub struct Measurement<T: RefTrait> {
-    pub anchors: Edge<T>,
+pub struct Measurement {
+    pub anchors: Edge,
     #[serde(skip_serializing_if = "is_default")]
     pub distance: Distance,
     #[serde(skip)]
@@ -46,19 +46,8 @@ impl Default for Distance {
     }
 }
 
-#[cfg(feature = "bevy")]
-impl Measurement<Entity> {
-    pub fn to_u32(&self, anchors: Edge<u32>) -> Measurement<u32> {
-        Measurement {
-            anchors,
-            distance: self.distance,
-            marker: Default::default(),
-        }
-    }
-}
-
-impl<T: RefTrait> Measurement<T> {
-    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Measurement<U>, T> {
+impl Measurement {
+    pub fn convert(&self, id_map: &HashMap<SiteID, Entity>) -> Result<Measurement, SiteID> {
         Ok(Measurement {
             anchors: self.anchors.convert(id_map)?,
             distance: self.distance,
@@ -67,8 +56,8 @@ impl<T: RefTrait> Measurement<T> {
     }
 }
 
-impl<T: RefTrait> From<Edge<T>> for Measurement<T> {
-    fn from(anchors: Edge<T>) -> Self {
+impl From<Edge> for Measurement {
+    fn from(anchors: Edge) -> Self {
         Self {
             anchors,
             distance: Default::default(),
