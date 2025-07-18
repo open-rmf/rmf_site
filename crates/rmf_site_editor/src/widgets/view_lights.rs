@@ -18,7 +18,7 @@
 use crate::{
     site::{
         Angle, Category, ExportLights, Light, LightKind, PhysicalLightToggle, Pose, Recall,
-        RecallLightKind, Rotation, SiteID,
+        RecallLightKind, Rotation,
     },
     widgets::{
         inspector::{InspectLightKind, InspectPoseComponent},
@@ -55,7 +55,7 @@ impl Plugin for ViewLightsPlugin {
 
 #[derive(SystemParam)]
 pub struct ViewLights<'w, 's> {
-    lights: Query<'w, 's, (Entity, &'static LightKind, Option<&'static SiteID>)>,
+    lights: Query<'w, 's, (Entity, &'static LightKind)>,
     toggle_headlights: ResMut<'w, HeadlightToggle>,
     toggle_physical_lights: ResMut<'w, PhysicalLightToggle>,
     export_lights: EventWriter<'w, ExportLights>,
@@ -169,26 +169,14 @@ impl<'w, 's> ViewLights<'w, 's> {
 
         ui.separator();
 
-        let mut unsaved_lights = BTreeMap::new();
-        let mut saved_lights = BTreeMap::new();
-        for (e, kind, site_id) in &self.lights {
-            if let Some(site_id) = site_id {
-                saved_lights.insert(Reverse(site_id.0), (e, kind.label()));
-            } else {
-                unsaved_lights.insert(Reverse(e), kind.label());
-            }
+        let mut sorted_lights = BTreeMap::new();
+        for (e, kind) in &self.lights {
+            unsaved_lights.insert(Reverse(e), kind.label());
         }
 
-        for (e, label) in unsaved_lights {
+        for (e, label) in sorted_lights {
             ui.horizontal(|ui| {
                 self.selector.show_widget(e.0, ui);
-                ui.label(label);
-            });
-        }
-
-        for (_, (e, label)) in saved_lights {
-            ui.horizontal(|ui| {
-                self.selector.show_widget(e, ui);
                 ui.label(label);
             });
         }

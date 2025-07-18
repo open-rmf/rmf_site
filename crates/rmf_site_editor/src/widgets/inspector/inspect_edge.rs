@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::AnchorSelection,
-    site::{Category, EdgeLabels, Original, SiteID},
+    site::{Category, EdgeLabels, Original},
     widgets::{
         inspector::{Inspect, InspectAnchor, InspectAnchorInput},
         prelude::*,
@@ -155,10 +155,9 @@ impl<'w, 's> InspectEdge<'w, 's> {
             }
             None => {
                 error!(
-                    "An endpoint in the edge {id:?} (Site ID {:?}) is not an \
+                    "An endpoint in the edge {id:?} s not an \
                     anchor: {anchor:?}! This should never happen! Please report \
-                    this to the site editor developers.",
-                    world.get::<SiteID>(anchor),
+                    this to the site editor developers."
                 );
             }
         }

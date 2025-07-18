@@ -27,7 +27,7 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, ImageButton, ScrollArea, Ui};
 use rmf_site_egui::*;
-use rmf_site_format::{InstanceMarker, SiteID};
+use rmf_site_format::InstanceMarker;
 use rmf_site_picking::Selection;
 
 const INSTANCES_VIEWER_HEIGHT: f32 = 200.0;
@@ -61,7 +61,7 @@ pub struct ViewModelInstances<'w, 's> {
     model_descriptions: Query<
         'w,
         's,
-        (Entity, &'static NameInSite, Option<&'static SiteID>),
+        (Entity, &'static NameInSite),
         (With<ModelMarker>, With<Group>),
     >,
     model_instances: Query<
@@ -95,7 +95,7 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                 .max_height(INSTANCES_VIEWER_HEIGHT)
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
-                    for (desc_entity, desc_name, _) in self.model_descriptions.iter() {
+                    for (desc_entity, desc_name) in self.model_descriptions.iter() {
                         let Ok(members) = self.members.get(desc_entity) else {
                             continue;
                         };

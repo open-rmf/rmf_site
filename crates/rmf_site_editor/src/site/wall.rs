@@ -43,8 +43,8 @@ fn make_wall(
     anchors: &AnchorParams,
 ) -> Result<Mesh, MeshCreationError> {
     // TODO(luca) map texture rotation to UV coordinates
-    let p_start = anchors.point_in_parent_frame_of(wall.start(), Category::Wall, entity)?;
-    let p_end = anchors.point_in_parent_frame_of(wall.end(), Category::Wall, entity)?;
+    let p_start = anchors.point_in_parent_frame_of(*wall.start(), Category::Wall, entity)?;
+    let p_end = anchors.point_in_parent_frame_of(*wall.end(), Category::Wall, entity)?;
     let (p_start, p_end) = if wall.start() == wall.end() {
         (
             p_start - DEFAULT_WALL_THICKNESS / 2.0 * Vec3::X,
@@ -110,7 +110,7 @@ pub fn add_wall_visual(
             .insert(EdgeLabels::StartEnd);
 
         for anchor in &edge.array() {
-            if let Ok(mut deps) = dependents.get_mut(*anchor) {
+            if let Ok(mut deps) = dependents.get_mut(**anchor) {
                 deps.insert(e);
             }
         }

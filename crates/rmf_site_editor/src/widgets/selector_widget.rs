@@ -16,7 +16,6 @@
 */
 
 use crate::{
-    site::SiteID,
     widgets::{prelude::*, Icons},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -27,7 +26,6 @@ use rmf_site_picking::{Hover, Select, Selection};
 /// A widget that can be used to select entities.
 #[derive(SystemParam)]
 pub struct SelectorWidget<'w, 's> {
-    pub site_id: Query<'w, 's, &'static SiteID>,
     pub icons: Res<'w, Icons>,
     pub selection: Res<'w, Selection>,
     pub select: EventWriter<'w, Select>,
@@ -43,13 +41,9 @@ impl<'w, 's> WidgetSystem<Entity, ()> for SelectorWidget<'w, 's> {
 
 impl<'w, 's> SelectorWidget<'w, 's> {
     pub fn show_widget(&mut self, entity: Entity, ui: &mut Ui) {
-        let site_id = self.site_id.get(entity).ok().cloned();
         let is_selected = self.selection.0.is_some_and(|s| s == entity);
 
-        let text = match site_id {
-            Some(id) => format!("#{}", id.0),
-            None => "*".to_owned(),
-        };
+        let text = format!("#{}", entity.index());
 
         let icon = if is_selected {
             self.icons.selected.egui()

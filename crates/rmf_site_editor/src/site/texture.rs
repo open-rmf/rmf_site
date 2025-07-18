@@ -65,7 +65,7 @@ pub fn detect_last_selected_texture<T: Component>(
     mut removed_groups: RemovedComponents<Group>,
 ) {
     if let Some(Affiliation(Some(affiliation))) = changed_affiliations.iter().last() {
-        let Ok(child_of) = child_of.get(*affiliation) else {
+        let Ok(child_of) = child_of.get(**affiliation) else {
             return;
         };
         if let Ok(mut last) = last_selected.get_mut(child_of.parent()) {
@@ -132,7 +132,7 @@ pub fn from_texture_source(
 ) -> (Option<Handle<Image>>, Texture) {
     texture_source
         .0
-        .map(|t| textures.get(t).ok())
+        .map(|t| textures.get(*t).ok())
         .flatten()
         .map(|(i, t)| (i.and_then(|img| Some(img.0.clone())), t.clone()))
         .unwrap_or_else(|| (None, Texture::default()))

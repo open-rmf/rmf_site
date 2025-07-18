@@ -19,7 +19,7 @@ use crate::{
     interaction::ObjectPlacement,
     site::{
         Affiliation, Change, Delete, FiducialMarker, Group, MergeGroups, ModelInstance,
-        ModelMarker, NameInSite, SiteID, Texture,
+        ModelMarker, NameInSite, Texture,
     },
     widgets::{prelude::*, SelectorWidget},
     AppState, CurrentWorkspace, Icons,
@@ -44,17 +44,17 @@ impl Plugin for ViewGroupsPlugin {
 pub struct ViewGroups<'w, 's> {
     children: Query<'w, 's, &'static Children>,
     textures:
-        Query<'w, 's, (&'static NameInSite, Option<&'static SiteID>), (With<Texture>, With<Group>)>,
+        Query<'w, 's, &'static NameInSite, (With<Texture>, With<Group>)>,
     fiducials: Query<
         'w,
         's,
-        (&'static NameInSite, Option<&'static SiteID>),
+        &'static NameInSite,
         (With<FiducialMarker>, With<Group>),
     >,
     model_descriptions: Query<
         'w,
         's,
-        (&'static NameInSite, Option<&'static SiteID>),
+        &'static NameInSite,
         (With<ModelMarker>, With<Group>),
     >,
     icons: Res<'w, Icons>,
@@ -134,7 +134,7 @@ impl<'w, 's> ViewGroups<'w, 's> {
 
     fn show_groups<'b, T: Component>(
         children: impl IntoIterator<Item = &'b Entity>,
-        q_groups: &Query<(&NameInSite, Option<&SiteID>), (With<T>, With<Group>)>,
+        q_groups: &Query<&NameInSite, (With<T>, With<Group>)>,
         mode: &mut GroupViewMode,
         icons: &Res<Icons>,
         events: &mut ViewGroupsEvents,
@@ -180,12 +180,10 @@ impl<'w, 's> ViewGroups<'w, 's> {
         });
 
         for child in children {
-            let Ok((name, site_id)) = q_groups.get(*child) else {
+            let Ok(name) = q_groups.get(*child) else {
                 continue;
             };
-            let text = site_id
-                .map(|s| format!("{}", s.0.clone()))
-                .unwrap_or_else(|| "*".to_owned());
+            let text = format!("{}", child.id());
             ui.horizontal(|ui| {
                 match mode.clone() {
                     GroupViewMode::View => {

@@ -494,8 +494,7 @@ impl From<u32> for SiteID {
 
 impl From<Entity> for SiteID {
     fn from(e: Entity) -> Self {
-        // Force a generation of 1, note that this is a lossy conversion
-        Self(Entity::from_raw(e.index()))
+        Self(e)
     }
 }
 
