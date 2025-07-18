@@ -117,7 +117,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectFiducial<'w, 's> {
             ui.label("Affiliation");
             let get_group_name = |affiliation: Affiliation| {
                 if let Some(group) = affiliation.0 {
-                    if let Ok(name) = params.group_names.get(group) {
+                    if let Ok(name) = params.group_names.get(*group) {
                         Some(name.0.clone())
                     } else {
                         None

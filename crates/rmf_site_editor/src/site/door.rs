@@ -104,10 +104,10 @@ fn make_door_visuals(
     kind: &DoorType,
 ) -> (Transform, Vec<Transform>, Mesh, Mesh) {
     let p_start = anchors
-        .point_in_parent_frame_of(edge.left(), Category::Door, entity)
+        .point_in_parent_frame_of(*edge.left(), Category::Door, entity)
         .unwrap();
     let p_end = anchors
-        .point_in_parent_frame_of(edge.right(), Category::Door, entity)
+        .point_in_parent_frame_of(*edge.right(), Category::Door, entity)
         .unwrap();
 
     let dp = p_start - p_end;
@@ -358,7 +358,7 @@ pub fn add_door_visuals(
             .add_children(&bodies);
 
         for anchor in edge.array() {
-            if let Ok(mut deps) = dependents.get_mut(anchor) {
+            if let Ok(mut deps) = dependents.get_mut(*anchor) {
                 deps.insert(e);
             }
         }

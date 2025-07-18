@@ -69,12 +69,12 @@ pub fn detect_last_selected_texture<T: Component>(
             return;
         };
         if let Ok(mut last) = last_selected.get_mut(child_of.parent()) {
-            last.selection = Some(*affiliation);
+            last.selection = Some(**affiliation);
         } else {
             commands
                 .entity(child_of.parent())
                 .insert(LastSelectedTexture {
-                    selection: Some(*affiliation),
+                    selection: Some(**affiliation),
                     marker: std::marker::PhantomData::<T>::default(),
                 });
         }
@@ -120,7 +120,7 @@ pub fn apply_last_selected_texture<T: Component>(
 
 #[derive(Component)]
 pub struct LastSelectedTexture<T> {
-    selection: Option,
+    selection: Option<Entity>,
     marker: std::marker::PhantomData<T>,
 }
 

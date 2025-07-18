@@ -78,8 +78,8 @@ impl ReplacePoint {
         commands: &mut Commands,
     ) -> SelectionNodeResult {
         let mut point_mut = points.get_mut(self.point).or_broken_query()?;
-        commands.queue(ChangeDependent::remove(point_mut.0, self.point));
-        point_mut.0 = chosen;
+        commands.queue(ChangeDependent::remove(*point_mut.0, self.point));
+        *point_mut.0 = chosen;
         commands.queue(ChangeDependent::add(chosen, self.point));
         Ok(())
     }
@@ -171,7 +171,7 @@ pub fn cleanup_replace_point(
         return Ok(());
     };
 
-    state.set_chosen(original.0, &mut points, &mut commands)?;
+    state.set_chosen(*original.0, &mut points, &mut commands)?;
 
     Ok(())
 }

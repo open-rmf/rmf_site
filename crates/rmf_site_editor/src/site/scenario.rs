@@ -78,7 +78,7 @@ impl Property for Pose {
 
         if let Some((mut pose_modifier, _)) = scenario_modifiers
             .get(&for_element)
-            .and_then(|e| pose_modifiers.get_mut(*e).ok())
+            .and_then(|e| pose_modifiers.get_mut(**e).ok())
         {
             // If an instance pose modifier entity already exists for this scenario, update it
             **pose_modifier = value.clone();
@@ -91,7 +91,7 @@ impl Property for Pose {
         let mut current_root_entity: Entity = in_scenario;
         while let Ok((_, _, parent_scenario)) = scenarios.get(current_root_entity) {
             if let Some(parent_scenario_entity) = parent_scenario.0 {
-                current_root_entity = parent_scenario_entity;
+                current_root_entity = *parent_scenario_entity;
             } else {
                 break;
             }
@@ -290,9 +290,9 @@ pub fn handle_instance_modifier_updates(
         };
 
         let modifier_entity = scenario_modifiers.get(&update.element);
-        let pose_modifier = modifier_entity.and_then(|e| pose_modifiers.get_mut(*e).ok());
+        let pose_modifier = modifier_entity.and_then(|e| pose_modifiers.get_mut(**e).ok());
         let visibility_modifier =
-            modifier_entity.and_then(|e| visibility_modifiers.get_mut(*e).ok());
+            modifier_entity.and_then(|e| visibility_modifiers.get_mut(**e).ok());
 
         match update.update {
             UpdateInstance::Include | UpdateInstance::Hide => {
@@ -305,7 +305,7 @@ pub fn handle_instance_modifier_updates(
                     **visibility_modifier = new_visibility;
                 } else if let Some(modifier_entity) = modifier_entity {
                     commands
-                        .entity(*modifier_entity)
+                        .entity(**modifier_entity)
                         .insert(Modifier::<Visibility>::new(new_visibility));
                 } else {
                     let modifier_entity = commands
@@ -329,7 +329,7 @@ pub fn handle_instance_modifier_updates(
                     continue;
                 } else if let Some(modifier_entity) = modifier_entity {
                     commands
-                        .entity(*modifier_entity)
+                        .entity(**modifier_entity)
                         .insert(Modifier::<Pose>::new(new_pose));
                 } else {
                     let modifier_entity = commands.spawn(Modifier::<Pose>::new(new_pose)).id();
@@ -346,11 +346,11 @@ pub fn handle_instance_modifier_updates(
                     if let Some(modifier_entity) = modifier_entity {
                         match update.update {
                             UpdateInstance::ResetPose => {
-                                commands.entity(*modifier_entity).remove::<Modifier<Pose>>();
+                                commands.entity(**modifier_entity).remove::<Modifier<Pose>>();
                             }
                             UpdateInstance::ResetVisibility => {
                                 commands
-                                    .entity(*modifier_entity)
+                                    .entity(**modifier_entity)
                                     .remove::<Modifier<Visibility>>();
                             }
                             _ => continue,
@@ -461,7 +461,7 @@ pub fn handle_remove_scenarios(
         if let Some(parent_scenario_entity) =
             scenarios.get(request.0).map(|(_, a, _)| a.0).ok().flatten()
         {
-            change_current_scenario.write(ChangeCurrentScenario(parent_scenario_entity));
+            change_current_scenario.write(ChangeCurrentScenario(*parent_scenario_entity));
         } else if let Some((root_scenario_entity, _, _)) = scenarios
             .iter()
             .filter(|(e, a, _)| request.0 != *e && a.0.is_none())

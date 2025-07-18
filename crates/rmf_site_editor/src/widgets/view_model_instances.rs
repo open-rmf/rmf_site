@@ -190,7 +190,7 @@ fn show_model_instance(
         .get(scenario)
         .ok()
         .and_then(|(scenario_modifiers, _)| scenario_modifiers.get(&instance))
-        .and_then(|e| get_modifier.modifiers.get(*e).ok());
+        .and_then(|e| get_modifier.modifiers.get(**e).ok());
     ui.horizontal(|ui| {
         // Selector widget
         selector.show_widget(instance, ui);

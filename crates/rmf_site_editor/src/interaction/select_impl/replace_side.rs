@@ -87,23 +87,23 @@ impl ReplaceSide {
             // Remove both current dependencies in case both of them change.
             // If either dependency doesn't change then they'll be added back
             // later anyway.
-            commands.queue(ChangeDependent::remove(a, self.edge));
+            commands.queue(ChangeDependent::remove(*a, self.edge));
         }
 
-        if chosen == original.array()[self.side.opposite().index()] {
+        if chosen == *original.array()[self.side.opposite().index()] {
             // The user is choosing the anchor on the opposite side of the edge as
             // the replacement anchor. We take this to mean that the user wants to
             // flip the edge.
             *edge_mut.left_mut() = original.right();
             *edge_mut.right_mut() = original.left();
         } else {
-            edge_mut.array_mut()[self.side.index()] = chosen;
+            *edge_mut.array_mut()[self.side.index()] = chosen;
             let opp = self.side.opposite().index();
             edge_mut.array_mut()[opp] = original.array()[opp];
         }
 
         for a in edge_mut.array() {
-            commands.queue(ChangeDependent::add(a, self.edge));
+            commands.queue(ChangeDependent::add(*a, self.edge));
         }
 
         Ok(())
@@ -199,7 +199,7 @@ pub fn cleanup_replace_side(
     };
 
     let revert = original.array()[state.side.index()];
-    state.set_chosen(revert, &mut edges, &mut commands)?;
+    state.set_chosen(*revert, &mut edges, &mut commands)?;
 
     Ok(())
 }

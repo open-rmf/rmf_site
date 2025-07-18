@@ -59,7 +59,7 @@ pub fn update_path_visual_cues(
             // path.
             if *old != *path {
                 for anchor in &old.0 {
-                    if let Ok((mut hover, mut selected)) = anchors.get_mut(*anchor) {
+                    if let Ok((mut hover, mut selected)) = anchors.get_mut(**anchor) {
                         hover.support_hovering.remove(&p);
                         selected.support_selected.remove(&p);
                     }
@@ -74,7 +74,7 @@ pub fn update_path_visual_cues(
         }
 
         for anchor in &path.0 {
-            if let Ok((mut anchor_hovered, mut anchor_selected)) = anchors.get_mut(*anchor) {
+            if let Ok((mut anchor_hovered, mut anchor_selected)) = anchors.get_mut(**anchor) {
                 if hovered.cue() {
                     anchor_hovered.support_hovering.insert(p);
                 } else {

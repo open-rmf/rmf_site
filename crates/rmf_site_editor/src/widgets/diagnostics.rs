@@ -129,7 +129,7 @@ impl<'w, 's> Diagnostics<'w, 's> {
                         ui,
                         |ui| {
                             for e in &issue.entities {
-                                self.selector.show_widget(*e, ui);
+                                self.selector.show_widget(**e, ui);
                             }
                         },
                     );
@@ -189,7 +189,7 @@ impl<'w, 's> Diagnostics<'w, 's> {
                 ui.label("Affected entities");
                 Grid::new("diagnostic_affected_entities").show(ui, |ui| {
                     for e in &sel.entities {
-                        self.selector.show_widget(*e, ui);
+                        self.selector.show_widget(**e, ui);
                     }
                 });
             }

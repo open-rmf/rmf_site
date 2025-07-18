@@ -364,7 +364,7 @@ fn show_task(
                         .get(scenario)
                         .ok()
                         .and_then(|(scenario_modifiers, _)| scenario_modifiers.get(&task_entity))
-                        .and_then(|e| get_inclusion_modifier.modifiers.get(*e).ok());
+                        .and_then(|e| get_inclusion_modifier.modifiers.get(**e).ok());
                     if let Some(inclusion_modifier) = inclusion_modifier {
                         // Either explicitly included or hidden
                         if **inclusion_modifier == Inclusion::Hidden {
@@ -530,7 +530,7 @@ fn show_task(
                             {
                                 if scenario_modifiers
                                     .get(&task_entity)
-                                    .is_some_and(|e| get_params_modifier.modifiers.get(*e).is_ok())
+                                    .is_some_and(|e| get_params_modifier.modifiers.get(**e).is_ok())
                                     && parent_scenario.0.is_some()
                                 {
                                     // Only display reset button if this task has a TaskParams modifier

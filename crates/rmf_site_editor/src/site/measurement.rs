@@ -40,10 +40,10 @@ pub fn add_measurement_visuals(
     for (e, edge, tf) in &measurements {
         let mut transform = line_stroke_transform(
             &anchors
-                .point_in_parent_frame_of(edge.start(), Category::Measurement, e)
+                .point_in_parent_frame_of(*edge.start(), Category::Measurement, e)
                 .unwrap(),
             &anchors
-                .point_in_parent_frame_of(edge.end(), Category::Measurement, e)
+                .point_in_parent_frame_of(*edge.end(), Category::Measurement, e)
                 .unwrap(),
             LANE_WIDTH,
         );
@@ -74,7 +74,7 @@ pub fn add_measurement_visuals(
             .add_children(&[child_id]);
 
         for anchor in &edge.array() {
-            if let Ok(mut deps) = dependents.get_mut(*anchor) {
+            if let Ok(mut deps) = dependents.get_mut(**anchor) {
                 deps.insert(e);
             }
         }
@@ -88,10 +88,10 @@ fn update_measurement_visual(
     transform: &mut Transform,
 ) {
     let start_anchor = anchors
-        .point_in_parent_frame_of(edge.start(), Category::Measurement, entity)
+        .point_in_parent_frame_of(*edge.start(), Category::Measurement, entity)
         .unwrap();
     let end_anchor = anchors
-        .point_in_parent_frame_of(edge.end(), Category::Measurement, entity)
+        .point_in_parent_frame_of(*edge.end(), Category::Measurement, entity)
         .unwrap();
     let z = transform.translation.z;
     *transform = line_stroke_transform(&start_anchor, &end_anchor, LANE_WIDTH);

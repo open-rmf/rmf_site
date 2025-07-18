@@ -105,15 +105,15 @@ impl CreatePath {
     ) -> SelectionNodeResult {
         let path = self.path.or_broken_state()?;
         let last = path_mut.0.last_mut().or_broken_state()?;
-        if chosen == *last {
+        if chosen == **last {
             // Nothing to change
             return Ok(());
         }
 
         let previous = *last;
-        *last = chosen;
+        **last = chosen;
         if !path_mut.0.contains(&previous) {
-            commands.queue(ChangeDependent::remove(previous, path));
+            commands.queue(ChangeDependent::remove(*previous, path));
         }
 
         commands.queue(ChangeDependent::add(chosen, path));
@@ -200,7 +200,7 @@ pub fn on_select_for_create_path(
 
     if state.implied_complete_loop {
         let first = path_mut.0.first().or_broken_state()?;
-        if chosen == *first && path_mut.0.len() >= state.minimum_points {
+        if chosen == **first && path_mut.0.len() >= state.minimum_points {
             // The user has re-selected the first point and there are enough
             // points in the path to meet the minimum requirement, so we can
             // just end the workflow.
@@ -268,7 +268,7 @@ pub fn cleanup_create_path(
         // We did not collect enough points for the path so we should despawn it
         // as well as any provisional points it contains.
         for a in &path_mut.0 {
-            commands.queue(ChangeDependent::remove(*a, path));
+            commands.queue(ChangeDependent::remove(**a, path));
         }
 
         for a in state.provisional_anchors {
@@ -287,7 +287,7 @@ pub fn cleanup_create_path(
             if !path_mut.contains(&a) {
                 // Remove the dependency on the last point since it no longer
                 // exists in the path
-                commands.queue(ChangeDependent::remove(a, path));
+                commands.queue(ChangeDependent::remove(*a, path));
             }
         }
 

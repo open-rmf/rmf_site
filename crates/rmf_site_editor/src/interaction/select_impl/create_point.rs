@@ -120,9 +120,9 @@ fn change_point(
         return Ok(());
     }
 
-    commands.queue(ChangeDependent::remove(point_mut.0, point));
+    commands.queue(ChangeDependent::remove(*point_mut.0, point));
     commands.queue(ChangeDependent::add(chosen, point));
-    point_mut.0 = chosen;
+    *point_mut.0 = chosen;
     Ok(())
 }
 
@@ -191,7 +191,7 @@ pub fn cleanup_create_point(
     };
 
     let point_ref = points.get(point).or_broken_query()?;
-    commands.queue(ChangeDependent::remove(point_ref.0, point));
+    commands.queue(ChangeDependent::remove(*point_ref.0, point));
     commands.get_entity(point).or_broken_query()?.despawn();
 
     Ok(())

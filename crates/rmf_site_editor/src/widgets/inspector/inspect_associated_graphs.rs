@@ -84,13 +84,13 @@ impl<'w, 's> InspectAssociatedGraphs<'w, 's> {
             AssociatedGraphs::Only(set) | AssociatedGraphs::AllExcept(set) => {
                 let mut removed_graphs: SmallVec<[Entity; 2]> = SmallVec::new();
                 for g in set.iter() {
-                    let (_, name) = match self.graphs.get(*g) {
+                    let (_, name) = match self.graphs.get(**g) {
                         Ok(q) => q,
                         _ => continue,
                     };
                     ui.horizontal(|ui| {
                         if ui.add(ImageButton::new(self.icons.trash.egui())).clicked() {
-                            removed_graphs.push(*g);
+                            removed_graphs.push(**g);
                         }
                         ui.label(&name.0);
                     });
@@ -122,7 +122,7 @@ impl<'w, 's> InspectAssociatedGraphs<'w, 's> {
                         } else {
                             if Some(choice) != recall.consider {
                                 self.consider_graph
-                                    .write(ConsiderAssociatedGraph::new(Some(choice), id));
+                                    .write(ConsiderAssociatedGraph::new(Some(*choice), id));
                             }
                         }
                     });

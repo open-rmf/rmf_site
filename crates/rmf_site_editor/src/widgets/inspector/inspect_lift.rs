@@ -143,7 +143,7 @@ impl<'w, 's> InspectLiftCabin<'w, 's> {
                         CollapsingHeader::new(format!("{} Door", face.label()))
                             .default_open(false)
                             .show(ui, |ui| {
-                                self.selector.show_widget(placement.door, ui);
+                                self.selector.show_widget(*placement.door, ui);
                                 ui.horizontal(|ui| {
                                     ui.label("width");
                                     ui.add(
@@ -197,7 +197,7 @@ impl<'w, 's> InspectLiftCabin<'w, 's> {
                                     placement.thickness = new_t;
                                 }
 
-                                if let Ok(visits) = self.doors.get(placement.door) {
+                                if let Ok(visits) = self.doors.get(*placement.door) {
                                     CollapsingHeader::new(format!("Level Access"))
                                         .default_open(true)
                                         .show(ui, |ui| {

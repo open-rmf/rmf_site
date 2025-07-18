@@ -54,7 +54,7 @@ fn should_display_point(
     current_level: &Res<CurrentLevel>,
     graphs: &GraphSelect,
 ) -> bool {
-    if let Ok(child_of) = child_of.get(point.0) {
+    if let Ok(child_of) = child_of.get(*point.0) {
         if levels.contains(child_of.parent()) && Some(child_of.parent()) != ***current_level {
             return false;
         }
@@ -83,7 +83,7 @@ pub fn add_location_visuals(
     current_level: Res<CurrentLevel>,
 ) {
     for (e, point, associated_graphs, tags) in &locations {
-        if let Ok(mut deps) = dependents.get_mut(point.0) {
+        if let Ok(mut deps) = dependents.get_mut(*point.0) {
             deps.insert(e);
         }
 
@@ -102,7 +102,7 @@ pub fn add_location_visuals(
         };
 
         let position = anchors
-            .point_in_parent_frame_of(point.0, Category::Location, e)
+            .point_in_parent_frame_of(*point.0, Category::Location, e)
             .unwrap()
             + LOCATION_LAYER_HEIGHT * Vec3::Z;
 
@@ -169,7 +169,7 @@ pub fn update_changed_location(
 ) {
     for (e, point, associated, mut visibility, mut tf) in &mut locations {
         let position = anchors
-            .point_in_parent_frame_of(point.0, Category::Location, e)
+            .point_in_parent_frame_of(*point.0, Category::Location, e)
             .unwrap();
         tf.translation = position;
         tf.translation.z = LOCATION_LAYER_HEIGHT;
@@ -207,7 +207,7 @@ pub fn update_location_for_moved_anchors(
         for dependent in dependents.iter() {
             if let Ok((e, point, mut tf)) = locations.get_mut(*dependent) {
                 let position = anchors
-                    .point_in_parent_frame_of(point.0, Category::Location, e)
+                    .point_in_parent_frame_of(*point.0, Category::Location, e)
                     .unwrap();
                 tf.translation = position;
                 tf.translation.z = LOCATION_LAYER_HEIGHT;

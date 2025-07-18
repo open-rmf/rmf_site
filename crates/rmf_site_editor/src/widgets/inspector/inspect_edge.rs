@@ -128,7 +128,7 @@ impl<'w, 's> InspectEdge<'w, 's> {
         let anchor = edge.side(side);
         let response = world.show::<InspectAnchor, _, _>(
             InspectAnchorInput {
-                anchor,
+                anchor: *anchor,
                 is_dependency: true,
                 panel,
             },

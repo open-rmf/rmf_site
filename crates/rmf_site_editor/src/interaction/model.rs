@@ -35,19 +35,19 @@ pub fn update_model_instance_visual_cues(
     for (mut instance_selected, mut instance_hovered, affiliation) in &mut model_instances {
         if let Some(description_entity) = affiliation.0 {
             if let Ok((_, description_selected, description_hovered)) =
-                model_descriptions.get(description_entity)
+                model_descriptions.get(*description_entity)
             {
                 if description_selected.cue() {
                     instance_selected
                         .support_selected
-                        .insert(description_entity);
+                        .insert(*description_entity);
                 } else {
                     instance_selected
                         .support_selected
                         .remove(&description_entity);
                 }
                 if description_hovered.cue() {
-                    instance_hovered.support_hovering.insert(description_entity);
+                    instance_hovered.support_hovering.insert(*description_entity);
                 } else {
                     instance_hovered
                         .support_hovering

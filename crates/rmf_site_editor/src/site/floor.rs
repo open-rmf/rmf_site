@@ -60,7 +60,7 @@ fn make_fallback_floor_mesh_near_path(
 ) -> Mesh {
     let mut positions: Vec<Vec3> = Vec::new();
     for anchor in path.iter() {
-        if let Ok(p) = anchors.point_in_parent_frame_of(*anchor, Category::Floor, entity) {
+        if let Ok(p) = anchors.point_in_parent_frame_of(**anchor, Category::Floor, entity) {
             positions.push(p);
         }
     }
@@ -81,14 +81,14 @@ fn make_floor_mesh(
         );
     } else if anchor_path.len() == 1 {
         let p = anchors
-            .point_in_parent_frame_of(anchor_path[0], Category::Floor, entity)
+            .point_in_parent_frame_of(*anchor_path[0], Category::Floor, entity)
             .unwrap_or(Vec3::ZERO);
         return make_fallback_floor_mesh(p);
     } else if anchor_path.len() == 2 {
         let mut positions: Vec<Vec3> = Vec::new();
         let mut valid = true;
         for anchor in anchor_path.iter() {
-            if let Ok(p) = anchors.point_in_parent_frame_of(*anchor, Category::Floor, entity) {
+            if let Ok(p) = anchors.point_in_parent_frame_of(**anchor, Category::Floor, entity) {
                 positions.push(p);
             } else {
                 error!("Failed to find anchor {anchor:?} used by a path");
@@ -108,7 +108,7 @@ fn make_floor_mesh(
     let mut reference_positions = Vec::new();
     let mut valid = true;
     for anchor in &anchor_path.0 {
-        match anchors.point_in_parent_frame_of(*anchor, Category::Floor, entity) {
+        match anchors.point_in_parent_frame_of(**anchor, Category::Floor, entity) {
             Ok(p) => reference_positions.push(p.to_array()),
             Err(_) => {
                 error!("Failed to find anchor {anchor:?} used by a path");
@@ -285,7 +285,7 @@ pub fn add_floor_visuals(
             .add_child(mesh_entity_id);
 
         for anchor in &new_floor.0 {
-            let Ok(mut deps) = dependents.get_mut(*anchor) else {
+            let Ok(mut deps) = dependents.get_mut(**anchor) else {
                 continue;
             };
             deps.insert(e);

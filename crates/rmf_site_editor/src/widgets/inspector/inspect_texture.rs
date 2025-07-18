@@ -113,7 +113,7 @@ impl<'w, 's> InspectTextureAffiliation<'w, 's> {
         }
 
         if let (SearchResult::Match(e), Some(current)) = (&result, &affiliation.0) {
-            if *e == *current {
+            if *e == **current {
                 result = SearchResult::Current;
             }
         }
@@ -165,7 +165,7 @@ impl<'w, 's> InspectTextureAffiliation<'w, 's> {
                     {
                         let new_texture = if let Some((_, t)) = affiliation
                             .0
-                            .map(|a| self.texture_groups.get(a).ok())
+                            .map(|a| self.texture_groups.get(*a).ok())
                             .flatten()
                         {
                             t.clone()
@@ -213,7 +213,7 @@ impl<'w, 's> InspectTextureAffiliation<'w, 's> {
 
         let (current_texture_name, _current_texture) = if let Some(a) = affiliation.0 {
             self.texture_groups
-                .get(a)
+                .get(*a)
                 .ok()
                 .map(|(n, t)| (n.0.as_str(), Some((a, t))))
         } else {

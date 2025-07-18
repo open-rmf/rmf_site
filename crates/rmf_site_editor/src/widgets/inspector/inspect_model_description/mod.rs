@@ -449,8 +449,8 @@ fn get_selected_description_entity<'w, 's, P: Component, T: QueryData>(
             return None;
         };
 
-        if model_descriptions.get(affiliation).is_ok() {
-            return Some(affiliation);
+        if model_descriptions.get(*affiliation).is_ok() {
+            return Some(*affiliation);
         } else {
             return None;
         }

@@ -57,7 +57,7 @@ fn should_display_lane(
     graphs: &GraphSelect,
 ) -> bool {
     for anchor in edge.array() {
-        if let Ok(child_of) = child_of.get(anchor) {
+        if let Ok(child_of) = child_of.get(*anchor) {
             if levels.contains(child_of.parent()) && Some(child_of.parent()) != ***current_level {
                 return false;
             }
@@ -99,7 +99,7 @@ pub fn add_lane_visuals(
 ) {
     for (e, edge, associated_graphs) in &lanes {
         for anchor in &edge.array() {
-            if let Ok(mut deps) = dependents.get_mut(*anchor) {
+            if let Ok(mut deps) = dependents.get_mut(**anchor) {
                 deps.insert(e);
             }
         }
@@ -119,10 +119,10 @@ pub fn add_lane_visuals(
         };
 
         let start_anchor = anchors
-            .point_in_parent_frame_of(edge.start(), Category::Lane, e)
+            .point_in_parent_frame_of(*edge.start(), Category::Lane, e)
             .unwrap();
         let end_anchor = anchors
-            .point_in_parent_frame_of(edge.end(), Category::Lane, e)
+            .point_in_parent_frame_of(*edge.end(), Category::Lane, e)
             .unwrap();
 
         // Create a "layer" entity that manages the height of the lane,
@@ -200,10 +200,10 @@ fn update_lane_visuals(
     transforms: &mut Query<&mut Transform>,
 ) {
     let start_anchor = anchors
-        .point_in_parent_frame_of(edge.left(), Category::Lane, entity)
+        .point_in_parent_frame_of(*edge.left(), Category::Lane, entity)
         .unwrap();
     let end_anchor = anchors
-        .point_in_parent_frame_of(edge.right(), Category::Lane, entity)
+        .point_in_parent_frame_of(*edge.right(), Category::Lane, entity)
         .unwrap();
 
     if let Some(mut tf) = transforms.get_mut(segments.start).ok() {

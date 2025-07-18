@@ -130,14 +130,14 @@ impl<'w, 's, T: Component<Mutability = Mutable> + Clone + Default> GetModifier<'
             };
             if let Some(target_modifier) = scenario_modifiers
                 .get(&element)
-                .and_then(|e| self.modifiers.get(*e).ok())
+                .and_then(|e| self.modifiers.get(**e).ok())
             {
                 modifier = Some(target_modifier);
                 break;
             }
 
             if let Some(parent_entity) = scenario_parent.0 {
-                scenario_entity = parent_entity;
+                scenario_entity = *parent_entity;
             } else {
                 // Modifier does not exist in the current scenario tree
                 break;
@@ -165,7 +165,7 @@ pub fn handle_scenario_modifiers(
             continue;
         };
         if let Some(modifier) = scenario_modifiers.remove(&remove.for_element) {
-            commands.entity(modifier).despawn();
+            commands.entity(*modifier).despawn();
         }
 
         if current_scenario.0.is_some_and(|e| e == remove.in_scenario) {
@@ -182,7 +182,7 @@ pub fn handle_scenario_modifiers(
                     break;
                 };
                 if let Some(parent_entity) = parent_scenario.0 {
-                    target_scenario = parent_entity;
+                    target_scenario = *parent_entity;
                 } else {
                     root_scenario = Some(target_scenario);
                     break;
@@ -259,7 +259,7 @@ pub fn handle_empty_modifiers<T: Property, F: QueryFilter>(
                             .is_some_and(|e| *e == modifier_entity)
                     })
                 {
-                    remove_modifier.write(RemoveModifier::new(element, scenario_entity));
+                    remove_modifier.write(RemoveModifier::new(*element, scenario_entity));
                     continue;
                 }
             }
@@ -271,7 +271,7 @@ pub fn handle_empty_modifiers<T: Property, F: QueryFilter>(
                     .get(&element)
                     .is_some_and(|e| *e == modifier_entity)
                 {
-                    remove_modifier.write(RemoveModifier::new(element, scenario_entity));
+                    remove_modifier.write(RemoveModifier::new(*element, scenario_entity));
                     break;
                 }
             }

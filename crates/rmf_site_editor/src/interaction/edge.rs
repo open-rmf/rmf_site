@@ -62,7 +62,7 @@ pub fn update_edge_visual_cues(
             // of the lane.
             if old.array() != [a0, a1] {
                 for v in old.array() {
-                    if let Ok((mut hover, mut selected)) = anchors.get_mut(v) {
+                    if let Ok((mut hover, mut selected)) = anchors.get_mut(*v) {
                         hover.support_hovering.remove(&e);
                         selected.support_selected.remove(&e);
                     }
@@ -77,7 +77,7 @@ pub fn update_edge_visual_cues(
         }
 
         if let Ok([(mut hovered_a0, mut selected_a0), (mut hover_a1, mut selected_a1)]) =
-            anchors.get_many_mut([a0, a1])
+            anchors.get_many_mut([*a0, *a1])
         {
             if hovered.cue() {
                 hovered_a0.support_hovering.insert(e);

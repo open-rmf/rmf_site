@@ -60,7 +60,7 @@ pub fn update_point_visual_cues(
             // This can happen if a user changes the reference anchor for the
             // point.
             if old.0 != anchor {
-                if let Ok((mut hover, mut selected)) = anchors.get_mut(old.0) {
+                if let Ok((mut hover, mut selected)) = anchors.get_mut(*old.0) {
                     hover.support_hovering.remove(&p);
                     selected.support_selected.remove(&p);
                 }
@@ -73,7 +73,7 @@ pub fn update_point_visual_cues(
             cue.supporter = None;
         }
 
-        if let Ok((mut anchor_hovered, mut anchor_selected)) = anchors.get_mut(anchor) {
+        if let Ok((mut anchor_hovered, mut anchor_selected)) = anchors.get_mut(*anchor) {
             if hovered.cue() {
                 anchor_hovered.support_hovering.insert(p);
             } else {

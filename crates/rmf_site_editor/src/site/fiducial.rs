@@ -134,7 +134,7 @@ pub fn update_fiducial_usage_tracker(
                         continue;
                     };
                     if let Some(group) = affiliation.0 {
-                        if changed_group == group {
+                        if changed_group == *group {
                             tracker.unused.remove(&changed_group);
                             tracker.used.insert(changed_group, name.0.clone());
                         }
@@ -200,8 +200,8 @@ fn reset_fiducial_usage(
         };
         if let Some(group) = affiliation.0 {
             tracker.unused.remove(&group);
-            if let Ok((_, name, _)) = fiducial_groups.get(group) {
-                tracker.used.insert(group, name.0.clone());
+            if let Ok((_, name, _)) = fiducial_groups.get(*group) {
+                tracker.used.insert(*group, name.0.clone());
             }
         }
     }
@@ -215,7 +215,7 @@ pub fn add_fiducial_visuals(
     assets: Res<SiteAssets>,
 ) {
     for (e, point, tf) in fiducials.iter() {
-        if let Ok(mut deps) = dependents.get_mut(point.0) {
+        if let Ok(mut deps) = dependents.get_mut(*point.0) {
             deps.insert(e);
         }
 
@@ -248,7 +248,7 @@ pub fn assign_orphan_fiducials_to_parent(
     anchors: Query<&ChildOf, With<Anchor>>,
 ) {
     for (e, point) in &orphans {
-        if let Ok(child_of) = anchors.get(point.0) {
+        if let Ok(child_of) = anchors.get(*point.0) {
             commands.entity(e).insert(ChildOf(child_of.parent()));
         } else {
             error!(
@@ -270,7 +270,7 @@ pub fn update_changed_fiducial(
     anchors: AnchorParams,
 ) {
     for (e, point, mut tf) in fiducials.iter_mut() {
-        let position = match anchors.point_in_parent_frame_of(point.0, Category::Fiducial, e) {
+        let position = match anchors.point_in_parent_frame_of(*point.0, Category::Fiducial, e) {
             Ok(position) => position,
             Err(err) => {
                 error!("failed to update fiducial: {err}");
@@ -296,7 +296,7 @@ pub fn update_fiducial_for_moved_anchors(
         for dependent in dependents.iter() {
             if let Ok((e, point, mut tf)) = fiducials.get_mut(*dependent) {
                 let position =
-                    match anchors.point_in_parent_frame_of(point.0, Category::Fiducial, e) {
+                    match anchors.point_in_parent_frame_of(*point.0, Category::Fiducial, e) {
                         Ok(position) => position,
                         Err(err) => {
                             error!("failed to update fiducial: {err}");

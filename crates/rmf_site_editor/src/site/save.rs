@@ -755,8 +755,8 @@ fn generate_lifts(
         };
 
         let validate_level_door_anchors = |door: Entity, edge: &Edge| {
-            validate_level_door_anchor(door, edge.left())?;
-            validate_level_door_anchor(door, edge.right())?;
+            validate_level_door_anchor(door, *edge.left())?;
+            validate_level_door_anchor(door, *edge.right())?;
             get_anchor_id_edge(edge)
         };
 

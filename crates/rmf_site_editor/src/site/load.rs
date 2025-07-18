@@ -188,7 +188,7 @@ fn generate_site_entities(
     for (anchor_id, anchor) in &site_data.anchors {
         let anchor_entity = commands
             .spawn(AnchorBundle::new(anchor.clone()))
-            .insert(SiteID(*anchor_id))
+            .insert(SiteID(**anchor_id))
             .insert(ChildOf(site_id))
             .id();
         id_to_entity.insert(*anchor_id, anchor_entity);
@@ -198,7 +198,7 @@ fn generate_site_entities(
     for (group_id, group) in &site_data.fiducial_groups {
         let group_entity = commands
             .spawn(group.clone())
-            .insert(SiteID(*group_id))
+            .insert(SiteID(**group_id))
             .insert(ChildOf(site_id))
             .id();
         id_to_entity.insert(*group_id, group_entity);
@@ -208,7 +208,7 @@ fn generate_site_entities(
     for (group_id, group) in &site_data.textures {
         let group_entity = commands
             .spawn(group.clone())
-            .insert(SiteID(*group_id))
+            .insert(SiteID(**group_id))
             .insert(ChildOf(site_id))
             .id();
         id_to_entity.insert(*group_id, group_entity);
@@ -217,14 +217,14 @@ fn generate_site_entities(
 
     for (level_id, level_data) in &site_data.levels {
         let level_entity = commands
-            .spawn(SiteID(*level_id))
+            .spawn(SiteID(**level_id))
             .insert(ChildOf(site_id))
             .id();
 
         for (anchor_id, anchor) in &level_data.anchors {
             let anchor_entity = commands
                 .spawn(AnchorBundle::new(anchor.clone()))
-                .insert(SiteID(*anchor_id))
+                .insert(SiteID(**anchor_id))
                 .insert(ChildOf(level_entity))
                 .id();
             id_to_entity.insert(*anchor_id, anchor_entity);
@@ -234,7 +234,7 @@ fn generate_site_entities(
         for (door_id, door) in &level_data.doors {
             let door_entity = commands
                 .spawn(door.convert(&id_to_entity).for_site(site_id)?)
-                .insert(SiteID(*door_id))
+                .insert(SiteID(**door_id))
                 .insert(ChildOf(level_entity))
                 .id();
             id_to_entity.insert(*door_id, door_entity);
@@ -244,14 +244,14 @@ fn generate_site_entities(
         for (drawing_id, drawing) in &level_data.drawings {
             let drawing_entity = commands
                 .spawn(DrawingBundle::new(drawing.properties.clone()))
-                .insert(SiteID(*drawing_id))
+                .insert(SiteID(**drawing_id))
                 .insert(ChildOf(level_entity))
                 .id();
 
             for (anchor_id, anchor) in &drawing.anchors {
                 let anchor_entity = commands
                     .spawn(AnchorBundle::new(anchor.clone()))
-                    .insert(SiteID(*anchor_id))
+                    .insert(SiteID(**anchor_id))
                     .insert(ChildOf(drawing_entity))
                     .id();
                 id_to_entity.insert(*anchor_id, anchor_entity);
@@ -261,7 +261,7 @@ fn generate_site_entities(
             for (fiducial_id, fiducial) in &drawing.fiducials {
                 let fiducial_entity = commands
                     .spawn(fiducial.convert(&id_to_entity).for_site(site_id)?)
-                    .insert(SiteID(*fiducial_id))
+                    .insert(SiteID(**fiducial_id))
                     .insert(ChildOf(drawing_entity))
                     .id();
                 id_to_entity.insert(*fiducial_id, fiducial_entity);
@@ -271,7 +271,7 @@ fn generate_site_entities(
             for (measurement_id, measurement) in &drawing.measurements {
                 let measurement_entity = commands
                     .spawn(measurement.convert(&id_to_entity).for_site(site_id)?)
-                    .insert(SiteID(*measurement_id))
+                    .insert(SiteID(**measurement_id))
                     .insert(ChildOf(drawing_entity))
                     .id();
                 id_to_entity.insert(*measurement_id, measurement_entity);
@@ -284,7 +284,7 @@ fn generate_site_entities(
         for (floor_id, floor) in &level_data.floors {
             commands
                 .spawn(floor.convert(&id_to_entity).for_site(site_id)?)
-                .insert(SiteID(*floor_id))
+                .insert(SiteID(**floor_id))
                 .insert(ChildOf(level_entity));
             consider_id(*floor_id);
         }
@@ -292,7 +292,7 @@ fn generate_site_entities(
         for (wall_id, wall) in &level_data.walls {
             commands
                 .spawn(wall.convert(&id_to_entity).for_site(site_id)?)
-                .insert(SiteID(*wall_id))
+                .insert(SiteID(**wall_id))
                 .insert(ChildOf(level_entity));
             consider_id(*wall_id);
         }
@@ -305,21 +305,21 @@ fn generate_site_entities(
             .with_children(|level| {
                 // These don't need a return value so can be wrapped in a with_children
                 for (light_id, light) in &level_data.lights {
-                    level.spawn(light.clone()).insert(SiteID(*light_id));
+                    level.spawn(light.clone()).insert(SiteID(**light_id));
                     consider_id(*light_id);
                 }
 
                 for (physical_camera_id, physical_camera) in &level_data.physical_cameras {
                     level
                         .spawn(physical_camera.clone())
-                        .insert(SiteID(*physical_camera_id));
+                        .insert(SiteID(**physical_camera_id));
                     consider_id(*physical_camera_id);
                 }
 
                 for (camera_pose_id, camera_pose) in &level_data.user_camera_poses {
                     level
                         .spawn(camera_pose.clone())
-                        .insert(SiteID(*camera_pose_id));
+                        .insert(SiteID(**camera_pose_id));
                     consider_id(*camera_pose_id);
                 }
             });
@@ -344,7 +344,7 @@ fn generate_site_entities(
 
     for (lift_id, lift_data) in &site_data.lifts {
         let lift_entity = commands
-            .spawn(SiteID(*lift_id))
+            .spawn(SiteID(**lift_id))
             .insert(ChildOf(site_id))
             .id();
 
@@ -355,7 +355,7 @@ fn generate_site_entities(
                     for (anchor_id, anchor) in &lift_data.cabin_anchors {
                         let anchor_entity = anchor_group
                             .spawn(AnchorBundle::new(anchor.clone()))
-                            .insert(SiteID(*anchor_id))
+                            .insert(SiteID(**anchor_id))
                             .id();
                         id_to_entity.insert(*anchor_id, anchor_entity);
                         consider_id(*anchor_id);
@@ -387,7 +387,7 @@ fn generate_site_entities(
     for (fiducial_id, fiducial) in &site_data.fiducials {
         let fiducial_entity = commands
             .spawn(fiducial.convert(&id_to_entity).for_site(site_id)?)
-            .insert(SiteID(*fiducial_id))
+            .insert(SiteID(**fiducial_id))
             .insert(ChildOf(site_id))
             .id();
         id_to_entity.insert(*fiducial_id, fiducial_entity);
@@ -398,7 +398,7 @@ fn generate_site_entities(
         let nav_graph = commands
             .spawn((Transform::default(), Visibility::default()))
             .insert(nav_graph_data.clone())
-            .insert(SiteID(*nav_graph_id))
+            .insert(SiteID(**nav_graph_id))
             .insert(ChildOf(site_id))
             .id();
         id_to_entity.insert(*nav_graph_id, nav_graph);
@@ -408,7 +408,7 @@ fn generate_site_entities(
     for (lane_id, lane_data) in &site_data.navigation.guided.lanes {
         let lane = commands
             .spawn(lane_data.convert(&id_to_entity).for_site(site_id)?)
-            .insert(SiteID(*lane_id))
+            .insert(SiteID(**lane_id))
             .insert(ChildOf(site_id))
             .id();
         id_to_entity.insert(*lane_id, lane);
@@ -418,7 +418,7 @@ fn generate_site_entities(
     for (location_id, location_data) in &site_data.navigation.guided.locations {
         let location = commands
             .spawn(location_data.convert(&id_to_entity).for_site(site_id)?)
-            .insert(SiteID(*location_id))
+            .insert(SiteID(**location_id))
             .insert(ChildOf(site_id))
             .id();
         id_to_entity.insert(*location_id, location);
@@ -437,7 +437,7 @@ fn generate_site_entities(
     for (model_description_id, model_description) in &site_data.model_descriptions {
         let model_description_entity = commands
             .spawn(model_description.clone())
-            .insert(SiteID(*model_description_id))
+            .insert(SiteID(**model_description_id))
             .insert(Category::ModelDescription)
             .insert(ChildOf(site_id))
             .id();
@@ -488,7 +488,7 @@ fn generate_site_entities(
 
         let model_instance_entity = model_loader
             .spawn_model_instance(*parent, model_instance.clone())
-            .insert((Category::Model, SiteID(*model_instance_id)))
+            .insert((Category::Model, SiteID(**model_instance_id)))
             .id();
         id_to_entity.insert(*model_instance_id, model_instance_entity);
         consider_id(*model_instance_id);
@@ -519,7 +519,7 @@ fn generate_site_entities(
     for (task_id, task_data) in &site_data.tasks {
         let task_entity = commands
             .spawn(task_data.clone())
-            .insert(SiteID(*task_id))
+            .insert(SiteID(**task_id))
             .insert(Category::Task)
             .insert(ChildOf(site_id))
             .id();
@@ -535,7 +535,7 @@ fn generate_site_entities(
         let scenario = scenario_data.convert(&id_to_entity).for_site(site_id)?;
         let scenario_entity = commands
             .spawn(scenario.properties.clone())
-            .insert(SiteID(*scenario_id))
+            .insert(SiteID(**scenario_id))
             .insert(ChildOf(parent))
             .id();
         id_to_entity.insert(*scenario_id, scenario_entity);

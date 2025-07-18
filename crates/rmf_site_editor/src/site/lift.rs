@@ -92,10 +92,10 @@ fn make_lift_transform(
     anchors: &AnchorParams,
 ) -> Transform {
     let p_start = anchors
-        .point_in_parent_frame_of(reference_anchors.start(), Category::Lift, entity)
+        .point_in_parent_frame_of(*reference_anchors.start(), Category::Lift, entity)
         .unwrap();
     let p_end = anchors
-        .point_in_parent_frame_of(reference_anchors.end(), Category::Lift, entity)
+        .point_in_parent_frame_of(*reference_anchors.end(), Category::Lift, entity)
         .unwrap();
     let (p_start, p_end) = if reference_anchors.left() == reference_anchors.right() {
         (p_start, p_start - DEFAULT_CABIN_WIDTH * Vec3::Y)
@@ -140,7 +140,7 @@ pub fn add_tags_to_lift(
         }
 
         for anchor in edge.array() {
-            if let Ok(mut deps) = dependents.get_mut(anchor) {
+            if let Ok(mut deps) = dependents.get_mut(*anchor) {
                 deps.insert(e);
             }
         }
@@ -231,7 +231,7 @@ pub fn update_lift_cabin(
                                 let door_available = door
                                     .filter(|d| {
                                         level_visits
-                                            .get(*d)
+                                            .get(**d)
                                             .ok()
                                             .unwrap_or(&LevelVisits::default())
                                             .contains(&level)
@@ -270,11 +270,11 @@ pub fn update_lift_cabin(
                     if let (Some(p), Some(new_edge)) =
                         (params.door(face), params.level_door_anchors(face))
                     {
-                        if let Ok(edge) = doors.get(p.door) {
+                        if let Ok(edge) = doors.get(*p.door) {
                             for (a, new_anchor) in
                                 edge.array().into_iter().zip(new_edge.into_iter())
                             {
-                                if let Ok(mut anchor) = anchors.get_mut(a) {
+                                if let Ok(mut anchor) = anchors.get_mut(*a) {
                                     *anchor = new_anchor;
                                 }
                             }
@@ -454,7 +454,7 @@ pub fn update_lift_door_availability(
                 // the Pending is removed.
                 for anchor in existing_anchors.array() {
                     commands
-                        .entity(anchor)
+                        .entity(*anchor)
                         .remove::<Pending>()
                         .insert(Visibility::Inherited);
                 }
@@ -589,7 +589,7 @@ fn remove_door(
     let remove_anchors = if let Ok((_, anchors, _)) = doors.get(cabin_door) {
         let mut remove_anchors = true;
         'outer: for anchor in anchors.array() {
-            if let Ok(deps) = dependents.get(anchor) {
+            if let Ok(deps) = dependents.get(*anchor) {
                 for dependent in deps.iter() {
                     if *dependent != cabin_door {
                         remove_anchors = false;
@@ -611,7 +611,7 @@ fn remove_door(
     if let Some(anchors) = remove_anchors {
         for anchor in anchors.array() {
             commands
-                .entity(anchor)
+                .entity(*anchor)
                 .insert(Pending)
                 .insert(Visibility::Hidden);
         }

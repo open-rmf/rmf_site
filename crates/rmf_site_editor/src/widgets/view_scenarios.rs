@@ -156,7 +156,7 @@ impl<'w, 's> ViewScenarios<'w, 's> {
                 if let Some(children) = scenario_children.get_mut(&parent_entity) {
                     children.push(e);
                 } else {
-                    scenario_children.insert(parent_entity, vec![e]);
+                    scenario_children.insert(*parent_entity, vec![e]);
                 }
             }
         }

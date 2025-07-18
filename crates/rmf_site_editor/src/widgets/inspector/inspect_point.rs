@@ -90,7 +90,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPoint<'w, 's> {
 
             let response = world.show::<InspectAnchor, _, _>(
                 InspectAnchorInput {
-                    anchor,
+                    anchor: *anchor,
                     is_dependency: true,
                     panel,
                 },

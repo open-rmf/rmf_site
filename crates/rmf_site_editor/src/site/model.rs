@@ -412,7 +412,7 @@ fn instance_spawn_request_into_model_load_request(
         return Err(InstanceSpawningError::NoAffiliation);
     };
 
-    let Ok(source) = descriptions.get(affiliation) else {
+    let Ok(source) = descriptions.get(*affiliation) else {
         return Err(InstanceSpawningError::AffiliationMissing);
     };
 
@@ -504,7 +504,7 @@ impl<'w, 's> ModelLoader<'w, 's> {
         let mut instance_entities = HashSet::new();
         for (e, affiliation) in self.model_instances.iter() {
             if let Some(description_entity) = affiliation.0 {
-                if entity == description_entity {
+                if entity == *description_entity {
                     instance_entities.insert(e);
                 }
             }
@@ -879,7 +879,7 @@ pub fn update_model_instances<T: Component + Default + Clone>(
     // Changes
     for (instance_entity, affiliation) in model_instances.iter() {
         if let Some(description_entity) = affiliation.0 {
-            if let Ok(property) = model_properties.get(description_entity) {
+            if let Ok(property) = model_properties.get(*description_entity) {
                 if property.is_changed() || affiliation.is_changed() {
                     let mut cmd = commands.entity(instance_entity);
                     cmd.insert(property.0.clone());
@@ -909,7 +909,7 @@ pub fn check_for_orphan_model_instances(
         for (instance_entity, instance_name, affiliation) in orphan_instances.iter_mut() {
             let brief = match affiliation
                 .0
-                .map(|e| model_descriptions.get(e).ok())
+                .map(|e| model_descriptions.get(*e).ok())
                 .flatten()
             {
                 Some(description_name) => format!(

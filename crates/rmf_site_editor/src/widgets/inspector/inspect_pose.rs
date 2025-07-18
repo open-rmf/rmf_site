@@ -69,7 +69,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPose<'w, 's> {
         {
             if let Some((_pose_modifier, _)) = scenario_modifiers
                 .get(&selection)
-                .and_then(|modifier_entity| params.pose_modifiers.get(*modifier_entity).ok())
+                .and_then(|modifier_entity| params.pose_modifiers.get(**modifier_entity).ok())
             {
                 // Only display this button if this is not a root scenario
                 if parent_scenario.0.is_some() {

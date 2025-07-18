@@ -171,7 +171,7 @@ impl<'w, 's> ViewLights<'w, 's> {
 
         let mut sorted_lights = BTreeMap::new();
         for (e, kind) in &self.lights {
-            unsaved_lights.insert(Reverse(e), kind.label());
+            sorted_lights.insert(Reverse(e), kind.label());
         }
 
         for (e, label) in sorted_lights {

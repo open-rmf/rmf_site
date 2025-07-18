@@ -134,7 +134,7 @@ impl PreviewEdge {
     ) -> SelectionNodeResult {
         let edge = edges.get(self.edge).or_broken_query()?;
         for anchor in edge.array() {
-            commands.queue(ChangeDependent::remove(anchor, self.edge));
+            commands.queue(ChangeDependent::remove(*anchor, self.edge));
         }
 
         if self.provisional_start {
@@ -142,7 +142,7 @@ impl PreviewEdge {
             // which we are about to despawn. Let's despawn both so we aren't
             // littering the scene with unintended anchors.
             commands
-                .get_entity(edge.start())
+                .get_entity(*edge.start())
                 .or_broken_query()?
                 .despawn();
         }
@@ -211,10 +211,10 @@ pub fn on_hover_for_create_edges(
         if old_anchor != anchor {
             let opposite_anchor = edge.array()[preview.side.opposite().index()];
             if opposite_anchor != old_anchor {
-                commands.queue(ChangeDependent::remove(old_anchor, preview.edge));
+                commands.queue(ChangeDependent::remove(*old_anchor, preview.edge));
             }
 
-            edge.array_mut()[index] = anchor;
+            *edge.array_mut()[index] = anchor;
             commands.queue(ChangeDependent::add(anchor, preview.edge));
         }
     } else {
@@ -248,15 +248,15 @@ pub fn on_select_for_create_edges(
             Side::Left => {
                 // We are pinning down the first anchor of the edge
                 let mut edge = edges.get_mut(preview.edge).or_broken_query()?;
-                commands.queue(ChangeDependent::remove(edge.left(), preview.edge));
-                *edge.left_mut() = anchor;
+                commands.queue(ChangeDependent::remove(*edge.left(), preview.edge));
+                **edge.left_mut() = anchor;
                 commands.queue(ChangeDependent::add(anchor, preview.edge));
 
                 if edge.right() != anchor {
-                    commands.queue(ChangeDependent::remove(edge.right(), preview.edge));
+                    commands.queue(ChangeDependent::remove(*edge.right(), preview.edge));
                 }
 
-                *edge.right_mut() = cursor.level_anchor_placement;
+                **edge.right_mut() = cursor.level_anchor_placement;
                 commands.queue(ChangeDependent::add(
                     cursor.level_anchor_placement,
                     preview.edge,
@@ -278,7 +278,7 @@ pub fn on_select_for_create_edges(
                     );
                     return Ok(());
                 }
-                *edge.right_mut() = anchor;
+                **edge.right_mut() = anchor;
                 commands.queue(ChangeDependent::add(anchor, preview.edge));
                 commands
                     .get_entity(preview.edge)
@@ -352,17 +352,17 @@ pub fn on_keyboard_for_create_edges(
             // user can choose a different start point.
             let mut edge = edges.get_mut(preview.edge).or_broken_query()?;
             for anchor in edge.array() {
-                commands.queue(ChangeDependent::remove(anchor, preview.edge));
+                commands.queue(ChangeDependent::remove(*anchor, preview.edge));
             }
             if preview.provisional_start {
                 commands
-                    .get_entity(edge.start())
+                    .get_entity(*edge.start())
                     .or_broken_query()?
                     .despawn();
             }
 
-            *edge.left_mut() = cursor.level_anchor_placement;
-            *edge.right_mut() = cursor.level_anchor_placement;
+            **edge.left_mut() = cursor.level_anchor_placement;
+            **edge.right_mut() = cursor.level_anchor_placement;
             preview.side = Side::start();
             preview.provisional_start = false;
             commands.queue(ChangeDependent::add(

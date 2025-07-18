@@ -65,7 +65,7 @@ pub fn align_site_drawings(
             let Ok((group, point)) = params.fiducials.get(*child) else {
                 continue;
             };
-            let Ok(anchor) = params.anchors.get(point.0) else {
+            let Ok(anchor) = params.anchors.get(*point.0) else {
                 continue;
             };
             let Some(group) = group.0 else { continue };
@@ -91,7 +91,7 @@ pub fn align_site_drawings(
                 );
                 for child in drawing_children {
                     if let Ok((group, point)) = params.fiducials.get(*child) {
-                        let Ok(anchor) = params.anchors.get(point.0) else {
+                        let Ok(anchor) = params.anchors.get(*point.0) else {
                             continue;
                         };
                         let Some(group) = group.0 else { continue };
@@ -132,7 +132,7 @@ pub fn align_site_drawings(
         // undo operation for this set of changes.
         let alignments = align_site(&site_variables);
         for (e, alignment) in alignments {
-            let Ok((_, mut pose, mut ppm)) = params.drawings.get_mut(e) else {
+            let Ok((_, mut pose, mut ppm)) = params.drawings.get_mut(*e) else {
                 continue;
             };
             pose.trans[0] = alignment.translation.x as f32;

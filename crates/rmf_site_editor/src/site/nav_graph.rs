@@ -55,19 +55,19 @@ impl<'w, 's> GraphSelect<'w, 's> {
                 .iter()
                 .filter(|e| {
                     self.graphs
-                        .get(**e)
+                        .get(***e)
                         .ok()
                         .filter(|(_, _, v, _)| !matches!(v, Visibility::Hidden))
                         .is_some()
                 })
                 .max_by(|a, b| {
                     self.graphs
-                        .get(**a)
+                        .get(***a)
                         .unwrap()
                         .3
-                        .cmp(self.graphs.get(**b).unwrap().3)
+                        .cmp(self.graphs.get(***b).unwrap().3)
                 })
-                .map(|e| self.graphs.get(*e).map(|(_, m, _, d)| (m.clone(), *d)).ok())
+                .map(|e| self.graphs.get(**e).map(|(_, m, _, d)| (m.clone(), *d)).ok())
                 .flatten(),
             AssociatedGraphs::AllExcept(set) => self
                 .graphs
@@ -105,7 +105,7 @@ impl<'w, 's> GraphSelect<'w, 's> {
                         .iter()
                         .find(|e| {
                             self.graphs
-                                .get(**e)
+                                .get(***e)
                                 .ok()
                                 .filter(|(_, _, v, _)| !matches!(v, Visibility::Hidden))
                                 .is_some()

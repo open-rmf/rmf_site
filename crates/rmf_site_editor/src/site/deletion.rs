@@ -281,21 +281,21 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
     for e in all_descendents {
         if let Ok(edge) = params.edges.get(e) {
             for anchor in edge.array() {
-                if let Ok(mut deps) = params.dependents.get_mut(anchor) {
+                if let Ok(mut deps) = params.dependents.get_mut(*anchor) {
                     deps.remove(&e);
                 }
             }
         }
 
         if let Ok(point) = params.points.get(e) {
-            if let Ok(mut deps) = params.dependents.get_mut(point.0) {
+            if let Ok(mut deps) = params.dependents.get_mut(*point.0) {
                 deps.remove(&e);
             }
         }
 
         if let Ok(path) = params.paths.get(e) {
             for anchor in &path.0 {
-                if let Ok(mut deps) = params.dependents.get_mut(*anchor) {
+                if let Ok(mut deps) = params.dependents.get_mut(**anchor) {
                     deps.remove(&e);
                 }
             }
@@ -389,7 +389,7 @@ fn perform_deletions(all_to_delete: HashSet<Entity>, params: &mut DeletionParams
         if let Ok(edge) = params.edges.get(e) {
             for anchor in edge.array() {
                 if !all_to_delete.contains(&anchor) {
-                    if let Ok(mut deps) = params.dependents.get_mut(anchor) {
+                    if let Ok(mut deps) = params.dependents.get_mut(*anchor) {
                         deps.remove(&e);
                     }
                 }
@@ -398,7 +398,7 @@ fn perform_deletions(all_to_delete: HashSet<Entity>, params: &mut DeletionParams
 
         if let Ok(point) = params.points.get(e) {
             if !all_to_delete.contains(&point.0) {
-                if let Ok(mut deps) = params.dependents.get_mut(point.0) {
+                if let Ok(mut deps) = params.dependents.get_mut(*point.0) {
                     deps.remove(&e);
                 }
             }
@@ -407,7 +407,7 @@ fn perform_deletions(all_to_delete: HashSet<Entity>, params: &mut DeletionParams
         if let Ok(path) = params.paths.get(e) {
             for anchor in &path.0 {
                 if !all_to_delete.contains(anchor) {
-                    if let Ok(mut deps) = params.dependents.get_mut(*anchor) {
+                    if let Ok(mut deps) = params.dependents.get_mut(**anchor) {
                         deps.remove(&e);
                     }
                 }
