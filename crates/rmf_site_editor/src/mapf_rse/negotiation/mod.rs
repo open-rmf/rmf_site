@@ -27,7 +27,7 @@ use std::{
 };
 
 use crate::{
-    occupancy::{Cell, Grid},
+    occupancy::{Cell, Grid, calculate_grid},
     site::{
         Affiliation, Anchor, CircleCollision, CurrentLevel, DifferentialDrive, GoToPlace, Group,
         LocationTags, ModelMarker, NameInSite, Point, Pose, Robot, Task as RobotTask,
@@ -54,7 +54,7 @@ impl Plugin for NegotiationPlugin {
             .add_systems(
                 Update,
                 (
-                    start_compute_negotiation,
+                    start_compute_negotiation.before(calculate_grid),
                     handle_compute_negotiation_complete,
                     visualise_selected_node,
                 ),
