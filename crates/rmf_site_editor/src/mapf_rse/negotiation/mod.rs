@@ -304,6 +304,7 @@ pub fn start_compute_negotiation(
                         let Some((differential_drive, circle_collision)) =
                             robot_group.0.and_then(|e| robot_descriptions.get(e).ok())
                         else {
+                            warn!("No robot collision model found");
                             continue;
                         };
                         let agent = Agent {
