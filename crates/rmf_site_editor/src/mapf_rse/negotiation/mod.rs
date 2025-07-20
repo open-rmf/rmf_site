@@ -27,7 +27,7 @@ use std::{
 };
 
 use crate::{
-    occupancy::{Cell, Grid, calculate_grid},
+    occupancy::{calculate_grid, Cell, Grid},
     site::{
         Affiliation, Anchor, CircleCollision, CurrentLevel, DifferentialDrive, GoToPlace, Group,
         LocationTags, ModelMarker, NameInSite, Point, Pose, Robot, Task as RobotTask,
