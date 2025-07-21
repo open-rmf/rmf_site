@@ -16,7 +16,7 @@
 */
 
 use bevy::{ecs::system::EntityCommands, prelude::*};
-use rmf_site_format::{Affiliation, Group, SiteID};
+use rmf_site_format::{Affiliation, Group};
 
 #[derive(Event)]
 pub struct MergeGroups {

@@ -17,7 +17,7 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity, Query, With};
+use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, HashMap};
 

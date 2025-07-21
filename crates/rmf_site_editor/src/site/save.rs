@@ -19,7 +19,6 @@ use bevy::{
     ecs::{event::Events, hierarchy::ChildOf, system::SystemState},
     prelude::*,
 };
-use rmf_site_picking::Preview;
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     path::PathBuf,

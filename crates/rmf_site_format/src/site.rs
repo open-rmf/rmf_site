@@ -21,7 +21,6 @@ use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
-    hash::Hash,
     io,
 };
 use uuid::Uuid;

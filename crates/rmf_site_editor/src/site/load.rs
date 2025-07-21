@@ -216,7 +216,7 @@ fn generate_site_entities(
             id_to_entity.insert(*door_id, door_entity);
         }
 
-        for (drawing_id, drawing) in &level_data.drawings {
+        for drawing in level_data.drawings.values() {
             let drawing_entity = commands
                 .spawn(DrawingBundle::new(drawing.properties.clone()))
                 .insert(ChildOf(level_entity))
@@ -247,13 +247,13 @@ fn generate_site_entities(
             }
         }
 
-        for (floor_id, floor) in &level_data.floors {
+        for floor in level_data.floors.values() {
             commands
                 .spawn(floor.convert(&id_to_entity).for_site(site_id)?)
                 .insert(ChildOf(level_entity));
         }
 
-        for (wall_id, wall) in &level_data.walls {
+        for wall in level_data.walls.values() {
             commands
                 .spawn(wall.convert(&id_to_entity).for_site(site_id)?)
                 .insert(ChildOf(level_entity));
@@ -266,15 +266,15 @@ fn generate_site_entities(
             .insert(Category::Level)
             .with_children(|level| {
                 // These don't need a return value so can be wrapped in a with_children
-                for (light_id, light) in &level_data.lights {
+                for light in level_data.lights.values() {
                     level.spawn(light.clone());
                 }
 
-                for (physical_camera_id, physical_camera) in &level_data.physical_cameras {
+                for physical_camera in level_data.physical_cameras.values() {
                     level.spawn(physical_camera.clone());
                 }
 
-                for (camera_pose_id, camera_pose) in &level_data.user_camera_poses {
+                for camera_pose in level_data.user_camera_poses.values() {
                     level.spawn(camera_pose.clone());
                 }
             });
