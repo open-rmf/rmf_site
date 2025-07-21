@@ -37,13 +37,7 @@ pub fn add_point_visual_cues(
 
 pub fn update_point_visual_cues(
     mut points: Query<
-        (
-            Entity,
-            &Hovered,
-            &Selected,
-            &Point,
-            &mut PointVisualCue,
-        ),
+        (Entity, &Hovered, &Selected, &Point, &mut PointVisualCue),
         (
             Without<AnchorVisualization>,
             Without<Edge>,

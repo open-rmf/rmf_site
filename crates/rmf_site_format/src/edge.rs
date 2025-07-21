@@ -30,8 +30,8 @@ pub struct Edge([SiteID; 2]);
 impl Edge {
     /// Create a new edge of this type using the given anchors. All other
     /// properties of the edge should have sensible default values.
-    pub fn new(left: SiteID, right: SiteID) -> Self {
-        Self([left, right])
+    pub fn new(left: impl Into<SiteID>, right: impl Into<SiteID>) -> Self {
+        Self([left.into(), right.into()])
     }
 
     pub fn array(&self) -> [SiteID; 2] {

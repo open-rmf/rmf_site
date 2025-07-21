@@ -72,7 +72,7 @@ pub struct Diagnostics<'w, 's> {
     validate_workspace: EventWriter<'w, ValidateWorkspace>,
     change_filtered_issues: EventWriter<'w, Change<FilteredIssues>>,
     change_filtered_issue_kinds: EventWriter<'w, Change<FilteredIssueKinds>>,
-    selector: SelectorWidget<'w, 's>,
+    selector: SelectorWidget<'w>,
 }
 
 impl<'w, 's> WidgetSystem for Diagnostics<'w, 's> {

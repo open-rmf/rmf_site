@@ -159,13 +159,7 @@ pub fn update_walls(
         ),
         With<WallMarker>,
     >,
-    changed_walls: Query<
-        Entity,
-        (
-            With<WallMarker>,
-            Or<(Changed<Affiliation>, Changed<Edge>)>,
-        ),
-    >,
+    changed_walls: Query<Entity, (With<WallMarker>, Or<(Changed<Affiliation>, Changed<Edge>)>)>,
     changed_texture_sources: Query<
         &Members,
         (With<Group>, Or<(Changed<TextureImage>, Changed<Texture>)>),

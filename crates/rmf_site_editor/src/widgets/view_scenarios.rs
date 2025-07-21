@@ -45,12 +45,8 @@ impl Plugin for ViewScenariosPlugin {
 #[derive(SystemParam)]
 pub struct ViewScenarios<'w, 's> {
     child_of: Query<'w, 's, &'static ChildOf>,
-    scenarios: Query<
-        'w,
-        's,
-        (Entity, &'static NameInSite, &'static Affiliation),
-        With<ScenarioMarker>,
-    >,
+    scenarios:
+        Query<'w, 's, (Entity, &'static NameInSite, &'static Affiliation), With<ScenarioMarker>>,
     change_name: EventWriter<'w, Change<NameInSite>>,
     change_current_scenario: EventWriter<'w, ChangeCurrentScenario>,
     create_new_scenario: EventWriter<'w, CreateScenario>,
@@ -195,11 +191,8 @@ fn show_scenario_widget(
     current_scenario: &mut CurrentScenario,
     scenario_entity: Entity,
     scenario_version: Vec<u32>,
-    scenario_children: &HashMap<Entity, Vec>,
-    q_scenario: &Query<
-        (Entity, &'static NameInSite, &'static Affiliation),
-        With<ScenarioMarker>,
-    >,
+    scenario_children: &HashMap<Entity, Vec<Entity>>,
+    q_scenario: &Query<(Entity, &'static NameInSite, &'static Affiliation), With<ScenarioMarker>>,
     icons: &Res<Icons>,
 ) {
     let (entity, name, _) = q_scenario.get(scenario_entity).unwrap();

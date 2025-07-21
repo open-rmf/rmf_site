@@ -53,11 +53,7 @@ fn make_fallback_floor_mesh_at_avg(positions: Vec<Vec3>) -> Mesh {
     return make_fallback_floor_mesh(p);
 }
 
-fn make_fallback_floor_mesh_near_path(
-    entity: Entity,
-    path: &Path,
-    anchors: &AnchorParams,
-) -> Mesh {
+fn make_fallback_floor_mesh_near_path(entity: Entity, path: &Path, anchors: &AnchorParams) -> Mesh {
     let mut positions: Vec<Vec3> = Vec::new();
     for anchor in path.iter() {
         if let Ok(p) = anchors.point_in_parent_frame_of(**anchor, Category::Floor, entity) {
@@ -336,13 +332,7 @@ pub fn update_floors_for_moved_anchors(
 
 pub fn update_floors(
     floors: Query<(&FloorSegments, &Path, &Affiliation), With<FloorMarker>>,
-    changed_floors: Query<
-        Entity,
-        (
-            With<FloorMarker>,
-            Or<(Changed<Affiliation>, Changed<Path>)>,
-        ),
-    >,
+    changed_floors: Query<Entity, (With<FloorMarker>, Or<(Changed<Affiliation>, Changed<Path>)>)>,
     changed_texture_sources: Query<
         &Members,
         (With<Group>, Or<(Changed<TextureImage>, Changed<Texture>)>),

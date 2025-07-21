@@ -47,31 +47,19 @@ pub struct ViewModelInstances<'w, 's> {
     scenarios: Query<
         'w,
         's,
-        (
-            Entity,
-            &'static ScenarioModifiers,
-            &'static Affiliation,
-        ),
+        (Entity, &'static ScenarioModifiers, &'static Affiliation),
         With<ScenarioMarker>,
     >,
     current_scenario: ResMut<'w, CurrentScenario>,
     get_modifier: GetModifier<'w, 's, Modifier<Visibility>>,
     icons: Res<'w, Icons>,
     members: Query<'w, 's, &'static Members>,
-    model_descriptions: Query<
-        'w,
-        's,
-        (Entity, &'static NameInSite),
-        (With<ModelMarker>, With<Group>),
-    >,
-    model_instances: Query<
-        'w,
-        's,
-        (Entity, &'static NameInSite, &'static Affiliation),
-        With<InstanceMarker>,
-    >,
+    model_descriptions:
+        Query<'w, 's, (Entity, &'static NameInSite), (With<ModelMarker>, With<Group>)>,
+    model_instances:
+        Query<'w, 's, (Entity, &'static NameInSite, &'static Affiliation), With<InstanceMarker>>,
     selection: Res<'w, Selection>,
-    selector: SelectorWidget<'w, 's>,
+    selector: SelectorWidget<'w>,
     delete: EventWriter<'w, Delete>,
     update_instance: EventWriter<'w, UpdateModifier<UpdateInstance>>,
 }
@@ -109,7 +97,7 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                     else {
                                         continue;
                                     };
-                                    if affiliation.0.is_some_and(|e| e == desc_entity) {
+                                    if affiliation.0.is_some_and(|e| e == desc_entity.into()) {
                                         let scenario_count = count_scenarios_with_visibility(
                                             &self.scenarios,
                                             instance_entity,
@@ -190,7 +178,7 @@ fn show_model_instance(
         .get(scenario)
         .ok()
         .and_then(|(scenario_modifiers, _)| scenario_modifiers.get(&instance))
-        .and_then(|e| get_modifier.modifiers.get(**e).ok());
+        .and_then(|e| get_modifier.modifiers.get(*e).ok());
     ui.horizontal(|ui| {
         // Selector widget
         selector.show_widget(instance, ui);

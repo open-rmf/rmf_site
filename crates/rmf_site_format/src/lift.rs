@@ -199,7 +199,8 @@ impl Default for LiftCabin {
 }
 
 impl LiftCabin {
-    pub fn remove_door(&mut self, door: SiteID) {
+    pub fn remove_door(&mut self, door: impl Into<SiteID>) {
+        let door = door.into();
         match self {
             Self::Rect(params) => {
                 for face in RectFace::iter_all() {
@@ -578,7 +579,6 @@ pub type QueryLiftDoor<'w, 's> = Query<
     'w,
     's,
     (
-        &'static SiteID,
         &'static DoorType,
         &'static Edge,
         Option<&'static Original<Edge>>,

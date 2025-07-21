@@ -221,12 +221,8 @@ where
 #[derive(SystemParam)]
 struct InspectModelDescription<'w, 's> {
     commands: Commands<'w, 's>,
-    model_instances: Query<
-        'w,
-        's,
-        &'static Affiliation,
-        (With<ModelMarker>, Without<Group>, With<NameInSite>),
-    >,
+    model_instances:
+        Query<'w, 's, &'static Affiliation, (With<ModelMarker>, Without<Group>, With<NameInSite>)>,
     model_descriptions: Query<'w, 's, &'static NameInSite, (With<ModelMarker>, With<Group>)>,
     model_properties: Res<'w, ModelPropertyData>,
     inspect_model_description: Res<'w, ModelDescriptionInspector>,
@@ -423,8 +419,10 @@ impl<'w, 's> InspectSelectedModelDescription<'w, 's> {
                 });
         });
         if new_description_entity != current_description_entity {
-            self.change_affiliation
-                .write(Change::new(Affiliation(Some(new_description_entity)), id));
+            self.change_affiliation.write(Change::new(
+                Affiliation::affiliated(new_description_entity),
+                id,
+            ));
             let (_, _, new_source) = self.model_descriptions.get(new_description_entity).unwrap();
             self.model_loader
                 .update_asset_source(id, new_source.0.clone());

@@ -16,7 +16,7 @@
 */
 
 use bevy::{ecs::system::EntityCommands, prelude::*};
-use rmf_site_format::{Affiliation, Group};
+use rmf_site_format::{Affiliation, Group, SiteID};
 
 #[derive(Event)]
 pub struct MergeGroups {
@@ -37,15 +37,15 @@ pub fn update_affiliations(
 ) {
     for merge in merge_groups.read() {
         for mut affiliation in &mut affiliations {
-            if affiliation.0.is_some_and(|a| a == merge.from_group) {
-                affiliation.0 = Some(merge.into_group);
+            if affiliation.0.is_some_and(|a| *a == merge.from_group) {
+                affiliation.0 = Some(merge.into_group.into());
             }
         }
     }
 
     for deleted in deleted_groups.read() {
         for mut affiliation in &mut affiliations {
-            if affiliation.0.is_some_and(|a| a == deleted) {
+            if affiliation.0.is_some_and(|a| *a == deleted) {
                 affiliation.0 = None;
             }
         }
@@ -107,13 +107,16 @@ impl Command for ChangeMembership {
 }
 
 pub trait SetMembershipExt {
-    fn set_membership(&mut self, group: Option<Entity>) -> &mut Self;
+    fn set_membership(&mut self, group: Option<impl Into<Entity>>) -> &mut Self;
 }
 
 impl<'a> SetMembershipExt for EntityCommands<'a> {
-    fn set_membership(&mut self, group: Option<Entity>) -> &mut Self {
+    fn set_membership(&mut self, group: Option<impl Into<Entity>>) -> &mut Self {
         let member = self.id();
-        self.commands().queue(ChangeMembership { member, group });
+        self.commands().queue(ChangeMembership {
+            member,
+            group: group.map(|g| g.into()),
+        });
         self
     }
 }

@@ -99,10 +99,7 @@ fn update_measurement_visual(
 }
 
 pub fn update_changed_measurement(
-    measurements: Query<
-        (&Edge, &MeasurementSegment),
-        (Changed<Edge>, With<MeasurementMarker>),
-    >,
+    measurements: Query<(&Edge, &MeasurementSegment), (Changed<Edge>, With<MeasurementMarker>)>,
     anchors: AnchorParams,
     mut transforms: Query<&mut Transform>,
 ) {

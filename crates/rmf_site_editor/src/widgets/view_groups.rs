@@ -43,20 +43,9 @@ impl Plugin for ViewGroupsPlugin {
 #[derive(SystemParam)]
 pub struct ViewGroups<'w, 's> {
     children: Query<'w, 's, &'static Children>,
-    textures:
-        Query<'w, 's, &'static NameInSite, (With<Texture>, With<Group>)>,
-    fiducials: Query<
-        'w,
-        's,
-        &'static NameInSite,
-        (With<FiducialMarker>, With<Group>),
-    >,
-    model_descriptions: Query<
-        'w,
-        's,
-        &'static NameInSite,
-        (With<ModelMarker>, With<Group>),
-    >,
+    textures: Query<'w, 's, &'static NameInSite, (With<Texture>, With<Group>)>,
+    fiducials: Query<'w, 's, &'static NameInSite, (With<FiducialMarker>, With<Group>)>,
+    model_descriptions: Query<'w, 's, &'static NameInSite, (With<ModelMarker>, With<Group>)>,
     icons: Res<'w, Icons>,
     group_view_modes: ResMut<'w, GroupViewModes>,
     app_state: Res<'w, State<AppState>>,
@@ -66,7 +55,7 @@ pub struct ViewGroups<'w, 's> {
 #[derive(SystemParam)]
 pub struct ViewGroupsEvents<'w, 's> {
     current_workspace: ResMut<'w, CurrentWorkspace>,
-    selector: SelectorWidget<'w, 's>,
+    selector: SelectorWidget<'w>,
     merge_groups: EventWriter<'w, MergeGroups>,
     delete: EventWriter<'w, Delete>,
     name: EventWriter<'w, Change<NameInSite>>,
@@ -183,7 +172,7 @@ impl<'w, 's> ViewGroups<'w, 's> {
             let Ok(name) = q_groups.get(*child) else {
                 continue;
             };
-            let text = format!("{}", child.id());
+            let text = format!("{}", child.index());
             ui.horizontal(|ui| {
                 match mode.clone() {
                     GroupViewMode::View => {
@@ -194,7 +183,7 @@ impl<'w, 's> ViewGroups<'w, 's> {
                                 .clicked()
                             {
                                 let model_instance: ModelInstance = ModelInstance {
-                                    description: Affiliation(Some(child.clone())),
+                                    description: Affiliation::affiliated(*child),
                                     ..Default::default()
                                 };
                                 events.object_placement.place_object_2d(model_instance);

@@ -38,7 +38,7 @@ pub struct Guided {
     /// The "ranking" of the graphs, which indicates which is displayed on top.
     /// Each element is the unique ID of a NavGraph entity. IDs that come
     /// earlier in the array will be displayed over IDs that come later.
-    pub ranking: Vec<u32>,
+    pub ranking: Vec<SiteID>,
     /// Properties of each robot traffic lane
     pub lanes: BTreeMap<SiteID, Lane>,
     /// Properties of each special location

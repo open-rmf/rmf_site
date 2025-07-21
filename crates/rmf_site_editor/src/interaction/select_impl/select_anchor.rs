@@ -163,10 +163,7 @@ impl<'w, 's> AnchorSelection<'w, 's> {
     }
 
     pub fn create_walls(&mut self) {
-        self.create_edges_with_texture::<Wall>(
-            EdgeContinuity::Continuous,
-            AnchorScope::General,
-        );
+        self.create_edges_with_texture::<Wall>(EdgeContinuity::Continuous, AnchorScope::General);
     }
 
     pub fn create_door(&mut self) {
@@ -278,11 +275,7 @@ impl<'w, 's> AnchorSelection<'w, 's> {
         });
     }
 
-    pub fn create_point<T: Bundle + From<Point>>(
-        &mut self,
-        repeating: bool,
-        scope: AnchorScope,
-    ) {
+    pub fn create_point<T: Bundle + From<Point>>(&mut self, repeating: bool, scope: AnchorScope) {
         let state = self
             .commands
             .spawn(SelectorInput(CreatePoint::new::<T>(repeating, scope)))

@@ -278,11 +278,11 @@ pub fn update_lane_for_moved_anchor(
 }
 
 pub fn remove_association_for_deleted_graphs(
-    mut associaged_graphs: Query<&mut AssociatedGraphs>,
+    mut associated_graphs: Query<&mut AssociatedGraphs>,
     mut removed: RemovedComponents<NavGraphMarker>,
 ) {
     for e in removed.read() {
-        for mut associated in &mut associaged_graphs {
+        for mut associated in &mut associated_graphs {
             match associated.as_mut() {
                 AssociatedGraphs::All => {}
                 AssociatedGraphs::Only(set) => {
@@ -299,12 +299,7 @@ pub fn remove_association_for_deleted_graphs(
 // TODO(MXG): Generalize this to all edges
 pub fn update_visibility_for_lanes(
     mut lanes: Query<
-        (
-            &Edge,
-            &AssociatedGraphs,
-            &LaneSegments,
-            &mut Visibility,
-        ),
+        (&Edge, &AssociatedGraphs, &LaneSegments, &mut Visibility),
         (With<LaneMarker>, Without<NavGraphMarker>),
     >,
     child_of: Query<&ChildOf>,
@@ -415,7 +410,7 @@ pub fn handle_consider_associated_graph(
 ) {
     for consider in considerations.read() {
         if let Ok(mut recall) = recalls.get_mut(consider.for_element) {
-            recall.consider = consider.graph;
+            recall.consider = consider.graph.map(|g| g.into());
         }
     }
 }
@@ -437,23 +432,23 @@ pub fn check_for_duplicated_dock_names(
                         it would be triggered in different parts of the map, rename the docks to \
                         be unique";
     for root in validate_events.read() {
-        let mut names: HashMap<String, BTreeSet<Entity>> = HashMap::new();
+        let mut names: HashMap<String, BTreeSet<SiteID>> = HashMap::new();
         for (e, motion, reverse) in &lane_properties {
             if AncestorIter::new(&child_of, e).any(|co| co == **root) {
                 if let Some(dock) = &motion.dock {
                     let entities_with_name = names.entry(dock.name.clone()).or_default();
-                    entities_with_name.insert(e);
+                    entities_with_name.insert(e.into());
                 }
             }
             if let Some(reverse) = reverse {
                 if let ReverseLane::Different(m) = reverse {
                     if let Some(dock) = &m.dock {
                         let entities_with_name = names.entry(dock.name.clone()).or_default();
-                        let inserted = entities_with_name.insert(e);
+                        let inserted = entities_with_name.insert(e.into());
                         if !inserted {
                             let issue = Issue {
                                 key: IssueKey {
-                                    entities: [e].into(),
+                                    entities: [SiteID::from(e)].into(),
                                     kind: DUPLICATED_DOCK_NAME_ISSUE_UUID,
                                 },
                                 brief: format!(

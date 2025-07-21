@@ -47,7 +47,9 @@ pub fn update_model_instance_visual_cues(
                         .remove(&description_entity);
                 }
                 if description_hovered.cue() {
-                    instance_hovered.support_hovering.insert(*description_entity);
+                    instance_hovered
+                        .support_hovering
+                        .insert(*description_entity);
                 } else {
                     instance_hovered
                         .support_hovering

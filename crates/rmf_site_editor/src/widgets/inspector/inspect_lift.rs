@@ -46,7 +46,7 @@ pub struct InspectLiftCabin<'w, 's> {
     levels: Query<'w, 's, (&'static NameInSite, &'static LevelElevation)>,
     display_level: Res<'w, LevelDisplay>,
     change_lift_cabin: EventWriter<'w, Change<LiftCabin>>,
-    selector: SelectorWidget<'w, 's>,
+    selector: SelectorWidget<'w>,
     toggle_door_levels: EventWriter<'w, ToggleLiftDoorAvailability>,
     current_level: Res<'w, CurrentLevel>,
 }

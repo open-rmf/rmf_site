@@ -198,10 +198,7 @@ fn assign_drawing_parent_to_new_measurements(
     mut commands: Commands,
     changed_measurement: Query<
         (Entity, &Edge),
-        (
-            Without<Pending>,
-            (With<MeasurementMarker>, Changed<Edge>),
-        ),
+        (Without<Pending>, (With<MeasurementMarker>, Changed<Edge>)),
     >,
     child_of: Query<&ChildOf>,
 ) {

@@ -51,10 +51,7 @@ impl Property for TaskParams {
         // moving this logic into StandardProperty instead
         let mut state: SystemState<(
             Query<(&mut Modifier<TaskParams>, &Affiliation)>,
-            Query<
-                (Entity, &ScenarioModifiers, Ref<Affiliation>),
-                With<ScenarioMarker>,
-            >,
+            Query<(Entity, &ScenarioModifiers, Ref<Affiliation>), With<ScenarioMarker>>,
         )> = SystemState::new(world);
         let (mut task_modifiers, scenarios) = state.get_mut(world);
 

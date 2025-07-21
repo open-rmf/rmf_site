@@ -93,10 +93,7 @@ pub fn apply_last_selected_texture<T: Component>(
     mut commands: Commands,
     child_of: Query<&ChildOf>,
     last_selected: Query<&LastSelectedTexture<T>>,
-    mut unassigned: Query<
-        (Entity, &mut Affiliation),
-        (With<TextureNeedsAssignment>, With<T>),
-    >,
+    mut unassigned: Query<(Entity, &mut Affiliation), (With<TextureNeedsAssignment>, With<T>)>,
 ) {
     for (e, mut affiliation) in &mut unassigned {
         let mut search = e;
@@ -112,7 +109,7 @@ pub fn apply_last_selected_texture<T: Component>(
             }
         };
         if let Some(last) = last {
-            affiliation.0 = last.selection;
+            affiliation.0 = last.selection.map(|s| s.into());
         }
         commands.entity(e).remove::<TextureNeedsAssignment>();
     }

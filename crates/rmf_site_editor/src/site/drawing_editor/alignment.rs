@@ -44,10 +44,8 @@ pub struct OptimizationParams<'w, 's> {
         With<DrawingMarker>,
     >,
     anchors: Query<'w, 's, &'static Anchor>,
-    fiducials:
-        Query<'w, 's, (&'static Affiliation, &'static Point), With<FiducialMarker>>,
-    measurements:
-        Query<'w, 's, (&'static Edge, &'static Distance), With<MeasurementMarker>>,
+    fiducials: Query<'w, 's, (&'static Affiliation, &'static Point), With<FiducialMarker>>,
+    measurements: Query<'w, 's, (&'static Edge, &'static Distance), With<MeasurementMarker>>,
 }
 
 pub fn align_site_drawings(
@@ -103,7 +101,10 @@ pub fn align_site_drawings(
                     }
 
                     if let Ok((edge, distance)) = params.measurements.get(*child) {
-                        let Ok([anchor0, anchor1]) = params.anchors.get_many(edge.array()) else {
+                        let Ok(anchor0) = params.anchors.get(*edge.left()) else {
+                            continue;
+                        };
+                        let Ok(anchor1) = params.anchors.get(*edge.right()) else {
                             continue;
                         };
                         let Some(in_meters) = distance.0 else {
@@ -124,7 +125,7 @@ pub fn align_site_drawings(
 
                 site_variables
                     .drawings
-                    .insert(*level_child, drawing_variables);
+                    .insert((*level_child).into(), drawing_variables);
             }
         }
 

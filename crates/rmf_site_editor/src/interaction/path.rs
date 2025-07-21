@@ -36,13 +36,7 @@ pub fn add_path_visual_cues(
 
 pub fn update_path_visual_cues(
     mut paths: Query<
-        (
-            Entity,
-            &Hovered,
-            &Selected,
-            &Path,
-            &mut PathVisualCue,
-        ),
+        (Entity, &Hovered, &Selected, &Path, &mut PathVisualCue),
         (
             Without<AnchorVisualization>,
             Without<Edge>,

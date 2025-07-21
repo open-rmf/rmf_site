@@ -34,7 +34,7 @@ pub struct InspectGroup<'w, 's> {
     default_file: Query<'w, 's, &'static DefaultFile>,
     current_workspace: Res<'w, CurrentWorkspace>,
     change_texture: EventWriter<'w, Change<Texture>>,
-    selector: SelectorWidget<'w, 's>,
+    selector: SelectorWidget<'w>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectGroup<'w, 's> {

@@ -60,7 +60,7 @@ pub struct ViewLights<'w, 's> {
     toggle_physical_lights: ResMut<'w, PhysicalLightToggle>,
     export_lights: EventWriter<'w, ExportLights>,
     display_light: ResMut<'w, LightDisplay>,
-    selector: SelectorWidget<'w, 's>,
+    selector: SelectorWidget<'w>,
     commands: Commands<'w, 's>,
     app_state: Res<'w, State<AppState>>,
 }

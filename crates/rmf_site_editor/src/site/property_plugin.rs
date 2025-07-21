@@ -140,7 +140,7 @@ fn update_property_value<T: Property, F: QueryFilter + 'static + Send + Sync>(
                     )
                 {
                     commands
-                        .entity(**modifier_entity)
+                        .entity(*modifier_entity)
                         .insert(Modifier::<T>::new(fallback_value));
                     scenario_state.apply(world);
                 } else {

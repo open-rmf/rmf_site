@@ -188,25 +188,17 @@ fn generate_site_entities(
     }
 
     for (group_id, group) in &site_data.fiducial_groups {
-        let group_entity = commands
-            .spawn(group.clone())
-            .insert(ChildOf(site_id))
-            .id();
+        let group_entity = commands.spawn(group.clone()).insert(ChildOf(site_id)).id();
         id_to_entity.insert(*group_id, group_entity);
     }
 
     for (group_id, group) in &site_data.textures {
-        let group_entity = commands
-            .spawn(group.clone())
-            .insert(ChildOf(site_id))
-            .id();
+        let group_entity = commands.spawn(group.clone()).insert(ChildOf(site_id)).id();
         id_to_entity.insert(*group_id, group_entity);
     }
 
     for (level_id, level_data) in &site_data.levels {
-        let level_entity = commands
-            .insert(ChildOf(site_id))
-            .id();
+        let level_entity = commands.spawn(ChildOf(site_id)).id();
 
         for (anchor_id, anchor) in &level_data.anchors {
             let anchor_entity = commands
@@ -253,7 +245,6 @@ fn generate_site_entities(
                     .id();
                 id_to_entity.insert(*measurement_id, measurement_entity);
             }
-
         }
 
         for (floor_id, floor) in &level_data.floors {
@@ -280,22 +271,31 @@ fn generate_site_entities(
                 }
 
                 for (physical_camera_id, physical_camera) in &level_data.physical_cameras {
-                    level
-                        .spawn(physical_camera.clone());
+                    level.spawn(physical_camera.clone());
                 }
 
                 for (camera_pose_id, camera_pose) in &level_data.user_camera_poses {
-                    level
-                        .spawn(camera_pose.clone());
+                    level.spawn(camera_pose.clone());
                 }
             });
 
-        // TODO(luca) Introduce a validate function to recency rankings to make sure
-        // there are no broken references
+        // TODO(MXG): Log when a RecencyRanking fails to load correctly.
         commands
             .entity(level_entity)
-            .insert(level_data.rankings.floors.clone())
-            .insert(level_data.rankings.drawings.clone());
+            .insert(
+                RecencyRanking::<FloorMarker>::from_site_ids(
+                    &level_data.rankings.floors,
+                    &id_to_entity,
+                )
+                .unwrap_or(RecencyRanking::new()),
+            )
+            .insert(
+                RecencyRanking::<DrawingMarker>::from_site_ids(
+                    &level_data.rankings.drawings,
+                    &id_to_entity,
+                )
+                .unwrap_or(RecencyRanking::new()),
+            );
         id_to_entity.insert(*level_id, level_entity);
     }
 
@@ -307,9 +307,8 @@ fn generate_site_entities(
                 .insert(CabinAnchorGroupBundle::default())
                 .with_children(|anchor_group| {
                     for (anchor_id, anchor) in &lift_data.cabin_anchors {
-                        let anchor_entity = anchor_group
-                            .spawn(AnchorBundle::new(anchor.clone()))
-                            .id();
+                        let anchor_entity =
+                            anchor_group.spawn(AnchorBundle::new(anchor.clone())).id();
                         id_to_entity.insert(*anchor_id, anchor_entity);
                     }
                 });
@@ -479,10 +478,10 @@ fn generate_site_entities(
         // Spawn instance modifier entities
         let mut scenario_modifiers: ScenarioModifiers = ScenarioModifiers::default();
         for (instance_id, instance) in scenario_data.instances.iter() {
-            if let Some(instance_entity) = id_to_entity.get(&instance_id) {
+            if let Some(instance_entity) = id_to_entity.get(instance_id) {
                 if instance.pose.is_some() || instance.visibility.is_some() {
                     let modifier_entity = commands
-                        .spawn(Affiliation(Some(*instance_entity)))
+                        .spawn(Affiliation::affiliated(*instance_entity))
                         .insert(ChildOf(scenario_entity))
                         .id();
                     if let Some(pose) = instance.pose {
@@ -516,10 +515,10 @@ fn generate_site_entities(
             }
         }
         for (task_id, task_data) in scenario_data.tasks.iter() {
-            if let Some(task_entity) = id_to_entity.get(&task_id) {
+            if let Some(task_entity) = id_to_entity.get(task_id) {
                 if task_data.inclusion.is_some() || task_data.params.is_some() {
                     let modifier_entity = commands
-                        .spawn(Affiliation(Some(*task_entity)))
+                        .spawn(Affiliation::affiliated(*task_entity))
                         .insert(ChildOf(scenario_entity))
                         .id();
                     if let Some(inclusion) = task_data.inclusion {
@@ -550,11 +549,21 @@ fn generate_site_entities(
         commands.entity(scenario_entity).insert(scenario_modifiers);
     }
 
-    // TODO(luca) Introduce a validate function to recency rankings to make sure
-    // they load correctly
-    commands
-        .entity(site_id)
-        .insert(site_data.navigation.guided.ranking.clone())
+    let nav_graph_rankings = match RecencyRanking::<NavGraphMarker>::from_site_ids(
+        &site_data.navigation.guided.ranking,
+        &id_to_entity,
+    ) {
+        Ok(r) => r,
+        Err(id) => {
+            error!(
+                "ERROR: Nav Graph ranking could not load because a graph with \
+                id {id} does not exist."
+            );
+            RecencyRanking::new()
+        }
+    };
+
+    commands.entity(site_id).insert(nav_graph_rankings);
 
     // Make the lift cabin anchors that are used by doors subordinate
     for (lift_id, lift_data) in &site_data.lifts {

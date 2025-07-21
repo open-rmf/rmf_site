@@ -82,7 +82,6 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
         Query<(), With<LiftDoormat>>,
         Query<&GlobalTransform>,
         Query<&Transform>,
-        Query<&SiteID>,
     )> = SystemState::new(world);
     let (
         q_children,
@@ -98,7 +97,6 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
         q_lift_door_mats,
         q_global_tfs,
         q_tfs,
-        q_site_ids,
     ) = state.get(world);
 
     let image_assets = world.resource::<Assets<Image>>();
@@ -116,30 +114,21 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
         std::fs::write(filename, bytes).map_err(|e| e.to_string())
     };
 
-    let get_site_id = |e: Entity| -> Result<u32, String> {
-        q_site_ids.get(e).map(|id| id.0).map_err(|_| {
-            let backtrace = std::backtrace::Backtrace::force_capture();
-            format!("Site ID was not available for entity {e:?}. Backtrace:\n{backtrace}")
-        })
-    };
-
     let get_mesh_and_material = |entity: Entity| -> Option<(&Mesh, &StandardMaterial)> {
         let Ok((mesh, material)) = q_pbr.get(entity) else {
             return None;
         };
         let Some(mesh) = mesh_assets.get(mesh) else {
-            let site_id = q_site_ids.get(entity);
             warn!(
-                "Mesh asset not found for entity {:?} with Site ID {:?} while exporting assets",
-                entity, site_id
+                "Mesh asset not found for entity {:?} while exporting assets",
+                entity
             );
             return None;
         };
         let Some(material) = material_assets.get(material) else {
-            let site_id = q_site_ids.get(entity);
             warn!(
-                "Material asset not found for entity {:?} with Site ID {:?} while exporting assets",
-                entity, site_id
+                "Material asset not found for entity {:?} with Site ID while exporting assets",
+                entity
             );
             return None;
         };
@@ -255,7 +244,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                         let filename = format!(
                             "{}/door_{}_{}.glb",
                             folder.display(),
-                            get_site_id(child)?,
+                            SiteID::from(child),
                             segment_name,
                         );
                         let door_name = door_name.map(|n| n.0.as_str()).unwrap_or("");
@@ -273,7 +262,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
             let filename = format!(
                 "{}/level_{}_collision.glb",
                 folder.display(),
-                get_site_id(site_child)?,
+                SiteID::from(site_child),
             );
             write_meshes_to_file(
                 collision_data,
@@ -284,7 +273,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
             let filename = format!(
                 "{}/level_{}_visual.glb",
                 folder.display(),
-                get_site_id(site_child)?,
+                SiteID::from(site_child),
             );
             write_meshes_to_file(
                 visual_data,
@@ -313,7 +302,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                     transform: None,
                 });
             }
-            let filename = format!("{}/lift_{}.glb", folder.display(), get_site_id(site_child)?);
+            let filename = format!("{}/lift_{}.glb", folder.display(), SiteID::from(site_child));
             write_meshes_to_file(
                 lift_data,
                 Some(format!("lift_{}", **lift_name)),
@@ -326,7 +315,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                 let Some(door) = door else {
                     continue;
                 };
-                if let Ok((_, segments)) = q_doors.get(door.door) {
+                if let Ok((_, segments)) = q_doors.get(*door.door) {
                     // TODO(luca) this is duplicated with door generation, refactor
                     for (entity, segment_name) in segments
                         .body
@@ -350,7 +339,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                         let filename = format!(
                             "{}/lift_{}_{}_{}.glb",
                             folder.display(),
-                            get_site_id(site_child)?,
+                            SiteID::from(site_child),
                             face.label(),
                             segment_name,
                         );
@@ -376,7 +365,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
         let filename = format!(
             "{}/model_{}_collision.glb",
             folder.display(),
-            get_site_id(description)?,
+            SiteID::from(description),
         );
         write_meshes_to_file(
             meshes.collisions,
@@ -387,7 +376,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
         let filename = format!(
             "{}/model_{}_visual.glb",
             folder.display(),
-            get_site_id(description)?,
+            SiteID::from(description),
         );
         write_meshes_to_file(
             meshes.visuals,

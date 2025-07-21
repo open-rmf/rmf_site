@@ -292,10 +292,7 @@ pub fn add_door_visuals(
     mut commands: Commands,
     new_doors: Query<
         (Entity, &Edge, &DoorType, Option<&Visibility>),
-        (
-            Or<(Added<DoorType>, Added<Edge>)>,
-            Without<DoorSegments>,
-        ),
+        (Or<(Added<DoorType>, Added<Edge>)>, Without<DoorSegments>),
     >,
     anchors: AnchorParams,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
@@ -419,13 +416,7 @@ fn update_door_visuals(
 pub fn update_changed_door(
     mut commands: Commands,
     mut doors: Query<
-        (
-            Entity,
-            &Edge,
-            &DoorType,
-            &mut DoorSegments,
-            &mut Hovered,
-        ),
+        (Entity, &Edge, &DoorType, &mut DoorSegments, &mut Hovered),
         Or<(Changed<Edge>, Changed<DoorType>)>,
     >,
     anchors: AnchorParams,
@@ -507,11 +498,11 @@ pub fn check_for_duplicated_door_names(
     door_names: Query<(Entity, &NameInSite), With<DoorMarker>>,
 ) {
     for root in validate_events.read() {
-        let mut names: HashMap<String, BTreeSet<Entity>> = HashMap::new();
+        let mut names: HashMap<String, BTreeSet<SiteID>> = HashMap::new();
         for (e, name) in &door_names {
             if AncestorIter::new(&child_of, e).any(|p| p == **root) {
                 let entities_with_name = names.entry(name.0.clone()).or_default();
-                entities_with_name.insert(e);
+                entities_with_name.insert(e.into());
             }
         }
         for (name, entities) in names.drain() {

@@ -183,7 +183,7 @@ impl<'w, 's> InspectTextureAffiliation<'w, 's> {
                             .insert(ChildOf(site))
                             .id();
                         self.change_affiliation
-                            .write(Change::new(Affiliation(Some(new_texture_group)), id));
+                            .write(Change::new(Affiliation::affiliated(new_texture_group), id));
                     }
                 }
                 SearchResult::Match(group) => {
@@ -193,7 +193,7 @@ impl<'w, 's> InspectTextureAffiliation<'w, 's> {
                         .clicked()
                     {
                         self.change_affiliation
-                            .write(Change::new(Affiliation(Some(group)), id));
+                            .write(Change::new(Affiliation::affiliated(group), id));
                     }
                 }
                 SearchResult::Conflict(text) => {
@@ -236,13 +236,13 @@ impl<'w, 's> InspectTextureAffiliation<'w, 's> {
                 .selected_text(current_texture_name)
                 .show_ui(ui, |ui| {
                     for child in children {
-                        if affiliation.0.is_some_and(|a| a == *child) {
+                        if affiliation.0.is_some_and(|a| a == (*child).into()) {
                             continue;
                         }
 
                         if let Ok((n, _)) = self.texture_groups.get(*child) {
                             if n.0.contains(&self.search_for_texture.0) {
-                                let select_affiliation = Affiliation(Some(*child));
+                                let select_affiliation = Affiliation::affiliated(*child);
                                 ui.selectable_value(&mut new_affiliation, select_affiliation, &n.0);
                             }
                         }

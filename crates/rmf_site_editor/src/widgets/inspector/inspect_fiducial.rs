@@ -73,8 +73,7 @@ impl Plugin for InspectFiducialPlugin {
 
 #[derive(SystemParam)]
 pub struct InspectFiducial<'w, 's> {
-    fiducials:
-        Query<'w, 's, (&'static Affiliation, &'static ChildOf), With<FiducialMarker>>,
+    fiducials: Query<'w, 's, (&'static Affiliation, &'static ChildOf), With<FiducialMarker>>,
     group_names: Query<'w, 's, &'static NameInSite, (With<Group>, With<FiducialMarker>)>,
     usage: Query<'w, 's, &'static FiducialUsage>,
     icons: Res<'w, Icons>,
@@ -156,7 +155,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectFiducial<'w, 's> {
                 }
 
                 for (e, name) in tracker.used().iter() {
-                    if *search == *name && !affiliation.0.is_some_and(|a| a == *e) {
+                    if *search == *name && !affiliation.0.is_some_and(|a| a == (*e).into()) {
                         result.conflict("Group name is already taken");
                     }
                 }
@@ -206,7 +205,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectFiducial<'w, 's> {
                                 .id();
                             params
                                 .change_affiliation
-                                .write(Change::new(Affiliation(Some(new_group)), selection));
+                                .write(Change::new(Affiliation(Some(new_group.into())), selection));
                         }
                     }
                     SearchResult::Match(group) => {
@@ -217,7 +216,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectFiducial<'w, 's> {
                         {
                             params
                                 .change_affiliation
-                                .write(Change::new(Affiliation(Some(group)), selection));
+                                .write(Change::new(Affiliation(Some(group.into())), selection));
                         }
                     }
                     SearchResult::Conflict(text) => {
@@ -255,7 +254,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectFiducial<'w, 's> {
 
                         for (group, name) in tracker.unused() {
                             if name.contains(&params.search_for_fiducial.0) {
-                                let select_affiliation = Affiliation(Some(*group));
+                                let select_affiliation = Affiliation(Some((*group).into()));
                                 ui.selectable_value(&mut new_affiliation, select_affiliation, name);
                             }
                         }

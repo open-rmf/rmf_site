@@ -233,7 +233,7 @@ pub fn check_for_close_unconnected_anchors(
                     if !edge_found {
                         let issue = Issue {
                             key: IssueKey {
-                                entities: [*e0, *e1].into(),
+                                entities: [SiteID::from(*e0), SiteID::from(*e1)].into(),
                                 kind: UNCONNECTED_ANCHORS_ISSUE_UUID,
                             },
                             brief: format!(

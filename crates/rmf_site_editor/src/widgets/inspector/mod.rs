@@ -106,7 +106,7 @@ pub mod inspect_value;
 pub use inspect_value::*;
 use rmf_site_picking::Selection;
 
-use crate::site::{Category};
+use crate::site::Category;
 use bevy::{
     ecs::{
         hierarchy::ChildOf,
@@ -310,7 +310,7 @@ impl FromWorld for MainInspector {
 #[derive(SystemParam)]
 pub struct Inspector<'w, 's> {
     children: Query<'w, 's, &'static Children>,
-    heading: Query<'w, 's, Option<&'static Category>>,
+    heading: Query<'w, 's, &'static Category>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for Inspector<'w, 's> {
@@ -343,7 +343,11 @@ impl<'w, 's> WidgetSystem<Tile> for Inspector<'w, 's> {
 
                 let params = state.get(world);
 
-                let label = params.heading.get(selection).map(|x| x.label()).unwrap_or("<Unknown Type>");
+                let label = params
+                    .heading
+                    .get(selection)
+                    .map(|x| x.label())
+                    .unwrap_or("<Unknown Type>");
 
                 ui.heading(format!("{} #{}", label, selection.index()));
 

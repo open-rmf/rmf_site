@@ -65,15 +65,7 @@ fn should_display_point(
 
 pub fn add_location_visuals(
     mut commands: Commands,
-    locations: Query<
-        (
-            Entity,
-            &Point,
-            &AssociatedGraphs,
-            &LocationTags,
-        ),
-        Added<LocationTags>,
-    >,
+    locations: Query<(Entity, &Point, &AssociatedGraphs, &LocationTags), Added<LocationTags>>,
     graphs: GraphSelect,
     anchors: AnchorParams,
     child_of: Query<&ChildOf>,

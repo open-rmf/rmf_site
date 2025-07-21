@@ -20,6 +20,7 @@ use bevy::prelude::*;
 use bevy_ecs::prelude::Entity;
 use glam::{Quat, Vec2, Vec3};
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
+use std::borrow::Borrow;
 use std::collections::HashMap;
 
 pub const DEFAULT_LEVEL_HEIGHT: f32 = 3.0;
@@ -486,6 +487,12 @@ impl Serialize for SiteID {
     }
 }
 
+impl Borrow<Entity> for SiteID {
+    fn borrow(&self) -> &Entity {
+        &self.0
+    }
+}
+
 impl From<u32> for SiteID {
     fn from(v: u32) -> Self {
         Self(Entity::from_raw(v))
@@ -656,5 +663,9 @@ impl Affiliation {
         } else {
             Ok(Affiliation(None))
         }
+    }
+
+    pub fn affiliated(id: impl Into<SiteID>) -> Self {
+        Affiliation(Some(id.into()))
     }
 }

@@ -241,10 +241,7 @@ pub fn add_fiducial_visuals(
 
 pub fn assign_orphan_fiducials_to_parent(
     mut commands: Commands,
-    orphans: Query<
-        (Entity, &Point),
-        (With<FiducialMarker>, Without<ChildOf>, Without<Pending>),
-    >,
+    orphans: Query<(Entity, &Point), (With<FiducialMarker>, Without<ChildOf>, Without<Pending>)>,
     anchors: Query<&ChildOf, With<Anchor>>,
 ) {
     for (e, point) in &orphans {
@@ -262,10 +259,7 @@ pub fn assign_orphan_fiducials_to_parent(
 pub fn update_changed_fiducial(
     mut fiducials: Query<
         (Entity, &Point, &mut Transform),
-        (
-            With<FiducialMarker>,
-            Or<(Changed<Point>, Changed<ChildOf>)>,
-        ),
+        (With<FiducialMarker>, Or<(Changed<Point>, Changed<ChildOf>)>),
     >,
     anchors: AnchorParams,
 ) {
@@ -330,7 +324,7 @@ pub fn check_for_fiducials_without_affiliation(
                 if affiliation.0.is_none() {
                     let issue = Issue {
                         key: IssueKey {
-                            entities: [e].into(),
+                            entities: [SiteID::from(e)].into(),
                             kind: FIDUCIAL_WITHOUT_AFFILIATION_ISSUE_UUID,
                         },
                         brief: format!("Fiducial without affiliation found"),

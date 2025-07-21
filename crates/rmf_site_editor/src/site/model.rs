@@ -39,7 +39,7 @@ use bevy_mod_outline::{GenerateOutlineNormalsSettings, OutlineMeshExt};
 use rmf_site_camera::MODEL_PREVIEW_LAYER;
 use rmf_site_format::{
     Affiliation, AssetSource, Group, IssueKey, ModelInstance, ModelMarker, ModelProperty,
-    NameInSite, Pending, Scale,
+    NameInSite, Pending, Scale, SiteID,
 };
 use rmf_site_picking::Preview;
 use smallvec::SmallVec;
@@ -869,7 +869,7 @@ pub fn update_model_instances<T: Component + Default + Clone>(
     if !removals.is_empty() {
         for description_entity in removals.read() {
             for (instance_entity, affiliation) in model_instances.iter() {
-                if affiliation.0 == Some(description_entity) {
+                if affiliation.0.is_some_and(|a| *a == description_entity) {
                     commands.entity(instance_entity).remove::<T>();
                 }
             }
@@ -924,7 +924,7 @@ pub fn check_for_orphan_model_instances(
             };
             let issue = Issue {
                 key: IssueKey {
-                    entities: [instance_entity].into(),
+                    entities: [SiteID::from(instance_entity)].into(),
                     kind: ORPHAN_MODEL_INSTANCE_ISSUE_UUID,
                 },
                 brief,

@@ -72,7 +72,7 @@ impl CreatePoint {
     }
 
     pub fn create_new_point(&mut self, anchor: Entity, commands: &mut Commands) {
-        let point = Point(anchor);
+        let point = Point(anchor.into());
         let point = (self.spawn_point)(point, commands);
         commands.queue(ChangeDependent::add(anchor, point));
         self.point = Some(point);
@@ -85,10 +85,7 @@ impl Borrow<AnchorScope> for CreatePoint {
     }
 }
 
-fn create_point<T: Bundle + From<Point>>(
-    point: Point,
-    commands: &mut Commands,
-) -> Entity {
+fn create_point<T: Bundle + From<Point>>(point: Point, commands: &mut Commands) -> Entity {
     let new_bundle: T = point.into();
     commands.spawn((new_bundle, Pending)).id()
 }
@@ -116,7 +113,7 @@ fn change_point(
     commands: &mut Commands,
 ) -> SelectionNodeResult {
     let mut point_mut = points.get_mut(point).or_broken_query()?;
-    if point_mut.0 == chosen {
+    if *point_mut.0 == chosen {
         return Ok(());
     }
 

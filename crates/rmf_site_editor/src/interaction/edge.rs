@@ -38,13 +38,7 @@ pub fn add_edge_visual_cues(
 
 pub fn update_edge_visual_cues(
     mut edges: Query<
-        (
-            Entity,
-            &Hovered,
-            &Selected,
-            &Edge,
-            &mut EdgeVisualCue,
-        ),
+        (Entity, &Hovered, &Selected, &Edge, &mut EdgeVisualCue),
         (
             Without<AnchorVisualization>,
             Without<Point>,

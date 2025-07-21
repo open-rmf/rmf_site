@@ -55,10 +55,7 @@ pub struct CreateEdges {
 }
 
 impl CreateEdges {
-    pub fn new<T: Bundle + From<Edge>>(
-        continuity: EdgeContinuity,
-        scope: AnchorScope,
-    ) -> Self {
+    pub fn new<T: Bundle + From<Edge>>(continuity: EdgeContinuity, scope: AnchorScope) -> Self {
         Self {
             spawn_edge: create_edge::<T>,
             preview_edge: None,
@@ -98,18 +95,12 @@ impl Borrow<AnchorScope> for CreateEdges {
     }
 }
 
-fn create_edge<T: Bundle + From<Edge>>(
-    edge: Edge,
-    commands: &mut Commands,
-) -> Entity {
+fn create_edge<T: Bundle + From<Edge>>(edge: Edge, commands: &mut Commands) -> Entity {
     let new_bundle: T = edge.into();
     commands.spawn((new_bundle, Pending)).id()
 }
 
-fn create_edge_with_texture<T: Bundle + From<Edge>>(
-    edge: Edge,
-    commands: &mut Commands,
-) -> Entity {
+fn create_edge_with_texture<T: Bundle + From<Edge>>(edge: Edge, commands: &mut Commands) -> Entity {
     let new_bundle: T = edge.into();
     commands
         .spawn((new_bundle, TextureNeedsAssignment, Pending))
@@ -208,7 +199,7 @@ pub fn on_hover_for_create_edges(
         let mut edge = edges.get_mut(preview.edge).or_broken_query()?;
 
         let old_anchor = edge.array()[index];
-        if old_anchor != anchor {
+        if *old_anchor != anchor {
             let opposite_anchor = edge.array()[preview.side.opposite().index()];
             if opposite_anchor != old_anchor {
                 commands.queue(ChangeDependent::remove(*old_anchor, preview.edge));
@@ -252,7 +243,7 @@ pub fn on_select_for_create_edges(
                 **edge.left_mut() = anchor;
                 commands.queue(ChangeDependent::add(anchor, preview.edge));
 
-                if edge.right() != anchor {
+                if *edge.right() != anchor {
                     commands.queue(ChangeDependent::remove(*edge.right(), preview.edge));
                 }
 
@@ -268,7 +259,7 @@ pub fn on_select_for_create_edges(
             Side::Right => {
                 // We are finishing the edge
                 let mut edge = edges.get_mut(preview.edge).or_broken_query()?;
-                if edge.left() == anchor {
+                if *edge.left() == anchor {
                     // The user is trying to use the same point for the start
                     // and end of an edge. Issue a warning and exit early.
                     warn!(

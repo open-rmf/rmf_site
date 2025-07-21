@@ -147,7 +147,7 @@ pub fn create_path_setup(
     let state = access.newest_mut().or_broken_state()?;
 
     if state.path.is_none() {
-        let path = Path(vec![cursor.level_anchor_placement]);
+        let path = Path(vec![cursor.level_anchor_placement.into()]);
         let path = (state.spawn_path)(path, &mut commands);
         commands.queue(ChangeDependent::add(cursor.level_anchor_placement, path));
         state.path = Some(path);
@@ -210,7 +210,7 @@ pub fn on_select_for_create_path(
 
     if !state.allow_inner_loops {
         for a in &path_mut.0[..path_mut.0.len() - 1] {
-            if *a == chosen {
+            if **a == chosen {
                 warn!(
                     "Attempting to create an inner loop in a type of path \
                     which does not allow inner loops."
@@ -222,7 +222,7 @@ pub fn on_select_for_create_path(
 
     if path_mut.0.len() >= 2 {
         if let Some(second_to_last) = path_mut.0.get(path_mut.0.len() - 2) {
-            if *second_to_last == chosen {
+            if **second_to_last == chosen {
                 // Even if inner loops are allowed, we should never allow the same
                 // anchor to be chosen twice in a row.
                 warn!("Trying to select the same anchor for a path twice in a row");
@@ -236,7 +236,7 @@ pub fn on_select_for_create_path(
         state.provisional_anchors.insert(chosen);
     }
 
-    path_mut.0.push(cursor.level_anchor_placement);
+    path_mut.0.push(cursor.level_anchor_placement.into());
     commands.queue(ChangeDependent::add(cursor.level_anchor_placement, path));
 
     Ok(())

@@ -319,10 +319,7 @@ pub fn update_lift_cabin(
 }
 
 pub fn update_lift_edge(
-    mut lifts: Query<
-        (Entity, &Edge, &mut Transform),
-        (Changed<Edge>, With<LiftCabin>),
-    >,
+    mut lifts: Query<(Entity, &Edge, &mut Transform), (Changed<Edge>, With<LiftCabin>)>,
     anchors: AnchorParams,
 ) {
     for (e, edge, mut tf) in &mut lifts {
@@ -384,7 +381,7 @@ pub fn update_lift_door_availability(
                 continue;
             }
             let cabin_door = match toggle.cabin_door {
-                CabinDoorId::Entity(e) => e,
+                CabinDoorId::Entity(e) => e.into(),
                 CabinDoorId::RectFace(face) => {
                     match cabin.as_mut() {
                         LiftCabin::Rect(params) => {
@@ -400,33 +397,37 @@ pub fn update_lift_door_availability(
                                 old_cabin_door.door
                             } else {
                                 // Create a new door with new anchors
-                                let new_door = commands.spawn_empty().id();
+                                let new_door = SiteID::from(commands.spawn_empty().id());
                                 *params.door_mut(face) = Some(LiftCabinDoorPlacement::new(
                                     new_door,
                                     params.width.min(params.depth) / 2.0,
                                 ));
                                 let anchors =
                                     params.level_door_anchors(face).unwrap().map(|anchor| {
-                                        commands
-                                            .spawn(AnchorBundle::new(anchor))
-                                            .insert(Subordinate(Some(toggle.for_lift)))
-                                            .id()
+                                        SiteID::from(
+                                            commands
+                                                .spawn(AnchorBundle::new(anchor))
+                                                .insert(Subordinate(Some(toggle.for_lift)))
+                                                .id(),
+                                        )
                                     });
 
                                 for anchor in anchors {
-                                    commands.entity(**anchor_group).add_child(anchor);
+                                    commands.entity(**anchor_group).add_child(*anchor);
                                 }
 
                                 commands
-                                    .entity(new_door)
+                                    .entity(*new_door)
                                     .insert(LiftCabinDoor {
                                         kind: DoorType::DoubleSliding(DoubleSlidingDoor::default()),
                                         reference_anchors: anchors.into(),
-                                        visits: LevelVisits(BTreeSet::from_iter([toggle.on_level])),
+                                        visits: LevelVisits(BTreeSet::from_iter([toggle
+                                            .on_level
+                                            .into()])),
                                         marker: Default::default(),
                                     })
                                     .insert(Dependents::single(toggle.for_lift));
-                                commands.entity(toggle.for_lift).add_child(new_door);
+                                commands.entity(toggle.for_lift).add_child(*new_door);
 
                                 new_door
                             }
@@ -435,21 +436,21 @@ pub fn update_lift_door_availability(
                 }
             };
 
-            if let Ok((_, _, mut visits)) = doors.get_mut(cabin_door) {
-                visits.insert(toggle.on_level);
+            if let Ok((_, _, mut visits)) = doors.get_mut(*cabin_door) {
+                visits.insert(toggle.on_level.into());
                 if let Some(current_level) = **current_level {
                     let visibility = if visits.contains(&current_level) {
                         Visibility::Inherited
                     } else {
                         Visibility::Hidden
                     };
-                    commands.entity(cabin_door).insert(visibility);
+                    commands.entity(*cabin_door).insert(visibility);
                 }
             }
 
-            commands.entity(cabin_door).remove::<Pending>();
+            commands.entity(*cabin_door).remove::<Pending>();
 
-            if let Ok((_, existing_anchors, _)) = doors.get(cabin_door) {
+            if let Ok((_, existing_anchors, _)) = doors.get(*cabin_door) {
                 // Make sure visibility is turned on for the anchors and
                 // the Pending is removed.
                 for anchor in existing_anchors.array() {
@@ -463,7 +464,7 @@ pub fn update_lift_door_availability(
             let cabin_door = match toggle.cabin_door {
                 CabinDoorId::Entity(e) => Some(e),
                 CabinDoorId::RectFace(face) => match &*cabin {
-                    LiftCabin::Rect(params) => params.door(face).map(|p| p.door),
+                    LiftCabin::Rect(params) => params.door(face).map(|p| *p.door),
                     //_ => None,
                 },
             };
@@ -633,11 +634,11 @@ pub fn check_for_duplicated_lift_names(
     const ISSUE_HINT: &str = "Lifts use their names as identifiers with RMF and each lift should \
                               have a unique name, rename the affected lifts";
     for root in validate_events.read() {
-        let mut names: HashMap<String, BTreeSet<Entity>> = HashMap::new();
+        let mut names: HashMap<String, BTreeSet<SiteID>> = HashMap::new();
         for (e, name) in &lift_names {
             if AncestorIter::new(&child_of, e).any(|p| p == **root) {
                 let entities_with_name = names.entry(name.0.clone()).or_default();
-                entities_with_name.insert(e);
+                entities_with_name.insert(e.into());
             }
         }
         for (name, entities) in names.drain() {
