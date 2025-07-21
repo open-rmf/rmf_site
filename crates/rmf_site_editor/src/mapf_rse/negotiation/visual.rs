@@ -93,17 +93,26 @@ pub fn visualise_selected_node(
 
     if debug_data.visualize_trajectories {
         for proposal in selected_node.proposals.iter() {
-            let collision_radius = entity_id_map
-                .get(&proposal.0)
-                .and_then(|e| {
-                    robots
-                        .get(*e)
-                        .ok()
-                        .and_then(|affiliation| affiliation.0)
-                        .and_then(|desc| robot_descriptions.get(desc).ok())
-                        .map(|cc| cc.radius)
-                })
-                .unwrap_or(DEFAULT_PATH_WIDTH / 2.0);
+            let Some(entity_id) = entity_id_map.get(&proposal.0) else {
+                warn!("Unable to find entity id in map");
+                continue;
+            };
+            let Ok(affiliation) = robots.get(*entity_id) else {
+                warn!("Unable to get robot entity's affiliation");
+                continue;
+            };
+            let Some(description_entity) = affiliation.0 else {
+                warn!("No model description entity found");
+                continue;
+            };
+
+            let mut collision_radius = DEFAULT_PATH_WIDTH / 2.0;
+
+            if let Ok(cc) = robot_descriptions.get(description_entity){
+                collision_radius = cc.radius;
+            } else {
+                warn!("No circle collision model found for robot's model description, using default value of {}", collision_radius);
+            }
 
             for (i, _waypoint) in proposal.1.meta.trajectory.iter().enumerate().skip(2) {
                 let start_pos = proposal.1.meta.trajectory[i - 1].position.translation;

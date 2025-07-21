@@ -138,7 +138,6 @@ impl Default for NegotiationDebugData {
 }
 
 pub fn handle_compute_negotiation_complete(
-    mut commands: Commands,
     mut negotiation_debug_data: ResMut<NegotiationDebugData>,
     mut compute_negotiation_task: Query<(Entity, &mut NegotiationTask)>,
 ) {
@@ -147,13 +146,18 @@ pub fn handle_compute_negotiation_complete(
     }
 
     fn bits_string_to_entity(bits_string: &str) -> Entity {
+        // TODO: (Nielsen): Should we remove expect here? The bits_string input to this function
+        // is from L327 of this file, so it is guaranteed to be correct
         let bits = u64::from_str_radix(bits_string, 10).expect("Invalid entity id");
         Entity::from_bits(bits)
     }
 
-    let (mut entity, mut negotiation_task) = compute_negotiation_task
-        .single_mut()
-        .expect("Error: Found multiple negotiation tasks!");
+    let Ok((entity, mut negotiation_task)) = compute_negotiation_task
+        .single_mut() else {
+            error!("Error: Found multiple negotiation tasks!");
+            return;
+        };
+        
     // We only accept in-progress negotiation task computations
     let NegotiationTaskStatus::InProgress { start_time } = negotiation_task.status else {
         return;
@@ -238,9 +242,11 @@ pub fn start_compute_negotiation(
         return;
     }
     if !compute_negotiation_task.is_empty() {
-        let (mut entity, mut negotiation_task) = compute_negotiation_task
-            .single_mut()
-            .expect("Error: Found multiple negotiation tasks!");
+        let Ok((entity, negotiation_task)) = compute_negotiation_task
+            .single_mut() else {
+                error!("Error: Found multiple negotiation tasks!");
+                return;
+            };
 
         if let NegotiationTaskStatus::InProgress { .. } = negotiation_task.status {
             warn!("Negotiation requested while another negotiation is in progress");
