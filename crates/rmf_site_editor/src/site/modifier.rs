@@ -60,8 +60,8 @@ pub struct UpdateModifierEvent<T: Property> {
     pub scenario: Entity,
     pub element: Entity,
     pub update_mode: UpdateModifier<T>,
-    /// Whether to trigger an UpdateProperty event when updating the modifier
-    pub trigger_update_property: bool,
+    /// Whether to trigger a UseModifier event when updating the modifier
+    pub trigger_use_modifier: bool,
 }
 
 impl<T: Property> UpdateModifierEvent<T> {
@@ -70,7 +70,7 @@ impl<T: Property> UpdateModifierEvent<T> {
             scenario,
             element,
             update_mode,
-            trigger_update_property: true,
+            trigger_use_modifier: true,
         }
     }
 
@@ -83,7 +83,7 @@ impl<T: Property> UpdateModifierEvent<T> {
             scenario,
             element,
             update_mode,
-            trigger_update_property: false,
+            trigger_use_modifier: false,
         }
     }
 }

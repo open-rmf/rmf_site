@@ -74,15 +74,15 @@ impl<T: StandardProperty> Property for T {
     }
 }
 
-/// This event is triggered when changes have been made to an element in the
-/// current scenario, and requires the element property value to be updated.
+/// This event is triggered when the target element-scenario pair needs to be
+/// refreshed to use property values from the appropriate modifier.
 #[derive(Debug, Event, Clone, Copy)]
-pub struct UpdateProperty {
+pub struct UseModifier {
     pub for_element: Entity,
     pub in_scenario: Entity,
 }
 
-impl UpdateProperty {
+impl UseModifier {
     pub fn new(for_element: Entity, in_scenario: Entity) -> Self {
         Self {
             for_element,
@@ -119,10 +119,10 @@ impl<T: Property, E: Element> Default for PropertyPlugin<T, E> {
 
 impl<T: Property, E: Element> Plugin for PropertyPlugin<T, E> {
     fn build(&self, app: &mut App) {
-        app.add_event::<UpdateProperty>()
+        app.add_event::<UseModifier>()
             .add_event::<UpdateModifierEvent<T>>()
             .add_observer(on_update_modifier_event::<T, E>)
-            .add_observer(on_update_property::<T, E>)
+            .add_observer(on_use_modifier::<T, E>)
             .add_observer(on_add_property::<T, E>)
             .add_observer(on_add_root_scenario::<T>)
             .add_observer(on_remove_element::<E>);
@@ -173,14 +173,14 @@ fn on_update_modifier_event<T: Property, E: Element>(
         }
     }
 
-    if event.trigger_update_property {
-        commands.trigger(UpdateProperty::new(event.element, event.scenario));
+    if event.trigger_use_modifier {
+        commands.trigger(UseModifier::new(event.element, event.scenario));
     }
 }
 
-/// Updates the current scenario's property values based on changes to the property modifiers
-fn on_update_property<T: Property, E: Element>(
-    trigger: Trigger<UpdateProperty>,
+/// Use modifier property values for the target element-scenario pair
+fn on_use_modifier<T: Property, E: Element>(
+    trigger: Trigger<UseModifier>,
     world: &mut World,
     values: &mut QueryState<&mut T, With<E>>,
     scenario_state: &mut SystemState<(Commands, Res<CurrentScenario>, GetModifier<Modifier<T>>)>,

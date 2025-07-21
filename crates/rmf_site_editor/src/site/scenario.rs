@@ -20,7 +20,7 @@ use crate::{
         Affiliation, CurrentScenario, Delete, Dependents, Element, GetModifier, Group, Inclusion,
         InstanceMarker, IssueKey, LastSetValue, ModelMarker, Modifier, NameInSite, Pending,
         PendingModel, Pose, Property, ScenarioBundle, ScenarioModifiers, UpdateModifier,
-        UpdateModifierEvent, UpdateProperty,
+        UpdateModifierEvent, UseModifier,
     },
     CurrentWorkspace, Issue, ValidateWorkspace,
 };
@@ -155,7 +155,7 @@ pub fn update_current_scenario(
     if let Some(ChangeCurrentScenario(scenario_entity)) = change_current_scenario.read().last() {
         *current_scenario = CurrentScenario(Some(*scenario_entity));
         for instance_entity in instances.iter() {
-            commands.trigger(UpdateProperty::new(instance_entity, *scenario_entity));
+            commands.trigger(UseModifier::new(instance_entity, *scenario_entity));
         }
     }
 }
