@@ -146,8 +146,8 @@ pub fn handle_compute_negotiation_complete(
     }
 
     fn bits_string_to_entity(bits_string: &str) -> Entity {
-        // TODO: (Nielsen): Should we remove expect here? The bits_string input to this function
-        // is from L327 of this file, so it is guaranteed to be correct
+        // SAFETY: This assumes function input bits_string to be output from entity.to_bits().to_string()
+        // Currently, this is fetched from start_compute_negotiation fn, e.g. the key of BTreeMap in scenario.agents
         let bits = u64::from_str_radix(bits_string, 10).expect("Invalid entity id");
         Entity::from_bits(bits)
     }
@@ -305,11 +305,13 @@ pub fn start_compute_negotiation(
                 for (_, location_name, Point(anchor_entity)) in locations.iter() {
                     if location_name.0 == go_to_place.location {
                         let Ok((_, _, goal_transform)) = anchors.get(*anchor_entity) else {
+                            warn!("Unable to get robot's goal transform");
                             continue;
                         };
                         let Some((differential_drive, circle_collision)) =
                             robot_group.0.and_then(|e| robot_descriptions.get(e).ok())
                         else {
+                            warn!("Unable to get robot's collision model");
                             continue;
                         };
                         let agent = Agent {
