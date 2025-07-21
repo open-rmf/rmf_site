@@ -143,34 +143,22 @@ impl<'w, 's> MapfConfigWidget<'w, 's> {
             // from those in the occupancy widget, as those do not ignore mobile
             // robots in calculation. However the cell size param used is
             // consistent, so any updated value will reflect accordingly
-            if ui
-                .add(
-                    DragValue::new(&mut self.occupancy_display.cell_size)
-                        .range(0.1..=1.0)
-                        .suffix(" m")
-                        .speed(0.01),
-                )
-                .on_hover_text("Slide to calculate occupancy without robots")
-                .changed()
-            {
-                self.calculate_grid.write(CalculateGrid {
-                    cell_size: self.occupancy_display.cell_size,
-                    floor: 0.01,
-                    ceiling: 1.5,
-                    ignore: self.robots.iter().collect(),
-                });
-            }
+            ui.add(
+                DragValue::new(&mut self.occupancy_display.cell_size)
+                    .range(0.1..=1.0)
+                    .suffix(" m")
+                    .speed(0.01),
+            )
+            .on_hover_text("Slide to calculate occupancy without robots");
             if ui
                 .button("Calculate Occupancy")
                 .on_hover_text("Click to calculate occupancy without robots")
                 .clicked()
             {
-                self.calculate_grid.write(CalculateGrid {
-                    cell_size: self.occupancy_display.cell_size,
-                    floor: 0.01,
-                    ceiling: 1.5,
-                    ignore: self.robots.iter().collect(),
-                });
+                self.calculate_grid.write(CalculateGrid::from(
+                    self.occupancy_display.cell_size,
+                    self.robots.iter().collect(),
+                ));
             }
         });
         ui.horizontal(|ui| {
@@ -213,12 +201,12 @@ impl<'w, 's> MapfConfigWidget<'w, 's> {
 
             ui.add_enabled_ui(allow_generate_plan, |ui| {
                 if ui.button("Generate Plan").clicked() {
-                    self.calculate_grid.write(CalculateGrid {
-                        cell_size: self.occupancy_display.cell_size,
-                        floor: 0.01,
-                        ceiling: 1.5,
-                        ignore: self.robots.iter().collect(),
-                    });
+                    if occupancy_grid.is_none() {
+                        self.calculate_grid.write(CalculateGrid::from(
+                            self.occupancy_display.cell_size,
+                            self.robots.iter().collect(),
+                        ));
+                    }
                     self.negotiation_request.write(NegotiationRequest);
                 }
             });

@@ -143,6 +143,17 @@ pub struct CalculateGrid {
     pub ignore: HashSet<Entity>,
 }
 
+impl CalculateGrid {
+    pub fn from(cell_size_in: f32, entities_to_ignore: HashSet<Entity>) -> Self {
+        Self {
+            cell_size: cell_size_in,
+            floor: 0.01,
+            ceiling: 1.5,
+            ignore: entities_to_ignore,
+        }
+    }
+}
+
 enum Group {
     Level(Entity),
     Site(Entity),

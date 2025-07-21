@@ -152,12 +152,11 @@ pub fn handle_compute_negotiation_complete(
         Entity::from_bits(bits)
     }
 
-    let Ok((entity, mut negotiation_task)) = compute_negotiation_task
-        .single_mut() else {
-            error!("Error: Found multiple negotiation tasks!");
-            return;
-        };
-        
+    let Ok((entity, mut negotiation_task)) = compute_negotiation_task.single_mut() else {
+        error!("Error: Found multiple negotiation tasks!");
+        return;
+    };
+
     // We only accept in-progress negotiation task computations
     let NegotiationTaskStatus::InProgress { start_time } = negotiation_task.status else {
         return;
@@ -242,11 +241,10 @@ pub fn start_compute_negotiation(
         return;
     }
     if !compute_negotiation_task.is_empty() {
-        let Ok((entity, negotiation_task)) = compute_negotiation_task
-            .single_mut() else {
-                error!("Error: Found multiple negotiation tasks!");
-                return;
-            };
+        let Ok((entity, negotiation_task)) = compute_negotiation_task.single_mut() else {
+            error!("Error: Found multiple negotiation tasks!");
+            return;
+        };
 
         if let NegotiationTaskStatus::InProgress { .. } = negotiation_task.status {
             warn!("Negotiation requested while another negotiation is in progress");
@@ -318,11 +316,7 @@ pub fn start_compute_negotiation(
                         let agent = Agent {
                             start: to_cell(robot_pose.trans[0], robot_pose.trans[1], cell_size),
                             yaw: f64::from(robot_pose.rot.yaw().radians()),
-                            goal: to_cell(
-                                goal_pos.x,
-                                goal_pos.y,
-                                cell_size,
-                            ),
+                            goal: to_cell(goal_pos.x, goal_pos.y, cell_size),
                             radius: f64::from(circle_collision.radius),
                             speed: f64::from(differential_drive.translational_speed),
                             spin: f64::from(differential_drive.rotational_speed),
