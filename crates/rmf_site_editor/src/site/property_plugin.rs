@@ -34,7 +34,7 @@ pub trait Property: Component<Mutability = Mutable> + Debug + Default + Clone {
     fn insert(_for_element: Entity, _in_scenario: Entity, _value: Self, _world: &mut World);
 
     /// Inserts new modifiers elements in a newly added root scenario.
-    fn insert_on_new_scenario(_in_scenario: Entity, _world: &mut World);
+    fn insert_on_new_scenario<E: Element>(_in_scenario: Entity, _world: &mut World);
 
     /// Helper function that returns the element entities that have existing modifiers
     /// for this property
@@ -61,15 +61,21 @@ pub trait Property: Component<Mutability = Mutable> + Debug + Default + Clone {
 pub trait StandardProperty: Component<Mutability = Mutable> + Debug + Default + Clone {}
 
 impl<T: StandardProperty> Property for T {
-    fn get_fallback(_for_element: Entity, _in_scenario: Entity, _world: &mut World) -> Self {
-        T::default()
+    fn get_fallback(for_element: Entity, _in_scenario: Entity, world: &mut World) -> Self {
+        let mut state: SystemState<Query<&LastSetValue<Self>>> = SystemState::new(world);
+        let last_set_value = state.get(world);
+
+        last_set_value
+            .get(for_element)
+            .map(|value| (**value).clone())
+            .unwrap_or(Self::default())
     }
 
     fn insert(_for_element: Entity, _in_scenario: Entity, _value: T, _world: &mut World) {
         // Do nothing
     }
 
-    fn insert_on_new_scenario(_in_scenario: Entity, _world: &mut World) {
+    fn insert_on_new_scenario<E: Element>(_in_scenario: Entity, _world: &mut World) {
         // Do nothing
     }
 }
@@ -124,7 +130,7 @@ impl<T: Property, E: Element> Plugin for PropertyPlugin<T, E> {
             .add_observer(on_update_modifier_event::<T, E>)
             .add_observer(on_use_modifier::<T, E>)
             .add_observer(on_add_property::<T, E>)
-            .add_observer(on_add_root_scenario::<T>)
+            .add_observer(on_add_root_scenario::<T, E>)
             .add_observer(on_remove_element::<E>)
             .add_systems(Update, update_changed_property::<T, E>);
     }
@@ -273,6 +279,40 @@ fn on_add_property<T: Property, E: Element>(
     T::insert(trigger.target(), scenario_entity, value.clone(), world);
 }
 
+/// When a new scenario has been created, this observer checks that it is a root
+/// scenario and calls T::insert_on_new_scenario so that the appropriate modifiers
+/// can be created for this Property via the callback.
+fn on_add_root_scenario<T: Property + 'static + Send + Sync, E: Element>(
+    trigger: Trigger<OnAdd, ScenarioModifiers<Entity>>,
+    world: &mut World,
+    state: &mut SystemState<Query<&Affiliation<Entity>>>,
+    events_state: &mut SystemState<EventWriter<ChangeCurrentScenario>>,
+) {
+    let scenarios = state.get_mut(world);
+    if !scenarios.get(trigger.target()).is_ok_and(|p| p.0.is_none()) {
+        return;
+    }
+
+    T::insert_on_new_scenario::<E>(trigger.target(), world);
+
+    let mut change_current_scenario = events_state.get_mut(world);
+    change_current_scenario.write(ChangeCurrentScenario(trigger.target()));
+}
+
+/// Handles cleanup of scenario modifiers when elements are despawned
+pub fn on_remove_element<E: Element>(
+    trigger: Trigger<OnDespawn, E>,
+    trashcan: Res<Trashcan>,
+    mut commands: Commands,
+    mut scenarios: Query<&mut ScenarioModifiers<Entity>>,
+) {
+    for mut scenario_modifiers in scenarios.iter_mut() {
+        if let Some(modifier_entity) = scenario_modifiers.remove(&trigger.target()) {
+            commands.entity(modifier_entity).insert(ChildOf(trashcan.0));
+        }
+    }
+}
+
 /// Track manual changes to property values in the current scenario and update
 /// the relevant modifiers accordingly
 fn update_changed_property<T: Property, E: Element>(
@@ -297,36 +337,6 @@ fn update_changed_property<T: Property, E: Element>(
                 entity,
                 new_value.clone(),
             ));
-        }
-    }
-}
-
-/// When a new scenario has been created, this observer checks that it is a root
-/// scenario and calls T::insert_on_new_scenario so that the appropriate modifiers
-/// can be created for this Property via the callback.
-fn on_add_root_scenario<T: Property + 'static + Send + Sync>(
-    trigger: Trigger<OnAdd, ScenarioModifiers<Entity>>,
-    world: &mut World,
-    state: &mut SystemState<Query<&Affiliation<Entity>>>,
-) {
-    let scenarios = state.get_mut(world);
-    if !scenarios.get(trigger.target()).is_ok_and(|p| p.0.is_none()) {
-        return;
-    }
-
-    T::insert_on_new_scenario(trigger.target(), world);
-}
-
-/// Handles cleanup of scenario modifiers when elements are despawned
-pub fn on_remove_element<E: Element>(
-    trigger: Trigger<OnDespawn, E>,
-    trashcan: Res<Trashcan>,
-    mut commands: Commands,
-    mut scenarios: Query<&mut ScenarioModifiers<Entity>>,
-) {
-    for mut scenario_modifiers in scenarios.iter_mut() {
-        if let Some(modifier_entity) = scenario_modifiers.remove(&trigger.target()) {
-            commands.entity(modifier_entity).insert(ChildOf(trashcan.0));
         }
     }
 }

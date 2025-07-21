@@ -18,9 +18,8 @@
 use crate::{
     site::{
         Affiliation, CurrentScenario, Delete, Dependents, Element, GetModifier, Group, Inclusion,
-        InstanceMarker, IssueKey, LastSetValue, ModelMarker, Modifier, NameInSite, Pending,
-        PendingModel, Pose, Property, ScenarioBundle, ScenarioModifiers, UpdateModifier,
-        UseModifier,
+        InstanceMarker, IssueKey, ModelMarker, Modifier, NameInSite, Pending, PendingModel, Pose,
+        Property, ScenarioBundle, ScenarioModifiers, StandardProperty, UpdateModifier, UseModifier,
     },
     CurrentWorkspace, Issue, ValidateWorkspace,
 };
@@ -41,18 +40,16 @@ pub struct CreateScenario {
 
 impl Element for InstanceMarker {}
 
-impl Property for Pose {
-    fn get_fallback(for_element: Entity, _in_scenario: Entity, world: &mut World) -> Pose {
-        let mut state: SystemState<Query<&LastSetValue<Pose>>> = SystemState::new(world);
-        let last_set_pose = state.get(world);
+impl StandardProperty for Pose {}
 
-        last_set_pose
-            .get(for_element)
-            .map(|value| **value)
-            .unwrap_or(Pose::default())
+impl Property for Visibility {
+    fn get_fallback(_for_element: Entity, _in_scenario: Entity, _world: &mut World) -> Visibility {
+        // We want the instance to be hidden by default, and only visible
+        // when intentionally toggled
+        Visibility::Hidden
     }
 
-    fn insert(for_element: Entity, in_scenario: Entity, value: Pose, world: &mut World) {
+    fn insert(for_element: Entity, in_scenario: Entity, _value: Visibility, world: &mut World) {
         let mut scenario_state: SystemState<
             Query<(Entity, &ScenarioModifiers<Entity>, &Affiliation<Entity>)>,
         > = SystemState::new(world);
@@ -83,26 +80,7 @@ impl Property for Pose {
         }
     }
 
-    fn insert_on_new_scenario(_in_scenario: Entity, _world: &mut World) {
-        // Do nothing when new root scenarios are created. When an instance is
-        // toggled to be included and visible, a pose modifier will be inserted
-        // from fallback pose values.
-    }
-}
-
-impl Property for Visibility {
-    fn get_fallback(_for_element: Entity, _in_scenario: Entity, _world: &mut World) -> Visibility {
-        // We want the instance to be hidden by default, and only visible
-        // when intentionally toggled
-        Visibility::Hidden
-    }
-
-    fn insert(_for_element: Entity, _in_scenario: Entity, _value: Visibility, _world: &mut World) {
-        // Do nothing when new Visibility components are inserted. Newly spawned
-        // model instances are handled in Pose::insert()
-    }
-
-    fn insert_on_new_scenario(in_scenario: Entity, world: &mut World) {
+    fn insert_on_new_scenario<E: Element>(in_scenario: Entity, world: &mut World) {
         let mut instance_state: SystemState<(
             Query<&Children>,
             Query<(&Modifier<Visibility>, &Affiliation<Entity>)>,
@@ -129,11 +107,6 @@ impl Property for Visibility {
                 Visibility::Hidden,
             ));
         }
-
-        let mut events_state: SystemState<EventWriter<ChangeCurrentScenario>> =
-            SystemState::new(world);
-        let mut change_current_scenario = events_state.get_mut(world);
-        change_current_scenario.write(ChangeCurrentScenario(in_scenario));
     }
 }
 

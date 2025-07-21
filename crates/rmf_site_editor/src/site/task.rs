@@ -16,16 +16,13 @@
 */
 
 use crate::{
-    site::{
-        Affiliation, ChangeCurrentScenario, Delete, Element, Inclusion, LastSetValue, Modifier,
-        Pending, Property, ScenarioModifiers, Task, TaskKind, TaskParams, UpdateModifier,
-    },
+    site::{Delete, Element, Pending, StandardProperty, Task, TaskKind, TaskParams},
     widgets::tasks::{EditMode, EditModeEvent, EditTask},
     CurrentWorkspace,
 };
-use bevy::ecs::{hierarchy::ChildOf, system::SystemState};
+use bevy::ecs::hierarchy::ChildOf;
 use bevy::prelude::*;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 pub type InsertTaskKindFn = fn(EntityCommands);
 pub type RemoveTaskKindFn = fn(EntityCommands);
@@ -41,80 +38,7 @@ impl FromWorld for TaskKinds {
 
 impl Element for Task {}
 
-impl Property for TaskParams {
-    fn get_fallback(for_element: Entity, _in_scenario: Entity, world: &mut World) -> TaskParams {
-        let mut state: SystemState<Query<&LastSetValue<TaskParams>>> = SystemState::new(world);
-        let last_set_params = state.get(world);
-
-        last_set_params
-            .get(for_element)
-            .map(|value| (**value).clone())
-            .unwrap_or(TaskParams::default())
-    }
-
-    fn insert(for_element: Entity, in_scenario: Entity, value: TaskParams, world: &mut World) {
-        let mut scenario_state: SystemState<
-            Query<(Entity, &ScenarioModifiers<Entity>, &Affiliation<Entity>)>,
-        > = SystemState::new(world);
-        let scenarios = scenario_state.get_mut(world);
-
-        // Insert inclusion modifier into all root scenarios outside of the current tree as hidden
-        let mut current_root_entity: Entity = in_scenario;
-        while let Ok((_, _, parent_scenario)) = scenarios.get(current_root_entity) {
-            if let Some(parent_scenario_entity) = parent_scenario.0 {
-                current_root_entity = parent_scenario_entity;
-            } else {
-                break;
-            }
-        }
-        let mut root_scenarios = HashSet::<Entity>::new();
-        for (scenario_entity, _, parent_scenario) in scenarios.iter() {
-            if parent_scenario.0.is_some() || scenario_entity == current_root_entity {
-                continue;
-            }
-            root_scenarios.insert(scenario_entity);
-        }
-        for root in root_scenarios.iter() {
-            world.trigger(UpdateModifier::modify(
-                *root,
-                for_element,
-                Inclusion::Hidden,
-            ));
-        }
-    }
-
-    fn insert_on_new_scenario(in_scenario: Entity, world: &mut World) {
-        let mut state: SystemState<(
-            Query<&Children>,
-            Query<(&Modifier<TaskParams>, &Affiliation<Entity>)>,
-            Query<Entity, (With<Task>, Without<Pending>)>,
-        )> = SystemState::new(world);
-        let (children, task_modifiers, task_entities) = state.get_mut(world);
-
-        let have_task = Self::elements_with_modifiers(in_scenario, &children, &task_modifiers);
-
-        let mut target_tasks = HashSet::new();
-        for task_entity in task_entities.iter() {
-            if !have_task.contains(&task_entity) {
-                target_tasks.insert(task_entity);
-            }
-        }
-
-        for target in target_tasks.iter() {
-            // Mark all task modifiers as Hidden
-            world.trigger(UpdateModifier::modify(
-                in_scenario,
-                *target,
-                Inclusion::Hidden,
-            ));
-        }
-
-        let mut events_state: SystemState<EventWriter<ChangeCurrentScenario>> =
-            SystemState::new(world);
-        let mut change_current_scenario = events_state.get_mut(world);
-        change_current_scenario.write(ChangeCurrentScenario(in_scenario));
-    }
-}
+impl StandardProperty for TaskParams {}
 
 /// Updates the current EditTask entity based on the triggered edit mode event
 pub fn handle_task_edit(

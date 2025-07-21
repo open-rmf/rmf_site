@@ -243,7 +243,6 @@ impl<'w, 's> ViewTasks<'w, 's> {
                 edit_task(
                     ui,
                     &mut self.commands,
-                    current_scenario_entity,
                     task_entity,
                     pending_task,
                     &pending_task_params,
@@ -274,7 +273,6 @@ impl<'w, 's> ViewTasks<'w, 's> {
                     edit_task(
                         ui,
                         &mut self.commands,
-                        current_scenario_entity,
                         task_entity,
                         existing_task,
                         &existing_task_params,
@@ -541,7 +539,6 @@ fn show_task(
 fn edit_task(
     ui: &mut Ui,
     commands: &mut Commands,
-    scenario: Entity,
     task_entity: Entity,
     task: &Task,
     task_params: &TaskParams,
