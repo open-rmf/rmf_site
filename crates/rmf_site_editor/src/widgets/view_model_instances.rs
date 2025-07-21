@@ -203,11 +203,7 @@ fn show_model_instance(
                     .on_hover_text("Model instance is hidden in this scenario")
                     .clicked()
                 {
-                    commands.trigger(UpdateModifier::modify(
-                        scenario,
-                        instance,
-                        Visibility::Inherited,
-                    ));
+                    commands.entity(instance).insert(Visibility::Inherited);
                 }
             } else {
                 if ui
@@ -224,11 +220,7 @@ fn show_model_instance(
                         commands.trigger(UpdateModifier::<Visibility>::reset(scenario, instance));
                     } else {
                         // Otherwise, toggle to Hidden
-                        commands.trigger(UpdateModifier::modify(
-                            scenario,
-                            instance,
-                            Visibility::Hidden,
-                        ));
+                        commands.entity(instance).insert(Visibility::Hidden);
                     }
                 }
             }
@@ -239,11 +231,7 @@ fn show_model_instance(
                 .on_hover_text("Model instance visibility is inherited in this scenario")
                 .clicked()
             {
-                commands.trigger(UpdateModifier::modify(
-                    scenario,
-                    instance,
-                    Visibility::Hidden,
-                ));
+                commands.entity(instance).insert(Visibility::Hidden);
             }
         }
         // Delete instance from this site (all scenarios)

@@ -368,11 +368,7 @@ fn show_task(
                                 .on_hover_text("Task is hidden in this scenario")
                                 .clicked()
                             {
-                                commands.trigger(UpdateModifier::modify(
-                                    scenario,
-                                    task_entity,
-                                    Inclusion::Included,
-                                ));
+                                commands.entity(task_entity).insert(Inclusion::Included);
                             }
                         } else {
                             if ui
@@ -392,11 +388,7 @@ fn show_task(
                                     ));
                                 } else {
                                     // Otherwise, toggle to Hidden
-                                    commands.trigger(UpdateModifier::modify(
-                                        scenario,
-                                        task_entity,
-                                        Inclusion::Hidden,
-                                    ));
+                                    commands.entity(task_entity).insert(Inclusion::Hidden);
                                 }
                             }
                         }
@@ -407,11 +399,7 @@ fn show_task(
                             .on_hover_text("Task inclusion is inherited in this scenario")
                             .clicked()
                         {
-                            commands.trigger(UpdateModifier::modify(
-                                scenario,
-                                task_entity,
-                                Inclusion::Hidden,
-                            ));
+                            commands.entity(task_entity).insert(Inclusion::Hidden);
                         }
                     }
                     if present {
@@ -797,11 +785,7 @@ fn edit_task(
                     }
 
                     if new_task_params != *task_params {
-                        commands.trigger(UpdateModifier::modify(
-                            scenario,
-                            task_entity,
-                            new_task_params,
-                        ));
+                        commands.entity(task_entity).insert(new_task_params);
                     }
                 });
         });

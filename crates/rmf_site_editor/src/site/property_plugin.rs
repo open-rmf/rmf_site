@@ -16,8 +16,8 @@
 */
 
 use crate::site::{
-    Affiliation, CurrentScenario, GetModifier, Modifier, ScenarioModifiers, Trashcan,
-    UpdateModifier, UpdateModifierEvent,
+    Affiliation, ChangeCurrentScenario, CurrentScenario, GetModifier, Modifier, Pending,
+    ScenarioModifiers, Trashcan, UpdateModifier, UpdateModifierEvent,
 };
 use bevy::{
     ecs::{component::Mutable, system::SystemState, world::OnDespawn},
@@ -125,7 +125,8 @@ impl<T: Property, E: Element> Plugin for PropertyPlugin<T, E> {
             .add_observer(on_use_modifier::<T, E>)
             .add_observer(on_add_property::<T, E>)
             .add_observer(on_add_root_scenario::<T>)
-            .add_observer(on_remove_element::<E>);
+            .add_observer(on_remove_element::<E>)
+            .add_systems(Update, update_changed_property::<T, E>);
     }
 }
 
@@ -270,6 +271,37 @@ fn on_add_property<T: Property, E: Element>(
         return;
     };
     T::insert(trigger.target(), scenario_entity, value.clone(), world);
+}
+
+/// Track manual changes to property values in the current scenario and update
+/// the relevant modifiers accordingly
+fn update_changed_property<T: Property, E: Element>(
+    mut commands: Commands,
+    mut change_current_scenario: EventReader<ChangeCurrentScenario>,
+    changed_last_set_value: Query<(), Changed<LastSetValue<T>>>,
+    changed_values: Query<(Entity, Ref<T>), (With<E>, Without<Pending>)>,
+    current_scenario: Res<CurrentScenario>,
+) {
+    // Do nothing if scenario has changed
+    for ChangeCurrentScenario(_) in change_current_scenario.read() {
+        return;
+    }
+    let Some(scenario) = current_scenario.0 else {
+        return;
+    };
+
+    for (entity, new_value) in changed_values.iter() {
+        if new_value.is_changed()
+            && !new_value.is_added()
+            && changed_last_set_value.get(entity).is_err()
+        {
+            commands.trigger(UpdateModifier::modify_without_trigger(
+                scenario,
+                entity,
+                new_value.clone(),
+            ));
+        }
+    }
 }
 
 /// When a new scenario has been created, this observer checks that it is a root

@@ -20,7 +20,7 @@ use crate::{
         Affiliation, CurrentScenario, Delete, Dependents, Element, GetModifier, Group, Inclusion,
         InstanceMarker, IssueKey, LastSetValue, ModelMarker, Modifier, NameInSite, Pending,
         PendingModel, Pose, Property, ScenarioBundle, ScenarioModifiers, UpdateModifier,
-        UpdateModifierEvent, UseModifier,
+        UseModifier,
     },
     CurrentWorkspace, Issue, ValidateWorkspace,
 };
@@ -172,38 +172,6 @@ pub fn check_selected_is_visible(
         })
     }) {
         select.write(Select::new(None));
-    }
-}
-
-/// Tracks pose changes for instances in the current scenario to update its properties
-pub fn update_model_instance_poses(
-    mut commands: Commands,
-    current_scenario: Res<CurrentScenario>,
-    mut change_current_scenario: EventReader<ChangeCurrentScenario>,
-    changed_instances: Query<(Entity, Ref<Pose>), (With<InstanceMarker>, Without<Pending>)>,
-    changed_last_set_pose: Query<(), Changed<LastSetValue<Pose>>>,
-) {
-    // Do nothing if scenario has changed, as we rely on pose changes by the user and not the system updating instances
-    for ChangeCurrentScenario(_) in change_current_scenario.read() {
-        return;
-    }
-    let Some(current_scenario_entity) = current_scenario.0 else {
-        return;
-    };
-
-    for (entity, new_pose) in changed_instances.iter() {
-        if new_pose.is_changed()
-            && !new_pose.is_added()
-            && changed_last_set_pose.get(entity).is_err()
-        {
-            // Only mark an instance as modified if its pose changed due to user
-            // interaction, not because it was updated by scenarios
-            commands.trigger(UpdateModifierEvent::<Pose>::new_without_trigger(
-                current_scenario_entity,
-                entity,
-                UpdateModifier::Modify(new_pose.clone()),
-            ));
-        }
     }
 }
 

@@ -50,6 +50,14 @@ impl<T: Property> UpdateModifier<T> {
         UpdateModifierEvent::<T>::new(scenario, element, Self::Modify(value))
     }
 
+    pub fn modify_without_trigger(
+        scenario: Entity,
+        element: Entity,
+        value: T,
+    ) -> UpdateModifierEvent<T> {
+        UpdateModifierEvent::<T>::new_without_trigger(scenario, element, Self::Modify(value))
+    }
+
     pub fn reset(scenario: Entity, element: Entity) -> UpdateModifierEvent<T> {
         UpdateModifierEvent::<T>::new(scenario, element, Self::Reset)
     }
