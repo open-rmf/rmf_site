@@ -16,15 +16,11 @@
 */
 
 use crate::site::{
-    Affiliation, CurrentScenario, GetModifier, Modifier, RemoveModifier, ScenarioModifiers,
+    Affiliation, CurrentScenario, GetModifier, Modifier, ScenarioModifiers, Trashcan,
     UpdateModifier, UpdateModifierEvent,
 };
 use bevy::{
-    ecs::{
-        component::{ComponentInfo, Mutable},
-        system::SystemState,
-        world::OnDespawn,
-    },
+    ecs::{component::Mutable, system::SystemState, world::OnDespawn},
     prelude::*,
 };
 use std::{collections::HashSet, fmt::Debug};
@@ -129,8 +125,7 @@ impl<T: Property, E: Element> Plugin for PropertyPlugin<T, E> {
             .add_observer(on_update_property::<T, E>)
             .add_observer(on_add_property::<T, E>)
             .add_observer(on_add_root_scenario::<T>)
-            .add_observer(on_remove_element::<E>)
-            .add_observer(on_remove_modifier::<T>);
+            .add_observer(on_remove_element::<E>);
     }
 }
 
@@ -296,89 +291,13 @@ fn on_add_root_scenario<T: Property + 'static + Send + Sync>(
 /// Handles cleanup of scenario modifiers when elements are despawned
 pub fn on_remove_element<E: Element>(
     trigger: Trigger<OnDespawn, E>,
-    scenarios: Query<Entity, With<ScenarioModifiers<Entity>>>,
+    trashcan: Res<Trashcan>,
     mut commands: Commands,
+    mut scenarios: Query<&mut ScenarioModifiers<Entity>>,
 ) {
-    for scenario_entity in scenarios.iter() {
-        commands.trigger(RemoveModifier::new(trigger.target(), scenario_entity));
-    }
-}
-
-/// Whenever a Modifier<T> component has been removed from a modifier entity, this
-/// observer checks that the entity is not empty (has no other Modifiers). If
-/// empty, the modifier entity will be sent for removal and despawn.
-fn on_remove_modifier<T: Property>(
-    trigger: Trigger<OnRemove, Modifier<T>>,
-    world: &mut World,
-    state: &mut SystemState<(
-        Commands,
-        Res<CurrentScenario>,
-        Query<(Entity, &ScenarioModifiers<Entity>)>,
-        Query<&Affiliation<Entity>>,
-    )>,
-) {
-    let modifier_entity = trigger.target();
-    let Ok(components_info) = world
-        .inspect_entity(modifier_entity)
-        .map(|c| c.cloned().collect::<Vec<ComponentInfo>>())
-    else {
-        return;
-    };
-
-    // Count number of Modifier components
-    let mut modifier_components: usize = 0;
-    for info in components_info.iter() {
-        let component_name = info.name();
-        if component_name.to_string().contains("Modifier") {
-            modifier_components += 1;
+    for mut scenario_modifiers in scenarios.iter_mut() {
+        if let Some(modifier_entity) = scenario_modifiers.remove(&trigger.target()) {
+            commands.entity(modifier_entity).insert(ChildOf(trashcan.0));
         }
-    }
-
-    // OnRemove is run before the component is actually removed, so there would
-    // be at least one Modifier component attached to the entity during this check
-    if modifier_components > 1 {
-        // Target entity has existing modifier components, ignore
-        return;
-    }
-
-    let (mut commands, current_scenario, scenarios, affiliation) = state.get_mut(world);
-    // Check that this modifier entity has an affiliated element
-    let Some(element) = affiliation.get(modifier_entity).ok().and_then(|a| a.0) else {
-        return;
-    };
-    let scenario_entity: Option<Entity> = if let Some(scenario_entity) = current_scenario.0 {
-        // Check that this element-modifier pair exists in the current scenario,
-        // else search for the target scenario
-        if scenarios
-            .get(scenario_entity)
-            .is_ok_and(|(_, scenario_modifiers)| {
-                scenario_modifiers
-                    .get(&element)
-                    .is_some_and(|e| *e == modifier_entity)
-            })
-        {
-            Some(scenario_entity)
-        } else {
-            None
-        }
-    } else {
-        // The current scenario wasn't the target scenario, loop over scenario
-        // modifiers to find
-        let mut scenario: Option<Entity> = None;
-        for (scenario_entity, scenario_modifiers) in scenarios.iter() {
-            if scenario_modifiers
-                .get(&element)
-                .is_some_and(|e| *e == modifier_entity)
-            {
-                scenario = Some(scenario_entity);
-                break;
-            }
-        }
-        scenario
-    };
-
-    if let Some(scenario_entity) = scenario_entity {
-        commands.trigger(RemoveModifier::new(element, scenario_entity));
-        state.apply(world);
     }
 }

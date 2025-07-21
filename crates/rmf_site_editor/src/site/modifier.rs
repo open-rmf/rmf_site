@@ -17,13 +17,12 @@
 
 use crate::{
     site::{
-        Affiliation, ChangeCurrentScenario, CurrentScenario, Inclusion, IssueKey, NameInSite,
-        Property, ScenarioModifiers, StandardProperty, Trashcan,
+        Affiliation, Inclusion, IssueKey, NameInSite, Property, ScenarioModifiers, StandardProperty,
     },
     Issue, ValidateWorkspace,
 };
 use bevy::{
-    ecs::{component::Mutable, hierarchy::ChildOf, system::SystemParam},
+    ecs::{component::Mutable, system::SystemParam},
     prelude::*,
 };
 use std::fmt::Debug;
@@ -39,21 +38,6 @@ impl<T: Property> Modifier<T> {
 }
 
 impl StandardProperty for Inclusion {}
-
-#[derive(Clone, Debug, Event)]
-pub struct RemoveModifier {
-    for_element: Entity,
-    in_scenario: Entity,
-}
-
-impl RemoveModifier {
-    pub fn new(for_element: Entity, in_scenario: Entity) -> Self {
-        Self {
-            for_element,
-            in_scenario,
-        }
-    }
-}
 
 #[derive(Clone, Debug, Copy)]
 pub enum UpdateModifier<T: Property> {
@@ -145,28 +129,6 @@ impl<'w, 's, T: Component<Mutability = Mutable> + Clone + Default> GetModifier<'
         }
         modifier
     }
-}
-
-/// Handles removals of scenario modifiers
-pub fn remove_scenario_modifiers(
-    trigger: Trigger<RemoveModifier>,
-    mut commands: Commands,
-    mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
-    mut scenarios: Query<(&mut ScenarioModifiers<Entity>, &Affiliation<Entity>)>,
-    current_scenario: Res<CurrentScenario>,
-    trashcan: Res<Trashcan>,
-) {
-    let event = trigger.event();
-    let Ok((mut scenario_modifiers, _)) = scenarios.get_mut(event.in_scenario) else {
-        return;
-    };
-    if let Some(modifier) = scenario_modifiers.remove(&event.for_element) {
-        commands.entity(modifier).insert(ChildOf(trashcan.0));
-    }
-
-    if current_scenario.0.is_some_and(|e| e == event.in_scenario) {
-        change_current_scenario.write(ChangeCurrentScenario(event.in_scenario));
-    };
 }
 
 /// Unique UUID to identify issue of missing root scenario modifiers

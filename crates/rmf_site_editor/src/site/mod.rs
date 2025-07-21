@@ -221,7 +221,6 @@ impl Plugin for SitePlugin {
         .add_event::<ChangeCurrentScenario>()
         .add_event::<CreateScenario>()
         .add_event::<RemoveScenario>()
-        .add_event::<RemoveModifier>()
         .add_event::<SaveSite>()
         .add_event::<ExportLights>()
         .add_event::<ConsiderAssociatedGraph>()
@@ -436,7 +435,6 @@ impl Plugin for SitePlugin {
             )
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
-        )
-        .add_observer(remove_scenario_modifiers);
+        );
     }
 }
