@@ -16,10 +16,8 @@
 */
 
 #[cfg(feature = "bevy")]
-use bevy::{
-    prelude::{Component, ReflectComponent},
-    reflect::Reflect,
-};
+use bevy::{prelude::ReflectComponent, reflect::Reflect};
+use bevy_ecs::prelude::Component;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -28,9 +26,20 @@ use std::collections::BTreeMap;
 /// set by the respective site system that decorates its entities with
 /// components, e.g. add_door_visuals, add_lane_visuals, etc.
 #[derive(
-    Serialize, Deserialize, Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash,
+    Component,
+    Serialize,
+    Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
 )]
-#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub enum Category {
     #[default]

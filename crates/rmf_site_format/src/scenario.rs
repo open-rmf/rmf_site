@@ -17,20 +17,19 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Deref, DerefMut, Reflect, ReflectComponent};
-use bevy_ecs::prelude::Entity;
+use bevy::prelude::{Deref, DerefMut, Reflect, ReflectComponent};
+use bevy_ecs::prelude::{Bundle, Component, Entity};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct InstanceMarker;
 
 /// A modifier property used to describe whether an element is explicitly included
 /// or hidden in a scenario.
-#[derive(Serialize, Deserialize, Debug, Default, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Serialize, Deserialize, Debug, Default, Clone, Copy, PartialEq)]
 pub enum Inclusion {
     Included,
     #[default]
@@ -52,8 +51,8 @@ pub struct TaskModifier {
     pub params: Option<TaskParams>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+#[derive(Component, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Deref, DerefMut))]
 pub struct ScenarioModifiers(pub HashMap<Entity, Entity>);
 
 impl Default for ScenarioModifiers {
@@ -62,13 +61,12 @@ impl Default for ScenarioModifiers {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct ScenarioMarker;
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Scenario {
     pub instances: BTreeMap<SiteID, InstanceModifier>,
     pub tasks: BTreeMap<SiteID, TaskModifier>,
@@ -125,8 +123,7 @@ impl Scenario {
 
 const DEFAULT_SCENARIO_NAME: &'static str = "Default Scenario";
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Bundle))]
+#[derive(Bundle, Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ScenarioBundle {
     pub name: NameInSite,
     pub parent_scenario: Affiliation,

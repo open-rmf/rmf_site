@@ -20,22 +20,21 @@ use crate::*;
 use bevy::{
     color::Color,
     prelude::{
-        Bundle, Component, DirectionalLight as BevyDirectionalLight, PointLight as BevyPointLight,
+        DirectionalLight as BevyDirectionalLight, PointLight as BevyPointLight,
         SpotLight as BevySpotLight,
     },
 };
+use bevy_ecs::prelude::{Bundle, Component};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "bevy", derive(Bundle))]
+#[derive(Bundle, Serialize, Deserialize, Debug, Clone)]
 pub struct Light {
     pub pose: Pose,
     pub kind: LightKind,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
-#[cfg_attr(feature = "bevy", derive(Component))]
 pub enum LightKind {
     Point(PointLight),
     Spot(SpotLight),
@@ -289,8 +288,7 @@ impl Default for DirectionalLight {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Clone, Copy, Debug, Default)]
 pub struct RecallLightKind {
     pub intensity: Option<f32>,
     pub range: Option<f32>,

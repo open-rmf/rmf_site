@@ -19,9 +19,10 @@ use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::{
     math::Vec3A,
-    prelude::{Bundle, Component, Deref, DerefMut, Entity, Query, With, Without},
+    prelude::{Deref, DerefMut, Query, With, Without},
     render::primitives::Aabb,
 };
+use bevy_ecs::prelude::{Bundle, Component, Entity};
 use glam::{Vec2, Vec3};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
@@ -43,8 +44,7 @@ pub struct Lift {
     pub cabin_anchors: BTreeMap<SiteID, Anchor>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Bundle))]
+#[derive(Bundle, Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct LiftCabinDoor {
     /// What kind of door is this
     pub kind: DoorType,
@@ -70,9 +70,9 @@ impl LiftCabinDoor {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Component, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(transparent)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+#[cfg_attr(feature = "bevy", derive(Deref, DerefMut))]
 pub struct LevelVisits(pub BTreeSet<SiteID>);
 
 impl Default for LevelVisits {
@@ -92,12 +92,10 @@ impl LevelVisits {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct LiftCabinDoorMarker;
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Bundle))]
+#[derive(Bundle, Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct LiftProperties {
     /// Name of this lift. This must be unique within the site.
     pub name: NameInSite,
@@ -169,9 +167,9 @@ impl LiftProperties {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(transparent)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+#[cfg_attr(feature = "bevy", derive(Deref, DerefMut))]
 pub struct InitialLevel(pub Option<SiteID>);
 
 impl Default for InitialLevel {
@@ -180,8 +178,7 @@ impl Default for InitialLevel {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum LiftCabin {
     /// The lift cabin is defined by some parameters.
     Rect(RectangularLiftCabin),
@@ -249,8 +246,7 @@ impl LiftCabin {
     }
 }
 
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Clone, Debug)]
 pub struct RecallLiftCabin {
     pub rect_doors: [Option<LiftCabinDoorPlacement>; 4],
     pub wall_thickness: Option<f32>,
@@ -548,7 +544,7 @@ pub struct LiftCabinDoorPlacement {
 impl LiftProperties {
     pub fn convert(&self, id_map: &HashMap<SiteID, Entity>) -> Result<LiftProperties, SiteID> {
         let initial_level = if let Some(l) = self.initial_level.0 {
-            Some(id_map.get(&l).map(|e| (*e).into()).ok_or(*l)?)
+            Some(id_map.get(&l).map(|e| (*e).into()).ok_or(l.0)?)
         } else {
             None
         };

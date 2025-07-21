@@ -16,13 +16,11 @@
 */
 
 use crate::*;
-#[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component};
+use bevy_ecs::prelude::{Bundle, Component};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct PixelsPerMeter(pub f32);
 
 impl Default for PixelsPerMeter {
@@ -48,8 +46,7 @@ pub struct Drawing {
     pub measurements: BTreeMap<SiteID, Measurement>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "bevy", derive(Bundle))]
+#[derive(Bundle, Serialize, Deserialize, Debug, Clone)]
 pub struct DrawingProperties {
     pub name: NameInSite,
     pub source: AssetSource,

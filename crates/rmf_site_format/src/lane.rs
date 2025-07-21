@@ -16,14 +16,11 @@
 */
 
 use crate::*;
-#[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component};
-use bevy_ecs::prelude::Entity;
+use bevy_ecs::prelude::{Bundle, Component, Entity};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Bundle))]
+#[derive(Bundle, Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Lane {
     /// The endpoints of the lane (start, end)
     pub anchors: Edge,
@@ -40,12 +37,10 @@ pub struct Lane {
     pub marker: LaneMarker,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct LaneMarker;
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 pub struct Motion {
     #[serde(default, skip_serializing_if = "OrientationConstraint::is_none")]
     pub orientation_constraint: OrientationConstraint,
@@ -55,8 +50,7 @@ pub struct Motion {
     pub dock: Option<Dock>,
 }
 
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Clone, Debug, Default)]
 pub struct RecallMotion {
     pub relative_yaw: Option<Angle>,
     pub absolute_yaw: Option<Angle>,
@@ -141,8 +135,7 @@ impl Default for OrientationConstraint {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum ReverseLane {
     Same,
     Disable,
@@ -172,8 +165,7 @@ impl Default for ReverseLane {
     }
 }
 
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Clone, Debug, Default)]
 pub struct RecallReverseLane {
     pub motion: Option<Motion>,
     pub previous: RecallMotion,

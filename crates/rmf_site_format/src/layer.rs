@@ -15,12 +15,10 @@
  *
 */
 
-#[cfg(feature = "bevy")]
-use bevy::prelude::Component;
+use bevy_ecs::prelude::Component;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub enum LayerVisibility {
     /// The layer is fully opaque. This is the default for floors when no drawing is
     /// present.
@@ -111,8 +109,7 @@ impl VisibilityCycle for Option<LayerVisibility> {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub struct GlobalFloorVisibility {
     /// The global visibility that will be applied to all floors when a drawing
     /// is not present on the level
@@ -165,8 +162,7 @@ fn default_floor_general_visibility() -> LayerVisibility {
     LayerVisibility::Alpha(DEFAULT_FLOOR_SEMI_TRANSPARENCY)
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub struct GlobalDrawingVisibility {
     /// The global visibility that will be applied to the bottom-most drawings
     /// in the ranking.
@@ -244,9 +240,8 @@ fn is_default_bottom_drawing_count(value: &usize) -> bool {
     *value == 1
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 #[serde(transparent)]
-#[cfg_attr(feature = "bevy", derive(Component))]
 pub struct PreferredSemiTransparency(pub f32);
 
 impl PreferredSemiTransparency {

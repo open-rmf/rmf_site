@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "bevy")]
-use bevy::prelude::*;
+use bevy_ecs::prelude::Component;
 
 /// Geographic Offset for the
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default)]
@@ -16,8 +15,7 @@ pub struct GeographicOffset {
     pub visible: bool,
 }
 
-#[cfg_attr(feature = "bevy", derive(Component))]
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default)]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, Copy, Default)]
 #[serde(transparent)]
 pub struct GeographicComponent(pub Option<GeographicOffset>);
 

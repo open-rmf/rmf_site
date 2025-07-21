@@ -16,12 +16,10 @@
 */
 
 use crate::*;
-#[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component};
+use bevy_ecs::prelude::{Bundle, Component};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "bevy", derive(Bundle))]
+#[derive(Bundle, Serialize, Deserialize, Debug, Clone)]
 pub struct PhysicalCamera {
     pub name: NameInSite,
     pub pose: Pose,
@@ -30,8 +28,7 @@ pub struct PhysicalCamera {
     pub previewable: PreviewableMarker,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Serialize, Deserialize, Debug, Clone)]
 pub struct PhysicalCameraProperties {
     pub width: u32,
     pub height: u32,

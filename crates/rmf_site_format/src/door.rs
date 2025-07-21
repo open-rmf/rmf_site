@@ -16,15 +16,13 @@
 */
 
 use crate::*;
-#[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Entity};
+use bevy_ecs::prelude::{Bundle, Component, Entity};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 pub const DEFAULT_DOOR_THICKNESS: f32 = 0.05;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "bevy", derive(Bundle))]
+#[derive(Bundle, Serialize, Deserialize, Debug, Clone)]
 pub struct Door {
     /// (left_anchor, right_anchor)
     pub anchors: Edge,
@@ -37,8 +35,7 @@ pub struct Door {
     pub marker: DoorMarker,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum DoorType {
     SingleSliding(SingleSlidingDoor),
     DoubleSliding(DoubleSlidingDoor),
@@ -296,12 +293,10 @@ impl Swing {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Clone, Copy, Debug, Default)]
 pub struct DoorMarker;
 
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Clone, Debug, Default)]
 pub struct RecallDoorType {
     pub single_sliding: Option<DoorType>,
     pub double_sliding: Option<DoorType>,

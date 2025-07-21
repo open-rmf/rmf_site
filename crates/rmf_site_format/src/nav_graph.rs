@@ -17,7 +17,8 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity};
+use bevy::prelude::{Deref, DerefMut};
+use bevy_ecs::prelude::{Bundle, Component, Entity};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, HashMap};
 
@@ -32,8 +33,7 @@ pub const DEFAULT_NAV_GRAPH_COLORS: [[f32; 3]; 8] = [
     [0.7, 0.5, 0.1],
 ];
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "bevy", derive(Bundle))]
+#[derive(Bundle, Serialize, Deserialize, Debug, Clone)]
 pub struct NavGraph {
     pub name: NameInSite,
     pub color: DisplayColor,
@@ -41,8 +41,7 @@ pub struct NavGraph {
     pub marker: NavGraphMarker,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct NavGraphMarker;
 
 impl Default for NavGraph {
@@ -55,15 +54,14 @@ impl Default for NavGraph {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Component, Serialize, Deserialize, Debug, Clone)]
 #[serde(transparent)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+#[cfg_attr(feature = "bevy", derive(Deref, DerefMut))]
 pub struct DisplayColor(pub [f32; 3]);
 
 /// This component is used by graph elements such as [`Lane`] and [`Location`]
 /// to indicate what graphs they can be associated with.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum AssociatedGraphs {
     All,
     Only(BTreeSet<SiteID>),
@@ -132,8 +130,7 @@ impl AssociatedGraphs {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Clone, Debug, PartialEq, Eq)]
 pub struct RecallAssociatedGraphs {
     pub only: Option<BTreeSet<SiteID>>,
     pub all_except: Option<BTreeSet<SiteID>>,

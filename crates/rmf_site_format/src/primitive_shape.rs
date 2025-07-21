@@ -17,12 +17,13 @@
 use crate::Recall;
 
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Component, Reflect, ReflectComponent};
+use bevy::prelude::{Reflect, ReflectComponent};
+use bevy_ecs::prelude::Component;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub enum PrimitiveShape {
     Box { size: [f32; 3] },
@@ -51,8 +52,7 @@ impl PrimitiveShape {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct RecallPrimitiveShape {
     pub box_size: Option<[f32; 3]>,
     pub cylinder_radius: Option<f32>,

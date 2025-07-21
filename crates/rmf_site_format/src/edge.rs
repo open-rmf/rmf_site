@@ -16,15 +16,12 @@
 */
 
 use crate::{Side, SiteID};
-#[cfg(feature = "bevy")]
-use bevy::prelude::Component;
-use bevy_ecs::prelude::Entity;
+use bevy_ecs::prelude::{Component, Entity};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(transparent)]
-#[cfg_attr(feature = "bevy", derive(Component))]
 pub struct Edge([SiteID; 2]);
 
 impl Edge {

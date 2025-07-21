@@ -17,7 +17,8 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity};
+use bevy::prelude::{Deref, DerefMut};
+use bevy_ecs::prelude::{Bundle, Component, Entity};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
@@ -27,8 +28,7 @@ use uuid::Uuid;
 
 pub use ron::ser::PrettyConfig as Style;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "bevy", derive(Bundle))]
+#[derive(Bundle, Serialize, Deserialize, Debug, Clone)]
 pub struct SiteProperties {
     pub name: NameOfSite,
     #[serde(skip_serializing_if = "GeographicComponent::is_none")]
@@ -40,8 +40,8 @@ pub struct SiteProperties {
     pub filtered_issue_kinds: FilteredIssueKinds,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Deref, DerefMut))]
 pub struct FilteredIssues(pub BTreeSet<IssueKey>);
 
 // TODO(luca) It seems just deriving default results in compile errors
@@ -73,8 +73,8 @@ impl FilteredIssues {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Deref, DerefMut))]
 pub struct FilteredIssueKinds(pub BTreeSet<Uuid>);
 
 impl FilteredIssueKinds {
@@ -152,9 +152,9 @@ pub struct Site {
     pub tasks: BTreeMap<SiteID, Task>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(transparent)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+#[cfg_attr(feature = "bevy", derive(Deref, DerefMut))]
 pub struct NameOfSite(pub String);
 
 fn default_style_config() -> Style {

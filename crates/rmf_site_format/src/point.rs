@@ -17,14 +17,14 @@
 
 use crate::SiteID;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Component, Deref, DerefMut};
-use bevy_ecs::prelude::Entity;
+use bevy::prelude::{Deref, DerefMut};
+use bevy_ecs::prelude::{Component, Entity};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 #[serde(transparent)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+#[cfg_attr(feature = "bevy", derive(Deref, DerefMut))]
 pub struct Point(pub SiteID);
 
 impl From<SiteID> for Point {

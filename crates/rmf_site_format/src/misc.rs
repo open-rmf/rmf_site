@@ -17,7 +17,7 @@
 
 #[cfg(feature = "bevy")]
 use bevy::prelude::*;
-use bevy_ecs::prelude::Entity;
+use bevy_ecs::prelude::{Component, Entity};
 use glam::{Quat, Vec2, Vec3};
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Borrow;
@@ -149,8 +149,8 @@ impl RectFace {
     }
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Clone, Copy, Debug)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut, Reflect))]
+#[derive(Component, Serialize, Deserialize, PartialEq, Clone, Copy, Debug)]
+#[cfg_attr(feature = "bevy", derive(Deref, DerefMut, Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct Scale(pub Vec3);
 
@@ -336,8 +336,8 @@ impl From<Quat> for Rotation {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct Pose {
     pub trans: [f32; 3],
@@ -438,9 +438,9 @@ impl From<Transform> for Pose {
 /// The unique name of the site element within its site.
 /// NOTE: We call this `NameInSite` instead of just `Name` because `Name`
 /// conflicts with another `Name` defined in `bevy::prelude`.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(transparent)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut, Reflect))]
+#[cfg_attr(feature = "bevy", derive(Deref, DerefMut, Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct NameInSite(pub String);
 
@@ -450,9 +450,9 @@ impl Default for NameInSite {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(transparent)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut, Reflect))]
+#[cfg_attr(feature = "bevy", derive(Deref, DerefMut, Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct IsStatic(pub bool);
 
@@ -463,8 +463,7 @@ impl Default for IsStatic {
 }
 
 /// Marker component for previewable entities
-#[derive(Clone, Copy, Debug, Default)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Clone, Copy, Debug, Default)]
 pub struct PreviewableMarker;
 
 /// A wrapper over Entity that serializes / deserializes as a u32 of its index
@@ -614,26 +613,24 @@ pub struct Parented<T> {
 /// saved to file. We will filter out these elements while assigning SiteIDs,
 /// and that will prevent them from being included while collecting elements
 /// into the Site data structure.
-#[derive(Debug, Clone, Copy)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Debug, Clone, Copy)]
 pub struct Pending;
 
 /// The Original component indicates that an element is being modified but not
 /// yet in a state where it can be correctly saved. We should save the original
 /// value instead of the apparent current value.
-#[derive(Debug, Clone, Copy)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+#[derive(Component, Debug, Clone, Copy)]
+#[cfg_attr(feature = "bevy", derive(Deref, DerefMut))]
 pub struct Original<T>(pub T);
 
 /// Marks that an entity represents a group
-#[derive(Clone, Copy, Debug, Default)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Clone, Copy, Debug, Default)]
 pub struct Group;
 
 /// Affiliates an entity with a group.
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(transparent)]
-#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct Affiliation(pub Option<SiteID>);
 
 impl From<SiteID> for Affiliation {
