@@ -226,7 +226,7 @@ pub fn handle_compute_negotiation_complete(
 pub fn start_compute_negotiation(
     mut commands: Commands,
     locations: Query<(Entity, &NameInSite, &Point<Entity>), With<LocationTags>>,
-    anchors: Query<(Entity, &Anchor, &Transform)>,
+    anchors: Query<(Entity, &Anchor, &GlobalTransform)>,
     negotiation_request: EventReader<NegotiationRequest>,
     negotiation_params: Res<NegotiationParams>,
     mut negotiation_debug_data: ResMut<NegotiationDebugData>,
@@ -314,12 +314,13 @@ pub fn start_compute_negotiation(
                             warn!("Unable to get robot's collision model");
                             continue;
                         };
+                        let goal_pos = goal_transform.translation();
                         let agent = Agent {
                             start: to_cell(robot_pose.trans[0], robot_pose.trans[1], cell_size),
                             yaw: f64::from(robot_pose.rot.yaw().radians()),
                             goal: to_cell(
-                                goal_transform.translation.x,
-                                goal_transform.translation.y,
+                                goal_pos.x,
+                                goal_pos.y,
                                 cell_size,
                             ),
                             radius: f64::from(circle_collision.radius),
