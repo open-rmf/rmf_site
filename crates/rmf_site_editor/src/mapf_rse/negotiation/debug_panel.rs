@@ -37,10 +37,8 @@ impl Plugin for NegotiationDebugPlugin {
 
 #[derive(SystemParam)]
 pub struct NegotiationDebugWidget<'w, 's> {
-    commands: Commands<'w, 's>,
     negotiation_task: Query<'w, 's, &'static NegotiationTask>,
     negotiation_debug_data: ResMut<'w, NegotiationDebugData>,
-    negotiation_params: ResMut<'w, NegotiationParams>,
 }
 
 fn negotiation_debug_panel(In(input): In<PanelWidgetInput>, world: &mut World) {

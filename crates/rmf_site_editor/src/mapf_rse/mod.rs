@@ -24,9 +24,6 @@ pub use config_widget::*;
 pub mod simulation;
 pub use simulation::*;
 
-pub mod misc;
-pub use misc::*;
-
 use rmf_site_egui::properties_panel::PropertiesTilePlugin;
 
 use bevy::prelude::*;
@@ -39,8 +36,7 @@ impl Plugin for MapfRsePlugin {
         app.init_state::<DebugMode>()
             .init_resource::<SimulationConfig>()
             .add_plugins(NegotiationPlugin)
-            .add_plugins(PropertiesTilePlugin::<MapfConfigWidget>::new())
-            .add_systems(Update, load_tiny_robot);
+            .add_plugins(PropertiesTilePlugin::<MapfConfigWidget>::new());
     }
 }
 
