@@ -17,8 +17,8 @@
 
 use crate::{
     site::{
-        AddModifier, Affiliation, ChangeCurrentScenario, Delete, Element, Inclusion, LastSetValue,
-        Modifier, Pending, Property, ScenarioModifiers, Task, TaskKind, TaskParams,
+        Affiliation, ChangeCurrentScenario, Delete, Element, Inclusion, LastSetValue, Modifier,
+        Pending, Property, ScenarioModifiers, Task, TaskKind, TaskParams, UpdateModifier,
     },
     widgets::tasks::{EditMode, EditModeEvent, EditTask},
     CurrentWorkspace,
@@ -67,41 +67,28 @@ impl Property for TaskParams {
                 break;
             }
         }
-        let mut new_inclusion_modifiers = Vec::<(Modifier<Inclusion>, Entity)>::new();
+        let mut root_scenarios = HashSet::<Entity>::new();
         for (scenario_entity, _, parent_scenario) in scenarios.iter() {
             if parent_scenario.0.is_some() || scenario_entity == current_root_entity {
                 continue;
             }
-            new_inclusion_modifiers.push((
-                Modifier::<Inclusion>::new(Inclusion::Hidden),
-                scenario_entity,
-            ));
+            root_scenarios.insert(scenario_entity);
         }
-
-        // Spawn all new modifier entities
-        let mut new_modifier_entities = new_inclusion_modifiers
-            .iter()
-            .map(|(modifier, scenario)| (world.spawn(modifier.clone()).id(), *scenario))
-            .collect::<Vec<(Entity, Entity)>>();
-        let task_modifier = Self::create_modifier(for_element, in_scenario, value, world);
-        if let Some(task_modifier) = task_modifier {
-            new_modifier_entities.push((
-                world
-                    .spawn(task_modifier.clone())
-                    // Mark all newly spawned instances as included
-                    .insert(Modifier::<Inclusion>::new(Inclusion::Included))
-                    .id(),
-                in_scenario,
-            ))
-        }
-
-        for (modifier_entity, scenario_entity) in new_modifier_entities.iter() {
-            world.trigger(AddModifier::new(
+        for root in root_scenarios.iter() {
+            world.trigger(UpdateModifier::modify(
+                *root,
                 for_element,
-                *modifier_entity,
-                *scenario_entity,
+                Inclusion::Hidden,
             ));
         }
+
+        // Mark all newly spawned tasks in this scenario as included
+        world.trigger(UpdateModifier::modify(in_scenario, for_element, value));
+        world.trigger(UpdateModifier::modify(
+            in_scenario,
+            for_element,
+            Inclusion::Included,
+        ));
     }
 
     fn insert_on_new_scenario(in_scenario: Entity, world: &mut World) {
@@ -121,25 +108,16 @@ impl Property for TaskParams {
             }
         }
 
-        let mut new_modifiers = Vec::<(Entity, Entity)>::new();
         for target in target_tasks.iter() {
             // Mark all task modifiers as Hidden
-            new_modifiers.push((
+            info!("--- test 3");
+            world.trigger(UpdateModifier::modify(
+                in_scenario,
                 *target,
-                world
-                    .commands()
-                    .spawn(Modifier::<Inclusion>::new(Inclusion::Hidden))
-                    .id(),
+                Inclusion::Hidden,
             ));
         }
 
-        for (task_entity, modifier_entity) in new_modifiers.iter() {
-            world.trigger(AddModifier::new(
-                *task_entity,
-                *modifier_entity,
-                in_scenario,
-            ));
-        }
         let mut events_state: SystemState<EventWriter<ChangeCurrentScenario>> =
             SystemState::new(world);
         let mut change_current_scenario = events_state.get_mut(world);

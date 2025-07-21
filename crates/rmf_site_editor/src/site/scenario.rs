@@ -17,9 +17,9 @@
 
 use crate::{
     site::{
-        AddModifier, Affiliation, CurrentScenario, Delete, Dependents, Element, GetModifier, Group,
-        Inclusion, InstanceMarker, IssueKey, LastSetValue, ModelMarker, Modifier, NameInSite,
-        Pending, PendingModel, Pose, Property, ScenarioBundle, ScenarioModifiers, UpdateModifier,
+        Affiliation, CurrentScenario, Delete, Dependents, Element, GetModifier, Group, Inclusion,
+        InstanceMarker, IssueKey, LastSetValue, ModelMarker, Modifier, NameInSite, Pending,
+        PendingModel, Pose, Property, ScenarioBundle, ScenarioModifiers, UpdateModifier,
         UpdateModifierEvent, UpdateProperty,
     },
     CurrentWorkspace, Issue, ValidateWorkspace,
@@ -67,41 +67,28 @@ impl Property for Pose {
                 break;
             }
         }
-        let mut new_visibility_modifiers = Vec::<(Modifier<Visibility>, Entity)>::new();
+        let mut root_scenarios = HashSet::<Entity>::new();
         for (scenario_entity, _, parent_scenario) in scenarios.iter() {
             if parent_scenario.0.is_some() || scenario_entity == current_root_entity {
                 continue;
             }
-            new_visibility_modifiers.push((
-                Modifier::<Visibility>::new(Visibility::Hidden),
-                scenario_entity,
-            ));
+            root_scenarios.insert(scenario_entity);
         }
-
-        // Spawn all new modifier entities
-        let mut new_modifier_entities = new_visibility_modifiers
-            .iter()
-            .map(|(modifier, scenario)| (world.spawn(modifier.clone()).id(), *scenario))
-            .collect::<Vec<(Entity, Entity)>>();
-        let pose_modifier = Self::create_modifier(for_element, in_scenario, value, world);
-        if let Some(pose_modifier) = pose_modifier {
-            new_modifier_entities.push((
-                world
-                    .spawn(pose_modifier)
-                    // Mark all newly spawned instances as visible
-                    .insert(Modifier::<Visibility>::new(Visibility::Inherited))
-                    .id(),
-                in_scenario,
-            ));
-        }
-
-        for (modifier_entity, scenario_entity) in new_modifier_entities.iter() {
-            world.trigger(AddModifier::new(
+        for root in root_scenarios.iter() {
+            world.trigger(UpdateModifier::modify(
+                *root,
                 for_element,
-                *modifier_entity,
-                *scenario_entity,
+                Visibility::Hidden,
             ));
         }
+
+        // Mark all newly spawned instances in this scenario as visible
+        world.trigger(UpdateModifier::modify(in_scenario, for_element, value));
+        world.trigger(UpdateModifier::modify(
+            in_scenario,
+            for_element,
+            Visibility::Inherited,
+        ));
     }
 
     fn insert_on_new_scenario(_in_scenario: Entity, _world: &mut World) {
@@ -142,23 +129,12 @@ impl Property for Visibility {
             }
         }
 
-        let mut new_modifiers = Vec::<(Entity, Entity)>::new();
         for target in target_instances.iter() {
             // Mark all visibility modifiers as Hidden
-            new_modifiers.push((
-                *target,
-                world
-                    .commands()
-                    .spawn(Modifier::<Visibility>::new(Visibility::Hidden))
-                    .id(),
-            ));
-        }
-
-        for (instance_entity, modifier_entity) in new_modifiers.iter() {
-            world.trigger(AddModifier::new(
-                *instance_entity,
-                *modifier_entity,
+            world.trigger(UpdateModifier::modify(
                 in_scenario,
+                *target,
+                Visibility::Hidden,
             ));
         }
 

@@ -19,7 +19,6 @@ use crate::{
     site::{
         count_scenarios_with_visibility, Affiliation, CurrentScenario, Delete, GetModifier, Group,
         Members, ModelMarker, Modifier, NameInSite, ScenarioModifiers, UpdateModifier,
-        UpdateModifierEvent,
     },
     widgets::{prelude::*, SelectorWidget},
     Icons,

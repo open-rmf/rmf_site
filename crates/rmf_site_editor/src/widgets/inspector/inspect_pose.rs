@@ -16,10 +16,7 @@
 */
 
 use crate::{
-    site::{
-        Affiliation, Change, CurrentScenario, Modifier, ScenarioModifiers, UpdateModifier,
-        UpdateModifierEvent,
-    },
+    site::{Affiliation, Change, CurrentScenario, Modifier, ScenarioModifiers, UpdateModifier},
     widgets::{inspector::InspectAngle, prelude::*, Inspect},
 };
 use bevy::{math::Quat, prelude::*};

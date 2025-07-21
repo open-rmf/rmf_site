@@ -18,7 +18,7 @@
 use crate::{
     site::{
         Affiliation, ChangeCurrentScenario, CurrentScenario, Inclusion, IssueKey, NameInSite,
-        Property, ScenarioModifiers, StandardProperty, Trashcan, UpdateProperty,
+        Property, ScenarioModifiers, StandardProperty, Trashcan,
     },
     Issue, ValidateWorkspace,
 };
@@ -39,34 +39,6 @@ impl<T: Property> Modifier<T> {
 }
 
 impl StandardProperty for Inclusion {}
-
-#[derive(Clone, Debug, Event)]
-pub struct AddModifier {
-    for_element: Entity,
-    modifier: Entity,
-    in_scenario: Entity,
-    to_root: bool,
-}
-
-impl AddModifier {
-    pub fn new(for_element: Entity, modifier: Entity, in_scenario: Entity) -> Self {
-        Self {
-            for_element,
-            modifier,
-            in_scenario,
-            to_root: false,
-        }
-    }
-
-    pub fn new_to_root(for_element: Entity, modifier: Entity, in_scenario: Entity) -> Self {
-        Self {
-            for_element,
-            modifier,
-            in_scenario,
-            to_root: true,
-        }
-    }
-}
 
 #[derive(Clone, Debug, Event)]
 pub struct RemoveModifier {
@@ -91,11 +63,11 @@ pub enum UpdateModifier<T: Property> {
 
 impl<T: Property> UpdateModifier<T> {
     pub fn modify(scenario: Entity, element: Entity, value: T) -> UpdateModifierEvent<T> {
-        UpdateModifierEvent::new(scenario, element, Self::Modify(value))
+        UpdateModifierEvent::<T>::new(scenario, element, Self::Modify(value))
     }
 
     pub fn reset(scenario: Entity, element: Entity) -> UpdateModifierEvent<T> {
-        UpdateModifierEvent::new(scenario, element, Self::Reset)
+        UpdateModifierEvent::<T>::new(scenario, element, Self::Reset)
     }
 }
 
@@ -173,55 +145,6 @@ impl<'w, 's, T: Component<Mutability = Mutable> + Clone + Default> GetModifier<'
         }
         modifier
     }
-}
-
-/// Handles additions of scenario modifiers
-pub fn add_scenario_modifiers(
-    trigger: Trigger<AddModifier>,
-    mut commands: Commands,
-    mut scenarios: Query<(&mut ScenarioModifiers<Entity>, &Affiliation<Entity>)>,
-) {
-    let event = trigger.event();
-    let scenario_entity = if event.to_root {
-        let mut target_scenario = event.in_scenario;
-        let mut root_scenario: Option<Entity> = None;
-        while root_scenario.is_none() {
-            let Ok((_, parent_scenario)) = scenarios.get(target_scenario) else {
-                break;
-            };
-            if let Some(parent_entity) = parent_scenario.0 {
-                target_scenario = parent_entity;
-            } else {
-                root_scenario = Some(target_scenario);
-                break;
-            }
-        }
-        if let Some(root_scenario_entity) = root_scenario {
-            root_scenario_entity
-        } else {
-            error!("No root scenario found for the current scenario tree!");
-            return;
-        }
-    } else {
-        event.in_scenario
-    };
-
-    let Ok((mut scenario_modifiers, _)) = scenarios.get_mut(scenario_entity) else {
-        return;
-    };
-    // If a modifier entity already exists, we ignore and despawn incoming modifier
-    // entity.
-    if scenario_modifiers.contains_key(&event.for_element) {
-        commands.entity(event.modifier).despawn();
-    } else {
-        commands
-            .entity(event.modifier)
-            .insert(Affiliation(Some(event.for_element)))
-            .insert(ChildOf(scenario_entity));
-        scenario_modifiers.insert(event.for_element, event.modifier);
-    }
-
-    commands.trigger(UpdateProperty::new(event.for_element, event.in_scenario));
 }
 
 /// Handles removals of scenario modifiers
