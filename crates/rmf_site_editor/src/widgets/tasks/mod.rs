@@ -369,10 +369,10 @@ fn show_task(
                                 .on_hover_text("Task is hidden in this scenario")
                                 .clicked()
                             {
-                                commands.trigger(UpdateModifierEvent::<Inclusion>::new(
+                                commands.trigger(UpdateModifier::modify(
                                     scenario,
                                     task_entity,
-                                    UpdateModifier::Modify(Inclusion::Included),
+                                    Inclusion::Included,
                                 ));
                             }
                         } else {
@@ -387,17 +387,16 @@ fn show_task(
                                     .is_ok_and(|(_, a)| a.0.is_some())
                                 {
                                     // If parent scenario exists, clicking this button toggles to ResetInclusion
-                                    commands.trigger(UpdateModifierEvent::<Inclusion>::new(
+                                    commands.trigger(UpdateModifier::<Inclusion>::reset(
                                         scenario,
                                         task_entity,
-                                        UpdateModifier::Reset,
                                     ));
                                 } else {
                                     // Otherwise, toggle to Hidden
-                                    commands.trigger(UpdateModifierEvent::<Inclusion>::new(
+                                    commands.trigger(UpdateModifier::modify(
                                         scenario,
                                         task_entity,
-                                        UpdateModifier::Modify(Inclusion::Hidden),
+                                        Inclusion::Hidden,
                                     ));
                                 }
                             }
@@ -409,10 +408,10 @@ fn show_task(
                             .on_hover_text("Task inclusion is inherited in this scenario")
                             .clicked()
                         {
-                            commands.trigger(UpdateModifierEvent::<Inclusion>::new(
+                            commands.trigger(UpdateModifier::modify(
                                 scenario,
                                 task_entity,
-                                UpdateModifier::Modify(Inclusion::Hidden),
+                                Inclusion::Hidden,
                             ));
                         }
                     }
@@ -538,10 +537,9 @@ fn show_task(
                                         )
                                         .clicked()
                                     {
-                                        commands.trigger(UpdateModifierEvent::<TaskParams>::new(
+                                        commands.trigger(UpdateModifier::<TaskParams>::reset(
                                             scenario,
                                             task_entity,
-                                            UpdateModifier::Reset,
                                         ));
                                     }
                                     ui.end_row();
@@ -800,10 +798,10 @@ fn edit_task(
                     }
 
                     if new_task_params != *task_params {
-                        commands.trigger(UpdateModifierEvent::<TaskParams>::new(
+                        commands.trigger(UpdateModifier::modify(
                             scenario,
                             task_entity,
-                            UpdateModifier::Modify(new_task_params),
+                            new_task_params,
                         ));
                     }
                 });

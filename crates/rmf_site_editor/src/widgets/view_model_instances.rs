@@ -204,10 +204,10 @@ fn show_model_instance(
                     .on_hover_text("Model instance is hidden in this scenario")
                     .clicked()
                 {
-                    commands.trigger(UpdateModifierEvent::<Visibility>::new(
+                    commands.trigger(UpdateModifier::modify(
                         scenario,
                         instance,
-                        UpdateModifier::Modify(Visibility::Inherited),
+                        Visibility::Inherited,
                     ));
                 }
             } else {
@@ -222,17 +222,13 @@ fn show_model_instance(
                         .is_ok_and(|(_, a)| a.0.is_some())
                     {
                         // If parent scenario exists, clicking this button toggles to ResetVisibility
-                        commands.trigger(UpdateModifierEvent::<Visibility>::new(
-                            scenario,
-                            instance,
-                            UpdateModifier::Reset,
-                        ));
+                        commands.trigger(UpdateModifier::<Visibility>::reset(scenario, instance));
                     } else {
                         // Otherwise, toggle to Hidden
-                        commands.trigger(UpdateModifierEvent::<Visibility>::new(
+                        commands.trigger(UpdateModifier::modify(
                             scenario,
                             instance,
-                            UpdateModifier::Modify(Visibility::Hidden),
+                            Visibility::Hidden,
                         ));
                     }
                 }
@@ -244,10 +240,10 @@ fn show_model_instance(
                 .on_hover_text("Model instance visibility is inherited in this scenario")
                 .clicked()
             {
-                commands.trigger(UpdateModifierEvent::<Visibility>::new(
+                commands.trigger(UpdateModifier::modify(
                     scenario,
                     instance,
-                    UpdateModifier::Modify(Visibility::Hidden),
+                    Visibility::Hidden,
                 ));
             }
         }

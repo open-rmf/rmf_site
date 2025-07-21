@@ -89,6 +89,16 @@ pub enum UpdateModifier<T: Property> {
     Reset,
 }
 
+impl<T: Property> UpdateModifier<T> {
+    pub fn modify(scenario: Entity, element: Entity, value: T) -> UpdateModifierEvent<T> {
+        UpdateModifierEvent::new(scenario, element, Self::Modify(value))
+    }
+
+    pub fn reset(scenario: Entity, element: Entity) -> UpdateModifierEvent<T> {
+        UpdateModifierEvent::new(scenario, element, Self::Reset)
+    }
+}
+
 #[derive(Clone, Debug, Event, Copy)]
 pub struct UpdateModifierEvent<T: Property> {
     pub scenario: Entity,

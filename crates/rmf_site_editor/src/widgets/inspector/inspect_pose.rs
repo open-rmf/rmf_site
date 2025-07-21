@@ -77,11 +77,9 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPose<'w, 's> {
                         .on_hover_text("Reset to parent scenario pose")
                         .clicked()
                     {
-                        params.commands.trigger(UpdateModifierEvent::<Pose>::new(
-                            scenario_entity,
-                            selection,
-                            UpdateModifier::Reset,
-                        ));
+                        params
+                            .commands
+                            .trigger(UpdateModifier::<Pose>::reset(scenario_entity, selection));
                     }
                 }
             }
