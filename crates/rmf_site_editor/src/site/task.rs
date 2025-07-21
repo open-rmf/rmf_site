@@ -67,7 +67,7 @@ impl Property for TaskParams {
 
         if let Some((mut task_modifier, _)) = scenario_modifiers
             .get(&for_element)
-            .and_then(|e| task_modifiers.get_mut(**e).ok())
+            .and_then(|e| task_modifiers.get_mut(*e).ok())
         {
             // If a task modifier entity already exists for this scenario, update it
             **task_modifier = value.clone()
@@ -256,8 +256,8 @@ pub fn handle_task_modifier_updates(
         };
 
         let modifier_entity = scenario_modifiers.get(&update.element);
-        let inclusion_modifier = modifier_entity.and_then(|e| inclusion_modifiers.get_mut(**e).ok());
-        let params_modifier = modifier_entity.and_then(|e| params_modifiers.get_mut(**e).ok());
+        let inclusion_modifier = modifier_entity.and_then(|e| inclusion_modifiers.get_mut(*e).ok());
+        let params_modifier = modifier_entity.and_then(|e| params_modifiers.get_mut(*e).ok());
 
         match &update.update {
             UpdateTaskModifier::Include | UpdateTaskModifier::Hide => {
@@ -270,7 +270,7 @@ pub fn handle_task_modifier_updates(
                     **inclusion_modifier = new_inclusion;
                 } else if let Some(modifier_entity) = modifier_entity {
                     commands
-                        .entity(**modifier_entity)
+                        .entity(*modifier_entity)
                         .insert(Modifier::<Inclusion>::new(new_inclusion));
                 } else {
                     let modifier_entity = commands
@@ -291,7 +291,7 @@ pub fn handle_task_modifier_updates(
                         .insert(LastSetValue::<TaskParams>::new(new_params.clone()));
                 } else if let Some(modifier_entity) = modifier_entity {
                     commands
-                        .entity(**modifier_entity)
+                        .entity(*modifier_entity)
                         .insert(Modifier::<TaskParams>::new(new_params.clone()));
                 } else {
                     let modifier_entity = commands
@@ -311,12 +311,12 @@ pub fn handle_task_modifier_updates(
                         match update.update {
                             UpdateTaskModifier::ResetParams => {
                                 commands
-                                    .entity(**modifier_entity)
+                                    .entity(*modifier_entity)
                                     .remove::<Modifier<TaskParams>>();
                             }
                             UpdateTaskModifier::ResetInclusion => {
                                 commands
-                                    .entity(**modifier_entity)
+                                    .entity(*modifier_entity)
                                     .remove::<Modifier<Inclusion>>();
                             }
                             _ => continue,

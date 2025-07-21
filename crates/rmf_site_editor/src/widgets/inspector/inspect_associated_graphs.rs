@@ -102,7 +102,7 @@ impl<'w, 's> InspectAssociatedGraphs<'w, 's> {
                 if let Some((first, _)) = unused_graphs.iter().next() {
                     ui.horizontal(|ui| {
                         let add_graph = ui.button("Add").clicked();
-                        let mut choice = recall.consider.unwrap_or(*first);
+                        let mut choice = recall.consider.unwrap_or((*first).into());
                         let choice_text = unused_graphs
                             .get(&choice)
                             .map(|n| n.0.clone())
@@ -111,7 +111,7 @@ impl<'w, 's> InspectAssociatedGraphs<'w, 's> {
                             .selected_text(choice_text)
                             .show_ui(ui, |ui| {
                                 for (e, name) in unused_graphs.iter() {
-                                    ui.selectable_value(&mut choice, *e, &name.0);
+                                    ui.selectable_value(&mut choice, (*e).into(), &name.0);
                                 }
                             });
 

@@ -563,7 +563,7 @@ impl<'w, 's> WidgetSystem<Tile> for ModelCreation<'w, 's> {
                         if let Some(description) = params.pending.selected {
                             let instance = ModelInstance {
                                 name: NameInSite(new_instance_name),
-                                description: Affiliation(Some(description)),
+                                description: Affiliation(Some(description.into())),
                                 ..Default::default()
                             };
                             params.object_placement.place_object_2d(instance);

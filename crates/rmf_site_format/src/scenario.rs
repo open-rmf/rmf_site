@@ -54,7 +54,7 @@ pub struct TaskModifier {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
-pub struct ScenarioModifiers(pub HashMap<SiteID, SiteID>);
+pub struct ScenarioModifiers(pub HashMap<Entity, Entity>);
 
 impl Default for ScenarioModifiers {
     fn default() -> Self {

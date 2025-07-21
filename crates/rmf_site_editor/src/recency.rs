@@ -16,7 +16,6 @@
 */
 
 use bevy::{ecs::hierarchy::ChildOf, prelude::*};
-use rmf_site_format::SiteID;
 use std::{
     collections::{HashMap, HashSet},
     marker::PhantomData,
@@ -53,14 +52,6 @@ impl<T: Component> RecencyRanking<T> {
             entities,
             _ignore: default(),
         })
-    }
-
-    pub fn to_u32(&self, site_ids: &Query<&SiteID>) -> Vec<u32> {
-        self.entities
-            .iter()
-            .filter_map(|e| site_ids.get(*e).ok().copied())
-            .map(|s| s.0)
-            .collect()
     }
 }
 

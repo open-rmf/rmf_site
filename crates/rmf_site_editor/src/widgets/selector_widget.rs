@@ -25,21 +25,21 @@ use rmf_site_picking::{Hover, Select, Selection};
 
 /// A widget that can be used to select entities.
 #[derive(SystemParam)]
-pub struct SelectorWidget<'w, 's> {
+pub struct SelectorWidget<'w> {
     pub icons: Res<'w, Icons>,
     pub selection: Res<'w, Selection>,
     pub select: EventWriter<'w, Select>,
     pub hover: EventWriter<'w, Hover>,
 }
 
-impl<'w, 's> WidgetSystem<Entity, ()> for SelectorWidget<'w, 's> {
+impl<'w> WidgetSystem<Entity, ()> for SelectorWidget<'w> {
     fn show(entity: Entity, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) {
         let mut params = state.get_mut(world);
         params.show_widget(entity, ui);
     }
 }
 
-impl<'w, 's> SelectorWidget<'w, 's> {
+impl<'w> SelectorWidget<'w> {
     pub fn show_widget(&mut self, entity: Entity, ui: &mut Ui) {
         let is_selected = self.selection.0.is_some_and(|s| s == entity);
 
@@ -63,4 +63,4 @@ impl<'w, 's> SelectorWidget<'w, 's> {
     }
 }
 
-impl<'w, 's> ShareableWidget for SelectorWidget<'w, 's> {}
+impl<'w> ShareableWidget for SelectorWidget<'w> {}
