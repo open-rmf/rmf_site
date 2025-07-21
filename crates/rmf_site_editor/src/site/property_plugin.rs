@@ -291,10 +291,7 @@ fn update_changed_property<T: Property, E: Element>(
     };
 
     for (entity, new_value) in changed_values.iter() {
-        if new_value.is_changed()
-            && !new_value.is_added()
-            && changed_last_set_value.get(entity).is_err()
-        {
+        if new_value.is_changed() && changed_last_set_value.get(entity).is_err() {
             commands.trigger(UpdateModifier::modify_without_trigger(
                 scenario,
                 entity,

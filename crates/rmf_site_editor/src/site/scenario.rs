@@ -81,14 +81,6 @@ impl Property for Pose {
                 Visibility::Hidden,
             ));
         }
-
-        // Mark all newly spawned instances in this scenario as visible
-        world.trigger(UpdateModifier::modify(in_scenario, for_element, value));
-        world.trigger(UpdateModifier::modify(
-            in_scenario,
-            for_element,
-            Visibility::Inherited,
-        ));
     }
 
     fn insert_on_new_scenario(_in_scenario: Entity, _world: &mut World) {

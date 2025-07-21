@@ -81,14 +81,6 @@ impl Property for TaskParams {
                 Inclusion::Hidden,
             ));
         }
-
-        // Mark all newly spawned tasks in this scenario as included
-        world.trigger(UpdateModifier::modify(in_scenario, for_element, value));
-        world.trigger(UpdateModifier::modify(
-            in_scenario,
-            for_element,
-            Inclusion::Included,
-        ));
     }
 
     fn insert_on_new_scenario(in_scenario: Entity, world: &mut World) {
@@ -110,7 +102,6 @@ impl Property for TaskParams {
 
         for target in target_tasks.iter() {
             // Mark all task modifiers as Hidden
-            info!("--- test 3");
             world.trigger(UpdateModifier::modify(
                 in_scenario,
                 *target,
