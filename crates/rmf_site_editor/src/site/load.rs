@@ -544,56 +544,60 @@ fn generate_site_entities(
 
         // Spawn instance modifier entities
         for (instance_id, instance_modifier) in scenario_data.instances.iter() {
-            if let Some(instance_entity) = id_to_entity.get(&instance_id) {
-                let modifier_entity = commands
-                    .spawn(Affiliation(Some(*instance_entity)))
-                    .insert(ChildOf(scenario_entity))
-                    .id();
-                if let Some(pose) = instance_modifier.pose {
-                    commands
-                        .entity(modifier_entity)
-                        .insert(Modifier::<Pose>::new(pose));
-                }
-                if let Some(vis) = instance_modifier.visibility {
-                    let visibility = if vis {
-                        Visibility::Inherited
-                    } else {
-                        Visibility::Hidden
-                    };
-                    commands
-                        .entity(modifier_entity)
-                        .insert(Modifier::<Visibility>::new(visibility));
-                }
-                commands.trigger(AddModifier::new(
-                    *instance_entity,
-                    modifier_entity,
-                    scenario_entity,
-                ));
+            let instance_entity = id_to_entity
+                .get(instance_id)
+                .ok_or(*instance_id)
+                .for_site(site_id)?;
+            let modifier_entity = commands
+                .spawn(Affiliation(Some(*instance_entity)))
+                .insert(ChildOf(scenario_entity))
+                .id();
+            if let Some(pose) = instance_modifier.pose {
+                commands
+                    .entity(modifier_entity)
+                    .insert(Modifier::<Pose>::new(pose));
             }
+            if let Some(vis) = instance_modifier.visibility {
+                let visibility = if vis {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Hidden
+                };
+                commands
+                    .entity(modifier_entity)
+                    .insert(Modifier::<Visibility>::new(visibility));
+            }
+            commands.trigger(AddModifier::new(
+                *instance_entity,
+                modifier_entity,
+                scenario_entity,
+            ));
         }
         // Spawn task modifier entities
         for (task_id, task_modifier) in scenario_data.tasks.iter() {
-            if let Some(task_entity) = id_to_entity.get(&task_id) {
-                let modifier_entity = commands
-                    .spawn(Affiliation(Some(*task_entity)))
-                    .insert(ChildOf(scenario_entity))
-                    .id();
-                if let Some(inclusion) = task_modifier.inclusion {
-                    commands
-                        .entity(modifier_entity)
-                        .insert(Modifier::<Inclusion>::new(inclusion));
-                }
-                if let Some(params) = &task_modifier.params {
-                    commands
-                        .entity(modifier_entity)
-                        .insert(Modifier::<TaskParams>::new(params.clone()));
-                }
-                commands.trigger(AddModifier::new(
-                    *task_entity,
-                    modifier_entity,
-                    scenario_entity,
-                ));
+            let task_entity = id_to_entity
+                .get(task_id)
+                .ok_or(*task_id)
+                .for_site(site_id)?;
+            let modifier_entity = commands
+                .spawn(Affiliation(Some(*task_entity)))
+                .insert(ChildOf(scenario_entity))
+                .id();
+            if let Some(inclusion) = task_modifier.inclusion {
+                commands
+                    .entity(modifier_entity)
+                    .insert(Modifier::<Inclusion>::new(inclusion));
             }
+            if let Some(params) = &task_modifier.params {
+                commands
+                    .entity(modifier_entity)
+                    .insert(Modifier::<TaskParams>::new(params.clone()));
+            }
+            commands.trigger(AddModifier::new(
+                *task_entity,
+                modifier_entity,
+                scenario_entity,
+            ));
         }
     }
 
