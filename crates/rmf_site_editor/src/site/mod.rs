@@ -225,8 +225,6 @@ impl Plugin for SitePlugin {
         .add_event::<ChangeCurrentScenario>()
         .add_event::<CreateScenario>()
         .add_event::<RemoveScenario>()
-        .add_event::<AddModifier>()
-        .add_event::<RemoveModifier>()
         .add_event::<SaveSite>()
         .add_event::<ExportLights>()
         .add_event::<ConsiderAssociatedGraph>()
@@ -388,8 +386,7 @@ impl Plugin for SitePlugin {
                 add_fiducial_visuals,
                 update_level_visibility,
                 handle_remove_scenarios.before(update_current_scenario),
-                update_current_scenario.before(update_model_instance_poses),
-                update_model_instance_poses.before(handle_create_scenarios),
+                update_current_scenario.before(handle_create_scenarios),
                 handle_create_scenarios,
                 handle_task_edit,
             )
@@ -444,8 +441,6 @@ impl Plugin for SitePlugin {
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
         )
-        .add_observer(remove_scenario_modifiers)
-        .add_observer(add_scenario_modifiers)
         .add_observer(handle_on_level_change);
     }
 }

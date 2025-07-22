@@ -19,7 +19,6 @@ use crate::{
     site::{
         count_scenarios_with_visibility, Affiliation, CurrentScenario, Delete, GetModifier, Group,
         Members, ModelMarker, Modifier, NameInSite, ScenarioModifiers, UpdateModifier,
-        UpdateModifierEvent,
     },
     widgets::{prelude::*, SelectorWidget},
     Icons,
@@ -204,11 +203,7 @@ fn show_model_instance(
                     .on_hover_text("Model instance is hidden in this scenario")
                     .clicked()
                 {
-                    commands.trigger(UpdateModifierEvent::<Visibility>::new(
-                        scenario,
-                        instance,
-                        UpdateModifier::Modify(Visibility::Inherited),
-                    ));
+                    commands.entity(instance).insert(Visibility::Inherited);
                 }
             } else {
                 if ui
@@ -222,18 +217,10 @@ fn show_model_instance(
                         .is_ok_and(|(_, a)| a.0.is_some())
                     {
                         // If parent scenario exists, clicking this button toggles to ResetVisibility
-                        commands.trigger(UpdateModifierEvent::<Visibility>::new(
-                            scenario,
-                            instance,
-                            UpdateModifier::Reset,
-                        ));
+                        commands.trigger(UpdateModifier::<Visibility>::reset(scenario, instance));
                     } else {
                         // Otherwise, toggle to Hidden
-                        commands.trigger(UpdateModifierEvent::<Visibility>::new(
-                            scenario,
-                            instance,
-                            UpdateModifier::Modify(Visibility::Hidden),
-                        ));
+                        commands.entity(instance).insert(Visibility::Hidden);
                     }
                 }
             }
@@ -244,11 +231,7 @@ fn show_model_instance(
                 .on_hover_text("Model instance visibility is inherited in this scenario")
                 .clicked()
             {
-                commands.trigger(UpdateModifierEvent::<Visibility>::new(
-                    scenario,
-                    instance,
-                    UpdateModifier::Modify(Visibility::Hidden),
-                ));
+                commands.entity(instance).insert(Visibility::Hidden);
             }
         }
         // Delete instance from this site (all scenarios)

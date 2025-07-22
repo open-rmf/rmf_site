@@ -17,8 +17,7 @@
 
 use crate::{
     site::{
-        CurrentScenario, GetModifier, LevelElevation, Modifier, NameInSite, OnLevel,
-        UpdateModifier, UpdateModifierEvent,
+        CurrentScenario, GetModifier, LevelElevation, Modifier, NameInSite, OnLevel, UpdateModifier,
     },
     widgets::{prelude::*, Inspect},
 };
@@ -93,10 +92,9 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectLevel<'w, 's> {
             {
                 params
                     .commands
-                    .trigger(UpdateModifierEvent::<OnLevel<Entity>>::new(
+                    .trigger(UpdateModifier::<OnLevel<Entity>>::reset(
                         current_scenario_entity,
                         selection,
-                        UpdateModifier::Reset,
                     ));
             }
         }
@@ -104,11 +102,8 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectLevel<'w, 's> {
         if new_level_entity != selected_level_entity {
             params
                 .commands
-                .trigger(UpdateModifierEvent::<OnLevel<Entity>>::new(
-                    current_scenario_entity,
-                    selection,
-                    UpdateModifier::Modify(OnLevel(new_level_entity)),
-                ));
+                .entity(selection)
+                .insert(OnLevel(new_level_entity));
         }
     }
 }

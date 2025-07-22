@@ -16,10 +16,7 @@
 */
 
 use crate::{
-    site::{
-        Affiliation, Change, CurrentScenario, Modifier, ScenarioModifiers, UpdateModifier,
-        UpdateModifierEvent,
-    },
+    site::{Affiliation, Change, CurrentScenario, Modifier, ScenarioModifiers, UpdateModifier},
     widgets::{inspector::InspectAngle, prelude::*, Inspect},
 };
 use bevy::{math::Quat, prelude::*};
@@ -77,11 +74,9 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPose<'w, 's> {
                         .on_hover_text("Reset to parent scenario pose")
                         .clicked()
                     {
-                        params.commands.trigger(UpdateModifierEvent::<Pose>::new(
-                            scenario_entity,
-                            selection,
-                            UpdateModifier::Reset,
-                        ));
+                        params
+                            .commands
+                            .trigger(UpdateModifier::<Pose>::reset(scenario_entity, selection));
                     }
                 }
             }

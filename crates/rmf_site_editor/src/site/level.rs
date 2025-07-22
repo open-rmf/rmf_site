@@ -40,7 +40,7 @@ pub fn update_level_visibility(
 /// This system monitors changes to the OnLevel for a model and updates its parent
 /// level accordingly
 pub fn handle_on_level_change(
-    trigger: Trigger<OnReplace, LastSetValue<OnLevel<Entity>>>,
+    trigger: Trigger<OnInsert, LastSetValue<OnLevel<Entity>>>,
     mut commands: Commands,
     on_levels: Query<(Entity, &OnLevel<Entity>)>,
     level_elevation: Query<(), With<LevelElevation>>,
@@ -85,7 +85,7 @@ impl Property for OnLevel<Entity> {
 
     fn insert(
         for_element: Entity,
-        in_scenario: Entity,
+        _in_scenario: Entity,
         _value: OnLevel<Entity>, // Value is unused for OnLevel
         world: &mut World,
     ) {
@@ -104,16 +104,9 @@ impl Property for OnLevel<Entity> {
             .commands()
             .entity(for_element)
             .insert(OnLevel(level_entity));
-
-        let level_modifier =
-            Self::create_modifier(for_element, in_scenario, OnLevel(level_entity), world);
-        if let Some(level_modifier) = level_modifier {
-            let modifier_entity = world.spawn(level_modifier).id();
-            world.trigger(AddModifier::new(for_element, modifier_entity, in_scenario));
-        }
     }
 
-    fn insert_on_new_scenario(in_scenario: Entity, world: &mut World) {
+    fn insert_on_new_scenario<E: Element>(in_scenario: Entity, world: &mut World) {
         let mut modifier_state: SystemState<(
             Query<&ChildOf>,
             Query<&Children>,
@@ -140,28 +133,9 @@ impl Property for OnLevel<Entity> {
             }
         }
 
-        let mut new_modifiers = Vec::<(Entity, Entity)>::new();
         for (model, level) in target_models.iter() {
-            new_modifiers.push((
-                *model,
-                world
-                    .commands()
-                    .spawn(Modifier::<OnLevel<Entity>>::new(OnLevel(*level)))
-                    .id(),
-            ));
+            world.trigger(UpdateModifier::modify(in_scenario, *model, OnLevel(*level)));
         }
-
-        for (instance_entity, modifier_entity) in new_modifiers.iter() {
-            world.trigger(AddModifier::new(
-                *instance_entity,
-                *modifier_entity,
-                in_scenario,
-            ));
-        }
-        let mut events_state: SystemState<EventWriter<ChangeCurrentScenario>> =
-            SystemState::new(world);
-        let mut change_current_scenario = events_state.get_mut(world);
-        change_current_scenario.write(ChangeCurrentScenario(in_scenario));
     }
 }
 
