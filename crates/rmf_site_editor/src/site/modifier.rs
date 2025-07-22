@@ -18,7 +18,7 @@
 use crate::{
     site::{
         Affiliation, ChangeCurrentScenario, CurrentScenario, Inclusion, IssueKey, NameInSite,
-        Property, ScenarioMarker, ScenarioModifiers, StandardProperty, UpdateProperty,
+        Property, ScenarioMarker, ScenarioModifiers, SiteID, StandardProperty, UpdateProperty,
     },
     Issue, ValidateWorkspace,
 };
@@ -105,15 +105,8 @@ impl<T> UpdateModifier<T> {
 
 #[derive(SystemParam)]
 pub struct GetModifier<'w, 's, T: Component<Mutability = Mutable> + Clone + Default> {
-    pub scenarios: Query<
-        'w,
-        's,
-        (
-            &'static ScenarioModifiers<Entity>,
-            &'static Affiliation<Entity>,
-        ),
-        With<ScenarioMarker>,
-    >,
+    pub scenarios:
+        Query<'w, 's, (&'static ScenarioModifiers, &'static Affiliation), With<ScenarioMarker>>,
     pub modifiers: Query<'w, 's, &'static T>,
 }
 
@@ -137,7 +130,7 @@ impl<'w, 's, T: Component<Mutability = Mutable> + Clone + Default> GetModifier<'
             }
 
             if let Some(parent_entity) = scenario_parent.0 {
-                scenario_entity = parent_entity;
+                scenario_entity = *parent_entity;
             } else {
                 // Modifier does not exist in the current scenario tree
                 break;
@@ -153,10 +146,7 @@ pub fn handle_scenario_modifiers(
     mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
     mut add_modifier: EventReader<AddModifier>,
     mut remove_modifier: EventReader<RemoveModifier>,
-    mut scenarios: Query<
-        (&mut ScenarioModifiers<Entity>, &Affiliation<Entity>),
-        With<ScenarioMarker>,
-    >,
+    mut scenarios: Query<(&mut ScenarioModifiers, &Affiliation), With<ScenarioMarker>>,
     mut update_property: EventWriter<UpdateProperty>,
     current_scenario: Res<CurrentScenario>,
 ) {
@@ -182,7 +172,7 @@ pub fn handle_scenario_modifiers(
                     break;
                 };
                 if let Some(parent_entity) = parent_scenario.0 {
-                    target_scenario = parent_entity;
+                    target_scenario = *parent_entity;
                 } else {
                     root_scenario = Some(target_scenario);
                     break;
@@ -208,7 +198,7 @@ pub fn handle_scenario_modifiers(
         } else {
             commands
                 .entity(add.modifier)
-                .insert(Affiliation(Some(add.for_element)))
+                .insert(Affiliation::affiliated(add.for_element))
                 .insert(ChildOf(scenario_entity));
             scenario_modifiers.insert(add.for_element, add.modifier);
         }
@@ -233,10 +223,10 @@ pub fn handle_cleanup_modifiers<M: Component<Mutability = Mutable> + Debug + Def
 pub fn handle_empty_modifiers<T: Property, F: QueryFilter>(
     mut remove_modifier: EventWriter<RemoveModifier>,
     mut removals: RemovedComponents<Modifier<T>>,
-    affiliation: Query<&Affiliation<Entity>>,
+    affiliation: Query<&Affiliation>,
     current_scenario: Res<CurrentScenario>,
     modifiers: Query<(), F>,
-    scenarios: Query<(Entity, &ScenarioModifiers<Entity>), With<ScenarioMarker>>,
+    scenarios: Query<(Entity, &ScenarioModifiers), With<ScenarioMarker>>,
 ) {
     if !removals.is_empty() {
         for modifier_entity in removals.read() {
@@ -259,7 +249,7 @@ pub fn handle_empty_modifiers<T: Property, F: QueryFilter>(
                             .is_some_and(|e| *e == modifier_entity)
                     })
                 {
-                    remove_modifier.write(RemoveModifier::new(element, scenario_entity));
+                    remove_modifier.write(RemoveModifier::new(*element, scenario_entity));
                     continue;
                 }
             }
@@ -271,7 +261,7 @@ pub fn handle_empty_modifiers<T: Property, F: QueryFilter>(
                     .get(&element)
                     .is_some_and(|e| *e == modifier_entity)
                 {
-                    remove_modifier.write(RemoveModifier::new(element, scenario_entity));
+                    remove_modifier.write(RemoveModifier::new(*element, scenario_entity));
                     break;
                 }
             }
@@ -288,14 +278,7 @@ pub const MISSING_ROOT_MODIFIER_ISSUE_UUID: Uuid =
 pub fn check_for_missing_root_modifiers<M: Component<Mutability = Mutable>>(
     mut commands: Commands,
     mut validate_events: EventReader<ValidateWorkspace>,
-    scenarios: Query<
-        (
-            &ScenarioModifiers<Entity>,
-            &NameInSite,
-            &Affiliation<Entity>,
-        ),
-        With<ScenarioMarker>,
-    >,
+    scenarios: Query<(&ScenarioModifiers, &NameInSite, &Affiliation), With<ScenarioMarker>>,
     elements: Query<(Entity, Option<&NameInSite>), With<M>>,
 ) {
     for root in validate_events.read() {
@@ -310,7 +293,7 @@ pub fn check_for_missing_root_modifiers<M: Component<Mutability = Mutable>>(
                         .unwrap_or(element.index().to_string());
                     let issue = Issue {
                         key: IssueKey {
-                            entities: [element].into(),
+                            entities: [SiteID::from(element)].into(),
                             kind: MISSING_ROOT_MODIFIER_ISSUE_UUID,
                         },
                         brief: format!(

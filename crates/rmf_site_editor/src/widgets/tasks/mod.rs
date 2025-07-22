@@ -127,11 +127,7 @@ pub struct ViewTasks<'w, 's> {
     scenarios: Query<
         'w,
         's,
-        (
-            Entity,
-            &'static ScenarioModifiers<Entity>,
-            &'static Affiliation<Entity>,
-        ),
+        (Entity, &'static ScenarioModifiers, &'static Affiliation),
         With<ScenarioMarker>,
     >,
     task_kinds: ResMut<'w, TaskKinds>,

@@ -30,18 +30,11 @@ use std::collections::BTreeMap;
 
 #[derive(SystemParam)]
 pub struct InspectAssociatedGraphs<'w, 's> {
-    associated: Query<
-        'w,
-        's,
-        (
-            &'static AssociatedGraphs<Entity>,
-            &'static RecallAssociatedGraphs<Entity>,
-        ),
-    >,
+    associated: Query<'w, 's, (&'static AssociatedGraphs, &'static RecallAssociatedGraphs)>,
     graphs: Query<'w, 's, (Entity, &'static NameInSite), With<NavGraphMarker>>,
     icons: Res<'w, Icons>,
     consider_graph: EventWriter<'w, ConsiderAssociatedGraph>,
-    change_associated_graphs: EventWriter<'w, Change<AssociatedGraphs<Entity>>>,
+    change_associated_graphs: EventWriter<'w, Change<AssociatedGraphs>>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectAssociatedGraphs<'w, 's> {
@@ -84,13 +77,13 @@ impl<'w, 's> InspectAssociatedGraphs<'w, 's> {
             AssociatedGraphs::Only(set) | AssociatedGraphs::AllExcept(set) => {
                 let mut removed_graphs: SmallVec<[Entity; 2]> = SmallVec::new();
                 for g in set.iter() {
-                    let (_, name) = match self.graphs.get(*g) {
+                    let (_, name) = match self.graphs.get(**g) {
                         Ok(q) => q,
                         _ => continue,
                     };
                     ui.horizontal(|ui| {
                         if ui.add(ImageButton::new(self.icons.trash.egui())).clicked() {
-                            removed_graphs.push(*g);
+                            removed_graphs.push(**g);
                         }
                         ui.label(&name.0);
                     });
@@ -102,7 +95,7 @@ impl<'w, 's> InspectAssociatedGraphs<'w, 's> {
                 if let Some((first, _)) = unused_graphs.iter().next() {
                     ui.horizontal(|ui| {
                         let add_graph = ui.button("Add").clicked();
-                        let mut choice = recall.consider.unwrap_or(*first);
+                        let mut choice = recall.consider.unwrap_or((*first).into());
                         let choice_text = unused_graphs
                             .get(&choice)
                             .map(|n| n.0.clone())
@@ -111,7 +104,7 @@ impl<'w, 's> InspectAssociatedGraphs<'w, 's> {
                             .selected_text(choice_text)
                             .show_ui(ui, |ui| {
                                 for (e, name) in unused_graphs.iter() {
-                                    ui.selectable_value(&mut choice, *e, &name.0);
+                                    ui.selectable_value(&mut choice, (*e).into(), &name.0);
                                 }
                             });
 
@@ -122,7 +115,7 @@ impl<'w, 's> InspectAssociatedGraphs<'w, 's> {
                         } else {
                             if Some(choice) != recall.consider {
                                 self.consider_graph
-                                    .write(ConsiderAssociatedGraph::new(Some(choice), id));
+                                    .write(ConsiderAssociatedGraph::new(Some(*choice), id));
                             }
                         }
                     });

@@ -108,7 +108,7 @@ pub fn build_place_object_2d_workflow(
 }
 
 pub struct PlaceObject2d {
-    pub object: ModelInstance<Entity>,
+    pub object: ModelInstance,
     pub level: Entity,
 }
 

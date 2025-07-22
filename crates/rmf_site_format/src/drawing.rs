@@ -16,13 +16,11 @@
 */
 
 use crate::*;
-#[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component};
+use bevy_ecs::prelude::{Bundle, Component};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct PixelsPerMeter(pub f32);
 
 impl Default for PixelsPerMeter {
@@ -41,15 +39,14 @@ pub struct Drawing {
     // #[serde(flatten)]
     pub properties: DrawingProperties,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub anchors: BTreeMap<u32, Anchor>,
+    pub anchors: BTreeMap<SiteID, Anchor>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub fiducials: BTreeMap<u32, Fiducial<u32>>,
+    pub fiducials: BTreeMap<SiteID, Fiducial>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub measurements: BTreeMap<u32, Measurement<u32>>,
+    pub measurements: BTreeMap<SiteID, Measurement>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "bevy", derive(Bundle))]
+#[derive(Bundle, Serialize, Deserialize, Debug, Clone)]
 pub struct DrawingProperties {
     pub name: NameInSite,
     pub source: AssetSource,

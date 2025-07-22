@@ -15,11 +15,12 @@
  *
 */
 
-use crate::RefTrait;
 #[cfg(feature = "bevy")]
 use bevy::prelude::*;
+use bevy_ecs::prelude::{Component, Entity};
 use glam::{Quat, Vec2, Vec3};
-use serde::{Deserialize, Serialize};
+use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
+use std::borrow::Borrow;
 use std::collections::HashMap;
 
 pub const DEFAULT_LEVEL_HEIGHT: f32 = 3.0;
@@ -148,8 +149,8 @@ impl RectFace {
     }
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Clone, Copy, Debug)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut, Reflect))]
+#[derive(Component, Serialize, Deserialize, PartialEq, Clone, Copy, Debug)]
+#[cfg_attr(feature = "bevy", derive(Deref, DerefMut, Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct Scale(pub Vec3);
 
@@ -335,8 +336,8 @@ impl From<Quat> for Rotation {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct Pose {
     pub trans: [f32; 3],
@@ -437,9 +438,9 @@ impl From<Transform> for Pose {
 /// The unique name of the site element within its site.
 /// NOTE: We call this `NameInSite` instead of just `Name` because `Name`
 /// conflicts with another `Name` defined in `bevy::prelude`.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(transparent)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut, Reflect))]
+#[cfg_attr(feature = "bevy", derive(Deref, DerefMut, Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct NameInSite(pub String);
 
@@ -449,9 +450,9 @@ impl Default for NameInSite {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(transparent)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut, Reflect))]
+#[cfg_attr(feature = "bevy", derive(Deref, DerefMut, Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct IsStatic(pub bool);
 
@@ -462,20 +463,148 @@ impl Default for IsStatic {
 }
 
 /// Marker component for previewable entities
-#[derive(Clone, Copy, Debug, Default)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Clone, Copy, Debug, Default)]
 pub struct PreviewableMarker;
 
-/// This component is applied to each site element that gets loaded in order to
-/// remember what its original ID within the Site file was.
-#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
-pub struct SiteID(pub u32);
+/// A wrapper over Entity that serializes / deserializes as a u32 of its index
+#[derive(Clone, Copy, Debug, PartialOrd, Ord, Eq, PartialEq, Hash)]
+#[cfg_attr(feature = "bevy", derive(Deref, DerefMut, Reflect))]
+pub struct SiteID(pub Entity);
+
+impl std::fmt::Display for SiteID {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.0.index())
+    }
+}
+
+impl Serialize for SiteID {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_u32(self.0.index())
+    }
+}
+
+impl Borrow<Entity> for SiteID {
+    fn borrow(&self) -> &Entity {
+        &self.0
+    }
+}
+
+impl From<u32> for SiteID {
+    fn from(v: u32) -> Self {
+        Self(Entity::from_raw(v))
+    }
+}
+
+impl From<Entity> for SiteID {
+    fn from(e: Entity) -> Self {
+        Self(e)
+    }
+}
+
+impl From<SiteID> for Entity {
+    fn from(id: SiteID) -> Self {
+        id.0
+    }
+}
+
+impl From<SiteID> for u32 {
+    fn from(v: SiteID) -> Self {
+        v.0.index()
+    }
+}
+
+struct SiteIDVisitor;
+
+impl<'de> Visitor<'de> for SiteIDVisitor {
+    type Value = SiteID;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("an integer between -2^31 and 2^31")
+    }
+
+    fn visit_i8<E>(self, value: i8) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(u32::try_from(value)
+            .map_err(|e| E::custom(format!("Failed converting to u32 {e}")))?
+            .into())
+    }
+
+    fn visit_i16<E>(self, value: i16) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(u32::try_from(value)
+            .map_err(|e| E::custom(format!("Failed converting to u32 {e}")))?
+            .into())
+    }
+
+    fn visit_i32<E>(self, value: i32) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(u32::try_from(value)
+            .map_err(|e| E::custom(format!("Failed converting to u32 {e}")))?
+            .into())
+    }
+
+    fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(u32::try_from(value)
+            .map_err(|e| E::custom(format!("Failed converting to u32 {e}")))?
+            .into())
+    }
+
+    fn visit_u8<E>(self, value: u8) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(u32::from(value).into())
+    }
+
+    fn visit_u16<E>(self, value: u16) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(u32::from(value).into())
+    }
+
+    fn visit_u32<E>(self, value: u32) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(u32::from(value).into())
+    }
+
+    fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(u32::try_from(value)
+            .map_err(|e| E::custom(format!("Value is out of range {e}")))?
+            .into())
+    }
+}
+
+impl<'de> Deserialize<'de> for SiteID {
+    fn deserialize<D>(deserializer: D) -> Result<SiteID, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_u32(SiteIDVisitor)
+    }
+}
 
 /// Helper structure to serialize / deserialize entities with parents
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Parented<P: RefTrait, T> {
-    pub parent: P,
+pub struct Parented<T> {
+    pub parent: SiteID,
     #[serde(flatten)]
     pub bundle: T,
 }
@@ -484,52 +613,56 @@ pub struct Parented<P: RefTrait, T> {
 /// saved to file. We will filter out these elements while assigning SiteIDs,
 /// and that will prevent them from being included while collecting elements
 /// into the Site data structure.
-#[derive(Debug, Clone, Copy)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Debug, Clone, Copy)]
 pub struct Pending;
 
 /// The Original component indicates that an element is being modified but not
 /// yet in a state where it can be correctly saved. We should save the original
 /// value instead of the apparent current value.
-#[derive(Debug, Clone, Copy)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+#[derive(Component, Debug, Clone, Copy)]
+#[cfg_attr(feature = "bevy", derive(Deref, DerefMut))]
 pub struct Original<T>(pub T);
 
 /// Marks that an entity represents a group
-#[derive(Clone, Copy, Debug, Default)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Clone, Copy, Debug, Default)]
 pub struct Group;
 
 /// Affiliates an entity with a group.
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(transparent)]
-#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
-pub struct Affiliation<T: RefTrait>(pub Option<T>);
+#[cfg_attr(feature = "bevy", derive(Reflect))]
+pub struct Affiliation(pub Option<SiteID>);
 
-impl<T: RefTrait> From<T> for Affiliation<T> {
-    fn from(value: T) -> Self {
+impl From<SiteID> for Affiliation {
+    fn from(value: SiteID) -> Self {
         Affiliation(Some(value))
     }
 }
 
-impl<T: RefTrait> From<Option<T>> for Affiliation<T> {
-    fn from(value: Option<T>) -> Self {
+impl From<Option<SiteID>> for Affiliation {
+    fn from(value: Option<SiteID>) -> Self {
         Affiliation(value)
     }
 }
 
-impl<T: RefTrait> Default for Affiliation<T> {
+impl Default for Affiliation {
     fn default() -> Self {
         Affiliation(None)
     }
 }
 
-impl<T: RefTrait> Affiliation<T> {
-    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Affiliation<U>, T> {
+impl Affiliation {
+    pub fn convert(&self, id_map: &HashMap<SiteID, Entity>) -> Result<Affiliation, SiteID> {
         if let Some(x) = self.0 {
-            Ok(Affiliation(Some(id_map.get(&x).ok_or(x)?.clone())))
+            Ok(Affiliation(Some(
+                id_map.get(&x).map(|e| (*e).into()).ok_or(x)?,
+            )))
         } else {
             Ok(Affiliation(None))
         }
+    }
+
+    pub fn affiliated(id: impl Into<SiteID>) -> Self {
+        Affiliation(Some(id.into()))
     }
 }

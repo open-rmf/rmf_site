@@ -27,14 +27,14 @@ use rmf_site_egui::WidgetSystem;
 #[derive(SystemParam)]
 pub struct InspectGroup<'w, 's> {
     is_group: Query<'w, 's, (), With<Group>>,
-    affiliation: Query<'w, 's, &'static Affiliation<Entity>, Without<ModelMarker>>,
+    affiliation: Query<'w, 's, &'static Affiliation, Without<ModelMarker>>,
     names: Query<'w, 's, &'static NameInSite>,
     textures: Query<'w, 's, &'static Texture>,
     members: Query<'w, 's, &'static Members>,
     default_file: Query<'w, 's, &'static DefaultFile>,
     current_workspace: Res<'w, CurrentWorkspace>,
     change_texture: EventWriter<'w, Change<Texture>>,
-    selector: SelectorWidget<'w, 's>,
+    selector: SelectorWidget<'w>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectGroup<'w, 's> {
@@ -57,10 +57,10 @@ impl<'w, 's> InspectGroup<'w, 's> {
 
         if let Ok(Affiliation(Some(group))) = self.affiliation.get(id) {
             ui.separator();
-            let name = self.names.get(*group).map(|n| n.0.as_str()).unwrap_or("");
+            let name = self.names.get(**group).map(|n| n.0.as_str()).unwrap_or("");
             ui.label(RichText::new(format!("Group Properties of [{}]", name)).size(18.0));
             ui.add_space(5.0);
-            self.show_group_properties(*group, ui);
+            self.show_group_properties(**group, ui);
         }
     }
 

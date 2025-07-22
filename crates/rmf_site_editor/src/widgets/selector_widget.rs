@@ -15,10 +15,7 @@
  *
 */
 
-use crate::{
-    site::SiteID,
-    widgets::{prelude::*, Icons},
-};
+use crate::widgets::{prelude::*, Icons};
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Button, Ui};
 use rmf_site_egui::{ShareableWidget, WidgetSystem};
@@ -26,30 +23,25 @@ use rmf_site_picking::{Hover, Select, Selection};
 
 /// A widget that can be used to select entities.
 #[derive(SystemParam)]
-pub struct SelectorWidget<'w, 's> {
-    pub site_id: Query<'w, 's, &'static SiteID>,
+pub struct SelectorWidget<'w> {
     pub icons: Res<'w, Icons>,
     pub selection: Res<'w, Selection>,
     pub select: EventWriter<'w, Select>,
     pub hover: EventWriter<'w, Hover>,
 }
 
-impl<'w, 's> WidgetSystem<Entity, ()> for SelectorWidget<'w, 's> {
+impl<'w> WidgetSystem<Entity, ()> for SelectorWidget<'w> {
     fn show(entity: Entity, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) {
         let mut params = state.get_mut(world);
         params.show_widget(entity, ui);
     }
 }
 
-impl<'w, 's> SelectorWidget<'w, 's> {
+impl<'w> SelectorWidget<'w> {
     pub fn show_widget(&mut self, entity: Entity, ui: &mut Ui) {
-        let site_id = self.site_id.get(entity).ok().cloned();
         let is_selected = self.selection.0.is_some_and(|s| s == entity);
 
-        let text = match site_id {
-            Some(id) => format!("#{}", id.0),
-            None => "*".to_owned(),
-        };
+        let text = format!("#{}", entity.index());
 
         let icon = if is_selected {
             self.icons.selected.egui()
@@ -69,4 +61,4 @@ impl<'w, 's> SelectorWidget<'w, 's> {
     }
 }
 
-impl<'w, 's> ShareableWidget for SelectorWidget<'w, 's> {}
+impl<'w> ShareableWidget for SelectorWidget<'w> {}

@@ -106,7 +106,7 @@ pub mod inspect_value;
 pub use inspect_value::*;
 use rmf_site_picking::Selection;
 
-use crate::site::{Category, SiteID};
+use crate::site::Category;
 use bevy::{
     ecs::{
         hierarchy::ChildOf,
@@ -310,7 +310,7 @@ impl FromWorld for MainInspector {
 #[derive(SystemParam)]
 pub struct Inspector<'w, 's> {
     children: Query<'w, 's, &'static Children>,
-    heading: Query<'w, 's, (Option<&'static Category>, Option<&'static SiteID>)>,
+    heading: Query<'w, 's, &'static Category>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for Inspector<'w, 's> {
@@ -343,21 +343,13 @@ impl<'w, 's> WidgetSystem<Tile> for Inspector<'w, 's> {
 
                 let params = state.get(world);
 
-                let (label, site_id) =
-                    if let Ok((category, site_id)) = params.heading.get(selection) {
-                        (
-                            category.map(|x| x.label()).unwrap_or("<Unknown Type>"),
-                            site_id,
-                        )
-                    } else {
-                        ("<Unknown Type>", None)
-                    };
+                let label = params
+                    .heading
+                    .get(selection)
+                    .map(|x| x.label())
+                    .unwrap_or("<Unknown Type>");
 
-                if let Some(site_id) = site_id {
-                    ui.heading(format!("{} #{}", label, site_id.0));
-                } else {
-                    ui.heading(format!("{} (unsaved)", label));
-                }
+                ui.heading(format!("{} #{}", label, selection.index()));
 
                 let children: Result<SmallVec<[_; 16]>, _> = params
                     .children

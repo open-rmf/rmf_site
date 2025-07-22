@@ -15,28 +15,25 @@
  *
 */
 
-use crate::{Affiliation, Group, NameInSite, Point, RefTrait};
-#[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component};
+use crate::{Affiliation, Group, NameInSite, Point, SiteID};
+use bevy_ecs::prelude::{Bundle, Component, Entity};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Mark a point within a drawing or level to serve as a ground truth relative
 /// to other drawings and levels.
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "bevy", derive(Bundle))]
-pub struct Fiducial<T: RefTrait> {
+#[derive(Bundle, Serialize, Deserialize, Debug, Clone)]
+pub struct Fiducial {
     /// The anchor that represents the position of this fiducial.
-    pub anchor: Point<T>,
+    pub anchor: Point,
     /// Affiliation of this fiducial. This affiliation must be unique within the
     /// parent level or parent drawing of the fiducial.
-    pub affiliation: Affiliation<T>,
+    pub affiliation: Affiliation,
     #[serde(skip)]
     pub marker: FiducialMarker,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "bevy", derive(Bundle))]
+#[derive(Bundle, Serialize, Deserialize, Debug, Clone)]
 pub struct FiducialGroup {
     /// Name of this group
     pub name: NameInSite,
@@ -56,12 +53,11 @@ impl FiducialGroup {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Clone, Copy, Debug, Default)]
 pub struct FiducialMarker;
 
-impl<T: RefTrait> Fiducial<T> {
-    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Fiducial<U>, T> {
+impl Fiducial {
+    pub fn convert(&self, id_map: &HashMap<SiteID, Entity>) -> Result<Fiducial, SiteID> {
         Ok(Fiducial {
             anchor: self.anchor.convert(id_map)?,
             affiliation: self.affiliation.convert(id_map)?,
@@ -70,8 +66,8 @@ impl<T: RefTrait> Fiducial<T> {
     }
 }
 
-impl<T: RefTrait> From<Point<T>> for Fiducial<T> {
-    fn from(anchor: Point<T>) -> Self {
+impl From<Point> for Fiducial {
+    fn from(anchor: Point) -> Self {
         Self {
             anchor,
             affiliation: Default::default(),

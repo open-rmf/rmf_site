@@ -21,12 +21,12 @@ use crate::{interaction::*, site::*};
 pub struct PointVisualCue {
     /// If the point is using support from an anchor, the entity of that
     /// anchor will be saved here.
-    supporter: Option<Point<Entity>>,
+    supporter: Option<Point>,
 }
 
 pub fn add_point_visual_cues(
     mut commands: Commands,
-    new_points: Query<(Entity, &Point<Entity>), Without<PointVisualCue>>,
+    new_points: Query<(Entity, &Point), Without<PointVisualCue>>,
 ) {
     for (e, point) in &new_points {
         commands.entity(e).insert(PointVisualCue {
@@ -37,18 +37,12 @@ pub fn add_point_visual_cues(
 
 pub fn update_point_visual_cues(
     mut points: Query<
-        (
-            Entity,
-            &Hovered,
-            &Selected,
-            &Point<Entity>,
-            &mut PointVisualCue,
-        ),
+        (Entity, &Hovered, &Selected, &Point, &mut PointVisualCue),
         (
             Without<AnchorVisualization>,
-            Without<Edge<Entity>>,
-            Without<Path<Entity>>,
-            Or<(Changed<Hovered>, Changed<Selected>, Changed<Point<Entity>>)>,
+            Without<Edge>,
+            Without<Path>,
+            Or<(Changed<Hovered>, Changed<Selected>, Changed<Point>)>,
         ),
     >,
     mut anchors: Query<(&mut Hovered, &mut Selected), With<AnchorVisualization>>,
@@ -60,7 +54,7 @@ pub fn update_point_visual_cues(
             // This can happen if a user changes the reference anchor for the
             // point.
             if old.0 != anchor {
-                if let Ok((mut hover, mut selected)) = anchors.get_mut(old.0) {
+                if let Ok((mut hover, mut selected)) = anchors.get_mut(*old.0) {
                     hover.support_hovering.remove(&p);
                     selected.support_selected.remove(&p);
                 }
@@ -73,7 +67,7 @@ pub fn update_point_visual_cues(
             cue.supporter = None;
         }
 
-        if let Ok((mut anchor_hovered, mut anchor_selected)) = anchors.get_mut(anchor) {
+        if let Ok((mut anchor_hovered, mut anchor_selected)) = anchors.get_mut(*anchor) {
             if hovered.cue() {
                 anchor_hovered.support_hovering.insert(p);
             } else {

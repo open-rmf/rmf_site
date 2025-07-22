@@ -31,21 +31,21 @@ pub struct Members(Vec<Entity>);
 struct LastAffiliation(Option<Entity>);
 
 pub fn update_affiliations(
-    mut affiliations: Query<&mut Affiliation<Entity>>,
+    mut affiliations: Query<&mut Affiliation>,
     mut merge_groups: EventReader<MergeGroups>,
     mut deleted_groups: RemovedComponents<Group>,
 ) {
     for merge in merge_groups.read() {
         for mut affiliation in &mut affiliations {
-            if affiliation.0.is_some_and(|a| a == merge.from_group) {
-                affiliation.0 = Some(merge.into_group);
+            if affiliation.0.is_some_and(|a| *a == merge.from_group) {
+                affiliation.0 = Some(merge.into_group.into());
             }
         }
     }
 
     for deleted in deleted_groups.read() {
         for mut affiliation in &mut affiliations {
-            if affiliation.0.is_some_and(|a| a == deleted) {
+            if affiliation.0.is_some_and(|a| *a == deleted) {
                 affiliation.0 = None;
             }
         }
@@ -54,7 +54,7 @@ pub fn update_affiliations(
 
 pub fn update_members_of_groups(
     mut commands: Commands,
-    changed_affiliation: Query<(Entity, &Affiliation<Entity>), Changed<Affiliation<Entity>>>,
+    changed_affiliation: Query<(Entity, &Affiliation), Changed<Affiliation>>,
 ) {
     for (e, affiliation) in &changed_affiliation {
         commands.entity(e).set_membership(affiliation.0);
@@ -107,13 +107,16 @@ impl Command for ChangeMembership {
 }
 
 pub trait SetMembershipExt {
-    fn set_membership(&mut self, group: Option<Entity>) -> &mut Self;
+    fn set_membership(&mut self, group: Option<impl Into<Entity>>) -> &mut Self;
 }
 
 impl<'a> SetMembershipExt for EntityCommands<'a> {
-    fn set_membership(&mut self, group: Option<Entity>) -> &mut Self {
+    fn set_membership(&mut self, group: Option<impl Into<Entity>>) -> &mut Self {
         let member = self.id();
-        self.commands().queue(ChangeMembership { member, group });
+        self.commands().queue(ChangeMembership {
+            member,
+            group: group.map(|g| g.into()),
+        });
         self
     }
 }

@@ -22,12 +22,12 @@ use bevy::prelude::*;
 pub struct EdgeVisualCue {
     /// If the edge is using support from some anchors, the entities of those
     /// anchors will be saved here.
-    supporters: Option<Edge<Entity>>,
+    supporters: Option<Edge>,
 }
 
 pub fn add_edge_visual_cues(
     mut commands: Commands,
-    new_edges: Query<(Entity, &Edge<Entity>), Without<EdgeVisualCue>>,
+    new_edges: Query<(Entity, &Edge), Without<EdgeVisualCue>>,
 ) {
     for (e, edge) in &new_edges {
         commands.entity(e).insert(EdgeVisualCue {
@@ -38,18 +38,12 @@ pub fn add_edge_visual_cues(
 
 pub fn update_edge_visual_cues(
     mut edges: Query<
-        (
-            Entity,
-            &Hovered,
-            &Selected,
-            &Edge<Entity>,
-            &mut EdgeVisualCue,
-        ),
+        (Entity, &Hovered, &Selected, &Edge, &mut EdgeVisualCue),
         (
             Without<AnchorVisualization>,
-            Without<Point<Entity>>,
-            Without<Path<Entity>>,
-            Or<(Changed<Hovered>, Changed<Selected>, Changed<Edge<Entity>>)>,
+            Without<Point>,
+            Without<Path>,
+            Or<(Changed<Hovered>, Changed<Selected>, Changed<Edge>)>,
         ),
     >,
     mut anchors: Query<(&mut Hovered, &mut Selected), With<AnchorVisualization>>,
@@ -62,7 +56,7 @@ pub fn update_edge_visual_cues(
             // of the lane.
             if old.array() != [a0, a1] {
                 for v in old.array() {
-                    if let Ok((mut hover, mut selected)) = anchors.get_mut(v) {
+                    if let Ok((mut hover, mut selected)) = anchors.get_mut(*v) {
                         hover.support_hovering.remove(&e);
                         selected.support_selected.remove(&e);
                     }
@@ -77,7 +71,7 @@ pub fn update_edge_visual_cues(
         }
 
         if let Ok([(mut hovered_a0, mut selected_a0), (mut hover_a1, mut selected_a1)]) =
-            anchors.get_many_mut([a0, a1])
+            anchors.get_many_mut([*a0, *a1])
         {
             if hovered.cue() {
                 hovered_a0.support_hovering.insert(e);

@@ -88,14 +88,14 @@ pub struct ToggleLiftDoorAvailability {
 
 fn make_lift_transform(
     entity: Entity,
-    reference_anchors: &Edge<Entity>,
+    reference_anchors: &Edge,
     anchors: &AnchorParams,
 ) -> Transform {
     let p_start = anchors
-        .point_in_parent_frame_of(reference_anchors.start(), Category::Lift, entity)
+        .point_in_parent_frame_of(*reference_anchors.start(), Category::Lift, entity)
         .unwrap();
     let p_end = anchors
-        .point_in_parent_frame_of(reference_anchors.end(), Category::Lift, entity)
+        .point_in_parent_frame_of(*reference_anchors.end(), Category::Lift, entity)
         .unwrap();
     let (p_start, p_end) = if reference_anchors.left() == reference_anchors.right() {
         (p_start, p_start - DEFAULT_CABIN_WIDTH * Vec3::Y)
@@ -116,8 +116,8 @@ fn make_lift_transform(
 
 pub fn add_tags_to_lift(
     mut commands: Commands,
-    new_lifts: Query<(Entity, &Edge<Entity>), Added<LiftCabin<Entity>>>,
-    orphan_lifts: Query<Entity, (With<LiftCabin<Entity>>, Without<ChildOf>)>,
+    new_lifts: Query<(Entity, &Edge), Added<LiftCabin>>,
+    orphan_lifts: Query<Entity, (With<LiftCabin>, Without<ChildOf>)>,
     open_sites: Query<Entity, With<NameOfSite>>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     current_workspace: Res<CurrentWorkspace>,
@@ -140,7 +140,7 @@ pub fn add_tags_to_lift(
         }
 
         for anchor in edge.array() {
-            if let Ok(mut deps) = dependents.get_mut(anchor) {
+            if let Ok(mut deps) = dependents.get_mut(*anchor) {
                 deps.insert(e);
             }
         }
@@ -152,18 +152,18 @@ pub fn update_lift_cabin(
     lifts: Query<
         (
             Entity,
-            &LiftCabin<Entity>,
-            Option<&RecallLiftCabin<Entity>>,
+            &LiftCabin,
+            Option<&RecallLiftCabin>,
             Option<&ChildCabinAnchorGroup>,
             Option<&ChildLiftCabinGroup>,
             &ChildOf,
         ),
-        Or<(Changed<LiftCabin<Entity>>, Changed<ChildOf>)>,
+        Or<(Changed<LiftCabin>, Changed<ChildOf>)>,
     >,
     mut cabin_anchor_groups: Query<&mut Transform, With<CabinAnchorGroup>>,
-    level_visits: Query<&LevelVisits<Entity>>,
+    level_visits: Query<&LevelVisits>,
     children: Query<&Children>,
-    doors: Query<&Edge<Entity>, With<LiftCabinDoorMarker>>,
+    doors: Query<&Edge, With<LiftCabinDoorMarker>>,
     mut anchors: Query<&mut Anchor>,
     assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -231,7 +231,7 @@ pub fn update_lift_cabin(
                                 let door_available = door
                                     .filter(|d| {
                                         level_visits
-                                            .get(*d)
+                                            .get(**d)
                                             .ok()
                                             .unwrap_or(&LevelVisits::default())
                                             .contains(&level)
@@ -270,11 +270,11 @@ pub fn update_lift_cabin(
                     if let (Some(p), Some(new_edge)) =
                         (params.door(face), params.level_door_anchors(face))
                     {
-                        if let Ok(edge) = doors.get(p.door) {
+                        if let Ok(edge) = doors.get(*p.door) {
                             for (a, new_anchor) in
                                 edge.array().into_iter().zip(new_edge.into_iter())
                             {
-                                if let Ok(mut anchor) = anchors.get_mut(a) {
+                                if let Ok(mut anchor) = anchors.get_mut(*a) {
                                     *anchor = new_anchor;
                                 }
                             }
@@ -319,10 +319,7 @@ pub fn update_lift_cabin(
 }
 
 pub fn update_lift_edge(
-    mut lifts: Query<
-        (Entity, &Edge<Entity>, &mut Transform),
-        (Changed<Edge<Entity>>, With<LiftCabin<Entity>>),
-    >,
+    mut lifts: Query<(Entity, &Edge, &mut Transform), (Changed<Edge>, With<LiftCabin>)>,
     anchors: AnchorParams,
 ) {
     for (e, edge, mut tf) in &mut lifts {
@@ -331,7 +328,7 @@ pub fn update_lift_edge(
 }
 
 pub fn update_lift_for_moved_anchors(
-    mut lifts: Query<(Entity, &Edge<Entity>, &mut Transform), With<LiftCabin<Entity>>>,
+    mut lifts: Query<(Entity, &Edge, &mut Transform), With<LiftCabin>>,
     anchors: AnchorParams,
     changed_anchors: Query<
         &Dependents,
@@ -354,11 +351,11 @@ pub fn update_lift_door_availability(
     mut commands: Commands,
     mut toggles: EventReader<ToggleLiftDoorAvailability>,
     mut lifts: Query<(
-        &mut LiftCabin<Entity>,
-        Option<&RecallLiftCabin<Entity>>,
+        &mut LiftCabin,
+        Option<&RecallLiftCabin>,
         &ChildCabinAnchorGroup,
     )>,
-    mut doors: Query<(Entity, &Edge<Entity>, &mut LevelVisits<Entity>), With<LiftCabinDoorMarker>>,
+    mut doors: Query<(Entity, &Edge, &mut LevelVisits), With<LiftCabinDoorMarker>>,
     dependents: Query<&Dependents, With<Anchor>>,
     current_level: Res<CurrentLevel>,
     new_levels: Query<(), Added<LevelElevation>>,
@@ -384,7 +381,7 @@ pub fn update_lift_door_availability(
                 continue;
             }
             let cabin_door = match toggle.cabin_door {
-                CabinDoorId::Entity(e) => e,
+                CabinDoorId::Entity(e) => e.into(),
                 CabinDoorId::RectFace(face) => {
                     match cabin.as_mut() {
                         LiftCabin::Rect(params) => {
@@ -400,33 +397,37 @@ pub fn update_lift_door_availability(
                                 old_cabin_door.door
                             } else {
                                 // Create a new door with new anchors
-                                let new_door = commands.spawn_empty().id();
+                                let new_door = SiteID::from(commands.spawn_empty().id());
                                 *params.door_mut(face) = Some(LiftCabinDoorPlacement::new(
                                     new_door,
                                     params.width.min(params.depth) / 2.0,
                                 ));
                                 let anchors =
                                     params.level_door_anchors(face).unwrap().map(|anchor| {
-                                        commands
-                                            .spawn(AnchorBundle::new(anchor))
-                                            .insert(Subordinate(Some(toggle.for_lift)))
-                                            .id()
+                                        SiteID::from(
+                                            commands
+                                                .spawn(AnchorBundle::new(anchor))
+                                                .insert(Subordinate(Some(toggle.for_lift)))
+                                                .id(),
+                                        )
                                     });
 
                                 for anchor in anchors {
-                                    commands.entity(**anchor_group).add_child(anchor);
+                                    commands.entity(**anchor_group).add_child(*anchor);
                                 }
 
                                 commands
-                                    .entity(new_door)
+                                    .entity(*new_door)
                                     .insert(LiftCabinDoor {
                                         kind: DoorType::DoubleSliding(DoubleSlidingDoor::default()),
                                         reference_anchors: anchors.into(),
-                                        visits: LevelVisits(BTreeSet::from_iter([toggle.on_level])),
+                                        visits: LevelVisits(BTreeSet::from_iter([toggle
+                                            .on_level
+                                            .into()])),
                                         marker: Default::default(),
                                     })
                                     .insert(Dependents::single(toggle.for_lift));
-                                commands.entity(toggle.for_lift).add_child(new_door);
+                                commands.entity(toggle.for_lift).add_child(*new_door);
 
                                 new_door
                             }
@@ -435,26 +436,26 @@ pub fn update_lift_door_availability(
                 }
             };
 
-            if let Ok((_, _, mut visits)) = doors.get_mut(cabin_door) {
-                visits.insert(toggle.on_level);
+            if let Ok((_, _, mut visits)) = doors.get_mut(*cabin_door) {
+                visits.insert(toggle.on_level.into());
                 if let Some(current_level) = **current_level {
                     let visibility = if visits.contains(&current_level) {
                         Visibility::Inherited
                     } else {
                         Visibility::Hidden
                     };
-                    commands.entity(cabin_door).insert(visibility);
+                    commands.entity(*cabin_door).insert(visibility);
                 }
             }
 
-            commands.entity(cabin_door).remove::<Pending>();
+            commands.entity(*cabin_door).remove::<Pending>();
 
-            if let Ok((_, existing_anchors, _)) = doors.get(cabin_door) {
+            if let Ok((_, existing_anchors, _)) = doors.get(*cabin_door) {
                 // Make sure visibility is turned on for the anchors and
                 // the Pending is removed.
                 for anchor in existing_anchors.array() {
                     commands
-                        .entity(anchor)
+                        .entity(*anchor)
                         .remove::<Pending>()
                         .insert(Visibility::Inherited);
                 }
@@ -463,7 +464,7 @@ pub fn update_lift_door_availability(
             let cabin_door = match toggle.cabin_door {
                 CabinDoorId::Entity(e) => Some(e),
                 CabinDoorId::RectFace(face) => match &*cabin {
-                    LiftCabin::Rect(params) => params.door(face).map(|p| p.door),
+                    LiftCabin::Rect(params) => params.door(face).map(|p| *p.door),
                     //_ => None,
                 },
             };
@@ -575,8 +576,8 @@ pub fn update_lift_door_availability(
 fn remove_door(
     cabin_door: Entity,
     commands: &mut Commands,
-    cabin: &mut LiftCabin<Entity>,
-    doors: &Query<(Entity, &Edge<Entity>, &mut LevelVisits<Entity>), With<LiftCabinDoorMarker>>,
+    cabin: &mut LiftCabin,
+    doors: &Query<(Entity, &Edge, &mut LevelVisits), With<LiftCabinDoorMarker>>,
     dependents: &Query<&Dependents, With<Anchor>>,
 ) {
     cabin.remove_door(cabin_door);
@@ -589,7 +590,7 @@ fn remove_door(
     let remove_anchors = if let Ok((_, anchors, _)) = doors.get(cabin_door) {
         let mut remove_anchors = true;
         'outer: for anchor in anchors.array() {
-            if let Ok(deps) = dependents.get(anchor) {
+            if let Ok(deps) = dependents.get(*anchor) {
                 for dependent in deps.iter() {
                     if *dependent != cabin_door {
                         remove_anchors = false;
@@ -611,7 +612,7 @@ fn remove_door(
     if let Some(anchors) = remove_anchors {
         for anchor in anchors.array() {
             commands
-                .entity(anchor)
+                .entity(*anchor)
                 .insert(Pending)
                 .insert(Visibility::Hidden);
         }
@@ -628,16 +629,16 @@ pub fn check_for_duplicated_lift_names(
     mut commands: Commands,
     mut validate_events: EventReader<ValidateWorkspace>,
     child_of: Query<&ChildOf>,
-    lift_names: Query<(Entity, &NameInSite), With<LiftCabin<Entity>>>,
+    lift_names: Query<(Entity, &NameInSite), With<LiftCabin>>,
 ) {
     const ISSUE_HINT: &str = "Lifts use their names as identifiers with RMF and each lift should \
                               have a unique name, rename the affected lifts";
     for root in validate_events.read() {
-        let mut names: HashMap<String, BTreeSet<Entity>> = HashMap::new();
+        let mut names: HashMap<String, BTreeSet<SiteID>> = HashMap::new();
         for (e, name) in &lift_names {
             if AncestorIter::new(&child_of, e).any(|p| p == **root) {
                 let entities_with_name = names.entry(name.0.clone()).or_default();
-                entities_with_name.insert(e);
+                entities_with_name.insert(e.into());
             }
         }
         for (name, entities) in names.drain() {

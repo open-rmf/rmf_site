@@ -19,7 +19,7 @@ use crate::{
     interaction::ObjectPlacement,
     site::{
         Affiliation, Change, Delete, FiducialMarker, Group, MergeGroups, ModelInstance,
-        ModelMarker, NameInSite, SiteID, Texture,
+        ModelMarker, NameInSite, Texture,
     },
     widgets::{prelude::*, SelectorWidget},
     AppState, CurrentWorkspace, Icons,
@@ -43,20 +43,9 @@ impl Plugin for ViewGroupsPlugin {
 #[derive(SystemParam)]
 pub struct ViewGroups<'w, 's> {
     children: Query<'w, 's, &'static Children>,
-    textures:
-        Query<'w, 's, (&'static NameInSite, Option<&'static SiteID>), (With<Texture>, With<Group>)>,
-    fiducials: Query<
-        'w,
-        's,
-        (&'static NameInSite, Option<&'static SiteID>),
-        (With<FiducialMarker>, With<Group>),
-    >,
-    model_descriptions: Query<
-        'w,
-        's,
-        (&'static NameInSite, Option<&'static SiteID>),
-        (With<ModelMarker>, With<Group>),
-    >,
+    textures: Query<'w, 's, &'static NameInSite, (With<Texture>, With<Group>)>,
+    fiducials: Query<'w, 's, &'static NameInSite, (With<FiducialMarker>, With<Group>)>,
+    model_descriptions: Query<'w, 's, &'static NameInSite, (With<ModelMarker>, With<Group>)>,
     icons: Res<'w, Icons>,
     group_view_modes: ResMut<'w, GroupViewModes>,
     app_state: Res<'w, State<AppState>>,
@@ -66,7 +55,7 @@ pub struct ViewGroups<'w, 's> {
 #[derive(SystemParam)]
 pub struct ViewGroupsEvents<'w, 's> {
     current_workspace: ResMut<'w, CurrentWorkspace>,
-    selector: SelectorWidget<'w, 's>,
+    selector: SelectorWidget<'w>,
     merge_groups: EventWriter<'w, MergeGroups>,
     delete: EventWriter<'w, Delete>,
     name: EventWriter<'w, Change<NameInSite>>,
@@ -134,7 +123,7 @@ impl<'w, 's> ViewGroups<'w, 's> {
 
     fn show_groups<'b, T: Component>(
         children: impl IntoIterator<Item = &'b Entity>,
-        q_groups: &Query<(&NameInSite, Option<&SiteID>), (With<T>, With<Group>)>,
+        q_groups: &Query<&NameInSite, (With<T>, With<Group>)>,
         mode: &mut GroupViewMode,
         icons: &Res<Icons>,
         events: &mut ViewGroupsEvents,
@@ -180,12 +169,10 @@ impl<'w, 's> ViewGroups<'w, 's> {
         });
 
         for child in children {
-            let Ok((name, site_id)) = q_groups.get(*child) else {
+            let Ok(name) = q_groups.get(*child) else {
                 continue;
             };
-            let text = site_id
-                .map(|s| format!("{}", s.0.clone()))
-                .unwrap_or_else(|| "*".to_owned());
+            let text = format!("{}", child.index());
             ui.horizontal(|ui| {
                 match mode.clone() {
                     GroupViewMode::View => {
@@ -195,8 +182,8 @@ impl<'w, 's> ViewGroups<'w, 's> {
                                 .on_hover_text("Add a new model instance of this group")
                                 .clicked()
                             {
-                                let model_instance: ModelInstance<Entity> = ModelInstance {
-                                    description: Affiliation(Some(child.clone())),
+                                let model_instance: ModelInstance = ModelInstance {
+                                    description: Affiliation::affiliated(*child),
                                     ..Default::default()
                                 };
                                 events.object_placement.place_object_2d(model_instance);

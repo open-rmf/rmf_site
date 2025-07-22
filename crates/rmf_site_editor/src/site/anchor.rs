@@ -108,7 +108,7 @@ pub fn assign_orphan_anchors_to_parent(
     mut orphan_anchors: Query<(Entity, &mut Anchor), Without<ChildOf>>,
     mut commands: Commands,
     mut current_level: ResMut<CurrentLevel>,
-    lifts: Query<(&LiftCabin<Entity>, &ChildCabinAnchorGroup, &GlobalTransform)>,
+    lifts: Query<(&LiftCabin, &ChildCabinAnchorGroup, &GlobalTransform)>,
     lift_anchor_groups: Query<&GlobalTransform, With<CabinAnchorGroup>>,
 ) {
     for (e_anchor, mut anchor) in &mut orphan_anchors {
@@ -233,7 +233,7 @@ pub fn check_for_close_unconnected_anchors(
                     if !edge_found {
                         let issue = Issue {
                             key: IssueKey {
-                                entities: [*e0, *e1].into(),
+                                entities: [SiteID::from(*e0), SiteID::from(*e1)].into(),
                                 kind: UNCONNECTED_ANCHORS_ISSUE_UUID,
                             },
                             brief: format!(

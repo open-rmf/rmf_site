@@ -15,8 +15,8 @@
  *
 */
 
+use crate::site::SiteID;
 use bevy::{ecs::hierarchy::ChildOf, prelude::*};
-use rmf_site_format::SiteID;
 use std::{
     collections::{HashMap, HashSet},
     marker::PhantomData,
@@ -43,8 +43,11 @@ impl<T: Component> RecencyRanking<T> {
         &self.entities
     }
 
-    pub fn from_u32(ranking: &Vec<u32>, id_to_entity: &HashMap<u32, Entity>) -> Result<Self, u32> {
-        let entities: Result<Vec<Entity>, u32> = ranking
+    pub fn from_site_ids(
+        ranking: &Vec<SiteID>,
+        id_to_entity: &HashMap<SiteID, Entity>,
+    ) -> Result<Self, SiteID> {
+        let entities: Result<Vec<Entity>, SiteID> = ranking
             .iter()
             .map(|id| id_to_entity.get(id).copied().ok_or(*id))
             .collect();
@@ -53,14 +56,6 @@ impl<T: Component> RecencyRanking<T> {
             entities,
             _ignore: default(),
         })
-    }
-
-    pub fn to_u32(&self, site_ids: &Query<&SiteID>) -> Vec<u32> {
-        self.entities
-            .iter()
-            .filter_map(|e| site_ids.get(*e).ok().copied())
-            .map(|s| s.0)
-            .collect()
     }
 }
 

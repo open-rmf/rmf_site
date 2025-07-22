@@ -54,7 +54,7 @@ pub struct ReplaceSide {
     pub side: Side,
     /// The original values for the edge. This is None until setup occurs, then
     /// its value will be available.
-    pub original: Option<Edge<Entity>>,
+    pub original: Option<Edge>,
     /// The scope that the edge exists in
     pub scope: AnchorScope,
     /// Keeps track of whether the replacement really happened. If false, the
@@ -77,7 +77,7 @@ impl ReplaceSide {
     pub fn set_chosen(
         &mut self,
         chosen: Entity,
-        edges: &mut Query<&mut Edge<Entity>>,
+        edges: &mut Query<&mut Edge>,
         commands: &mut Commands,
     ) -> SelectionNodeResult {
         let original = self.original.or_broken_buffer()?;
@@ -87,23 +87,23 @@ impl ReplaceSide {
             // Remove both current dependencies in case both of them change.
             // If either dependency doesn't change then they'll be added back
             // later anyway.
-            commands.queue(ChangeDependent::remove(a, self.edge));
+            commands.queue(ChangeDependent::remove(*a, self.edge));
         }
 
-        if chosen == original.array()[self.side.opposite().index()] {
+        if chosen == *original.array()[self.side.opposite().index()] {
             // The user is choosing the anchor on the opposite side of the edge as
             // the replacement anchor. We take this to mean that the user wants to
             // flip the edge.
             *edge_mut.left_mut() = original.right();
             *edge_mut.right_mut() = original.left();
         } else {
-            edge_mut.array_mut()[self.side.index()] = chosen;
+            *edge_mut.array_mut()[self.side.index()] = chosen;
             let opp = self.side.opposite().index();
             edge_mut.array_mut()[opp] = original.array()[opp];
         }
 
         for a in edge_mut.array() {
-            commands.queue(ChangeDependent::add(a, self.edge));
+            commands.queue(ChangeDependent::add(*a, self.edge));
         }
 
         Ok(())
@@ -119,7 +119,7 @@ impl Borrow<AnchorScope> for ReplaceSide {
 pub fn replace_side_setup(
     In(key): In<BufferKey<ReplaceSide>>,
     mut access: BufferAccessMut<ReplaceSide>,
-    mut edges: Query<&'static mut Edge<Entity>>,
+    mut edges: Query<&'static mut Edge>,
     cursor: Res<Cursor>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
@@ -127,7 +127,7 @@ pub fn replace_side_setup(
     let state = access.newest_mut().or_broken_state()?;
 
     let edge_ref = edges.get(state.edge).or_broken_query()?;
-    let original_edge: Edge<Entity> = *edge_ref;
+    let original_edge: Edge = *edge_ref;
     state.original = Some(original_edge);
     commands.entity(state.edge).insert(Original(original_edge));
     state.set_chosen(cursor.level_anchor_placement, &mut edges, &mut commands)?;
@@ -140,7 +140,7 @@ pub fn on_hover_for_replace_side(
     mut access: BufferAccessMut<ReplaceSide>,
     mut cursor: ResMut<Cursor>,
     mut visibility: Query<&mut Visibility>,
-    mut edges: Query<&mut Edge<Entity>>,
+    mut edges: Query<&mut Edge>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
@@ -163,7 +163,7 @@ pub fn on_hover_for_replace_side(
 pub fn on_select_for_replace_side(
     In((selection, key)): In<(SelectionCandidate, BufferKey<ReplaceSide>)>,
     mut access: BufferAccessMut<ReplaceSide>,
-    mut edges: Query<&mut Edge<Entity>>,
+    mut edges: Query<&mut Edge>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
@@ -177,7 +177,7 @@ pub fn on_select_for_replace_side(
 pub fn cleanup_replace_side(
     In(key): In<BufferKey<ReplaceSide>>,
     mut access: BufferAccessMut<ReplaceSide>,
-    mut edges: Query<&'static mut Edge<Entity>>,
+    mut edges: Query<&'static mut Edge>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
@@ -186,7 +186,7 @@ pub fn cleanup_replace_side(
     commands
         .get_entity(state.edge)
         .or_broken_query()?
-        .remove::<Original<Edge<Entity>>>();
+        .remove::<Original<Edge>>();
 
     if state.replaced {
         // The anchor was fully replaced, so nothing further to do
@@ -199,7 +199,7 @@ pub fn cleanup_replace_side(
     };
 
     let revert = original.array()[state.side.index()];
-    state.set_chosen(revert, &mut edges, &mut commands)?;
+    state.set_chosen(*revert, &mut edges, &mut commands)?;
 
     Ok(())
 }

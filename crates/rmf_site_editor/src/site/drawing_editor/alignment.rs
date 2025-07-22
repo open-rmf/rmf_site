@@ -44,10 +44,8 @@ pub struct OptimizationParams<'w, 's> {
         With<DrawingMarker>,
     >,
     anchors: Query<'w, 's, &'static Anchor>,
-    fiducials:
-        Query<'w, 's, (&'static Affiliation<Entity>, &'static Point<Entity>), With<FiducialMarker>>,
-    measurements:
-        Query<'w, 's, (&'static Edge<Entity>, &'static Distance), With<MeasurementMarker>>,
+    fiducials: Query<'w, 's, (&'static Affiliation, &'static Point), With<FiducialMarker>>,
+    measurements: Query<'w, 's, (&'static Edge, &'static Distance), With<MeasurementMarker>>,
 }
 
 pub fn align_site_drawings(
@@ -57,7 +55,7 @@ pub fn align_site_drawings(
     mut params: OptimizationParams,
 ) {
     for AlignSiteDrawings(site) in events.read() {
-        let mut site_variables = SiteVariables::<Entity>::default();
+        let mut site_variables = SiteVariables::default();
         let Ok(children) = sites.get(*site) else {
             continue;
         };
@@ -65,7 +63,7 @@ pub fn align_site_drawings(
             let Ok((group, point)) = params.fiducials.get(*child) else {
                 continue;
             };
-            let Ok(anchor) = params.anchors.get(point.0) else {
+            let Ok(anchor) = params.anchors.get(*point.0) else {
                 continue;
             };
             let Some(group) = group.0 else { continue };
@@ -84,14 +82,14 @@ pub fn align_site_drawings(
                 let Ok((drawing_children, pose, ppm)) = params.drawings.get(*level_child) else {
                     continue;
                 };
-                let mut drawing_variables = DrawingVariables::<Entity>::new(
+                let mut drawing_variables = DrawingVariables::new(
                     Vec2::from_slice(&pose.trans).as_dvec2(),
                     pose.rot.yaw().radians() as f64,
                     (1.0 / ppm.0) as f64,
                 );
                 for child in drawing_children {
                     if let Ok((group, point)) = params.fiducials.get(*child) {
-                        let Ok(anchor) = params.anchors.get(point.0) else {
+                        let Ok(anchor) = params.anchors.get(*point.0) else {
                             continue;
                         };
                         let Some(group) = group.0 else { continue };
@@ -103,7 +101,10 @@ pub fn align_site_drawings(
                     }
 
                     if let Ok((edge, distance)) = params.measurements.get(*child) {
-                        let Ok([anchor0, anchor1]) = params.anchors.get_many(edge.array()) else {
+                        let Ok(anchor0) = params.anchors.get(*edge.left()) else {
+                            continue;
+                        };
+                        let Ok(anchor1) = params.anchors.get(*edge.right()) else {
                             continue;
                         };
                         let Some(in_meters) = distance.0 else {
@@ -124,7 +125,7 @@ pub fn align_site_drawings(
 
                 site_variables
                     .drawings
-                    .insert(*level_child, drawing_variables);
+                    .insert((*level_child).into(), drawing_variables);
             }
         }
 
@@ -132,7 +133,7 @@ pub fn align_site_drawings(
         // undo operation for this set of changes.
         let alignments = align_site(&site_variables);
         for (e, alignment) in alignments {
-            let Ok((_, mut pose, mut ppm)) = params.drawings.get_mut(e) else {
+            let Ok((_, mut pose, mut ppm)) = params.drawings.get_mut(*e) else {
                 continue;
             };
             pose.trans[0] = alignment.translation.x as f32;

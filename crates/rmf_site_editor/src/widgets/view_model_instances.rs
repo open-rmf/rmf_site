@@ -27,7 +27,7 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, ImageButton, ScrollArea, Ui};
 use rmf_site_egui::*;
-use rmf_site_format::{InstanceMarker, SiteID};
+use rmf_site_format::InstanceMarker;
 use rmf_site_picking::Selection;
 
 const INSTANCES_VIEWER_HEIGHT: f32 = 200.0;
@@ -47,31 +47,19 @@ pub struct ViewModelInstances<'w, 's> {
     scenarios: Query<
         'w,
         's,
-        (
-            Entity,
-            &'static ScenarioModifiers<Entity>,
-            &'static Affiliation<Entity>,
-        ),
+        (Entity, &'static ScenarioModifiers, &'static Affiliation),
         With<ScenarioMarker>,
     >,
     current_scenario: ResMut<'w, CurrentScenario>,
     get_modifier: GetModifier<'w, 's, Modifier<Visibility>>,
     icons: Res<'w, Icons>,
     members: Query<'w, 's, &'static Members>,
-    model_descriptions: Query<
-        'w,
-        's,
-        (Entity, &'static NameInSite, Option<&'static SiteID>),
-        (With<ModelMarker>, With<Group>),
-    >,
-    model_instances: Query<
-        'w,
-        's,
-        (Entity, &'static NameInSite, &'static Affiliation<Entity>),
-        With<InstanceMarker>,
-    >,
+    model_descriptions:
+        Query<'w, 's, (Entity, &'static NameInSite), (With<ModelMarker>, With<Group>)>,
+    model_instances:
+        Query<'w, 's, (Entity, &'static NameInSite, &'static Affiliation), With<InstanceMarker>>,
     selection: Res<'w, Selection>,
-    selector: SelectorWidget<'w, 's>,
+    selector: SelectorWidget<'w>,
     delete: EventWriter<'w, Delete>,
     update_instance: EventWriter<'w, UpdateModifier<UpdateInstance>>,
 }
@@ -90,12 +78,12 @@ impl<'w, 's> WidgetSystem<Tile> for ViewModelInstances<'w, 's> {
 impl<'w, 's> ViewModelInstances<'w, 's> {
     pub fn show_widget(&mut self, ui: &mut Ui) {
         if let Some(current_scenario_entity) = self.current_scenario.0 {
-            let mut unaffiliated_instances = Vec::<Entity>::new();
+            let mut unaffiliated_instances = Vec::new();
             ScrollArea::vertical()
                 .max_height(INSTANCES_VIEWER_HEIGHT)
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
-                    for (desc_entity, desc_name, _) in self.model_descriptions.iter() {
+                    for (desc_entity, desc_name) in self.model_descriptions.iter() {
                         let Ok(members) = self.members.get(desc_entity) else {
                             continue;
                         };
@@ -109,7 +97,7 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                     else {
                                         continue;
                                     };
-                                    if affiliation.0.is_some_and(|e| e == desc_entity) {
+                                    if affiliation.0.is_some_and(|e| e == desc_entity.into()) {
                                         let scenario_count = count_scenarios_with_visibility(
                                             &self.scenarios,
                                             instance_entity,

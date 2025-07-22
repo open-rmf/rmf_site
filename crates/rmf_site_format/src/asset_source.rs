@@ -19,14 +19,15 @@ use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::{
     asset::{AssetPath, ParseAssetPathError},
-    prelude::{Component, Reflect, ReflectComponent},
+    prelude::{Reflect, ReflectComponent},
 };
+use bevy_ecs::prelude::Component;
 use pathdiff::diff_paths;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub enum AssetSource {
     Local(String),
@@ -138,8 +139,7 @@ impl TryFrom<&str> for AssetSource {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct RecallAssetSource {
     pub filename: Option<String>,
     pub remote_uri: Option<String>,

@@ -61,20 +61,20 @@ pub fn detect_last_selected_texture<T: Component>(
     mut commands: Commands,
     child_of: Query<&ChildOf>,
     mut last_selected: Query<&mut LastSelectedTexture<T>>,
-    changed_affiliations: Query<&Affiliation<Entity>, (Changed<Affiliation<Entity>>, With<T>)>,
+    changed_affiliations: Query<&Affiliation, (Changed<Affiliation>, With<T>)>,
     mut removed_groups: RemovedComponents<Group>,
 ) {
     if let Some(Affiliation(Some(affiliation))) = changed_affiliations.iter().last() {
-        let Ok(child_of) = child_of.get(*affiliation) else {
+        let Ok(child_of) = child_of.get(**affiliation) else {
             return;
         };
         if let Ok(mut last) = last_selected.get_mut(child_of.parent()) {
-            last.selection = Some(*affiliation);
+            last.selection = Some(**affiliation);
         } else {
             commands
                 .entity(child_of.parent())
                 .insert(LastSelectedTexture {
-                    selection: Some(*affiliation),
+                    selection: Some(**affiliation),
                     marker: std::marker::PhantomData::<T>::default(),
                 });
         }
@@ -93,10 +93,7 @@ pub fn apply_last_selected_texture<T: Component>(
     mut commands: Commands,
     child_of: Query<&ChildOf>,
     last_selected: Query<&LastSelectedTexture<T>>,
-    mut unassigned: Query<
-        (Entity, &mut Affiliation<Entity>),
-        (With<TextureNeedsAssignment>, With<T>),
-    >,
+    mut unassigned: Query<(Entity, &mut Affiliation), (With<TextureNeedsAssignment>, With<T>)>,
 ) {
     for (e, mut affiliation) in &mut unassigned {
         let mut search = e;
@@ -112,7 +109,7 @@ pub fn apply_last_selected_texture<T: Component>(
             }
         };
         if let Some(last) = last {
-            affiliation.0 = last.selection;
+            affiliation.0 = last.selection.map(|s| s.into());
         }
         commands.entity(e).remove::<TextureNeedsAssignment>();
     }
@@ -127,12 +124,12 @@ pub struct LastSelectedTexture<T> {
 // Helper function for entities that need to access their affiliated texture
 // information.
 pub fn from_texture_source(
-    texture_source: &Affiliation<Entity>,
+    texture_source: &Affiliation,
     textures: &Query<(Option<&TextureImage>, &Texture)>,
 ) -> (Option<Handle<Image>>, Texture) {
     texture_source
         .0
-        .map(|t| textures.get(t).ok())
+        .map(|t| textures.get(*t).ok())
         .flatten()
         .map(|(i, t)| (i.and_then(|img| Some(img.0.clone())), t.clone()))
         .unwrap_or_else(|| (None, Texture::default()))

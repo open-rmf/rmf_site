@@ -156,12 +156,7 @@ impl<'a> InspectAssetSourceComponent<'a> {
 
 #[derive(SystemParam)]
 pub struct InspectAssetSource<'w, 's> {
-    query: Query<
-        'w,
-        's,
-        (&'static AssetSource, &'static RecallAssetSource),
-        Without<Affiliation<Entity>>,
-    >,
+    query: Query<'w, 's, (&'static AssetSource, &'static RecallAssetSource), Without<Affiliation>>,
     default_file: Query<'w, 's, &'static DefaultFile>,
     current_workspace: Res<'w, CurrentWorkspace>,
     change_asset_source: EventWriter<'w, Change<AssetSource>>,

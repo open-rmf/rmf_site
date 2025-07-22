@@ -17,12 +17,12 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Component, Reflect};
+use bevy::prelude::Reflect;
+use bevy_ecs::prelude::Component;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fmt;
 
-#[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
 pub struct TaskParams {
     #[serde(default, skip_serializing_if = "is_default")]
     pub unix_millis_earliest_start_time: Option<i32>,
@@ -228,8 +228,7 @@ impl RobotTaskRequest {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum Task {
     Dispatch(DispatchTaskRequest),
     Direct(RobotTaskRequest),
@@ -314,8 +313,8 @@ pub trait TaskKind: Component + Serialize + DeserializeOwned {
 }
 
 // Supported Task kinds
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct GoToPlace {
     pub location: String,
 }
@@ -341,8 +340,8 @@ impl TaskKind for GoToPlace {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct WaitFor {
     pub duration: f32,
 }

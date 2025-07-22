@@ -231,8 +231,8 @@ impl Plugin for SitePlugin {
         .add_event::<ConsiderLocationTag>()
         .add_event::<MergeGroups>()
         .add_plugins((
-            ChangePlugin::<AssociatedGraphs<Entity>>::default(),
-            RecallPlugin::<RecallAssociatedGraphs<Entity>>::default(),
+            ChangePlugin::<AssociatedGraphs>::default(),
+            RecallPlugin::<RecallAssociatedGraphs>::default(),
             ChangePlugin::<Motion>::default(),
             RecallPlugin::<RecallMotion>::default(),
             ChangePlugin::<ReverseLane>::default(),
@@ -248,8 +248,8 @@ impl Plugin for SitePlugin {
             ChangePlugin::<DoorType>::default(),
             RecallPlugin::<RecallDoorType>::default(),
             ChangePlugin::<LevelElevation>::default(),
-            ChangePlugin::<LiftCabin<Entity>>::default(),
-            RecallPlugin::<RecallLiftCabin<Entity>>::default(),
+            ChangePlugin::<LiftCabin>::default(),
+            RecallPlugin::<RecallLiftCabin>::default(),
             ChangePlugin::<AssetSource>::default(),
             RecallPlugin::<RecallAssetSource>::default(),
             ChangePlugin::<PrimitiveShape>::default(),
@@ -268,7 +268,7 @@ impl Plugin for SitePlugin {
             ChangePlugin::<GlobalFloorVisibility>::default(),
             ChangePlugin::<GlobalDrawingVisibility>::default(),
             ChangePlugin::<PreferredSemiTransparency>::default(),
-            ChangePlugin::<Affiliation<Entity>>::default(),
+            ChangePlugin::<Affiliation>::default(),
             RecencyRankingPlugin::<NavGraphMarker>::default(),
             RecencyRankingPlugin::<FloorMarker>::default(),
             RecencyRankingPlugin::<DrawingMarker>::default(),

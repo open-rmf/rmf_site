@@ -41,12 +41,12 @@ impl Plugin for InspectLiftPlugin {
 
 #[derive(SystemParam)]
 pub struct InspectLiftCabin<'w, 's> {
-    cabins: Query<'w, 's, (&'static LiftCabin<Entity>, &'static RecallLiftCabin<Entity>)>,
-    doors: Query<'w, 's, &'static LevelVisits<Entity>>,
+    cabins: Query<'w, 's, (&'static LiftCabin, &'static RecallLiftCabin)>,
+    doors: Query<'w, 's, &'static LevelVisits>,
     levels: Query<'w, 's, (&'static NameInSite, &'static LevelElevation)>,
     display_level: Res<'w, LevelDisplay>,
-    change_lift_cabin: EventWriter<'w, Change<LiftCabin<Entity>>>,
-    selector: SelectorWidget<'w, 's>,
+    change_lift_cabin: EventWriter<'w, Change<LiftCabin>>,
+    selector: SelectorWidget<'w>,
     toggle_door_levels: EventWriter<'w, ToggleLiftDoorAvailability>,
     current_level: Res<'w, CurrentLevel>,
 }
@@ -143,7 +143,7 @@ impl<'w, 's> InspectLiftCabin<'w, 's> {
                         CollapsingHeader::new(format!("{} Door", face.label()))
                             .default_open(false)
                             .show(ui, |ui| {
-                                self.selector.show_widget(placement.door, ui);
+                                self.selector.show_widget(*placement.door, ui);
                                 ui.horizontal(|ui| {
                                     ui.label("width");
                                     ui.add(
@@ -197,7 +197,7 @@ impl<'w, 's> InspectLiftCabin<'w, 's> {
                                     placement.thickness = new_t;
                                 }
 
-                                if let Ok(visits) = self.doors.get(placement.door) {
+                                if let Ok(visits) = self.doors.get(*placement.door) {
                                     CollapsingHeader::new(format!("Level Access"))
                                         .default_open(true)
                                         .show(ui, |ui| {

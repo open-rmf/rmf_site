@@ -49,15 +49,15 @@ impl LaneSegments {
 
 // TODO(MXG): Refactor these function arguments into a SystemParam
 fn should_display_lane(
-    edge: &Edge<Entity>,
-    associated: &AssociatedGraphs<Entity>,
+    edge: &Edge,
+    associated: &AssociatedGraphs,
     child_of: &Query<&ChildOf>,
     levels: &Query<(), With<LevelElevation>>,
     current_level: &Res<CurrentLevel>,
     graphs: &GraphSelect,
 ) -> bool {
     for anchor in edge.array() {
-        if let Ok(child_of) = child_of.get(anchor) {
+        if let Ok(child_of) = child_of.get(*anchor) {
             if levels.contains(child_of.parent()) && Some(child_of.parent()) != ***current_level {
                 return false;
             }
@@ -88,7 +88,7 @@ pub fn assign_orphan_nav_elements_to_site(
 
 pub fn add_lane_visuals(
     mut commands: Commands,
-    lanes: Query<(Entity, &Edge<Entity>, &AssociatedGraphs<Entity>), Added<LaneMarker>>,
+    lanes: Query<(Entity, &Edge, &AssociatedGraphs), Added<LaneMarker>>,
     graphs: GraphSelect,
     anchors: AnchorParams,
     child_of: Query<&ChildOf>,
@@ -99,7 +99,7 @@ pub fn add_lane_visuals(
 ) {
     for (e, edge, associated_graphs) in &lanes {
         for anchor in &edge.array() {
-            if let Ok(mut deps) = dependents.get_mut(*anchor) {
+            if let Ok(mut deps) = dependents.get_mut(**anchor) {
                 deps.insert(e);
             }
         }
@@ -119,10 +119,10 @@ pub fn add_lane_visuals(
         };
 
         let start_anchor = anchors
-            .point_in_parent_frame_of(edge.start(), Category::Lane, e)
+            .point_in_parent_frame_of(*edge.start(), Category::Lane, e)
             .unwrap();
         let end_anchor = anchors
-            .point_in_parent_frame_of(edge.end(), Category::Lane, e)
+            .point_in_parent_frame_of(*edge.end(), Category::Lane, e)
             .unwrap();
 
         // Create a "layer" entity that manages the height of the lane,
@@ -194,16 +194,16 @@ pub fn add_lane_visuals(
 
 fn update_lane_visuals(
     entity: Entity,
-    edge: &Edge<Entity>,
+    edge: &Edge,
     segments: &LaneSegments,
     anchors: &AnchorParams,
     transforms: &mut Query<&mut Transform>,
 ) {
     let start_anchor = anchors
-        .point_in_parent_frame_of(edge.left(), Category::Lane, entity)
+        .point_in_parent_frame_of(*edge.left(), Category::Lane, entity)
         .unwrap();
     let end_anchor = anchors
-        .point_in_parent_frame_of(edge.right(), Category::Lane, entity)
+        .point_in_parent_frame_of(*edge.right(), Category::Lane, entity)
         .unwrap();
 
     if let Some(mut tf) = transforms.get_mut(segments.start).ok() {
@@ -221,12 +221,12 @@ pub fn update_changed_lane(
     mut lanes: Query<
         (
             Entity,
-            &Edge<Entity>,
-            &AssociatedGraphs<Entity>,
+            &Edge,
+            &AssociatedGraphs,
             &LaneSegments,
             &mut Visibility,
         ),
-        (Changed<Edge<Entity>>, Without<NavGraphMarker>),
+        (Changed<Edge>, Without<NavGraphMarker>),
     >,
     anchors: AnchorParams,
     child_of: Query<&ChildOf>,
@@ -257,7 +257,7 @@ pub fn update_changed_lane(
 }
 
 pub fn update_lane_for_moved_anchor(
-    lanes: Query<(Entity, &Edge<Entity>, &LaneSegments)>,
+    lanes: Query<(Entity, &Edge, &LaneSegments)>,
     anchors: AnchorParams,
     changed_anchors: Query<
         &Dependents,
@@ -278,11 +278,11 @@ pub fn update_lane_for_moved_anchor(
 }
 
 pub fn remove_association_for_deleted_graphs(
-    mut associaged_graphs: Query<&mut AssociatedGraphs<Entity>>,
+    mut associated_graphs: Query<&mut AssociatedGraphs>,
     mut removed: RemovedComponents<NavGraphMarker>,
 ) {
     for e in removed.read() {
-        for mut associated in &mut associaged_graphs {
+        for mut associated in &mut associated_graphs {
             match associated.as_mut() {
                 AssociatedGraphs::All => {}
                 AssociatedGraphs::Only(set) => {
@@ -299,12 +299,7 @@ pub fn remove_association_for_deleted_graphs(
 // TODO(MXG): Generalize this to all edges
 pub fn update_visibility_for_lanes(
     mut lanes: Query<
-        (
-            &Edge<Entity>,
-            &AssociatedGraphs<Entity>,
-            &LaneSegments,
-            &mut Visibility,
-        ),
+        (&Edge, &AssociatedGraphs, &LaneSegments, &mut Visibility),
         (With<LaneMarker>, Without<NavGraphMarker>),
     >,
     child_of: Query<&ChildOf>,
@@ -312,8 +307,8 @@ pub fn update_visibility_for_lanes(
     current_level: Res<CurrentLevel>,
     graphs: GraphSelect,
     lanes_with_changed_association: Query<
-        (Entity, &AssociatedGraphs<Entity>, &LaneSegments),
-        (With<LaneMarker>, Changed<AssociatedGraphs<Entity>>),
+        (Entity, &AssociatedGraphs, &LaneSegments),
+        (With<LaneMarker>, Changed<AssociatedGraphs>),
     >,
     mut materials: Query<&mut MeshMaterial3d<StandardMaterial>, Without<NavGraphMarker>>,
     mut transforms: Query<&mut Transform>,
@@ -410,12 +405,12 @@ impl ConsiderAssociatedGraph {
 }
 
 pub fn handle_consider_associated_graph(
-    mut recalls: Query<&mut RecallAssociatedGraphs<Entity>>,
+    mut recalls: Query<&mut RecallAssociatedGraphs>,
     mut considerations: EventReader<ConsiderAssociatedGraph>,
 ) {
     for consider in considerations.read() {
         if let Ok(mut recall) = recalls.get_mut(consider.for_element) {
-            recall.consider = consider.graph;
+            recall.consider = consider.graph.map(|g| g.into());
         }
     }
 }
@@ -437,23 +432,23 @@ pub fn check_for_duplicated_dock_names(
                         it would be triggered in different parts of the map, rename the docks to \
                         be unique";
     for root in validate_events.read() {
-        let mut names: HashMap<String, BTreeSet<Entity>> = HashMap::new();
+        let mut names: HashMap<String, BTreeSet<SiteID>> = HashMap::new();
         for (e, motion, reverse) in &lane_properties {
             if AncestorIter::new(&child_of, e).any(|co| co == **root) {
                 if let Some(dock) = &motion.dock {
                     let entities_with_name = names.entry(dock.name.clone()).or_default();
-                    entities_with_name.insert(e);
+                    entities_with_name.insert(e.into());
                 }
             }
             if let Some(reverse) = reverse {
                 if let ReverseLane::Different(m) = reverse {
                     if let Some(dock) = &m.dock {
                         let entities_with_name = names.entry(dock.name.clone()).or_default();
-                        let inserted = entities_with_name.insert(e);
+                        let inserted = entities_with_name.insert(e.into());
                         if !inserted {
                             let issue = Issue {
                                 key: IssueKey {
-                                    entities: [e].into(),
+                                    entities: [SiteID::from(e)].into(),
                                     kind: DUPLICATED_DOCK_NAME_ISSUE_UUID,
                                 },
                                 brief: format!(

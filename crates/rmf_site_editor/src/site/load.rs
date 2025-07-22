@@ -143,7 +143,7 @@ trait LoadResult<T> {
     fn for_site(self, site: Entity) -> Result<T, SiteLoadingError>;
 }
 
-impl<T> LoadResult<T> for Result<T, u32> {
+impl<T> LoadResult<T> for Result<T, SiteID> {
     fn for_site(self, site: Entity) -> Result<T, SiteLoadingError> {
         self.map_err(|broken| SiteLoadingError::new(site, broken))
     }
@@ -155,13 +155,13 @@ pub type LoadSiteResult = Result<LoadSite, LoadSiteError>;
 #[error("The site has a broken internal reference: {broken}")]
 struct SiteLoadingError {
     site: Entity,
-    broken: u32,
+    broken: SiteID,
     // TODO(@mxgrey): reintroduce Backtrack when it's supported on stable
     // backtrace: Backtrace,
 }
 
 impl SiteLoadingError {
-    fn new(site: Entity, broken: u32) -> Self {
+    fn new(site: Entity, broken: SiteID) -> Self {
         Self { site, broken }
     }
 }
@@ -172,12 +172,6 @@ fn generate_site_entities(
     site_data: &rmf_site_format::Site,
 ) -> Result<Entity, SiteLoadingError> {
     let mut id_to_entity = HashMap::new();
-    let mut highest_id = 0_u32;
-    let mut consider_id = |consider| {
-        if consider > highest_id {
-            highest_id = consider;
-        }
-    };
 
     let site_id = commands
         .spawn((Transform::IDENTITY, Visibility::Hidden))
@@ -188,113 +182,81 @@ fn generate_site_entities(
     for (anchor_id, anchor) in &site_data.anchors {
         let anchor_entity = commands
             .spawn(AnchorBundle::new(anchor.clone()))
-            .insert(SiteID(*anchor_id))
             .insert(ChildOf(site_id))
             .id();
         id_to_entity.insert(*anchor_id, anchor_entity);
-        consider_id(*anchor_id);
     }
 
     for (group_id, group) in &site_data.fiducial_groups {
-        let group_entity = commands
-            .spawn(group.clone())
-            .insert(SiteID(*group_id))
-            .insert(ChildOf(site_id))
-            .id();
+        let group_entity = commands.spawn(group.clone()).insert(ChildOf(site_id)).id();
         id_to_entity.insert(*group_id, group_entity);
-        consider_id(*group_id);
     }
 
     for (group_id, group) in &site_data.textures {
-        let group_entity = commands
-            .spawn(group.clone())
-            .insert(SiteID(*group_id))
-            .insert(ChildOf(site_id))
-            .id();
+        let group_entity = commands.spawn(group.clone()).insert(ChildOf(site_id)).id();
         id_to_entity.insert(*group_id, group_entity);
-        consider_id(*group_id);
     }
 
     for (level_id, level_data) in &site_data.levels {
-        let level_entity = commands
-            .spawn(SiteID(*level_id))
-            .insert(ChildOf(site_id))
-            .id();
+        let level_entity = commands.spawn(ChildOf(site_id)).id();
 
         for (anchor_id, anchor) in &level_data.anchors {
             let anchor_entity = commands
                 .spawn(AnchorBundle::new(anchor.clone()))
-                .insert(SiteID(*anchor_id))
                 .insert(ChildOf(level_entity))
                 .id();
             id_to_entity.insert(*anchor_id, anchor_entity);
-            consider_id(*anchor_id);
         }
 
         for (door_id, door) in &level_data.doors {
             let door_entity = commands
                 .spawn(door.convert(&id_to_entity).for_site(site_id)?)
-                .insert(SiteID(*door_id))
                 .insert(ChildOf(level_entity))
                 .id();
             id_to_entity.insert(*door_id, door_entity);
-            consider_id(*door_id);
         }
 
-        for (drawing_id, drawing) in &level_data.drawings {
+        for drawing in level_data.drawings.values() {
             let drawing_entity = commands
                 .spawn(DrawingBundle::new(drawing.properties.clone()))
-                .insert(SiteID(*drawing_id))
                 .insert(ChildOf(level_entity))
                 .id();
 
             for (anchor_id, anchor) in &drawing.anchors {
                 let anchor_entity = commands
                     .spawn(AnchorBundle::new(anchor.clone()))
-                    .insert(SiteID(*anchor_id))
                     .insert(ChildOf(drawing_entity))
                     .id();
                 id_to_entity.insert(*anchor_id, anchor_entity);
-                consider_id(*anchor_id);
             }
 
             for (fiducial_id, fiducial) in &drawing.fiducials {
                 let fiducial_entity = commands
                     .spawn(fiducial.convert(&id_to_entity).for_site(site_id)?)
-                    .insert(SiteID(*fiducial_id))
                     .insert(ChildOf(drawing_entity))
                     .id();
                 id_to_entity.insert(*fiducial_id, fiducial_entity);
-                consider_id(*fiducial_id);
             }
 
             for (measurement_id, measurement) in &drawing.measurements {
                 let measurement_entity = commands
                     .spawn(measurement.convert(&id_to_entity).for_site(site_id)?)
-                    .insert(SiteID(*measurement_id))
                     .insert(ChildOf(drawing_entity))
                     .id();
                 id_to_entity.insert(*measurement_id, measurement_entity);
-                consider_id(*measurement_id);
             }
-
-            consider_id(*drawing_id);
         }
 
-        for (floor_id, floor) in &level_data.floors {
+        for floor in level_data.floors.values() {
             commands
                 .spawn(floor.convert(&id_to_entity).for_site(site_id)?)
-                .insert(SiteID(*floor_id))
                 .insert(ChildOf(level_entity));
-            consider_id(*floor_id);
         }
 
-        for (wall_id, wall) in &level_data.walls {
+        for wall in level_data.walls.values() {
             commands
                 .spawn(wall.convert(&id_to_entity).for_site(site_id)?)
-                .insert(SiteID(*wall_id))
                 .insert(ChildOf(level_entity));
-            consider_id(*wall_id);
         }
 
         commands
@@ -304,23 +266,16 @@ fn generate_site_entities(
             .insert(Category::Level)
             .with_children(|level| {
                 // These don't need a return value so can be wrapped in a with_children
-                for (light_id, light) in &level_data.lights {
-                    level.spawn(light.clone()).insert(SiteID(*light_id));
-                    consider_id(*light_id);
+                for light in level_data.lights.values() {
+                    level.spawn(light.clone());
                 }
 
-                for (physical_camera_id, physical_camera) in &level_data.physical_cameras {
-                    level
-                        .spawn(physical_camera.clone())
-                        .insert(SiteID(*physical_camera_id));
-                    consider_id(*physical_camera_id);
+                for physical_camera in level_data.physical_cameras.values() {
+                    level.spawn(physical_camera.clone());
                 }
 
-                for (camera_pose_id, camera_pose) in &level_data.user_camera_poses {
-                    level
-                        .spawn(camera_pose.clone())
-                        .insert(SiteID(*camera_pose_id));
-                    consider_id(*camera_pose_id);
+                for camera_pose in level_data.user_camera_poses.values() {
+                    level.spawn(camera_pose.clone());
                 }
             });
 
@@ -328,37 +283,33 @@ fn generate_site_entities(
         commands
             .entity(level_entity)
             .insert(
-                RecencyRanking::<FloorMarker>::from_u32(&level_data.rankings.floors, &id_to_entity)
-                    .unwrap_or(RecencyRanking::new()),
+                RecencyRanking::<FloorMarker>::from_site_ids(
+                    &level_data.rankings.floors,
+                    &id_to_entity,
+                )
+                .unwrap_or(RecencyRanking::new()),
             )
             .insert(
-                RecencyRanking::<DrawingMarker>::from_u32(
+                RecencyRanking::<DrawingMarker>::from_site_ids(
                     &level_data.rankings.drawings,
                     &id_to_entity,
                 )
                 .unwrap_or(RecencyRanking::new()),
             );
         id_to_entity.insert(*level_id, level_entity);
-        consider_id(*level_id);
     }
 
     for (lift_id, lift_data) in &site_data.lifts {
-        let lift_entity = commands
-            .spawn(SiteID(*lift_id))
-            .insert(ChildOf(site_id))
-            .id();
+        let lift_entity = commands.spawn(ChildOf(site_id)).id();
 
         commands.entity(lift_entity).with_children(|lift| {
             lift.spawn((Transform::default(), Visibility::default()))
                 .insert(CabinAnchorGroupBundle::default())
                 .with_children(|anchor_group| {
                     for (anchor_id, anchor) in &lift_data.cabin_anchors {
-                        let anchor_entity = anchor_group
-                            .spawn(AnchorBundle::new(anchor.clone()))
-                            .insert(SiteID(*anchor_id))
-                            .id();
+                        let anchor_entity =
+                            anchor_group.spawn(AnchorBundle::new(anchor.clone())).id();
                         id_to_entity.insert(*anchor_id, anchor_entity);
-                        consider_id(*anchor_id);
                     }
                 });
         });
@@ -370,7 +321,6 @@ fn generate_site_entities(
                 .insert(ChildOf(lift_entity))
                 .id();
             id_to_entity.insert(*door_id, door_entity);
-            consider_id(*door_id);
         }
 
         commands.entity(lift_entity).insert(Category::Lift).insert(
@@ -381,48 +331,39 @@ fn generate_site_entities(
         );
 
         id_to_entity.insert(*lift_id, lift_entity);
-        consider_id(*lift_id);
     }
 
     for (fiducial_id, fiducial) in &site_data.fiducials {
         let fiducial_entity = commands
             .spawn(fiducial.convert(&id_to_entity).for_site(site_id)?)
-            .insert(SiteID(*fiducial_id))
             .insert(ChildOf(site_id))
             .id();
         id_to_entity.insert(*fiducial_id, fiducial_entity);
-        consider_id(*fiducial_id);
     }
 
     for (nav_graph_id, nav_graph_data) in &site_data.navigation.guided.graphs {
         let nav_graph = commands
             .spawn((Transform::default(), Visibility::default()))
             .insert(nav_graph_data.clone())
-            .insert(SiteID(*nav_graph_id))
             .insert(ChildOf(site_id))
             .id();
         id_to_entity.insert(*nav_graph_id, nav_graph);
-        consider_id(*nav_graph_id);
     }
 
     for (lane_id, lane_data) in &site_data.navigation.guided.lanes {
         let lane = commands
             .spawn(lane_data.convert(&id_to_entity).for_site(site_id)?)
-            .insert(SiteID(*lane_id))
             .insert(ChildOf(site_id))
             .id();
         id_to_entity.insert(*lane_id, lane);
-        consider_id(*lane_id);
     }
 
     for (location_id, location_data) in &site_data.navigation.guided.locations {
         let location = commands
             .spawn(location_data.convert(&id_to_entity).for_site(site_id)?)
-            .insert(SiteID(*location_id))
             .insert(ChildOf(site_id))
             .id();
         id_to_entity.insert(*location_id, location);
-        consider_id(*location_id);
     }
     // Properties require the id_to_entity map to be fully populated to load suppressed issues
     commands.entity(site_id).insert(
@@ -437,12 +378,10 @@ fn generate_site_entities(
     for (model_description_id, model_description) in &site_data.model_descriptions {
         let model_description_entity = commands
             .spawn(model_description.clone())
-            .insert(SiteID(*model_description_id))
             .insert(Category::ModelDescription)
             .insert(ChildOf(site_id))
             .id();
         id_to_entity.insert(*model_description_id, model_description_entity);
-        consider_id(*model_description_id);
         model_description_dependents.insert(model_description_entity, HashSet::new());
         model_description_to_source
             .insert(model_description_entity, model_description.source.0.clone());
@@ -488,10 +427,9 @@ fn generate_site_entities(
 
         let model_instance_entity = model_loader
             .spawn_model_instance(*parent, model_instance.clone())
-            .insert((Category::Model, SiteID(*model_instance_id)))
+            .insert(Category::Model)
             .id();
         id_to_entity.insert(*model_instance_id, model_instance_entity);
-        consider_id(*model_instance_id);
 
         if let Some(instances) = model_instance
             .description
@@ -519,12 +457,10 @@ fn generate_site_entities(
     for (task_id, task_data) in &site_data.tasks {
         let task_entity = commands
             .spawn(task_data.clone())
-            .insert(SiteID(*task_id))
             .insert(Category::Task)
             .insert(ChildOf(site_id))
             .id();
         id_to_entity.insert(*task_id, task_entity);
-        consider_id(*task_id);
     }
 
     for (scenario_id, scenario_data) in &site_data.scenarios {
@@ -535,19 +471,17 @@ fn generate_site_entities(
         let scenario = scenario_data.convert(&id_to_entity).for_site(site_id)?;
         let scenario_entity = commands
             .spawn(scenario.properties.clone())
-            .insert(SiteID(*scenario_id))
             .insert(ChildOf(parent))
             .id();
         id_to_entity.insert(*scenario_id, scenario_entity);
-        consider_id(*scenario_id);
 
         // Spawn instance modifier entities
-        let mut scenario_modifiers: ScenarioModifiers<Entity> = ScenarioModifiers::default();
+        let mut scenario_modifiers: ScenarioModifiers = ScenarioModifiers::default();
         for (instance_id, instance) in scenario_data.instances.iter() {
-            if let Some(instance_entity) = id_to_entity.get(&instance_id) {
+            if let Some(instance_entity) = id_to_entity.get(instance_id) {
                 if instance.pose.is_some() || instance.visibility.is_some() {
                     let modifier_entity = commands
-                        .spawn(Affiliation(Some(*instance_entity)))
+                        .spawn(Affiliation::affiliated(*instance_entity))
                         .insert(ChildOf(scenario_entity))
                         .id();
                     if let Some(pose) = instance.pose {
@@ -581,10 +515,10 @@ fn generate_site_entities(
             }
         }
         for (task_id, task_data) in scenario_data.tasks.iter() {
-            if let Some(task_entity) = id_to_entity.get(&task_id) {
+            if let Some(task_entity) = id_to_entity.get(task_id) {
                 if task_data.inclusion.is_some() || task_data.params.is_some() {
                     let modifier_entity = commands
-                        .spawn(Affiliation(Some(*task_entity)))
+                        .spawn(Affiliation::affiliated(*task_entity))
                         .insert(ChildOf(scenario_entity))
                         .id();
                     if let Some(inclusion) = task_data.inclusion {
@@ -615,7 +549,7 @@ fn generate_site_entities(
         commands.entity(scenario_entity).insert(scenario_modifiers);
     }
 
-    let nav_graph_rankings = match RecencyRanking::<NavGraphMarker>::from_u32(
+    let nav_graph_rankings = match RecencyRanking::<NavGraphMarker>::from_site_ids(
         &site_data.navigation.guided.ranking,
         &id_to_entity,
     ) {
@@ -629,10 +563,7 @@ fn generate_site_entities(
         }
     };
 
-    commands
-        .entity(site_id)
-        .insert(nav_graph_rankings)
-        .insert(NextSiteID(highest_id + 1));
+    commands.entity(site_id).insert(nav_graph_rankings);
 
     // Make the lift cabin anchors that are used by doors subordinate
     for (lift_id, lift_data) in &site_data.lifts {
@@ -691,7 +622,7 @@ pub enum ImportNavGraphError {
     #[error("The site we are importing into has a broken reference")]
     BrokenSiteReference,
     #[error("The nav graph that is being imported has a broken reference inside of it")]
-    BrokenInternalReference(u32),
+    BrokenInternalReference(SiteID),
     #[error("The existing site is missing a level name required by the nav graphs: {0}")]
     MissingLevelName(String),
     #[error("The existing site is missing a lift name required by the nav graphs: {0}")]
@@ -730,7 +661,7 @@ pub struct ImportNavGraphParams<'w, 's> {
             &'static ChildOf,
             &'static Children,
         ),
-        With<LiftCabin<Entity>>,
+        With<LiftCabin>,
     >,
     cabin_anchor_groups: Query<'w, 's, &'static Children, With<CabinAnchorGroup>>,
     anchors: Query<'w, 's, (Entity, &'static Anchor)>,

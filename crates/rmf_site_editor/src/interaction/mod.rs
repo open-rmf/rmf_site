@@ -151,7 +151,7 @@ impl Plugin for InteractionPlugin {
                 CategoryVisibilityPlugin::<DoorMarker>::visible(true),
                 CategoryVisibilityPlugin::<FloorMarker>::visible(true),
                 CategoryVisibilityPlugin::<LaneMarker>::visible(true),
-                CategoryVisibilityPlugin::<LiftCabin<Entity>>::visible(true),
+                CategoryVisibilityPlugin::<LiftCabin>::visible(true),
                 CategoryVisibilityPlugin::<LiftCabinDoorMarker>::visible(true),
                 CategoryVisibilityPlugin::<LocationTags>::visible(true),
                 CategoryVisibilityPlugin::<FiducialMarker>::visible(true),

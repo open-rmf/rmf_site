@@ -73,7 +73,7 @@ pub struct ViewNavGraphs<'w, 's> {
     change_name: EventWriter<'w, Change<NameInSite>>,
     change_color: EventWriter<'w, Change<DisplayColor>>,
     change_rank: EventWriter<'w, ChangeRank<NavGraphMarker>>,
-    selector: SelectorWidget<'w, 's>,
+    selector: SelectorWidget<'w>,
     commands: Commands<'w, 's>,
     app_state: Res<'w, State<AppState>>,
 }

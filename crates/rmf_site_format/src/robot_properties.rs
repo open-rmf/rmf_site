@@ -17,10 +17,8 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::{
-    ecs::component::Mutable,
-    prelude::{Component, *},
-};
+use bevy::{ecs::component::Mutable, prelude::*};
+use bevy_ecs::prelude::Component;
 use sdformat_rs::{ElementData, ElementMap};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -177,8 +175,7 @@ pub fn retrieve_robot_property_kind<
     Err(RobotPropertyError::PropertyKindNotFound(Kind::label()))
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Mobility {
     pub kind: String,
     pub config: Value,
@@ -215,8 +212,7 @@ impl RobotProperty for Mobility {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct RecallMobility {
     pub kind: Option<String>,
     pub config: Option<Value>,
@@ -232,8 +228,8 @@ impl Recall for RecallMobility {
 }
 
 // Supported kinds of Mobility
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct DifferentialDrive {
     pub bidirectional: bool,
@@ -297,8 +293,7 @@ impl From<&ElementMap> for DifferentialDrive {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct RecallDifferentialDrive {
     pub bidirectional: Option<bool>,
     pub rotation_center_offset: Option<[f32; 2]>,
@@ -331,8 +326,7 @@ impl Recall for RecallDifferentialDrive {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Collision {
     pub kind: String,
     pub config: Value,
@@ -369,8 +363,7 @@ impl RobotProperty for Collision {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct RecallCollision {
     pub kind: Option<String>,
     pub config: Option<Value>,
@@ -386,8 +379,8 @@ impl Recall for RecallCollision {
 }
 
 // Supported kinds of Collision
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct CircleCollision {
     pub radius: f32,
@@ -410,8 +403,7 @@ impl RobotPropertyKind for CircleCollision {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct RecallCircleCollision {
     pub radius: Option<f32>,
     pub offset: Option<[f32; 2]>,
@@ -438,8 +430,7 @@ impl Recall for RecallCircleCollision {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct PowerSource {
     pub kind: String,
     pub config: Value,
@@ -476,8 +467,7 @@ impl RobotProperty for PowerSource {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct RecallPowerSource {
     pub kind: Option<String>,
     pub config: Option<Value>,
@@ -493,8 +483,8 @@ impl Recall for RecallPowerSource {
 }
 
 // Supported kinds of Power Source
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct Battery {
     pub voltage: f32,
@@ -546,8 +536,7 @@ impl From<&ElementMap> for Battery {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct RecallBattery {
     pub voltage: Option<f32>,
     pub capacity: Option<f32>,
@@ -578,8 +567,7 @@ impl Recall for RecallBattery {
 }
 
 // TODO(@xiyuoh) Update RobotProperty trait to accommodate properties that can accommodate multiple Kinds
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct PowerDissipation {
     pub config: Value,
 }
@@ -620,8 +608,7 @@ impl RobotProperty for PowerDissipation {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct RecallPowerDissipation {
     pub config: Option<Value>,
 }
@@ -635,8 +622,8 @@ impl Recall for RecallPowerDissipation {
 }
 
 // Supported kinds of PowerDissipation
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct MechanicalSystem {
     pub mass: f32,
@@ -688,8 +675,7 @@ impl From<&ElementMap> for MechanicalSystem {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct RecallMechanicalSystem {
     pub mass: Option<f32>,
     pub moment_of_inertia: Option<f32>,
@@ -719,8 +705,8 @@ impl Recall for RecallMechanicalSystem {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct AmbientSystem {
     pub idle_power: f32,
@@ -754,8 +740,7 @@ impl From<&ElementMap> for AmbientSystem {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct RecallAmbientSystem {
     pub idle_power: Option<f32>,
 }

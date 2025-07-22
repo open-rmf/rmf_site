@@ -49,7 +49,7 @@ pub fn add_unused_fiducial_tracker(
     new_fiducial_scope: Query<Entity, Or<(Added<DrawingMarker>, Added<NameOfSite>)>>,
     sites: Query<(), With<NameOfSite>>,
     child_of: Query<&ChildOf>,
-    fiducials: Query<&Affiliation<Entity>, With<FiducialMarker>>,
+    fiducials: Query<&Affiliation, With<FiducialMarker>>,
     fiducial_groups: Query<(Entity, &NameInSite, &ChildOf), (With<Group>, With<FiducialMarker>)>,
     children: Query<&Children>,
 ) {
@@ -78,14 +78,14 @@ pub fn update_fiducial_usage_tracker(
     changed_fiducials: Query<
         &ChildOf,
         (
-            Or<(Changed<Affiliation<Entity>>, Changed<ChildOf>)>,
+            Or<(Changed<Affiliation>, Changed<ChildOf>)>,
             With<FiducialMarker>,
         ),
     >,
     sites: Query<(), With<NameOfSite>>,
     child_of: Query<&ChildOf>,
     children: Query<&Children>,
-    fiducials: Query<&Affiliation<Entity>, With<FiducialMarker>>,
+    fiducials: Query<&Affiliation, With<FiducialMarker>>,
     fiducial_groups: Query<(Entity, &NameInSite, &ChildOf), (With<Group>, With<FiducialMarker>)>,
     changed_fiducial_groups: Query<
         Entity,
@@ -134,7 +134,7 @@ pub fn update_fiducial_usage_tracker(
                         continue;
                     };
                     if let Some(group) = affiliation.0 {
-                        if changed_group == group {
+                        if changed_group == *group {
                             tracker.unused.remove(&changed_group);
                             tracker.used.insert(changed_group, name.0.clone());
                         }
@@ -179,7 +179,7 @@ fn find_parent_site(
 fn reset_fiducial_usage(
     scope: Entity,
     tracker: &mut FiducialUsage,
-    fiducials: &Query<&Affiliation<Entity>, With<FiducialMarker>>,
+    fiducials: &Query<&Affiliation, With<FiducialMarker>>,
     fiducial_groups: &Query<(Entity, &NameInSite, &ChildOf), (With<Group>, With<FiducialMarker>)>,
     children: &Query<&Children>,
 ) {
@@ -200,8 +200,8 @@ fn reset_fiducial_usage(
         };
         if let Some(group) = affiliation.0 {
             tracker.unused.remove(&group);
-            if let Ok((_, name, _)) = fiducial_groups.get(group) {
-                tracker.used.insert(group, name.0.clone());
+            if let Ok((_, name, _)) = fiducial_groups.get(*group) {
+                tracker.used.insert(*group, name.0.clone());
             }
         }
     }
@@ -209,13 +209,13 @@ fn reset_fiducial_usage(
 
 pub fn add_fiducial_visuals(
     mut commands: Commands,
-    fiducials: Query<(Entity, &Point<Entity>, Option<&Transform>), Added<FiducialMarker>>,
+    fiducials: Query<(Entity, &Point, Option<&Transform>), Added<FiducialMarker>>,
     fiducial_groups: Query<Entity, (Added<FiducialMarker>, With<Group>)>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
 ) {
     for (e, point, tf) in fiducials.iter() {
-        if let Ok(mut deps) = dependents.get_mut(point.0) {
+        if let Ok(mut deps) = dependents.get_mut(*point.0) {
             deps.insert(e);
         }
 
@@ -241,14 +241,11 @@ pub fn add_fiducial_visuals(
 
 pub fn assign_orphan_fiducials_to_parent(
     mut commands: Commands,
-    orphans: Query<
-        (Entity, &Point<Entity>),
-        (With<FiducialMarker>, Without<ChildOf>, Without<Pending>),
-    >,
+    orphans: Query<(Entity, &Point), (With<FiducialMarker>, Without<ChildOf>, Without<Pending>)>,
     anchors: Query<&ChildOf, With<Anchor>>,
 ) {
     for (e, point) in &orphans {
-        if let Ok(child_of) = anchors.get(point.0) {
+        if let Ok(child_of) = anchors.get(*point.0) {
             commands.entity(e).insert(ChildOf(child_of.parent()));
         } else {
             error!(
@@ -261,16 +258,13 @@ pub fn assign_orphan_fiducials_to_parent(
 
 pub fn update_changed_fiducial(
     mut fiducials: Query<
-        (Entity, &Point<Entity>, &mut Transform),
-        (
-            With<FiducialMarker>,
-            Or<(Changed<Point<Entity>>, Changed<ChildOf>)>,
-        ),
+        (Entity, &Point, &mut Transform),
+        (With<FiducialMarker>, Or<(Changed<Point>, Changed<ChildOf>)>),
     >,
     anchors: AnchorParams,
 ) {
     for (e, point, mut tf) in fiducials.iter_mut() {
-        let position = match anchors.point_in_parent_frame_of(point.0, Category::Fiducial, e) {
+        let position = match anchors.point_in_parent_frame_of(*point.0, Category::Fiducial, e) {
             Ok(position) => position,
             Err(err) => {
                 error!("failed to update fiducial: {err}");
@@ -282,7 +276,7 @@ pub fn update_changed_fiducial(
 }
 
 pub fn update_fiducial_for_moved_anchors(
-    mut fiducials: Query<(Entity, &Point<Entity>, &mut Transform), With<FiducialMarker>>,
+    mut fiducials: Query<(Entity, &Point, &mut Transform), With<FiducialMarker>>,
     anchors: AnchorParams,
     changed_anchors: Query<
         &Dependents,
@@ -296,7 +290,7 @@ pub fn update_fiducial_for_moved_anchors(
         for dependent in dependents.iter() {
             if let Ok((e, point, mut tf)) = fiducials.get_mut(*dependent) {
                 let position =
-                    match anchors.point_in_parent_frame_of(point.0, Category::Fiducial, e) {
+                    match anchors.point_in_parent_frame_of(*point.0, Category::Fiducial, e) {
                         Ok(position) => position,
                         Err(err) => {
                             error!("failed to update fiducial: {err}");
@@ -319,7 +313,7 @@ pub fn check_for_fiducials_without_affiliation(
     mut commands: Commands,
     mut validate_events: EventReader<ValidateWorkspace>,
     child_of: Query<&ChildOf>,
-    fiducial_affiliations: Query<(Entity, &Affiliation<Entity>), With<FiducialMarker>>,
+    fiducial_affiliations: Query<(Entity, &Affiliation), With<FiducialMarker>>,
 ) {
     const ISSUE_HINT: &str = "Fiducial affiliations are used by the site editor to map matching \
                             fiducials between different floors or drawings and calculate their \
@@ -330,7 +324,7 @@ pub fn check_for_fiducials_without_affiliation(
                 if affiliation.0.is_none() {
                     let issue = Issue {
                         key: IssueKey {
-                            entities: [e].into(),
+                            entities: [SiteID::from(e)].into(),
                             kind: FIDUCIAL_WITHOUT_AFFILIATION_ISSUE_UUID,
                         },
                         brief: format!("Fiducial without affiliation found"),

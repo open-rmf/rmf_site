@@ -16,17 +16,15 @@
 */
 
 use crate::*;
-#[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component};
+use bevy_ecs::prelude::{Bundle, Component, Entity};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Bundle))]
-pub struct Floor<T: RefTrait> {
-    pub anchors: Path<T>,
+#[derive(Bundle, Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct Floor {
+    pub anchors: Path,
     #[serde(default, skip_serializing_if = "is_default")]
-    pub texture: Affiliation<T>,
+    pub texture: Affiliation,
     #[serde(
         default = "PreferredSemiTransparency::for_floor",
         skip_serializing_if = "PreferredSemiTransparency::is_default_for_floor"
@@ -36,12 +34,11 @@ pub struct Floor<T: RefTrait> {
     pub marker: FloorMarker,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct FloorMarker;
 
-impl<T: RefTrait> Floor<T> {
-    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Floor<U>, T> {
+impl Floor {
+    pub fn convert(&self, id_map: &HashMap<SiteID, Entity>) -> Result<Floor, SiteID> {
         Ok(Floor {
             anchors: self.anchors.convert(id_map)?,
             texture: self.texture.convert(id_map)?,
@@ -51,8 +48,8 @@ impl<T: RefTrait> Floor<T> {
     }
 }
 
-impl<T: RefTrait> From<Path<T>> for Floor<T> {
-    fn from(path: Path<T>) -> Self {
+impl From<Path> for Floor {
+    fn from(path: Path) -> Self {
         Floor {
             anchors: path,
             texture: Affiliation(None),

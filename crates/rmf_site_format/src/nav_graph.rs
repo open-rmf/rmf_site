@@ -17,7 +17,8 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity, Query, With};
+use bevy::prelude::{Deref, DerefMut};
+use bevy_ecs::prelude::{Bundle, Component, Entity};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, HashMap};
 
@@ -32,8 +33,7 @@ pub const DEFAULT_NAV_GRAPH_COLORS: [[f32; 3]; 8] = [
     [0.7, 0.5, 0.1],
 ];
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "bevy", derive(Bundle))]
+#[derive(Bundle, Serialize, Deserialize, Debug, Clone)]
 pub struct NavGraph {
     pub name: NameInSite,
     pub color: DisplayColor,
@@ -41,8 +41,7 @@ pub struct NavGraph {
     pub marker: NavGraphMarker,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct NavGraphMarker;
 
 impl Default for NavGraph {
@@ -55,22 +54,21 @@ impl Default for NavGraph {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Component, Serialize, Deserialize, Debug, Clone)]
 #[serde(transparent)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+#[cfg_attr(feature = "bevy", derive(Deref, DerefMut))]
 pub struct DisplayColor(pub [f32; 3]);
 
 /// This component is used by graph elements such as [`Lane`] and [`Location`]
 /// to indicate what graphs they can be associated with.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub enum AssociatedGraphs<T: RefTrait> {
+#[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum AssociatedGraphs {
     All,
-    Only(BTreeSet<T>),
-    AllExcept(BTreeSet<T>),
+    Only(BTreeSet<SiteID>),
+    AllExcept(BTreeSet<SiteID>),
 }
 
-impl<T: RefTrait> AssociatedGraphs<T> {
+impl AssociatedGraphs {
     pub fn label(&self) -> &'static str {
         match self {
             Self::All => "All",
@@ -83,21 +81,21 @@ impl<T: RefTrait> AssociatedGraphs<T> {
         matches!(self, Self::All)
     }
 
-    pub fn only(&self) -> Option<&BTreeSet<T>> {
+    pub fn only(&self) -> Option<&BTreeSet<SiteID>> {
         match self {
             Self::Only(set) => Some(set),
             _ => None,
         }
     }
 
-    pub fn all_except(&self) -> Option<&BTreeSet<T>> {
+    pub fn all_except(&self) -> Option<&BTreeSet<SiteID>> {
         match self {
             Self::AllExcept(set) => Some(set),
             _ => None,
         }
     }
 
-    pub fn includes(&self, e: T) -> bool {
+    pub fn includes(&self, e: SiteID) -> bool {
         match self {
             Self::All => true,
             Self::Only(set) => set.contains(&e),
@@ -106,14 +104,14 @@ impl<T: RefTrait> AssociatedGraphs<T> {
     }
 }
 
-impl<T: RefTrait> Default for AssociatedGraphs<T> {
+impl Default for AssociatedGraphs {
     fn default() -> Self {
         AssociatedGraphs::All
     }
 }
 
-impl<T: RefTrait> AssociatedGraphs<T> {
-    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<AssociatedGraphs<U>, T> {
+impl AssociatedGraphs {
+    pub fn convert(&self, id_map: &HashMap<SiteID, Entity>) -> Result<AssociatedGraphs, SiteID> {
         let result = match self {
             Self::All => AssociatedGraphs::All,
             Self::Only(set) => AssociatedGraphs::Only(Self::convert_set(set, id_map)?),
@@ -122,52 +120,25 @@ impl<T: RefTrait> AssociatedGraphs<T> {
         Ok(result)
     }
 
-    fn convert_set<U: RefTrait>(
-        set: &BTreeSet<T>,
-        id_map: &HashMap<T, U>,
-    ) -> Result<BTreeSet<U>, T> {
+    fn convert_set(
+        set: &BTreeSet<SiteID>,
+        id_map: &HashMap<SiteID, Entity>,
+    ) -> Result<BTreeSet<SiteID>, SiteID> {
         set.iter()
-            .map(|g| id_map.get(g).cloned().ok_or(*g))
+            .map(|g| id_map.get(g).map(|e| (*e).into()).ok_or(*g))
             .collect()
     }
 }
 
-#[cfg(feature = "bevy")]
-impl AssociatedGraphs<Entity> {
-    pub fn to_u32(
-        &self,
-        q_nav_graph: &Query<&SiteID, With<NavGraphMarker>>,
-    ) -> Result<AssociatedGraphs<u32>, Entity> {
-        match self {
-            Self::All => Ok(AssociatedGraphs::All),
-            Self::Only(set) => Ok(AssociatedGraphs::Only(Self::set_to_u32(set, q_nav_graph)?)),
-            Self::AllExcept(set) => Ok(AssociatedGraphs::AllExcept(Self::set_to_u32(
-                set,
-                q_nav_graph,
-            )?)),
-        }
-    }
-
-    fn set_to_u32(
-        set: &BTreeSet<Entity>,
-        q_nav_graph: &Query<&SiteID, With<NavGraphMarker>>,
-    ) -> Result<BTreeSet<u32>, Entity> {
-        set.iter()
-            .map(|e| q_nav_graph.get(*e).map(|s| s.0).map_err(|_| *e))
-            .collect()
-    }
+#[derive(Component, Clone, Debug, PartialEq, Eq)]
+pub struct RecallAssociatedGraphs {
+    pub only: Option<BTreeSet<SiteID>>,
+    pub all_except: Option<BTreeSet<SiteID>>,
+    pub consider: Option<SiteID>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub struct RecallAssociatedGraphs<T: RefTrait> {
-    pub only: Option<BTreeSet<T>>,
-    pub all_except: Option<BTreeSet<T>>,
-    pub consider: Option<T>,
-}
-
-impl<T: RefTrait> RecallAssociatedGraphs<T> {
-    pub fn assume_only(&self, current: &AssociatedGraphs<T>) -> AssociatedGraphs<T> {
+impl RecallAssociatedGraphs {
+    pub fn assume_only(&self, current: &AssociatedGraphs) -> AssociatedGraphs {
         AssociatedGraphs::Only(
             current
                 .only()
@@ -176,7 +147,7 @@ impl<T: RefTrait> RecallAssociatedGraphs<T> {
         )
     }
 
-    pub fn assume_all_except(&self, current: &AssociatedGraphs<T>) -> AssociatedGraphs<T> {
+    pub fn assume_all_except(&self, current: &AssociatedGraphs) -> AssociatedGraphs {
         AssociatedGraphs::AllExcept(
             current
                 .all_except()
@@ -186,7 +157,7 @@ impl<T: RefTrait> RecallAssociatedGraphs<T> {
     }
 }
 
-impl<T: RefTrait> Default for RecallAssociatedGraphs<T> {
+impl Default for RecallAssociatedGraphs {
     fn default() -> Self {
         Self {
             only: None,
@@ -196,8 +167,8 @@ impl<T: RefTrait> Default for RecallAssociatedGraphs<T> {
     }
 }
 
-impl<T: RefTrait> Recall for RecallAssociatedGraphs<T> {
-    type Source = AssociatedGraphs<T>;
+impl Recall for RecallAssociatedGraphs {
+    type Source = AssociatedGraphs;
 
     fn remember(&mut self, source: &Self::Source) {
         match source {

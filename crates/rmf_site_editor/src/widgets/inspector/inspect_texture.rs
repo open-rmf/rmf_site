@@ -47,7 +47,7 @@ pub struct InspectTextureAffiliation<'w, 's> {
     with_texture: Query<
         'w,
         's,
-        (&'static Category, &'static Affiliation<Entity>),
+        (&'static Category, &'static Affiliation),
         Or<(With<FloorMarker>, With<WallMarker>)>,
     >,
     texture_groups: Query<'w, 's, (&'static NameInSite, &'static Texture), With<Group>>,
@@ -56,7 +56,7 @@ pub struct InspectTextureAffiliation<'w, 's> {
     icons: Res<'w, Icons>,
     search_for_texture: ResMut<'w, SearchForTexture>,
     commands: Commands<'w, 's>,
-    change_affiliation: EventWriter<'w, Change<Affiliation<Entity>>>,
+    change_affiliation: EventWriter<'w, Change<Affiliation>>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectTextureAffiliation<'w, 's> {
@@ -113,7 +113,7 @@ impl<'w, 's> InspectTextureAffiliation<'w, 's> {
         }
 
         if let (SearchResult::Match(e), Some(current)) = (&result, &affiliation.0) {
-            if *e == *current {
+            if *e == **current {
                 result = SearchResult::Current;
             }
         }
@@ -165,7 +165,7 @@ impl<'w, 's> InspectTextureAffiliation<'w, 's> {
                     {
                         let new_texture = if let Some((_, t)) = affiliation
                             .0
-                            .map(|a| self.texture_groups.get(a).ok())
+                            .map(|a| self.texture_groups.get(*a).ok())
                             .flatten()
                         {
                             t.clone()
@@ -183,7 +183,7 @@ impl<'w, 's> InspectTextureAffiliation<'w, 's> {
                             .insert(ChildOf(site))
                             .id();
                         self.change_affiliation
-                            .write(Change::new(Affiliation(Some(new_texture_group)), id));
+                            .write(Change::new(Affiliation::affiliated(new_texture_group), id));
                     }
                 }
                 SearchResult::Match(group) => {
@@ -193,7 +193,7 @@ impl<'w, 's> InspectTextureAffiliation<'w, 's> {
                         .clicked()
                     {
                         self.change_affiliation
-                            .write(Change::new(Affiliation(Some(group)), id));
+                            .write(Change::new(Affiliation::affiliated(group), id));
                     }
                 }
                 SearchResult::Conflict(text) => {
@@ -213,7 +213,7 @@ impl<'w, 's> InspectTextureAffiliation<'w, 's> {
 
         let (current_texture_name, _current_texture) = if let Some(a) = affiliation.0 {
             self.texture_groups
-                .get(a)
+                .get(*a)
                 .ok()
                 .map(|(n, t)| (n.0.as_str(), Some((a, t))))
         } else {
@@ -236,13 +236,13 @@ impl<'w, 's> InspectTextureAffiliation<'w, 's> {
                 .selected_text(current_texture_name)
                 .show_ui(ui, |ui| {
                     for child in children {
-                        if affiliation.0.is_some_and(|a| a == *child) {
+                        if affiliation.0.is_some_and(|a| a == (*child).into()) {
                             continue;
                         }
 
                         if let Ok((n, _)) = self.texture_groups.get(*child) {
                             if n.0.contains(&self.search_for_texture.0) {
-                                let select_affiliation = Affiliation(Some(*child));
+                                let select_affiliation = Affiliation::affiliated(*child);
                                 ui.selectable_value(&mut new_affiliation, select_affiliation, &n.0);
                             }
                         }

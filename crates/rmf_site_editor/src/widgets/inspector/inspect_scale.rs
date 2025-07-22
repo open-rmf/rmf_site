@@ -26,7 +26,7 @@ use rmf_site_format::{Affiliation, Scale};
 
 #[derive(SystemParam)]
 pub struct InspectScale<'w, 's> {
-    scales: Query<'w, 's, &'static Scale, Without<Affiliation<Entity>>>,
+    scales: Query<'w, 's, &'static Scale, Without<Affiliation>>,
     change_scale: EventWriter<'w, Change<Scale>>,
 }
 

@@ -221,12 +221,8 @@ where
 #[derive(SystemParam)]
 struct InspectModelDescription<'w, 's> {
     commands: Commands<'w, 's>,
-    model_instances: Query<
-        'w,
-        's,
-        &'static Affiliation<Entity>,
-        (With<ModelMarker>, Without<Group>, With<NameInSite>),
-    >,
+    model_instances:
+        Query<'w, 's, &'static Affiliation, (With<ModelMarker>, Without<Group>, With<NameInSite>)>,
     model_descriptions: Query<'w, 's, &'static NameInSite, (With<ModelMarker>, With<Group>)>,
     model_properties: Res<'w, ModelPropertyData>,
     inspect_model_description: Res<'w, ModelDescriptionInspector>,
@@ -380,7 +376,7 @@ pub struct InspectSelectedModelDescription<'w, 's> {
         (With<ModelMarker>, With<Group>),
     >,
     model_loader: ModelLoader<'w, 's>,
-    change_affiliation: EventWriter<'w, Change<Affiliation<Entity>>>,
+    change_affiliation: EventWriter<'w, Change<Affiliation>>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectSelectedModelDescription<'w, 's> {
@@ -423,8 +419,10 @@ impl<'w, 's> InspectSelectedModelDescription<'w, 's> {
                 });
         });
         if new_description_entity != current_description_entity {
-            self.change_affiliation
-                .write(Change::new(Affiliation(Some(new_description_entity)), id));
+            self.change_affiliation.write(Change::new(
+                Affiliation::affiliated(new_description_entity),
+                id,
+            ));
             let (_, _, new_source) = self.model_descriptions.get(new_description_entity).unwrap();
             self.model_loader
                 .update_asset_source(id, new_source.0.clone());
@@ -449,8 +447,8 @@ fn get_selected_description_entity<'w, 's, P: Component, T: QueryData>(
             return None;
         };
 
-        if model_descriptions.get(affiliation).is_ok() {
-            return Some(affiliation);
+        if model_descriptions.get(*affiliation).is_ok() {
+            return Some(*affiliation);
         } else {
             return None;
         }

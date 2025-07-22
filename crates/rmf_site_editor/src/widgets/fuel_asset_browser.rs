@@ -306,7 +306,7 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
 
                             let instance = ModelInstance {
                                 name: NameInSite(format!("{description_name}_0")),
-                                description: Affiliation(Some(description)),
+                                description: Affiliation(Some(description.into())),
                                 ..Default::default()
                             };
                             self.object_placement.place_object_2d(instance);

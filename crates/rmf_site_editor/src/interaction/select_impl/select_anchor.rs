@@ -155,31 +155,28 @@ pub struct AnchorSelection<'w, 's> {
 
 impl<'w, 's> AnchorSelection<'w, 's> {
     pub fn create_lanes(&mut self) {
-        self.create_edges::<Lane<Entity>>(EdgeContinuity::Continuous, AnchorScope::General);
+        self.create_edges::<Lane>(EdgeContinuity::Continuous, AnchorScope::General);
     }
 
     pub fn create_measurements(&mut self) {
-        self.create_edges::<Measurement<Entity>>(EdgeContinuity::Separate, AnchorScope::Drawing)
+        self.create_edges::<Measurement>(EdgeContinuity::Separate, AnchorScope::Drawing)
     }
 
     pub fn create_walls(&mut self) {
-        self.create_edges_with_texture::<Wall<Entity>>(
-            EdgeContinuity::Continuous,
-            AnchorScope::General,
-        );
+        self.create_edges_with_texture::<Wall>(EdgeContinuity::Continuous, AnchorScope::General);
     }
 
     pub fn create_door(&mut self) {
-        self.create_edges::<Door<Entity>>(EdgeContinuity::Single, AnchorScope::General)
+        self.create_edges::<Door>(EdgeContinuity::Single, AnchorScope::General)
     }
 
     pub fn create_lift(&mut self) {
-        self.create_edges::<LiftProperties<Entity>>(EdgeContinuity::Single, AnchorScope::Site)
+        self.create_edges::<LiftProperties>(EdgeContinuity::Single, AnchorScope::Site)
     }
 
     pub fn create_floor(&mut self) {
-        self.create_path::<Floor<Entity>>(
-            create_path_with_texture::<Floor<Entity>>,
+        self.create_path::<Floor>(
+            create_path_with_texture::<Floor>,
             3,
             false,
             true,
@@ -188,18 +185,18 @@ impl<'w, 's> AnchorSelection<'w, 's> {
     }
 
     pub fn create_location(&mut self) {
-        self.create_point::<Location<Entity>>(false, AnchorScope::General);
+        self.create_point::<Location>(false, AnchorScope::General);
     }
 
     pub fn create_site_fiducial(&mut self) {
-        self.create_point::<Fiducial<Entity>>(false, AnchorScope::Site);
+        self.create_point::<Fiducial>(false, AnchorScope::Site);
     }
 
     pub fn create_drawing_fiducial(&mut self) {
-        self.create_point::<Fiducial<Entity>>(false, AnchorScope::Drawing);
+        self.create_point::<Fiducial>(false, AnchorScope::Drawing);
     }
 
-    pub fn create_edges<T: Bundle + From<Edge<Entity>>>(
+    pub fn create_edges<T: Bundle + From<Edge>>(
         &mut self,
         continuity: EdgeContinuity,
         scope: AnchorScope,
@@ -215,7 +212,7 @@ impl<'w, 's> AnchorSelection<'w, 's> {
         });
     }
 
-    pub fn create_edges_with_texture<T: Bundle + From<Edge<Entity>>>(
+    pub fn create_edges_with_texture<T: Bundle + From<Edge>>(
         &mut self,
         continuity: EdgeContinuity,
         scope: AnchorScope,
@@ -253,9 +250,9 @@ impl<'w, 's> AnchorSelection<'w, 's> {
         true
     }
 
-    pub fn create_path<T: Bundle + From<Path<Entity>>>(
+    pub fn create_path<T: Bundle + From<Path>>(
         &mut self,
-        spawn_path: fn(Path<Entity>, &mut Commands) -> Entity,
+        spawn_path: fn(Path, &mut Commands) -> Entity,
         minimum_points: usize,
         allow_inner_loops: bool,
         implied_complete_loop: bool,
@@ -278,11 +275,7 @@ impl<'w, 's> AnchorSelection<'w, 's> {
         });
     }
 
-    pub fn create_point<T: Bundle + From<Point<Entity>>>(
-        &mut self,
-        repeating: bool,
-        scope: AnchorScope,
-    ) {
+    pub fn create_point<T: Bundle + From<Point>>(&mut self, repeating: bool, scope: AnchorScope) {
         let state = self
             .commands
             .spawn(SelectorInput(CreatePoint::new::<T>(repeating, scope)))

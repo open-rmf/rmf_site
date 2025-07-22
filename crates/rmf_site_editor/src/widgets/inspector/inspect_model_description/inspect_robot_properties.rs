@@ -20,7 +20,7 @@ use crate::{
     site::{
         recall_plugin::UpdateRecallSet, robot_properties::*, update_model_instances, Change, Group,
         IssueKey, ModelMarker, ModelProperty, ModelPropertyQuery, NameInSite, Recall, RecallPlugin,
-        Robot, SiteUpdateSet,
+        Robot, SiteID, SiteUpdateSet,
     },
     widgets::Inspect,
     AppState, Issue, ModelPropertyData, ValidateWorkspace,
@@ -433,7 +433,7 @@ pub fn check_for_missing_robot_property_kinds(
                 };
                 let issue = Issue {
                     key: IssueKey {
-                        entities: [entity].into(),
+                        entities: [SiteID::from(entity)].into(),
                         kind: MISSING_ROBOT_PROPERTY_KIND_ISSUE_UUID,
                     },
                     brief,

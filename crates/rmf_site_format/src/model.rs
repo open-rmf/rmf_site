@@ -17,12 +17,12 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Reflect, ReflectComponent};
+use bevy::prelude::{Reflect, ReflectComponent};
+use bevy_ecs::prelude::{Bundle, Component, Entity};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Bundle))]
+#[derive(Bundle, Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Model {
     /// Name of the model
     pub name: NameInSite,
@@ -41,8 +41,8 @@ pub struct Model {
     pub marker: ModelMarker,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct ModelMarker;
 
@@ -60,23 +60,20 @@ impl Default for Model {
 }
 
 /// Defines a property in a model description, that will be added to all instances
-#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[derive(Component, Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 pub struct ModelProperty<T: Default + Clone>(pub T);
 
 /// Stores additional model description export data for plugins, to be updated by relevant plugins
-#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
 pub struct ExportWith(pub HashMap<String, serde_json::Value>);
 
 /// Stores additional model instance export data when generating Sdf
-#[derive(Debug, Default, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Debug, Default, Clone, PartialEq)]
 pub struct ExportData(pub HashMap<String, sdformat_rs::XmlElement>);
 
 /// Bundle with all required components for a valid model description
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "bevy", derive(Bundle))]
+#[derive(Bundle, Serialize, Deserialize, Debug, Clone)]
 pub struct ModelDescriptionBundle {
     pub name: NameInSite,
     pub source: ModelProperty<AssetSource>,
@@ -107,12 +104,11 @@ impl Default for ModelDescriptionBundle {
 }
 
 /// Bundle with all required components for a valid model instance
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Bundle))]
-pub struct ModelInstance<T: RefTrait> {
+#[derive(Bundle, Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ModelInstance {
     pub name: NameInSite,
     pub pose: Pose,
-    pub description: Affiliation<T>,
+    pub description: Affiliation,
     #[serde(skip)]
     pub export_data: ExportData,
     #[serde(skip)]
@@ -121,7 +117,7 @@ pub struct ModelInstance<T: RefTrait> {
     pub instance_marker: InstanceMarker,
 }
 
-impl<T: RefTrait> Default for ModelInstance<T> {
+impl Default for ModelInstance {
     fn default() -> Self {
         Self {
             name: NameInSite("<Unnamed>".to_string()),
@@ -134,8 +130,8 @@ impl<T: RefTrait> Default for ModelInstance<T> {
     }
 }
 
-impl<T: RefTrait> ModelInstance<T> {
-    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<ModelInstance<U>, T> {
+impl ModelInstance {
+    pub fn convert(&self, id_map: &HashMap<SiteID, Entity>) -> Result<ModelInstance, SiteID> {
         Ok(ModelInstance {
             name: self.name.clone(),
             pose: self.pose.clone(),

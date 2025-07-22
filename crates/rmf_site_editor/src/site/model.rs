@@ -39,7 +39,7 @@ use bevy_mod_outline::{GenerateOutlineNormalsSettings, OutlineMeshExt};
 use rmf_site_camera::MODEL_PREVIEW_LAYER;
 use rmf_site_format::{
     Affiliation, AssetSource, Group, IssueKey, ModelInstance, ModelMarker, ModelProperty,
-    NameInSite, Pending, Scale,
+    NameInSite, Pending, Scale, SiteID,
 };
 use rmf_site_picking::Preview;
 use smallvec::SmallVec;
@@ -412,7 +412,7 @@ fn instance_spawn_request_into_model_load_request(
         return Err(InstanceSpawningError::NoAffiliation);
     };
 
-    let Ok(source) = descriptions.get(affiliation) else {
+    let Ok(source) = descriptions.get(*affiliation) else {
         return Err(InstanceSpawningError::AffiliationMissing);
     };
 
@@ -430,7 +430,7 @@ pub struct ModelLoader<'w, 's> {
     model_instances: Query<
         'w,
         's,
-        (Entity, &'static Affiliation<Entity>),
+        (Entity, &'static Affiliation),
         (With<ModelMarker>, Without<Group>, With<AssetSource>),
     >,
 }
@@ -442,7 +442,7 @@ impl<'w, 's> ModelLoader<'w, 's> {
     pub fn spawn_model_instance(
         &mut self,
         parent: Entity,
-        instance: ModelInstance<Entity>,
+        instance: ModelInstance,
     ) -> EntityCommands<'_> {
         self.spawn_model_instance_impulse(parent, instance, move |impulse| {
             impulse.detach();
@@ -454,7 +454,7 @@ impl<'w, 's> ModelLoader<'w, 's> {
     pub fn spawn_model_instance_impulse(
         &mut self,
         parent: Entity,
-        instance: ModelInstance<Entity>,
+        instance: ModelInstance,
         impulse: impl FnOnce(Impulse<InstanceSpawningResult, ()>),
     ) -> EntityCommands<'_> {
         let affiliation = instance.description.clone();
@@ -504,7 +504,7 @@ impl<'w, 's> ModelLoader<'w, 's> {
         let mut instance_entities = HashSet::new();
         for (e, affiliation) in self.model_instances.iter() {
             if let Some(description_entity) = affiliation.0 {
-                if entity == description_entity {
+                if entity == *description_entity {
                     instance_entities.insert(e);
                 }
             }
@@ -709,11 +709,11 @@ pub enum ModelLoadingErrorKind {
 #[derive(Clone, Debug)]
 pub struct InstanceSpawningRequest {
     pub parent: Entity,
-    pub affiliation: Affiliation<Entity>,
+    pub affiliation: Affiliation,
 }
 
 impl InstanceSpawningRequest {
-    pub fn new(parent: Entity, affiliation: Affiliation<Entity>) -> Self {
+    pub fn new(parent: Entity, affiliation: Affiliation) -> Self {
         Self {
             parent,
             affiliation,
@@ -862,14 +862,14 @@ pub fn propagate_model_property<Property: Component + Clone + std::fmt::Debug>(
 pub fn update_model_instances<T: Component + Default + Clone>(
     mut commands: Commands,
     model_properties: Query<Ref<ModelProperty<T>>, (With<ModelMarker>, With<Group>)>,
-    model_instances: Query<(Entity, Ref<Affiliation<Entity>>), (With<ModelMarker>, Without<Group>)>,
+    model_instances: Query<(Entity, Ref<Affiliation>), (With<ModelMarker>, Without<Group>)>,
     mut removals: RemovedComponents<ModelProperty<T>>,
 ) {
     // Removals
     if !removals.is_empty() {
         for description_entity in removals.read() {
             for (instance_entity, affiliation) in model_instances.iter() {
-                if affiliation.0 == Some(description_entity) {
+                if affiliation.0.is_some_and(|a| *a == description_entity) {
                     commands.entity(instance_entity).remove::<T>();
                 }
             }
@@ -879,7 +879,7 @@ pub fn update_model_instances<T: Component + Default + Clone>(
     // Changes
     for (instance_entity, affiliation) in model_instances.iter() {
         if let Some(description_entity) = affiliation.0 {
-            if let Ok(property) = model_properties.get(description_entity) {
+            if let Ok(property) = model_properties.get(*description_entity) {
                 if property.is_changed() || affiliation.is_changed() {
                     let mut cmd = commands.entity(instance_entity);
                     cmd.insert(property.0.clone());
@@ -890,7 +890,7 @@ pub fn update_model_instances<T: Component + Default + Clone>(
 }
 
 pub type ModelPropertyQuery<'w, 's, P> =
-    Query<'w, 's, &'static Affiliation<Entity>, (With<ModelMarker>, Without<Group>, With<P>)>;
+    Query<'w, 's, &'static Affiliation, (With<ModelMarker>, Without<Group>, With<P>)>;
 
 /// Unique UUID to identify issue of orphan model instance
 pub const ORPHAN_MODEL_INSTANCE_ISSUE_UUID: Uuid =
@@ -900,7 +900,7 @@ pub fn check_for_orphan_model_instances(
     mut commands: Commands,
     mut validate_events: EventReader<ValidateWorkspace>,
     mut orphan_instances: Query<
-        (Entity, &NameInSite, &Affiliation<Entity>),
+        (Entity, &NameInSite, &Affiliation),
         (With<ModelMarker>, Without<Group>, Without<ChildOf>),
     >,
     model_descriptions: Query<&NameInSite, (With<ModelMarker>, With<Group>)>,
@@ -909,7 +909,7 @@ pub fn check_for_orphan_model_instances(
         for (instance_entity, instance_name, affiliation) in orphan_instances.iter_mut() {
             let brief = match affiliation
                 .0
-                .map(|e| model_descriptions.get(e).ok())
+                .map(|e| model_descriptions.get(*e).ok())
                 .flatten()
             {
                 Some(description_name) => format!(
@@ -924,7 +924,7 @@ pub fn check_for_orphan_model_instances(
             };
             let issue = Issue {
                 key: IssueKey {
-                    entities: [instance_entity].into(),
+                    entities: [SiteID::from(instance_entity)].into(),
                     kind: ORPHAN_MODEL_INSTANCE_ISSUE_UUID,
                 },
                 brief,

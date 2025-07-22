@@ -32,7 +32,7 @@ pub struct MeasurementSegment(pub Entity);
 
 pub fn add_measurement_visuals(
     mut commands: Commands,
-    measurements: Query<(Entity, &Edge<Entity>, Option<&Transform>), Added<MeasurementMarker>>,
+    measurements: Query<(Entity, &Edge, Option<&Transform>), Added<MeasurementMarker>>,
     anchors: AnchorParams,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
@@ -40,10 +40,10 @@ pub fn add_measurement_visuals(
     for (e, edge, tf) in &measurements {
         let mut transform = line_stroke_transform(
             &anchors
-                .point_in_parent_frame_of(edge.start(), Category::Measurement, e)
+                .point_in_parent_frame_of(*edge.start(), Category::Measurement, e)
                 .unwrap(),
             &anchors
-                .point_in_parent_frame_of(edge.end(), Category::Measurement, e)
+                .point_in_parent_frame_of(*edge.end(), Category::Measurement, e)
                 .unwrap(),
             LANE_WIDTH,
         );
@@ -74,7 +74,7 @@ pub fn add_measurement_visuals(
             .add_children(&[child_id]);
 
         for anchor in &edge.array() {
-            if let Ok(mut deps) = dependents.get_mut(*anchor) {
+            if let Ok(mut deps) = dependents.get_mut(**anchor) {
                 deps.insert(e);
             }
         }
@@ -83,15 +83,15 @@ pub fn add_measurement_visuals(
 
 fn update_measurement_visual(
     entity: Entity,
-    edge: &Edge<Entity>,
+    edge: &Edge,
     anchors: &AnchorParams,
     transform: &mut Transform,
 ) {
     let start_anchor = anchors
-        .point_in_parent_frame_of(edge.start(), Category::Measurement, entity)
+        .point_in_parent_frame_of(*edge.start(), Category::Measurement, entity)
         .unwrap();
     let end_anchor = anchors
-        .point_in_parent_frame_of(edge.end(), Category::Measurement, entity)
+        .point_in_parent_frame_of(*edge.end(), Category::Measurement, entity)
         .unwrap();
     let z = transform.translation.z;
     *transform = line_stroke_transform(&start_anchor, &end_anchor, LANE_WIDTH);
@@ -99,10 +99,7 @@ fn update_measurement_visual(
 }
 
 pub fn update_changed_measurement(
-    measurements: Query<
-        (&Edge<Entity>, &MeasurementSegment),
-        (Changed<Edge<Entity>>, With<MeasurementMarker>),
-    >,
+    measurements: Query<(&Edge, &MeasurementSegment), (Changed<Edge>, With<MeasurementMarker>)>,
     anchors: AnchorParams,
     mut transforms: Query<&mut Transform>,
 ) {
@@ -114,7 +111,7 @@ pub fn update_changed_measurement(
 }
 
 pub fn update_measurement_for_moved_anchors(
-    measurements: Query<(&Edge<Entity>, &MeasurementSegment), With<MeasurementMarker>>,
+    measurements: Query<(&Edge, &MeasurementSegment), With<MeasurementMarker>>,
     anchors: AnchorParams,
     changed_anchors: Query<
         &Dependents,

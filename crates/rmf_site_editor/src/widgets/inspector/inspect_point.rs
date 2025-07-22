@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::{AnchorScope, AnchorSelection},
-    site::{DrawingMarker, Original, SiteID},
+    site::{DrawingMarker, Original},
     widgets::{
         inspector::{Inspect, InspectAnchor, InspectAnchorInput},
         prelude::*,
@@ -35,8 +35,8 @@ pub struct InspectPoint<'w, 's> {
         's,
         (
             &'static ChildOf,
-            &'static Point<Entity>,
-            Option<&'static Original<Point<Entity>>>,
+            &'static Point,
+            Option<&'static Original<Point>>,
         ),
     >,
     scopes: Query<'w, 's, (Option<&'static NameOfSite>, Option<&'static DrawingMarker>)>,
@@ -90,7 +90,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPoint<'w, 's> {
 
             let response = world.show::<InspectAnchor, _, _>(
                 InspectAnchorInput {
-                    anchor,
+                    anchor: *anchor,
                     is_dependency: true,
                     panel,
                 },
@@ -108,10 +108,9 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPoint<'w, 's> {
                 }
                 None => {
                     error!(
-                        "The reference anchor for point {id:?} (Site ID {:?}) is not an \
+                        "The reference anchor for point {id:?} is not an \
                         anchor: {anchor:?}! This should never happen! Please report \
-                        this to the site editor developers.",
-                        world.get::<SiteID>(anchor),
+                        this to the site editor developers."
                     );
                 }
             }

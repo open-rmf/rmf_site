@@ -64,15 +64,15 @@ fn diagnostics_panel(In(input): In<PanelWidgetInput>, world: &mut World) {
 #[derive(SystemParam)]
 pub struct Diagnostics<'w, 's> {
     icons: Res<'w, Icons>,
-    filters: Query<'w, 's, (&'static FilteredIssues<Entity>, &'static FilteredIssueKinds)>,
+    filters: Query<'w, 's, (&'static FilteredIssues, &'static FilteredIssueKinds)>,
     issue_dictionary: Res<'w, IssueDictionary>,
     issues: Query<'w, 's, (&'static Issue, &'static ChildOf)>,
     display_diagnostics: ResMut<'w, DiagnosticsDisplay>,
     current_workspace: ResMut<'w, CurrentWorkspace>,
     validate_workspace: EventWriter<'w, ValidateWorkspace>,
-    change_filtered_issues: EventWriter<'w, Change<FilteredIssues<Entity>>>,
+    change_filtered_issues: EventWriter<'w, Change<FilteredIssues>>,
     change_filtered_issue_kinds: EventWriter<'w, Change<FilteredIssueKinds>>,
-    selector: SelectorWidget<'w, 's>,
+    selector: SelectorWidget<'w>,
 }
 
 impl<'w, 's> WidgetSystem for Diagnostics<'w, 's> {
@@ -129,7 +129,7 @@ impl<'w, 's> Diagnostics<'w, 's> {
                         ui,
                         |ui| {
                             for e in &issue.entities {
-                                self.selector.show_widget(*e, ui);
+                                self.selector.show_widget(**e, ui);
                             }
                         },
                     );
@@ -189,7 +189,7 @@ impl<'w, 's> Diagnostics<'w, 's> {
                 ui.label("Affected entities");
                 Grid::new("diagnostic_affected_entities").show(ui, |ui| {
                     for e in &sel.entities {
-                        self.selector.show_widget(*e, ui);
+                        self.selector.show_widget(**e, ui);
                     }
                 });
             }
@@ -216,7 +216,7 @@ impl<'w, 's> Diagnostics<'w, 's> {
 #[derive(Resource, Debug, Clone, Default)]
 pub struct DiagnosticsDisplay {
     pub show: bool,
-    pub selected: Option<IssueKey<Entity>>,
+    pub selected: Option<IssueKey>,
 }
 
 fn handle_diagnostic_panel_visibility(

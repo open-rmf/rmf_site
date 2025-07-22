@@ -16,21 +16,18 @@
 */
 
 use crate::{Anchor, Category, NameInSite, Pose, Rotation};
-#[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component};
+use bevy_ecs::prelude::{Bundle, Component};
 use glam::{Affine3A, Quat, Vec3};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Bundle))]
+#[derive(Bundle, Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
 pub struct UserCameraPose {
     pub pose: Pose,
     pub name: NameInSite,
     pub marker: UserCameraPoseMarker,
 }
 
-#[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Component, Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
 pub struct UserCameraPoseMarker;
 
 impl UserCameraPose {

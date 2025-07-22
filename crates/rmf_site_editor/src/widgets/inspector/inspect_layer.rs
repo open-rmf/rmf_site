@@ -49,7 +49,7 @@ pub struct InspectLayer<'w, 's> {
     pub floor_change_rank: EventWriter<'w, ChangeRank<FloorMarker>>,
     pub drawing_change_rank: EventWriter<'w, ChangeRank<DrawingMarker>>,
     pub commands: Commands<'w, 's>,
-    pub selector: SelectorWidget<'w, 's>,
+    pub selector: SelectorWidget<'w>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectLayer<'w, 's> {

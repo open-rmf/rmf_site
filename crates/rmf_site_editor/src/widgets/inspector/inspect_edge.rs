@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::AnchorSelection,
-    site::{Category, EdgeLabels, Original, SiteID},
+    site::{Category, EdgeLabels, Original},
     widgets::{
         inspector::{Inspect, InspectAnchor, InspectAnchorInput},
         prelude::*,
@@ -35,8 +35,8 @@ pub struct InspectEdge<'w, 's> {
         's,
         (
             &'static Category,
-            &'static Edge<Entity>,
-            Option<&'static Original<Edge<Entity>>>,
+            &'static Edge,
+            Option<&'static Original<Edge>>,
             Option<&'static EdgeLabels>,
         ),
     >,
@@ -116,7 +116,7 @@ impl<'w, 's> InspectEdge<'w, 's> {
     fn show_anchor(
         side: Side,
         id: Entity,
-        edge: Edge<Entity>,
+        edge: Edge,
         labels: EdgeLabels,
         category: Category,
         panel: PanelSide,
@@ -128,7 +128,7 @@ impl<'w, 's> InspectEdge<'w, 's> {
         let anchor = edge.side(side);
         let response = world.show::<InspectAnchor, _, _>(
             InspectAnchorInput {
-                anchor,
+                anchor: *anchor,
                 is_dependency: true,
                 panel,
             },
@@ -155,10 +155,9 @@ impl<'w, 's> InspectEdge<'w, 's> {
             }
             None => {
                 error!(
-                    "An endpoint in the edge {id:?} (Site ID {:?}) is not an \
+                    "An endpoint in the edge {id:?} s not an \
                     anchor: {anchor:?}! This should never happen! Please report \
-                    this to the site editor developers.",
-                    world.get::<SiteID>(anchor),
+                    this to the site editor developers."
                 );
             }
         }

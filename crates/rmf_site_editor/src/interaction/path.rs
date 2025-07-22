@@ -20,12 +20,12 @@ use bevy::prelude::*;
 
 #[derive(Component, Default)]
 pub struct PathVisualCue {
-    supporters: Option<Path<Entity>>,
+    supporters: Option<Path>,
 }
 
 pub fn add_path_visual_cues(
     mut commands: Commands,
-    new_paths: Query<(Entity, &Path<Entity>), Without<PointVisualCue>>,
+    new_paths: Query<(Entity, &Path), Without<PointVisualCue>>,
 ) {
     for (e, path) in &new_paths {
         commands.entity(e).insert(PathVisualCue {
@@ -36,18 +36,12 @@ pub fn add_path_visual_cues(
 
 pub fn update_path_visual_cues(
     mut paths: Query<
-        (
-            Entity,
-            &Hovered,
-            &Selected,
-            &Path<Entity>,
-            &mut PathVisualCue,
-        ),
+        (Entity, &Hovered, &Selected, &Path, &mut PathVisualCue),
         (
             Without<AnchorVisualization>,
-            Without<Edge<Entity>>,
-            Without<Point<Entity>>,
-            Or<(Changed<Hovered>, Changed<Selected>, Changed<Path<Entity>>)>,
+            Without<Edge>,
+            Without<Point>,
+            Or<(Changed<Hovered>, Changed<Selected>, Changed<Path>)>,
         ),
     >,
     mut anchors: Query<(&mut Hovered, &mut Selected), With<AnchorVisualization>>,
@@ -59,7 +53,7 @@ pub fn update_path_visual_cues(
             // path.
             if *old != *path {
                 for anchor in &old.0 {
-                    if let Ok((mut hover, mut selected)) = anchors.get_mut(*anchor) {
+                    if let Ok((mut hover, mut selected)) = anchors.get_mut(**anchor) {
                         hover.support_hovering.remove(&p);
                         selected.support_selected.remove(&p);
                     }
@@ -74,7 +68,7 @@ pub fn update_path_visual_cues(
         }
 
         for anchor in &path.0 {
-            if let Ok((mut anchor_hovered, mut anchor_selected)) = anchors.get_mut(*anchor) {
+            if let Ok((mut anchor_hovered, mut anchor_selected)) = anchors.get_mut(**anchor) {
                 if hovered.cue() {
                     anchor_hovered.support_hovering.insert(p);
                 } else {

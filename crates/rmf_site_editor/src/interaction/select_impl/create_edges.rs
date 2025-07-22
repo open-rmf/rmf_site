@@ -48,17 +48,14 @@ pub fn spawn_create_edges_service(
 }
 
 pub struct CreateEdges {
-    pub spawn_edge: fn(Edge<Entity>, &mut Commands) -> Entity,
+    pub spawn_edge: fn(Edge, &mut Commands) -> Entity,
     pub preview_edge: Option<PreviewEdge>,
     pub continuity: EdgeContinuity,
     pub scope: AnchorScope,
 }
 
 impl CreateEdges {
-    pub fn new<T: Bundle + From<Edge<Entity>>>(
-        continuity: EdgeContinuity,
-        scope: AnchorScope,
-    ) -> Self {
+    pub fn new<T: Bundle + From<Edge>>(continuity: EdgeContinuity, scope: AnchorScope) -> Self {
         Self {
             spawn_edge: create_edge::<T>,
             preview_edge: None,
@@ -67,7 +64,7 @@ impl CreateEdges {
         }
     }
 
-    pub fn new_with_texture<T: Bundle + From<Edge<Entity>>>(
+    pub fn new_with_texture<T: Bundle + From<Edge>>(
         continuity: EdgeContinuity,
         scope: AnchorScope,
     ) -> Self {
@@ -98,18 +95,12 @@ impl Borrow<AnchorScope> for CreateEdges {
     }
 }
 
-fn create_edge<T: Bundle + From<Edge<Entity>>>(
-    edge: Edge<Entity>,
-    commands: &mut Commands,
-) -> Entity {
+fn create_edge<T: Bundle + From<Edge>>(edge: Edge, commands: &mut Commands) -> Entity {
     let new_bundle: T = edge.into();
     commands.spawn((new_bundle, Pending)).id()
 }
 
-fn create_edge_with_texture<T: Bundle + From<Edge<Entity>>>(
-    edge: Edge<Entity>,
-    commands: &mut Commands,
-) -> Entity {
+fn create_edge_with_texture<T: Bundle + From<Edge>>(edge: Edge, commands: &mut Commands) -> Entity {
     let new_bundle: T = edge.into();
     commands
         .spawn((new_bundle, TextureNeedsAssignment, Pending))
@@ -129,12 +120,12 @@ pub struct PreviewEdge {
 impl PreviewEdge {
     pub fn cleanup(
         &self,
-        edges: &Query<&'static Edge<Entity>>,
+        edges: &Query<&'static Edge>,
         commands: &mut Commands,
     ) -> SelectionNodeResult {
         let edge = edges.get(self.edge).or_broken_query()?;
         for anchor in edge.array() {
-            commands.queue(ChangeDependent::remove(anchor, self.edge));
+            commands.queue(ChangeDependent::remove(*anchor, self.edge));
         }
 
         if self.provisional_start {
@@ -142,7 +133,7 @@ impl PreviewEdge {
             // which we are about to despawn. Let's despawn both so we aren't
             // littering the scene with unintended anchors.
             commands
-                .get_entity(edge.start())
+                .get_entity(*edge.start())
                 .or_broken_query()?
                 .despawn();
         }
@@ -182,7 +173,7 @@ pub fn on_hover_for_create_edges(
     mut access: BufferAccessMut<CreateEdges>,
     mut cursor: ResMut<Cursor>,
     mut visibility: Query<&mut Visibility>,
-    mut edges: Query<&mut Edge<Entity>>,
+    mut edges: Query<&mut Edge>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
@@ -208,13 +199,13 @@ pub fn on_hover_for_create_edges(
         let mut edge = edges.get_mut(preview.edge).or_broken_query()?;
 
         let old_anchor = edge.array()[index];
-        if old_anchor != anchor {
+        if *old_anchor != anchor {
             let opposite_anchor = edge.array()[preview.side.opposite().index()];
             if opposite_anchor != old_anchor {
-                commands.queue(ChangeDependent::remove(old_anchor, preview.edge));
+                commands.queue(ChangeDependent::remove(*old_anchor, preview.edge));
             }
 
-            edge.array_mut()[index] = anchor;
+            *edge.array_mut()[index] = anchor;
             commands.queue(ChangeDependent::add(anchor, preview.edge));
         }
     } else {
@@ -235,7 +226,7 @@ pub fn on_hover_for_create_edges(
 pub fn on_select_for_create_edges(
     In((selection, key)): In<(SelectionCandidate, BufferKey<CreateEdges>)>,
     mut access: BufferAccessMut<CreateEdges>,
-    mut edges: Query<&mut Edge<Entity>>,
+    mut edges: Query<&mut Edge>,
     mut commands: Commands,
     cursor: Res<Cursor>,
 ) -> SelectionNodeResult {
@@ -248,15 +239,15 @@ pub fn on_select_for_create_edges(
             Side::Left => {
                 // We are pinning down the first anchor of the edge
                 let mut edge = edges.get_mut(preview.edge).or_broken_query()?;
-                commands.queue(ChangeDependent::remove(edge.left(), preview.edge));
-                *edge.left_mut() = anchor;
+                commands.queue(ChangeDependent::remove(*edge.left(), preview.edge));
+                **edge.left_mut() = anchor;
                 commands.queue(ChangeDependent::add(anchor, preview.edge));
 
-                if edge.right() != anchor {
-                    commands.queue(ChangeDependent::remove(edge.right(), preview.edge));
+                if *edge.right() != anchor {
+                    commands.queue(ChangeDependent::remove(*edge.right(), preview.edge));
                 }
 
-                *edge.right_mut() = cursor.level_anchor_placement;
+                **edge.right_mut() = cursor.level_anchor_placement;
                 commands.queue(ChangeDependent::add(
                     cursor.level_anchor_placement,
                     preview.edge,
@@ -268,7 +259,7 @@ pub fn on_select_for_create_edges(
             Side::Right => {
                 // We are finishing the edge
                 let mut edge = edges.get_mut(preview.edge).or_broken_query()?;
-                if edge.left() == anchor {
+                if *edge.left() == anchor {
                     // The user is trying to use the same point for the start
                     // and end of an edge. Issue a warning and exit early.
                     warn!(
@@ -278,7 +269,7 @@ pub fn on_select_for_create_edges(
                     );
                     return Ok(());
                 }
-                *edge.right_mut() = anchor;
+                **edge.right_mut() = anchor;
                 commands.queue(ChangeDependent::add(anchor, preview.edge));
                 commands
                     .get_entity(preview.edge)
@@ -331,7 +322,7 @@ pub fn on_select_for_create_edges(
 pub fn on_keyboard_for_create_edges(
     In((button, key)): In<(KeyCode, BufferKey<CreateEdges>)>,
     mut access: BufferAccessMut<CreateEdges>,
-    mut edges: Query<&'static mut Edge<Entity>>,
+    mut edges: Query<&'static mut Edge>,
     cursor: Res<Cursor>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
@@ -352,17 +343,17 @@ pub fn on_keyboard_for_create_edges(
             // user can choose a different start point.
             let mut edge = edges.get_mut(preview.edge).or_broken_query()?;
             for anchor in edge.array() {
-                commands.queue(ChangeDependent::remove(anchor, preview.edge));
+                commands.queue(ChangeDependent::remove(*anchor, preview.edge));
             }
             if preview.provisional_start {
                 commands
-                    .get_entity(edge.start())
+                    .get_entity(*edge.start())
                     .or_broken_query()?
                     .despawn();
             }
 
-            *edge.left_mut() = cursor.level_anchor_placement;
-            *edge.right_mut() = cursor.level_anchor_placement;
+            **edge.left_mut() = cursor.level_anchor_placement;
+            **edge.right_mut() = cursor.level_anchor_placement;
             preview.side = Side::start();
             preview.provisional_start = false;
             commands.queue(ChangeDependent::add(
@@ -388,7 +379,7 @@ pub fn on_keyboard_for_create_edges(
 pub fn cleanup_create_edges(
     In(key): In<BufferKey<CreateEdges>>,
     mut access: BufferAccessMut<CreateEdges>,
-    edges: Query<&'static Edge<Entity>>,
+    edges: Query<&'static Edge>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
