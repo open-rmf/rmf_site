@@ -1430,11 +1430,13 @@ fn generate_scenarios(
                                                     Visibility::Hidden => false,
                                                     _ => true,
                                                 }),
-                                                on_level: on_level
+                                                on_level: match on_level
                                                     .map(|l| **l)
                                                     .and_then(|level| level.0)
-                                                    .and_then(|e| site_id.get(e).ok())
-                                                    .map(|id| id.0),
+                                                {
+                                                    Some(e) => Some(site_id.get(e).ok()?.0),
+                                                    None => None,
+                                                },
                                             },
                                         ))
                                     })

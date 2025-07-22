@@ -105,8 +105,8 @@ pub use primitive_shape::*;
 pub mod recall_plugin;
 pub use recall_plugin::RecallPlugin;
 
-#[allow(unused_imports)]
 pub mod robot;
+#[allow(unused_imports)]
 pub use robot::*;
 
 pub mod robot_properties;
