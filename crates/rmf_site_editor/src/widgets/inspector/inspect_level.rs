@@ -17,7 +17,7 @@
 
 use crate::{
     site::{
-        CurrentScenario, GetModifier, LevelElevation, Modifier, NameInSite, OnLevel, Robot,
+        CurrentScenario, GetModifier, LevelElevation, Modifier, NameInSite, OnLevel,
         UpdateModifier, UpdateModifierEvent,
     },
     widgets::{prelude::*, Inspect},
@@ -32,7 +32,7 @@ pub struct InspectLevel<'w, 's> {
     current_scenario: Res<'w, CurrentScenario>,
     get_modifier: GetModifier<'w, 's, Modifier<OnLevel<Entity>>>,
     levels: Query<'w, 's, (Entity, &'static NameInSite), With<LevelElevation>>,
-    robots: Query<'w, 's, (), With<Robot>>,
+    level_models: Query<'w, 's, (), With<OnLevel<Entity>>>,
 }
 
 impl<'w, 's> ShareableWidget for InspectLevel<'w, 's> {}
@@ -45,7 +45,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectLevel<'w, 's> {
         world: &mut World,
     ) {
         let mut params = state.get_mut(world);
-        if params.robots.get(selection).is_err() {
+        if params.level_models.get(selection).is_err() {
             return;
         }
         let Some(current_scenario_entity) = params.current_scenario.0 else {
@@ -68,8 +68,8 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectLevel<'w, 's> {
 
         let mut new_level_entity = selected_level_entity;
         ui.horizontal(|ui| {
-            ui.label("Robot Level");
-            ComboBox::from_id_salt("select_robot_level")
+            ui.label("On Level");
+            ComboBox::from_id_salt("select_element_level")
                 .selected_text(selected_level_name)
                 .show_ui(ui, |ui| {
                     for (entity, level_name) in params.levels.iter() {

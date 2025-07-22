@@ -22,8 +22,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-#[cfg_attr(feature = "bevy", require(OnLevel<Entity>))]
+#[cfg_attr(feature = "bevy", derive(Component), require(OnLevel<Entity>))]
 pub struct Robot {
     pub properties: HashMap<String, serde_json::Value>,
 }

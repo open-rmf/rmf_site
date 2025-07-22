@@ -105,6 +105,7 @@ pub use primitive_shape::*;
 pub mod recall_plugin;
 pub use recall_plugin::RecallPlugin;
 
+#[allow(unused_imports)]
 pub mod robot;
 pub use robot::*;
 
@@ -315,7 +316,7 @@ impl Plugin for SitePlugin {
                 check_for_close_unconnected_anchors,
                 check_for_orphan_model_instances,
                 check_for_hidden_model_instances,
-                check_for_invalid_robot_levels,
+                check_for_invalid_level_assignments,
                 fetch_image_for_texture,
                 detect_last_selected_texture::<FloorMarker>,
                 apply_last_selected_texture::<FloorMarker>
@@ -445,6 +446,6 @@ impl Plugin for SitePlugin {
         )
         .add_observer(remove_scenario_modifiers)
         .add_observer(add_scenario_modifiers)
-        .add_observer(update_robot_level);
+        .add_observer(handle_on_level_change);
     }
 }

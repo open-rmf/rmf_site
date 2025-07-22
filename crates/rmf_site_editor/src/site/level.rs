@@ -16,8 +16,11 @@
 */
 
 use crate::site::*;
-use crate::CurrentWorkspace;
-use bevy::{ecs::hierarchy::ChildOf, prelude::*};
+use crate::{CurrentWorkspace, Issue, ValidateWorkspace};
+use bevy::ecs::{hierarchy::ChildOf, system::SystemState};
+use bevy::prelude::*;
+use std::collections::HashMap;
+use uuid::Uuid;
 
 pub fn update_level_visibility(
     mut levels: Query<(Entity, &mut Visibility), With<LevelElevation>>,
@@ -31,6 +34,134 @@ pub fn update_level_visibility(
                 Visibility::Hidden
             };
         }
+    }
+}
+
+/// This system monitors changes to the OnLevel for a model and updates its parent
+/// level accordingly
+pub fn handle_on_level_change(
+    trigger: Trigger<OnReplace, LastSetValue<OnLevel<Entity>>>,
+    mut commands: Commands,
+    on_levels: Query<(Entity, &OnLevel<Entity>)>,
+    level_elevation: Query<(), With<LevelElevation>>,
+) {
+    if let Ok((entity, on_level)) = on_levels.get(trigger.target()) {
+        if let Some(level_entity) = on_level.0.filter(|e| level_elevation.get(*e).is_ok()) {
+            commands.entity(entity).insert(ChildOf(level_entity));
+        }
+    }
+}
+
+/// Implement scenario property for OnLevel to modify a model's parent level
+/// across different scenario
+impl Property for OnLevel<Entity> {
+    fn get_fallback(
+        for_element: Entity,
+        _in_scenario: Entity,
+        world: &mut World,
+    ) -> OnLevel<Entity> {
+        let mut state: SystemState<(
+            Query<&LastSetValue<OnLevel<Entity>>>,
+            Query<(Entity, &LevelElevation)>,
+        )> = SystemState::new(world);
+        let (last_set_level, levels) = state.get(world);
+
+        // Return the last set elevation, otherwise return the lowest level in this site
+        if let Ok(level) = last_set_level.get(for_element).map(|value| value.0.clone()) {
+            return level;
+        }
+
+        let mut lowest_level: Option<Entity> = None;
+        let mut lowest_level_elevation: f32 = std::f32::INFINITY;
+        for (level_entity, level_elevation) in levels.iter() {
+            if level_elevation.0 < lowest_level_elevation {
+                lowest_level_elevation = level_elevation.0;
+                lowest_level = Some(level_entity);
+            }
+        }
+
+        OnLevel(lowest_level)
+    }
+
+    fn insert(
+        for_element: Entity,
+        in_scenario: Entity,
+        _value: OnLevel<Entity>, // Value is unused for OnLevel
+        world: &mut World,
+    ) {
+        let mut state: SystemState<(Query<&ChildOf>, Query<(), With<LevelElevation>>)> =
+            SystemState::new(world);
+        let (child_of, levels) = state.get(world);
+
+        // When a new OnLevel component is inserted, we want to make sure that
+        // the data reflect the model's current parent level.
+        let level_entity = child_of
+            .get(for_element)
+            .map(|co| co.parent())
+            .ok()
+            .filter(|e| levels.get(*e).is_ok());
+        world
+            .commands()
+            .entity(for_element)
+            .insert(OnLevel(level_entity));
+
+        let level_modifier =
+            Self::create_modifier(for_element, in_scenario, OnLevel(level_entity), world);
+        if let Some(level_modifier) = level_modifier {
+            let modifier_entity = world.spawn(level_modifier).id();
+            world.trigger(AddModifier::new(for_element, modifier_entity, in_scenario));
+        }
+    }
+
+    fn insert_on_new_scenario(in_scenario: Entity, world: &mut World) {
+        let mut modifier_state: SystemState<(
+            Query<&ChildOf>,
+            Query<&Children>,
+            Query<(), With<LevelElevation>>,
+            Query<(&Modifier<OnLevel<Entity>>, &Affiliation<Entity>)>,
+            Query<Entity, With<OnLevel<Entity>>>,
+        )> = SystemState::new(world);
+        let (child_of, children, levels, level_modifiers, level_models) =
+            modifier_state.get_mut(world);
+
+        let have_level = Self::elements_with_modifiers(in_scenario, &children, &level_modifiers);
+
+        let mut target_models = HashMap::<Entity, Option<Entity>>::new();
+        for model_entity in level_models.iter() {
+            if !have_level.contains(&model_entity) {
+                // When new root scenarios are created, insert the correct OnLevel based on the
+                // parent level entity of each model
+                let level_entity = child_of
+                    .get(model_entity)
+                    .map(|co| co.parent())
+                    .ok()
+                    .filter(|e| levels.get(*e).is_ok());
+                target_models.insert(model_entity, level_entity);
+            }
+        }
+
+        let mut new_modifiers = Vec::<(Entity, Entity)>::new();
+        for (model, level) in target_models.iter() {
+            new_modifiers.push((
+                *model,
+                world
+                    .commands()
+                    .spawn(Modifier::<OnLevel<Entity>>::new(OnLevel(*level)))
+                    .id(),
+            ));
+        }
+
+        for (instance_entity, modifier_entity) in new_modifiers.iter() {
+            world.trigger(AddModifier::new(
+                *instance_entity,
+                *modifier_entity,
+                in_scenario,
+            ));
+        }
+        let mut events_state: SystemState<EventWriter<ChangeCurrentScenario>> =
+            SystemState::new(world);
+        let mut change_current_scenario = events_state.get_mut(world);
+        change_current_scenario.write(ChangeCurrentScenario(in_scenario));
     }
 }
 
@@ -64,5 +195,68 @@ pub fn assign_orphan_elements_to_level<T: Component>(
 
     for orphan in &orphan_elements {
         commands.entity(current_level).add_child(orphan);
+    }
+}
+
+/// Unique UUID to identify issue of invalid OnLevels
+pub const INVALID_LEVEL_ASSIGNMENT_ISSUE_UUID: Uuid =
+    Uuid::from_u128(0x7e6937c359ff4ec88a23c7cef2683e7fu128);
+
+pub fn check_for_invalid_level_assignments(
+    mut commands: Commands,
+    mut validate_events: EventReader<ValidateWorkspace>,
+    child_of: Query<&ChildOf>,
+    level_modifiers: Query<(Entity, &Modifier<OnLevel<Entity>>, &Affiliation<Entity>)>,
+    levels: Query<Entity, With<LevelElevation>>,
+    level_models: Query<&NameInSite, With<OnLevel<Entity>>>,
+    scenarios: Query<&NameInSite, With<ScenarioModifiers<Entity>>>,
+) {
+    for root in validate_events.read() {
+        for (modifier_entity, level_modifier, affiliation) in level_modifiers.iter() {
+            let Ok(scenario_entity) = child_of.get(modifier_entity).map(|co| co.parent()) else {
+                continue;
+            };
+            if let Some((model_name, model_entity)) = affiliation
+                .0
+                .and_then(|e| level_models.get(e).ok().zip(Some(e)))
+            {
+                let brief = if let Some(level_entity) = level_modifier.0 {
+                    if levels.get(level_entity).is_ok() {
+                        continue;
+                    }
+                    // OnLevel is not pointing to a valid Level entity
+                    format!(
+                        "Model {:?} has an invalid OnLevel inserted in scenario {:?}: {:?}",
+                        model_name,
+                        scenarios
+                            .get(scenario_entity)
+                            .map(|n| n.0.clone())
+                            .unwrap_or(format!("{:?}", scenario_entity)),
+                        level_entity
+                    )
+                } else {
+                    format!(
+                        "Model {:?} has no OnLevel inserted in scenario {:?}",
+                        model_name,
+                        scenarios
+                            .get(scenario_entity)
+                            .map(|n| n.0.clone())
+                            .unwrap_or(format!("{:?}", scenario_entity)),
+                    )
+                };
+
+                let issue = Issue {
+                    key: IssueKey {
+                        entities: [model_entity].into(),
+                        kind: INVALID_LEVEL_ASSIGNMENT_ISSUE_UUID,
+                    },
+                    brief,
+                    hint: "Check that the On Level for this model is assigned to a valid level."
+                        .to_string(),
+                };
+                let issue_id = commands.spawn(issue).id();
+                commands.entity(**root).add_child(issue_id);
+            }
+        }
     }
 }
