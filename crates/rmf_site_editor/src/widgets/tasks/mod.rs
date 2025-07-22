@@ -21,20 +21,17 @@ use crate::{
         RobotTaskRequest, ScenarioMarker, ScenarioModifiers, Task, TaskKinds, TaskParams,
         TaskRequest, UpdateModifier, UpdateTaskModifier,
     },
-    widgets::{prelude::*, RenderUiSet},
-    Icons, Tile, WidgetSystem,
+    widgets::{prelude::*, show_panel_of_tiles, RenderUiSet},
+    AppState, Icons, Tile, WidgetSystem,
 };
 use bevy::{
-    ecs::{
-        hierarchy::ChildOf,
-        system::{SystemParam, SystemState},
-    },
+    ecs::system::{SystemParam, SystemState},
     prelude::*,
 };
 use bevy_egui::{
     egui::{
         Align, Align2, CollapsingHeader, Color32, ComboBox, DragValue, Frame, Grid, ImageButton,
-        Layout, Stroke, TextEdit, Ui, Window,
+        Layout, RichText, ScrollArea, Stroke, TextEdit, Ui, Window,
     },
     EguiContexts,
 };
@@ -75,7 +72,8 @@ impl Plugin for MainTasksPlugin {
 /// Contains a reference to the tasks widget.
 #[derive(Resource)]
 pub struct TaskWidget {
-    id: Entity,
+    pub id: Entity,
+    pub show: bool,
 }
 
 impl TaskWidget {
@@ -91,11 +89,26 @@ pub struct CreateTaskDialog {
 
 impl FromWorld for TaskWidget {
     fn from_world(world: &mut World) -> Self {
-        let widget = Widget::new::<ViewTasks>(world);
-        let properties_panel = world.resource::<PropertiesPanel>().id();
-        let id = world.spawn(widget).insert(ChildOf(properties_panel)).id();
-        Self { id }
+        let panel_widget = PanelWidget::new(tasks_panel, world);
+        let panel_id = world.spawn((panel_widget, PanelSide::Left)).id();
+
+        let main_task_widget = Widget::new::<ViewTasks>(world);
+        let id = world.spawn(main_task_widget).insert(ChildOf(panel_id)).id();
+
+        Self { id, show: false }
     }
+}
+
+fn tasks_panel(In(PanelWidgetInput { id, context }): In<PanelWidgetInput>, world: &mut World) {
+    let correct_state = world
+        .get_resource::<State<AppState>>()
+        .is_some_and(|state| matches!(state.get(), AppState::SiteEditor));
+
+    if !world.resource::<TaskWidget>().show || !correct_state {
+        return;
+    }
+
+    show_panel_of_tiles(In(PanelWidgetInput { id, context }), world);
 }
 
 /// Points to any task entity that is currently in edit mode
@@ -156,27 +169,25 @@ impl<'w, 's> WidgetSystem<Tile> for ViewTasks<'w, 's> {
         state: &mut SystemState<Self>,
         world: &mut World,
     ) {
-        CollapsingHeader::new("Tasks")
-            .default_open(true)
-            .show(ui, |ui| {
-                let mut params = state.get_mut(world);
-                params.show_widget(ui);
+        ui.label(RichText::new("Tasks").size(18.0));
+        ui.add_space(10.0);
+        let mut params = state.get_mut(world);
+        params.show_widget(ui);
 
-                if params.edit_task.0.is_some() {
-                    let children: Result<SmallVec<[_; 16]>, _> = params
-                        .children
-                        .get(params.task_widget.id)
-                        .map(|children| children.iter().collect());
-                    let Ok(children) = children else {
-                        return;
-                    };
+        if params.edit_task.0.is_some() {
+            let children: Result<SmallVec<[_; 16]>, _> = params
+                .children
+                .get(params.task_widget.id)
+                .map(|children| children.iter().collect());
+            let Ok(children) = children else {
+                return;
+            };
 
-                    for child in children {
-                        let tile = Tile { id, panel };
-                        let _ = world.try_show_in(child, tile, ui);
-                    }
-                }
-            });
+            for child in children {
+                let tile = Tile { id, panel };
+                let _ = world.try_show_in(child, tile, ui);
+            }
+        }
         ui.add_space(10.0);
     }
 }
@@ -187,7 +198,6 @@ impl<'w, 's> ViewTasks<'w, 's> {
             ui.label("No scenario selected, unable to display or create tasks.");
             return;
         };
-
         // View and modify tasks in current scenario
         Frame::default()
             .inner_margin(4.0)
@@ -195,37 +205,47 @@ impl<'w, 's> ViewTasks<'w, 's> {
             .stroke(Stroke::new(1.0, Color32::GRAY))
             .show(ui, |ui| {
                 ui.set_min_width(ui.available_width());
-                for (task_entity, task) in self.tasks.iter() {
-                    let scenario_count = count_scenarios_with_inclusion(
-                        &self.scenarios,
-                        task_entity,
-                        &self.get_inclusion_modifier,
-                    );
-                    show_task_widget(
-                        ui,
-                        &mut self.commands,
-                        task_entity,
-                        task,
-                        current_scenario_entity,
-                        &self.get_inclusion_modifier,
-                        &self.get_params_modifier,
-                        &mut self.change_task,
-                        &mut self.update_task_modifier,
-                        &mut self.delete,
-                        &mut self.edit_mode,
-                        &self.edit_task,
-                        &mut self.task_kinds,
-                        &self.robots,
-                        scenario_count,
-                        &self.icons,
-                    );
-                }
                 if self.tasks.is_empty() {
-                    ui.label("No tasks in this scenario");
+                    ui.with_layout(Layout::top_down_justified(Align::LEFT), |ui| {
+                        ui.label("No tasks in this scenario");
+                    });
+                } else {
+                    let max_height = ui.available_height() / 2.0;
+                    ScrollArea::new([true, true])
+                        .max_height(max_height)
+                        .auto_shrink([false, false])
+                        .show(ui, |ui| {
+                            for (task_entity, task) in self.tasks.iter() {
+                                let scenario_count = count_scenarios_with_inclusion(
+                                    &self.scenarios,
+                                    task_entity,
+                                    &self.get_inclusion_modifier,
+                                );
+                                show_task_widget(
+                                    ui,
+                                    &mut self.commands,
+                                    task_entity,
+                                    task,
+                                    current_scenario_entity,
+                                    &self.get_inclusion_modifier,
+                                    &self.get_params_modifier,
+                                    &mut self.change_task,
+                                    &mut self.update_task_modifier,
+                                    &mut self.delete,
+                                    &mut self.edit_mode,
+                                    &self.edit_task,
+                                    &mut self.task_kinds,
+                                    &self.robots,
+                                    scenario_count,
+                                    &self.icons,
+                                );
+                            }
+                        });
                 }
             });
         ui.add_space(10.0);
         ui.separator();
+        ui.add_space(10.0);
 
         if self.edit_task.0.is_none() {
             if ui.button("✚ Create New Task").clicked() {
