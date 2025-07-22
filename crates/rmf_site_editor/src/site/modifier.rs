@@ -17,19 +17,18 @@
 
 use crate::{
     site::{
-        Affiliation, ChangeCurrentScenario, CurrentScenario, Inclusion, IssueKey, NameInSite,
-        Property, ScenarioMarker, ScenarioModifiers, StandardProperty, UpdateProperty,
+        Affiliation, Element, Inclusion, IssueKey, NameInSite, Pending, Property, ScenarioModifiers,
     },
     Issue, ValidateWorkspace,
 };
 use bevy::{
     ecs::{
-        component::Mutable, hierarchy::ChildOf, query::QueryFilter, system::SystemParam,
-        world::OnDespawn,
+        component::Mutable,
+        system::{SystemParam, SystemState},
     },
     prelude::*,
 };
-use std::fmt::Debug;
+use std::{collections::HashSet, fmt::Debug};
 use uuid::Uuid;
 
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut)]
@@ -41,64 +40,123 @@ impl<T: Property> Modifier<T> {
     }
 }
 
-impl StandardProperty for Inclusion {}
+impl Property for Inclusion {
+    fn get_fallback(_for_element: Entity, _in_scenario: Entity, _world: &mut World) -> Inclusion {
+        Inclusion::default()
+    }
 
-#[derive(Clone, Debug, Event)]
-pub struct AddModifier {
-    for_element: Entity,
-    modifier: Entity,
-    in_scenario: Entity,
-    to_root: bool,
-}
+    fn insert(for_element: Entity, in_scenario: Entity, _value: Inclusion, world: &mut World) {
+        let mut scenario_state: SystemState<
+            Query<(Entity, &ScenarioModifiers<Entity>, &Affiliation<Entity>)>,
+        > = SystemState::new(world);
+        let scenarios = scenario_state.get_mut(world);
 
-impl AddModifier {
-    pub fn new(for_element: Entity, modifier: Entity, in_scenario: Entity) -> Self {
-        Self {
-            for_element,
-            modifier,
-            in_scenario,
-            to_root: false,
+        // Insert inclusion modifier into all root scenarios outside of the current tree as hidden
+        let mut current_root_entity: Entity = in_scenario;
+        while let Ok((_, _, parent_scenario)) = scenarios.get(current_root_entity) {
+            if let Some(parent_scenario_entity) = parent_scenario.0 {
+                current_root_entity = parent_scenario_entity;
+            } else {
+                break;
+            }
+        }
+        let mut root_scenarios = HashSet::<Entity>::new();
+        for (scenario_entity, _, parent_scenario) in scenarios.iter() {
+            if parent_scenario.0.is_some() || scenario_entity == current_root_entity {
+                continue;
+            }
+            root_scenarios.insert(scenario_entity);
+        }
+        for root in root_scenarios.iter() {
+            world.trigger(UpdateModifier::modify(
+                *root,
+                for_element,
+                Inclusion::Hidden,
+            ));
         }
     }
 
-    pub fn new_to_root(for_element: Entity, modifier: Entity, in_scenario: Entity) -> Self {
-        Self {
-            for_element,
-            modifier,
-            in_scenario,
-            to_root: true,
+    fn insert_on_new_scenario<E: Element>(in_scenario: Entity, world: &mut World) {
+        let mut state: SystemState<(
+            Query<&Children>,
+            Query<(&Modifier<Inclusion>, &Affiliation<Entity>)>,
+            Query<Entity, (With<E>, Without<Pending>)>,
+        )> = SystemState::new(world);
+        let (children, task_modifiers, task_entities) = state.get_mut(world);
+
+        let have_task = Self::elements_with_modifiers(in_scenario, &children, &task_modifiers);
+
+        let mut target_tasks = HashSet::new();
+        for task_entity in task_entities.iter() {
+            if !have_task.contains(&task_entity) {
+                target_tasks.insert(task_entity);
+            }
+        }
+
+        for target in target_tasks.iter() {
+            // Mark all task modifiers as Hidden
+            world.trigger(UpdateModifier::modify(
+                in_scenario,
+                *target,
+                Inclusion::Hidden,
+            ));
         }
     }
 }
 
-#[derive(Clone, Debug, Event)]
-pub struct RemoveModifier {
-    for_element: Entity,
-    in_scenario: Entity,
+#[derive(Clone, Debug, Copy)]
+pub enum UpdateModifier<T: Property> {
+    Modify(T),
+    Reset,
 }
 
-impl RemoveModifier {
-    pub fn new(for_element: Entity, in_scenario: Entity) -> Self {
-        Self {
-            for_element,
-            in_scenario,
-        }
+impl<T: Property> UpdateModifier<T> {
+    pub fn modify(scenario: Entity, element: Entity, value: T) -> UpdateModifierEvent<T> {
+        UpdateModifierEvent::<T>::new(scenario, element, Self::Modify(value))
+    }
+
+    pub fn modify_without_trigger(
+        scenario: Entity,
+        element: Entity,
+        value: T,
+    ) -> UpdateModifierEvent<T> {
+        UpdateModifierEvent::<T>::new_without_trigger(scenario, element, Self::Modify(value))
+    }
+
+    pub fn reset(scenario: Entity, element: Entity) -> UpdateModifierEvent<T> {
+        UpdateModifierEvent::<T>::new(scenario, element, Self::Reset)
     }
 }
 
 #[derive(Clone, Debug, Event, Copy)]
-pub struct UpdateModifier<T> {
+pub struct UpdateModifierEvent<T: Property> {
     pub scenario: Entity,
     pub element: Entity,
-    pub update: T,
+    pub update_mode: UpdateModifier<T>,
+    /// Whether to trigger a UseModifier event when updating the modifier
+    pub trigger_use_modifier: bool,
 }
 
-impl<T> UpdateModifier<T> {
-    pub fn new(scenario: Entity, element: Entity, update: T) -> Self {
+impl<T: Property> UpdateModifierEvent<T> {
+    pub fn new(scenario: Entity, element: Entity, update_mode: UpdateModifier<T>) -> Self {
         Self {
             scenario,
             element,
-            update,
+            update_mode,
+            trigger_use_modifier: true,
+        }
+    }
+
+    pub fn new_without_trigger(
+        scenario: Entity,
+        element: Entity,
+        update_mode: UpdateModifier<T>,
+    ) -> Self {
+        Self {
+            scenario,
+            element,
+            update_mode,
+            trigger_use_modifier: false,
         }
     }
 }
@@ -112,7 +170,6 @@ pub struct GetModifier<'w, 's, T: Component<Mutability = Mutable> + Clone + Defa
             &'static ScenarioModifiers<Entity>,
             &'static Affiliation<Entity>,
         ),
-        With<ScenarioMarker>,
     >,
     pub modifiers: Query<'w, 's, &'static T>,
 }
@@ -147,140 +204,6 @@ impl<'w, 's, T: Component<Mutability = Mutable> + Clone + Default> GetModifier<'
     }
 }
 
-/// Handles additions and removals of scenario modifiers
-pub fn handle_scenario_modifiers(
-    mut commands: Commands,
-    mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
-    mut add_modifier: EventReader<AddModifier>,
-    mut remove_modifier: EventReader<RemoveModifier>,
-    mut scenarios: Query<
-        (&mut ScenarioModifiers<Entity>, &Affiliation<Entity>),
-        With<ScenarioMarker>,
-    >,
-    mut update_property: EventWriter<UpdateProperty>,
-    current_scenario: Res<CurrentScenario>,
-) {
-    for remove in remove_modifier.read() {
-        let Ok((mut scenario_modifiers, _)) = scenarios.get_mut(remove.in_scenario) else {
-            continue;
-        };
-        if let Some(modifier) = scenario_modifiers.remove(&remove.for_element) {
-            commands.entity(modifier).despawn();
-        }
-
-        if current_scenario.0.is_some_and(|e| e == remove.in_scenario) {
-            change_current_scenario.write(ChangeCurrentScenario(remove.in_scenario));
-        };
-    }
-
-    for add in add_modifier.read() {
-        let scenario_entity = if add.to_root {
-            let mut target_scenario = add.in_scenario;
-            let mut root_scenario: Option<Entity> = None;
-            while root_scenario.is_none() {
-                let Ok((_, parent_scenario)) = scenarios.get(target_scenario) else {
-                    break;
-                };
-                if let Some(parent_entity) = parent_scenario.0 {
-                    target_scenario = parent_entity;
-                } else {
-                    root_scenario = Some(target_scenario);
-                    break;
-                }
-            }
-            if let Some(root_scenario_entity) = root_scenario {
-                root_scenario_entity
-            } else {
-                error!("No root scenario found for the current scenario tree!");
-                continue;
-            }
-        } else {
-            add.in_scenario
-        };
-
-        let Ok((mut scenario_modifiers, _)) = scenarios.get_mut(scenario_entity) else {
-            continue;
-        };
-        // If a modifier entity already exists, we ignore and despawn incoming modifier
-        // entity.
-        if scenario_modifiers.contains_key(&add.for_element) {
-            commands.entity(add.modifier).despawn();
-        } else {
-            commands
-                .entity(add.modifier)
-                .insert(Affiliation(Some(add.for_element)))
-                .insert(ChildOf(scenario_entity));
-            scenario_modifiers.insert(add.for_element, add.modifier);
-        }
-
-        update_property.write(UpdateProperty::new(add.for_element, add.in_scenario));
-    }
-}
-
-/// Handles cleanup of scenario modifiers when elements are despawned
-pub fn handle_cleanup_modifiers<M: Component<Mutability = Mutable> + Debug + Default + Clone>(
-    trigger: Trigger<OnDespawn, M>,
-    scenarios: Query<Entity, With<ScenarioMarker>>,
-    mut remove_modifier: EventWriter<RemoveModifier>,
-) {
-    for scenario_entity in scenarios.iter() {
-        remove_modifier.write(RemoveModifier::new(trigger.target(), scenario_entity));
-    }
-}
-
-/// If a modifier entity in ScenarioModifiers has all Modifier<T> components removed,
-/// send this entity to be removed and despawned.
-pub fn handle_empty_modifiers<T: Property, F: QueryFilter>(
-    mut remove_modifier: EventWriter<RemoveModifier>,
-    mut removals: RemovedComponents<Modifier<T>>,
-    affiliation: Query<&Affiliation<Entity>>,
-    current_scenario: Res<CurrentScenario>,
-    modifiers: Query<(), F>,
-    scenarios: Query<(Entity, &ScenarioModifiers<Entity>), With<ScenarioMarker>>,
-) {
-    if !removals.is_empty() {
-        for modifier_entity in removals.read() {
-            // Check that this modifier entity no longer satisfy the specified filter
-            if modifiers.get(modifier_entity).is_ok() {
-                continue;
-            }
-            // Check that this modifier entity has an affiliated element
-            let Some(element) = affiliation.get(modifier_entity).ok().and_then(|a| a.0) else {
-                continue;
-            };
-            // Check that this element-modifier pair exists in the current scenario, else
-            // search for the target scenario
-            if let Some(scenario_entity) = current_scenario.0 {
-                if scenarios
-                    .get(scenario_entity)
-                    .is_ok_and(|(_, scenario_modifiers)| {
-                        scenario_modifiers
-                            .get(&element)
-                            .is_some_and(|e| *e == modifier_entity)
-                    })
-                {
-                    remove_modifier.write(RemoveModifier::new(element, scenario_entity));
-                    continue;
-                }
-            }
-
-            // The current scenario wasn't the target scenario, loop over scenario
-            // modifiers to find
-            for (scenario_entity, scenario_modifiers) in scenarios.iter() {
-                if scenario_modifiers
-                    .get(&element)
-                    .is_some_and(|e| *e == modifier_entity)
-                {
-                    remove_modifier.write(RemoveModifier::new(element, scenario_entity));
-                    break;
-                }
-            }
-            // Target scenario entity can't be found, this is an invalid modifier,
-            // do nothing
-        }
-    }
-}
-
 /// Unique UUID to identify issue of missing root scenario modifiers
 pub const MISSING_ROOT_MODIFIER_ISSUE_UUID: Uuid =
     Uuid::from_u128(0x98df792d3de44d26b126a9335f9e743au128);
@@ -288,14 +211,11 @@ pub const MISSING_ROOT_MODIFIER_ISSUE_UUID: Uuid =
 pub fn check_for_missing_root_modifiers<M: Component<Mutability = Mutable>>(
     mut commands: Commands,
     mut validate_events: EventReader<ValidateWorkspace>,
-    scenarios: Query<
-        (
-            &ScenarioModifiers<Entity>,
-            &NameInSite,
-            &Affiliation<Entity>,
-        ),
-        With<ScenarioMarker>,
-    >,
+    scenarios: Query<(
+        &ScenarioModifiers<Entity>,
+        &NameInSite,
+        &Affiliation<Entity>,
+    )>,
     elements: Query<(Entity, Option<&NameInSite>), With<M>>,
 ) {
     for root in validate_events.read() {
