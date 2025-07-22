@@ -89,9 +89,9 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
             elapsed_time,
             solution,
             negotiation_history,
-            entity_id_map,
+            entity_id_map: _,
             error_message,
-            conflicting_endpoints,
+            conflicting_endpoints: _,
         } = &negotiation_task.status
         else {
             return;
@@ -138,8 +138,8 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
         let mut id_response_map = HashMap::<usize, &mut Response>::new();
         ScrollArea::vertical().show(ui, |ui| {
             for negotiation_node in negotiation_history {
-                let id = negotiation_node.id;
-                let mut response = show_negotiation_node(
+                let _id = negotiation_node.id;
+                let _response = show_negotiation_node(
                     ui,
                     &mut id_response_map,
                     &mut self.negotiation_debug_data,
@@ -152,9 +152,9 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
 }
 
 fn show_negotiation_node(
-    mut ui: &mut Ui,
-    mut id_response_map: &mut HashMap<usize, &mut Response>,
-    mut negotiation_debug_data: &mut ResMut<NegotiationDebugData>,
+    ui: &mut Ui,
+    id_response_map: &mut HashMap<usize, &mut Response>,
+    negotiation_debug_data: &mut ResMut<NegotiationDebugData>,
     node: &NegotiationNode,
 ) -> Response {
     Frame::default()

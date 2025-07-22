@@ -152,7 +152,7 @@ pub fn handle_compute_negotiation_complete(
         Entity::from_bits(bits)
     }
 
-    let Ok((entity, mut negotiation_task)) = compute_negotiation_task.single_mut() else {
+    let Ok((_entity, mut negotiation_task)) = compute_negotiation_task.single_mut() else {
         error!("Error: Found multiple negotiation tasks!");
         return;
     };
@@ -347,7 +347,7 @@ pub fn start_compute_negotiation(
 
     // Execute asynchronously
     let start_time = Instant::now();
-    let mut status = NegotiationTaskStatus::InProgress { start_time };
+    let status = NegotiationTaskStatus::InProgress { start_time };
     let task =
         TaskPool::new().spawn_local(async move { negotiate(&scenario, Some(queue_length_limit)) });
 

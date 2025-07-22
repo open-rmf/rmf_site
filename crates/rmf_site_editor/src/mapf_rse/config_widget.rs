@@ -217,9 +217,9 @@ impl<'w, 's> MapfConfigWidget<'w, 's> {
         match &negotiation_task.map(|task| &task.status) {
             Some(NegotiationTaskStatus::Complete {
                 elapsed_time,
-                solution,
+                solution: _,
                 negotiation_history,
-                entity_id_map,
+                entity_id_map: _,
                 error_message,
                 conflicting_endpoints,
             }) => {

@@ -48,7 +48,6 @@ impl Default for SimulationConfig {
 pub struct SimulationControlTile<'w> {
     simulation_config: ResMut<'w, SimulationConfig>,
     debug_mode: Res<'w, State<DebugMode>>,
-    debug_mode_next: ResMut<'w, NextState<DebugMode>>,
 }
 
 impl<'w> WidgetSystem<Tile> for SimulationControlTile<'w> {

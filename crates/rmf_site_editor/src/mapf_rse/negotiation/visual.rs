@@ -27,10 +27,10 @@ pub struct PathVisualMarker;
 
 pub fn visualise_selected_node(
     mut commands: Commands,
-    mut negotiation_task: Query<&NegotiationTask>,
-    mut debug_data: ResMut<NegotiationDebugData>,
+    negotiation_task: Query<&NegotiationTask>,
+    debug_data: ResMut<NegotiationDebugData>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut path_visuals: Query<Entity, With<PathVisualMarker>>,
+    path_visuals: Query<Entity, With<PathVisualMarker>>,
     mut meshes: ResMut<Assets<Mesh>>,
     robots: Query<&Affiliation<Entity>, With<Robot>>,
     robot_descriptions: Query<&CircleCollision, (With<ModelMarker>, With<Group>)>,
@@ -41,12 +41,12 @@ pub fn visualise_selected_node(
         return;
     };
     let NegotiationTaskStatus::Complete {
-        elapsed_time,
+        elapsed_time: _,
         solution,
         negotiation_history,
         entity_id_map,
-        error_message,
-        conflicting_endpoints,
+        error_message: _,
+        conflicting_endpoints: _,
     } = &negotiation_task.status
     else {
         return;
