@@ -1390,6 +1390,7 @@ fn generate_scenarios(
         Query<(
             Option<&Modifier<Pose>>,
             Option<&Modifier<Inclusion>>,
+            Option<&Modifier<OnLevel<Entity>>>,
             &Affiliation<Entity>,
         )>,
         Query<(
@@ -1417,13 +1418,22 @@ fn generate_scenarios(
                                 instances: scenario_modifiers
                                     .iter()
                                     .filter_map(|(_, e)| instance_modifiers.get(*e).ok())
-                                    .filter(|(p, i, _)| p.is_some() || i.is_some())
-                                    .filter_map(|(pose, inclusion, affiliation)| {
+                                    .filter(|(p, i, l, _)| {
+                                        p.is_some() || i.is_some() || l.is_some()
+                                    })
+                                    .filter_map(|(pose, inclusion, on_level, affiliation)| {
                                         Some((
                                             affiliation.0.and_then(|e| site_id.get(e).ok())?.0,
                                             InstanceModifier {
                                                 pose: pose.map(|p| **p),
                                                 inclusion: inclusion.map(|i| **i),
+                                                on_level: match on_level
+                                                    .map(|l| **l)
+                                                    .and_then(|level| level.0)
+                                                {
+                                                    Some(e) => Some(site_id.get(e).ok()?.0),
+                                                    None => None,
+                                                },
                                             },
                                         ))
                                     })
