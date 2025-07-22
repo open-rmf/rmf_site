@@ -18,12 +18,12 @@
 use crate::{
     site::{
         Affiliation, CurrentScenario, Delete, Dependents, Element, GetModifier, Group, Inclusion,
-        InstanceMarker, IssueKey, ModelMarker, Modifier, NameInSite, Pending, PendingModel, Pose,
-        Property, ScenarioBundle, ScenarioModifiers, StandardProperty, UpdateModifier, UseModifier,
+        InstanceMarker, IssueKey, LastSetValue, ModelMarker, Modifier, NameInSite, PendingModel,
+        Pose, ScenarioBundle, ScenarioModifiers, StandardProperty, UseModifier,
     },
     CurrentWorkspace, Issue, ValidateWorkspace,
 };
-use bevy::ecs::{hierarchy::ChildOf, system::SystemState};
+use bevy::ecs::hierarchy::ChildOf;
 use bevy::prelude::*;
 use rmf_site_picking::{Select, Selection};
 use std::collections::HashSet;
@@ -42,74 +42,6 @@ impl Element for InstanceMarker {}
 
 impl StandardProperty for Pose {}
 
-impl Property for Visibility {
-    fn get_fallback(_for_element: Entity, _in_scenario: Entity, _world: &mut World) -> Visibility {
-        // We want the instance to be hidden by default, and only visible
-        // when intentionally toggled
-        Visibility::Hidden
-    }
-
-    fn insert(for_element: Entity, in_scenario: Entity, _value: Visibility, world: &mut World) {
-        let mut scenario_state: SystemState<
-            Query<(Entity, &ScenarioModifiers<Entity>, &Affiliation<Entity>)>,
-        > = SystemState::new(world);
-        let scenarios = scenario_state.get_mut(world);
-
-        // Insert visibility modifier into all root scenarios outside of the current tree as hidden
-        let mut current_root_entity: Entity = in_scenario;
-        while let Ok((_, _, parent_scenario)) = scenarios.get(current_root_entity) {
-            if let Some(parent_scenario_entity) = parent_scenario.0 {
-                current_root_entity = parent_scenario_entity;
-            } else {
-                break;
-            }
-        }
-        let mut root_scenarios = HashSet::<Entity>::new();
-        for (scenario_entity, _, parent_scenario) in scenarios.iter() {
-            if parent_scenario.0.is_some() || scenario_entity == current_root_entity {
-                continue;
-            }
-            root_scenarios.insert(scenario_entity);
-        }
-        for root in root_scenarios.iter() {
-            world.trigger(UpdateModifier::modify(
-                *root,
-                for_element,
-                Visibility::Hidden,
-            ));
-        }
-    }
-
-    fn insert_on_new_scenario<E: Element>(in_scenario: Entity, world: &mut World) {
-        let mut instance_state: SystemState<(
-            Query<&Children>,
-            Query<(&Modifier<Visibility>, &Affiliation<Entity>)>,
-            Query<Entity, (With<InstanceMarker>, Without<Pending>)>,
-        )> = SystemState::new(world);
-        let (children, visibility_modifiers, model_instances) = instance_state.get_mut(world);
-
-        // Spawn visibility modifier entities when new root scenarios are created
-        let have_instance =
-            Self::elements_with_modifiers(in_scenario, &children, &visibility_modifiers);
-
-        let mut target_instances = HashSet::new();
-        for instance_entity in model_instances.iter() {
-            if !have_instance.contains(&instance_entity) {
-                target_instances.insert(instance_entity);
-            }
-        }
-
-        for target in target_instances.iter() {
-            // Mark all visibility modifiers as Hidden
-            world.trigger(UpdateModifier::modify(
-                in_scenario,
-                *target,
-                Visibility::Hidden,
-            ));
-        }
-    }
-}
-
 /// Handles updates when the current scenario has changed, and trigger property updates for scenario elements
 pub fn update_current_scenario(
     mut commands: Commands,
@@ -125,37 +57,37 @@ pub fn update_current_scenario(
     }
 }
 
-pub fn check_selected_is_visible(
+/// This system monitors changes to the Inclusion property for instances and
+/// updates the model visibility accordingly
+pub fn handle_inclusion_change_for_model_visibility(
+    trigger: Trigger<OnInsert, LastSetValue<Inclusion>>,
+    mut instances: Query<(&Inclusion, &mut Visibility), With<InstanceMarker>>,
+) {
+    if let Ok((inclusion, mut visibility)) = instances.get_mut(trigger.target()) {
+        match *inclusion {
+            Inclusion::Included => {
+                *visibility = Visibility::Inherited;
+            }
+            Inclusion::Hidden => {
+                *visibility = Visibility::Hidden;
+            }
+        }
+    }
+}
+
+pub fn check_selected_is_included(
     mut select: EventWriter<Select>,
     selection: Res<Selection>,
-    visibility: Query<&Visibility>,
+    inclusion: Query<&Inclusion>,
 ) {
     if selection.0.is_some_and(|e| {
-        visibility.get(e).is_ok_and(|v| match v {
-            Visibility::Hidden => true,
+        inclusion.get(e).is_ok_and(|v| match v {
+            Inclusion::Hidden => true,
             _ => false,
         })
     }) {
         select.write(Select::new(None));
     }
-}
-
-/// Count the number of scenarios an element is included in with the Visibility modifier
-pub fn count_scenarios_with_visibility(
-    scenarios: &Query<(Entity, &ScenarioModifiers<Entity>, &Affiliation<Entity>)>,
-    element: Entity,
-    get_modifier: &GetModifier<Modifier<Visibility>>,
-) -> i32 {
-    scenarios.iter().fold(0, |x, (e, _, _)| {
-        match get_modifier
-            .get(e, element)
-            .map(|m| **m)
-            .unwrap_or(Visibility::Hidden)
-        {
-            Visibility::Hidden => x,
-            _ => x + 1,
-        }
-    })
 }
 
 /// Count the number of scenarios an element is included in with the Inclusion modifier
@@ -264,7 +196,7 @@ pub const HIDDEN_MODEL_INSTANCE_ISSUE_UUID: Uuid =
 pub fn check_for_hidden_model_instances(
     mut commands: Commands,
     mut validate_events: EventReader<ValidateWorkspace>,
-    get_modifier: GetModifier<Modifier<Visibility>>,
+    get_modifier: GetModifier<Modifier<Inclusion>>,
     instances: Query<
         (Entity, &NameInSite, &Affiliation<Entity>),
         (With<ModelMarker>, Without<Group>),
@@ -273,7 +205,7 @@ pub fn check_for_hidden_model_instances(
 ) {
     for root in validate_events.read() {
         for (instance_entity, instance_name, _) in instances.iter() {
-            if count_scenarios_with_visibility(&scenarios, instance_entity, &get_modifier) > 0 {
+            if count_scenarios_with_inclusion(&scenarios, instance_entity, &get_modifier) > 0 {
                 continue;
             }
             let issue = Issue {

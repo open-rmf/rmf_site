@@ -1389,7 +1389,7 @@ fn generate_scenarios(
         Query<&SiteID, Without<Pending>>,
         Query<(
             Option<&Modifier<Pose>>,
-            Option<&Modifier<Visibility>>,
+            Option<&Modifier<Inclusion>>,
             Option<&Modifier<OnLevel<Entity>>>,
             &Affiliation<Entity>,
         )>,
@@ -1418,18 +1418,15 @@ fn generate_scenarios(
                                 instances: scenario_modifiers
                                     .iter()
                                     .filter_map(|(_, e)| instance_modifiers.get(*e).ok())
-                                    .filter(|(p, v, l, _)| {
-                                        p.is_some() || v.is_some() || l.is_some()
+                                    .filter(|(p, i, l, _)| {
+                                        p.is_some() || i.is_some() || l.is_some()
                                     })
-                                    .filter_map(|(pose, visibility, on_level, affiliation)| {
+                                    .filter_map(|(pose, inclusion, on_level, affiliation)| {
                                         Some((
                                             affiliation.0.and_then(|e| site_id.get(e).ok())?.0,
                                             InstanceModifier {
                                                 pose: pose.map(|p| **p),
-                                                visibility: visibility.map(|v| match **v {
-                                                    Visibility::Hidden => false,
-                                                    _ => true,
-                                                }),
+                                                inclusion: inclusion.map(|i| **i),
                                                 on_level: match on_level
                                                     .map(|l| **l)
                                                     .and_then(|level| level.0)
