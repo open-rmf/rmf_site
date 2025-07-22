@@ -281,7 +281,7 @@ impl Plugin for SitePlugin {
             ChangePlugin::<ModelProperty<Robot>>::default(),
             ChangePlugin::<Task>::default(),
             PropertyPlugin::<Pose, InstanceMarker>::default(),
-            PropertyPlugin::<Visibility, InstanceMarker>::default(),
+            PropertyPlugin::<Inclusion, InstanceMarker>::default(),
             PropertyPlugin::<Inclusion, Task>::default(),
             PropertyPlugin::<TaskParams, Task>::default(),
             SlotcarSdfPlugin,
@@ -429,11 +429,12 @@ impl Plugin for SitePlugin {
                 handle_loaded_drawing,
                 update_drawing_rank,
                 add_physical_camera_visuals,
-                check_selected_is_visible,
+                check_selected_is_included,
                 check_for_missing_root_modifiers::<InstanceMarker>,
             )
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
-        );
+        )
+        .add_observer(handle_inclusion_change_for_model_visibility);
     }
 }

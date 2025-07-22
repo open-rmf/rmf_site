@@ -556,16 +556,11 @@ fn generate_site_entities(
                     pose,
                 ));
             }
-            if let Some(vis) = instance_modifier.visibility {
-                let visibility = if vis {
-                    Visibility::Inherited
-                } else {
-                    Visibility::Hidden
-                };
+            if let Some(inclusion) = instance_modifier.inclusion {
                 commands.trigger(UpdateModifier::modify(
                     scenario_entity,
                     *instance_entity,
-                    visibility,
+                    inclusion,
                 ));
             }
         }

@@ -17,8 +17,8 @@
 
 use crate::{
     site::{
-        count_scenarios_with_visibility, Affiliation, CurrentScenario, Delete, GetModifier, Group,
-        Members, ModelMarker, Modifier, NameInSite, ScenarioModifiers, UpdateModifier,
+        count_scenarios_with_inclusion, Affiliation, CurrentScenario, Delete, GetModifier, Group,
+        Inclusion, Members, ModelMarker, Modifier, NameInSite, ScenarioModifiers, UpdateModifier,
     },
     widgets::{prelude::*, SelectorWidget},
     Icons,
@@ -54,7 +54,7 @@ pub struct ViewModelInstances<'w, 's> {
         ),
     >,
     current_scenario: ResMut<'w, CurrentScenario>,
-    get_modifier: GetModifier<'w, 's, Modifier<Visibility>>,
+    get_modifier: GetModifier<'w, 's, Modifier<Inclusion>>,
     icons: Res<'w, Icons>,
     members: Query<'w, 's, &'static Members>,
     model_descriptions: Query<
@@ -108,7 +108,7 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                         continue;
                                     };
                                     if affiliation.0.is_some_and(|e| e == desc_entity) {
-                                        let scenario_count = count_scenarios_with_visibility(
+                                        let scenario_count = count_scenarios_with_inclusion(
                                             &self.scenarios,
                                             instance_entity,
                                             &self.get_modifier,
@@ -145,7 +145,7 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
                                 if let Ok((_, instance_name, _)) =
                                     self.model_instances.get_mut(*instance_entity)
                                 {
-                                    let scenario_count = count_scenarios_with_visibility(
+                                    let scenario_count = count_scenarios_with_inclusion(
                                         &self.scenarios,
                                         *instance_entity,
                                         &self.get_modifier,
@@ -178,12 +178,12 @@ fn show_model_instance(
     instance: Entity,
     selector: &mut SelectorWidget,
     delete: &mut EventWriter<Delete>,
-    get_modifier: &GetModifier<Modifier<Visibility>>,
+    get_modifier: &GetModifier<Modifier<Inclusion>>,
     scenario: Entity,
     scenario_count: i32,
     icons: &Res<Icons>,
 ) {
-    let visibility_modifier = get_modifier
+    let inclusion_modifier = get_modifier
         .scenarios
         .get(scenario)
         .ok()
@@ -193,17 +193,17 @@ fn show_model_instance(
         // Selector widget
         selector.show_widget(instance, ui);
         // Include/hide model instance
-        // Toggle between 3 visibility modes: Inherited (visible) -> None (inherit from parent) -> Hidden
+        // Toggle between 3 inclusion modes: Included -> None (inherit from parent) -> Hidden
         // If this is a root scenario, we won't include the None option
-        if let Some(visibility_modifier) = visibility_modifier {
+        if let Some(inclusion_modifier) = inclusion_modifier {
             // Either explicitly included or hidden
-            if **visibility_modifier == Visibility::Hidden {
+            if **inclusion_modifier == Inclusion::Hidden {
                 if ui
                     .add(ImageButton::new(icons.hide.egui()))
                     .on_hover_text("Model instance is hidden in this scenario")
                     .clicked()
                 {
-                    commands.entity(instance).insert(Visibility::Inherited);
+                    commands.entity(instance).insert(Inclusion::Included);
                 }
             } else {
                 if ui
@@ -216,11 +216,11 @@ fn show_model_instance(
                         .get(scenario)
                         .is_ok_and(|(_, a)| a.0.is_some())
                     {
-                        // If parent scenario exists, clicking this button toggles to ResetVisibility
-                        commands.trigger(UpdateModifier::<Visibility>::reset(scenario, instance));
+                        // If parent scenario exists, clicking this button resets the inclusion property
+                        commands.trigger(UpdateModifier::<Inclusion>::reset(scenario, instance));
                     } else {
                         // Otherwise, toggle to Hidden
-                        commands.entity(instance).insert(Visibility::Hidden);
+                        commands.entity(instance).insert(Inclusion::Hidden);
                     }
                 }
             }
@@ -228,10 +228,10 @@ fn show_model_instance(
             // Modifier is inherited
             if ui
                 .add(ImageButton::new(icons.link.egui()))
-                .on_hover_text("Model instance visibility is inherited in this scenario")
+                .on_hover_text("Model instance inclusion is inherited in this scenario")
                 .clicked()
             {
-                commands.entity(instance).insert(Visibility::Hidden);
+                commands.entity(instance).insert(Inclusion::Hidden);
             }
         }
         // Delete instance from this site (all scenarios)
