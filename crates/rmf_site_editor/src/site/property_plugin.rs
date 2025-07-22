@@ -169,6 +169,10 @@ fn on_update_modifier_event<T: Property, E: Element>(
                     .id();
                 scenario_modifiers.insert(event.element, modifier_entity);
             }
+            // Make sure the LastSetValue is updated
+            commands
+                .entity(event.element)
+                .insert(LastSetValue::<T>::new(new_value.clone()));
         }
         UpdateModifier::<T>::Reset => {
             // Only process resets if this is not a root scenario
