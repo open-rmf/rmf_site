@@ -212,6 +212,7 @@ impl Plugin for SitePlugin {
         .init_resource::<SiteAssets>()
         .init_resource::<CurrentLevel>()
         .init_resource::<CurrentScenario>()
+        .init_resource::<DefaultScenario>()
         .init_resource::<ExportHandlers>()
         .init_resource::<Trashcan>()
         .init_resource::<PhysicalLightToggle>()
@@ -219,6 +220,7 @@ impl Plugin for SitePlugin {
         .add_event::<ImportNavGraphs>()
         .add_event::<ChangeCurrentSite>()
         .add_event::<ChangeCurrentScenario>()
+        .add_event::<ChangeDefaultScenario>()
         .add_event::<CreateScenario>()
         .add_event::<RemoveScenario>()
         .add_event::<AddModifier>()
@@ -312,6 +314,7 @@ impl Plugin for SitePlugin {
                 check_for_close_unconnected_anchors,
                 check_for_orphan_model_instances,
                 check_for_hidden_model_instances,
+                check_for_accidentally_moved_instances,
                 fetch_image_for_texture,
                 detect_last_selected_texture::<FloorMarker>,
                 apply_last_selected_texture::<FloorMarker>
@@ -450,6 +453,7 @@ impl Plugin for SitePlugin {
                     Visibility,
                     (Without<Modifier<Pose>>, Without<Modifier<Visibility>>),
                 >,
+                update_default_scenario,
             )
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenTransformAndVisibility),

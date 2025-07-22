@@ -39,6 +39,9 @@ pub struct CreateScenario {
     pub parent: Option<Entity>,
 }
 
+#[derive(Clone, Copy, Debug, Default, Deref, DerefMut, Resource)]
+pub struct DefaultScenario(pub Option<Entity>);
+
 #[derive(Clone, Debug, Copy)]
 pub enum UpdateInstance {
     Include,
@@ -224,6 +227,19 @@ pub fn update_current_scenario(
         for instance_entity in instances.iter() {
             update_property.write(UpdateProperty::new(instance_entity, *scenario_entity));
         }
+    }
+}
+
+#[derive(Clone, Debug, Event)]
+pub struct ChangeDefaultScenario(pub Option<Entity>);
+
+/// Handles updates when the default scenario has changed
+pub fn update_default_scenario(
+    mut change_default_scenario: EventReader<ChangeDefaultScenario>,
+    mut default_scenario: ResMut<DefaultScenario>,
+) {
+    if let Some(ChangeDefaultScenario(optional_entity)) = change_default_scenario.read().last() {
+        default_scenario.0 = *optional_entity;
     }
 }
 
@@ -436,6 +452,7 @@ pub fn handle_remove_scenarios(
     mut commands: Commands,
     mut remove_scenario_requests: EventReader<RemoveScenario>,
     mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
+    mut change_default_scenario: EventWriter<ChangeDefaultScenario>,
     mut create_new_scenario: EventWriter<CreateScenario>,
     mut delete: EventWriter<Delete>,
     mut scenarios: Query<
@@ -443,6 +460,7 @@ pub fn handle_remove_scenarios(
         With<ScenarioMarker>,
     >,
     children: Query<&Children>,
+    default_scenario: Res<DefaultScenario>,
 ) {
     for request in remove_scenario_requests.read() {
         // Any child scenarios are considered dependents to be deleted
@@ -457,8 +475,22 @@ pub fn handle_remove_scenarios(
             }
         }
 
-        // Change to parent scenario, else root, else create an empty scenario and switch to it
-        if let Some(parent_scenario_entity) =
+        // If the default scenario has been removed, set default to its parent if any, otherwise None
+        let new_default_scenario = if default_scenario.0 == Some(request.0) {
+            let new_default_scenario = scenarios
+                .get(request.0)
+                .ok()
+                .and_then(|(_, affiliation, _)| affiliation.0);
+            change_default_scenario.write(ChangeDefaultScenario(new_default_scenario));
+            new_default_scenario
+        } else {
+            default_scenario.0
+        };
+
+        // Change to DefaultScenario, else parent scenario, else root, else create an empty scenario and switch to it
+        if let Some(default_scenario_entity) = new_default_scenario {
+            change_current_scenario.write(ChangeCurrentScenario(default_scenario_entity));
+        } else if let Some(parent_scenario_entity) =
             scenarios.get(request.0).map(|(_, a, _)| a.0).ok().flatten()
         {
             change_current_scenario.write(ChangeCurrentScenario(parent_scenario_entity));
@@ -524,6 +556,71 @@ pub fn check_for_hidden_model_instances(
             };
             let issue_id = commands.spawn(issue).id();
             commands.entity(**root).add_child(issue_id);
+        }
+    }
+}
+
+/// Unique UUID to identify issue of accidentally moved child instance
+pub const ACCIDENTALLY_MOVED_INSTANCE_ISSUE_UUID: Uuid =
+    Uuid::from_u128(0x39d33dd7e5f3479a82465d4ec8de0961u128);
+
+pub fn check_for_accidentally_moved_instances(
+    mut commands: Commands,
+    mut validate_events: EventReader<ValidateWorkspace>,
+    get_modifier: GetModifier<Modifier<Pose>>,
+    instances: Query<
+        (Entity, &NameInSite, &Affiliation<Entity>),
+        (With<ModelMarker>, Without<Group>),
+    >,
+    scenarios: Query<
+        (
+            &NameInSite,
+            &ScenarioModifiers<Entity>,
+            &Affiliation<Entity>,
+        ),
+        With<ScenarioMarker>,
+    >,
+) {
+    for root in validate_events.read() {
+        for (scenario_name, scenario_modifiers, parent_scenario) in scenarios.iter() {
+            for (instance_entity, instance_name, _) in instances.iter() {
+                // Check if this instance-scenario pair has a Pose modifier
+                if let Some(child_modifier) = scenario_modifiers
+                    .get(&instance_entity)
+                    .and_then(|e| get_modifier.modifiers.get(*e).ok())
+                {
+                    // Pose modifier exists, check this pose against the parent
+                    // scenario's pose for the same instance
+                    if let Some(parent_modifier) = parent_scenario
+                        .0
+                        .and_then(|parent| get_modifier.get(parent, instance_entity))
+                    {
+                        let child_pose = (**child_modifier).transform().translation;
+                        let parent_pose = (**parent_modifier).transform().translation;
+                        // If the elements of child and parent poses are very close (< 0.01),
+                        // raise issue as the child instance might have been accidentally moved
+                        if child_pose.abs_diff_eq(parent_pose, 0.1) {
+                            let issue = Issue {
+                                key: IssueKey {
+                                    entities: [instance_entity].into(),
+                                    kind: ACCIDENTALLY_MOVED_INSTANCE_ISSUE_UUID,
+                                },
+                                brief: format!(
+                                    "Model instance {:?} in scenario {:?} is very close to \
+                                     its parent scenario pose",
+                                    instance_name, scenario_name
+                                ),
+                                hint: "Model instance pose in scenario {:?} is very close to \
+                                    its parent pose. Check that the model instance is meant to \
+                                    be moved, otherwise select the model and click Reset Pose."
+                                    .to_string(),
+                            };
+                            let issue_id = commands.spawn(issue).id();
+                            commands.entity(**root).add_child(issue_id);
+                        }
+                    }
+                }
+            }
         }
     }
 }
