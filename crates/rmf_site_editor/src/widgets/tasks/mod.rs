@@ -21,7 +21,7 @@ use crate::{
         RobotTaskRequest, ScenarioMarker, ScenarioModifiers, Task, TaskKinds, TaskParams,
         TaskRequest, UpdateModifier, UpdateTaskModifier,
     },
-    widgets::{prelude::*, show_panel_of_tiles, RenderUiSet},
+    widgets::{prelude::*, show_panel_of_tiles},
     AppState, Icons, Tile, WidgetSystem,
 };
 use bevy::{
@@ -65,7 +65,7 @@ impl Plugin for MainTasksPlugin {
             .init_resource::<EditTask>()
             .init_resource::<CreateTaskDialog>()
             .add_event::<EditModeEvent>()
-            .add_systems(Update, show_create_task_dialog.after(RenderUiSet));
+            .add_systems(Update, show_create_task_dialog);
     }
 }
 
@@ -174,7 +174,12 @@ impl<'w, 's> WidgetSystem<Tile> for ViewTasks<'w, 's> {
         let mut params = state.get_mut(world);
         params.show_widget(ui);
 
-        if params.edit_task.0.is_some() {
+        // Display children widgets if editing existing task
+        if params
+            .edit_task
+            .0
+            .is_some_and(|e| params.tasks.get(e).is_ok())
+        {
             let children: Result<SmallVec<[_; 16]>, _> = params
                 .children
                 .get(params.task_widget.id)
@@ -649,22 +654,30 @@ fn show_editable_task(
 }
 
 fn show_create_task_dialog(
-    mut commands: Commands,
-    mut contexts: EguiContexts,
-    mut create_task_dialog: ResMut<CreateTaskDialog>,
-    mut change_task: EventWriter<Change<Task>>,
-    mut edit_mode: EventWriter<EditModeEvent>,
-    mut update_task_modifier: EventWriter<UpdateModifier<UpdateTaskModifier>>,
-    current_scenario: Res<CurrentScenario>,
-    edit_task: Res<EditTask>,
-    get_params_modifier: GetModifier<Modifier<TaskParams>>,
-    pending_tasks: Query<(&Task, &TaskParams), With<Pending>>,
-    robots: Query<(Entity, &NameInSite), (With<Robot>, Without<Group>)>,
-    task_kinds: ResMut<TaskKinds>,
+    world: &mut World,
+    task_state: &mut SystemState<(
+        Res<CurrentScenario>,
+        Res<EditTask>,
+        Query<(&Task, &TaskParams), With<Pending>>,
+    )>,
+    egui_context_state: &mut SystemState<EguiContexts>,
+    edit_state: &mut SystemState<(
+        Commands,
+        GetModifier<Modifier<TaskParams>>,
+        Query<(Entity, &NameInSite), (With<Robot>, Without<Group>)>,
+        ResMut<TaskKinds>,
+        EventWriter<Change<Task>>,
+        EventWriter<UpdateModifier<UpdateTaskModifier>>,
+    )>,
+    widget_state: &mut SystemState<(Query<&Children>, Res<TaskWidget>)>,
+    dialog_state: &mut SystemState<(ResMut<CreateTaskDialog>, EventWriter<EditModeEvent>)>,
 ) {
+    let (create_task_dialog, _) = dialog_state.get_mut(world);
     if !create_task_dialog.visible {
         return;
     }
+
+    let (current_scenario, edit_task, pending_tasks) = task_state.get_mut(world);
     let Some(current_scenario_entity) = current_scenario.0 else {
         return;
     };
@@ -674,18 +687,29 @@ fn show_create_task_dialog(
     let Ok((pending_task, pending_task_params)) = pending_tasks.get(task_entity) else {
         return;
     };
+    let (pending_task, pending_task_params) = (pending_task.clone(), pending_task_params.clone());
 
+    let mut egui_context = egui_context_state.get_mut(world);
+    let mut ctx = egui_context.ctx_mut().clone();
     Window::new("Creating New Task")
         .collapsible(false)
         .resizable(false)
         .anchor(Align2::CENTER_CENTER, [0.0, 0.0])
-        .show(contexts.ctx_mut(), |ui| {
+        .show(&mut ctx, |ui| {
+            let (
+                mut commands,
+                get_params_modifier,
+                robots,
+                task_kinds,
+                mut change_task,
+                mut update_task_modifier,
+            ) = edit_state.get_mut(world);
             show_editable_task(
                 ui,
                 &mut commands,
                 task_entity,
-                pending_task,
-                pending_task_params,
+                &pending_task,
+                &pending_task_params,
                 current_scenario_entity,
                 true,
                 &get_params_modifier,
@@ -694,7 +718,25 @@ fn show_create_task_dialog(
                 &mut change_task,
                 &mut update_task_modifier,
             );
+            edit_state.apply(world);
             ui.separator();
+
+            let (children, task_widget) = widget_state.get_mut(world);
+            let children: Result<SmallVec<[_; 16]>, _> = children
+                .get(task_widget.id)
+                .map(|children| children.iter().collect());
+            let Ok(children) = children else {
+                return;
+            };
+
+            let widget_entity = task_widget.id;
+            for child in children {
+                let tile = Tile {
+                    id: widget_entity,
+                    panel: PanelSide::Top, // Any panel will do
+                };
+                let _ = world.try_show_in(child, tile, ui);
+            }
 
             let mut reset_edit: bool = false;
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
@@ -708,21 +750,20 @@ fn show_create_task_dialog(
                         .on_hover_text("Add this task to the current scenario")
                         .clicked()
                     {
-                        commands.entity(task_entity).remove::<Pending>();
+                        world.entity_mut(task_entity).remove::<Pending>();
                         reset_edit = true;
                     }
                 });
             });
 
             if reset_edit {
+                let (mut create_task_dialog, mut edit_mode) = dialog_state.get_mut(world);
                 edit_mode.write(EditModeEvent {
                     scenario: current_scenario_entity,
                     mode: EditMode::Edit(None),
                 });
                 create_task_dialog.visible = false;
             }
-
-            // TODO(@xiyuoh) show child widgets!
         });
 }
 
