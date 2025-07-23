@@ -108,41 +108,48 @@ pub fn visualise_selected_node(
                 ..Default::default()
             });
 
-            // Draws robot start and goal position 
+            // Draws robot start and goal position
             {
                 let robot_start_pos = match proposal.1.meta.trajectory.first() {
                     Some(waypoint) => waypoint.position.translation,
-                    None => continue
+                    None => continue,
                 };
                 let robot_goal_pos = match proposal.1.meta.trajectory.last() {
                     Some(waypoint) => waypoint.position.translation,
-                    None => continue
+                    None => continue,
                 };
-                
-                let robot_start_pos = Vec3::new(robot_start_pos.x as f32, robot_start_pos.y as f32, 0.1);
-                let robot_goal_pos = Vec3::new(robot_goal_pos.x as f32, robot_goal_pos.y as f32, 0.1);
+
+                let robot_start_pos =
+                    Vec3::new(robot_start_pos.x as f32, robot_start_pos.y as f32, 0.1);
+                let robot_goal_pos =
+                    Vec3::new(robot_goal_pos.x as f32, robot_goal_pos.y as f32, 0.1);
 
                 let mut spawn_circle_mesh = |pos| {
-                    commands.spawn((
-                        Mesh3d(meshes.add(Circle::new(collision_radius))),
-                        MeshMaterial3d(lane_material.clone()),
-                        Transform::from_translation(pos),
-                        Visibility::default(),
+                    commands
+                        .spawn((
+                            Mesh3d(meshes.add(Circle::new(collision_radius))),
+                            MeshMaterial3d(lane_material.clone()),
+                            Transform::from_translation(pos),
+                            Visibility::default(),
                         ))
                         .insert(PathVisualMarker)
                         .insert(ChildOf(level_entity));
-
                 };
                 spawn_circle_mesh(robot_start_pos);
                 spawn_circle_mesh(robot_goal_pos);
             }
 
-            let mut spawn_path_mesh = |start_pos, end_pos, lane_material: Handle<StandardMaterial>, lane_mesh, circle_mesh| {
-                commands.spawn((
-                    Mesh3d(circle_mesh),
-                    MeshMaterial3d(lane_material.clone()),
-                    Transform::from_translation(start_pos),
-                    Visibility::default(),
+            let mut spawn_path_mesh = |start_pos,
+                                       end_pos,
+                                       lane_material: Handle<StandardMaterial>,
+                                       lane_mesh,
+                                       circle_mesh| {
+                commands
+                    .spawn((
+                        Mesh3d(circle_mesh),
+                        MeshMaterial3d(lane_material.clone()),
+                        Transform::from_translation(start_pos),
+                        Visibility::default(),
                     ))
                     .insert(PathVisualMarker)
                     .insert(ChildOf(level_entity));
@@ -155,7 +162,6 @@ pub fn visualise_selected_node(
                     ))
                     .insert(PathVisualMarker)
                     .insert(ChildOf(level_entity));
-        
             };
 
             for (i, _waypoint) in proposal.1.meta.trajectory.iter().enumerate().skip(1) {
@@ -169,13 +175,11 @@ pub fn visualise_selected_node(
                 let path_length = dp.length();
 
                 spawn_path_mesh(
-                    start_pos, end_pos,
+                    start_pos,
+                    end_pos,
                     lane_material.clone(),
-                    meshes.add(Mesh::from(Rectangle::new(
-                        path_length,
-                        robot_width,
-                    ))),
-                    meshes.add(Circle::new(collision_radius))
+                    meshes.add(Mesh::from(Rectangle::new(path_length, robot_width))),
+                    meshes.add(Circle::new(collision_radius)),
                 );
             }
         }
