@@ -21,8 +21,7 @@ use crate::{
         RobotTaskRequest, ScenarioMarker, ScenarioModifiers, Task, TaskKinds, TaskParams,
         TaskRequest, UpdateModifier, UpdateTaskModifier,
     },
-    widgets::{prelude::*, show_panel_of_tiles},
-    AppState, Icons, Tile, WidgetSystem,
+    AppState, Icons,
 };
 use bevy::{
     ecs::system::{SystemParam, SystemState},
@@ -35,6 +34,7 @@ use bevy_egui::{
     },
     EguiContexts,
 };
+use rmf_site_egui::*;
 use serde_json::Value;
 use smallvec::SmallVec;
 

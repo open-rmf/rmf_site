@@ -18,7 +18,6 @@ use super::{EditTask, TaskWidget};
 use crate::{
     site::{update_task_kind_component, Task, TaskKind, TaskKinds},
     widgets::prelude::*,
-    Tile, WidgetSystem,
 };
 use bevy::{
     ecs::{
@@ -28,6 +27,7 @@ use bevy::{
     prelude::*,
 };
 use bevy_egui::egui::DragValue;
+use rmf_site_egui::*;
 use rmf_site_format::WaitFor;
 
 #[derive(Default)]
