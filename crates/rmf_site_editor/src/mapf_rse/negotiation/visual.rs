@@ -16,7 +16,7 @@
 */
 
 use super::*;
-use crate::site::line_stroke_transform;
+use crate::site::line_transform;
 use bevy::ecs::hierarchy::ChildOf;
 use bevy::math::prelude::Rectangle;
 
@@ -79,18 +79,6 @@ pub fn visualise_selected_node(
         return;
     };
 
-    let mut spawn_path_mesh = |lane_tf, lane_material: Handle<StandardMaterial>, lane_mesh| {
-        commands
-            .spawn((
-                Mesh3d(lane_mesh),
-                MeshMaterial3d(lane_material.clone()),
-                lane_tf,
-                Visibility::default(),
-            ))
-            .insert(PathVisualMarker)
-            .insert(ChildOf(level_entity));
-    };
-
     if debug_data.visualize_trajectories {
         for proposal in selected_node.proposals.iter() {
             let Some(entity_id) = entity_id_map.get(&proposal.0) else {
@@ -114,23 +102,80 @@ pub fn visualise_selected_node(
                 warn!("No circle collision model found for robot's model description, using default value of {}", collision_radius);
             }
 
-            for (i, _waypoint) in proposal.1.meta.trajectory.iter().enumerate().skip(2) {
+            let lane_material = materials.add(StandardMaterial {
+                base_color: Color::srgb(1.0, 0.0, 0.0),
+                unlit: true,
+                ..Default::default()
+            });
+
+            // Draws robot start and goal position 
+            {
+                let robot_start_pos = match proposal.1.meta.trajectory.first() {
+                    Some(waypoint) => waypoint.position.translation,
+                    None => continue
+                };
+                let robot_goal_pos = match proposal.1.meta.trajectory.last() {
+                    Some(waypoint) => waypoint.position.translation,
+                    None => continue
+                };
+                
+                let robot_start_pos = Vec3::new(robot_start_pos.x as f32, robot_start_pos.y as f32, 0.1);
+                let robot_goal_pos = Vec3::new(robot_goal_pos.x as f32, robot_goal_pos.y as f32, 0.1);
+
+                let mut spawn_circle_mesh = |pos| {
+                    commands.spawn((
+                        Mesh3d(meshes.add(Circle::new(collision_radius))),
+                        MeshMaterial3d(lane_material.clone()),
+                        Transform::from_translation(pos),
+                        Visibility::default(),
+                        ))
+                        .insert(PathVisualMarker)
+                        .insert(ChildOf(level_entity));
+
+                };
+                spawn_circle_mesh(robot_start_pos);
+                spawn_circle_mesh(robot_goal_pos);
+            }
+
+            let mut spawn_path_mesh = |start_pos, end_pos, lane_material: Handle<StandardMaterial>, lane_mesh, circle_mesh| {
+                commands.spawn((
+                    Mesh3d(circle_mesh),
+                    MeshMaterial3d(lane_material.clone()),
+                    Transform::from_translation(start_pos),
+                    Visibility::default(),
+                    ))
+                    .insert(PathVisualMarker)
+                    .insert(ChildOf(level_entity));
+                commands
+                    .spawn((
+                        Mesh3d(lane_mesh),
+                        MeshMaterial3d(lane_material.clone()),
+                        line_transform(&start_pos, &end_pos),
+                        Visibility::default(),
+                    ))
+                    .insert(PathVisualMarker)
+                    .insert(ChildOf(level_entity));
+        
+            };
+
+            for (i, _waypoint) in proposal.1.meta.trajectory.iter().enumerate().skip(1) {
                 let start_pos = proposal.1.meta.trajectory[i - 1].position.translation;
                 let end_pos = proposal.1.meta.trajectory[i].position.translation;
                 let start_pos = Vec3::new(start_pos.x as f32, start_pos.y as f32, 0.1);
                 let end_pos = Vec3::new(end_pos.x as f32, end_pos.y as f32, 0.1);
 
+                let robot_width = collision_radius * 2.0;
+                let dp = end_pos - start_pos;
+                let path_length = dp.length();
+
                 spawn_path_mesh(
-                    line_stroke_transform(&start_pos, &end_pos, collision_radius * 2.0),
-                    materials.add(StandardMaterial {
-                        base_color: Color::srgb(0.0, 1.0, 0.0),
-                        unlit: true,
-                        ..Default::default()
-                    }),
+                    start_pos, end_pos,
+                    lane_material.clone(),
                     meshes.add(Mesh::from(Rectangle::new(
-                        collision_radius * 10.0,
-                        collision_radius * 2.0,
+                        path_length,
+                        robot_width,
                     ))),
+                    meshes.add(Circle::new(collision_radius))
                 );
             }
         }

@@ -21,6 +21,19 @@ use bevy::prelude::*;
 use std::collections::HashSet;
 use std::path::PathBuf;
 
+pub fn line_transform(p_start: &Vec3, p_end: &Vec3) -> Transform {
+    let dp = *p_end - *p_start;
+
+    let yaw = dp.y.atan2(dp.x);
+    let tilt = dp.z.atan2(dp.x.abs());
+    let center = (*p_start + *p_end) / 2.0;
+    Transform {
+        translation: Vec3::new(center.x, center.y, center.z),
+        rotation: Quat::from_euler(EulerRot::ZYX, yaw, -tilt, 0.),
+        ..default()
+    }
+}
+
 pub fn line_stroke_transform(p_start: &Vec3, p_end: &Vec3, width: f32) -> Transform {
     let dp = *p_end - *p_start;
     let length = dp.length();
