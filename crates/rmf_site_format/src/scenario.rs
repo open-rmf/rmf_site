@@ -48,6 +48,7 @@ pub struct InstanceModifier {
 pub struct TaskModifier {
     #[serde(default, skip_serializing_if = "is_default")]
     pub inclusion: Option<Inclusion>,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub params: Option<TaskParams>,
 }
 
@@ -69,7 +70,9 @@ pub struct ScenarioMarker;
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct Scenario<T: RefTrait> {
+    #[serde(default, skip_serializing_if = "is_default")]
     pub instances: BTreeMap<T, InstanceModifier>,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub tasks: BTreeMap<T, TaskModifier>,
     #[serde(flatten)]
     pub properties: ScenarioBundle<T>,
