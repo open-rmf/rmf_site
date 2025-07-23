@@ -145,7 +145,7 @@ pub struct ViewTasks<'w, 's> {
     get_inclusion_modifier: GetModifier<'w, 's, Modifier<Inclusion>>,
     get_params_modifier: GetModifier<'w, 's, Modifier<TaskParams>>,
     icons: Res<'w, Icons>,
-    robots: Query<'w, 's, (Entity, &'static NameInSite), (With<Robot>, Without<Group>)>,
+    robots: Query<'w, 's, (Entity, &'static NameInSite, &'static Robot), Without<Group>>,
     scenarios: Query<
         'w,
         's,
@@ -285,7 +285,7 @@ fn show_task_widget(
     edit_mode: &mut EventWriter<EditModeEvent>,
     edit_task: &Res<EditTask>,
     task_kinds: &ResMut<TaskKinds>,
-    robots: &Query<(Entity, &NameInSite), (With<Robot>, Without<Group>)>,
+    robots: &Query<(Entity, &NameInSite, &Robot), Without<Group>>,
     scenario_count: i32,
     icons: &Res<Icons>,
 ) {
@@ -449,7 +449,7 @@ fn show_editable_task(
     scenario: Entity,
     in_edit_mode: bool,
     get_params_modifier: &GetModifier<Modifier<TaskParams>>,
-    robots: &Query<(Entity, &NameInSite), (With<Robot>, Without<Group>)>,
+    robots: &Query<(Entity, &NameInSite, &Robot), Without<Group>>,
     task_kinds: &ResMut<TaskKinds>,
     change_task: &mut EventWriter<Change<Task>>,
     update_task_modifier: &mut EventWriter<UpdateModifier<UpdateTaskModifier>>,
@@ -664,7 +664,7 @@ fn show_create_task_dialog(
     edit_state: &mut SystemState<(
         Commands,
         GetModifier<Modifier<TaskParams>>,
-        Query<(Entity, &NameInSite), (With<Robot>, Without<Group>)>,
+        Query<(Entity, &NameInSite, &Robot), Without<Group>>,
         ResMut<TaskKinds>,
         EventWriter<Change<Task>>,
         EventWriter<UpdateModifier<UpdateTaskModifier>>,
@@ -771,7 +771,7 @@ fn edit_request_type_widget(
     ui: &mut Ui,
     task: &mut Task,
     task_request: &TaskRequest,
-    robots: &Query<(Entity, &NameInSite), (With<Robot>, Without<Group>)>,
+    robots: &Query<(Entity, &NameInSite, &Robot), Without<Group>>,
     robot: String,
     fleet: String,
 ) {
@@ -813,12 +813,16 @@ fn edit_request_type_widget(
             ComboBox::from_id_salt("select_robot_for_task")
                 .selected_text(selected_robot)
                 .show_ui(ui, |ui| {
-                    for (_, robot) in robots.iter() {
+                    for (_, robot_name, robot) in robots.iter() {
                         ui.selectable_value(
                             robot_task_request.robot_mut(),
-                            robot.0.clone(),
-                            robot.0.clone(),
+                            robot_name.0.clone(),
+                            robot_name.0.clone(),
                         );
+                        // Update fleet according to selected robot
+                        if robot_task_request.robot() == robot_name.0 {
+                            *robot_task_request.fleet_mut() = robot.fleet.clone();
+                        }
                     }
                 });
         } else {

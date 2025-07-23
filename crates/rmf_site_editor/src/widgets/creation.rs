@@ -54,7 +54,7 @@ impl Plugin for StandardCreationPlugin {
             DrawingCreationPlugin::default(),
             ModelCreationPlugin::default(),
             BrowseFuelTogglePlugin::default(),
-            InspectTasksTogglePlugin::default(),
+            TaskPanelTogglePlugin::default(),
         ));
     }
 }
@@ -670,21 +670,21 @@ impl<'w> WidgetSystem<Tile> for BrowseFuelToggle<'w> {
 }
 
 #[derive(Default)]
-pub struct InspectTasksTogglePlugin {}
+pub struct TaskPanelTogglePlugin {}
 
-impl Plugin for InspectTasksTogglePlugin {
+impl Plugin for TaskPanelTogglePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(HeaderTilePlugin::<InspectTasksToggle>::new());
+        app.add_plugins(HeaderTilePlugin::<TaskPanelToggle>::new());
     }
 }
 
 #[derive(SystemParam)]
-pub struct InspectTasksToggle<'w> {
+pub struct TaskPanelToggle<'w> {
     task_widget: Option<ResMut<'w, TaskWidget>>,
     app_state: Res<'w, State<AppState>>,
 }
 
-impl<'w> WidgetSystem<Tile> for InspectTasksToggle<'w> {
+impl<'w> WidgetSystem<Tile> for TaskPanelToggle<'w> {
     fn show(_: Tile, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) -> () {
         let mut params = state.get_mut(world);
         if !matches!(params.app_state.get(), AppState::SiteEditor) {
