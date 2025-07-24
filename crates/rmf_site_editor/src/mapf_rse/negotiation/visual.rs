@@ -16,7 +16,7 @@
 */
 
 use super::*;
-use crate::site::line_transform;
+use crate::site::line_stroke_transform;
 use bevy::ecs::hierarchy::ChildOf;
 use bevy::math::prelude::Rectangle;
 
@@ -143,7 +143,8 @@ pub fn visualise_selected_node(
                                        end_pos,
                                        lane_material: Handle<StandardMaterial>,
                                        lane_mesh,
-                                       circle_mesh| {
+                                       circle_mesh,
+                                       robot_width | {
                 commands
                     .spawn((
                         Mesh3d(circle_mesh),
@@ -157,29 +158,27 @@ pub fn visualise_selected_node(
                     .spawn((
                         Mesh3d(lane_mesh),
                         MeshMaterial3d(lane_material.clone()),
-                        line_transform(&start_pos, &end_pos),
+                        line_stroke_transform(&start_pos, &end_pos, robot_width),
                         Visibility::default(),
                     ))
                     .insert(PathVisualMarker)
                     .insert(ChildOf(level_entity));
             };
 
-            for (i, _waypoint) in proposal.1.meta.trajectory.iter().enumerate().skip(1) {
-                let start_pos = proposal.1.meta.trajectory[i - 1].position.translation;
-                let end_pos = proposal.1.meta.trajectory[i].position.translation;
+            for slice in proposal.1.meta.trajectory.windows(2) {
+                let start_pos = slice[0].position.translation;
+                let end_pos = slice[1].position.translation;
                 let start_pos = Vec3::new(start_pos.x as f32, start_pos.y as f32, 0.1);
                 let end_pos = Vec3::new(end_pos.x as f32, end_pos.y as f32, 0.1);
 
                 let robot_width = collision_radius * 2.0;
-                let dp = end_pos - start_pos;
-                let path_length = dp.length();
-
                 spawn_path_mesh(
                     start_pos,
                     end_pos,
                     lane_material.clone(),
-                    meshes.add(Mesh::from(Rectangle::new(path_length, robot_width))),
+                    meshes.add(Mesh::from(Rectangle::new(1.0, 1.0))),
                     meshes.add(Circle::new(collision_radius)),
+                    robot_width
                 );
             }
         }

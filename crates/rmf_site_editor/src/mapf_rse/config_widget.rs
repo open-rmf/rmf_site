@@ -75,7 +75,6 @@ impl<'w, 's> WidgetSystem<Tile> for MapfConfigWidget<'w, 's> {
 
                 match params.debug_mode.get() {
                     DebugMode::Negotiation => params.show_negotiation(ui),
-                    DebugMode::Planner => params.show_planner(ui),
                 }
             });
     }
@@ -155,7 +154,7 @@ impl<'w, 's> MapfConfigWidget<'w, 's> {
                 .on_hover_text("Click to calculate occupancy without robots")
                 .clicked()
             {
-                self.calculate_grid.write(CalculateGrid::from(
+                self.calculate_grid.write(CalculateGrid::new(
                     self.occupancy_display.cell_size,
                     self.robots.iter().collect(),
                 ));
@@ -202,7 +201,7 @@ impl<'w, 's> MapfConfigWidget<'w, 's> {
             ui.add_enabled_ui(allow_generate_plan, |ui| {
                 if ui.button("Generate Plan").clicked() {
                     if occupancy_grid.is_none() {
-                        self.calculate_grid.write(CalculateGrid::from(
+                        self.calculate_grid.write(CalculateGrid::new(
                             self.occupancy_display.cell_size,
                             self.robots.iter().collect(),
                         ));
@@ -245,9 +244,5 @@ impl<'w, 's> MapfConfigWidget<'w, 's> {
             }
             _ => {}
         }
-    }
-
-    pub fn show_planner(&mut self, ui: &mut Ui) {
-        ui.label("Unavailable");
     }
 }

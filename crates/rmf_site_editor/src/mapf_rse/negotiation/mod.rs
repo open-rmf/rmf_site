@@ -29,7 +29,7 @@ use std::{
 use crate::{
     occupancy::{Cell, Grid},
     site::{
-        Affiliation, Anchor, CircleCollision, CurrentLevel, DifferentialDrive, GoToPlace, Group,
+        Affiliation, CircleCollision, CurrentLevel, DifferentialDrive, GoToPlace, Group,
         LocationTags, ModelMarker, NameInSite, Point, Pose, Robot, Task as RobotTask,
     },
 };
@@ -224,8 +224,8 @@ pub fn handle_compute_negotiation_complete(
 
 pub fn start_compute_negotiation(
     mut commands: Commands,
-    locations: Query<(Entity, &NameInSite, &Point<Entity>), With<LocationTags>>,
-    anchors: Query<(Entity, &Anchor, &GlobalTransform)>,
+    locations: Query<(&NameInSite, &Point<Entity>), With<LocationTags>>,
+    anchors: Query<&GlobalTransform>,
     negotiation_request: EventReader<NegotiationRequest>,
     negotiation_params: Res<NegotiationParams>,
     mut negotiation_debug_data: ResMut<NegotiationDebugData>,
@@ -260,7 +260,7 @@ pub fn start_compute_negotiation(
     let mut cell_size = 1.0;
     let grid = grids
         .iter()
-        .filter_map(|(grid_entity, grid)| {
+        .find_map(|(grid_entity, grid)| {
             if let Some(level_entity) = current_level.0 {
                 if child_of
                     .get(grid_entity)
@@ -273,8 +273,7 @@ pub fn start_compute_negotiation(
             } else {
                 None
             }
-        })
-        .next();
+        });
     match grid {
         Some(grid) => {
             cell_size = grid.cell_size;
@@ -300,9 +299,9 @@ pub fn start_compute_negotiation(
         for (robot_entity, robot_site_name, robot_pose, robot_group) in robots.iter() {
             if robot_name == robot_site_name.0 {
                 // Match location to entity
-                for (_, location_name, Point(anchor_entity)) in locations.iter() {
+                for (location_name, Point(anchor_entity)) in locations.iter() {
                     if location_name.0 == go_to_place.location {
-                        let Ok((_, _, goal_transform)) = anchors.get(*anchor_entity) else {
+                        let Ok(goal_transform) = anchors.get(*anchor_entity) else {
                             warn!("Unable to get robot's goal transform");
                             continue;
                         };

@@ -135,21 +135,21 @@ impl GridRange {
 pub struct CalculateGrid {
     /// How large is each cell
     pub cell_size: f32,
+    // Ignore these entities
+    pub ignore: HashSet<Entity>,
     /// Ignore meshes below this height
     pub floor: f32,
     /// Ignore meshes above this height
     pub ceiling: f32,
-    // Ignore these entities
-    pub ignore: HashSet<Entity>,
 }
 
 impl CalculateGrid {
-    pub fn from(cell_size_in: f32, entities_to_ignore: HashSet<Entity>) -> Self {
+    pub fn new(cell_size_in: f32, entities_to_ignore: HashSet<Entity>) -> Self {
         Self {
             cell_size: cell_size_in,
+            ignore: entities_to_ignore,
             floor: 0.01,
             ceiling: 1.5,
-            ignore: entities_to_ignore,
         }
     }
 }

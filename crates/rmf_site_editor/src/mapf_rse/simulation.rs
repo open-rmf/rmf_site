@@ -89,15 +89,6 @@ impl<'w> WidgetSystem<Tile> for SimulationControlTile<'w> {
                                     .speed(0.01),
                             );
                         }
-                        DebugMode::Planner => {
-                            let end_step = params.simulation_config.end_step.clone();
-                            ui.add(
-                                DragValue::new(&mut params.simulation_config.current_step)
-                                    .range(0_u32..=end_step)
-                                    .suffix(format!(" / {} steps", end_step.to_string()))
-                                    .speed(0.01),
-                            );
-                        }
                     });
                 });
 
@@ -113,18 +104,6 @@ impl<'w> WidgetSystem<Tile> for SimulationControlTile<'w> {
                                     0.0..=end_time,
                                 )
                                 .show_value(false)
-                                .clamping(SliderClamping::Always),
-                            );
-                        }
-                        DebugMode::Planner => {
-                            let end_step = params.simulation_config.end_step.clone();
-                            ui.add(
-                                Slider::new(
-                                    &mut params.simulation_config.current_step,
-                                    0..=end_step,
-                                )
-                                .show_value(false)
-                                .step_by(1.0)
                                 .clamping(SliderClamping::Always),
                             );
                         }

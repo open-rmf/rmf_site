@@ -44,7 +44,6 @@ impl Plugin for MapfRsePlugin {
 pub enum DebugMode {
     #[default]
     Negotiation,
-    Planner,
 }
 
 impl DebugMode {
@@ -55,15 +54,15 @@ impl DebugMode {
     pub fn label(&self) -> &str {
         match self {
             DebugMode::Negotiation => Self::labels()[0],
-            DebugMode::Planner => Self::labels()[1],
         }
     }
 
     pub fn from_label(label: &str) -> Self {
         if label == Self::labels()[0] {
             return DebugMode::Negotiation;
-        } else {
-            return DebugMode::Planner;
-        }
+        };
+
+        // Return negotiation mode by default
+        return DebugMode::Negotiation;
     }
 }
