@@ -42,6 +42,10 @@ impl Plugin for OccupancyPlugin {
     }
 }
 
+// TODO (Nielsen) : Gather all layers in layers.rs
+pub const OFFSET: f32 = 0.001;
+pub const OCCUPANCY_LAYER_START: f32 = LANE_LAYER_START + OFFSET;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Cell {
     pub x: i64,
@@ -143,11 +147,11 @@ pub struct CalculateGrid {
     pub ceiling: f32,
 }
 
-impl CalculateGrid {
-    pub fn new(cell_size_in: f32, entities_to_ignore: HashSet<Entity>) -> Self {
+impl Default for CalculateGrid {
+    fn default() -> Self {
         Self {
-            cell_size: cell_size_in,
-            ignore: entities_to_ignore,
+            cell_size: 0.1,
+            ignore: HashSet::default(),
             floor: 0.01,
             ceiling: 1.5,
         }
@@ -301,7 +305,7 @@ fn calculate_grid(
                     .spawn((
                         Mesh3d(meshes.add(mesh)),
                         MeshMaterial3d(assets.occupied_material.clone()),
-                        Transform::default(),
+                        Transform::from_translation([0.0, 0.0, OCCUPANCY_LAYER_START].into()),
                         Visibility::default(),
                     ))
                     .insert(Grid {

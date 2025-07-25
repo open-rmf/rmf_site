@@ -258,22 +258,20 @@ pub fn start_compute_negotiation(
     // Occupancy
     let mut occupancy = HashMap::<i64, Vec<i64>>::new();
     let mut cell_size = 1.0;
-    let grid = grids
-        .iter()
-        .find_map(|(grid_entity, grid)| {
-            if let Some(level_entity) = current_level.0 {
-                if child_of
-                    .get(grid_entity)
-                    .is_ok_and(|co| co.parent() == level_entity)
-                {
-                    Some(grid)
-                } else {
-                    None
-                }
+    let grid = grids.iter().find_map(|(grid_entity, grid)| {
+        if let Some(level_entity) = current_level.0 {
+            if child_of
+                .get(grid_entity)
+                .is_ok_and(|co| co.parent() == level_entity)
+            {
+                Some(grid)
             } else {
                 None
             }
-        });
+        } else {
+            None
+        }
+    });
     match grid {
         Some(grid) => {
             cell_size = grid.cell_size;

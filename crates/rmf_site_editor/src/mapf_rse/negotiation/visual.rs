@@ -16,11 +16,15 @@
 */
 
 use super::*;
-use crate::site::line_stroke_transform;
+use crate::site::{line_stroke_transform, LANE_LAYER_START};
 use bevy::ecs::hierarchy::ChildOf;
 use bevy::math::prelude::Rectangle;
 
 pub const DEFAULT_PATH_WIDTH: f32 = 0.2;
+
+// TODO (Nielsen) : Gather all layers in layers.rs
+pub const OFFSET: f32 = 0.002;
+pub const ROBOT_PATH_LAYER_START: f32 = LANE_LAYER_START + OFFSET;
 
 #[derive(Component)]
 pub struct PathVisualMarker;
@@ -108,6 +112,10 @@ pub fn visualise_selected_node(
                 ..Default::default()
             });
 
+            let translation_to_vec3 = |x: f32, y: f32| {
+                return Vec3::new(x, y, ROBOT_PATH_LAYER_START);
+            };
+
             // Draws robot start and goal position
             {
                 let robot_start_pos = match proposal.1.meta.trajectory.first() {
@@ -119,10 +127,11 @@ pub fn visualise_selected_node(
                     None => continue,
                 };
 
+                // TODO (Nielsen) : Convert translation directly to Vec3
                 let robot_start_pos =
-                    Vec3::new(robot_start_pos.x as f32, robot_start_pos.y as f32, 0.1);
+                    translation_to_vec3(robot_start_pos.x as f32, robot_start_pos.y as f32);
                 let robot_goal_pos =
-                    Vec3::new(robot_goal_pos.x as f32, robot_goal_pos.y as f32, 0.1);
+                    translation_to_vec3(robot_goal_pos.x as f32, robot_goal_pos.y as f32);
 
                 let mut spawn_circle_mesh = |pos| {
                     commands
@@ -144,7 +153,7 @@ pub fn visualise_selected_node(
                                        lane_material: Handle<StandardMaterial>,
                                        lane_mesh,
                                        circle_mesh,
-                                       robot_width | {
+                                       robot_width| {
                 commands
                     .spawn((
                         Mesh3d(circle_mesh),
@@ -168,8 +177,8 @@ pub fn visualise_selected_node(
             for slice in proposal.1.meta.trajectory.windows(2) {
                 let start_pos = slice[0].position.translation;
                 let end_pos = slice[1].position.translation;
-                let start_pos = Vec3::new(start_pos.x as f32, start_pos.y as f32, 0.1);
-                let end_pos = Vec3::new(end_pos.x as f32, end_pos.y as f32, 0.1);
+                let start_pos = translation_to_vec3(start_pos.x as f32, start_pos.y as f32);
+                let end_pos = translation_to_vec3(end_pos.x as f32, end_pos.y as f32);
 
                 let robot_width = collision_radius * 2.0;
                 spawn_path_mesh(
@@ -178,7 +187,7 @@ pub fn visualise_selected_node(
                     lane_material.clone(),
                     meshes.add(Mesh::from(Rectangle::new(1.0, 1.0))),
                     meshes.add(Circle::new(collision_radius)),
-                    robot_width
+                    robot_width,
                 );
             }
         }
