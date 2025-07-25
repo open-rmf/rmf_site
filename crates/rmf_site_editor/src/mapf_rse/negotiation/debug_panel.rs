@@ -36,8 +36,8 @@ impl Plugin for NegotiationDebugPlugin {
 }
 
 #[derive(SystemParam)]
-pub struct NegotiationDebugWidget<'w, 's> {
-    negotiation_task: Query<'w, 's, &'static NegotiationTask>,
+pub struct NegotiationDebugWidget<'w> {
+    negotiation_task: Res<'w, NegotiationTask>,
     negotiation_debug_data: ResMut<'w, NegotiationDebugData>,
 }
 
@@ -54,20 +54,16 @@ fn negotiation_debug_panel(In(input): In<PanelWidgetInput>, world: &mut World) {
     }
 }
 
-impl<'w, 's> WidgetSystem for NegotiationDebugWidget<'w, 's> {
+impl<'w> WidgetSystem for NegotiationDebugWidget<'w> {
     fn show(_: (), ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) {
         let mut params = state.get_mut(world);
 
         ui.heading("Negotiation Debugger");
-        match params
-            .negotiation_task
-            .single_mut()
-            .map(|task| &task.status)
-        {
-            Ok(NegotiationTaskStatus::Complete { .. }) => {
+        match params.negotiation_task.status {
+            NegotiationTaskStatus::Complete { .. } => {
                 params.show_completed(ui);
             }
-            Ok(NegotiationTaskStatus::InProgress { start_time }) => {
+            NegotiationTaskStatus::InProgress { start_time } => {
                 ui.label(format!(
                     "In Progress: {} s",
                     start_time.elapsed().as_secs_f32()
@@ -80,11 +76,8 @@ impl<'w, 's> WidgetSystem for NegotiationDebugWidget<'w, 's> {
     }
 }
 
-impl<'w, 's> NegotiationDebugWidget<'w, 's> {
+impl<'w> NegotiationDebugWidget<'w> {
     pub fn show_completed(&mut self, ui: &mut Ui) {
-        let Ok(negotiation_task) = self.negotiation_task.single_mut() else {
-            return;
-        };
         let NegotiationTaskStatus::Complete {
             elapsed_time,
             solution,
@@ -92,7 +85,7 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
             entity_id_map: _,
             error_message,
             conflicting_endpoints: _,
-        } = &negotiation_task.status
+        } = &self.negotiation_task.status
         else {
             return;
         };

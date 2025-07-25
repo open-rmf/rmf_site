@@ -40,7 +40,7 @@ pub struct MapfConfigWidget<'w, 's> {
     negotiation_request: EventWriter<'w, NegotiationRequest>,
     negotiation_params: ResMut<'w, NegotiationParams>,
     negotiation_debug: ResMut<'w, NegotiationDebugData>,
-    negotiation_task: Query<'w, 's, &'static NegotiationTask>,
+    negotiation_task: Res<'w, NegotiationTask>,
     occupancy_display: ResMut<'w, OccupancyDisplay>,
     robots: Query<'w, 's, Entity, With<Robot>>,
     tasks: Query<'w, 's, &'static Task>,
@@ -82,8 +82,6 @@ impl<'w, 's> WidgetSystem<Tile> for MapfConfigWidget<'w, 's> {
 
 impl<'w, 's> MapfConfigWidget<'w, 's> {
     pub fn show_negotiation(&mut self, ui: &mut Ui) {
-        // Debug Parameters
-        let negotiation_task = self.negotiation_task.single_mut().ok();
         // Visualize
         ui.horizontal(|ui| {
             ui.label("Visualize");
@@ -197,7 +195,7 @@ impl<'w, 's> MapfConfigWidget<'w, 's> {
         ui.horizontal(|ui| {
             let allow_generate_plan = num_tasks > 0
                 && self.negotiation_params.queue_length_limit > 0
-                && negotiation_task.is_none_or(|task| !task.status.is_in_progress());
+                && !self.negotiation_task.status.is_in_progress();
 
             ui.add_enabled_ui(allow_generate_plan, |ui| {
                 if ui.button("Generate Plan").clicked() {
@@ -215,15 +213,15 @@ impl<'w, 's> MapfConfigWidget<'w, 's> {
 
         // Results
         ui.separator();
-        match &negotiation_task.map(|task| &task.status) {
-            Some(NegotiationTaskStatus::Complete {
+        match &self.negotiation_task.status {
+            NegotiationTaskStatus::Complete {
                 elapsed_time,
                 solution: _,
                 negotiation_history,
                 entity_id_map: _,
                 error_message,
                 conflicting_endpoints,
-            }) => {
+            } => {
                 EguiGrid::new("negotiation_data")
                     .num_columns(2)
                     .show(ui, |ui| {
@@ -240,7 +238,7 @@ impl<'w, 's> MapfConfigWidget<'w, 's> {
                         ui.label(error_message.clone().unwrap_or("None".to_string()));
                     });
             }
-            Some(NegotiationTaskStatus::InProgress { start_time }) => {
+            NegotiationTaskStatus::InProgress { start_time } => {
                 let elapsed_time = start_time.elapsed();
                 ui.label(format!("In Progress: {}", elapsed_time.as_secs_f32()));
             }
