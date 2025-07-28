@@ -16,8 +16,7 @@
 */
 
 use crate::site::*;
-use bevy::{ecs::hierarchy::ChildOf, prelude::*};
-use rmf_site_animate::Spinning;
+use bevy::{color::palettes, ecs::hierarchy::ChildOf, prelude::*};
 use rmf_site_picking::VisualCue;
 
 // TODO(@mxgrey): Consider using recency rankings for Locations so they don't
@@ -25,24 +24,30 @@ use rmf_site_picking::VisualCue;
 pub const LOCATION_LAYER_HEIGHT: f32 = LANE_LAYER_LIMIT + SELECTED_LANE_OFFSET;
 
 #[derive(Component, Clone, Default)]
-pub struct LocationTagMeshes {
-    charger: Option<Entity>,
-    parking_spot: Option<Entity>,
-    holding_point: Option<Entity>,
-}
+pub struct BillboardMeshes {
+    point: Vec3,
+    base_billboard: Option<Entity>,
 
-fn location_halo_tf(tag: &LocationTag) -> Transform {
-    let position = match tag {
-        LocationTag::Charger => 0,
-        LocationTag::ParkingSpot => 1,
-        LocationTag::HoldingPoint => 2,
-        LocationTag::Workcell(_) => 3,
-    };
-    Transform {
-        translation: Vec3::new(0., 0., 0.01),
-        rotation: Quat::from_rotation_z((position as f32 / 6.0 * 360.0).to_radians()),
-        ..default()
-    }
+    charging_billboard: Option<Entity>,
+    holding_billboard: Option<Entity>,
+    parking_billboard: Option<Entity>,
+
+    charging_text: Option<Entity>,
+    holding_text: Option<Entity>,
+    parking_text: Option<Entity>,
+
+    charging_hover_mesh: Option<Entity>,
+    holding_hover_mesh: Option<Entity>,
+    parking_hover_mesh: Option<Entity>,
+}
+#[derive(Component, Clone, Debug)]
+pub struct BillboardTextMarker;
+
+#[derive(Component, Clone, Debug)]
+pub struct BillboardMarker {
+    pub caption_entity: Entity,
+    pub offset: Vec3,
+    pub pivot: Vec3,
 }
 
 // TODO(@mxgrey): Refactor this implementation with should_display_lane using traits and generics
@@ -80,6 +85,7 @@ pub fn add_location_visuals(
     levels: Query<(), With<LevelElevation>>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
+    mut meshes: ResMut<Assets<Mesh>>,
     current_level: Res<CurrentLevel>,
 ) {
     for (e, point, associated_graphs, tags) in &locations {
@@ -106,32 +112,116 @@ pub fn add_location_visuals(
             .unwrap()
             + LOCATION_LAYER_HEIGHT * Vec3::Z;
 
-        let mut tag_meshes = LocationTagMeshes::default();
+        let mut billboard_meshes = BillboardMeshes::default();
+        billboard_meshes.point = position;
+
+        // initialise billboard values
+        let billboard_length = 0.3;
+        let billboard_scale = 0.01;
+        let mut mesh_location_y = billboard_length * 0.9 * 2.;
+        let mut text_location_y = -12.;
+        let mesh_sphere_radius = billboard_length * 0.9 * 0.5 / billboard_scale;
+
+        // if location tags exist, spawn billboard base
+        if tags.iter().count() > 0 {
+            let base_billboard_id = commands.spawn_empty().id();
+                commands.entity(base_billboard_id)
+                    .insert((
+                        BillboardText::default(),
+                        TextLayout::new_with_justify(JustifyText::Center),
+                        Transform::from_scale(Vec3::splat(billboard_scale)),
+                        Visibility::default(),
+                    )).with_children(|parent| {
+                        parent.spawn((
+                            BillboardTexture(assets.base_billboard_texture.clone()),
+                            BillboardMesh(meshes.add(Rectangle::new(billboard_length, billboard_length))),
+                            BillboardPivotOffset(Vec2::new(0., mesh_location_y)),
+                        ));
+                    });
+
+            commands.entity(e).add_child(base_billboard_id);
+            billboard_meshes.base_billboard = Some(base_billboard_id);
+            mesh_location_y -= billboard_length * 0.9;
+        }
+
         for tag in tags.iter() {
-            let id = commands.spawn_empty().id();
-            let material = match tag {
+            let mesh_id = commands.spawn_empty().id();
+            let text_id = commands.spawn_empty().id();
+            let hover_mesh_id = commands.spawn_empty().id();
+
+            let (texture, text) = match tag {
                 LocationTag::Charger => {
-                    tag_meshes.charger = Some(id);
-                    assets.charger_material.clone()
+                    billboard_meshes.charging_billboard = Some(mesh_id);
+                    billboard_meshes.charging_text = Some(text_id);
+                    billboard_meshes.charging_hover_mesh = Some(hover_mesh_id);
+                    (assets.charging_billboard_texture.clone(), "charging")
                 }
                 LocationTag::ParkingSpot => {
-                    tag_meshes.parking_spot = Some(id);
-                    assets.parking_material.clone()
+                    billboard_meshes.parking_billboard = Some(mesh_id);
+                    billboard_meshes.parking_text = Some(text_id);
+                    billboard_meshes.parking_hover_mesh = Some(hover_mesh_id);
+                    (assets.parking_billboard_texture.clone(), "parking")
                 }
                 LocationTag::HoldingPoint => {
-                    tag_meshes.holding_point = Some(id);
-                    assets.holding_point_material.clone()
+                    billboard_meshes.holding_billboard = Some(mesh_id);
+                    billboard_meshes.holding_text = Some(text_id);
+                    billboard_meshes.holding_hover_mesh = Some(hover_mesh_id);
+                    (assets.holding_billboard_texture.clone(), "holding")
                 }
                 // Workcells are not visualized
                 LocationTag::Workcell(_) => continue,
             };
-            commands.entity(id).insert((
-                Mesh3d(assets.location_tag_mesh.clone()),
-                MeshMaterial3d(material),
-                location_halo_tf(tag),
-                Visibility::default(),
-            ));
-            commands.entity(e).add_child(id);
+
+            commands.entity(text_id)
+                .insert((
+                    BillboardText::default(),
+                    TextLayout::new_with_justify(JustifyText::Left),
+                    Transform::from_scale(Vec3::splat(billboard_scale)),
+                    BillboardPivotOffset(Vec2::new(-20., text_location_y)),
+                    Visibility::Hidden,
+                    BillboardTextMarker,
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        TextSpan::new(text),
+                        TextFont::from_font_size(8.0),
+                        TextColor(Color::Srgba(palettes::css::WHITE)),
+                    )); 
+                });
+            
+            commands.entity(mesh_id)
+                .insert((
+                    BillboardText::default(),
+                    TextLayout::new_with_justify(JustifyText::Center),
+                    Transform::from_scale(Vec3::splat(billboard_scale)),
+                    Visibility::default(),
+                )).with_children(|parent| {
+                    parent.spawn((
+                        BillboardTexture(texture),
+                        BillboardMesh(meshes.add(Rectangle::new(billboard_length, billboard_length))),
+                        BillboardPivotOffset(Vec2::new(0., mesh_location_y)),
+                    ));
+                });
+            
+            //spawn hover mesh
+            commands.entity(hover_mesh_id)
+                .insert((
+                    Transform::from_scale(Vec3::splat(billboard_scale)),
+                    Mesh3d(meshes.add(Sphere::new(mesh_sphere_radius))),
+                    BillboardMarker {
+                        caption_entity: text_id,
+                        pivot: position,
+                        offset: position - Vec3::new(0., 0., mesh_location_y - mesh_sphere_radius * billboard_scale * 3.8),
+                    },
+                ));
+
+            commands.entity(e).add_child(text_id);
+            commands.entity(e).add_child(mesh_id);
+            commands.entity(e).add_child(hover_mesh_id);
+
+            mesh_location_y -= billboard_length * 0.9;
+            text_location_y -= mesh_sphere_radius;
+            
         }
 
         // TODO(MXG): Put icons on the different visual squares based on the location tags
@@ -143,9 +233,8 @@ pub fn add_location_visuals(
                 MeshMaterial3d(material),
                 visibility,
             ))
-            .insert(Spinning::new(-10.0))
             .insert(Category::Location)
-            .insert(tag_meshes)
+            .insert(billboard_meshes)
             .insert(VisualCue::outline());
     }
 }
@@ -218,69 +307,165 @@ pub fn update_location_for_moved_anchors(
 
 pub fn update_location_for_changed_location_tags(
     mut commands: Commands,
-    mut locations: Query<(Entity, &LocationTags, &mut LocationTagMeshes), Changed<LocationTags>>,
+    mut billboards: Query<(Entity, &LocationTags, &mut BillboardMeshes), Changed<LocationTags>>,
     assets: Res<SiteAssets>,
+    mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    for (e, tags, mut tag_meshes) in &mut locations {
-        // Despawn the removed tags first
-        if let Some(id) = tag_meshes.charger {
-            if !tags.iter().any(|t| t.is_charger()) {
-                commands.entity(id).despawn();
-                tag_meshes.charger = None;
-            }
+
+    for (e, tags, mut billboard_meshes) in &mut billboards {
+        //Despawn all billboards
+        if let Some(id) = billboard_meshes.charging_billboard {
+            commands.entity(id).despawn();
+            billboard_meshes.charging_billboard = None;
         }
-        if let Some(id) = tag_meshes.parking_spot {
-            if !tags.iter().any(|t| t.is_parking_spot()) {
-                commands.entity(id).despawn();
-                tag_meshes.parking_spot = None;
-            }
+        if let Some(id) = billboard_meshes.holding_billboard {
+            commands.entity(id).despawn();
+            billboard_meshes.holding_billboard = None;
         }
-        if let Some(id) = tag_meshes.holding_point {
-            if !tags.iter().any(|t| t.is_holding_point()) {
-                commands.entity(id).despawn();
-                tag_meshes.holding_point = None;
-            }
+        if let Some(id) = billboard_meshes.parking_billboard {
+            commands.entity(id).despawn();
+            billboard_meshes.parking_billboard = None;
         }
-        // Spawn the new tags
+        //despawn all texts
+        if let Some(id) = billboard_meshes.charging_text {
+            commands.entity(id).despawn();
+            billboard_meshes.charging_text = None;
+        }
+        if let Some(id) = billboard_meshes.holding_text {
+            commands.entity(id).despawn();
+            billboard_meshes.holding_text = None;
+        }
+        if let Some(id) = billboard_meshes.parking_text {
+            commands.entity(id).despawn();
+            billboard_meshes.parking_text = None;
+        }
+        //despawn all hover meshes
+        if let Some(id) = billboard_meshes.charging_hover_mesh {
+            commands.entity(id).despawn();
+            billboard_meshes.charging_hover_mesh = None;
+        }
+        if let Some(id) = billboard_meshes.holding_hover_mesh {
+            commands.entity(id).despawn();
+            billboard_meshes.holding_hover_mesh = None;
+        }
+        if let Some(id) = billboard_meshes.parking_hover_mesh {
+            commands.entity(id).despawn();
+            billboard_meshes.parking_hover_mesh = None;
+        }
+        if let Some(id) = billboard_meshes.base_billboard {
+            commands.entity(id).despawn();
+            billboard_meshes.base_billboard = None;
+        }
+
+        //initialise billboard values
+        let billboard_length = 0.3;
+        let billboard_scale = 0.01;
+        let mut mesh_location_y = billboard_length * 0.9 * 2.;
+        let mut text_location_y = -12.;
+        let mesh_sphere_radius = billboard_length * 0.9 * 0.5 / billboard_scale;
+
+        let position = billboard_meshes.point;
+
+        // if location tags exist, spawn billboard base
+        if tags.iter().count() > 0 {
+            let base_billboard_id = commands.spawn_empty().id();
+                commands.entity(base_billboard_id)
+                    .insert((
+                        BillboardText::default(),
+                        TextLayout::new_with_justify(JustifyText::Center),
+                        Transform::from_scale(Vec3::splat(billboard_scale)),
+                        Visibility::default(),
+                    )).with_children(|parent| {
+                        parent.spawn((
+                            BillboardTexture(assets.base_billboard_texture.clone()),
+                            BillboardMesh(meshes.add(Rectangle::new(billboard_length, billboard_length))),
+                            BillboardPivotOffset(Vec2::new(0., mesh_location_y)),
+                        ));
+                    });
+            
+            commands.entity(e).add_child(base_billboard_id);
+            billboard_meshes.base_billboard = Some(base_billboard_id);
+            mesh_location_y -= billboard_length * 0.9;
+        }
+
         for tag in tags.iter() {
-            let (id, material) = match tag {
+            let mesh_id = commands.spawn_empty().id();
+            let text_id = commands.spawn_empty().id();
+            let hover_mesh_id = commands.spawn_empty().id();
+
+            let (texture, text) = match tag {
                 LocationTag::Charger => {
-                    if tag_meshes.charger.is_none() {
-                        let id = commands.spawn_empty().id();
-                        tag_meshes.charger = Some(id);
-                        (id, assets.charger_material.clone())
-                    } else {
-                        continue;
-                    }
+                    billboard_meshes.charging_billboard = Some(mesh_id);
+                    billboard_meshes.charging_text = Some(text_id);
+                    billboard_meshes.charging_hover_mesh = Some(hover_mesh_id);
+                    (assets.charging_billboard_texture.clone(), "charging")
                 }
                 LocationTag::ParkingSpot => {
-                    if tag_meshes.parking_spot.is_none() {
-                        let id = commands.spawn_empty().id();
-                        tag_meshes.parking_spot = Some(id);
-                        (id, assets.parking_material.clone())
-                    } else {
-                        continue;
-                    }
+                    billboard_meshes.parking_billboard = Some(mesh_id);
+                    billboard_meshes.parking_text = Some(text_id);
+                    billboard_meshes.parking_hover_mesh = Some(hover_mesh_id);
+                    (assets.parking_billboard_texture.clone(), "parking")
                 }
                 LocationTag::HoldingPoint => {
-                    if tag_meshes.holding_point.is_none() {
-                        let id = commands.spawn_empty().id();
-                        tag_meshes.holding_point = Some(id);
-                        (id, assets.holding_point_material.clone())
-                    } else {
-                        continue;
-                    }
+                    billboard_meshes.holding_billboard = Some(mesh_id);
+                    billboard_meshes.holding_text = Some(text_id);
+                    billboard_meshes.holding_hover_mesh = Some(hover_mesh_id);
+                    (assets.holding_billboard_texture.clone(), "holding")
                 }
                 // Workcells are not visualized
                 LocationTag::Workcell(_) => continue,
             };
-            commands.entity(id).insert((
-                Mesh3d(assets.location_tag_mesh.clone()),
-                MeshMaterial3d(material),
-                location_halo_tf(tag),
-                Visibility::default(),
-            ));
-            commands.entity(e).add_child(id);
+
+            commands.entity(text_id)
+                .insert((
+                    BillboardText::default(),
+                    TextLayout::new_with_justify(JustifyText::Left),
+                    Transform::from_scale(Vec3::splat(billboard_scale)),
+                    BillboardPivotOffset(Vec2::new(-20., text_location_y)),
+                    Visibility::Hidden,
+                    BillboardTextMarker,
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        TextSpan::new(text),
+                        TextFont::from_font_size(8.0),
+                        TextColor(Color::Srgba(palettes::css::WHITE)),
+                    )); 
+                });
+            
+            commands.entity(mesh_id)
+                .insert((
+                    BillboardText::default(),
+                    TextLayout::new_with_justify(JustifyText::Center),
+                    Transform::from_scale(Vec3::splat(billboard_scale)),
+                    Visibility::default(),
+                )).with_children(|parent| {
+                    parent.spawn((
+                        BillboardTexture(texture),
+                        BillboardMesh(meshes.add(Rectangle::new(billboard_length, billboard_length))),
+                        BillboardPivotOffset(Vec2::new(0., mesh_location_y)),
+                    ));
+                });
+            
+            //spawn hover mesh
+            commands.entity(hover_mesh_id)
+                .insert((
+                    Transform::from_scale(Vec3::splat(billboard_scale)),
+                    Mesh3d(meshes.add(Sphere::new(mesh_sphere_radius))),
+                    BillboardMarker {
+                        caption_entity: text_id,
+                        pivot: position,
+                        offset: position - Vec3::new(0., 0., mesh_location_y - mesh_sphere_radius * billboard_scale * 3.8),
+                    },
+                ))
+                .insert(VisualCue::no_outline());
+
+            commands.entity(e).add_child(text_id);
+            commands.entity(e).add_child(mesh_id);
+            commands.entity(e).add_child(hover_mesh_id);
+
+            mesh_location_y -= billboard_length * 0.9;
+            text_location_y -= mesh_sphere_radius;
         }
     }
 }

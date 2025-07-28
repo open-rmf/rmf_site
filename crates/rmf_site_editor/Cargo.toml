@@ -52,6 +52,7 @@ nalgebra = {workspace = true}
 anyhow = {workspace = true}
 uuid = { workspace = true, features = ["v4"] }
 bytemuck = {workspace = true}
+bevy_mod_billboard.workspace = true
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 clap = { workspace = true, features = ["color", "derive", "help", "usage", "suggestions"] }
 bevy_egui = {workspace = true}

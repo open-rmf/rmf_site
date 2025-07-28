@@ -32,12 +32,28 @@ pub(crate) fn add_site_icons(app: &mut App) {
         embedded_asset!(app, "src/", "icons/parking.png");
         embedded_asset!(app, "src/", "icons/stopwatch.png");
     }
-
+    
     #[cfg(all(target_family = "windows", not(target_env = "gnu")))]
     {
         embedded_asset!(app, "src\\", "icons\\battery.png");
         embedded_asset!(app, "src\\", "icons\\parking.png");
         embedded_asset!(app, "src\\", "icons\\stopwatch.png");
+    }
+
+    #[cfg(any(not(target_family = "windows"), target_env = "gnu"))]
+    {
+        embedded_asset!(app, "src/", "icons/baseBillboard.png");
+        embedded_asset!(app, "src/", "icons/chargingBillboard.png");
+        embedded_asset!(app, "src/", "icons/parkingBillboard.png");
+        embedded_asset!(app, "src/", "icons/holdingBillboard.png");
+    }
+
+    #[cfg(all(target_family = "windows", not(target_env = "gnu")))]
+    {
+        embedded_asset!(app, "src\\", "icons\\baseBillboard.png");
+        embedded_asset!(app, "src\\", "icons\\chargingBillboard.png");
+        embedded_asset!(app, "src\\", "icons\\parkingBillboard.png");
+        embedded_asset!(app, "src\\", "icons\\holdingBillboard.png");
     }
 }
 
@@ -78,6 +94,10 @@ pub struct SiteAssets {
     pub charger_material: Handle<StandardMaterial>,
     pub holding_point_material: Handle<StandardMaterial>,
     pub parking_material: Handle<StandardMaterial>,
+    pub base_billboard_texture: Handle<Image>,
+    pub charging_billboard_texture: Handle<Image>,
+    pub holding_billboard_texture: Handle<Image>,
+    pub parking_billboard_texture: Handle<Image>,
 }
 
 pub fn old_default_material(base_color: Color) -> StandardMaterial {
@@ -109,6 +129,15 @@ impl FromWorld for SiteAssets {
             asset_server.load("embedded://librmf_site_editor/site/icons/stopwatch.png");
         let parking_texture =
             asset_server.load("embedded://librmf_site_editor/site/icons/parking.png");
+
+        let base_billboard_texture =
+            asset_server.load("embedded://librmf_site_editor/site/icons/baseBillboard.png");
+        let charging_billboard_texture =
+            asset_server.load("embedded://librmf_site_editor/site/icons/chargingBillboard.png");
+        let holding_billboard_texture =
+            asset_server.load("embedded://librmf_site_editor/site/icons/holdingBillboard.png");
+        let parking_billboard_texture =
+            asset_server.load("embedded://librmf_site_editor/site/icons/parkingBillboard.png");
 
         let mut materials = world
             .get_resource_mut::<Assets<StandardMaterial>>()
@@ -284,6 +313,10 @@ impl FromWorld for SiteAssets {
             charger_material,
             holding_point_material,
             parking_material,
+            base_billboard_texture,
+            charging_billboard_texture,
+            holding_billboard_texture,
+            parking_billboard_texture,
         }
     }
 }

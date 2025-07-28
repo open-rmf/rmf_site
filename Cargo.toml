@@ -115,6 +115,7 @@ bevy_ui = { git = "https://github.com/xiyuoh/bevy", branch = "fix-specialize-pan
 bevy_utils = { git = "https://github.com/xiyuoh/bevy", branch = "fix-specialize-panic" }
 bevy_window = { git = "https://github.com/xiyuoh/bevy", branch = "fix-specialize-panic" }
 bevy_winit = { git = "https://github.com/xiyuoh/bevy", branch = "fix-specialize-panic" }
+bevy_mod_billboard = { git = "https://github.com/althea28/bevy_mod_billboard", branch = "migrate-0.16" }
 
 [patch.crates-io]
 bevy = { git = "https://github.com/xiyuoh/bevy", branch = "fix-specialize-panic" }

@@ -1171,6 +1171,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_mod_billboard"
+version = "0.7.0"
+source = "git+https://github.com/althea28/bevy_mod_billboard?branch=migrate-0.16#c4a62b1e11579ac92eb8fe0b5427b9b34e46e746"
+dependencies = [
+ "bevy",
+ "bitflags 2.9.1",
+ "smallvec",
+]
+
+[[package]]
 name = "bevy_mod_outline"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5335,6 +5345,7 @@ dependencies = [
  "bevy_egui",
  "bevy_gltf_export",
  "bevy_impulse",
+ "bevy_mod_billboard",
  "bevy_mod_outline",
  "bevy_obj",
  "bevy_stl",
