@@ -1018,6 +1018,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_infinite_grid"
+version = "0.15.0"
+source = "git+https://github.com/althea28/bevy_infinite_grid?branch=main#0662e4efbcd03f502992f97293843bf06ffe5e11"
+dependencies = [
+ "bevy",
+]
+
+[[package]]
 name = "bevy_input"
 version = "0.16.0"
 source = "git+https://github.com/xiyuoh/bevy?branch=fix-specialize-panic#490b43eaaf2b5a57a194a2a2c4718a007a8a6593"
@@ -5335,6 +5343,7 @@ dependencies = [
  "bevy_egui",
  "bevy_gltf_export",
  "bevy_impulse",
+ "bevy_infinite_grid",
  "bevy_mod_outline",
  "bevy_obj",
  "bevy_stl",

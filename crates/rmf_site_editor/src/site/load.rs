@@ -185,6 +185,21 @@ fn generate_site_entities(
         .insert(WorkspaceMarker)
         .id();
 
+    commands.spawn(InfiniteGridBundle {
+        transform: Transform {
+            translation: Vec3::new(0., 0., -0.01),
+            rotation: Quat::from_rotation_x(90_f32.to_radians()),
+            scale: Vec3::splat(1.0),
+        },
+        settings: InfiniteGridSettings {
+            minor_line_color: Color::srgb(0.2, 0.2, 0.2),
+            major_line_color: Color::srgb(0.4, 0.4, 0.4),
+            ..Default::default()
+        },
+        ..Default::default()
+        })
+        .insert(ChildOf(site_id));
+
     for (anchor_id, anchor) in &site_data.anchors {
         let anchor_entity = commands
             .spawn(AnchorBundle::new(anchor.clone()))

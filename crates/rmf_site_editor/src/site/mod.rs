@@ -147,6 +147,8 @@ pub use rmf_site_format::{DirectionalLight, PointLight, SpotLight, Style, *};
 
 use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
 
+use bevy_infinite_grid::*;
+
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SiteUpdateSet {
     /// We need a custom stage for assigning orphan elements because the
@@ -288,6 +290,9 @@ impl Plugin for SitePlugin {
             PropertyPlugin::<Visibility, With<InstanceMarker>>::default(),
             PropertyPlugin::<TaskParams, With<Task>>::default(),
             SlotcarSdfPlugin,
+        ))
+        .add_plugins((
+            InfiniteGridPlugin,
         ))
         .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
         .add_issue_type(&DUPLICATED_LIFT_NAME_ISSUE_UUID, "Duplicate lift name")
