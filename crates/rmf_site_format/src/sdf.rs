@@ -626,7 +626,7 @@ impl Site {
                     added = true;
                 }
                 if added {
-                    level_model_names.push(model_description_bundle.name.0.clone());
+                    level_model_names.push(parented_model_instance.bundle.name.0.clone());
                 }
             }
             // Now add all the doors
