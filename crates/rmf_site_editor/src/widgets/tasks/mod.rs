@@ -530,111 +530,111 @@ fn show_editable_task(
         .id_salt("task_details_".to_owned() + &task_entity.index().to_string())
         .default_open(false)
         .show(ui, |ui| {
-            Grid::new("task_details_".to_owned() + &task_entity.index().to_string())
-                .num_columns(2)
-                .show(ui, |ui| {
-                    // Fleet name
-                    if task.is_dispatch() {
-                        ui.label("Fleet:").on_hover_text(
-                            "(Optional) The name of the fleet for this robot. \
+            // Fleet name
+            if task.is_dispatch() {
+                ui.horizontal(|ui| {
+                    ui.label("Fleet:").on_hover_text(
+                        "(Optional) The name of the fleet for this robot. \
                             If specified, other fleets will not bid for this task.",
-                        );
-                        if !in_edit_mode {
-                            ui.label(task_request.fleet_name().unwrap_or("None".to_string()));
-                        } else {
-                            edit_fleet_widget(ui, &mut new_task);
-                        }
-                        ui.end_row();
-                    }
-
-                    // Start time
-                    // TODO(@xiyuoh) Add status/queued information
-                    ui.label("Start time:")
-                        .on_hover_text("(Optional) The earliest time that this task may start");
-                    if !in_edit_mode {
-                        ui.label(
-                            task_params
-                                .start_time()
-                                .map(|rt| format!("{:?}", rt))
-                                .unwrap_or("None".to_string()),
-                        );
-                    } else {
-                        edit_start_time_widget(ui, &mut new_task_params);
-                    }
-                    ui.end_row();
-
-                    // Request time
-                    ui.label("Request time:")
-                        .on_hover_text("(Optional) The time that this request was initiated");
-                    if !in_edit_mode {
-                        ui.label(
-                            task_params
-                                .request_time()
-                                .map(|rt| format!("{:?}", rt))
-                                .unwrap_or("None".to_string()),
-                        );
-                    } else {
-                        edit_request_time_widget(ui, &mut new_task_params);
-                    }
-                    ui.end_row();
-
-                    // Priority
-                    ui.label("Priority:").on_hover_text(
-                        "(Optional) The priority of this task. \
-                        This must match a priority schema supported by a fleet.",
                     );
                     if !in_edit_mode {
-                        ui.label(
-                            task_params
-                                .priority()
-                                .map(|st| st.to_string())
-                                .unwrap_or("None".to_string()),
-                        );
+                        ui.label(task_request.fleet_name().unwrap_or("None".to_string()));
                     } else {
-                        edit_priority_widget(ui, &mut new_task_params);
+                        edit_fleet_widget(ui, &mut new_task);
                     }
-                    ui.end_row();
+                });
+            }
 
-                    // Labels
-                    ui.label("Labels:").on_hover_text(
-                        "Labels to describe the purpose of the task dispatch request, \
+            // Start time
+            // TODO(@xiyuoh) Add status/queued information
+            ui.horizontal(|ui| {
+                ui.label("Start time:")
+                    .on_hover_text("(Optional) The earliest time that this task may start");
+                if !in_edit_mode {
+                    ui.label(
+                        task_params
+                            .start_time()
+                            .map(|st| format!("{:?}", st))
+                            .unwrap_or("None".to_string()),
+                    );
+                } else {
+                    edit_start_time_widget(ui, &mut new_task_params);
+                }
+            });
+
+            // Request time
+            ui.horizontal(|ui| {
+                ui.label("Request time:")
+                    .on_hover_text("(Optional) The time that this request was initiated");
+                if !in_edit_mode {
+                    ui.label(
+                        task_params
+                            .request_time()
+                            .map(|rt| format!("{:?}", rt))
+                            .unwrap_or("None".to_string()),
+                    );
+                } else {
+                    edit_request_time_widget(ui, &mut new_task_params);
+                }
+            });
+
+            // Priority
+            ui.horizontal(|ui| {
+                ui.label("Priority:").on_hover_text(
+                    "(Optional) The priority of this task. \
+                        This must match a priority schema supported by a fleet.",
+                );
+                if !in_edit_mode {
+                    ui.label(
+                        task_params
+                            .priority()
+                            .map(|p| p.to_string())
+                            .unwrap_or("None".to_string()),
+                    );
+                } else {
+                    edit_priority_widget(ui, &mut new_task_params);
+                }
+            });
+
+            // Labels
+            ui.horizontal(|ui| {
+                ui.label("Labels:").on_hover_text(
+                    "Labels to describe the purpose of the task dispatch request, \
                         items can be a single value like `dashboard` or a key-value pair \
                         like `app=dashboard`, in the case of a single value, it will be \
                         interpreted as a key-value pair with an empty string value.",
-                    );
-                    if !in_edit_mode {
-                        ui.label(format!("{:?}", task_params.labels()));
-                    } else {
-                        edit_labels_widget(ui, &mut new_task_params);
-                    }
-                    ui.end_row();
+                );
+                if !in_edit_mode {
+                    ui.label(format!("{:?}", task_params.labels()));
+                } else {
+                    edit_labels_widget(ui, &mut new_task_params);
+                }
+            });
 
-                    // Reset task parameters to parent scenario params (if any)
-                    if let Ok((scenario_modifiers, parent_scenario)) =
-                        get_params_modifier.scenarios.get(scenario)
+            // Reset task parameters to parent scenario params (if any)
+            if let Ok((scenario_modifiers, parent_scenario)) =
+                get_params_modifier.scenarios.get(scenario)
+            {
+                if scenario_modifiers
+                    .get(&task_entity)
+                    .is_some_and(|e| get_params_modifier.modifiers.get(*e).is_ok())
+                    && parent_scenario.0.is_some()
+                {
+                    // Only display reset button if this task has a TaskParams modifier
+                    // and this is not a root scenario
+                    if ui
+                        .button("Reset Task Params")
+                        .on_hover_text("Reset task parameters to parent scenario params")
+                        .clicked()
                     {
-                        if scenario_modifiers
-                            .get(&task_entity)
-                            .is_some_and(|e| get_params_modifier.modifiers.get(*e).is_ok())
-                            && parent_scenario.0.is_some()
-                        {
-                            // Only display reset button if this task has a TaskParams modifier
-                            // and this is not a root scenario
-                            if ui
-                                .button("Reset Task Params")
-                                .on_hover_text("Reset task parameters to parent scenario params")
-                                .clicked()
-                            {
-                                update_task_modifier.write(UpdateModifier::new(
-                                    scenario,
-                                    task_entity,
-                                    UpdateTaskModifier::ResetParams,
-                                ));
-                            }
-                            ui.end_row();
-                        }
+                        update_task_modifier.write(UpdateModifier::new(
+                            scenario,
+                            task_entity,
+                            UpdateTaskModifier::ResetParams,
+                        ));
                     }
-                });
+                }
+            }
         });
 
     // Trigger appropriate events if changes have been made in edit mode
@@ -876,7 +876,9 @@ fn edit_requester_widget(ui: &mut Ui, task: &mut Task) {
     let requester = new_task_request
         .requester_mut()
         .get_or_insert(String::new());
-    ui.text_edit_singleline(requester);
+    TextEdit::singleline(requester)
+        .desired_width(ui.available_width())
+        .show(ui);
     if requester.is_empty() {
         *new_task_request.requester_mut() = None;
     }
@@ -888,7 +890,9 @@ fn edit_fleet_widget(ui: &mut Ui, task: &mut Task) {
     let fleet_name = new_task_request
         .fleet_name_mut()
         .get_or_insert(String::new());
-    ui.text_edit_singleline(fleet_name);
+    TextEdit::singleline(fleet_name)
+        .desired_width(ui.available_width())
+        .show(ui);
     if fleet_name.is_empty() {
         *new_task_request.fleet_name_mut() = None;
     }
@@ -947,25 +951,27 @@ fn edit_priority_widget(ui: &mut Ui, task_params: &mut TaskParams) {
 fn edit_labels_widget(ui: &mut Ui, task_params: &mut TaskParams) {
     let mut remove_labels = Vec::new();
     let mut id: usize = 0;
-    for label in task_params.labels_mut() {
-        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            if ui.button("❌").on_hover_text("Remove label").clicked() {
-                remove_labels.push(id.clone());
-            }
-            ui.text_edit_singleline(label);
-        });
-        id += 1;
-        ui.end_row();
-        ui.label("");
-    }
-    ui.with_layout(Layout::right_to_left(Align::Max), |ui| {
-        if ui
-            .button("Add label")
-            .on_hover_text("Insert new label")
-            .clicked()
-        {
-            task_params.labels_mut().push(String::new());
+    ui.vertical(|ui| {
+        for label in task_params.labels_mut() {
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                if ui.button("❌").on_hover_text("Remove label").clicked() {
+                    remove_labels.push(id.clone());
+                }
+                TextEdit::singleline(label)
+                    .desired_width(ui.available_width())
+                    .show(ui);
+            });
+            id += 1;
         }
+        ui.with_layout(Layout::right_to_left(Align::Max), |ui| {
+            if ui
+                .button("Add label")
+                .on_hover_text("Insert new label")
+                .clicked()
+            {
+                task_params.labels_mut().push(String::new());
+            }
+        });
     });
     for i in remove_labels.drain(..).rev() {
         task_params.labels_mut().remove(i);
