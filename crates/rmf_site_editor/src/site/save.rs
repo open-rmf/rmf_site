@@ -1436,10 +1436,11 @@ fn generate_scenarios(
                                         let a = affiliation
                                             .0
                                             .ok_or(SiteGenerationError::EmptyAffiliation(*e))?;
+                                        let id = instances.get(a).map(|id| id.0).map_err(|_| {
+                                            SiteGenerationError::BrokenAffiliation(a)
+                                        })?;
                                         Ok((
-                                            instances.get(a).map(|id| id.0).map_err(|_| {
-                                                SiteGenerationError::BrokenAffiliation(a)
-                                            })?,
+                                            id,
                                             InstanceModifier {
                                                 pose: pose.map(|p| **p),
                                                 visibility: visibility.map(|v| match **v {
@@ -1459,10 +1460,11 @@ fn generate_scenarios(
                                         let a = affiliation
                                             .0
                                             .ok_or(SiteGenerationError::EmptyAffiliation(*e))?;
+                                        let id = tasks.get(a).map(|id| id.0).map_err(|_| {
+                                            SiteGenerationError::BrokenAffiliation(a)
+                                        })?;
                                         Ok((
-                                            tasks.get(a).map(|id| id.0).map_err(|_| {
-                                                SiteGenerationError::BrokenAffiliation(a)
-                                            })?,
+                                            id,
                                             TaskModifier {
                                                 inclusion: inclusion.map(|i| **i),
                                                 params: task_params.map(|p| (**p).clone()),
