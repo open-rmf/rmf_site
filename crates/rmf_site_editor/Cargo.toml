@@ -36,6 +36,7 @@ rmf_site_camera = {workspace = true}
 rmf_site_mesh = {workspace = true}
 rmf_site_picking = {workspace = true}
 rmf_site_egui = {workspace = true}
+mapf = {workspace = true}
 itertools = {workspace = true}
 bitfield = {workspace = true}
 crossbeam-channel = {workspace = true}
