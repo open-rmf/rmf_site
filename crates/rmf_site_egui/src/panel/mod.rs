@@ -15,15 +15,16 @@
  *
 */
 
-use bevy::{
-    ecs::system::{BoxedSystem, SystemState},
+use bevy_ecs::{
     prelude::*,
+    system::{BoxedSystem, SystemState},
 };
 use bevy_egui::{
-    egui::{self, Ui},
     EguiContexts,
+    egui::{self, Ui},
 };
 use smallvec::SmallVec;
+use tracing::error;
 
 /// To create a panel widget (a widget that renders itself directly to one of
 /// the egui side or top/bottom panels), add this component to an entity.

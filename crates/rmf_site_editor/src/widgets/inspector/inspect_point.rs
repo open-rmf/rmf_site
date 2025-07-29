@@ -25,6 +25,7 @@ use crate::{
 };
 use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 use bevy_egui::egui::{Grid, Ui};
+use rmf_site_egui::*;
 use rmf_site_format::{NameOfSite, Point};
 
 #[derive(SystemParam)]

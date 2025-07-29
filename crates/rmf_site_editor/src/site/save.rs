@@ -19,16 +19,14 @@ use bevy::{
     ecs::{event::Events, hierarchy::ChildOf, system::SystemState},
     prelude::*,
 };
+use rmf_site_picking::Preview;
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     path::PathBuf,
 };
 use thiserror::Error as ThisError;
 
-use crate::{
-    exit_confirmation::SiteChanged, interaction::Preview, recency::RecencyRanking, site::*,
-    ExportFormat,
-};
+use crate::{exit_confirmation::SiteChanged, recency::RecencyRanking, site::*, ExportFormat};
 use rmf_site_format::*;
 use sdformat_rs::yaserde;
 

@@ -16,7 +16,6 @@
 */
 
 use crate::{
-    interaction::Selection,
     recency::RecencyRanking,
     site::*,
     widgets::{
@@ -28,6 +27,8 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Button, CollapsingHeader, DragValue, ScrollArea, Ui};
+use rmf_site_egui::{PropertiesTilePlugin, Tile, WidgetSystem};
+use rmf_site_picking::Selection;
 
 /// Add a widget for viewing a list of layers
 #[derive(Default)]

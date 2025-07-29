@@ -102,8 +102,8 @@ fn make_sdf_door_link(mesh_prefix: &str, link_name: &str) -> SdfLink {
 }
 
 fn make_sdf_door(
-    left_anchor: Anchor,
-    right_anchor: Anchor,
+    left_anchor: &Anchor,
+    right_anchor: &Anchor,
     offset: Vec3,
     ros_interface: bool,
     kind: &DoorType,
@@ -421,20 +421,18 @@ fn make_sdf_door(
 
 impl Site {
     pub fn to_sdf(&self) -> Result<SdfRoot, SdfConversionError> {
-        let get_anchor = |id: u32| -> Result<Anchor, SdfConversionError> {
+        let get_anchor = |id: u32| -> Result<&Anchor, SdfConversionError> {
             self.get_anchor(id)
                 .ok_or(SdfConversionError::BrokenAnchorReference(id))
-                .cloned()
         };
         let get_level = |id: u32| -> Result<&Level, SdfConversionError> {
             self.levels
                 .get(&id)
                 .ok_or(SdfConversionError::BrokenLevelReference(id))
         };
-        let mut root = match WORLD_TEMPLATE.clone() {
-            Ok(root) => root,
-            Err(err) => return Err(SdfConversionError::CorruptedWorldTemplate(err)),
-        };
+        let mut root = WORLD_TEMPLATE
+            .clone()
+            .map_err(SdfConversionError::CorruptedWorldTemplate)?;
         let world = &mut root.world[0];
         let mut min_elevation = f32::MAX;
         let mut max_elevation = f32::MIN;
@@ -443,6 +441,8 @@ impl Site {
             filename: "toggle_floors".into(),
             ..Default::default()
         };
+        let chargers_plugin = self.generate_chargers_plugin()?;
+        world.plugin.push(chargers_plugin);
         // Only export default scenario into SDF for now
         let (_, default_scenario) = self
             .scenarios
@@ -657,11 +657,10 @@ impl Site {
             toggle_floors_plugin.elements.push(floor_models_ele);
         }
         for (lift_id, lift) in &self.lifts {
-            let get_lift_anchor = |id: u32| -> Result<Anchor, SdfConversionError> {
+            let get_lift_anchor = |id: u32| -> Result<&Anchor, SdfConversionError> {
                 lift.cabin_anchors
                     .get(&id)
                     .ok_or(SdfConversionError::BrokenAnchorReference(id))
-                    .cloned()
             };
             // Cabin
             let LiftCabin::Rect(ref cabin) = lift.properties.cabin;
@@ -896,6 +895,65 @@ impl Site {
             }
         }
         Ok(root)
+    }
+
+    fn generate_chargers_plugin(&self) -> Result<SdfPlugin, SdfConversionError> {
+        let get_anchor_and_elevations =
+            |id: u32| -> Result<(&Anchor, Vec<f32>), SdfConversionError> {
+                let (anchor, level) = self
+                    .get_anchor_and_level(id)
+                    .ok_or(SdfConversionError::BrokenAnchorReference(id))?;
+                let elevations = if let Some(level) = level {
+                    vec![level.properties.elevation.0]
+                } else {
+                    self.levels
+                        .values()
+                        .map(|l| l.properties.elevation.0)
+                        .collect()
+                };
+                Ok((anchor, elevations))
+            };
+        let charger_locations: Vec<_> = self
+            .navigation
+            .guided
+            .locations
+            .values()
+            .filter(|location| location.tags.0.iter().any(|tag| tag.is_charger()))
+            .collect();
+        let mut charger_plugin = SdfPlugin {
+            name: "register_component".into(),
+            filename: "libregister_component.so".into(),
+            ..Default::default()
+        };
+        let mut component = XmlElement {
+            name: "component".into(),
+            ..Default::default()
+        };
+        component
+            .attributes
+            .insert("name".into(), "Chargers".into());
+        let mut component_data = ElementMap::default();
+        for location in charger_locations.iter() {
+            let (anchor, elevations) = get_anchor_and_elevations(location.anchor.0)?;
+            let tf = anchor.translation_for_category(Category::Site);
+            for elevation in elevations.iter() {
+                let element = XmlElement {
+                    name: "rmf_charger".into(),
+                    attributes: [
+                        ("name".into(), location.name.0.clone()),
+                        ("x".into(), tf[0].to_string()),
+                        ("y".into(), tf[1].to_string()),
+                        ("z".into(), elevation.to_string()),
+                    ]
+                    .into(),
+                    ..Default::default()
+                };
+                component_data.push(element);
+            }
+        }
+        component.data = ElementData::Nested(component_data);
+        charger_plugin.elements.push(component);
+        Ok(charger_plugin)
     }
 }
 

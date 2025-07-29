@@ -16,37 +16,22 @@
 */
 
 use crate::{
-    interaction::Selection,
     site::{AlignSiteDrawings, Delete},
-    CreateNewWorkspace, CurrentWorkspace, WorkspaceLoader, WorkspaceSaver,
+    CreateNewWorkspace, CurrentWorkspace, DebugMode, WorkspaceLoader, WorkspaceSaver,
 };
 use bevy::{prelude::*, window::PrimaryWindow};
 use bevy_egui::EguiContexts;
 use bevy_impulse::*;
 use rmf_site_camera::resources::ProjectionMode;
+use rmf_site_picking::Selection;
 
-#[derive(Debug, Clone, Copy, Resource)]
-pub struct DebugMode(pub bool);
+/// plugin for managing input settings for rmf_site_editor
+pub struct EditorInputPlugin;
 
-impl FromWorld for DebugMode {
-    fn from_world(_: &mut World) -> Self {
-        DebugMode(false)
-    }
-}
-
-pub struct KeyboardInputPlugin;
-
-impl Plugin for KeyboardInputPlugin {
+impl Plugin for EditorInputPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<DebugMode>()
             .add_systems(Last, handle_keyboard_input);
-
-        let keyboard_just_pressed =
-            app.spawn_continuous_service(Last, keyboard_just_pressed_stream);
-
-        app.insert_resource(KeyboardServices {
-            keyboard_just_pressed,
-        });
     }
 }
 
@@ -150,9 +135,4 @@ pub fn keyboard_just_pressed_stream(
     for key_code in keyboard_input.get_just_pressed() {
         orders.for_each(|order| order.streams().send(StreamOf(*key_code)));
     }
-}
-
-#[derive(Resource)]
-pub struct KeyboardServices {
-    pub keyboard_just_pressed: Service<(), (), StreamOf<KeyCode>>,
 }
