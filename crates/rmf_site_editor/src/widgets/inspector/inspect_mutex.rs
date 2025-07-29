@@ -18,7 +18,7 @@
 use crate::{
     inspector::SearchResult,
     site::{Category, Change},
-    widgets::{prelude::*, Inspect, InspectionPlugin},
+    widgets::{prelude::*, Inspect, InspectionPlugin, WidgetSystem},
     Icons, WorkspaceMarker,
 };
 use bevy::{
