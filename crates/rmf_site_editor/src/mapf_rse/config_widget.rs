@@ -26,14 +26,12 @@ use bevy::{
     ecs::{hierarchy::ChildOf, system::SystemParam},
     prelude::*,
 };
-use bevy_egui::egui::{CollapsingHeader, ComboBox, DragValue, Grid as EguiGrid, Ui};
+use bevy_egui::egui::{CollapsingHeader, DragValue, Grid as EguiGrid, Ui};
 use rmf_site_egui::{Tile, WidgetSystem};
 
 #[derive(SystemParam)]
 pub struct MapfConfigWidget<'w, 's> {
     child_of: Query<'w, 's, &'static ChildOf>,
-    debug_mode: Res<'w, State<DebugMode>>,
-    debug_mode_next: ResMut<'w, NextState<DebugMode>>,
     current_level: Res<'w, CurrentLevel>,
     grids: Query<'w, 's, (Entity, &'static Grid)>,
     calculate_grid: EventWriter<'w, CalculateGrid>,
@@ -53,30 +51,7 @@ impl<'w, 's> WidgetSystem<Tile> for MapfConfigWidget<'w, 's> {
 
         CollapsingHeader::new("MAPF Configuration")
             .default_open(true)
-            .show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.label("Mode");
-                    ComboBox::from_id_salt("mapf_debug_mode")
-                        .selected_text(params.debug_mode.get().label())
-                        .show_ui(ui, |ui| {
-                            for label in DebugMode::labels() {
-                                if ui
-                                    .selectable_label(
-                                        params.debug_mode.get().label() == label,
-                                        label,
-                                    )
-                                    .clicked()
-                                {
-                                    params.debug_mode_next.set(DebugMode::from_label(label));
-                                }
-                            }
-                        });
-                });
-
-                match params.debug_mode.get() {
-                    DebugMode::Negotiation => params.show_negotiation(ui),
-                }
-            });
+            .show(ui, |ui| params.show_negotiation(ui));
     }
 }
 

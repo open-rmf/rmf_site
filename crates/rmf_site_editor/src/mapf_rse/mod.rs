@@ -33,36 +33,8 @@ pub struct MapfRsePlugin;
 
 impl Plugin for MapfRsePlugin {
     fn build(&self, app: &mut App) {
-        app.init_state::<DebugMode>()
-            .init_resource::<SimulationConfig>()
+        app.init_resource::<SimulationConfig>()
             .add_plugins(NegotiationPlugin)
             .add_plugins(PropertiesTilePlugin::<MapfConfigWidget>::new());
-    }
-}
-
-#[derive(Clone, Default, Eq, PartialEq, Debug, Hash, States)]
-pub enum DebugMode {
-    #[default]
-    Negotiation,
-}
-
-impl DebugMode {
-    pub fn labels() -> Vec<&'static str> {
-        vec!["Negotiation", "Planner"]
-    }
-
-    pub fn label(&self) -> &str {
-        match self {
-            DebugMode::Negotiation => Self::labels()[0],
-        }
-    }
-
-    pub fn from_label(label: &str) -> Self {
-        if label == Self::labels()[0] {
-            return DebugMode::Negotiation;
-        };
-
-        // Return negotiation mode by default
-        return DebugMode::Negotiation;
     }
 }

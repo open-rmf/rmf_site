@@ -15,7 +15,6 @@
  *
 */
 
-use super::*;
 use crate::prelude::SystemState;
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, DragValue, Slider, SliderClamping, Ui};
@@ -47,7 +46,6 @@ impl Default for SimulationConfig {
 #[derive(SystemParam)]
 pub struct SimulationControlTile<'w> {
     simulation_config: ResMut<'w, SimulationConfig>,
-    debug_mode: Res<'w, State<DebugMode>>,
 }
 
 impl<'w> WidgetSystem<Tile> for SimulationControlTile<'w> {
@@ -79,34 +77,27 @@ impl<'w> WidgetSystem<Tile> for SimulationControlTile<'w> {
                             .suffix(" ×")
                             .speed(0.01),
                     );
-                    ui.horizontal(|ui| match params.debug_mode.get() {
-                        DebugMode::Negotiation => {
-                            let end_time = params.simulation_config.end_time.clone();
-                            ui.add(
-                                DragValue::new(&mut params.simulation_config.current_time)
-                                    .range(0_f32..=end_time)
-                                    .suffix(format!(" / {} s", end_time.to_string()))
-                                    .speed(0.01),
-                            );
-                        }
+                    ui.horizontal(|ui| {
+                        let end_time = params.simulation_config.end_time.clone();
+                        ui.add(
+                            DragValue::new(&mut params.simulation_config.current_time)
+                                .range(0_f32..=end_time)
+                                .suffix(format!(" / {} s", end_time.to_string()))
+                                .speed(0.01),
+                        );
                     });
                 });
 
                 // Time/step control
                 ui.scope(|ui| {
                     ui.spacing_mut().slider_width = ui.available_width();
-                    ui.horizontal(|ui| match params.debug_mode.get() {
-                        DebugMode::Negotiation => {
-                            let end_time = params.simulation_config.end_time.clone();
-                            ui.add(
-                                Slider::new(
-                                    &mut params.simulation_config.current_time,
-                                    0.0..=end_time,
-                                )
+                    ui.horizontal(|ui| {
+                        let end_time = params.simulation_config.end_time.clone();
+                        ui.add(
+                            Slider::new(&mut params.simulation_config.current_time, 0.0..=end_time)
                                 .show_value(false)
                                 .clamping(SliderClamping::Always),
-                            );
-                        }
+                        );
                     });
                 });
             });
