@@ -57,6 +57,9 @@ use interaction::InteractionPlugin;
 use site::{OSMViewPlugin, SitePlugin};
 use site_asset_io::SiteAssetIoPlugin;
 
+pub mod mapf_rse;
+use mapf_rse::MapfRsePlugin;
+
 pub mod osm_slippy_map;
 use bevy::render::{
     render_resource::{AddressMode, SamplerDescriptor},
@@ -262,7 +265,8 @@ impl Plugin for SiteEditor {
         if !self.is_headless() {
             app.add_plugins((StandardUiPlugin::default(), MainMenuPlugin))
                 // Note order matters, plugins that edit the menus must be initialized after the UI
-                .add_plugins((site::ViewMenuPlugin, OSMViewPlugin, SiteWireframePlugin));
+                .add_plugins((site::ViewMenuPlugin, OSMViewPlugin, SiteWireframePlugin))
+                .add_plugins(MapfRsePlugin::default());
         }
 
         if self.is_headless_export() {

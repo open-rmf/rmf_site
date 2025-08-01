@@ -93,6 +93,6 @@ pub struct OccupancyDisplay {
 
 impl Default for OccupancyDisplay {
     fn default() -> Self {
-        Self { cell_size: 0.5 }
+        Self { cell_size: 0.1 }
     }
 }
