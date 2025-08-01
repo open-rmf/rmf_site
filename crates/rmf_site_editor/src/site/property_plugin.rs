@@ -33,7 +33,11 @@ pub trait Property: Component<Mutability = Mutable> + Debug + Default + Clone {
     fn on_new_element(_for_element: Entity, _in_scenario: Entity, _value: Self, _world: &mut World);
 
     /// Hook for custom behavior when a new root scenario is created
-    fn on_new_scenario<E: Element>(_in_scenario: Entity, _world: &mut World);
+    fn on_new_scenario<E: Element>(
+        _in_scenario: Entity,
+        _affiliation: Affiliation<Entity>,
+        _world: &mut World,
+    );
 
     /// Helper function that returns the element entities that have existing modifiers
     /// for this property
@@ -74,7 +78,11 @@ impl<T: StandardProperty> Property for T {
         // Do nothing
     }
 
-    fn on_new_scenario<E: Element>(_in_scenario: Entity, _world: &mut World) {
+    fn on_new_scenario<E: Element>(
+        _in_scenario: Entity,
+        _affiliation: Affiliation<Entity>,
+        _world: &mut World,
+    ) {
         // Do nothing
     }
 }
@@ -129,7 +137,7 @@ impl<T: Property, E: Element> Plugin for PropertyPlugin<T, E> {
             .add_observer(on_update_modifier_event::<T, E>)
             .add_observer(on_use_modifier::<T, E>)
             .add_observer(on_add_property::<T, E>)
-            .add_observer(on_add_root_scenario::<T, E>)
+            .add_observer(on_add_scenario::<T, E>)
             .add_observer(on_remove_element::<E>)
             .add_systems(Update, update_changed_property::<T, E>);
     }
@@ -285,18 +293,18 @@ fn on_add_property<T: Property, E: Element>(
 /// When a new scenario has been created, this observer checks that it is a root
 /// scenario and calls T::on_new_scenario for any custom behavior implemented
 /// for the Property, e.g. insert additional modifiers in the new scenario.
-fn on_add_root_scenario<T: Property + 'static + Send + Sync, E: Element>(
+fn on_add_scenario<T: Property + 'static + Send + Sync, E: Element>(
     trigger: Trigger<OnAdd, ScenarioModifiers<Entity>>,
     world: &mut World,
     state: &mut SystemState<Query<&Affiliation<Entity>>>,
     events_state: &mut SystemState<EventWriter<ChangeCurrentScenario>>,
 ) {
     let scenarios = state.get_mut(world);
-    if !scenarios.get(trigger.target()).is_ok_and(|p| p.0.is_none()) {
+    let Ok(affiliation) = scenarios.get(trigger.target()) else {
         return;
-    }
+    };
 
-    T::on_new_scenario::<E>(trigger.target(), world);
+    T::on_new_scenario::<E>(trigger.target(), *affiliation, world);
 
     let mut change_current_scenario = events_state.get_mut(world);
     change_current_scenario.write(ChangeCurrentScenario(trigger.target()));

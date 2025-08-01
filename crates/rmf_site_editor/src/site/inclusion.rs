@@ -64,7 +64,15 @@ impl Property for Inclusion {
         }
     }
 
-    fn on_new_scenario<E: Element>(in_scenario: Entity, world: &mut World) {
+    fn on_new_scenario<E: Element>(
+        in_scenario: Entity,
+        affiliation: Affiliation<Entity>,
+        world: &mut World,
+    ) {
+        // Only insert Hidden inclusion modifiers for root scenarios
+        if affiliation.0.is_some() {
+            return;
+        }
         let mut state: SystemState<(
             Query<&Children>,
             Query<(&Modifier<Inclusion>, &Affiliation<Entity>)>,
