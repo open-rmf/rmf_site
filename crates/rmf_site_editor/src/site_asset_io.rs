@@ -17,6 +17,7 @@ use std::marker::Sync;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
+use crate::interaction::path;
 use crate::OSMTile;
 use urdf_rs::utils::expand_package_path;
 
@@ -164,8 +165,7 @@ async fn fetch_asset<'a>(
 fn get_path_from_env() -> Result<Vec<PathBuf>, env::VarError> {
     let var = env::var(MODEL_ENVIRONMENT_VARIABLE)?;
     let mut paths = Vec::<PathBuf>::new();
-    for var in env::split_paths(&var) {
-        let path = PathBuf::from(var);
+    for path in env::split_paths(&var) {
         if path.exists() {
             paths.push(path);
         }
