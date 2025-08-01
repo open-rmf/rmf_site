@@ -25,7 +25,7 @@ use bevy::{
 };
 use std::{collections::HashSet, fmt::Debug};
 
-pub trait Property: Component<Mutability = Mutable> + Debug + Default + Clone {
+pub trait Property: Component<Mutability = Mutable> + Debug + Default + Clone + PartialEq {
     /// Provides the fallback value for each property if no modifier value can be found.
     fn get_fallback(_for_element: Entity, _in_scenario: Entity, _world: &mut World) -> Self;
 
@@ -61,7 +61,10 @@ pub trait Property: Component<Mutability = Mutable> + Debug + Default + Clone {
     }
 }
 
-pub trait StandardProperty: Component<Mutability = Mutable> + Debug + Default + Clone {}
+pub trait StandardProperty:
+    Component<Mutability = Mutable> + Debug + Default + Clone + PartialEq
+{
+}
 
 impl<T: StandardProperty> Property for T {
     fn get_fallback(for_element: Entity, _in_scenario: Entity, world: &mut World) -> Self {
@@ -329,8 +332,10 @@ pub fn on_remove_element<E: Element>(
 fn update_changed_property<T: Property, E: Element>(
     mut commands: Commands,
     mut change_current_scenario: EventReader<ChangeCurrentScenario>,
-    changed_last_set_value: Query<(), Changed<LastSetValue<T>>>,
-    changed_values: Query<(Entity, Ref<T>), (With<E>, Without<Pending>)>,
+    changed_values: Query<
+        (Entity, Ref<T>, Option<Ref<LastSetValue<T>>>),
+        (With<E>, Without<Pending>),
+    >,
     current_scenario: Res<CurrentScenario>,
 ) {
     // Do nothing if scenario has changed
@@ -341,8 +346,21 @@ fn update_changed_property<T: Property, E: Element>(
         return;
     };
 
-    for (entity, new_value) in changed_values.iter() {
-        if new_value.is_changed() && changed_last_set_value.get(entity).is_err() {
+    for (entity, new_value, last_set_value) in changed_values.iter() {
+        if new_value.is_changed() {
+            if let Some(last_set_value) = last_set_value {
+                if last_set_value.is_changed() {
+                    // The new value might have been set by UpdateModifierEvent.
+                    // If the last_set_value was changed on this cycle and it
+                    // matches new_value then we take this to be the case.
+                    // TODO(@mxgrey): Think of a more robust way to track this
+                    if **last_set_value == *new_value {
+                        continue;
+                    }
+                }
+            }
+            // The user has set a new value for this property, so we should
+            // update its modifier in the current scenario.
             commands.trigger(UpdateModifier::modify_without_trigger(
                 scenario,
                 entity,
