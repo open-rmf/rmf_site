@@ -9,7 +9,6 @@ use bevy::{
 };
 use dirs;
 use serde::Deserialize;
-use smallvec::SmallVec;
 use std::env;
 use std::fs;
 use std::io;
@@ -17,7 +16,6 @@ use std::marker::Sync;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-use crate::interaction::path;
 use crate::OSMTile;
 use urdf_rs::utils::expand_package_path;
 
