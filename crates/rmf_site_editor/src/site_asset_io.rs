@@ -163,9 +163,8 @@ async fn fetch_asset<'a>(
 
 fn get_path_from_env() -> Result<Vec<PathBuf>, env::VarError> {
     let var = env::var(MODEL_ENVIRONMENT_VARIABLE)?;
-    let split: SmallVec<[&str; 8]> = var.split(':').collect();
     let mut paths = Vec::<PathBuf>::new();
-    for var in split.iter() {
+    for var in env::split_paths(&var) {
         let path = PathBuf::from(var);
         if path.exists() {
             paths.push(path);
