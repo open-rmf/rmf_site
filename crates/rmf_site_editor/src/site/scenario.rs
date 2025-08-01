@@ -17,15 +17,14 @@
 
 use crate::{
     site::{
-        Affiliation, CurrentScenario, Delete, Dependents, Element, GetModifier, Group, Inclusion,
-        InstanceMarker, IssueKey, LastSetValue, ModelMarker, Modifier, NameInSite, PendingModel,
-        Pose, ScenarioBundle, ScenarioModifiers, StandardProperty, UseModifier,
+        count_scenarios_with_inclusion, Affiliation, CurrentScenario, Delete, Dependents, Element,
+        GetModifier, Group, Inclusion, InstanceMarker, IssueKey, ModelMarker, Modifier, NameInSite,
+        PendingModel, ScenarioBundle, ScenarioModifiers, UseModifier,
     },
     CurrentWorkspace, Issue, ValidateWorkspace,
 };
 use bevy::ecs::hierarchy::ChildOf;
 use bevy::prelude::*;
-use rmf_site_picking::{Select, Selection};
 use std::collections::HashSet;
 use uuid::Uuid;
 
@@ -40,8 +39,6 @@ pub struct CreateScenario {
 
 impl Element for InstanceMarker {}
 
-impl StandardProperty for Pose {}
-
 /// Handles updates when the current scenario has changed, and trigger property updates for scenario elements
 pub fn update_current_scenario(
     mut commands: Commands,
@@ -55,57 +52,6 @@ pub fn update_current_scenario(
             commands.trigger(UseModifier::new(instance_entity, *scenario_entity));
         }
     }
-}
-
-/// This system monitors changes to the Inclusion property for instances and
-/// updates the model visibility accordingly
-pub fn handle_inclusion_change_for_model_visibility(
-    trigger: Trigger<OnInsert, LastSetValue<Inclusion>>,
-    mut instances: Query<(&Inclusion, &mut Visibility), With<InstanceMarker>>,
-) {
-    if let Ok((inclusion, mut visibility)) = instances.get_mut(trigger.target()) {
-        match *inclusion {
-            Inclusion::Included => {
-                *visibility = Visibility::Inherited;
-            }
-            Inclusion::Hidden => {
-                *visibility = Visibility::Hidden;
-            }
-        }
-    }
-}
-
-pub fn check_selected_is_included(
-    mut select: EventWriter<Select>,
-    selection: Res<Selection>,
-    inclusion: Query<&Inclusion>,
-) {
-    if selection.0.is_some_and(|e| {
-        inclusion.get(e).is_ok_and(|v| match v {
-            Inclusion::Hidden => true,
-            _ => false,
-        })
-    }) {
-        select.write(Select::new(None));
-    }
-}
-
-/// Count the number of scenarios an element is included in with the Inclusion modifier
-pub fn count_scenarios_with_inclusion(
-    scenarios: &Query<(Entity, &ScenarioModifiers<Entity>, &Affiliation<Entity>)>,
-    element: Entity,
-    get_modifier: &GetModifier<Modifier<Inclusion>>,
-) -> i32 {
-    scenarios.iter().fold(0, |x, (e, _, _)| {
-        match get_modifier
-            .get(e, element)
-            .map(|m| **m)
-            .unwrap_or(Inclusion::Hidden)
-        {
-            Inclusion::Hidden => x,
-            _ => x + 1,
-        }
-    })
 }
 
 /// Create a new scenario and its children entities

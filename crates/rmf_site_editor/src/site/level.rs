@@ -83,7 +83,7 @@ impl Property for OnLevel<Entity> {
         OnLevel(lowest_level)
     }
 
-    fn insert(
+    fn on_new_element(
         for_element: Entity,
         _in_scenario: Entity,
         _value: OnLevel<Entity>, // Value is unused for OnLevel
@@ -106,7 +106,15 @@ impl Property for OnLevel<Entity> {
             .insert(OnLevel(level_entity));
     }
 
-    fn insert_on_new_scenario<E: Element>(in_scenario: Entity, world: &mut World) {
+    fn on_new_scenario<E: Element>(
+        in_scenario: Entity,
+        affiliation: Affiliation<Entity>,
+        world: &mut World,
+    ) {
+        // Only insert Hidden inclusion modifiers for root scenarios
+        if affiliation.0.is_some() {
+            return;
+        }
         let mut modifier_state: SystemState<(
             Query<&ChildOf>,
             Query<&Children>,

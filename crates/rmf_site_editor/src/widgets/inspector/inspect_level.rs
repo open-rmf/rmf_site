@@ -87,7 +87,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectLevel<'w, 's> {
         if has_modifier && parent_scenario.0.is_some() {
             if ui
                 .button("Reset level")
-                .on_hover_text("Reset to parent scenario level")
+                .on_hover_text("Reset to use the same level as the parent scenario")
                 .clicked()
             {
                 params

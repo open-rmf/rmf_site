@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::DragPlaneBundle,
-    site::{CurrentScenario, Delete, SiteAssets, UseModifier},
+    site::{CurrentScenario, Delete, SiteAssets, UpdateModifier},
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
     Issue, ValidateWorkspace,
 };
@@ -801,7 +801,11 @@ pub fn make_models_visible(
 ) -> ModelLoadingRequest {
     if let Some(current_scenario_entity) = current_scenario.0 {
         commands.entity(req.parent).remove::<PendingModel>();
-        commands.trigger(UseModifier::new(req.parent, current_scenario_entity));
+        commands.trigger(UpdateModifier::modify(
+            current_scenario_entity,
+            req.parent,
+            Inclusion::Included,
+        ));
     }
     req
 }

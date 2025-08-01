@@ -25,16 +25,19 @@ use bevy::{
 };
 use std::{collections::HashSet, fmt::Debug};
 
-pub trait Property: Component<Mutability = Mutable> + Debug + Default + Clone {
+pub trait Property: Component<Mutability = Mutable> + Debug + Default + Clone + PartialEq {
     /// Provides the fallback value for each property if no modifier value can be found.
     fn get_fallback(_for_element: Entity, _in_scenario: Entity, _world: &mut World) -> Self;
 
-    /// Inserts a new modifier for an element in the specified scenario. This is triggered
-    /// when property T is newly added to an element.
-    fn insert(_for_element: Entity, _in_scenario: Entity, _value: Self, _world: &mut World);
+    /// Hook for custom behavior when a new element with Property T is introduced
+    fn on_new_element(_for_element: Entity, _in_scenario: Entity, _value: Self, _world: &mut World);
 
-    /// Inserts new modifiers elements in a newly added root scenario.
-    fn insert_on_new_scenario<E: Element>(_in_scenario: Entity, _world: &mut World);
+    /// Hook for custom behavior when a new root scenario is created
+    fn on_new_scenario<E: Element>(
+        _in_scenario: Entity,
+        _affiliation: Affiliation<Entity>,
+        _world: &mut World,
+    );
 
     /// Helper function that returns the element entities that have existing modifiers
     /// for this property
@@ -58,7 +61,10 @@ pub trait Property: Component<Mutability = Mutable> + Debug + Default + Clone {
     }
 }
 
-pub trait StandardProperty: Component<Mutability = Mutable> + Debug + Default + Clone {}
+pub trait StandardProperty:
+    Component<Mutability = Mutable> + Debug + Default + Clone + PartialEq
+{
+}
 
 impl<T: StandardProperty> Property for T {
     fn get_fallback(for_element: Entity, _in_scenario: Entity, world: &mut World) -> Self {
@@ -71,11 +77,15 @@ impl<T: StandardProperty> Property for T {
             .unwrap_or(Self::default())
     }
 
-    fn insert(_for_element: Entity, _in_scenario: Entity, _value: T, _world: &mut World) {
+    fn on_new_element(_for_element: Entity, _in_scenario: Entity, _value: T, _world: &mut World) {
         // Do nothing
     }
 
-    fn insert_on_new_scenario<E: Element>(_in_scenario: Entity, _world: &mut World) {
+    fn on_new_scenario<E: Element>(
+        _in_scenario: Entity,
+        _affiliation: Affiliation<Entity>,
+        _world: &mut World,
+    ) {
         // Do nothing
     }
 }
@@ -130,7 +140,7 @@ impl<T: Property, E: Element> Plugin for PropertyPlugin<T, E> {
             .add_observer(on_update_modifier_event::<T, E>)
             .add_observer(on_use_modifier::<T, E>)
             .add_observer(on_add_property::<T, E>)
-            .add_observer(on_add_root_scenario::<T, E>)
+            .add_observer(on_add_scenario::<T, E>)
             .add_observer(on_remove_element::<E>)
             .add_systems(Update, update_changed_property::<T, E>);
     }
@@ -266,8 +276,8 @@ fn on_use_modifier<T: Property, E: Element>(
 }
 
 /// When an entity has been newly inserted with Property T, this observer will
-/// call T::insert so that the appropriate modifiers can be created for this
-/// Property via the callback.
+/// call T::on_new_element for any custom behavior implemented for the Property,
+/// e.g. insert additional modifiers in other scenarios.
 fn on_add_property<T: Property, E: Element>(
     trigger: Trigger<OnAdd, T>,
     world: &mut World,
@@ -280,24 +290,24 @@ fn on_add_property<T: Property, E: Element>(
     let Some(scenario_entity) = current_scenario.0 else {
         return;
     };
-    T::insert(trigger.target(), scenario_entity, value.clone(), world);
+    T::on_new_element(trigger.target(), scenario_entity, value.clone(), world);
 }
 
 /// When a new scenario has been created, this observer checks that it is a root
-/// scenario and calls T::insert_on_new_scenario so that the appropriate modifiers
-/// can be created for this Property via the callback.
-fn on_add_root_scenario<T: Property + 'static + Send + Sync, E: Element>(
+/// scenario and calls T::on_new_scenario for any custom behavior implemented
+/// for the Property, e.g. insert additional modifiers in the new scenario.
+fn on_add_scenario<T: Property + 'static + Send + Sync, E: Element>(
     trigger: Trigger<OnAdd, ScenarioModifiers<Entity>>,
     world: &mut World,
     state: &mut SystemState<Query<&Affiliation<Entity>>>,
     events_state: &mut SystemState<EventWriter<ChangeCurrentScenario>>,
 ) {
     let scenarios = state.get_mut(world);
-    if !scenarios.get(trigger.target()).is_ok_and(|p| p.0.is_none()) {
+    let Ok(affiliation) = scenarios.get(trigger.target()) else {
         return;
-    }
+    };
 
-    T::insert_on_new_scenario::<E>(trigger.target(), world);
+    T::on_new_scenario::<E>(trigger.target(), *affiliation, world);
 
     let mut change_current_scenario = events_state.get_mut(world);
     change_current_scenario.write(ChangeCurrentScenario(trigger.target()));
@@ -322,8 +332,10 @@ pub fn on_remove_element<E: Element>(
 fn update_changed_property<T: Property, E: Element>(
     mut commands: Commands,
     mut change_current_scenario: EventReader<ChangeCurrentScenario>,
-    changed_last_set_value: Query<(), Changed<LastSetValue<T>>>,
-    changed_values: Query<(Entity, Ref<T>), (With<E>, Without<Pending>)>,
+    changed_values: Query<
+        (Entity, Ref<T>, Option<Ref<LastSetValue<T>>>),
+        (With<E>, Without<Pending>),
+    >,
     current_scenario: Res<CurrentScenario>,
 ) {
     // Do nothing if scenario has changed
@@ -334,8 +346,21 @@ fn update_changed_property<T: Property, E: Element>(
         return;
     };
 
-    for (entity, new_value) in changed_values.iter() {
-        if new_value.is_changed() && changed_last_set_value.get(entity).is_err() {
+    for (entity, new_value, last_set_value) in changed_values.iter() {
+        if new_value.is_changed() {
+            if let Some(last_set_value) = last_set_value {
+                if last_set_value.is_changed() {
+                    // The new value might have been set by UpdateModifierEvent.
+                    // If the last_set_value was changed on this cycle and it
+                    // matches new_value then we take this to be the case.
+                    // TODO(@mxgrey): Think of a more robust way to track this
+                    if **last_set_value == *new_value {
+                        continue;
+                    }
+                }
+            }
+            // The user has set a new value for this property, so we should
+            // update its modifier in the current scenario.
             commands.trigger(UpdateModifier::modify_without_trigger(
                 scenario,
                 entity,

@@ -46,6 +46,8 @@ pub enum SiteGenerationError {
     BrokenAnchorReference(Entity),
     #[error("an object has a reference to a group that does not exist")]
     BrokenAffiliation(Entity),
+    #[error("an object has a reference to an empty group")]
+    EmptyAffiliation(Entity),
     #[error("an object has a reference to a level that does not exist")]
     BrokenLevelReference(Entity),
     #[error("an object has a reference to a nav graph that does not exist")]
@@ -62,6 +64,8 @@ pub enum SiteGenerationError {
         "lift door {door:?} is referencing an anchor that does not belong to its lift {anchor:?}"
     )]
     InvalidLiftDoorReference { door: Entity, anchor: Entity },
+    #[error("an object has a reference to a modifier that does not exist")]
+    BrokenModifier(Entity),
 }
 
 /// This is used when a drawing is being edited to fix its parenting before we
@@ -1387,17 +1391,18 @@ fn generate_scenarios(
             &Affiliation<Entity>,
         )>,
         Query<&SiteID, Without<Pending>>,
-        Query<(
-            Option<&Modifier<Pose>>,
-            Option<&Modifier<Inclusion>>,
-            Option<&Modifier<OnLevel<Entity>>>,
-            &Affiliation<Entity>,
-        )>,
-        Query<(
-            Option<&Modifier<Inclusion>>,
-            Option<&Modifier<TaskParams>>,
-            &Affiliation<Entity>,
-        )>,
+        Query<
+            (
+                Option<&Modifier<Pose>>,
+                Option<&Modifier<Inclusion>>,
+                Option<&Modifier<OnLevel<Entity>>>,
+            ),
+            With<Affiliation<Entity>>,
+        >,
+        Query<
+            (Option<&Modifier<Inclusion>>, Option<&Modifier<TaskParams>>),
+            With<Affiliation<Entity>>,
+        >,
         Query<&Children>,
     )> = SystemState::new(world);
     let (scenarios, site_id, instance_modifiers, task_modifiers, children) = state.get(world);
@@ -1417,13 +1422,16 @@ fn generate_scenarios(
                             Scenario {
                                 instances: scenario_modifiers
                                     .iter()
-                                    .filter_map(|(_, e)| instance_modifiers.get(*e).ok())
-                                    .filter(|(p, i, l, _)| {
-                                        p.is_some() || i.is_some() || l.is_some()
-                                    })
-                                    .filter_map(|(pose, inclusion, on_level, affiliation)| {
-                                        Some((
-                                            affiliation.0.and_then(|e| site_id.get(e).ok())?.0,
+                                    .map(|(e_element, e_modifier)| {
+                                        let (pose, inclusion, on_level) =
+                                            instance_modifiers.get(*e_modifier).map_err(|_| {
+                                                SiteGenerationError::BrokenModifier(*e_modifier)
+                                            })?;
+                                        let id = site_id.get(*e_element).map(|id| id.0).map_err(
+                                            |_| SiteGenerationError::BrokenAffiliation(*e_element),
+                                        )?;
+                                        Ok((
+                                            id,
                                             InstanceModifier {
                                                 pose: pose.map(|p| **p),
                                                 inclusion: inclusion.map(|i| **i),
@@ -1431,36 +1439,53 @@ fn generate_scenarios(
                                                     .map(|l| **l)
                                                     .and_then(|level| level.0)
                                                 {
-                                                    Some(e) => Some(site_id.get(e).ok()?.0),
+                                                    Some(e) => Some(
+                                                        site_id
+                                                            .get(e)
+                                                            .map_err(|_| {
+                                                                SiteGenerationError::BrokenLevelReference(
+                                                                    e,
+                                                                )
+                                                            })?
+                                                            .0,
+                                                    ),
                                                     None => None,
                                                 },
                                             },
                                         ))
                                     })
-                                    .collect(),
+                                    .collect::<Result<_, _>>()?,
                                 tasks: scenario_modifiers
                                     .iter()
-                                    .filter_map(|(_, e)| task_modifiers.get(*e).ok())
-                                    .filter(|(i, p, _)| i.is_some() || p.is_some())
-                                    .filter_map(|(inclusion, task_params, affiliation)| {
-                                        Some((
-                                            affiliation.0.and_then(|e| site_id.get(e).ok())?.0,
+                                    .map(|(e_element, e_modifier)| {
+                                        let (inclusion, task_params) =
+                                            task_modifiers.get(*e_modifier).map_err(|_| {
+                                                SiteGenerationError::BrokenModifier(*e_modifier)
+                                            })?;
+                                        let id = site_id.get(*e_element).map(|id| id.0).map_err(
+                                            |_| SiteGenerationError::BrokenAffiliation(*e_element),
+                                        )?;
+                                        Ok((
+                                            id,
                                             TaskModifier {
                                                 inclusion: inclusion.map(|i| **i),
                                                 params: task_params.map(|p| (**p).clone()),
                                             },
                                         ))
                                     })
-                                    .collect(),
+                                    .collect::<Result<_, _>>()?,
                                 properties: ScenarioBundle {
                                     name: name.clone(),
                                     parent_scenario: match parent_scenario.0 {
-                                        Some(parent) => Affiliation(
-                                            scenarios
+                                        Some(parent) => {
+                                            let parent_id = scenarios
                                                 .get(parent)
-                                                .map(|(_, _, _, site_id, _)| site_id.0)
-                                                .ok(),
-                                        ),
+                                                .map(|(_, _, _, id, _)| id.0)
+                                                .map_err(|_| {
+                                                    SiteGenerationError::BrokenAffiliation(parent)
+                                                })?;
+                                            Affiliation(Some(parent_id))
+                                        }
                                         None => Affiliation(None),
                                     },
                                     // ScenarioModifiers are not serialized
