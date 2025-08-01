@@ -45,7 +45,12 @@ impl Property for Inclusion {
         Inclusion::default()
     }
 
-    fn insert(for_element: Entity, in_scenario: Entity, _value: Inclusion, world: &mut World) {
+    fn on_new_element(
+        for_element: Entity,
+        in_scenario: Entity,
+        _value: Inclusion,
+        world: &mut World,
+    ) {
         let mut scenario_state: SystemState<
             Query<(Entity, &ScenarioModifiers<Entity>, &Affiliation<Entity>)>,
         > = SystemState::new(world);
@@ -76,7 +81,7 @@ impl Property for Inclusion {
         }
     }
 
-    fn insert_on_new_scenario<E: Element>(in_scenario: Entity, world: &mut World) {
+    fn on_new_scenario<E: Element>(in_scenario: Entity, world: &mut World) {
         let mut state: SystemState<(
             Query<&Children>,
             Query<(&Modifier<Inclusion>, &Affiliation<Entity>)>,

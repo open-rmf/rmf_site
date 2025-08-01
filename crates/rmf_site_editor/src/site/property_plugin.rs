@@ -29,12 +29,11 @@ pub trait Property: Component<Mutability = Mutable> + Debug + Default + Clone {
     /// Provides the fallback value for each property if no modifier value can be found.
     fn get_fallback(_for_element: Entity, _in_scenario: Entity, _world: &mut World) -> Self;
 
-    /// Inserts a new modifier for an element in the specified scenario. This is triggered
-    /// when property T is newly added to an element.
-    fn insert(_for_element: Entity, _in_scenario: Entity, _value: Self, _world: &mut World);
+    /// Hook for custom behavior when a new element with Property T is introduced
+    fn on_new_element(_for_element: Entity, _in_scenario: Entity, _value: Self, _world: &mut World);
 
-    /// Inserts new modifiers elements in a newly added root scenario.
-    fn insert_on_new_scenario<E: Element>(_in_scenario: Entity, _world: &mut World);
+    /// Hook for custom behavior when a new root scenario is created
+    fn on_new_scenario<E: Element>(_in_scenario: Entity, _world: &mut World);
 
     /// Helper function that returns the element entities that have existing modifiers
     /// for this property
@@ -71,11 +70,11 @@ impl<T: StandardProperty> Property for T {
             .unwrap_or(Self::default())
     }
 
-    fn insert(_for_element: Entity, _in_scenario: Entity, _value: T, _world: &mut World) {
+    fn on_new_element(_for_element: Entity, _in_scenario: Entity, _value: T, _world: &mut World) {
         // Do nothing
     }
 
-    fn insert_on_new_scenario<E: Element>(_in_scenario: Entity, _world: &mut World) {
+    fn on_new_scenario<E: Element>(_in_scenario: Entity, _world: &mut World) {
         // Do nothing
     }
 }
@@ -266,8 +265,8 @@ fn on_use_modifier<T: Property, E: Element>(
 }
 
 /// When an entity has been newly inserted with Property T, this observer will
-/// call T::insert so that the appropriate modifiers can be created for this
-/// Property via the callback.
+/// call T::on_new_element for any custom behavior implemented for the Property,
+/// e.g. insert additional modifiers in other scenarios.
 fn on_add_property<T: Property, E: Element>(
     trigger: Trigger<OnAdd, T>,
     world: &mut World,
@@ -280,12 +279,12 @@ fn on_add_property<T: Property, E: Element>(
     let Some(scenario_entity) = current_scenario.0 else {
         return;
     };
-    T::insert(trigger.target(), scenario_entity, value.clone(), world);
+    T::on_new_element(trigger.target(), scenario_entity, value.clone(), world);
 }
 
 /// When a new scenario has been created, this observer checks that it is a root
-/// scenario and calls T::insert_on_new_scenario so that the appropriate modifiers
-/// can be created for this Property via the callback.
+/// scenario and calls T::on_new_scenario for any custom behavior implemented
+/// for the Property, e.g. insert additional modifiers in the new scenario.
 fn on_add_root_scenario<T: Property + 'static + Send + Sync, E: Element>(
     trigger: Trigger<OnAdd, ScenarioModifiers<Entity>>,
     world: &mut World,
@@ -297,7 +296,7 @@ fn on_add_root_scenario<T: Property + 'static + Send + Sync, E: Element>(
         return;
     }
 
-    T::insert_on_new_scenario::<E>(trigger.target(), world);
+    T::on_new_scenario::<E>(trigger.target(), world);
 
     let mut change_current_scenario = events_state.get_mut(world);
     change_current_scenario.write(ChangeCurrentScenario(trigger.target()));
