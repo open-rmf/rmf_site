@@ -26,7 +26,7 @@ use bevy::{
     ecs::{hierarchy::ChildOf, system::SystemParam},
     prelude::*,
 };
-use bevy_egui::egui::{CollapsingHeader, DragValue, Grid as EguiGrid, Ui};
+use bevy_egui::egui::{CollapsingHeader, DragValue, Grid as EguiGrid, Slider, Ui};
 use rmf_site_egui::{Tile, WidgetSystem};
 
 #[derive(SystemParam)]
@@ -115,17 +115,14 @@ impl<'w, 's> MapfConfigWidget<'w, 's> {
             // from those in the occupancy widget, as those do not ignore mobile
             // robots in calculation. However the cell size param used is
             // consistent, so any updated value will reflect accordingly
-            ui.add(
-                DragValue::new(&mut self.occupancy_display.cell_size)
-                    .range(0.1..=1.0)
-                    .suffix(" m")
-                    .speed(0.01),
-            )
-            .on_hover_text("Slide to calculate occupancy without robots");
             if ui
-                .button("Calculate Occupancy")
-                .on_hover_text("Click to calculate occupancy without robots")
-                .clicked()
+                .add(
+                    Slider::new(&mut self.occupancy_display.cell_size, 0.1..=1.0)
+                        .suffix(" m")
+                        .step_by(0.05),
+                )
+                .on_hover_text("Slide to calculate occupancy without robots")
+                .changed()
             {
                 self.calculate_grid.write(CalculateGrid {
                     cell_size: self.occupancy_display.cell_size,
@@ -195,7 +192,7 @@ impl<'w, 's> MapfConfigWidget<'w, 's> {
         ui.separator();
         match &self.negotiation_task.status {
             NegotiationTaskStatus::Complete {
-                colors : _,
+                colors: _,
                 elapsed_time,
                 solution: _,
                 negotiation_history,

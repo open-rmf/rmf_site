@@ -88,7 +88,7 @@ pub enum NegotiationTaskStatus {
         start_time: Instant,
     },
     Complete {
-        colors : Vec<[f32; 3]>,
+        colors: Vec<[f32; 3]>,
         elapsed_time: Duration,
         solution: Option<NegotiationNode>,
         negotiation_history: Vec<NegotiationNode>,

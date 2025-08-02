@@ -26,9 +26,9 @@ pub const DEFAULT_PATH_WIDTH: f32 = 0.2;
 // TODO (Nielsen) : Gather all layers in layers.rs
 pub const OFFSET: f32 = 0.01;
 pub const ROBOT_PATH_LAYER_START: f32 = LANE_LAYER_START + OFFSET;
-pub const ROBOT_PATH_LAYER_END : f32 = ROBOT_PATH_LAYER_START + OFFSET;
+pub const ROBOT_PATH_LAYER_END: f32 = ROBOT_PATH_LAYER_START + OFFSET;
 
-fn get_time_offset(t : f32, max_t : f32) -> f32 {
+fn get_time_offset(t: f32, max_t: f32) -> f32 {
     (1.0 - (t / max_t)) * OFFSET
 }
 
@@ -91,7 +91,7 @@ pub fn visualise_selected_node(
     if debug_data.visualize_trajectories {
         let mut longest_plan_duration = 0.0;
         for proposal in selected_node.proposals.iter() {
-            if let Some(last_waypt) = proposal.1.meta.trajectory.last(){
+            if let Some(last_waypt) = proposal.1.meta.trajectory.last() {
                 let plan_duration = last_waypt.time.duration_from_zero().as_secs_f32();
                 if plan_duration > longest_plan_duration {
                     longest_plan_duration = plan_duration;
@@ -124,19 +124,22 @@ pub fn visualise_selected_node(
                 Some(waypoint) => waypoint.position.translation,
                 None => continue,
             };
-            
+
             let (robot_goal_pos, end_time) = match proposal.1.meta.trajectory.last() {
-                Some(waypoint) => (waypoint.position.translation, waypoint.time.duration_from_zero().as_secs_f32()),
+                Some(waypoint) => (
+                    waypoint.position.translation,
+                    waypoint.time.duration_from_zero().as_secs_f32(),
+                ),
                 None => continue,
             };
 
             let lane_material = materials.add(StandardMaterial {
-                    base_color: Color::srgb_from_array(colors[i]),
-                    unlit: true,
-                    ..Default::default()
-                });
+                base_color: Color::srgb_from_array(colors[i]),
+                unlit: true,
+                ..Default::default()
+            });
 
-            let translation_to_vec3 = |x: f32, y: f32, t : f32| {
+            let translation_to_vec3 = |x: f32, y: f32, t: f32| {
                 let z_time_offset = get_time_offset(t, longest_plan_duration);
                 return Vec3::new(x, y, ROBOT_PATH_LAYER_START + z_time_offset);
             };
@@ -192,8 +195,15 @@ pub fn visualise_selected_node(
             };
 
             let time_now = now.elapsed_secs() % longest_plan_duration;
-            if let Ok(interp) = proposal.1.meta.trajectory.motion().compute_position(&mapf::motion::TimePoint::from_secs_f32(time_now)) {
-                let robot_yaw = crate::ops::atan2(interp.rotation.im as f32, interp.rotation.re as f32);
+            if let Ok(interp) = proposal
+                .1
+                .meta
+                .trajectory
+                .motion()
+                .compute_position(&mapf::motion::TimePoint::from_secs_f32(time_now))
+            {
+                let robot_yaw =
+                    crate::ops::atan2(interp.rotation.im as f32, interp.rotation.re as f32);
                 tf.as_mut().translation[0] = interp.translation.x as f32;
                 tf.as_mut().translation[1] = interp.translation.y as f32;
                 tf.as_mut().rotation = Quat::from_rotation_z(robot_yaw);
@@ -208,7 +218,8 @@ pub fn visualise_selected_node(
                     continue;
                 }
 
-                let start_pos = translation_to_vec3(start_pos.x as f32, start_pos.y as f32, end_time);
+                let start_pos =
+                    translation_to_vec3(start_pos.x as f32, start_pos.y as f32, end_time);
                 let end_pos = translation_to_vec3(end_pos.x as f32, end_pos.y as f32, end_time);
 
                 let robot_width = collision_radius * 2.0;

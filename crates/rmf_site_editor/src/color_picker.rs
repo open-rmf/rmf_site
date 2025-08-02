@@ -1,4 +1,3 @@
-
 static DEFAULT_COLORS: [[f32; 3]; 8] = [
     [1.0, 0.5, 0.3],
     [0.6, 1.0, 0.5],
@@ -14,7 +13,7 @@ pub struct ColorPicker;
 
 impl ColorPicker {
     pub fn get_color() -> [f32; 3] {
-        static mut IDX : usize = 0;
+        static mut IDX: usize = 0;
         let color = unsafe {
             let color = DEFAULT_COLORS[IDX];
             IDX += 1;
