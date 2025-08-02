@@ -88,6 +88,7 @@ pub enum NegotiationTaskStatus {
         start_time: Instant,
     },
     Complete {
+        longest_plan_duration: f32,
         colors: Vec<[f32; 3]>,
         elapsed_time: Duration,
         solution: Option<NegotiationNode>,
@@ -136,9 +137,9 @@ impl Default for NegotiationTask {
 pub struct NegotiationDebugData {
     pub show_debug_panel: bool,
     pub selected_negotiation_node: Option<usize>,
-    pub visualize_keys: bool,
-    pub visualize_conflicts: bool,
     pub visualize_trajectories: bool,
+    pub playback_speed: f32,
+    pub time: f32,
 }
 
 impl Default for NegotiationDebugData {
@@ -146,9 +147,9 @@ impl Default for NegotiationDebugData {
         Self {
             show_debug_panel: false,
             selected_negotiation_node: None,
-            visualize_keys: false,
-            visualize_conflicts: true,
             visualize_trajectories: true,
+            playback_speed: 1.0,
+            time: 0.0,
         }
     }
 }
@@ -171,13 +172,22 @@ pub fn handle_compute_negotiation_complete(
     if let Some(result) = check_ready(&mut negotiation_task.task) {
         let elapsed_time = start_time.elapsed();
         let mut colors = Vec::new();
+        let mut longest_plan_duration = 0.0;
+
         match result {
             Ok((solution, negotiation_history, name_map)) => {
                 negotiation_debug_data.selected_negotiation_node = Some(solution.id);
-                for _ in solution.proposals.iter() {
+                for proposal in solution.proposals.iter() {
+                    if let Some(last_waypt) = proposal.1.meta.trajectory.last() {
+                        let plan_duration = last_waypt.time.duration_from_zero().as_secs_f32();
+                        if plan_duration > longest_plan_duration {
+                            longest_plan_duration = plan_duration;
+                        }
+                    }
                     colors.push(ColorPicker::get_color());
                 }
                 negotiation_task.status = NegotiationTaskStatus::Complete {
+                    longest_plan_duration,
                     colors,
                     elapsed_time,
                     solution: Some(solution),
@@ -218,6 +228,7 @@ pub fn handle_compute_negotiation_complete(
                 }
 
                 negotiation_task.status = NegotiationTaskStatus::Complete {
+                    longest_plan_duration,
                     colors,
                     elapsed_time: elapsed_time,
                     solution: None,
@@ -312,9 +323,13 @@ pub fn start_compute_negotiation(
                         };
                         let goal_pos = goal_transform.translation();
                         let agent = Agent {
-                            start: to_cell(robot_pose.trans[0], robot_pose.trans[1], cell_size),
+                            start: to_discrete_xy(
+                                robot_pose.trans[0],
+                                robot_pose.trans[1],
+                                cell_size,
+                            ),
                             yaw: f64::from(robot_pose.rot.yaw().radians()),
-                            goal: to_cell(goal_pos.x, goal_pos.y, cell_size),
+                            goal: to_discrete_xy(goal_pos.x, goal_pos.y, cell_size),
                             radius: f64::from(circle_collision.radius),
                             speed: f64::from(differential_drive.translational_speed),
                             spin: f64::from(differential_drive.rotational_speed),
@@ -334,6 +349,11 @@ pub fn start_compute_negotiation(
         return;
     }
 
+    info!(
+        "Successfully sent planning request for {} agents!",
+        agents.len()
+    );
+
     let scenario = MapfScenario {
         agents: agents,
         obstacles: Vec::<Obstacle>::new(),
@@ -350,7 +370,6 @@ pub fn start_compute_negotiation(
         TaskPool::new().spawn_local(async move { negotiate(&scenario, Some(queue_length_limit)) });
 }
 
-fn to_cell(x: f32, y: f32, cell_size: f32) -> [i64; 2] {
-    let cell = Cell::from_point(Vec2::new(x, y), cell_size);
-    [cell.x, cell.y]
+fn to_discrete_xy(x: f32, y: f32, cell_size: f32) -> [i64; 2] {
+    Cell::from_point(Vec2::new(x, y), cell_size).to_xy()
 }

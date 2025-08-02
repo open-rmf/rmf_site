@@ -84,6 +84,10 @@ impl Cell {
             y: self.y + y,
         }
     }
+
+    pub fn to_xy(&self) -> [i64; 2] {
+        [self.x, self.y]
+    }
 }
 
 #[derive(Component)]

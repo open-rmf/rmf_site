@@ -21,7 +21,7 @@ use bevy::ecs::hierarchy::ChildOf;
 use bevy::math::prelude::Rectangle;
 use mapf::motion::Motion;
 
-pub const DEFAULT_PATH_WIDTH: f32 = 0.2;
+pub const DEFAULT_COLLISION_RADIUS: f32 = 0.1;
 
 // TODO (Nielsen) : Gather all layers in layers.rs
 pub const OFFSET: f32 = 0.01;
@@ -38,7 +38,7 @@ pub struct PathVisualMarker;
 pub fn visualise_selected_node(
     mut commands: Commands,
     negotiation_task: Res<NegotiationTask>,
-    debug_data: ResMut<NegotiationDebugData>,
+    mut debug_data: ResMut<NegotiationDebugData>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     path_visuals: Query<Entity, With<PathVisualMarker>>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -49,6 +49,7 @@ pub fn visualise_selected_node(
 ) {
     // Return unless complete
     let NegotiationTaskStatus::Complete {
+        longest_plan_duration,
         colors,
         elapsed_time: _,
         solution,
@@ -88,16 +89,12 @@ pub fn visualise_selected_node(
         return;
     };
 
+    debug_data.time += now.delta_secs() * debug_data.playback_speed;
+    if debug_data.time > *longest_plan_duration {
+        debug_data.time = 0.0;
+    }
+
     if debug_data.visualize_trajectories {
-        let mut longest_plan_duration = 0.0;
-        for proposal in selected_node.proposals.iter() {
-            if let Some(last_waypt) = proposal.1.meta.trajectory.last() {
-                let plan_duration = last_waypt.time.duration_from_zero().as_secs_f32();
-                if plan_duration > longest_plan_duration {
-                    longest_plan_duration = plan_duration;
-                }
-            }
-        }
         for (i, proposal) in selected_node.proposals.iter().enumerate() {
             let Some(entity_id) = entity_id_map.get(&proposal.0) else {
                 warn!("Unable to find entity id in map");
@@ -112,13 +109,13 @@ pub fn visualise_selected_node(
                 continue;
             };
 
-            let mut collision_radius = DEFAULT_PATH_WIDTH / 2.0;
-
-            if let Ok(cc) = robot_descriptions.get(description_entity) {
-                collision_radius = cc.radius;
-            } else {
-                warn!("No circle collision model found for robot's model description, using default value of {}", collision_radius);
-            }
+            let collision_radius = match robot_descriptions.get(description_entity) {
+                Ok(cc) => cc.radius,
+                Err(_) => {
+                    warn!("No circle collision model found for robot's model description, using default value of {}", DEFAULT_COLLISION_RADIUS);
+                    DEFAULT_COLLISION_RADIUS
+                }
+            };
 
             let robot_start_pos = match proposal.1.meta.trajectory.first() {
                 Some(waypoint) => waypoint.position.translation,
@@ -139,20 +136,19 @@ pub fn visualise_selected_node(
                 ..Default::default()
             });
 
-            let translation_to_vec3 = |x: f32, y: f32, t: f32| {
-                let z_time_offset = get_time_offset(t, longest_plan_duration);
+            let xyt_as_vec3 = |x: f32, y: f32, t: f32| {
+                let z_time_offset = get_time_offset(t, *longest_plan_duration);
                 return Vec3::new(x, y, ROBOT_PATH_LAYER_START + z_time_offset);
             };
 
             // TODO (Nielsen) : Convert translation directly to Vec3
             let robot_start_pos =
-                translation_to_vec3(robot_start_pos.x as f32, robot_start_pos.y as f32, 0.0);
+                xyt_as_vec3(robot_start_pos.x as f32, robot_start_pos.y as f32, 0.0);
             let robot_goal_pos =
-                translation_to_vec3(robot_goal_pos.x as f32, robot_goal_pos.y as f32, end_time);
+                xyt_as_vec3(robot_goal_pos.x as f32, robot_goal_pos.y as f32, end_time);
 
             // Draws robot start and goal position
             {
-                let lane_material = lane_material.clone();
                 let mut spawn_circle_mesh = |pos| {
                     commands
                         .spawn((
@@ -194,7 +190,7 @@ pub fn visualise_selected_node(
                     .insert(ChildOf(level_entity));
             };
 
-            let time_now = now.elapsed_secs() % longest_plan_duration;
+            let time_now = debug_data.time;
             if let Ok(interp) = proposal
                 .1
                 .meta
@@ -218,9 +214,8 @@ pub fn visualise_selected_node(
                     continue;
                 }
 
-                let start_pos =
-                    translation_to_vec3(start_pos.x as f32, start_pos.y as f32, end_time);
-                let end_pos = translation_to_vec3(end_pos.x as f32, end_pos.y as f32, end_time);
+                let start_pos = xyt_as_vec3(start_pos.x as f32, start_pos.y as f32, end_time);
+                let end_pos = xyt_as_vec3(end_pos.x as f32, end_pos.y as f32, end_time);
 
                 let robot_width = collision_radius * 2.0;
                 spawn_path_mesh(

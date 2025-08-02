@@ -64,8 +64,6 @@ impl<'w, 's> MapfConfigWidget<'w, 's> {
                 &mut self.negotiation_debug.visualize_trajectories,
                 "Trajectories",
             );
-            ui.checkbox(&mut self.negotiation_debug.visualize_conflicts, "Conflicts");
-            ui.checkbox(&mut self.negotiation_debug.visualize_keys, "Keys")
         });
         // Toggle debug panel
         ui.horizontal(|ui| {
@@ -79,13 +77,7 @@ impl<'w, 's> MapfConfigWidget<'w, 's> {
         let num_tasks = self
             .tasks
             .iter()
-            .filter(|task| {
-                if task.request().category() == GoToPlace::label() {
-                    true
-                } else {
-                    false
-                }
-            })
+            .filter(|task| task.request().category() == GoToPlace::label())
             .count();
         ui.label(format!("Tasks:    {}", num_tasks));
         // Grid Info
@@ -192,6 +184,7 @@ impl<'w, 's> MapfConfigWidget<'w, 's> {
         ui.separator();
         match &self.negotiation_task.status {
             NegotiationTaskStatus::Complete {
+                longest_plan_duration,
                 colors: _,
                 elapsed_time,
                 solution: _,
@@ -200,6 +193,37 @@ impl<'w, 's> MapfConfigWidget<'w, 's> {
                 error_message,
                 conflicting_endpoints,
             } => {
+                let is_paused = self.negotiation_debug.playback_speed < 1e-9;
+                if is_paused {
+                    if ui.button("Resume").clicked() {
+                        self.negotiation_debug.playback_speed = 1.0;
+                    }
+                } else {
+                    if ui.button("Pause").clicked() {
+                        self.negotiation_debug.playback_speed = 0.0;
+                    }
+                }
+                if ui.button("Reset").clicked() {
+                    self.negotiation_debug.time = 0.0;
+                }
+                ui.horizontal(|ui| {
+                    ui.label("Playback speed");
+                    ui.add(Slider::new(
+                        &mut self.negotiation_debug.playback_speed,
+                        0.0..=4.,
+                    ));
+                });
+                ui.horizontal(|ui| {
+                    ui.label("Plan time");
+                    ui.add(
+                        Slider::new(
+                            &mut self.negotiation_debug.time,
+                            0.0..=*longest_plan_duration,
+                        )
+                        .suffix("s"),
+                    );
+                });
+
                 EguiGrid::new("negotiation_data")
                     .num_columns(2)
                     .show(ui, |ui| {
