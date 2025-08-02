@@ -79,6 +79,7 @@ impl<'w> WidgetSystem for NegotiationDebugWidget<'w> {
 impl<'w> NegotiationDebugWidget<'w> {
     pub fn show_completed(&mut self, ui: &mut Ui) {
         let NegotiationTaskStatus::Complete {
+            colors : _,
             elapsed_time,
             solution,
             negotiation_history,

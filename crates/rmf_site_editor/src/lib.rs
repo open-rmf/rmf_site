@@ -22,6 +22,7 @@ pub use bevy_egui;
 
 pub mod keyboard;
 use keyboard::*;
+pub mod color_picker;
 
 pub mod widgets;
 use rmf_site_animate::VisualCueAnimationsPlugin;

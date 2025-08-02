@@ -148,11 +148,16 @@ impl<'w, 's> MapfConfigWidget<'w, 's> {
                 EguiGrid::new("occupancy_map_info")
                     .num_columns(2)
                     .show(ui, |ui| {
-                        ui.label("Range");
-                        ui.label(format!("{:?}", grid.range.min_cell()));
+                        let min_cell = grid.range.min_cell();
+                        let max_cell = grid.range.max_cell();
+                        ui.label("");
+                        ui.label("|  x  |  y  |");
                         ui.end_row();
-                        ui.label("Max Cell");
-                        ui.label(format!("{:?}", grid.range.max_cell()));
+                        ui.label("Min");
+                        ui.label(format!("|{:^5}|{:^5}|", min_cell.x, min_cell.y));
+                        ui.end_row();
+                        ui.label("Max");
+                        ui.label(format!("|{:^5}|{:^5}|", max_cell.x, max_cell.y));
                         ui.end_row();
                         ui.label("Dimension");
                         ui.label(format!(
@@ -190,6 +195,7 @@ impl<'w, 's> MapfConfigWidget<'w, 's> {
         ui.separator();
         match &self.negotiation_task.status {
             NegotiationTaskStatus::Complete {
+                colors : _,
                 elapsed_time,
                 solution: _,
                 negotiation_history,

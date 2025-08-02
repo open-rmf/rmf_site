@@ -27,7 +27,8 @@ use std::{
 };
 
 use crate::{
-    occupancy::{Cell, Grid},
+    color_picker::ColorPicker,
+    occupancy::{calculate_grid, Cell, Grid},
     site::{
         Affiliation, CircleCollision, CurrentLevel, DifferentialDrive, GoToPlace, Group,
         LocationTags, ModelMarker, NameInSite, Point, Pose, Robot, Task as RobotTask,
@@ -55,7 +56,7 @@ impl Plugin for NegotiationPlugin {
             .add_systems(
                 Update,
                 (
-                    start_compute_negotiation,
+                    start_compute_negotiation.before(calculate_grid),
                     handle_compute_negotiation_complete,
                     visualise_selected_node,
                 ),
@@ -87,6 +88,7 @@ pub enum NegotiationTaskStatus {
         start_time: Instant,
     },
     Complete {
+        colors : Vec<[f32; 3]>,
         elapsed_time: Duration,
         solution: Option<NegotiationNode>,
         negotiation_history: Vec<NegotiationNode>,
@@ -168,11 +170,15 @@ pub fn handle_compute_negotiation_complete(
 
     if let Some(result) = check_ready(&mut negotiation_task.task) {
         let elapsed_time = start_time.elapsed();
-
+        let mut colors = Vec::new();
         match result {
             Ok((solution, negotiation_history, name_map)) => {
                 negotiation_debug_data.selected_negotiation_node = Some(solution.id);
+                for _ in solution.proposals.iter() {
+                    colors.push(ColorPicker::get_color());
+                }
                 negotiation_task.status = NegotiationTaskStatus::Complete {
+                    colors,
                     elapsed_time,
                     solution: Some(solution),
                     negotiation_history,
@@ -212,6 +218,7 @@ pub fn handle_compute_negotiation_complete(
                 }
 
                 negotiation_task.status = NegotiationTaskStatus::Complete {
+                    colors,
                     elapsed_time: elapsed_time,
                     solution: None,
                     negotiation_history: negotiation_history,

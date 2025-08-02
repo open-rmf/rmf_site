@@ -164,7 +164,7 @@ enum Group {
     None,
 }
 
-fn calculate_grid(
+pub fn calculate_grid(
     mut commands: Commands,
     mut request: EventReader<CalculateGrid>,
     bodies: Query<(Entity, &Mesh3d, &Aabb, &GlobalTransform)>,
