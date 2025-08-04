@@ -1831,6 +1831,8 @@ mod tests {
         // Run until the file is saved or until the timeout occurs
         app.run();
 
+        assert!(std::fs::exists(&destination).unwrap());
+
         let original = original.to_str().unwrap().to_owned();
         assert!(file_diff::diff(&original, &destination));
 

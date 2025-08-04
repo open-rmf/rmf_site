@@ -428,6 +428,7 @@ fn generate_site_entities(
         consider_id(*location_id);
     }
     // Properties require the id_to_entity map to be fully populated to load suppressed issues
+    info!("Loading site with name: {}", site_data.properties.name.0);
     commands.entity(site_id).insert(
         site_data
             .properties
