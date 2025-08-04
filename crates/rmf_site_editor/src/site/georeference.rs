@@ -1,12 +1,12 @@
 use bevy::{asset::AssetPath, math::Ray3d, prelude::*, window::PrimaryWindow};
-use bevy_egui::{EguiContexts, egui};
-use rmf_site_camera::{ActiveCameraQuery, active_camera_maybe};
+use bevy_egui::{egui, EguiContexts};
+use rmf_site_camera::{active_camera_maybe, ActiveCameraQuery};
 use rmf_site_egui::*;
 use rmf_site_format::{GeographicComponent, GeographicOffset};
 use std::collections::HashSet;
 use utm::*;
 
-use crate::{OSMTile, generate_map_tiles, workspace::CurrentWorkspace};
+use crate::{generate_map_tiles, workspace::CurrentWorkspace, OSMTile};
 
 const MAX_ZOOM: i32 = 19;
 const MIN_ZOOM: i32 = 12;

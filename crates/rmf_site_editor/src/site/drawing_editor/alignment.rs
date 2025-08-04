@@ -28,7 +28,7 @@ use crate::site::{
 };
 
 use rmf_site_format::alignment::{
-    DrawingVariables, FiducialVariables, MeasurementVariables, SiteVariables, align_site,
+    align_site, DrawingVariables, FiducialVariables, MeasurementVariables, SiteVariables,
 };
 
 #[derive(SystemParam)]

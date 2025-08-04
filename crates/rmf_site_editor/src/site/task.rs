@@ -16,9 +16,9 @@
 */
 
 use crate::{
-    CurrentWorkspace,
     site::{Delete, Element, Pending, StandardProperty, Task, TaskKind, TaskParams},
     widgets::tasks::{EditMode, EditModeEvent, EditTask},
+    CurrentWorkspace,
 };
 use bevy::ecs::hierarchy::ChildOf;
 use bevy::prelude::*;

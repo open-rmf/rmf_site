@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{CurrentWorkspace, Issue, ValidateWorkspace, site::*};
+use crate::{site::*, CurrentWorkspace, Issue, ValidateWorkspace};
 use bevy::{
     ecs::{hierarchy::ChildOf, relationship::AncestorIter},
     prelude::*,
@@ -599,7 +599,11 @@ fn remove_door(
             }
         }
 
-        if remove_anchors { Some(*anchors) } else { None }
+        if remove_anchors {
+            Some(*anchors)
+        } else {
+            None
+        }
     } else {
         None
     };

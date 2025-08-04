@@ -16,12 +16,12 @@
 */
 
 use crate::{
-    Issue,
     log::Log,
     site::{
         Category, CurrentLevel, Dependents, LevelElevation, LevelProperties, NameInSite,
         SiteUpdateSet,
     },
+    Issue,
 };
 use bevy::{
     ecs::{

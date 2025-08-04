@@ -24,9 +24,9 @@ use bevy::{
         render_asset::RenderAssetUsages,
     },
 };
-use rmf_site_format::{Category, DEFAULT_LEVEL_HEIGHT, DoorType, Edge};
+use rmf_site_format::{Category, DoorType, Edge, DEFAULT_LEVEL_HEIGHT};
 use rmf_site_mesh::{
-    MeshBuffer, Radians, flat_arc, flat_arrow_mesh_between, line_stroke_away_from, line_stroke_mesh,
+    flat_arc, flat_arrow_mesh_between, line_stroke_away_from, line_stroke_mesh, MeshBuffer, Radians,
 };
 use rmf_site_picking::{Hovered, Selectable};
 use std::collections::{BTreeSet, HashMap};

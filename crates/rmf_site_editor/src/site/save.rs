@@ -26,7 +26,7 @@ use std::{
 };
 use thiserror::Error as ThisError;
 
-use crate::{ExportFormat, exit_confirmation::SiteChanged, recency::RecencyRanking, site::*};
+use crate::{exit_confirmation::SiteChanged, recency::RecencyRanking, site::*, ExportFormat};
 use rmf_site_format::*;
 use sdformat_rs::yaserde;
 

@@ -16,13 +16,13 @@
 */
 
 use crate::{
-    Issue, ValidateWorkspace,
     interaction::DragPlaneBundle,
     site::{CurrentScenario, Delete, SiteAssets, UpdateModifier},
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
+    Issue, ValidateWorkspace,
 };
 use bevy::{
-    asset::{AssetLoadError, io::AssetReaderError},
+    asset::{io::AssetReaderError, AssetLoadError},
     ecs::{
         hierarchy::ChildOf,
         relationship::DescendantIter,

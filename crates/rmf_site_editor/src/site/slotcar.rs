@@ -74,7 +74,7 @@ fn insert_slotcar_components(
             while let Ok(parent) = child_of.get(target_entity).map(|co| co.parent()) {
                 if let Some(desc) = model_instances.get(parent).ok().and_then(|a| a.0) {
                     if !robot_properties.get(desc).is_ok()
-                        && is_static.get(desc).is_ok_and(|is| !is.0.0)
+                        && is_static.get(desc).is_ok_and(|is| !is.0 .0)
                     {
                         description_entity = Some(desc);
                     }

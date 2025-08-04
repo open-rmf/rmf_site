@@ -16,12 +16,12 @@
 */
 
 use crate::{
-    CurrentWorkspace,
     site::{
-        Anchor, DEFAULT_MEASUREMENT_OFFSET, DefaultFile, FLOOR_LAYER_START, FiducialMarker,
-        GlobalDrawingVisibility, LayerVisibility, MeasurementMarker, MeasurementSegment,
-        RecencyRank, get_current_workspace_path,
+        get_current_workspace_path, Anchor, DefaultFile, FiducialMarker, GlobalDrawingVisibility,
+        LayerVisibility, MeasurementMarker, MeasurementSegment, RecencyRank,
+        DEFAULT_MEASUREMENT_OFFSET, FLOOR_LAYER_START,
     },
+    CurrentWorkspace,
 };
 use bevy::{asset::LoadState, ecs::hierarchy::ChildOf, math::Affine3A, prelude::*};
 use rmf_site_format::{AssetSource, Category, DrawingProperties, PixelsPerMeter, Pose};

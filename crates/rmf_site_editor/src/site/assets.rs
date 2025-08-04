@@ -18,7 +18,7 @@
 use crate::site::*;
 use bevy::{
     asset::embedded_asset,
-    math::{Affine3A, primitives},
+    math::{primitives, Affine3A},
     prelude::*,
 };
 use rmf_site_mesh::*;
