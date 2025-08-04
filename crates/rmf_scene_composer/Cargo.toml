@@ -1,0 +1,40 @@
+[package]
+name = "rmf_scene_composer"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["rlib"]
+name = "rmf_scene_composer"
+
+[[bin]]
+path = "src/main.rs"
+name = "rmf_scene_composer"
+
+[dependencies]
+prost = "0.13.5"
+bevy = {workspace = true, features = ["dynamic_linking"]}
+rmf_site_editor = { workspace = true }
+rmf_site_egui = { workspace = true }
+rmf_site_format = { workspace = true }
+rmf_site_picking = { workspace = true }
+bevy_impulse = { workspace = true }
+# bevy_impulse = { git = "https://github.com/open-rmf/bevy_impulse", branch = "main", features = ["diagram"] }
+thiserror = { workspace = true }
+glam = { workspace = true, features = ["serde"] }
+bevy_egui = { workspace = true }
+anyhow = { workspace = true }
+futures-lite = {workspace = true}
+# rclrs = { git = "https://github.com/mxgrey/ros2_rust", branch = "subscription_receiver", features = ["serde"] }
+rclrs = { workspace = true, features = ["serde"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+schemars = "0.9.0"
+clap = { workspace = true, features = ["color", "derive", "help", "usage", "suggestions"] }
+sdformat_rs = { workspace = true }
+tokio = { version = "1.39", features = ["sync"] }
+futures = "0.3.31"
+
+std_msgs = { version = "*", features = ["serde"] }
+visualization_msgs = { version = "*", features = ["serde"] }
+builtin_interfaces = { version = "*", features = ["serde"] }

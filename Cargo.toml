@@ -31,6 +31,7 @@ rmf_site_animate = {path = "crates/rmf_site_animate"}
 rmf_site_camera = {path = "crates/rmf_site_camera"}
 rmf_site_mesh = {path = "crates/rmf_site_mesh"}
 rmf_site_egui = {path = "crates/rmf_site_egui"}
+rmf_scene_composer = {path = "crates/rmf_scene_composer"}
 mapf = {git = "https://github.com/open-rmf/mapf", rev = "fd84e58"}
 serde_yaml = "0.8.23"
 serde_json = "*"
@@ -71,6 +72,7 @@ console_error_panic_hook = "0.1.7"
 getrandom = { version = "0.3.3"}
 clap = { version = "4.0.10" }
 bytemuck = {version = "1.22"}
+rclrs = { path = "../ros2-rust/ros2_rust/rclrs", features = ["serde"] }
 
 bevy = { git = "https://github.com/xiyuoh/bevy", branch = "fix-specialize-panic" }
 bevy_a11y = { git = "https://github.com/xiyuoh/bevy", branch = "fix-specialize-panic" }
