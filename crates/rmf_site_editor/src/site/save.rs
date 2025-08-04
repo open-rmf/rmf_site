@@ -117,7 +117,7 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
         >,
         Query<Entity, (With<ModelMarker>, With<Group>)>,
         Query<Entity, (With<ModelMarker>, Without<Group>, Without<Preview>)>,
-        Query<Entity, With<ScenarioMarker>>,
+        Query<(Entity, &Affiliation<Entity>), With<ScenarioModifiers<Entity>>>,
         Query<Entity, (With<Task>, Without<Pending>)>,
         Query<
             Entity,
@@ -217,18 +217,23 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
             }
         }
 
-        // Ensure root scenarios have the smallest Site_ID, since when deserializing, child scenarios would
-        // require parent scenarios to already be spawned and have its parent entity
-        if let Ok(scenario) = scenarios.get(*site_child) {
+        if let Ok((scenario, _)) = scenarios.get(*site_child) {
+            // Ensure root scenarios have the smallest Site_ID, since when deserializing, child scenarios would
+            // require parent scenarios to already be spawned and have its parent entity
             let mut queue = vec![scenario];
+            let mut target_scenario = scenario;
+            while let Ok((e, target_parent)) = scenarios.get(target_scenario) {
+                let Some(p) = target_parent.0 else {
+                    break;
+                };
+                queue.push(e);
+                target_scenario = p;
+            }
+            queue.reverse();
+
             while let Some(scenario) = queue.pop() {
                 if !site_ids.contains(scenario) {
                     new_entities.push(scenario);
-                }
-                if let Ok(scenario_children) = children.get(scenario) {
-                    for child in scenario_children {
-                        queue.push(*child);
-                    }
                 }
             }
         }
@@ -1378,23 +1383,22 @@ fn generate_scenarios(
     world: &mut World,
 ) -> Result<BTreeMap<u32, Scenario<u32>>, SiteGenerationError> {
     let mut state: SystemState<(
-        Query<(Entity, &NameInSite, &SiteID, &Affiliation<Entity>), With<ScenarioMarker>>,
         Query<(
-            Option<&Modifier<Pose>>,
-            Option<&Modifier<Visibility>>,
+            Entity,
+            &ScenarioModifiers<Entity>,
+            &NameInSite,
+            &SiteID,
             &Affiliation<Entity>,
         )>,
-        Query<&SiteID, With<InstanceMarker>>,
-        Query<(
-            Option<&Modifier<Inclusion>>,
-            Option<&Modifier<TaskParams>>,
-            &Affiliation<Entity>,
-        )>,
-        Query<&SiteID, (With<Task>, Without<Pending>)>,
+        Query<&SiteID, Without<Pending>>,
+        Query<(Option<&Modifier<Pose>>, Option<&Modifier<Inclusion>>), With<Affiliation<Entity>>>,
+        Query<
+            (Option<&Modifier<Inclusion>>, Option<&Modifier<TaskParams>>),
+            With<Affiliation<Entity>>,
+        >,
         Query<&Children>,
     )> = SystemState::new(world);
-    let (scenarios, instance_modifiers, instances, task_modifiers, tasks, children) =
-        state.get(world);
+    let (scenarios, site_id, instance_modifiers, task_modifiers, children) = state.get(world);
     let mut res = BTreeMap::<u32, Scenario<u32>>::new();
 
     if let Ok(site_children) = children.get(site) {
@@ -1403,66 +1407,41 @@ fn generate_scenarios(
                 let mut queue = vec![entity];
 
                 while let Some(scenario) = queue.pop() {
-                    let mut scenario_instance_modifiers = Vec::new();
-                    let mut scenario_task_modifiers = Vec::new();
-                    if let Ok(scenario_children) = children.get(scenario) {
-                        for scenario_child in scenario_children.iter() {
-                            if scenarios.contains(scenario_child) {
-                                queue.push(scenario_child);
-                            } else if instance_modifiers
-                                .get(scenario_child)
-                                .is_ok_and(|(p, v, _)| p.is_some() || v.is_some())
-                            {
-                                scenario_instance_modifiers.push(scenario_child);
-                            } else if task_modifiers
-                                .get(scenario_child)
-                                .is_ok_and(|(i, p, _)| i.is_some() || p.is_some())
-                            {
-                                scenario_task_modifiers.push(scenario_child);
-                            }
-                        }
-                    }
-
-                    if let Ok((_, name, site_id, parent_scenario)) = scenarios.get(scenario) {
+                    if let Ok((_, scenario_modifiers, name, scenario_id, parent_scenario)) =
+                        scenarios.get(scenario)
+                    {
                         res.insert(
-                            site_id.0,
+                            scenario_id.0,
                             Scenario {
-                                instances: scenario_instance_modifiers
+                                instances: scenario_modifiers
                                     .iter()
-                                    .map(|e| {
-                                        let (pose, visibility, affiliation) = instance_modifiers
-                                            .get(*e)
-                                            .map_err(|_| SiteGenerationError::BrokenModifier(*e))?;
-                                        let a = affiliation
-                                            .0
-                                            .ok_or(SiteGenerationError::EmptyAffiliation(*e))?;
-                                        let id = instances.get(a).map(|id| id.0).map_err(|_| {
-                                            SiteGenerationError::BrokenAffiliation(a)
-                                        })?;
+                                    .map(|(e_element, e_modifier)| {
+                                        let (pose, inclusion) =
+                                            instance_modifiers.get(*e_modifier).map_err(|_| {
+                                                SiteGenerationError::BrokenModifier(*e_modifier)
+                                            })?;
+                                        let id = site_id.get(*e_element).map(|id| id.0).map_err(
+                                            |_| SiteGenerationError::BrokenAffiliation(*e_element),
+                                        )?;
                                         Ok((
                                             id,
                                             InstanceModifier {
                                                 pose: pose.map(|p| **p),
-                                                visibility: visibility.map(|v| match **v {
-                                                    Visibility::Hidden => false,
-                                                    _ => true,
-                                                }),
+                                                inclusion: inclusion.map(|i| **i),
                                             },
                                         ))
                                     })
                                     .collect::<Result<_, _>>()?,
-                                tasks: scenario_task_modifiers
+                                tasks: scenario_modifiers
                                     .iter()
-                                    .map(|e| {
-                                        let (inclusion, task_params, affiliation) = task_modifiers
-                                            .get(*e)
-                                            .map_err(|_| SiteGenerationError::BrokenModifier(*e))?;
-                                        let a = affiliation
-                                            .0
-                                            .ok_or(SiteGenerationError::EmptyAffiliation(*e))?;
-                                        let id = tasks.get(a).map(|id| id.0).map_err(|_| {
-                                            SiteGenerationError::BrokenAffiliation(a)
-                                        })?;
+                                    .map(|(e_element, e_modifier)| {
+                                        let (inclusion, task_params) =
+                                            task_modifiers.get(*e_modifier).map_err(|_| {
+                                                SiteGenerationError::BrokenModifier(*e_modifier)
+                                            })?;
+                                        let id = site_id.get(*e_element).map(|id| id.0).map_err(
+                                            |_| SiteGenerationError::BrokenAffiliation(*e_element),
+                                        )?;
                                         Ok((
                                             id,
                                             TaskModifier {
@@ -1478,7 +1457,7 @@ fn generate_scenarios(
                                         Some(parent) => {
                                             let parent_id = scenarios
                                                 .get(parent)
-                                                .map(|(_, _, id, _)| id.0)
+                                                .map(|(_, _, _, id, _)| id.0)
                                                 .map_err(|_| {
                                                     SiteGenerationError::BrokenAffiliation(parent)
                                                 })?;
@@ -1486,7 +1465,8 @@ fn generate_scenarios(
                                         }
                                         None => Affiliation(None),
                                     },
-                                    marker: ScenarioMarker,
+                                    // ScenarioModifiers are not serialized
+                                    scenario_modifiers: ScenarioModifiers::default(),
                                 },
                             },
                         );
