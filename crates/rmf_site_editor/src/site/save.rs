@@ -1807,16 +1807,21 @@ mod tests {
         // and then do a roundtrip into the same directory.
         std::fs::copy(&source, &original).unwrap();
 
-        // Create a symlink to avoid a slew of error log messages while loading.
-        // We can ignore the result of this, because the test should still pass
-        // even if the symlinking doesn't work, we'll just see some noisy error
-        // logs in stdout.
-        let _ =
-            std::os::unix::fs::symlink(assets_dir.join("models"), target_test_dir.join("models"));
-        let _ = std::os::unix::fs::symlink(
-            assets_dir.join("drawings"),
-            target_test_dir.join("drawings"),
-        );
+        #[cfg(unix)]
+        {
+            // Create a symlink to avoid a slew of error log messages while loading.
+            // We can ignore the result of this, because the test should still pass
+            // even if the symlinking doesn't work, we'll just see some noisy error
+            // logs in stdout.
+            let _ = std::os::unix::fs::symlink(
+                assets_dir.join("models"),
+                target_test_dir.join("models"),
+            );
+            let _ = std::os::unix::fs::symlink(
+                assets_dir.join("drawings"),
+                target_test_dir.join("drawings"),
+            );
+        }
 
         let destination = destination.to_str().unwrap().to_owned();
         app.insert_resource(Autoload::file(original.clone(), None))

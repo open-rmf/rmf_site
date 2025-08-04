@@ -65,7 +65,7 @@ impl Pose {
             other => {
                 let (z, y, x) = other.as_bevy_quat().to_euler(glam::EulerRot::ZYX);
                 format!("{x} {y} {z}")
-            },
+            }
         };
         SdfPose {
             data: format!("{} {} {} {}", p[0], p[1], p[2], r),
