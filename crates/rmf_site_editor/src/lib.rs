@@ -1,9 +1,6 @@
 use bevy::{
-    app::ScheduleRunnerPlugin,
-    asset::UnapprovedPathMode,
-    log::LogPlugin,
-    pbr::DirectionalLightShadowMap,
-    prelude::*,
+    app::ScheduleRunnerPlugin, asset::UnapprovedPathMode, log::LogPlugin,
+    pbr::DirectionalLightShadowMap, prelude::*,
 };
 use bevy_egui::EguiPlugin;
 #[cfg(not(target_arch = "wasm32"))]
