@@ -280,7 +280,9 @@ impl Plugin for SiteEditor {
                 .insert_resource(GpuPreprocessingSupport {
                     max_supported_mode: GpuPreprocessingMode::None,
                 });
-        } else /* with rendering */ {
+        } else
+        /* with rendering */
+        {
             app.add_plugins((StandardUiPlugin::default(), MainMenuPlugin))
                 // Note order matters, plugins that edit the menus must be initialized after the UI
                 .add_plugins((site::ViewMenuPlugin, OSMViewPlugin, SiteWireframePlugin))
