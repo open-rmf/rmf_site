@@ -272,12 +272,7 @@ impl Plugin for SiteEditor {
                 bevy_impulse::ImpulsePlugin::default(),
             ));
 
-        if !self.is_headless() {
-            app.add_plugins((StandardUiPlugin::default(), MainMenuPlugin))
-                // Note order matters, plugins that edit the menus must be initialized after the UI
-                .add_plugins((site::ViewMenuPlugin, OSMViewPlugin, SiteWireframePlugin))
-                .add_plugins(MapfRsePlugin::default());
-
+        if self.is_headless() {
             // Turn off GPU preprocessing in headless mode so that this can
             // work in GitHub CI. Without this, we were encountering this error:
             // https://github.com/bevyengine/bevy/issues/18932
@@ -285,6 +280,11 @@ impl Plugin for SiteEditor {
                 .insert_resource(GpuPreprocessingSupport {
                     max_supported_mode: GpuPreprocessingMode::None,
                 });
+        } else /* with rendering */ {
+            app.add_plugins((StandardUiPlugin::default(), MainMenuPlugin))
+                // Note order matters, plugins that edit the menus must be initialized after the UI
+                .add_plugins((site::ViewMenuPlugin, OSMViewPlugin, SiteWireframePlugin))
+                .add_plugins(MapfRsePlugin::default());
         }
 
         if self.is_headless_export() {
