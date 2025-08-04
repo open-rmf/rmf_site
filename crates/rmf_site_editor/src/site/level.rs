@@ -63,12 +63,17 @@ impl Property for OnLevel<Entity> {
         let mut state: SystemState<(
             Query<&LastSetValue<OnLevel<Entity>>>,
             Query<(Entity, &LevelElevation)>,
+            Res<CurrentLevel>,
         )> = SystemState::new(world);
-        let (last_set_level, levels) = state.get(world);
+        let (last_set_level, levels, current_level) = state.get(world);
 
-        // Return the last set elevation, otherwise return the lowest level in this site
+        // Return the last set elevation, followed by the current level,
+        // otherwise return the lowest level in this site
         if let Ok(level) = last_set_level.get(for_element).map(|value| value.0.clone()) {
             return level;
+        }
+        if let Some(level) = current_level.0 {
+            return OnLevel(Some(level));
         }
 
         let mut lowest_level: Option<Entity> = None;
