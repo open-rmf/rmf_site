@@ -367,6 +367,7 @@ fn generate_site_entities(
             let door_entity = commands
                 .spawn(door.convert(&id_to_entity).for_site(site_id)?)
                 .insert(Dependents::single(lift_entity))
+                .insert(SiteID(*door_id))
                 .insert(ChildOf(lift_entity))
                 .id();
             id_to_entity.insert(*door_id, door_entity);
