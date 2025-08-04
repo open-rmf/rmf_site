@@ -47,7 +47,7 @@ impl<T: RefTrait> Lift<T> {
     /// Get any level that any door of this lift is able to visit.
     pub fn any_valid_level(&self) -> Option<T> {
         for door in self.cabin_doors.values() {
-            if let Some(level) = door.visits.first() {
+            if let Some(level) = door.visits.0.first() {
                 return Some(*level);
             }
         }

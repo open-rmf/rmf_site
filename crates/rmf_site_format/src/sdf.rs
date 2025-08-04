@@ -62,8 +62,8 @@ impl Pose {
                 rpy[1].radians(),
                 rpy[2].radians()
             ),
-            other => {
-                let (z, y, x) = other.as_bevy_quat().to_euler(glam::EulerRot::ZYX);
+            Rotation::Quat([x, y, z, w]) => {
+                let (z, y, x) = glam::quat(x, y, z, w).to_euler(glam::EulerRot::ZYX);
                 format!("{x} {y} {z}")
             }
         };
