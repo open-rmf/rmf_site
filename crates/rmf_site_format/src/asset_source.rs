@@ -96,6 +96,26 @@ impl AssetSource {
         // Unwrap safe because split will always have at least one item
         asset_path.split("/").last().unwrap().into()
     }
+
+    /// If the asset source is local, convert it to an absolute path name relative
+    /// to the specified base folder.
+    pub fn with_base_path(self, base_path: Option<&PathBuf>) -> Self {
+        let Some(base_folder) = base_path else {
+            return self;
+        };
+
+        match self {
+            AssetSource::Local(filename) => {
+                let path = PathBuf::from(filename);
+                if path.is_relative() {
+                    Self::Local(base_folder.with_file_name(path).to_string_lossy().into_owned())
+                } else {
+                    Self::Local(path.to_string_lossy().into_owned())
+                }
+            }
+            source => source,
+        }
+    }
 }
 
 impl Default for AssetSource {
