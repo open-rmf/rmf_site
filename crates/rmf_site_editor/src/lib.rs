@@ -4,7 +4,6 @@ use bevy::{
     log::LogPlugin,
     pbr::DirectionalLightShadowMap,
     prelude::*,
-    render::batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
 };
 use bevy_egui::EguiPlugin;
 #[cfg(not(target_arch = "wasm32"))]
@@ -66,9 +65,10 @@ use mapf_rse::MapfRsePlugin;
 
 pub mod osm_slippy_map;
 use bevy::render::{
+    batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     render_resource::{AddressMode, SamplerDescriptor},
     settings::{WgpuFeatures, WgpuSettings},
-    RenderPlugin,
+    RenderApp, RenderPlugin,
 };
 pub use osm_slippy_map::*;
 
@@ -279,10 +279,12 @@ impl Plugin for SiteEditor {
             app.add_plugins((StandardUiPlugin::default(), MainMenuPlugin))
                 // Note order matters, plugins that edit the menus must be initialized after the UI
                 .add_plugins((site::ViewMenuPlugin, OSMViewPlugin, SiteWireframePlugin))
-                .add_plugins(MapfRsePlugin::default())
-                // Turn off GPU preprocessing in headless mode so that this can
-                // work in GitHub CI. Without this, we were encountering this error:
-                // https://github.com/bevyengine/bevy/issues/18932
+                .add_plugins(MapfRsePlugin::default());
+
+            // Turn off GPU preprocessing in headless mode so that this can
+            // work in GitHub CI. Without this, we were encountering this error:
+            // https://github.com/bevyengine/bevy/issues/18932
+            app.sub_app_mut(RenderApp)
                 .insert_resource(GpuPreprocessingSupport {
                     max_supported_mode: GpuPreprocessingMode::None,
                 });
