@@ -26,7 +26,7 @@ use std::{
 };
 use thiserror::Error as ThisError;
 
-use crate::{exit_confirmation::SiteChanged, recency::RecencyRanking, site::*, ExportFormat};
+use crate::{ExportFormat, exit_confirmation::SiteChanged, recency::RecencyRanking, site::*};
 use rmf_site_format::*;
 use sdformat_rs::yaserde;
 
@@ -42,10 +42,10 @@ pub struct SaveSite {
 pub enum SiteGenerationError {
     #[error("the specified entity [{0:?}] does not refer to a site")]
     InvalidSiteEntity(Entity),
-    #[error("an object has a reference to an anchor that does not exist")]
-    BrokenAnchorReference(Entity),
-    #[error("an object has a reference to a group that does not exist")]
-    BrokenAffiliation(Entity),
+    #[error("an object [{object:?}] has a reference to an anchor [{anchor:?}] that is not valid")]
+    BrokenAnchorReference { object: Entity, anchor: Entity },
+    #[error("an object [{object:?}] has a reference to a group [{group:?}] that is not valid")]
+    BrokenAffiliation { object: Entity, group: Entity },
     #[error("an object has a reference to an empty group")]
     EmptyAffiliation(Entity),
     #[error("an object has a reference to a level that does not exist")]
@@ -66,6 +66,8 @@ pub enum SiteGenerationError {
     InvalidLiftDoorReference { door: Entity, anchor: Entity },
     #[error("an object has a reference to a modifier that does not exist")]
     BrokenModifier(Entity),
+    #[error("A site element [{0:?}] is missing a site ID")]
+    MissingSiteID(Entity),
 }
 
 /// This is used when a drawing is being edited to fix its parenting before we
@@ -427,31 +429,31 @@ fn generate_levels(
         q_user_camera_poses,
     ) = state.get(world);
 
-    let get_anchor_id = |entity| {
+    let get_anchor_id = |object, anchor| {
         let (_, site_id) = q_anchors
-            .get(entity)
-            .map_err(|_| SiteGenerationError::BrokenAnchorReference(entity))?;
+            .get(anchor)
+            .map_err(|_| SiteGenerationError::BrokenAnchorReference { object, anchor })?;
         Ok(site_id.0)
     };
 
-    let get_group_id = |entity| {
+    let get_group_id = |object, group| {
         q_groups
-            .get(entity)
+            .get(group)
             .map(|id| id.0)
-            .map_err(|_| SiteGenerationError::BrokenAffiliation(entity))
+            .map_err(|_| SiteGenerationError::BrokenAffiliation { object, group })
     };
 
-    let get_anchor_id_edge = |edge: &Edge<Entity>| {
-        let left = get_anchor_id(edge.left())?;
-        let right = get_anchor_id(edge.right())?;
+    let get_anchor_id_edge = |object, edge: &Edge<Entity>| {
+        let left = get_anchor_id(object, edge.left())?;
+        let right = get_anchor_id(object, edge.right())?;
         Ok(Edge::new(left, right))
     };
 
-    let get_anchor_id_path = |entities: &Vec<Entity>| {
+    let get_anchor_id_path = |object, entities: &Vec<Entity>| {
         let mut anchor_ids = Vec::new();
         anchor_ids.reserve(entities.len());
         for entity in entities {
-            let id = get_anchor_id(*entity)?;
+            let id = get_anchor_id(object, *entity)?;
             anchor_ids.push(id);
         }
         Ok(Path(anchor_ids))
@@ -493,7 +495,7 @@ fn generate_levels(
                     }
                     if let Ok((edge, o_edge, name, kind, id)) = q_doors.get(c) {
                         let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
-                        let anchors = get_anchor_id_edge(edge)?;
+                        let anchors = get_anchor_id_edge(c, edge)?;
                         level.doors.insert(
                             id.0,
                             Door {
@@ -523,7 +525,7 @@ fn generate_levels(
                             }
                             if let Ok((edge, o_edge, distance, id)) = q_measurements.get(e) {
                                 let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
-                                let anchors = get_anchor_id_edge(edge)?;
+                                let anchors = get_anchor_id_edge(e, edge)?;
                                 measurements.insert(
                                     id.0,
                                     Measurement {
@@ -535,9 +537,9 @@ fn generate_levels(
                             }
                             if let Ok((point, o_point, affiliation, id)) = q_fiducials.get(e) {
                                 let point = o_point.map(|x| &x.0).unwrap_or(point);
-                                let anchor = Point(get_anchor_id(point.0)?);
-                                let affiliation = if let Affiliation(Some(e)) = affiliation {
-                                    Affiliation(Some(get_group_id(*e)?))
+                                let anchor = Point(get_anchor_id(e, point.0)?);
+                                let affiliation = if let Affiliation(Some(a)) = affiliation {
+                                    Affiliation(Some(get_group_id(e, *a)?))
                                 } else {
                                     Affiliation(None)
                                 };
@@ -569,9 +571,9 @@ fn generate_levels(
                     }
                     if let Ok((path, o_path, texture, preferred_alpha, id)) = q_floors.get(c) {
                         let path = o_path.map(|x| &x.0).unwrap_or(path);
-                        let anchors = get_anchor_id_path(&path)?;
+                        let anchors = get_anchor_id_path(c, &path)?;
                         let texture = if let Affiliation(Some(e)) = texture {
-                            Affiliation(Some(get_group_id(*e)?))
+                            Affiliation(Some(get_group_id(c, *e)?))
                         } else {
                             Affiliation(None)
                         };
@@ -608,9 +610,9 @@ fn generate_levels(
                     }
                     if let Ok((edge, o_edge, texture, id)) = q_walls.get(c) {
                         let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
-                        let anchors = get_anchor_id_edge(edge)?;
+                        let anchors = get_anchor_id_edge(c, edge)?;
                         let texture = if let Affiliation(Some(e)) = texture {
-                            Affiliation(Some(get_group_id(*e)?))
+                            Affiliation(Some(get_group_id(c, *e)?))
                         } else {
                             Affiliation(None)
                         };
@@ -687,10 +689,10 @@ fn generate_lifts(
 
     let mut lifts = BTreeMap::new();
 
-    let get_anchor_id = |entity| {
+    let get_anchor_id = |object, anchor| {
         let (site_id, _) = q_anchors
-            .get(entity)
-            .map_err(|_| SiteGenerationError::BrokenAnchorReference(entity))?;
+            .get(anchor)
+            .map_err(|_| SiteGenerationError::BrokenAnchorReference { object, anchor })?;
         Ok(site_id.0)
     };
 
@@ -701,9 +703,9 @@ fn generate_lifts(
         Ok(site_id.0)
     };
 
-    let get_anchor_id_edge = |edge: &Edge<Entity>| {
-        let left = get_anchor_id(edge.left())?;
-        let right = get_anchor_id(edge.right())?;
+    let get_anchor_id_edge = |object, edge: &Edge<Entity>| {
+        let left = get_anchor_id(object, edge.left())?;
+        let right = get_anchor_id(object, edge.right())?;
         Ok(Edge::new(left, right))
     };
 
@@ -766,7 +768,7 @@ fn generate_lifts(
         let validate_level_door_anchors = |door: Entity, edge: &Edge<Entity>| {
             validate_level_door_anchor(door, edge.left())?;
             validate_level_door_anchor(door, edge.right())?;
-            get_anchor_id_edge(edge)
+            get_anchor_id_edge(door, edge)
         };
 
         let mut cabin_anchors = BTreeMap::new();
@@ -803,7 +805,7 @@ fn generate_lifts(
             }
         }
 
-        let reference_anchors = get_anchor_id_edge(edge)?;
+        let reference_anchors = get_anchor_id_edge(lift_entity, edge)?;
         lifts.insert(
             id.0,
             Lift {
@@ -854,13 +856,19 @@ fn generate_fiducials(
         };
         let anchor = q_anchor_ids
             .get(point.0)
-            .map_err(|_| SiteGenerationError::BrokenAnchorReference(point.0))?
+            .map_err(|_| SiteGenerationError::BrokenAnchorReference {
+                object: *child,
+                anchor: point.0,
+            })?
             .0;
         let anchor = Point(anchor);
         let affiliation = if let Some(e) = affiliation.0 {
             let group_id = q_group_ids
                 .get(e)
-                .map_err(|_| SiteGenerationError::BrokenAffiliation(e))?
+                .map_err(|_| SiteGenerationError::BrokenAffiliation {
+                    object: *child,
+                    group: e,
+                })?
                 .0;
             Affiliation(Some(group_id))
         } else {
@@ -978,6 +986,7 @@ fn generate_lanes(
     let mut state: SystemState<(
         Query<
             (
+                Entity,
                 &Edge<Entity>,
                 Option<&Original<Edge<Entity>>>,
                 &Motion,
@@ -994,27 +1003,27 @@ fn generate_lanes(
 
     let (q_lanes, q_nav_graphs, q_anchors) = state.get(world);
 
-    let get_anchor_id = |entity| {
+    let get_anchor_id = |object, anchor| {
         let site_id = q_anchors
-            .get(entity)
-            .map_err(|_| SiteGenerationError::BrokenAnchorReference(entity))?;
+            .get(anchor)
+            .map_err(|_| SiteGenerationError::BrokenAnchorReference { object, anchor })?;
         Ok(site_id.0)
     };
 
-    let get_anchor_id_edge = |edge: &Edge<Entity>| {
-        let left = get_anchor_id(edge.left())?;
-        let right = get_anchor_id(edge.right())?;
+    let get_anchor_id_edge = |object, edge: &Edge<Entity>| {
+        let left = get_anchor_id(object, edge.left())?;
+        let right = get_anchor_id(object, edge.right())?;
         Ok(Edge::new(left, right))
     };
 
     let mut lanes = BTreeMap::new();
-    for (edge, o_edge, forward, reverse, graphs, lane_id, child_of) in &q_lanes {
+    for (e, edge, o_edge, forward, reverse, graphs, lane_id, child_of) in &q_lanes {
         if child_of.parent() != site {
             continue;
         }
 
         let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
-        let edge = get_anchor_id_edge(edge)?;
+        let edge = get_anchor_id_edge(e, edge)?;
         let graphs = graphs
             .to_u32(&q_nav_graphs)
             .map_err(|e| SiteGenerationError::BrokenNavGraphReference(e))?;
@@ -1041,6 +1050,7 @@ fn generate_locations(
     let mut state: SystemState<(
         Query<
             (
+                Entity,
                 &Point<Entity>,
                 Option<&Original<Point<Entity>>>,
                 &LocationTags,
@@ -1057,21 +1067,21 @@ fn generate_locations(
 
     let (q_locations, q_nav_graphs, q_anchors) = state.get(world);
 
-    let get_anchor_id = |entity| {
+    let get_anchor_id = |object, anchor| {
         let site_id = q_anchors
-            .get(entity)
-            .map_err(|_| SiteGenerationError::BrokenAnchorReference(entity))?;
+            .get(anchor)
+            .map_err(|_| SiteGenerationError::BrokenAnchorReference { object, anchor })?;
         Ok(site_id.0)
     };
 
     let mut locations = BTreeMap::new();
-    for (point, o_point, tags, name, graphs, location_id, child_of) in &q_locations {
+    for (e, point, o_point, tags, name, graphs, location_id, child_of) in &q_locations {
         if child_of.parent() != site {
             continue;
         }
 
         let point = o_point.map(|x| &x.0).unwrap_or(point);
-        let point = get_anchor_id(point.0)?;
+        let point = get_anchor_id(e, point.0)?;
         let graphs = graphs
             .to_u32(&q_nav_graphs)
             .map_err(|e| SiteGenerationError::BrokenNavGraphReference(e))?;
@@ -1415,40 +1425,68 @@ fn generate_scenarios(
                             Scenario {
                                 instances: scenario_modifiers
                                     .iter()
-                                    .map(|(e_element, e_modifier)| {
-                                        let (pose, inclusion) =
-                                            instance_modifiers.get(*e_modifier).map_err(|_| {
-                                                SiteGenerationError::BrokenModifier(*e_modifier)
-                                            })?;
-                                        let id = site_id.get(*e_element).map(|id| id.0).map_err(
-                                            |_| SiteGenerationError::BrokenAffiliation(*e_element),
-                                        )?;
-                                        Ok((
-                                            id,
-                                            InstanceModifier {
-                                                pose: pose.map(|p| **p),
-                                                inclusion: inclusion.map(|i| **i),
-                                            },
-                                        ))
+                                    .filter_map(|(e_element, e_modifier)| {
+                                        let Ok((pose, inclusion)) =
+                                            instance_modifiers.get(*e_modifier)
+                                        else {
+                                            return Some(Err(SiteGenerationError::BrokenModifier(
+                                                *e_modifier,
+                                            )));
+                                        };
+
+                                        let modifier = InstanceModifier {
+                                            pose: pose.map(|p| **p),
+                                            inclusion: inclusion.map(|i| **i),
+                                        };
+
+                                        if modifier.is_default() {
+                                            return None;
+                                        }
+
+                                        // Currently sub-assets such as visual and collision geometries
+                                        // are automatically being assigned pose and inclusion modifiers
+                                        // but we do not allow those to change, and we do not save them.
+                                        // Those sub-assets do not have their own Site IDs, so we filter
+                                        // them out here.
+                                        //
+                                        // TODO(@mxgrey): Figure out a setup that will prevent sub-assets
+                                        // from having modifiers at all.
+                                        let element_id =
+                                            site_id.get(*e_element).map(|id| id.0).ok()?;
+
+                                        Some(Ok((element_id, modifier)))
                                     })
                                     .collect::<Result<_, _>>()?,
                                 tasks: scenario_modifiers
                                     .iter()
-                                    .map(|(e_element, e_modifier)| {
-                                        let (inclusion, task_params) =
-                                            task_modifiers.get(*e_modifier).map_err(|_| {
-                                                SiteGenerationError::BrokenModifier(*e_modifier)
-                                            })?;
-                                        let id = site_id.get(*e_element).map(|id| id.0).map_err(
-                                            |_| SiteGenerationError::BrokenAffiliation(*e_element),
-                                        )?;
-                                        Ok((
-                                            id,
-                                            TaskModifier {
-                                                inclusion: inclusion.map(|i| **i),
-                                                params: task_params.map(|p| (**p).clone()),
-                                            },
-                                        ))
+                                    .filter_map(|(e_element, e_modifier)| {
+                                        let Ok((inclusion, task_params)) =
+                                            task_modifiers.get(*e_modifier)
+                                        else {
+                                            return Some(Err(SiteGenerationError::BrokenModifier(
+                                                *e_modifier,
+                                            )));
+                                        };
+
+                                        if task_params.is_none() {
+                                            // This is not a task modifier
+                                            return None;
+                                        }
+
+                                        let modifier = TaskModifier {
+                                            inclusion: inclusion.map(|i| **i),
+                                            params: task_params.map(|p| (**p).clone()),
+                                        };
+
+                                        let Ok(id) = site_id.get(*e_element).map(|id| id.0) else {
+                                            // Every task element must have a Site ID. If it is
+                                            // missing, that implies an error has occurred.
+                                            return Some(Err(SiteGenerationError::MissingSiteID(
+                                                *e_element,
+                                            )));
+                                        };
+
+                                        Some(Ok((id, modifier)))
                                     })
                                     .collect::<Result<_, _>>()?,
                                 properties: ScenarioBundle {
@@ -1459,7 +1497,7 @@ fn generate_scenarios(
                                                 .get(parent)
                                                 .map(|(_, _, _, id, _)| id.0)
                                                 .map_err(|_| {
-                                                    SiteGenerationError::BrokenAffiliation(parent)
+                                                    SiteGenerationError::MissingSiteID(parent)
                                                 })?;
                                             Affiliation(Some(parent_id))
                                         }
