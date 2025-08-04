@@ -20,8 +20,8 @@ use bevy::prelude::*;
 use crate::WorkspaceSaver;
 
 use crate::{
-    site::{DrawingMarker, ModelLoadingState},
     Autoload, WorkspaceLoader,
+    site::{DrawingMarker, ModelLoadingState},
 };
 use rmf_site_format::NameOfSite;
 

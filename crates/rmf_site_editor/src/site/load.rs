@@ -15,12 +15,12 @@
  *
 */
 
-use crate::{recency::RecencyRanking, site::*, WorkspaceMarker};
+use crate::{WorkspaceMarker, recency::RecencyRanking, site::*};
 use bevy::{
     ecs::{hierarchy::ChildOf, system::SystemParam},
     prelude::*,
 };
-use rmf_site_format::legacy::{building_map::BuildingMap, PortingError};
+use rmf_site_format::legacy::{PortingError, building_map::BuildingMap};
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
@@ -135,7 +135,9 @@ pub enum LoadSiteError {
     JsonParsingError(#[from] serde_json::Error),
     #[error("Unrecognized file type: {0}")]
     UnrecognizedFileType(PathBuf),
-    #[error("Cannot determine data format for raw data. It could not be parsed as .building.yaml, .site.json, or .site.ron")]
+    #[error(
+        "Cannot determine data format for raw data. It could not be parsed as .building.yaml, .site.json, or .site.ron"
+    )]
     UnknownDataFormat,
 }
 
