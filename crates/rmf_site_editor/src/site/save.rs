@@ -1827,8 +1827,7 @@ mod tests {
         app.run();
 
         let original = original.to_str().unwrap().to_owned();
-        let identical = file_diff::diff(&original, &destination);
-        assert!(identical);
+        assert!(file_diff::diff(&original, &destination));
 
         let source = source.to_str().unwrap().to_owned();
         assert!(file_diff::diff(&source, &destination));
