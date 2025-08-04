@@ -43,6 +43,19 @@ pub struct Lift<T: RefTrait> {
     pub cabin_anchors: BTreeMap<T, Anchor>,
 }
 
+impl<T: RefTrait> Lift<T> {
+    /// Get any level that any door of this lift is able to visit.
+    pub fn any_valid_level(&self) -> Option<T> {
+        for door in self.cabin_doors.values() {
+            if let Some(level) = door.visits.first() {
+                return Some(*level);
+            }
+        }
+
+        return None;
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct LiftCabinDoor<T: RefTrait> {

@@ -295,7 +295,7 @@
     "22": {
       "properties": {
         "name": "L2",
-        "elevation": 0.0
+        "elevation": 8.0
       },
       "anchors": {
         "24": {
@@ -604,7 +604,7 @@
         }
       },
       "properties": {
-        "name": "<Unnamed>",
+        "name": "Main Lift",
         "reference_anchors": [
           48,
           49
