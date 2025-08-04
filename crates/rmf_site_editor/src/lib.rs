@@ -66,9 +66,9 @@ use mapf_rse::MapfRsePlugin;
 
 pub mod osm_slippy_map;
 use bevy::render::{
-    RenderPlugin,
     render_resource::{AddressMode, SamplerDescriptor},
     settings::{WgpuFeatures, WgpuSettings},
+    RenderPlugin,
 };
 pub use osm_slippy_map::*;
 
