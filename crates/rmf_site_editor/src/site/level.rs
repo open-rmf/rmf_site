@@ -91,14 +91,19 @@ impl Property for OnLevel<Entity> {
     fn on_new_element(
         for_element: Entity,
         _in_scenario: Entity,
-        _value: OnLevel<Entity>, // Value is unused for OnLevel
+        value: OnLevel<Entity>,
         world: &mut World,
     ) {
         let mut state: SystemState<(Query<&ChildOf>, Query<(), With<LevelElevation>>)> =
             SystemState::new(world);
         let (child_of, levels) = state.get(world);
 
-        // When a new OnLevel component is inserted, we want to make sure that
+        // If a level entity has been inserted for this OnLevel property, do nothing
+        if value.0.is_some() {
+            return;
+        }
+
+        // When an empty OnLevel component is inserted, we want to make sure that
         // the data reflect the model's current parent level.
         let level_entity = child_of
             .get(for_element)
