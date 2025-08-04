@@ -26,7 +26,7 @@ use std::{
 };
 use thiserror::Error as ThisError;
 
-use crate::{ExportFormat, exit_confirmation::SiteChanged, recency::RecencyRanking, site::*};
+use crate::{exit_confirmation::SiteChanged, recency::RecencyRanking, site::*, ExportFormat};
 use rmf_site_format::*;
 use sdformat_rs::yaserde;
 
@@ -1760,6 +1760,115 @@ pub fn save_site(world: &mut World) {
                     new_path.to_str().unwrap_or("<failed to render??>")
                 );
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::*;
+    use std::{path::Path, time::Duration};
+    use testdir::testdir;
+
+    #[test]
+    #[cfg(not(target_arch = "wasm32"))]
+    fn headless_load_and_save_roundtrip() {
+        let mut app = App::new();
+        let target_test_dir = testdir!();
+        let rmf_site_editor_manifest_dir_str = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+        // Go from crates/rmf_site_editor to workspace root directory
+        let workspace_dir = Path::new(&rmf_site_editor_manifest_dir_str)
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap();
+
+        let assets_dir = workspace_dir.join("assets");
+        let source = assets_dir.join("demo_maps").join("test.site.json");
+
+        let test_site_dir = "sites";
+        let original = target_test_dir
+            .join(test_site_dir)
+            .join("test_original.site.json");
+        let destination = target_test_dir
+            .join(test_site_dir)
+            .join("test_destination.site.json");
+
+        std::fs::create_dir_all(target_test_dir.join(test_site_dir)).unwrap();
+
+        // Copy the source file into the test directory.
+        //
+        // Later we will do a diff between the two files to make sure they are
+        // exactly equal, but saving to a new folder can alter the relative
+        // paths within the site. To make sure the exported copy is exactly the
+        // same as the original, the copy must be saved to the same folder as
+        // the original. However we do not want tests to produce files in a
+        // source folder, so we copy the source file into the target directory
+        // and then do a roundtrip into the same directory.
+        std::fs::copy(&source, &original).unwrap();
+
+        // Create a symlink to avoid a slew of error log messages while loading.
+        // We can ignore the result of this, because the test should still pass
+        // even if the symlinking doesn't work, we'll just see some noisy error
+        // logs in stdout.
+        let _ =
+            std::os::unix::fs::symlink(assets_dir.join("models"), target_test_dir.join("models"));
+        let _ = std::os::unix::fs::symlink(
+            assets_dir.join("drawings"),
+            target_test_dir.join("drawings"),
+        );
+
+        let destination = destination.to_str().unwrap().to_owned();
+        app.insert_resource(Autoload::file(original.clone(), None))
+            .add_plugins(SiteEditor::default().save_as_path(Some(destination.clone())))
+            .add_plugins(TestTimeoutPlugin::new(Duration::from_secs(10)));
+
+        // Run until the file is saved or until the timeout occurs
+        app.run();
+
+        let original = original.to_str().unwrap().to_owned();
+        let identical = file_diff::diff(&original, &destination);
+        assert!(identical);
+
+        let source = source.to_str().unwrap().to_owned();
+        assert!(file_diff::diff(&source, &destination));
+    }
+
+    pub(crate) struct TestTimeoutPlugin {
+        max_duration: Duration,
+    }
+
+    impl TestTimeoutPlugin {
+        pub(crate) fn new(max_duration: Duration) -> Self {
+            Self { max_duration }
+        }
+    }
+
+    impl Default for TestTimeoutPlugin {
+        fn default() -> Self {
+            TestTimeoutPlugin {
+                max_duration: Duration::from_secs(30),
+            }
+        }
+    }
+
+    impl Plugin for TestTimeoutPlugin {
+        fn build(&self, app: &mut App) {
+            app.insert_resource(TestTimeout {
+                max_duration: self.max_duration,
+            })
+            .add_systems(Update, test_timeout);
+        }
+    }
+
+    #[derive(Resource)]
+    struct TestTimeout {
+        max_duration: Duration,
+    }
+
+    fn test_timeout(time: Res<Time>, timeout: Res<TestTimeout>, mut exit: EventWriter<AppExit>) {
+        if time.elapsed() > timeout.max_duration {
+            exit.write(AppExit::error());
         }
     }
 }

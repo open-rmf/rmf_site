@@ -385,7 +385,6 @@ impl Plugin for SitePlugin {
                 handle_remove_scenarios.before(update_current_scenario),
                 update_current_scenario.before(handle_create_scenarios),
                 handle_create_scenarios,
-                handle_task_edit,
             )
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenTransformAndVisibility),

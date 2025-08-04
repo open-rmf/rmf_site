@@ -38,19 +38,25 @@ use rmf_site_format::NameOfSite;
 pub struct HeadlessExportState {
     iterations: u32,
     world_loaded: bool,
-    save_requested: bool,
+    export_request_sent: bool,
     sdf_target_path: Option<String>,
     nav_target_path: Option<String>,
+    save_target_path: Option<String>,
 }
 
 impl HeadlessExportState {
-    pub fn new(sdf_target_path: Option<String>, nav_target_path: Option<String>) -> Self {
+    pub fn new(
+        sdf_target_path: Option<String>,
+        nav_target_path: Option<String>,
+        save_target_path: Option<String>,
+    ) -> Self {
         Self {
             iterations: 0,
             world_loaded: false,
-            save_requested: false,
+            export_request_sent: false,
             sdf_target_path,
             nav_target_path,
+            save_target_path,
         }
     }
 }
@@ -95,7 +101,7 @@ pub fn headless_export(
             export_state.iterations = 0;
             export_state.world_loaded = true;
         } else {
-            if !export_state.save_requested && export_state.iterations > 5 {
+            if !export_state.export_request_sent && export_state.iterations > 5 {
                 if let Some(sdf_target_path) = &export_state.sdf_target_path {
                     let path = std::path::PathBuf::from(sdf_target_path.clone());
                     workspace_saver.export_sdf_to_path(path);
@@ -106,9 +112,14 @@ pub fn headless_export(
                     workspace_saver.export_nav_graphs_to_path(path);
                 }
 
-                export_state.save_requested = true;
+                if let Some(save_target_path) = &export_state.save_target_path {
+                    let path = std::path::PathBuf::from(save_target_path.clone());
+                    workspace_saver.save_to_path(path);
+                }
+
+                export_state.export_request_sent = true;
                 export_state.iterations = 0;
-            } else if export_state.save_requested && export_state.iterations > 5 {
+            } else if export_state.export_request_sent && export_state.iterations > 5 {
                 exit.write(bevy::app::AppExit::Success);
             }
         }

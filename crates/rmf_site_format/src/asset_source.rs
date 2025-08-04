@@ -108,7 +108,12 @@ impl AssetSource {
             AssetSource::Local(filename) => {
                 let path = PathBuf::from(filename);
                 if path.is_relative() {
-                    Self::Local(base_folder.with_file_name(path).to_string_lossy().into_owned())
+                    Self::Local(
+                        base_folder
+                            .with_file_name(path)
+                            .to_string_lossy()
+                            .into_owned(),
+                    )
                 } else {
                     Self::Local(path.to_string_lossy().into_owned())
                 }

@@ -961,6 +961,7 @@ impl Site {
 mod tests {
     use crate::legacy::building_map::BuildingMap;
     use sdformat_rs::yaserde;
+    use testdir::testdir;
 
     #[test]
     fn serialize_sdf() {
@@ -975,6 +976,7 @@ mod tests {
             ..Default::default()
         };
         let s = yaserde::ser::to_string_with_config(&sdf, &config).unwrap();
-        std::fs::write("test.sdf", s).unwrap();
+        let output_dir = testdir!();
+        std::fs::write(output_dir.join("test.sdf"), s).unwrap();
     }
 }

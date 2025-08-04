@@ -147,6 +147,10 @@ pub struct SiteEditor {
     /// Contains Some(path) if the site editor is running in headless mode
     /// exporting its nav graphs.
     export_nav: Option<String>,
+    /// Contains Some(path) if the site editor is running in headless mode and
+    /// saving the contents of the site as a new path. This is primarily used
+    /// for unit testing.
+    save_as_path: Option<String>,
 }
 
 impl SiteEditor {
@@ -164,14 +168,19 @@ impl SiteEditor {
         self
     }
 
+    pub fn save_as_path(mut self, path: Option<String>) -> Self {
+        self.save_as_path = path;
+        self
+    }
+
     pub fn is_headless(&self) -> bool {
-        self.export_sdf.is_some() || self.export_nav.is_some()
+        self.is_headless_export()
     }
 
     // This is a separate function from is_headless just in case there are other
     // reasons to run headless in the future, e.g. headless simulation.
     pub fn is_headless_export(&self) -> bool {
-        self.export_sdf.is_some() || self.export_nav.is_some()
+        self.export_sdf.is_some() || self.export_nav.is_some() || self.save_as_path.is_some()
     }
 }
 
@@ -279,6 +288,7 @@ impl Plugin for SiteEditor {
             app.insert_resource(site::HeadlessExportState::new(
                 self.export_sdf.clone(),
                 self.export_nav.clone(),
+                self.save_as_path.clone(),
             ));
             app.add_systems(Last, site::headless_export);
         }

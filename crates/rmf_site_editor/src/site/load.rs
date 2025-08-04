@@ -15,12 +15,12 @@
  *
 */
 
-use crate::{WorkspaceMarker, recency::RecencyRanking, site::*};
+use crate::{recency::RecencyRanking, site::*, WorkspaceMarker};
 use bevy::{
     ecs::{hierarchy::ChildOf, system::SystemParam},
     prelude::*,
 };
-use rmf_site_format::legacy::{PortingError, building_map::BuildingMap};
+use rmf_site_format::legacy::{building_map::BuildingMap, PortingError};
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
