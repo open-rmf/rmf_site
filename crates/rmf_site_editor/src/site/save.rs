@@ -1857,7 +1857,13 @@ mod tests {
             // as expected.
             let original_file_size = std::fs::metadata(&original).unwrap().file_size();
             let destination_file_size = std::fs::metadata(&destination).unwrap().file_size();
-            assert!(original_file_size <= destination_file_size);
+            assert!(
+                original_file_size <= destination_file_size,
+                " - Original file size: {original_file_size} \
+                \n - Destination file size: {destination_file_size} \
+                \n - Destination file contents:\n{}",
+                std::fs::read_to_string(&destination),
+            );
         }
 
         // At the end of a successful test we should delete the testdir.
