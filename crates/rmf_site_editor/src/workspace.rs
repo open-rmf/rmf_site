@@ -349,14 +349,12 @@ impl FromWorld for SiteLoadingServices {
                 .input
                 .chain(builder)
                 .map_async(|path| async move {
-                    warn!(" >>> Reading data from file [{:?}]", path);
                     match std::fs::read(&path) {
                         Ok(data) => {
-                            warn!(" >>> Parsing file data into site data");
                             match LoadSite::from_data(&data, Some(path)) {
                                 Ok(site) => Some(site),
                                 Err(err) => {
-                                    warn!(" >>> Error parsing data: {err}");
+                                    warn!("Error parsing site data: {err}");
                                     return None;
                                 }
                             }
@@ -455,10 +453,11 @@ impl<'w, 's> WorkspaceLoader<'w, 's> {
     }
 
     /// Request to load a workspace from a path
-    pub fn load_from_path(&mut self, path: PathBuf) {
+    pub fn load_from_path(&mut self, path: PathBuf) -> Promise<()> {
         self.commands
             .request(path, self.workspace_loading.load_site_from_path)
-            .detach();
+            .detach()
+            .take_response()
     }
 
     /// Request to load a workspace from data.

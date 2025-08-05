@@ -24,6 +24,7 @@ use crate::{
     Autoload, WorkspaceLoader,
 };
 use rmf_site_format::NameOfSite;
+use bevy_impulse::Promise;
 
 /// Manages a simple state machine where we:
 ///   * Wait for a few iterations,
@@ -34,7 +35,7 @@ use rmf_site_format::NameOfSite;
 //
 // TODO(@mxgrey): Introduce a "workspace has finished loading" event, and create
 // a workflow that reacts to that event.
-#[derive(Debug, Resource)]
+#[derive(Resource)]
 pub struct HeadlessExportState {
     iterations: u32,
     world_loaded: bool,
@@ -42,6 +43,7 @@ pub struct HeadlessExportState {
     sdf_target_path: Option<String>,
     nav_target_path: Option<String>,
     save_target_path: Option<String>,
+    loading: Option<Promise<()>>,
 }
 
 impl HeadlessExportState {
@@ -57,6 +59,7 @@ impl HeadlessExportState {
             sdf_target_path,
             nav_target_path,
             save_target_path,
+            loading: None,
         }
     }
 }
@@ -72,14 +75,21 @@ pub fn headless_export(
     autoload: Option<ResMut<Autoload>>,
     mut workspace_loader: WorkspaceLoader,
 ) {
-    if let Some(mut autoload) = autoload {
-        warn!(" >>> Autoload enabled. Filename: {:?}", autoload.filename);
-        if let Some(filename) = autoload.filename.take() {
-            workspace_loader.load_from_path(filename);
-        }
-    } else {
-        error!("Cannot perform a headless export since no site file was specified for loading");
+    let Some(mut autoload) = autoload else {
+        error!("Cannot perform a headless export since Autoload was not used");
         exit.write(bevy::app::AppExit::error());
+        return;
+    };
+
+    warn!(" >>> Autoload enabled. Filename: {:?}", autoload.filename);
+    if let Some(filename) = autoload.filename.take() {
+        export_state.loading = Some(workspace_loader.load_from_path(filename));
+    }
+
+    if export_state.loading.as_mut().is_some_and(|promise| promise.peek().is_pending()) {
+        // Do not iterate while the promise of loading the file is still pending.
+        // It involves async tasks which might not align with frame cycles,
+        // especially on single-threaded machines.
         return;
     }
 
