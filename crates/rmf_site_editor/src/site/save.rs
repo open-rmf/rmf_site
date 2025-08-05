@@ -1855,8 +1855,8 @@ mod tests {
             // LF used by Linux. As long as no errors have occurred and the file
             // size is in the correct ballpark, most likely the test has gone
             // as expected.
-            let original_file_size = std::fs::metadata(&original).file_size();
-            let destination_file_size = std::fs::metadata(&destination).file_size();
+            let original_file_size = std::fs::metadata(&original).unwrap().file_size();
+            let destination_file_size = std::fs::metadata(&destination).unwrap().file_size();
             assert!(original_file_size <= destination_file_size);
         }
 
