@@ -71,6 +71,7 @@ console_error_panic_hook = "0.1.7"
 getrandom = { version = "0.3.3"}
 clap = { version = "4.0.10" }
 bytemuck = {version = "1.22"}
+bevy_infinite_grid = { version = "0.15"}
 
 bevy = { git = "https://github.com/xiyuoh/bevy", branch = "fix-specialize-panic" }
 bevy_a11y = { git = "https://github.com/xiyuoh/bevy", branch = "fix-specialize-panic" }
@@ -116,7 +117,6 @@ bevy_ui = { git = "https://github.com/xiyuoh/bevy", branch = "fix-specialize-pan
 bevy_utils = { git = "https://github.com/xiyuoh/bevy", branch = "fix-specialize-panic" }
 bevy_window = { git = "https://github.com/xiyuoh/bevy", branch = "fix-specialize-panic" }
 bevy_winit = { git = "https://github.com/xiyuoh/bevy", branch = "fix-specialize-panic" }
-bevy_infinite_grid = { git = "https://github.com/althea28/bevy_infinite_grid", branch = "main" }
 
 [patch.crates-io]
 bevy = { git = "https://github.com/xiyuoh/bevy", branch = "fix-specialize-panic" }

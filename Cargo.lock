@@ -1037,7 +1037,8 @@ dependencies = [
 [[package]]
 name = "bevy_infinite_grid"
 version = "0.15.0"
-source = "git+https://github.com/althea28/bevy_infinite_grid?branch=main#0662e4efbcd03f502992f97293843bf06ffe5e11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f0e6a879a57fc6e274d83582eeb387e06f7eaa652224ad9dada0ef97b8326568"
 dependencies = [
  "bevy",
 ]

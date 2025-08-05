@@ -138,12 +138,12 @@ impl InteractionAssets {
             (
                 self.x_axis_materials.clone(),
                 Vec3::new(offset, 0., height),
-                Quat::from_rotation_y(90_f32.to_radians()) * Quat::from_rotation_z(90_f32.to_radians()),
+                Quat::from_euler(EulerRot::YXZ, 90_f32.to_radians(), 0.0, 90_f32.to_radians()),
             ),
             (
                 self.x_axis_materials.clone(),
                 Vec3::new(-offset, 0., height),
-                Quat::from_rotation_y(-90_f32.to_radians()) * Quat::from_rotation_z(90_f32.to_radians()),
+                Quat::from_euler(EulerRot::YXZ, -90_f32.to_radians(), 0.0, 90_f32.to_radians()),
             ),
             (
                 self.y_axis_materials.clone(),
@@ -234,7 +234,6 @@ impl FromWorld for InteractionAssets {
         let dagger_mesh = meshes.add(make_dagger_mesh());
         let halo_mesh = meshes.add(make_halo_mesh());
         let camera_control_mesh = meshes.add(Mesh::from(primitives::Sphere::new(0.02)));
-        // let arrow_mesh = meshes.add(make_cylinder_arrow_mesh());
         let arrow_mesh = meshes.add(make_triangular_arrow_mesh());
         let point_light_socket_mesh = meshes.add(
             make_cylinder(0.06, 0.02).transform_by(Affine3A::from_translation(0.04 * Vec3::Z)),
