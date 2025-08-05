@@ -350,15 +350,13 @@ impl FromWorld for SiteLoadingServices {
                 .chain(builder)
                 .map_async(|path| async move {
                     match std::fs::read(&path) {
-                        Ok(data) => {
-                            match LoadSite::from_data(&data, Some(path)) {
-                                Ok(site) => Some(site),
-                                Err(err) => {
-                                    warn!("Error parsing site data: {err}");
-                                    return None;
-                                }
+                        Ok(data) => match LoadSite::from_data(&data, Some(path)) {
+                            Ok(site) => Some(site),
+                            Err(err) => {
+                                warn!("Error parsing site data: {err}");
+                                return None;
                             }
-                        }
+                        },
                         Err(err) => {
                             warn!("Cannot load file [{path:?}] because it cannot be read: {err}");
                             return None;

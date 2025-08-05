@@ -23,8 +23,8 @@ use crate::{
     site::{DrawingMarker, ModelLoadingState},
     Autoload, WorkspaceLoader,
 };
-use rmf_site_format::NameOfSite;
 use bevy_impulse::Promise;
+use rmf_site_format::NameOfSite;
 
 /// Manages a simple state machine where we:
 ///   * Wait for a few iterations,
@@ -86,7 +86,11 @@ pub fn headless_export(
         export_state.loading = Some(workspace_loader.load_from_path(filename));
     }
 
-    if export_state.loading.as_mut().is_some_and(|promise| promise.peek().is_pending()) {
+    if export_state
+        .loading
+        .as_mut()
+        .is_some_and(|promise| promise.peek().is_pending())
+    {
         // Do not iterate while the promise of loading the file is still pending.
         // It involves async tasks which might not align with frame cycles,
         // especially on single-threaded machines.
