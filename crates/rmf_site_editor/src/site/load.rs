@@ -428,7 +428,7 @@ fn generate_site_entities(
         consider_id(*location_id);
     }
     // Properties require the id_to_entity map to be fully populated to load suppressed issues
-    info!("Loading site with name: {}", site_data.properties.name.0);
+    warn!(" >>> Loading site [{site_id:?}] with name: {}", site_data.properties.name.0);
     commands.entity(site_id).insert(
         site_data
             .properties
@@ -636,6 +636,7 @@ pub fn load_site(
     mut change_current_site: EventWriter<ChangeCurrentSite>,
 ) {
     for cmd in load_sites.read() {
+        warn!(" >>> Beginning site load");
         let site = match generate_site_entities(&mut commands, &mut model_loader, &cmd.site) {
             Ok(site) => site,
             Err(err) => {
@@ -648,11 +649,13 @@ pub fn load_site(
                 continue;
             }
         };
+        warn!(" >>> Finished generating entities");
         if let Some(path) = &cmd.default_file {
             commands.entity(site).insert(DefaultFile(path.clone()));
         }
 
         if cmd.focus {
+            warn!(" >>> Changing focus to new site");
             change_current_site.write(ChangeCurrentSite {
                 site,
                 level: None,
