@@ -1847,18 +1847,18 @@ mod tests {
         #[cfg(target_os = "windows")]
         {
             use std::os::windows::prelude::*;
-            // Windows uses different characters to represent newlines, so we cannot
-            // do a 1-to-1 comparison between the original and the generated file.
-            // We will simply check whether the new file is at least as large as
-            // the original file since the key difference between them should be
-            // that Windows uses CR+LF characters for newlines instead of the single
-            // LF used by Linux. As long as no errors have occurred and the file
-            // size is in the correct ballpark, most likely the test has gone
-            // as expected.
-            let original_file_size = std::fs::metadata(&original).unwrap().file_size();
-            let destination_file_size = std::fs::metadata(&destination).unwrap().file_size();
+            // Windows uses different characters to represent newlines and path
+            // separators, so we cannot do a 1-to-1 comparison between the original
+            // and the generated file. We will simply check whether the new file
+            // is within 10% the size of the original file size since the differences
+            // incurred by these format changes should not be too significant.
+            let original_file_size = std::fs::metadata(&original).unwrap().file_size() as f64;
+            let destination_file_size = std::fs::metadata(&destination).unwrap().file_size() as f64;
+            let difference_ratio =
+                f64::abs(original_file_size - destination_file_size) / original_file_size;
+
             assert!(
-                original_file_size <= destination_file_size,
+                difference_ratio <= 0.1,
                 " - Original file size: {original_file_size} \
                 \n - Destination file size: {destination_file_size} \
                 \n - Destination file contents:\n{}",
