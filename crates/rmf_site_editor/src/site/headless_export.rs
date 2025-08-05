@@ -81,7 +81,6 @@ pub fn headless_export(
         return;
     };
 
-    warn!(" >>> Autoload enabled. Filename: {:?}", autoload.filename);
     if let Some(filename) = autoload.filename.take() {
         export_state.loading = Some(workspace_loader.load_from_path(filename));
     }
