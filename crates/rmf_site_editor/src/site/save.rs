@@ -1862,7 +1862,7 @@ mod tests {
                 " - Original file size: {original_file_size} \
                 \n - Destination file size: {destination_file_size} \
                 \n - Destination file contents:\n{}",
-                std::fs::read_to_string(&destination),
+                std::fs::read_to_string(&destination).unwrap(),
             );
         }
 
