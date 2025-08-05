@@ -115,6 +115,10 @@ pub fn send_load_workspace_files(
     mut interaction_state: ResMut<NextState<InteractionState>>,
     mut load_site: EventWriter<LoadSite>,
 ) {
+    warn!(
+        " >>> Sending loaded workspace file: {}",
+        request.site.properties.name.0,
+    );
     app_state.set(AppState::SiteEditor);
     interaction_state.set(InteractionState::Enable);
 
@@ -345,8 +349,18 @@ impl FromWorld for SiteLoadingServices {
                 .input
                 .chain(builder)
                 .map_async(|path| async move {
+                    warn!(" >>> Reading data from file [{:?}]", path);
                     match std::fs::read(&path) {
-                        Ok(data) => LoadSite::from_data(&data, Some(path)).ok(),
+                        Ok(data) => {
+                            warn!(" >>> Parsing file data into site data");
+                            match LoadSite::from_data(&data, Some(path)) {
+                                Ok(site) => Some(site),
+                                Err(err) => {
+                                    warn!(" >>> Error parsing data: {err}");
+                                    return None;
+                                }
+                            }
+                        }
                         Err(err) => {
                             warn!("Cannot load file [{path:?}] because it cannot be read: {err}");
                             return None;

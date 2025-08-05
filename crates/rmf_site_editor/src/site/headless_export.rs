@@ -73,6 +73,7 @@ pub fn headless_export(
     mut workspace_loader: WorkspaceLoader,
 ) {
     if let Some(mut autoload) = autoload {
+        warn!(" >>> Autoload enabled. Filename: {:?}", autoload.filename);
         if let Some(filename) = autoload.filename.take() {
             workspace_loader.load_from_path(filename);
         }
