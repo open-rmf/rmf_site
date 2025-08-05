@@ -54,6 +54,9 @@ pub use inspect_option_string::*;
 pub mod inspect_layer;
 pub use inspect_layer::*;
 
+pub mod inspect_level;
+pub use inspect_level::*;
+
 pub mod inspect_lift;
 pub use inspect_lift::*;
 
@@ -202,6 +205,7 @@ impl Plugin for StandardInspectorPlugin {
                 InspectionPlugin::<InspectPhysicalCameraProperties>::new(),
                 InspectionPlugin::<InspectPreview>::new(),
                 InspectionPlugin::<InspectGroup>::new(),
+                InspectionPlugin::<InspectLevel>::new(),
                 InspectModelDescriptionPlugin::default(),
                 InspectLiftPlugin::default(),
             ))

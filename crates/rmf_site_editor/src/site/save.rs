@@ -1391,7 +1391,14 @@ fn generate_scenarios(
             &Affiliation<Entity>,
         )>,
         Query<&SiteID, Without<Pending>>,
-        Query<(Option<&Modifier<Pose>>, Option<&Modifier<Inclusion>>), With<Affiliation<Entity>>>,
+        Query<
+            (
+                Option<&Modifier<Pose>>,
+                Option<&Modifier<Inclusion>>,
+                Option<&Modifier<OnLevel<Entity>>>,
+            ),
+            With<Affiliation<Entity>>,
+        >,
         Query<
             (Option<&Modifier<Inclusion>>, Option<&Modifier<TaskParams>>),
             With<Affiliation<Entity>>,
@@ -1416,7 +1423,7 @@ fn generate_scenarios(
                                 instances: scenario_modifiers
                                     .iter()
                                     .map(|(e_element, e_modifier)| {
-                                        let (pose, inclusion) =
+                                        let (pose, inclusion, on_level) =
                                             instance_modifiers.get(*e_modifier).map_err(|_| {
                                                 SiteGenerationError::BrokenModifier(*e_modifier)
                                             })?;
@@ -1428,6 +1435,22 @@ fn generate_scenarios(
                                             InstanceModifier {
                                                 pose: pose.map(|p| **p),
                                                 inclusion: inclusion.map(|i| **i),
+                                                on_level: match on_level
+                                                    .map(|l| **l)
+                                                    .and_then(|level| level.0)
+                                                {
+                                                    Some(e) => Some(
+                                                        site_id
+                                                            .get(e)
+                                                            .map_err(|_| {
+                                                                SiteGenerationError::BrokenLevelReference(
+                                                                    e,
+                                                                )
+                                                            })?
+                                                            .0,
+                                                    ),
+                                                    None => None,
+                                                },
                                             },
                                         ))
                                     })

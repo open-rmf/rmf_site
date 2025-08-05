@@ -17,9 +17,9 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Deref, DerefMut};
+use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
@@ -98,5 +98,26 @@ pub struct RankingsInLevel {
 impl RankingsInLevel {
     pub fn is_empty(&self) -> bool {
         self.floors.is_empty() && self.drawings.is_empty()
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(transparent)]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+pub struct OnLevel<T: RefTrait>(pub Option<T>);
+
+impl<T: RefTrait> Default for OnLevel<T> {
+    fn default() -> Self {
+        OnLevel(None)
+    }
+}
+
+impl<T: RefTrait> OnLevel<T> {
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<OnLevel<U>, T> {
+        if let Some(x) = self.0 {
+            Ok(OnLevel(Some(id_map.get(&x).ok_or(x)?.clone())))
+        } else {
+            Ok(OnLevel(None))
+        }
     }
 }

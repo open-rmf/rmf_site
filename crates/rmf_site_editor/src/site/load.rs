@@ -135,7 +135,9 @@ pub enum LoadSiteError {
     JsonParsingError(#[from] serde_json::Error),
     #[error("Unrecognized file type: {0}")]
     UnrecognizedFileType(PathBuf),
-    #[error("Cannot determine data format for raw data. It could not be parsed as .building.yaml, .site.json, or .site.ron")]
+    #[error(
+        "Cannot determine data format for raw data. It could not be parsed as .building.yaml, .site.json, or .site.ron"
+    )]
     UnknownDataFormat,
 }
 
@@ -561,6 +563,16 @@ fn generate_site_entities(
                     scenario_entity,
                     *instance_entity,
                     inclusion,
+                ));
+            }
+            if let Some(level_entity) = instance_modifier
+                .on_level
+                .and_then(|level_id| id_to_entity.get(&level_id))
+            {
+                commands.trigger(UpdateModifier::modify(
+                    scenario_entity,
+                    *instance_entity,
+                    OnLevel(Some(*level_entity)),
                 ));
             }
         }
