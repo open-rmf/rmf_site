@@ -115,10 +115,6 @@ pub fn send_load_workspace_files(
     mut interaction_state: ResMut<NextState<InteractionState>>,
     mut load_site: EventWriter<LoadSite>,
 ) {
-    warn!(
-        " >>> Sending loaded workspace file: {}",
-        request.site.properties.name.0,
-    );
     app_state.set(AppState::SiteEditor);
     interaction_state.set(InteractionState::Enable);
 
