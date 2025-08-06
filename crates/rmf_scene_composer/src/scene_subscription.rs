@@ -19,6 +19,7 @@ use crate::generate_scene;
 
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_impulse::{Promise, Service, *};
+use example_interfaces::srv::*;
 use futures::channel::oneshot::{channel, Receiver, Sender};
 use librmf_site_editor::interaction::{DragPlaneBundle, InteractionAssets, OutlineVisualization};
 use rclrs::*;
@@ -192,6 +193,10 @@ impl Plugin for SceneSubscribingPlugin {
                             let node_name = format!("marker_subscriber_{}", topic_name.clone());
                             let node = executor.create_node(&node_name).unwrap();
 
+                            // Create client for resource retriever service
+                            // TODO(@xiyuoh) Update srv used here
+                            let client = node.create_client::<AddTwoInts>("add_two_ints").unwrap();
+
                             let logger = node.logger().clone();
                             log!(&logger, "Attempting to subscribe to topic: {}", topic_name);
 
@@ -209,7 +214,19 @@ impl Plugin for SceneSubscribingPlugin {
                                     log!(&logger, "Received a msg: id={}, ns={}", msg.id, msg.ns);
                                     log!(&logger, "Received a mesh: {}", msg.mesh_resource);
                                     let mesh_resource = msg.mesh_resource.clone();
-                                    input.streams.send(StreamOf(RosMesh { mesh_resource }));
+
+                                    // Send mesh resource to service
+                                    let srv_request = AddTwoInts_Request { a: 41, b: 1 };
+
+                                    let srv_response: AddTwoInts_Response =
+                                        client.call(&srv_request).unwrap().await.unwrap();
+                                    println!(
+                                        "Result of {} + {} is: {}",
+                                        srv_request.a, srv_request.b, srv_response.sum,
+                                    );
+                                    let sum = srv_response.sum;
+                                    // Send mesh to streams
+                                    input.streams.send(StreamOf(RosMesh { mesh_resource, sum }));
                                 }
                             });
 
@@ -284,4 +301,5 @@ struct SceneSubscriptionRequest {
 
 pub(crate) struct RosMesh {
     pub(crate) mesh_resource: String,
+    pub(crate) sum: i64,
 }

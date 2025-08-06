@@ -38,3 +38,4 @@ futures = "0.3.31"
 std_msgs = { version = "*", features = ["serde"] }
 visualization_msgs = { version = "*", features = ["serde"] }
 builtin_interfaces = { version = "*", features = ["serde"] }
+example_interfaces = { version = "*" }

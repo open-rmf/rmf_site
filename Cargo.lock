@@ -78,6 +78,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "action_msgs"
+version = "2.0.2"
+dependencies = [
+ "builtin_interfaces",
+ "rosidl_runtime_rs",
+ "service_msgs",
+ "unique_identifier_msgs",
+]
+
+[[package]]
 name = "addr2line"
 version = "0.24.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2819,6 +2829,17 @@ checksum = "8be9f3dfaaffdae2972880079a491a1a8bb7cbed0b8dd7a347f668b4150a3b93"
 dependencies = [
  "event-listener 5.4.0",
  "pin-project-lite",
+]
+
+[[package]]
+name = "example_interfaces"
+version = "0.12.0"
+dependencies = [
+ "action_msgs",
+ "builtin_interfaces",
+ "rosidl_runtime_rs",
+ "service_msgs",
+ "unique_identifier_msgs",
 ]
 
 [[package]]
@@ -5688,6 +5709,7 @@ dependencies = [
  "bevy_impulse",
  "builtin_interfaces",
  "clap",
+ "example_interfaces",
  "futures",
  "futures-lite 1.13.0",
  "glam",
@@ -7005,6 +7027,13 @@ name = "unicode-xid"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
+
+[[package]]
+name = "unique_identifier_msgs"
+version = "2.5.0"
+dependencies = [
+ "rosidl_runtime_rs",
+]
 
 [[package]]
 name = "untrusted"
@@ -8452,14 +8481,6 @@ checksum = "2c9e525af0a6a658e031e95f14b7f889976b74a11ba0eca5a5fc9ac8a1c43a6a"
 dependencies = [
  "zune-core",
 ]
-
-[[patch.unused]]
-name = "action_msgs"
-version = "2.0.2"
-
-[[patch.unused]]
-name = "unique_identifier_msgs"
-version = "2.5.0"
 
 [[patch.unused]]
 name = "bevy_dev_tools"

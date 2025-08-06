@@ -39,14 +39,14 @@ pub enum SceneLoadingError {
 }
 
 pub(crate) fn generate_scene(
-    In(RosMesh { mesh_resource }): In<RosMesh>,
+    In(RosMesh { mesh_resource, sum }): In<RosMesh>,
     mut commands: Commands,
     mut model_loader: ModelLoader,
     children: Query<&Children>,
 ) {
     println!(
-        "----- Inside generate scene! getting resource: {:?}",
-        mesh_resource
+        "----- Inside generate scene! getting resource: {:?}, sum: {}",
+        mesh_resource, sum
     );
     // // Despawn any old children to clear space for the new scene
     // if let Ok(children) = children.get(scene_root) {
