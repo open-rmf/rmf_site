@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::DragPlaneBundle,
-    site::{CurrentScenario, Delete, SiteAssets, UpdateProperty},
+    site::{CurrentScenario, Delete, SiteAssets, UpdateModifier},
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
     Issue, ValidateWorkspace,
 };
@@ -38,8 +38,8 @@ use bevy_impulse::*;
 use bevy_mod_outline::{GenerateOutlineNormalsSettings, OutlineMeshExt};
 use rmf_site_camera::MODEL_PREVIEW_LAYER;
 use rmf_site_format::{
-    Affiliation, AssetSource, Group, IssueKey, ModelInstance, ModelMarker, ModelProperty,
-    NameInSite, Pending, Scale,
+    Affiliation, AssetSource, Group, Inclusion, IssueKey, ModelInstance, ModelMarker,
+    ModelProperty, NameInSite, Pending, Scale,
 };
 use rmf_site_picking::Preview;
 use smallvec::SmallVec;
@@ -465,6 +465,7 @@ impl<'w, 's> ModelLoader<'w, 's> {
             .insert(ChildOf(parent))
             .insert(PendingModel) // Set instance as pending until it completes loading
             .insert(Visibility::Hidden) // Set instance to hidden until it completes loading
+            .insert(Inclusion::Hidden)
             .id();
         let spawning_impulse = self.commands.request(
             InstanceSpawningRequest::new(id, affiliation),
@@ -811,12 +812,15 @@ pub fn make_models_selectable(
 pub fn make_models_visible(
     In(req): In<ModelLoadingRequest>,
     mut commands: Commands,
-    mut update_property: EventWriter<UpdateProperty>,
     current_scenario: Res<CurrentScenario>,
 ) -> ModelLoadingRequest {
     if let Some(current_scenario_entity) = current_scenario.0 {
         commands.entity(req.parent).remove::<PendingModel>();
-        update_property.write(UpdateProperty::new(req.parent, current_scenario_entity));
+        commands.trigger(UpdateModifier::modify(
+            current_scenario_entity,
+            req.parent,
+            Inclusion::Included,
+        ));
     }
     req
 }

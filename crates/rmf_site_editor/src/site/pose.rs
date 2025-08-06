@@ -15,8 +15,11 @@
  *
 */
 
+use crate::site::StandardProperty;
 use bevy::prelude::*;
 use rmf_site_format::Pose;
+
+impl StandardProperty for Pose {}
 
 pub fn update_transforms_for_changed_poses(
     mut poses: Query<(Entity, &Pose, Option<&mut Transform>), Changed<Pose>>,
