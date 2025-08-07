@@ -25,8 +25,9 @@ use librmf_site_editor::interaction::{DragPlaneBundle, InteractionAssets, Outlin
 use rclrs::*;
 use rmf_site_format::*;
 use rmf_site_picking::VisualCue;
+use rviz_interfaces::srv::*;
 use std::{borrow::Cow, error::Error, sync::Arc};
-use visualization_msgs::msg::Marker;
+use visualization_msgs::msg::{Marker, MarkerArray};
 
 #[derive(SystemParam)]
 pub struct SceneSubscriber<'w, 's> {
@@ -184,49 +185,87 @@ impl Plugin for SceneSubscribingPlugin {
 
                             // TODO(@xiyuoh) Get rid of the ugly hack
                             // Currently we're creating a new executor everytime this workflow is triggered
-                            // because the executor cannot be safely passed into .map_node()
-                            // Using until_promise_resolved to drop "expired" node subscriptions, but all created
-                            // nodes will stay. Find a way to have only one node up.
+                            // because for some reason streams are not passed on to generate_scene properly
+                            // when we use a node created out of this scope.
+                            // Using until_promise_resolved to drop "expired" node subscriptions.
 
                             let context = Context::default_from_env().unwrap();
                             let mut executor = context.create_basic_executor();
                             let node_name = format!("marker_subscriber_{}", topic_name.clone());
                             let node = executor.create_node(&node_name).unwrap();
 
-                            // Create client for resource retriever service
-                            // TODO(@xiyuoh) Update srv used here
-                            let client = node.create_client::<AddTwoInts>("add_two_ints").unwrap();
-
                             let logger = node.logger().clone();
                             log!(&logger, "Attempting to subscribe to topic: {}", topic_name);
 
                             let mut receiver = node
-                                .create_subscription_receiver::<Marker>(topic_name.as_str())
+                                .create_subscription_receiver::<MarkerArray>(
+                                    topic_name.as_str().transient_local(),
+                                )
                                 .unwrap();
                             log!(
                                 &logger,
                                 "Waiting to receive markers from topic {}...",
                                 topic_name
                             );
-                            let promise = executor.commands().run(async move {
+
+                            // ================================================================
+                            let client = node
+                                .create_client::<GetResource>("workcell_1/rviz_get_resource")
+                                .unwrap();
+                            log!(&logger, "Checking if service is ready...");
+                            while !client.service_is_ready().is_ok_and(|b| b) {
+                                std::thread::sleep(std::time::Duration::from_millis(10));
+                            }
+                            log!(&logger, "GetResource service is ready!");
+                            // ================================================================
+                            let stream_node = node.clone();
+                            let promise = node.commands().run(async move {
                                 while let Some(msg) = receiver.recv().await {
-                                    println!("# I heard: '{}'", msg.id);
-                                    log!(&logger, "Received a msg: id={}, ns={}", msg.id, msg.ns);
-                                    log!(&logger, "Received a mesh: {}", msg.mesh_resource);
-                                    let mesh_resource = msg.mesh_resource.clone();
-
-                                    // Send mesh resource to service
-                                    let srv_request = AddTwoInts_Request { a: 41, b: 1 };
-
-                                    let srv_response: AddTwoInts_Response =
-                                        client.call(&srv_request).unwrap().await.unwrap();
-                                    println!(
-                                        "Result of {} + {} is: {}",
-                                        srv_request.a, srv_request.b, srv_response.sum,
+                                    log!(
+                                        &logger,
+                                        "Received a msg with {} markers",
+                                        msg.markers.len()
                                     );
-                                    let sum = srv_response.sum;
-                                    // Send mesh to streams
-                                    input.streams.send(StreamOf(RosMesh { mesh_resource, sum }));
+
+                                    // Service call to retrieve mesh body
+                                    let mut mesh_resource = msg.markers[0].mesh_resource.clone();
+                                    if let Some(uri) =
+                                        mesh_resource.strip_prefix("http://localhost:8123")
+                                    {
+                                        mesh_resource = uri.to_string();
+                                    } else if let Some(uri) =
+                                        mesh_resource.strip_prefix("http://localhost:8124")
+                                    {
+                                        mesh_resource = uri.to_string();
+                                    } else {
+                                        log!(
+                                            &logger,
+                                            "Received an invalid mesh resource uri: {}",
+                                            mesh_resource
+                                        );
+                                    }
+
+                                    let mut resource_array = Vec::<Vec<u8>>::new();
+                                    for mesh in msg.markers.iter() {
+                                        // Send mesh resource to service
+                                        let srv_request = GetResource_Request {
+                                            path: mesh.mesh_resource.clone(),
+                                            etag: String::new(),
+                                        };
+                                        log!(
+                                            &logger,
+                                            "Sending GetResource request with mesh resource: {}",
+                                            mesh.mesh_resource
+                                        );
+
+                                        let srv_response: GetResource_Response =
+                                            client.call(&srv_request).unwrap().await.unwrap();
+                                        input.streams.send(StreamOf(RosMesh {
+                                            marker_array: msg.markers.clone(),
+                                            node: stream_node.clone(),
+                                            resource: srv_response.body,
+                                        }));
+                                    }
                                 }
                             });
 
@@ -238,6 +277,11 @@ impl Plugin for SceneSubscribingPlugin {
                         }
                     },
                 );
+
+            subscription_node
+                .output
+                .chain(builder)
+                .connect(scope.terminate);
 
             // TODO(@xiyuoh) Set up service call to WorldBridge to retrieve GLTF mesh file
 
@@ -300,6 +344,7 @@ struct SceneSubscriptionRequest {
 }
 
 pub(crate) struct RosMesh {
-    pub(crate) mesh_resource: String,
-    pub(crate) sum: i64,
+    pub(crate) marker_array: Vec<Marker>,
+    pub(crate) node: Arc<NodeState>,
+    pub(crate) resource: Vec<u8>,
 }

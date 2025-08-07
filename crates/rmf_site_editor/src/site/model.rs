@@ -77,7 +77,10 @@ pub fn get_all_for_source(source: &AssetSource) -> Vec<AssetSource> {
 
             paths
         }
-        AssetSource::Local(_) | AssetSource::Remote(_) | AssetSource::Package(_) => {
+        AssetSource::Local(_)
+        | AssetSource::Remote(_)
+        | AssetSource::Package(_)
+        | AssetSource::Ros(_) => {
             let mut v = Vec::new();
             v.push(source.clone());
             v

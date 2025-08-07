@@ -20,6 +20,7 @@ use crate::RosMesh;
 use thiserror::Error;
 
 use bevy::prelude::*;
+use example_interfaces::srv::*;
 use librmf_site_editor::interaction::DragPlaneBundle;
 use librmf_site_editor::site::Model as SiteModel;
 use librmf_site_editor::site::Pose as SitePose;
@@ -27,6 +28,8 @@ use librmf_site_editor::site::{
     AssetSource, Category, DirectionalLight, IsStatic, Light, LightKind, ModelLoader, ModelMarker,
     NameInSite, PointLight, PrimitiveShape, Rotation, Scale, SpotLight, VisualMeshMarker,
 };
+use rclrs::*;
+use rviz_interfaces::srv::*;
 
 use std::collections::VecDeque;
 
@@ -39,15 +42,54 @@ pub enum SceneLoadingError {
 }
 
 pub(crate) fn generate_scene(
-    In(RosMesh { mesh_resource, sum }): In<RosMesh>,
+    In(RosMesh {
+        marker_array,
+        node,
+        resource,
+    }): In<RosMesh>,
     mut commands: Commands,
     mut model_loader: ModelLoader,
     children: Query<&Children>,
 ) {
+    println!("---- inside [generate_scene]");
     println!(
-        "----- Inside generate scene! getting resource: {:?}, sum: {}",
-        mesh_resource, sum
+        "----- Inside generate scene! Received MarkerArray of len [{}]",
+        marker_array.len()
     );
+    println!(
+        "----- Inside generate scene! Received resourceeeeee of len [{}]",
+        resource.len()
+    );
+
+    // let context = Context::default_from_env().unwrap();
+    // let mut executor = context.create_basic_executor();
+    // let node_name = format!("marker_subscriber_{}", topic_name.clone());
+    // let node = executor.create_node(&node_name).unwrap();
+
+    // let uri = if let Some(stripped) = mesh.filename.strip_prefix("model://") {
+    //     stripped
+    // } else {
+    //     mesh.filename.as_str()
+    // };
+    // let asset_source = AssetSource::Local(mesh_resource.to_string());
+    // let mesh_entity = commands
+    //     .spawn(SiteModel {
+    //         name: NameInSite(name.to_owned()),
+    //         source: asset_source.clone(),
+    //         pose,
+    //         is_static: IsStatic(is_static),
+    //         scale: match &mesh.scale {
+    //             Some(scale) => Scale(Vec3::new(scale.x as f32, scale.y as f32, scale.z as f32)),
+    //             None => Scale::default(),
+    //         },
+    //         marker: ModelMarker,
+    //     })
+    //     .id();
+    // let interaction = DragPlaneBundle::new(root, Vec3::Z).globally();
+    // model_loader
+    //     .update_asset_source_impulse(mesh_entity, asset_source, Some(interaction.clone()))
+    //     .detach();
+
     // // Despawn any old children to clear space for the new scene
     // if let Ok(children) = children.get(scene_root) {
     //     for child in children {
