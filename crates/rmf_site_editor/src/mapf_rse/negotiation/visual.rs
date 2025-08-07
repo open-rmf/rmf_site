@@ -100,7 +100,10 @@ pub fn visualise_selected_node(
             if let Ok(cc) = robot_descriptions.get(description_entity) {
                 collision_radius = cc.radius;
             } else {
-                warn!("No circle collision model found for robot's model description, using default value of {}", collision_radius);
+                warn!(
+                    "No circle collision model found for robot's model description, using default value of {}",
+                    collision_radius
+                );
             }
 
             let lane_material = materials.add(StandardMaterial {

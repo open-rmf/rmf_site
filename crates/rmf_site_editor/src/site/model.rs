@@ -17,9 +17,12 @@
 
 use crate::{
     interaction::DragPlaneBundle,
-    site::{CurrentScenario, Delete, SiteAssets, UpdateModifier},
+    site::{
+        get_current_workspace_path, CurrentScenario, DefaultFile, Delete, SiteAssets,
+        UpdateModifier,
+    },
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
-    Issue, ValidateWorkspace,
+    CurrentWorkspace, Issue, ValidateWorkspace,
 };
 use bevy::{
     asset::{io::AssetReaderError, AssetLoadError},
@@ -148,10 +151,14 @@ fn check_scenes_are_spawned(
 fn load_asset_source(
     In(source): In<AssetSource>,
     asset_server: Res<AssetServer>,
+    current_workspace: Option<Res<CurrentWorkspace>>,
+    site_files: Query<&DefaultFile>,
 ) -> impl Future<Output = Result<UntypedHandle, ModelLoadingErrorKind>> {
     let asset_server = asset_server.clone();
+    let base_path = current_workspace.and_then(|w| get_current_workspace_path(w, site_files));
+
     async move {
-        let asset_path = match String::try_from(&source) {
+        let asset_path = match String::try_from(&source.with_base_path(base_path.as_ref())) {
             Ok(asset_path) => asset_path,
             Err(err) => {
                 return Err(ModelLoadingErrorKind::InvalidAssetSource(err.to_string()));
