@@ -202,6 +202,9 @@ impl Plugin for SitePlugin {
                 SiteUpdateSet::BetweenTransformAndVisibility,
                 SiteUpdateSet::BetweenTransformAndVisibilityFlush,
                 VisibilitySystems::VisibilityPropagate,
+                // TODO(luca) remove this when https://github.com/bevyengine/bevy/pull/19064 (or
+                // alternative fix) is merged and released
+                bevy::asset::AssetEvents,
             )
                 .chain(),
         )
@@ -388,7 +391,6 @@ impl Plugin for SitePlugin {
                 handle_remove_scenarios.before(update_current_scenario),
                 update_current_scenario.before(handle_create_scenarios),
                 handle_create_scenarios,
-                handle_task_edit,
             )
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenTransformAndVisibility),

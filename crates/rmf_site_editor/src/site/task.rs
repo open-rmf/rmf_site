@@ -15,12 +15,7 @@
  *
 */
 
-use crate::{
-    site::{Delete, Element, Pending, StandardProperty, Task, TaskKind, TaskParams},
-    widgets::tasks::{EditMode, EditModeEvent, EditTask},
-    CurrentWorkspace,
-};
-use bevy::ecs::hierarchy::ChildOf;
+use crate::site::{Element, StandardProperty, Task, TaskKind, TaskParams};
 use bevy::prelude::*;
 use std::collections::HashMap;
 
@@ -39,34 +34,6 @@ impl FromWorld for TaskKinds {
 impl Element for Task {}
 
 impl StandardProperty for TaskParams {}
-
-/// Updates the current EditTask entity based on the triggered edit mode event
-pub fn handle_task_edit(
-    mut commands: Commands,
-    mut delete: EventWriter<Delete>,
-    mut edit_mode: EventReader<EditModeEvent>,
-    mut edit_task: ResMut<EditTask>,
-    pending_tasks: Query<&mut Task, With<Pending>>,
-    current_workspace: Res<CurrentWorkspace>,
-) {
-    // TODO(@xiyuoh) fix bug where the egui panel glitches when the EditTask resource is being accessed
-    if let Some(edit) = edit_mode.read().last() {
-        match edit.mode {
-            EditMode::New(task_entity) => {
-                if let Some(site_entity) = current_workspace.root {
-                    commands.entity(task_entity).insert(ChildOf(site_entity));
-                }
-                edit_task.0 = Some(task_entity);
-            }
-            EditMode::Edit(task_entity) => {
-                if let Some(pending_task) = edit_task.0.filter(|e| pending_tasks.get(*e).is_ok()) {
-                    delete.write(Delete::new(pending_task));
-                }
-                edit_task.0 = task_entity;
-            }
-        }
-    }
-}
 
 pub fn update_task_kind_component<T: TaskKind>(
     mut commands: Commands,

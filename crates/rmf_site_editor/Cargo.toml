@@ -62,3 +62,7 @@ bevy_impulse = { workspace = true}
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 bevy_egui = { workspace = true, default-features = false, features = ["open_url", "default_fonts", "render"] }
 bevy_impulse = { workspace = true, features = ["single_threaded_async"]}
+
+[dev-dependencies]
+file_diff = {workspace = true}
+testdir = {workspace = true}
