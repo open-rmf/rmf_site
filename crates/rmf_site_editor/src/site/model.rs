@@ -154,27 +154,33 @@ fn load_asset_source(
 ) -> impl Future<Output = Result<UntypedHandle, ModelLoadingErrorKind>> {
     let asset_server = asset_server.clone();
     async move {
-        let asset_path = match String::try_from(&source) {
-            Ok(asset_path) => asset_path,
-            Err(err) => {
-                return Err(ModelLoadingErrorKind::InvalidAssetSource(err.to_string()));
-            }
-        };
-        asset_server
-            .load_untyped_async(&asset_path)
-            .await
-            .map_err(|err| {
-                if !matches!(
-                    err,
-                    AssetLoadError::AssetReaderError(AssetReaderError::Io(_))
-                ) {
-                    // AssetReaderError::Io is a common error during searches, so
-                    // we skip it, but other errors may indicate that a problem
-                    // exists in the asset itself.
-                    error!("Failed attempt to load asset with [{asset_path}]: {err}");
+        if let AssetSource::Ros(path) = source {
+            let handle: Handle<Scene> =
+                asset_server.load(GltfAssetLabel::Scene(0).from_asset(format!("ros://{}", path)));
+            Ok(handle.untyped())
+        } else {
+            let asset_path = match String::try_from(&source) {
+                Ok(asset_path) => asset_path,
+                Err(err) => {
+                    return Err(ModelLoadingErrorKind::InvalidAssetSource(err.to_string()));
                 }
-                ModelLoadingErrorKind::AssetServerError(err.to_string())
-            })
+            };
+            asset_server
+                .load_untyped_async(&asset_path)
+                .await
+                .map_err(|err| {
+                    if !matches!(
+                        err,
+                        AssetLoadError::AssetReaderError(AssetReaderError::Io(_))
+                    ) {
+                        // AssetReaderError::Io is a common error during searches, so
+                        // we skip it, but other errors may indicate that a problem
+                        // exists in the asset itself.
+                        error!("Failed attempt to load asset with [{asset_path}]: {err}");
+                    }
+                    ModelLoadingErrorKind::AssetServerError(err.to_string())
+                })
+        }
     }
 }
 

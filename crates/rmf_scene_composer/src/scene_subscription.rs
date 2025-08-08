@@ -15,7 +15,7 @@
  *
 */
 
-use crate::generate_scene;
+use crate::generate_scene::*;
 
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_impulse::{Promise, Service, *};
@@ -195,20 +195,13 @@ impl Plugin for SceneSubscribingPlugin {
                             let node = executor.create_node(&node_name).unwrap();
 
                             let logger = node.logger().clone();
-                            log!(&logger, "Attempting to subscribe to topic: {}", topic_name);
 
                             let mut receiver = node
                                 .create_subscription_receiver::<MarkerArray>(
                                     topic_name.as_str().transient_local(),
                                 )
                                 .unwrap();
-                            log!(
-                                &logger,
-                                "Waiting to receive markers from topic {}...",
-                                topic_name
-                            );
 
-                            // ================================================================
                             let client = node
                                 .create_client::<GetResource>("workcell_1/rviz_get_resource")
                                 .unwrap();
@@ -217,53 +210,34 @@ impl Plugin for SceneSubscribingPlugin {
                                 std::thread::sleep(std::time::Duration::from_millis(10));
                             }
                             log!(&logger, "GetResource service is ready!");
-                            // ================================================================
+
                             let stream_node = node.clone();
                             let promise = node.commands().run(async move {
                                 while let Some(msg) = receiver.recv().await {
-                                    log!(
-                                        &logger,
-                                        "Received a msg with {} markers",
-                                        msg.markers.len()
-                                    );
-
-                                    // Service call to retrieve mesh body
-                                    let mut mesh_resource = msg.markers[0].mesh_resource.clone();
-                                    if let Some(uri) =
-                                        mesh_resource.strip_prefix("http://localhost:8123")
-                                    {
-                                        mesh_resource = uri.to_string();
-                                    } else if let Some(uri) =
-                                        mesh_resource.strip_prefix("http://localhost:8124")
-                                    {
-                                        mesh_resource = uri.to_string();
-                                    } else {
-                                        log!(
-                                            &logger,
-                                            "Received an invalid mesh resource uri: {}",
-                                            mesh_resource
-                                        );
-                                    }
-
-                                    let mut resource_array = Vec::<Vec<u8>>::new();
-                                    for mesh in msg.markers.iter() {
-                                        // Send mesh resource to service
-                                        let srv_request = GetResource_Request {
-                                            path: mesh.mesh_resource.clone(),
-                                            etag: String::new(),
+                                    for marker in msg.markers.iter() {
+                                        let mut marker = marker.clone();
+                                        let Some(mesh_resource) = marker
+                                            .mesh_resource
+                                            .strip_prefix("http://localhost:8123")
+                                            .or_else(|| {
+                                                marker
+                                                    .mesh_resource
+                                                    .strip_prefix("http://localhost:8124")
+                                            })
+                                        else {
+                                            println!(
+                                                "Invalid mesh resource: {}",
+                                                marker.mesh_resource
+                                            );
+                                            continue;
                                         };
-                                        log!(
-                                            &logger,
-                                            "Sending GetResource request with mesh resource: {}",
-                                            mesh.mesh_resource
-                                        );
+                                        marker.mesh_resource = mesh_resource.to_string();
 
-                                        let srv_response: GetResource_Response =
-                                            client.call(&srv_request).unwrap().await.unwrap();
                                         input.streams.send(StreamOf(RosMesh {
-                                            marker_array: msg.markers.clone(),
+                                            scene_root,
+                                            marker,
                                             node: stream_node.clone(),
-                                            resource: srv_response.body,
+                                            client: client.clone(),
                                         }));
                                     }
                                 }
@@ -283,13 +257,24 @@ impl Plugin for SceneSubscribingPlugin {
                 .chain(builder)
                 .connect(scope.terminate);
 
-            // TODO(@xiyuoh) Set up service call to WorldBridge to retrieve GLTF mesh file
+            let retrieve_mesh_data = builder.commands().spawn_service(retrieve_mesh_data);
 
-            subscription_node
+            let retrieval_node = subscription_node
                 .streams
                 .chain(builder)
                 .inner()
-                .then(generate_scene.into_blocking_callback())
+                .then_node(retrieve_mesh_data);
+
+            retrieval_node
+                .output
+                .chain(builder)
+                .connect(scope.terminate);
+
+            retrieval_node
+                .streams
+                .chain(builder)
+                .inner()
+                .then(generate_mesh.into_blocking_callback())
                 .unused();
         });
 
@@ -344,7 +329,8 @@ struct SceneSubscriptionRequest {
 }
 
 pub(crate) struct RosMesh {
-    pub(crate) marker_array: Vec<Marker>,
+    pub(crate) scene_root: Entity,
+    pub(crate) marker: Marker,
     pub(crate) node: Arc<NodeState>,
-    pub(crate) resource: Vec<u8>,
+    pub(crate) client: Arc<ClientState<GetResource>>,
 }
