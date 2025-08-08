@@ -123,14 +123,14 @@ pub fn make_triangular_arrow() -> MeshBuffer {
         [0.0, 0.3, 0.4],  // 4
     ];
 
-    let base_indices: Vec<u32> = vec![0, 1, 4, 0, 4, 2, 3, 4, 1, 3, 2, 4, 0, 3, 1, 0, 2, 3];
+    let base_indices: Vec<usize> = vec![0, 1, 4, 0, 4, 2, 3, 4, 1, 3, 2, 4, 0, 3, 1, 0, 2, 3];
 
     let indices: Vec<u32> = (0..18).collect();
 
     let positions: Vec<[f32; 3]> = base_indices
         .clone()
         .into_iter()
-        .map(|idx| base_positions[idx as usize])
+        .map(|idx| base_positions[idx])
         .collect();
 
     let normals: Vec<[f32; 3]> = (0..base_indices.len())
@@ -138,13 +138,13 @@ pub fn make_triangular_arrow() -> MeshBuffer {
         .into_iter()
         .map(|idx| {
             let chunk = [
-                base_indices[idx as usize],
-                base_indices[(idx + 1) as usize],
-                base_indices[(idx + 2) as usize],
+                base_indices[idx],
+                base_indices[idx + 1],
+                base_indices[idx + 2],
             ];
-            let p0: Vec3 = base_positions[chunk[0] as usize].into();
-            let p1: Vec3 = base_positions[chunk[1] as usize].into();
-            let p2: Vec3 = base_positions[chunk[2] as usize].into();
+            let p0: Vec3 = base_positions[chunk[0]].into();
+            let p1: Vec3 = base_positions[chunk[1]].into();
+            let p2: Vec3 = base_positions[chunk[2]].into();
             let n = (p1 - p0).cross(p2 - p0).normalize();
 
             n.into()
