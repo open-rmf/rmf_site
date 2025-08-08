@@ -200,6 +200,9 @@ impl Plugin for SitePlugin {
                 SiteUpdateSet::BetweenTransformAndVisibility,
                 SiteUpdateSet::BetweenTransformAndVisibilityFlush,
                 VisibilitySystems::VisibilityPropagate,
+                // TODO(luca) remove this when https://github.com/bevyengine/bevy/pull/19064 (or
+                // alternative fix) is merged and released
+                bevy::asset::AssetEvents,
             )
                 .chain(),
         )
