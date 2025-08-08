@@ -116,43 +116,40 @@ pub fn flat_arrow_mesh_between(
 
 pub fn make_triangular_arrow() -> MeshBuffer {
     let base_positions = vec![
-            [0.0, 0.0, 1.0], // 0
-            [0.5, 0.0, 0.0], // 1
-            [-0.5, 0.0, 0.0], // 2
-            [0.0, 0.0, 0.2], // 3
-            [0.0, 0.3, 0.4], // 4
-            [0.0, -0.3, 0.4], // 5
-        ];
-
-    let base_indices: Vec<u32> = vec![
-        0,1,4, 0,4,2,
-        3,4,1, 3,2,4,
-        0,5,1, 0,2,5,
-        3,1,5, 3,5,2,
+        [0.0, 0.0, 1.0],  // 0
+        [0.5, 0.0, 0.0],  // 1
+        [-0.5, 0.0, 0.0], // 2
+        [0.0, 0.0, 0.2],  // 3
+        [0.0, 0.3, 0.4],  // 4
     ];
 
-    let indices: Vec<u32> = (0..24).collect();
+    let base_indices: Vec<u32> = vec![0, 1, 4, 0, 4, 2, 3, 4, 1, 3, 2, 4, 0, 3, 1, 0, 2, 3];
 
-    let positions: Vec<[f32;3]> = base_indices.clone()
+    let indices: Vec<u32> = (0..18).collect();
+
+    let positions: Vec<[f32; 3]> = base_indices
+        .clone()
         .into_iter()
         .map(|idx| base_positions[idx as usize])
         .collect();
 
-    let normals: Vec<[f32;3]> = (0..base_indices.len())
+    let normals: Vec<[f32; 3]> = (0..base_indices.len())
         .step_by(3)
         .into_iter()
         .map(|idx| {
-            let chunk = [base_indices[idx as usize], base_indices[(idx + 1) as usize], base_indices[(idx + 2) as usize],];
+            let chunk = [
+                base_indices[idx as usize],
+                base_indices[(idx + 1) as usize],
+                base_indices[(idx + 2) as usize],
+            ];
             let p0: Vec3 = base_positions[chunk[0] as usize].into();
             let p1: Vec3 = base_positions[chunk[1] as usize].into();
             let p2: Vec3 = base_positions[chunk[2] as usize].into();
             let n = (p1 - p0).cross(p2 - p0).normalize();
-            
+
             n.into()
         })
-        .flat_map(|normal| {
-            vec![normal, normal, normal]
-        })
+        .flat_map(|normal| vec![normal, normal, normal])
         .collect();
 
     MeshBuffer::new(positions, normals, indices)

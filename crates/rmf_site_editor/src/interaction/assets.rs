@@ -143,12 +143,22 @@ impl InteractionAssets {
             (
                 self.x_axis_materials.clone(),
                 Vec3::new(-offset, 0., height),
-                Quat::from_euler(EulerRot::YXZ, -90_f32.to_radians(), 0.0, 90_f32.to_radians()),
+                Quat::from_euler(
+                    EulerRot::YXZ,
+                    -90_f32.to_radians(),
+                    0.0,
+                    -90_f32.to_radians(),
+                ),
             ),
             (
                 self.y_axis_materials.clone(),
                 Vec3::new(0., offset, height),
-                Quat::from_rotation_x(-90_f32.to_radians()),
+                Quat::from_euler(
+                    EulerRot::YXZ,
+                    90_f32.to_radians(),
+                    -90_f32.to_radians(),
+                    90_f32.to_radians(),
+                ),
             ),
             (
                 self.y_axis_materials.clone(),

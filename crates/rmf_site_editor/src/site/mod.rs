@@ -291,9 +291,7 @@ impl Plugin for SitePlugin {
             PropertyPlugin::<TaskParams, Task>::default(),
             SlotcarSdfPlugin,
         ))
-        .add_plugins((
-            InfiniteGridPlugin,
-        ))
+        .add_plugins((InfiniteGridPlugin,))
         .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
         .add_issue_type(&DUPLICATED_LIFT_NAME_ISSUE_UUID, "Duplicate lift name")
         .add_issue_type(
