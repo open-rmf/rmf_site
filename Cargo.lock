@@ -1055,6 +1055,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_infinite_grid"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f0e6a879a57fc6e274d83582eeb387e06f7eaa652224ad9dada0ef97b8326568"
+dependencies = [
+ "bevy",
+]
+
+[[package]]
 name = "bevy_input"
 version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5634,6 +5643,7 @@ dependencies = [
  "bevy_egui",
  "bevy_gltf_export",
  "bevy_impulse",
+ "bevy_infinite_grid",
  "bevy_mod_outline",
  "bevy_obj",
  "bevy_stl",
