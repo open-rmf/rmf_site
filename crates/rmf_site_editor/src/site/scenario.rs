@@ -599,7 +599,7 @@ pub fn check_for_accidentally_moved_instances(
                         let parent_pose = (**parent_modifier).transform().translation;
                         // If the elements of child and parent poses are very close (< 0.01),
                         // raise issue as the child instance might have been accidentally moved
-                        if child_pose.abs_diff_eq(parent_pose, 0.1) {
+                        if child_pose.abs_diff_eq(parent_pose, 0.01) {
                             let issue = Issue {
                                 key: IssueKey {
                                     entities: [instance_entity].into(),
