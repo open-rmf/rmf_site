@@ -71,6 +71,7 @@ console_error_panic_hook = "0.1.7"
 getrandom = { version = "0.3.3"}
 clap = { version = "4.0.10" }
 bytemuck = {version = "1.22"}
+bevy_infinite_grid = { version = "0.15"}
 testdir = "*"
 file_diff = "*"
 
