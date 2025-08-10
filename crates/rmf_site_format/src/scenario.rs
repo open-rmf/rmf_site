@@ -46,12 +46,28 @@ pub struct InstanceModifier {
     pub on_level: Option<u32>,
 }
 
+impl InstanceModifier {
+    /// Check if this modifier is just the default value and therefore does not
+    /// need to be saved.
+    pub fn is_default(&self) -> bool {
+        is_default(self)
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
 pub struct TaskModifier {
     #[serde(default, skip_serializing_if = "is_default")]
     pub inclusion: Option<Inclusion>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub params: Option<TaskParams>,
+}
+
+impl TaskModifier {
+    /// Check if this modifier is just the default value and therefore does not
+    /// need to be saved.
+    pub fn is_default(&self) -> bool {
+        is_default(self)
+    }
 }
 
 /// Maps a scenario element entity to its modifier entity, if any

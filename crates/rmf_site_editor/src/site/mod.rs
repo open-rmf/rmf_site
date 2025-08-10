@@ -154,6 +154,8 @@ pub use rmf_site_format::{DirectionalLight, PointLight, SpotLight, Style, *};
 
 use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
 
+use bevy_infinite_grid::*;
+
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SiteUpdateSet {
     /// We need a custom stage for assigning orphan elements because the
@@ -204,6 +206,9 @@ impl Plugin for SitePlugin {
                 SiteUpdateSet::BetweenTransformAndVisibility,
                 SiteUpdateSet::BetweenTransformAndVisibilityFlush,
                 VisibilitySystems::VisibilityPropagate,
+                // TODO(luca) remove this when https://github.com/bevyengine/bevy/pull/19064 (or
+                // alternative fix) is merged and released
+                bevy::asset::AssetEvents,
             )
                 .chain(),
         )
@@ -294,6 +299,7 @@ impl Plugin for SitePlugin {
             PropertyPlugin::<OnLevel<Entity>, Robot>::default(),
             SlotcarSdfPlugin,
         ))
+        .add_plugins((InfiniteGridPlugin,))
         .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
         .add_issue_type(&DUPLICATED_LIFT_NAME_ISSUE_UUID, "Duplicate lift name")
         .add_issue_type(
@@ -391,7 +397,6 @@ impl Plugin for SitePlugin {
                 handle_remove_scenarios.before(update_current_scenario),
                 update_current_scenario.before(handle_create_scenarios),
                 handle_create_scenarios,
-                handle_task_edit,
             )
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenTransformAndVisibility),

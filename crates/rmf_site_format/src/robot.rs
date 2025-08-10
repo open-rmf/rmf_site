@@ -19,18 +19,18 @@ use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component), require(OnLevel<Entity>))]
 pub struct Robot {
-    pub properties: HashMap<String, serde_json::Value>,
+    pub properties: BTreeMap<String, serde_json::Value>,
 }
 
 impl Default for Robot {
     fn default() -> Self {
         Self {
-            properties: HashMap::new(),
+            properties: BTreeMap::new(),
         }
     }
 }
