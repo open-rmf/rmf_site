@@ -58,13 +58,11 @@ pub fn check_for_accidentally_moved_instances(
         (Entity, &NameInSite, &Affiliation<Entity>),
         (With<ModelMarker>, Without<Group>),
     >,
-    scenarios: Query<
-        (
-            &NameInSite,
-            &ScenarioModifiers<Entity>,
-            &Affiliation<Entity>,
-        ),
-    >,
+    scenarios: Query<(
+        &NameInSite,
+        &ScenarioModifiers<Entity>,
+        &Affiliation<Entity>,
+    )>,
 ) {
     for root in validate_events.read() {
         for (scenario_name, scenario_modifiers, parent_scenario) in scenarios.iter() {
