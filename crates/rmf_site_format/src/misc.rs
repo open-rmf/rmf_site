@@ -256,6 +256,7 @@ pub enum Rotation {
     Yaw(Angle),
     #[serde(rename = "euler_xyz")]
     EulerExtrinsicXYZ([Angle; 3]),
+    /// x, y, z, w
     Quat([f32; 4]),
 }
 

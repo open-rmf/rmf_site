@@ -23,6 +23,7 @@ use crate::{
     site::{DrawingMarker, ModelLoadingState},
     Autoload, WorkspaceLoader,
 };
+use bevy_impulse::Promise;
 use rmf_site_format::NameOfSite;
 
 /// Manages a simple state machine where we:
@@ -34,23 +35,31 @@ use rmf_site_format::NameOfSite;
 //
 // TODO(@mxgrey): Introduce a "workspace has finished loading" event, and create
 // a workflow that reacts to that event.
-#[derive(Debug, Resource)]
+#[derive(Resource)]
 pub struct HeadlessExportState {
     iterations: u32,
     world_loaded: bool,
-    save_requested: bool,
+    export_request_sent: bool,
     sdf_target_path: Option<String>,
     nav_target_path: Option<String>,
+    save_target_path: Option<String>,
+    loading: Option<Promise<()>>,
 }
 
 impl HeadlessExportState {
-    pub fn new(sdf_target_path: Option<String>, nav_target_path: Option<String>) -> Self {
+    pub fn new(
+        sdf_target_path: Option<String>,
+        nav_target_path: Option<String>,
+        save_target_path: Option<String>,
+    ) -> Self {
         Self {
             iterations: 0,
             world_loaded: false,
-            save_requested: false,
+            export_request_sent: false,
             sdf_target_path,
             nav_target_path,
+            save_target_path,
+            loading: None,
         }
     }
 }
@@ -66,13 +75,24 @@ pub fn headless_export(
     autoload: Option<ResMut<Autoload>>,
     mut workspace_loader: WorkspaceLoader,
 ) {
-    if let Some(mut autoload) = autoload {
-        if let Some(filename) = autoload.filename.take() {
-            workspace_loader.load_from_path(filename);
-        }
-    } else {
-        error!("Cannot perform a headless export since no site file was specified for loading");
+    let Some(mut autoload) = autoload else {
+        error!("Cannot perform a headless export since Autoload was not used");
         exit.write(bevy::app::AppExit::error());
+        return;
+    };
+
+    if let Some(filename) = autoload.filename.take() {
+        export_state.loading = Some(workspace_loader.load_from_path(filename));
+    }
+
+    if export_state
+        .loading
+        .as_mut()
+        .is_some_and(|promise| promise.peek().is_pending())
+    {
+        // Do not iterate while the promise of loading the file is still pending.
+        // It involves async tasks which might not align with frame cycles,
+        // especially on single-threaded machines.
         return;
     }
 
@@ -95,7 +115,7 @@ pub fn headless_export(
             export_state.iterations = 0;
             export_state.world_loaded = true;
         } else {
-            if !export_state.save_requested && export_state.iterations > 5 {
+            if !export_state.export_request_sent && export_state.iterations > 5 {
                 if let Some(sdf_target_path) = &export_state.sdf_target_path {
                     let path = std::path::PathBuf::from(sdf_target_path.clone());
                     workspace_saver.export_sdf_to_path(path);
@@ -106,9 +126,14 @@ pub fn headless_export(
                     workspace_saver.export_nav_graphs_to_path(path);
                 }
 
-                export_state.save_requested = true;
+                if let Some(save_target_path) = &export_state.save_target_path {
+                    let path = std::path::PathBuf::from(save_target_path.clone());
+                    workspace_saver.save_to_path(path);
+                }
+
+                export_state.export_request_sent = true;
                 export_state.iterations = 0;
-            } else if export_state.save_requested && export_state.iterations > 5 {
+            } else if export_state.export_request_sent && export_state.iterations > 5 {
                 exit.write(bevy::app::AppExit::Success);
             }
         }

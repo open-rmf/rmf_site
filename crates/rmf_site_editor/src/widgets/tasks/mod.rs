@@ -18,9 +18,10 @@ use crate::{
     site::{
         count_scenarios_with_inclusion, Affiliation, Category, Change, CurrentScenario, Delete,
         DispatchTaskRequest, GetModifier, Group, Inclusion, Modifier, NameInSite, Pending, Robot,
-        RobotTaskRequest, ScenarioModifiers, Task, TaskKinds, TaskParams, UpdateModifier,
+        RobotTaskRequest, ScenarioModifiers, SiteUpdateSet, Task, TaskKinds, TaskParams,
+        UpdateModifier,
     },
-    Icons,
+    AppState, CurrentWorkspace, Icons,
 };
 use bevy::{
     ecs::{
@@ -62,7 +63,13 @@ impl Plugin for MainTasksPlugin {
         app.init_resource::<TaskWidget>()
             .init_resource::<TaskKinds>()
             .init_resource::<EditTask>()
-            .add_event::<EditModeEvent>();
+            .add_event::<EditModeEvent>()
+            .add_systems(
+                PostUpdate,
+                handle_task_edit
+                    .run_if(AppState::in_displaying_mode())
+                    .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
+            );
     }
 }
 
@@ -786,4 +793,32 @@ fn edit_task(
                     }
                 });
         });
+}
+
+/// Updates the current EditTask entity based on the triggered edit mode event
+pub fn handle_task_edit(
+    mut commands: Commands,
+    mut delete: EventWriter<Delete>,
+    mut edit_mode: EventReader<EditModeEvent>,
+    mut edit_task: ResMut<EditTask>,
+    pending_tasks: Query<&mut Task, With<Pending>>,
+    current_workspace: Res<CurrentWorkspace>,
+) {
+    // TODO(@xiyuoh) fix bug where the egui panel glitches when the EditTask resource is being accessed
+    if let Some(edit) = edit_mode.read().last() {
+        match edit.mode {
+            EditMode::New(task_entity) => {
+                if let Some(site_entity) = current_workspace.root {
+                    commands.entity(task_entity).insert(ChildOf(site_entity));
+                }
+                edit_task.0 = Some(task_entity);
+            }
+            EditMode::Edit(task_entity) => {
+                if let Some(pending_task) = edit_task.0.filter(|e| pending_tasks.get(*e).is_ok()) {
+                    delete.write(Delete::new(pending_task));
+                }
+                edit_task.0 = task_entity;
+            }
+        }
+    }
 }
