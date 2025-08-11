@@ -18,7 +18,7 @@
 use crate::{
     site::{
         Affiliation, Change, ChangeCurrentScenario, ChangeDefaultScenario, CreateScenario,
-        CurrentScenario, DefaultScenario, NameInSite, RemoveScenario, ScenarioMarker,
+        CurrentScenario, DefaultScenario, NameInSite, RemoveScenario, ScenarioModifiers,
     },
     widgets::prelude::*,
     CurrentWorkspace, Icons,
@@ -51,7 +51,7 @@ pub struct ViewScenarios<'w, 's> {
         'w,
         's,
         (Entity, &'static NameInSite, &'static Affiliation<Entity>),
-        With<ScenarioMarker>,
+        With<ScenarioModifiers<Entity>>,
     >,
     change_name: EventWriter<'w, Change<NameInSite>>,
     change_current_scenario: EventWriter<'w, ChangeCurrentScenario>,
@@ -211,7 +211,7 @@ fn show_scenario_widget(
     scenario_children: &HashMap<Entity, Vec<Entity>>,
     q_scenario: &Query<
         (Entity, &'static NameInSite, &'static Affiliation<Entity>),
-        With<ScenarioMarker>,
+        With<ScenarioModifiers<Entity>>,
     >,
     icons: &Res<Icons>,
 ) {

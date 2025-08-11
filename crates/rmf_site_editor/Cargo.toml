@@ -36,6 +36,7 @@ rmf_site_camera = {workspace = true}
 rmf_site_mesh = {workspace = true}
 rmf_site_picking = {workspace = true}
 rmf_site_egui = {workspace = true}
+mapf = {workspace = true}
 itertools = {workspace = true}
 bitfield = {workspace = true}
 crossbeam-channel = {workspace = true}
@@ -52,6 +53,7 @@ nalgebra = {workspace = true}
 anyhow = {workspace = true}
 uuid = { workspace = true, features = ["v4"] }
 bytemuck = {workspace = true}
+bevy_infinite_grid = {workspace = true}
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 clap = { workspace = true, features = ["color", "derive", "help", "usage", "suggestions"] }
 bevy_egui = {workspace = true}
@@ -60,3 +62,7 @@ bevy_impulse = { workspace = true}
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 bevy_egui = { workspace = true, default-features = false, features = ["open_url", "default_fonts", "render"] }
 bevy_impulse = { workspace = true, features = ["single_threaded_async"]}
+
+[dev-dependencies]
+file_diff = {workspace = true}
+testdir = {workspace = true}
