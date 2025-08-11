@@ -17,16 +17,19 @@
 
 use crate::generate_scene::*;
 
-use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy::{
+    ecs::{schedule::ScheduleConfigs, system::ScheduleSystem, system::SystemParam},
+    prelude::*,
+};
 use bevy_impulse::{Promise, Service, *};
-use example_interfaces::srv::*;
 use futures::channel::oneshot::{channel, Receiver, Sender};
 use librmf_site_editor::interaction::{DragPlaneBundle, InteractionAssets, OutlineVisualization};
+use librmf_site_editor::site::SiteUpdateSet;
 use rclrs::*;
 use rmf_site_format::*;
 use rmf_site_picking::VisualCue;
 use rviz_interfaces::srv::*;
-use std::{borrow::Cow, error::Error, sync::Arc};
+use std::{borrow::Cow, error::Error, future::Future, sync::Arc};
 use visualization_msgs::msg::{Marker, MarkerArray};
 
 #[derive(SystemParam)]
@@ -175,25 +178,30 @@ impl Plugin for SceneSubscribingPlugin {
                 .map_block(|r| (r, ()))
                 .map_node(
                     |input: AsyncMap<(SceneSubscriptionRequest, ()), StreamOf<RosMesh>>| {
+                        let (request, _) = input.request;
+                        let SceneSubscriptionRequest {
+                            topic_name,
+                            scene_root,
+                            subscription_dropped: mut drop_subscription,
+                        } = request;
+
+                        // TODO(@xiyuoh) remove existing children for scene_root
+                        // TODO(@xiyuoh) proper drop subscription using future select
+
+                        // TODO(@xiyuoh) Get rid of the ugly hack
+                        // Currently we're creating a new executor everytime this workflow is triggered
+                        // because for some reason streams are not passed on to generate_scene properly
+                        // when we use a node created out of this scope.
+                        // Using until_promise_resolved to drop "expired" node subscriptions.
+
+                        let context = Context::default_from_env().unwrap();
+                        let mut executor = context.create_basic_executor();
+                        let node_name = format!("marker_subscriber_{}", topic_name.clone());
+                        let node = executor.create_node(&node_name).unwrap();
+
+                        std::thread::spawn(move || executor.spin(SpinOptions::default()));
+                        let node = node.clone();
                         async move {
-                            let (request, _) = input.request;
-                            let SceneSubscriptionRequest {
-                                topic_name,
-                                scene_root,
-                                subscription_dropped: mut drop_subscription,
-                            } = request;
-
-                            // TODO(@xiyuoh) Get rid of the ugly hack
-                            // Currently we're creating a new executor everytime this workflow is triggered
-                            // because for some reason streams are not passed on to generate_scene properly
-                            // when we use a node created out of this scope.
-                            // Using until_promise_resolved to drop "expired" node subscriptions.
-
-                            let context = Context::default_from_env().unwrap();
-                            let mut executor = context.create_basic_executor();
-                            let node_name = format!("marker_subscriber_{}", topic_name.clone());
-                            let node = executor.create_node(&node_name).unwrap();
-
                             let logger = node.logger().clone();
 
                             let mut receiver = node
@@ -205,57 +213,26 @@ impl Plugin for SceneSubscribingPlugin {
                             let client = node
                                 .create_client::<GetResource>("workcell_1/rviz_get_resource")
                                 .unwrap();
-                            log!(&logger, "Checking if service is ready...");
-                            while !client.service_is_ready().is_ok_and(|b| b) {
-                                std::thread::sleep(std::time::Duration::from_millis(10));
-                            }
+                            client.notify_on_service_ready().await;
                             log!(&logger, "GetResource service is ready!");
 
                             let stream_node = node.clone();
-                            let promise = node.commands().run(async move {
-                                while let Some(msg) = receiver.recv().await {
-                                    for marker in msg.markers.iter() {
-                                        let mut marker = marker.clone();
-                                        let Some(mesh_resource) = marker
-                                            .mesh_resource
-                                            .strip_prefix("http://localhost:8123")
-                                            .or_else(|| {
-                                                marker
-                                                    .mesh_resource
-                                                    .strip_prefix("http://localhost:8124")
-                                            })
-                                        else {
-                                            println!(
-                                                "Invalid mesh resource: {}",
-                                                marker.mesh_resource
-                                            );
-                                            continue;
-                                        };
-                                        marker.mesh_resource = mesh_resource.to_string();
-
-                                        input.streams.send(StreamOf(RosMesh {
-                                            scene_root,
-                                            marker,
-                                            node: stream_node.clone(),
-                                            client: client.clone(),
-                                        }));
-                                    }
+                            while let Some(msg) = receiver.recv().await {
+                                for marker in msg.markers.iter() {
+                                    let mut marker = marker.clone();
+                                    input.streams.send(StreamOf(RosMesh {
+                                        scene_root,
+                                        marker,
+                                        node: stream_node.clone(),
+                                        client: client.clone(),
+                                    }));
                                 }
-                            });
-
-                            std::thread::spawn(move || {
-                                executor.spin(
-                                    SpinOptions::new().until_promise_resolved(drop_subscription),
-                                )
-                            });
+                            }
                         }
                     },
                 );
 
-            subscription_node
-                .output
-                .chain(builder)
-                .connect(scope.terminate);
+            subscription_node.output.chain(builder).unused();
 
             let retrieve_mesh_data = builder.commands().spawn_service(retrieve_mesh_data);
 
@@ -265,22 +242,29 @@ impl Plugin for SceneSubscribingPlugin {
                 .inner()
                 .then_node(retrieve_mesh_data);
 
-            retrieval_node
-                .output
-                .chain(builder)
-                .connect(scope.terminate);
-
+            retrieval_node.output.chain(builder).unused();
             retrieval_node
                 .streams
                 .chain(builder)
                 .inner()
                 .then(generate_mesh.into_blocking_callback())
-                .unused();
+                .connect(scope.terminate);
         });
 
         app.register_type::<Name>() // TypeRegistrationPlugin no longer exists
             .insert_resource(SceneSubscriptionWorkflow { service });
     }
+}
+
+fn strip_resource_prefix(resource: &String, prefix: Vec<&str>) -> String {
+    let mut mesh_resource = resource.clone();
+    for p in prefix.iter() {
+        if let Some(stripped) = mesh_resource.strip_prefix(p) {
+            mesh_resource = stripped.to_string();
+            break;
+        };
+    }
+    mesh_resource
 }
 
 fn set_basic_scene_visual(
@@ -328,6 +312,7 @@ struct SceneSubscriptionRequest {
     subscription_dropped: Receiver<()>,
 }
 
+#[derive(Clone)]
 pub(crate) struct RosMesh {
     pub(crate) scene_root: Entity,
     pub(crate) marker: Marker,

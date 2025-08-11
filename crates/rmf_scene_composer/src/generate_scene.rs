@@ -19,21 +19,17 @@ use crate::RosMesh;
 
 use bevy::prelude::*;
 use bevy_impulse::*;
-use example_interfaces::srv::*;
 use librmf_site_editor::interaction::DragPlaneBundle;
 use librmf_site_editor::site::Model as SiteModel;
 use librmf_site_editor::site::Pose as SitePose;
 use librmf_site_editor::site::{
-    AssetSource, Category, DirectionalLight, IsStatic, Light, LightKind, ModelLoader, ModelMarker,
-    NameInSite, PointLight, PrimitiveShape, Rotation, Scale, SpotLight, VisualMeshMarker,
+    AssetSource, IsStatic, ModelLoader, ModelMarker, NameInSite, Rotation, Scale, VisualMeshMarker,
 };
 use librmf_site_editor::site_asset_io::MemoryDir;
 use rclrs::*;
 use rviz_interfaces::srv::*;
+use std::{collections::VecDeque, future::Future, path::Path, sync::Arc};
 use thiserror::Error;
-
-use futures::channel::oneshot::Receiver;
-use std::{collections::VecDeque, future::Future, path::Path};
 use visualization_msgs::msg::Marker;
 
 #[derive(Error, Debug)]
@@ -52,13 +48,14 @@ pub fn retrieve_mesh_data(
     mut model_loader: ModelLoader,
     children: Query<&Children>,
 ) -> impl Future<Output = ()> {
+    let RosMesh {
+        scene_root,
+        marker,
+        node,
+        client,
+    } = request;
+    let marker = marker.clone();
     async move {
-        let RosMesh {
-            scene_root,
-            marker,
-            node,
-            client,
-        } = request;
         let srv_request = GetResource_Request {
             path: marker.mesh_resource.clone(),
             etag: String::new(),
@@ -85,9 +82,9 @@ pub fn retrieve_mesh_data(
 }
 
 pub struct RosMeshData {
-    data: Vec<u8>,
-    marker: Marker,
-    scene_root: Entity,
+    pub data: Vec<u8>,
+    pub marker: Marker,
+    pub scene_root: Entity,
 }
 
 pub fn generate_mesh(
@@ -98,15 +95,8 @@ pub fn generate_mesh(
     }): In<RosMeshData>,
     mut commands: Commands,
     mut model_loader: ModelLoader,
-    children: Query<&Children>,
-    asset_server: ResMut<AssetServer>,
     mem_dir: ResMut<MemoryDir>,
 ) {
-    // TODO(@xiyuoh) Streams are not being received here, are they dropped because the previous node is no longer active?
-    println!(
-        "---- [generate_mesh] received data for marker: {:?}",
-        marker.ns
-    );
     mem_dir
         .dir
         .insert_asset(Path::new(&marker.mesh_resource), data.clone());
@@ -133,6 +123,8 @@ pub fn generate_mesh(
         .id();
 
     let interaction = DragPlaneBundle::new(scene_root, Vec3::Z).globally();
+
+    println!("Loading model for {}...", name);
     model_loader
         .update_asset_source_impulse(mesh_entity, asset_source, Some(interaction.clone()))
         .detach();
