@@ -33,6 +33,7 @@ pub struct Lane<T: RefTrait> {
     #[serde(default, skip_serializing_if = "is_default")]
     pub reverse: ReverseLane,
     /// The mutex that might be affiliated to this lane
+    #[serde(default, skip_serializing_if = "is_default")]
     pub mutex: Affiliation<T>,
     /// What graphs this lane is associated with
     pub graphs: AssociatedGraphs<T>,

@@ -62,6 +62,7 @@ pub struct Location<T: RefTrait> {
     pub anchor: Point<T>,
     pub tags: LocationTags,
     pub name: NameInSite,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub mutex: Affiliation<T>,
     pub graphs: AssociatedGraphs<T>,
 }
