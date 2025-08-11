@@ -1059,7 +1059,7 @@ fn generate_lanes(
         let mutex = if let Some(group) = affiliation.0 {
             let group_id = q_group_ids
                 .get(group)
-                .map_err(|_| SiteGenerationError::BrokenAffiliation { object: e, group})?
+                .map_err(|_| SiteGenerationError::BrokenAffiliation { object: e, group })?
                 .0;
             Affiliation(Some(group_id))
         } else {
