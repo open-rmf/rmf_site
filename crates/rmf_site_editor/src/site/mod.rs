@@ -57,6 +57,9 @@ pub use group::*;
 pub mod headless_export;
 pub use headless_export::*;
 
+pub mod inclusion;
+pub use inclusion::*;
+
 pub mod lane;
 pub use lane::*;
 
@@ -221,10 +224,6 @@ impl Plugin for SitePlugin {
         .add_event::<ChangeCurrentScenario>()
         .add_event::<CreateScenario>()
         .add_event::<RemoveScenario>()
-        .add_event::<AddModifier>()
-        .add_event::<RemoveModifier>()
-        .add_event::<UpdateModifier<UpdateInstance>>()
-        .add_event::<UpdateModifier<UpdateTaskModifier>>()
         .add_event::<SaveSite>()
         .add_event::<ExportLights>()
         .add_event::<ConsiderAssociatedGraph>()
@@ -284,9 +283,10 @@ impl Plugin for SitePlugin {
             ChangePlugin::<ModelProperty<IsStatic>>::default(),
             ChangePlugin::<ModelProperty<Robot>>::default(),
             ChangePlugin::<Task>::default(),
-            PropertyPlugin::<Pose, With<InstanceMarker>>::default(),
-            PropertyPlugin::<Visibility, With<InstanceMarker>>::default(),
-            PropertyPlugin::<TaskParams, With<Task>>::default(),
+            PropertyPlugin::<Pose, InstanceMarker>::default(),
+            PropertyPlugin::<Inclusion, InstanceMarker>::default(),
+            PropertyPlugin::<Inclusion, Task>::default(),
+            PropertyPlugin::<TaskParams, Task>::default(),
             SlotcarSdfPlugin,
         ))
         .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
@@ -383,18 +383,9 @@ impl Plugin for SitePlugin {
                 add_fiducial_visuals,
                 update_level_visibility,
                 handle_remove_scenarios.before(update_current_scenario),
-                update_current_scenario.before(update_model_instance_poses),
-                update_model_instance_poses.before(handle_instance_modifier_updates),
-                handle_instance_modifier_updates.before(handle_create_scenarios),
-                handle_create_scenarios.before(handle_scenario_modifiers),
-                handle_scenario_modifiers,
+                update_current_scenario.before(handle_create_scenarios),
+                handle_create_scenarios,
             )
-                .run_if(AppState::in_displaying_mode())
-                .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
-        )
-        .add_systems(
-            PostUpdate,
-            (handle_task_edit, handle_task_modifier_updates)
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
         )
@@ -440,20 +431,12 @@ impl Plugin for SitePlugin {
                 handle_loaded_drawing,
                 update_drawing_rank,
                 add_physical_camera_visuals,
-                check_selected_is_visible,
+                check_selected_is_included,
                 check_for_missing_root_modifiers::<InstanceMarker>,
-                handle_empty_modifiers::<
-                    Pose,
-                    (Without<Modifier<Pose>>, Without<Modifier<Visibility>>),
-                >,
-                handle_empty_modifiers::<
-                    Visibility,
-                    (Without<Modifier<Pose>>, Without<Modifier<Visibility>>),
-                >,
             )
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
         )
-        .add_observer(handle_cleanup_modifiers::<InstanceMarker>);
+        .add_observer(handle_inclusion_change_for_model_visibility);
     }
 }

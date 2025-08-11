@@ -62,7 +62,10 @@ impl Pose {
                 rpy[1].radians(),
                 rpy[2].radians()
             ),
-            Rotation::Quat(quat) => format!("{} {} {} {}", quat[3], quat[0], quat[1], quat[2]),
+            Rotation::Quat([x, y, z, w]) => {
+                let (z, y, x) = glam::quat(x, y, z, w).to_euler(glam::EulerRot::ZYX);
+                format!("{x} {y} {z}")
+            }
         };
         SdfPose {
             data: format!("{} {} {} {}", p[0], p[1], p[2], r),
@@ -626,7 +629,7 @@ impl Site {
                     added = true;
                 }
                 if added {
-                    level_model_names.push(model_description_bundle.name.0.clone());
+                    level_model_names.push(parented_model_instance.bundle.name.0.clone());
                 }
             }
             // Now add all the doors
@@ -690,6 +693,13 @@ impl Site {
                 .0
                 .and_then(|id| self.levels.get(&id))
                 .map(|level| level.properties.name.0.clone())
+                .or_else(|| {
+                    lift.any_valid_level().and_then(|id| {
+                        self.levels
+                            .get(&id)
+                            .map(|level| level.properties.name.0.clone())
+                    })
+                })
                 .ok_or(SdfConversionError::MissingInitialLevel(lift_name.clone()))?;
             elements.push(("initial_floor", initial_floor));
             elements.push(("v_max_cabin", "2.0".to_string()));
@@ -961,6 +971,7 @@ impl Site {
 mod tests {
     use crate::legacy::building_map::BuildingMap;
     use sdformat_rs::yaserde;
+    use testdir::testdir;
 
     #[test]
     fn serialize_sdf() {
@@ -975,6 +986,7 @@ mod tests {
             ..Default::default()
         };
         let s = yaserde::ser::to_string_with_config(&sdf, &config).unwrap();
-        std::fs::write("test.sdf", s).unwrap();
+        let output_dir = testdir!();
+        std::fs::write(output_dir.join("test.sdf"), s).unwrap();
     }
 }
