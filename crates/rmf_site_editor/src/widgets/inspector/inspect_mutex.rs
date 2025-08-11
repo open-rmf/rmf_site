@@ -27,7 +27,7 @@ use bevy::{
 };
 use bevy_egui::egui::{CollapsingHeader, ComboBox, ImageButton, Ui};
 use rmf_site_format::{
-    Affiliation, Group, LaneMarker, LocationTags, MutexGroup, MutexMarker, NameInSite,
+    Affiliation, Group, LaneMarker, MutexGroup, MutexMarker, NameInSite,
 };
 
 #[derive(Resource, Default)]
@@ -49,7 +49,7 @@ pub struct InspectMutexAffiliation<'w, 's> {
         'w,
         's,
         (&'static Category, &'static Affiliation<Entity>),
-        Or<(With<LaneMarker>, With<LocationTags>)>,
+        With<LaneMarker>,
     >,
     mutex_groups: Query<'w, 's, &'static NameInSite, (With<Group>, With<MutexMarker>)>,
     child_of: Query<'w, 's, &'static ChildOf>,

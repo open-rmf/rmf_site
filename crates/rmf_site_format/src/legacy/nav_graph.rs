@@ -1,7 +1,7 @@
 use crate::*;
 use glam::Affine2;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct NavGraph {
@@ -116,12 +116,8 @@ impl NavGraph {
                         let anchor = Anchor::Translate2D([trans[0], trans[1]]);
 
                         anchor_to_vertex.insert(*id, vertices.len());
-                        let location = location_at_anchor.get(id);
-                        let mut vertex = NavVertex::from_anchor(
-                            &anchor,
-                            location,
-                            &site.navigation.guided.mutex_groups,
-                        );
+                        let mut vertex =
+                            NavVertex::from_anchor(&anchor, location_at_anchor.get(id));
                         vertex.2.lift = Some(lift_name.clone());
                         vertices.push(vertex);
                     }
@@ -137,12 +133,7 @@ impl NavGraph {
                     }
 
                     anchor_to_vertex.insert(*id, vertices.len());
-                    let location = location_at_anchor.get(id);
-                    vertices.push(NavVertex::from_anchor(
-                        anchor,
-                        location,
-                        &site.navigation.guided.mutex_groups,
-                    ));
+                    vertices.push(NavVertex::from_anchor(anchor, location_at_anchor.get(id)));
                 }
 
                 let mut level_doors = HashMap::new();
@@ -306,17 +297,9 @@ impl NavLaneProperties {
 pub struct NavVertex(pub f32, pub f32, pub NavVertexProperties);
 
 impl NavVertex {
-    fn from_anchor(
-        anchor: &Anchor,
-        location: Option<&Location<u32>>,
-        mutex_map: &BTreeMap<u32, MutexGroup>,
-    ) -> Self {
+    fn from_anchor(anchor: &Anchor, location: Option<&Location<u32>>) -> Self {
         let p = anchor.translation_for_category(Category::General);
-        Self(
-            p[0],
-            p[1],
-            NavVertexProperties::from_location(location, mutex_map),
-        )
+        Self(p[0], p[1], NavVertexProperties::from_location(location))
     }
 }
 
@@ -333,28 +316,31 @@ pub struct NavVertexProperties {
     // TODO(luca) serialize merge_radius, it is currently skipped
     #[serde(skip_serializing_if = "Option::is_none")]
     pub merge_radius: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub mutex: Option<String>,
     pub name: String,
 }
 
 impl NavVertexProperties {
-    fn from_location(
-        location: Option<&Location<u32>>,
-        mutex_map: &BTreeMap<u32, MutexGroup>,
-    ) -> Self {
+    fn from_location(location: Option<&Location<u32>>) -> Self {
         let mut props = Self::default();
-        let Some(location) = location else {
-            return props;
+        let location = match location {
+            Some(l) => l,
+            None => return props,
         };
         props.name = location.name.0.clone();
-        props.is_charger = location.tags.0.iter().any(|t| t.is_charger());
-        props.is_holding_point = location.tags.0.iter().any(|t| t.is_holding_point());
-        props.is_parking_spot = location.tags.0.iter().any(|t| t.is_parking_spot());
+        props.is_charger = location.tags.0.iter().find(|t| t.is_charger()).is_some();
+        props.is_holding_point = location
+            .tags
+            .0
+            .iter()
+            .find(|t| t.is_holding_point())
+            .is_some();
+        props.is_parking_spot = location
+            .tags
+            .0
+            .iter()
+            .find(|t| t.is_parking_spot())
+            .is_some();
 
-        if let Some(group_id) = location.mutex.0 {
-            props.mutex = mutex_map.get(&group_id).map(|group| group.name.0.clone());
-        };
         props
     }
 }
