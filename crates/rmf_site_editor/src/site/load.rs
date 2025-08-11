@@ -582,6 +582,16 @@ fn generate_site_entities(
                     inclusion,
                 ));
             }
+            if let Some(level_entity) = instance_modifier
+                .on_level
+                .and_then(|level_id| id_to_entity.get(&level_id))
+            {
+                commands.trigger(UpdateModifier::modify(
+                    scenario_entity,
+                    *instance_entity,
+                    OnLevel(Some(*level_entity)),
+                ));
+            }
         }
         // Spawn task modifier entities
         for (task_id, task_modifier) in scenario_data.tasks.iter() {

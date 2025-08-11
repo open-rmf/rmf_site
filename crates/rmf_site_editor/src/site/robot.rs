@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Open Source Robotics Foundation
+ * Copyright (C) 2025 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,22 +15,6 @@
  *
 */
 
-use crate::*;
-#[cfg(feature = "bevy")]
-use bevy::prelude::*;
-use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use crate::site::{Element, Robot};
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component), require(OnLevel<Entity>))]
-pub struct Robot {
-    pub properties: BTreeMap<String, serde_json::Value>,
-}
-
-impl Default for Robot {
-    fn default() -> Self {
-        Self {
-            properties: BTreeMap::new(),
-        }
-    }
-}
+impl Element for Robot {}

@@ -108,6 +108,10 @@ pub use primitive_shape::*;
 pub mod recall_plugin;
 pub use recall_plugin::RecallPlugin;
 
+pub mod robot;
+#[allow(unused_imports)]
+pub use robot::*;
+
 pub mod robot_properties;
 pub use robot_properties::*;
 
@@ -292,6 +296,7 @@ impl Plugin for SitePlugin {
             PropertyPlugin::<Inclusion, InstanceMarker>::default(),
             PropertyPlugin::<Inclusion, Task>::default(),
             PropertyPlugin::<TaskParams, Task>::default(),
+            PropertyPlugin::<OnLevel<Entity>, Robot>::default(),
             SlotcarSdfPlugin,
         ))
         .add_plugins((InfiniteGridPlugin,))
@@ -318,6 +323,7 @@ impl Plugin for SitePlugin {
                 check_for_close_unconnected_anchors,
                 check_for_orphan_model_instances,
                 check_for_hidden_model_instances,
+                check_for_invalid_level_assignments,
                 fetch_image_for_texture,
                 detect_last_selected_texture::<FloorMarker>,
                 apply_last_selected_texture::<FloorMarker>
@@ -443,6 +449,7 @@ impl Plugin for SitePlugin {
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
         )
-        .add_observer(handle_inclusion_change_for_model_visibility);
+        .add_observer(handle_inclusion_change_for_model_visibility)
+        .add_observer(handle_on_level_change);
     }
 }
