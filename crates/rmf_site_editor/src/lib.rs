@@ -1,4 +1,4 @@
-use bevy::{
+pub use bevy::{
     app::ScheduleRunnerPlugin, asset::UnapprovedPathMode, log::LogPlugin,
     pbr::DirectionalLightShadowMap, prelude::*,
 };
@@ -24,7 +24,7 @@ pub mod keyboard;
 use keyboard::*;
 
 pub mod widgets;
-use rmf_site_animate::VisualCueAnimationsPlugin;
+pub use rmf_site_animate::VisualCueAnimationsPlugin;
 use widgets::*;
 pub mod occupancy;
 use occupancy::OccupancyPlugin;
@@ -61,7 +61,7 @@ pub mod mapf_rse;
 use mapf_rse::MapfRsePlugin;
 
 pub mod osm_slippy_map;
-use bevy::render::{
+pub use bevy::render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     render_resource::{AddressMode, SamplerDescriptor},
     settings::{WgpuFeatures, WgpuSettings},
