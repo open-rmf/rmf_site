@@ -29,14 +29,16 @@ use rclrs::*;
 use rmf_site_format::*;
 use rmf_site_picking::VisualCue;
 use rviz_interfaces::srv::*;
-use std::{borrow::Cow, error::Error, future::Future, sync::Arc};
+use std::{borrow::Cow, error::Error, sync::Arc};
 use visualization_msgs::msg::{Marker, MarkerArray};
 
 #[derive(SystemParam)]
 pub struct SceneSubscriber<'w, 's> {
     commands: Commands<'w, 's>,
+    children: Query<'w, 's, &'static Children>,
     workflow: Res<'w, SceneSubscriptionWorkflow>,
     subscriptions: Query<'w, 's, &'static mut SceneSubscription>,
+    subscription_node: Res<'w, SceneSubscriptionNode>,
 }
 
 impl<'w, 's> SceneSubscriber<'w, 's> {
@@ -57,6 +59,15 @@ impl<'w, 's> SceneSubscriber<'w, 's> {
             .insert(DragPlaneBundle::new(scene_root, Vec3::Z).globally());
 
         let (drop_last_subscription, subscription_dropped) = channel();
+        let node = self.subscription_node.clone();
+        // Despawn any old children to clear space for the new scene
+        if let Ok(children) = self.children.get(scene_root) {
+            for child in children {
+                if let Ok(mut e) = self.commands.get_entity(*child) {
+                    e.despawn();
+                }
+            }
+        }
 
         let subscription = self
             .commands
@@ -65,6 +76,7 @@ impl<'w, 's> SceneSubscriber<'w, 's> {
                     topic_name: topic_name.clone(),
                     scene_root,
                     subscription_dropped,
+                    node,
                 },
                 self.workflow.service,
             )
@@ -89,6 +101,15 @@ impl<'w, 's> SceneSubscriber<'w, 's> {
             scene.drop_last_subscription.take().map(|s| s.send(()));
 
             let (drop_last_subscription, subscription_dropped) = channel();
+            let node = self.subscription_node.clone();
+            // Despawn any old children to clear space for the new scene
+            if let Ok(children) = self.children.get(scene_root) {
+                for child in children {
+                    if let Ok(mut e) = self.commands.get_entity(*child) {
+                        e.despawn();
+                    }
+                }
+            }
 
             let new_subscription = self
                 .commands
@@ -97,6 +118,7 @@ impl<'w, 's> SceneSubscriber<'w, 's> {
                         topic_name: new_topic_name.clone(),
                         scene_root,
                         subscription_dropped,
+                        node,
                     },
                     self.workflow.service,
                 )
@@ -107,6 +129,15 @@ impl<'w, 's> SceneSubscriber<'w, 's> {
             scene.drop_last_subscription = Some(drop_last_subscription);
         } else {
             let (drop_last_subscription, subscription_dropped) = channel();
+            let node = self.subscription_node.clone();
+            // Despawn any old children to clear space for the new scene
+            if let Ok(children) = self.children.get(scene_root) {
+                for child in children {
+                    if let Ok(mut e) = self.commands.get_entity(*child) {
+                        e.despawn();
+                    }
+                }
+            }
 
             // Somehow this entity wasn't already a scene... this is suspicious,
             // but we'll just spawn a new subscription for it.
@@ -117,6 +148,7 @@ impl<'w, 's> SceneSubscriber<'w, 's> {
                         topic_name: new_topic_name.clone(),
                         scene_root,
                         subscription_dropped,
+                        node,
                     },
                     self.workflow.service,
                 )
@@ -151,6 +183,24 @@ impl SceneSubscription {
     }
 }
 
+#[derive(Resource, Deref)]
+pub struct RclrsExecutorCommands(Arc<ExecutorCommands>);
+
+#[derive(Default)]
+pub(crate) struct RclrsPlugin {}
+
+impl Plugin for RclrsPlugin {
+    fn build(&self, app: &mut App) {
+        let mut executor = Context::default_from_env().unwrap().create_basic_executor();
+        app.insert_resource(RclrsExecutorCommands(Arc::clone(executor.commands())));
+
+        std::thread::spawn(move || executor.spin(SpinOptions::default()));
+    }
+}
+
+#[derive(Resource, Deref)]
+pub struct SceneSubscriptionNode(Arc<NodeState>);
+
 #[derive(Default)]
 pub(crate) struct SceneSubscribingPlugin {}
 
@@ -158,6 +208,10 @@ type ArcError = Arc<dyn Error + Send + Sync + 'static>;
 
 impl Plugin for SceneSubscribingPlugin {
     fn build(&self, app: &mut App) {
+        let executor_commands = app.world().resource::<RclrsExecutorCommands>();
+        let node = executor_commands.create_node("marker_subscriber").unwrap();
+        app.insert_resource(SceneSubscriptionNode(node));
+
         let service = app.world_mut().spawn_io_workflow(move |scope, builder| {
             let error_node = builder.create_map_block(|error: ArcError| {
                 error!("{error}");
@@ -183,23 +237,19 @@ impl Plugin for SceneSubscribingPlugin {
                             topic_name,
                             scene_root,
                             subscription_dropped: mut drop_subscription,
+                            node,
                         } = request;
-
-                        // TODO(@xiyuoh) remove existing children for scene_root
-                        // TODO(@xiyuoh) proper drop subscription using future select
 
                         // TODO(@xiyuoh) Get rid of the ugly hack
                         // Currently we're creating a new executor everytime this workflow is triggered
-                        // because for some reason streams are not passed on to generate_scene properly
-                        // when we use a node created out of this scope.
-                        // Using until_promise_resolved to drop "expired" node subscriptions.
+                        // because for some reason await gets stuck when we use a node created out of this scope.
 
                         let context = Context::default_from_env().unwrap();
                         let mut executor = context.create_basic_executor();
                         let node_name = format!("marker_subscriber_{}", topic_name.clone());
                         let node = executor.create_node(&node_name).unwrap();
-
                         std::thread::spawn(move || executor.spin(SpinOptions::default()));
+
                         let node = node.clone();
                         async move {
                             let logger = node.logger().clone();
@@ -216,23 +266,48 @@ impl Plugin for SceneSubscribingPlugin {
                             client.notify_on_service_ready().await;
                             log!(&logger, "GetResource service is ready!");
 
-                            let stream_node = node.clone();
-                            while let Some(msg) = receiver.recv().await {
-                                for marker in msg.markers.iter() {
-                                    let mut marker = marker.clone();
-                                    input.streams.send(StreamOf(RosMesh {
-                                        scene_root,
-                                        marker,
-                                        node: stream_node.clone(),
-                                        client: client.clone(),
-                                    }));
+                            loop {
+                                let sample = match futures::future::select(
+                                    Box::pin(receiver.recv()),
+                                    drop_subscription,
+                                )
+                                .await
+                                {
+                                    futures::future::Either::Left((sample, d)) => {
+                                        drop_subscription = d;
+                                        sample
+                                    }
+                                    futures::future::Either::Right(_) => {
+                                        return Ok(());
+                                    }
+                                };
+
+                                match sample {
+                                    Some(msg) => {
+                                        for marker in msg.markers.iter() {
+                                            let mut marker = marker.clone();
+                                            input.streams.send(StreamOf(RosMesh {
+                                                scene_root,
+                                                marker,
+                                                node: node.clone(),
+                                                client: client.clone(),
+                                            }));
+                                        }
+                                    }
+                                    None => {
+                                        return Err(());
+                                    }
                                 }
                             }
                         }
                     },
                 );
 
-            subscription_node.output.chain(builder).unused();
+            subscription_node.output.chain(builder).fork_result(
+                // TODO(@xiyuoh) proper error handling
+                |ok| ok.connect(scope.terminate),
+                |err| err.connect(scope.terminate),
+            );
 
             let retrieve_mesh_data = builder.commands().spawn_service(retrieve_mesh_data);
 
@@ -248,7 +323,7 @@ impl Plugin for SceneSubscribingPlugin {
                 .chain(builder)
                 .inner()
                 .then(generate_mesh.into_blocking_callback())
-                .connect(scope.terminate);
+                .unused();
         });
 
         app.register_type::<Name>() // TypeRegistrationPlugin no longer exists
@@ -310,6 +385,7 @@ struct SceneSubscriptionRequest {
     topic_name: String,
     scene_root: Entity,
     subscription_dropped: Receiver<()>,
+    node: Arc<NodeState>,
 }
 
 #[derive(Clone)]
