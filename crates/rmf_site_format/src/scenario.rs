@@ -42,6 +42,8 @@ pub struct InstanceModifier {
     pub pose: Option<Pose>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub inclusion: Option<Inclusion>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub on_level: Option<u32>,
 }
 
 impl InstanceModifier {
