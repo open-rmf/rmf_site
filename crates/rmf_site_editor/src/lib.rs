@@ -1,4 +1,4 @@
-pub use bevy::{
+use bevy::{
     app::ScheduleRunnerPlugin, asset::UnapprovedPathMode, log::LogPlugin,
     pbr::DirectionalLightShadowMap, prelude::*,
 };
@@ -19,6 +19,7 @@ use exit_confirmation::ExitConfirmationPlugin;
 
 // Bevy plugins that are public dependencies, mixing versions won't work for downstream users
 pub use bevy_egui;
+pub use bevy;
 
 pub mod keyboard;
 use keyboard::*;
@@ -61,7 +62,7 @@ pub mod mapf_rse;
 use mapf_rse::MapfRsePlugin;
 
 pub mod osm_slippy_map;
-pub use bevy::render::{
+use bevy::render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     render_resource::{AddressMode, SamplerDescriptor},
     settings::{WgpuFeatures, WgpuSettings},
