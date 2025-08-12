@@ -17,6 +17,7 @@
 
 use bevy::prelude::*;
 use bevy_egui::egui;
+use bevy_egui::egui::{Align, Grid, Layout};
 
 use librmf_site_editor::{widgets::prelude::*, AppState};
 use rmf_site_egui::{HeaderTilePlugin, Tile, WidgetSystem};
@@ -59,19 +60,52 @@ impl<'w, 's> WidgetSystem<Tile> for SceneCreationWidget<'w, 's> {
                     .default_height(0.0)
                     .show(ui, |ui| {
                         ui.add_space(10.0);
-                        ui.horizontal(|ui| {
-                            ui.label("Scene Topic");
-                            ui.text_edit_singleline(&mut params.pending.scene_topic);
-                        });
+                        Grid::new("scene_subscription")
+                            .num_columns(2)
+                            .show(ui, |ui| {
+                                ui.label("Scene Topic");
+                                ui.text_edit_singleline(&mut params.pending.scene_topic);
+                                ui.end_row();
+
+                                ui.label("Resource Service");
+                                ui.text_edit_singleline(&mut params.pending.resource_service);
+                                ui.end_row();
+
+                                ui.label("Remove Prefixes");
+                                let mut remove_prefixes = Vec::new();
+                                let mut id: usize = 0;
+                                for prefix in params.pending.prefixes.iter_mut() {
+                                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                        if ui.button("❌").clicked() {
+                                            remove_prefixes.push(id.clone());
+                                        }
+                                        ui.text_edit_singleline(prefix);
+                                    });
+                                    id += 1;
+                                    ui.end_row();
+                                    ui.label("");
+                                }
+                                ui.with_layout(Layout::right_to_left(Align::Max), |ui| {
+                                    if ui.button("Add").clicked() {
+                                        params.pending.prefixes.push(String::new());
+                                    }
+                                });
+                                for i in remove_prefixes.drain(..).rev() {
+                                    params.pending.prefixes.remove(i);
+                                }
+                                ui.end_row();
+                            });
 
                         if ui
                             .button("Subscribe")
                             .on_hover_text("Create the scene")
                             .clicked()
                         {
-                            let scene_root = params
-                                .subscriber
-                                .spawn_scene(params.pending.scene_topic.clone());
+                            let scene_root = params.subscriber.spawn_scene(
+                                params.pending.scene_topic.clone(),
+                                params.pending.resource_service.clone(),
+                                params.pending.prefixes.clone(),
+                            );
 
                             params.placement.place_scene(scene_root);
                             ui.close_menu();
@@ -87,4 +121,6 @@ impl<'w, 's> WidgetSystem<Tile> for SceneCreationWidget<'w, 's> {
 #[derive(Resource, Default)]
 struct PendingSubscription {
     scene_topic: String,
+    resource_service: String,
+    prefixes: Vec<String>,
 }

@@ -42,7 +42,12 @@ pub struct SceneSubscriber<'w, 's> {
 }
 
 impl<'w, 's> SceneSubscriber<'w, 's> {
-    pub fn spawn_scene(&mut self, topic_name: String) -> Entity {
+    pub fn spawn_scene(
+        &mut self,
+        topic_name: String,
+        service_name: String,
+        prefixes: Vec<String>,
+    ) -> Entity {
         let scene_root = self
             .commands
             .spawn((
@@ -74,6 +79,8 @@ impl<'w, 's> SceneSubscriber<'w, 's> {
             .request(
                 SceneSubscriptionRequest {
                     topic_name: topic_name.clone(),
+                    service_name: service_name.clone(),
+                    prefixes: prefixes.clone(),
                     scene_root,
                     subscription_dropped,
                     node,
@@ -84,6 +91,8 @@ impl<'w, 's> SceneSubscriber<'w, 's> {
 
         self.commands.entity(scene_root).insert(SceneSubscription {
             topic_name,
+            service_name,
+            prefixes,
             subscription,
             drop_last_subscription: Some(drop_last_subscription),
         });
@@ -91,10 +100,19 @@ impl<'w, 's> SceneSubscriber<'w, 's> {
         scene_root
     }
 
-    pub fn change_subscription(&mut self, scene_root: Entity, new_topic_name: String) {
+    pub fn change_subscription(
+        &mut self,
+        scene_root: Entity,
+        new_topic_name: String,
+        new_service_name: String,
+        new_prefixes: Vec<String>,
+    ) {
         if let Ok(mut scene) = self.subscriptions.get_mut(scene_root) {
-            if scene.topic_name == new_topic_name {
-                // Topic name has not changed, so there is no need to do anything
+            if scene.topic_name == new_topic_name
+                && scene.service_name == new_service_name
+                && scene.prefixes == new_prefixes
+            {
+                // Topic/Service name has not changed, so there is no need to do anything
                 return;
             }
 
@@ -116,6 +134,8 @@ impl<'w, 's> SceneSubscriber<'w, 's> {
                 .request(
                     SceneSubscriptionRequest {
                         topic_name: new_topic_name.clone(),
+                        service_name: new_service_name.clone(),
+                        prefixes: new_prefixes.clone(),
                         scene_root,
                         subscription_dropped,
                         node,
@@ -125,6 +145,8 @@ impl<'w, 's> SceneSubscriber<'w, 's> {
                 .take_response();
 
             scene.topic_name = new_topic_name;
+            scene.service_name = new_service_name;
+            scene.prefixes = new_prefixes;
             scene.subscription = new_subscription;
             scene.drop_last_subscription = Some(drop_last_subscription);
         } else {
@@ -146,6 +168,8 @@ impl<'w, 's> SceneSubscriber<'w, 's> {
                 .request(
                     SceneSubscriptionRequest {
                         topic_name: new_topic_name.clone(),
+                        service_name: new_service_name.clone(),
+                        prefixes: new_prefixes.clone(),
                         scene_root,
                         subscription_dropped,
                         node,
@@ -156,6 +180,8 @@ impl<'w, 's> SceneSubscriber<'w, 's> {
 
             self.commands.entity(scene_root).insert(SceneSubscription {
                 topic_name: new_topic_name,
+                service_name: new_service_name.clone(),
+                prefixes: new_prefixes.clone(),
                 subscription,
                 drop_last_subscription: Some(drop_last_subscription),
             });
@@ -170,6 +196,8 @@ impl<'w, 's> SceneSubscriber<'w, 's> {
 #[derive(Component)]
 pub struct SceneSubscription {
     topic_name: String,
+    service_name: String,
+    prefixes: Vec<String>,
     #[allow(unused)]
     subscription: Promise<()>,
     // TODO(@mxgrey): This should not be necessary
@@ -180,6 +208,14 @@ pub struct SceneSubscription {
 impl SceneSubscription {
     pub fn topic_name(&self) -> &str {
         &self.topic_name
+    }
+
+    pub fn service_name(&self) -> &str {
+        &self.service_name
+    }
+
+    pub fn prefixes(&self) -> &Vec<String> {
+        &self.prefixes
     }
 }
 
@@ -235,6 +271,8 @@ impl Plugin for SceneSubscribingPlugin {
                         let (request, _) = input.request;
                         let SceneSubscriptionRequest {
                             topic_name,
+                            service_name,
+                            prefixes,
                             scene_root,
                             subscription_dropped: mut drop_subscription,
                             node,
@@ -261,9 +299,9 @@ impl Plugin for SceneSubscribingPlugin {
                                 .unwrap();
 
                             let client = node
-                                .create_client::<GetResource>("workcell_1/rviz_get_resource")
+                                .create_client::<GetResource>(service_name.as_str().keep_all())
                                 .unwrap();
-                            client.notify_on_service_ready().await;
+                            let _ = client.notify_on_service_ready().await;
                             log!(&logger, "GetResource service is ready!");
 
                             loop {
@@ -286,6 +324,10 @@ impl Plugin for SceneSubscribingPlugin {
                                     Some(msg) => {
                                         for marker in msg.markers.iter() {
                                             let mut marker = marker.clone();
+                                            marker.mesh_resource = strip_resource_prefix(
+                                                &marker.mesh_resource,
+                                                &prefixes,
+                                            );
                                             input.streams.send(StreamOf(RosMesh {
                                                 scene_root,
                                                 marker,
@@ -331,7 +373,7 @@ impl Plugin for SceneSubscribingPlugin {
     }
 }
 
-fn strip_resource_prefix(resource: &String, prefix: Vec<&str>) -> String {
+fn strip_resource_prefix(resource: &String, prefix: &Vec<String>) -> String {
     let mut mesh_resource = resource.clone();
     for p in prefix.iter() {
         if let Some(stripped) = mesh_resource.strip_prefix(p) {
@@ -383,6 +425,8 @@ pub(crate) struct SceneSubscriptionWorkflow {
 #[derive(Debug)]
 struct SceneSubscriptionRequest {
     topic_name: String,
+    service_name: String,
+    prefixes: Vec<String>,
     scene_root: Entity,
     subscription_dropped: Receiver<()>,
     node: Arc<NodeState>,

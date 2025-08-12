@@ -162,7 +162,7 @@ fn load_asset_source(
 
     async move {
         if let AssetSource::Ros(path) = source {
-            let handle: Handle<Gltf> =
+            let handle: Handle<Scene> =
                 asset_server.load(GltfAssetLabel::Scene(0).from_asset(format!("ros://{}", path)));
             Ok(handle.untyped())
         } else {

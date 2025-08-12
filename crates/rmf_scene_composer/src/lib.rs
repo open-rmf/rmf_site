@@ -41,6 +41,7 @@ pub struct SceneComposerPlugin {}
 impl Plugin for SceneComposerPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
+            RclrsPlugin::default(),
             SceneSubscribingPlugin::default(),
             ScenePlacementPlugin::default(),
             SceneCreationPlugin::default(),

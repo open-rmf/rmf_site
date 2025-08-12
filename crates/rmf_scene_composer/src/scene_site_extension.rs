@@ -45,6 +45,8 @@ impl Plugin for SceneSiteExtensionPlugin {
 #[derive(Serialize, Deserialize)]
 struct SceneInfo {
     topic_name: String,
+    service_name: String,
+    prefixes: Vec<String>,
     pose: Pose,
     level: u32,
 }
@@ -82,6 +84,8 @@ fn save_scenes(
                     id,
                     SceneInfo {
                         topic_name: subscription.topic_name().to_owned(),
+                        service_name: subscription.service_name().to_owned(),
+                        prefixes: subscription.prefixes().clone(),
                         pose: *pose,
                         level: level_id.0,
                     },
@@ -112,7 +116,7 @@ fn load_scenes(
 
     let mut errors = Vec::new();
     for (id, info) in data {
-        let e = subscriber.spawn_scene(info.topic_name);
+        let e = subscriber.spawn_scene(info.topic_name, info.service_name, info.prefixes);
         let Some(level) = level_map.get(&info.level) else {
             errors.push(SceneLoadingError::MissingLevel(id));
             continue;

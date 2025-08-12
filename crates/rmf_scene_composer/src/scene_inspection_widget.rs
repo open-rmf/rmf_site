@@ -17,6 +17,7 @@
 
 use crate::*;
 use bevy::prelude::*;
+use bevy_egui::egui::{Align, Grid, Layout};
 use librmf_site_editor::widgets::prelude::*;
 use rmf_site_egui::WidgetSystem;
 
@@ -43,13 +44,51 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectScene<'w, 's> {
         };
 
         let mut topic = scene.topic_name().to_owned();
-        ui.horizontal(|ui| {
-            ui.label("Subscription:");
-            ui.text_edit_singleline(&mut topic);
-        });
+        let mut service = scene.service_name().to_owned();
+        let mut prefixes = scene.prefixes().clone();
+        Grid::new("inspect_scene_subscription")
+            .num_columns(2)
+            .show(ui, |ui| {
+                ui.label("Scene Topic");
+                ui.text_edit_singleline(&mut topic);
+                ui.end_row();
 
-        if topic != scene.topic_name() {
-            params.subscriber.change_subscription(selection, topic);
+                ui.label("Resource Service");
+                ui.text_edit_singleline(&mut service);
+                ui.end_row();
+
+                ui.label("Remove Prefixes");
+                let mut remove_prefixes = Vec::new();
+                let mut id: usize = 0;
+                for prefix in prefixes.iter_mut() {
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        if ui.button("❌").clicked() {
+                            remove_prefixes.push(id.clone());
+                        }
+                        ui.text_edit_singleline(prefix);
+                    });
+                    id += 1;
+                    ui.end_row();
+                    ui.label("");
+                }
+                ui.with_layout(Layout::right_to_left(Align::Max), |ui| {
+                    if ui.button("Add").clicked() {
+                        prefixes.push(String::new());
+                    }
+                });
+                for i in remove_prefixes.drain(..).rev() {
+                    prefixes.remove(i);
+                }
+                ui.end_row();
+            });
+
+        if topic != scene.topic_name()
+            || service != scene.service_name()
+            || prefixes != *scene.prefixes()
+        {
+            params
+                .subscriber
+                .change_subscription(selection, topic, service, prefixes);
         }
     }
 }
