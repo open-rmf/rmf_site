@@ -240,16 +240,6 @@ impl Plugin for SceneSubscribingPlugin {
                             node,
                         } = request;
 
-                        // TODO(@xiyuoh) Get rid of the ugly hack
-                        // Currently we're creating a new executor everytime this workflow is triggered
-                        // because for some reason await gets stuck when we use a node created out of this scope.
-
-                        let context = Context::default_from_env().unwrap();
-                        let mut executor = context.create_basic_executor();
-                        let node_name = format!("marker_subscriber_{}", topic_name.clone());
-                        let node = executor.create_node(&node_name).unwrap();
-                        std::thread::spawn(move || executor.spin(SpinOptions::default()));
-
                         let node = node.clone();
                         async move {
                             let logger = node.logger().clone();
