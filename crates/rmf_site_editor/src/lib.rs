@@ -62,9 +62,10 @@ use mapf_rse::MapfRsePlugin;
 
 pub mod osm_slippy_map;
 use bevy::render::{
+    batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     render_resource::{AddressMode, SamplerDescriptor},
     settings::{WgpuFeatures, WgpuSettings},
-    RenderPlugin,
+    RenderApp, RenderPlugin,
 };
 pub use osm_slippy_map::*;
 
@@ -128,6 +129,10 @@ pub struct SiteEditor {
     /// exporting its nav graphs.
     export_nav: Option<String>,
     autoload: Option<Autoload>,
+    /// Contains Some(path) if the site editor is running in headless mode and
+    /// saving the contents of the site as a new path. This is primarily used
+    /// for unit testing.
+    save_as_path: Option<String>,
 }
 
 impl SiteEditor {
@@ -157,6 +162,7 @@ impl SiteEditor {
             export_sdf: _export_sdf,
             export_nav: _export_nav,
             autoload,
+            save_as_path: None,
         }
     }
 
@@ -170,14 +176,19 @@ impl SiteEditor {
         self
     }
 
+    pub fn save_as_path(mut self, path: Option<String>) -> Self {
+        self.save_as_path = path;
+        self
+    }
+
     pub fn is_headless(&self) -> bool {
-        self.export_sdf.is_some() || self.export_nav.is_some()
+        self.is_headless_export()
     }
 
     // This is a separate function from is_headless just in case there are other
     // reasons to run headless in the future, e.g. headless simulation.
     pub fn is_headless_export(&self) -> bool {
-        self.export_sdf.is_some() || self.export_nav.is_some()
+        self.export_sdf.is_some() || self.export_nav.is_some() || self.save_as_path.is_some()
     }
 }
 
@@ -271,7 +282,16 @@ impl Plugin for SiteEditor {
                 bevy_impulse::ImpulsePlugin::default(),
             ));
 
-        if !self.is_headless() {
+        if self.is_headless() {
+            // Turn off GPU preprocessing in headless mode so that this can
+            // work in GitHub CI. Without this, we were encountering this error:
+            // https://github.com/bevyengine/bevy/issues/18932
+            app.sub_app_mut(RenderApp)
+                .insert_resource(GpuPreprocessingSupport {
+                    max_supported_mode: GpuPreprocessingMode::None,
+                });
+        } else {
+            // Turn on plugins used by the GUI.
             app.add_plugins((StandardUiPlugin::default(), MainMenuPlugin))
                 // Note order matters, plugins that edit the menus must be initialized after the UI
                 .add_plugins((site::ViewMenuPlugin, OSMViewPlugin, SiteWireframePlugin))
@@ -288,6 +308,7 @@ impl Plugin for SiteEditor {
             app.insert_resource(site::HeadlessExportState::new(
                 self.export_sdf.clone(),
                 self.export_nav.clone(),
+                self.save_as_path.clone(),
             ));
             app.add_systems(Last, site::headless_export);
         }

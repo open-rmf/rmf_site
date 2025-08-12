@@ -95,8 +95,7 @@ pub fn change_site(
             {
                 error!(
                     "Requested level change to an entity {:?} that is not a level of the requested site {:?}",
-                    chosen_level,
-                    cmd.site,
+                    chosen_level, cmd.site,
                 );
                 return;
             }

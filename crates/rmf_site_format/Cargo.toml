@@ -26,6 +26,7 @@ pathdiff = {workspace = true}
 
 [dev-dependencies]
 float_eq = {workspace = true}
+testdir = {workspace = true}
 
 [features]
 urdf = ["dep:urdf-rs"]

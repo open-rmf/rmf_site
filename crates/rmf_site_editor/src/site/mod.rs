@@ -111,6 +111,10 @@ pub use primitive_shape::*;
 pub mod recall_plugin;
 pub use recall_plugin::RecallPlugin;
 
+pub mod robot;
+#[allow(unused_imports)]
+pub use robot::*;
+
 pub mod robot_properties;
 pub use robot_properties::*;
 
@@ -152,6 +156,8 @@ use crate::{AppState, RegisterIssueType};
 pub use rmf_site_format::{DirectionalLight, PointLight, SpotLight, Style, *};
 
 use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
+
+use bevy_infinite_grid::*;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SiteUpdateSet {
@@ -203,6 +209,9 @@ impl Plugin for SitePlugin {
                 SiteUpdateSet::BetweenTransformAndVisibility,
                 SiteUpdateSet::BetweenTransformAndVisibilityFlush,
                 VisibilitySystems::VisibilityPropagate,
+                // TODO(luca) remove this when https://github.com/bevyengine/bevy/pull/19064 (or
+                // alternative fix) is merged and released
+                bevy::asset::AssetEvents,
             )
                 .chain(),
         )
@@ -291,8 +300,10 @@ impl Plugin for SitePlugin {
             PropertyPlugin::<Inclusion, InstanceMarker>::default(),
             PropertyPlugin::<Inclusion, Task>::default(),
             PropertyPlugin::<TaskParams, Task>::default(),
+            PropertyPlugin::<OnLevel<Entity>, Robot>::default(),
             SlotcarSdfPlugin,
         ))
+        .add_plugins((InfiniteGridPlugin,))
         .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
         .add_issue_type(&DUPLICATED_LIFT_NAME_ISSUE_UUID, "Duplicate lift name")
         .add_issue_type(
@@ -316,6 +327,7 @@ impl Plugin for SitePlugin {
                 check_for_close_unconnected_anchors,
                 check_for_orphan_model_instances,
                 check_for_hidden_model_instances,
+                check_for_invalid_level_assignments,
                 fetch_image_for_texture,
                 detect_last_selected_texture::<FloorMarker>,
                 apply_last_selected_texture::<FloorMarker>
@@ -389,7 +401,6 @@ impl Plugin for SitePlugin {
                 handle_remove_scenarios.before(update_current_scenario),
                 update_current_scenario.before(handle_create_scenarios),
                 handle_create_scenarios,
-                handle_task_edit,
             )
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
@@ -442,6 +453,7 @@ impl Plugin for SitePlugin {
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
         )
-        .add_observer(handle_inclusion_change_for_model_visibility);
+        .add_observer(handle_inclusion_change_for_model_visibility)
+        .add_observer(handle_on_level_change);
     }
 }

@@ -144,17 +144,27 @@ impl InteractionAssets {
             (
                 self.x_axis_materials.clone(),
                 Vec3::new(offset, 0., height),
-                Quat::from_rotation_y(90_f32.to_radians()),
+                Quat::from_euler(EulerRot::YXZ, 90_f32.to_radians(), 0.0, 90_f32.to_radians()),
             ),
             (
                 self.x_axis_materials.clone(),
                 Vec3::new(-offset, 0., height),
-                Quat::from_rotation_y(-90_f32.to_radians()),
+                Quat::from_euler(
+                    EulerRot::YXZ,
+                    -90_f32.to_radians(),
+                    0.0,
+                    -90_f32.to_radians(),
+                ),
             ),
             (
                 self.y_axis_materials.clone(),
                 Vec3::new(0., offset, height),
-                Quat::from_rotation_x(-90_f32.to_radians()),
+                Quat::from_euler(
+                    EulerRot::YXZ,
+                    90_f32.to_radians(),
+                    -90_f32.to_radians(),
+                    90_f32.to_radians(),
+                ),
             ),
             (
                 self.y_axis_materials.clone(),
@@ -240,7 +250,7 @@ impl FromWorld for InteractionAssets {
         let dagger_mesh = meshes.add(make_dagger_mesh());
         let halo_mesh = meshes.add(make_halo_mesh());
         let camera_control_mesh = meshes.add(Mesh::from(primitives::Sphere::new(0.02)));
-        let arrow_mesh = make_cylinder_arrow_mesh();
+        let arrow_mesh = make_triangular_arrow_mesh();
         if let Err(err) = arrow_mesh.clone().with_generated_outline_normals() {
             error!("Unable to generate outline for arrow mesh: {err}");
         }
