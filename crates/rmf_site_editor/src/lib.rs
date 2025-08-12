@@ -26,7 +26,7 @@ pub mod keyboard;
 use keyboard::*;
 
 pub mod widgets;
-pub use rmf_site_animate::VisualCueAnimationsPlugin;
+use rmf_site_animate::VisualCueAnimationsPlugin;
 use widgets::*;
 pub mod occupancy;
 use occupancy::OccupancyPlugin;
