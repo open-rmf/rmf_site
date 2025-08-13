@@ -37,6 +37,9 @@ pub struct CreateScenario {
     pub parent: Option<Entity>,
 }
 
+#[derive(Clone, Copy, Debug, Default, Deref, DerefMut, Resource)]
+pub struct DefaultScenario(pub Option<Entity>);
+
 impl Element for InstanceMarker {}
 
 /// Handles updates when the current scenario has changed, and trigger property updates for scenario elements
@@ -51,6 +54,19 @@ pub fn update_current_scenario(
         for instance_entity in instances.iter() {
             commands.trigger(UseModifier::new(instance_entity, *scenario_entity));
         }
+    }
+}
+
+#[derive(Clone, Debug, Event)]
+pub struct ChangeDefaultScenario(pub Option<Entity>);
+
+/// Handles updates when the default scenario has changed
+pub fn update_default_scenario(
+    mut change_default_scenario: EventReader<ChangeDefaultScenario>,
+    mut default_scenario: ResMut<DefaultScenario>,
+) {
+    if let Some(ChangeDefaultScenario(optional_entity)) = change_default_scenario.read().last() {
+        default_scenario.0 = *optional_entity;
     }
 }
 
@@ -84,6 +100,7 @@ pub fn handle_remove_scenarios(
     mut commands: Commands,
     mut remove_scenario_requests: EventReader<RemoveScenario>,
     mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
+    mut change_default_scenario: EventWriter<ChangeDefaultScenario>,
     mut create_new_scenario: EventWriter<CreateScenario>,
     mut delete: EventWriter<Delete>,
     mut scenarios: Query<
@@ -91,6 +108,7 @@ pub fn handle_remove_scenarios(
         With<ScenarioModifiers<Entity>>,
     >,
     children: Query<&Children>,
+    default_scenario: Res<DefaultScenario>,
 ) {
     for request in remove_scenario_requests.read() {
         // Any child scenarios are considered dependents to be deleted
@@ -105,8 +123,22 @@ pub fn handle_remove_scenarios(
             }
         }
 
-        // Change to parent scenario, else root, else create an empty scenario and switch to it
-        if let Some(parent_scenario_entity) =
+        // If the default scenario has been removed, set default to its parent if any, otherwise None
+        let new_default_scenario = if default_scenario.0 == Some(request.0) {
+            let new_default_scenario = scenarios
+                .get(request.0)
+                .ok()
+                .and_then(|(_, affiliation, _)| affiliation.0);
+            change_default_scenario.write(ChangeDefaultScenario(new_default_scenario));
+            new_default_scenario
+        } else {
+            default_scenario.0
+        };
+
+        // Change to DefaultScenario, else parent scenario, else root, else create an empty scenario and switch to it
+        if let Some(default_scenario_entity) = new_default_scenario {
+            change_current_scenario.write(ChangeCurrentScenario(default_scenario_entity));
+        } else if let Some(parent_scenario_entity) =
             scenarios.get(request.0).map(|(_, a, _)| a.0).ok().flatten()
         {
             change_current_scenario.write(ChangeCurrentScenario(parent_scenario_entity));

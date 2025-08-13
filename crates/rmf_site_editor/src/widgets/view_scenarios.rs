@@ -17,8 +17,8 @@
 
 use crate::{
     site::{
-        Affiliation, Change, ChangeCurrentScenario, CreateScenario, CurrentScenario, NameInSite,
-        RemoveScenario, ScenarioModifiers,
+        Affiliation, Change, ChangeCurrentScenario, ChangeDefaultScenario, CreateScenario,
+        CurrentScenario, DefaultScenario, NameInSite, RemoveScenario, ScenarioModifiers,
     },
     widgets::prelude::*,
     CurrentWorkspace, Icons,
@@ -27,7 +27,9 @@ use bevy::{
     ecs::{hierarchy::ChildOf, system::SystemParam},
     prelude::*,
 };
-use bevy_egui::egui::{Align, Button, CollapsingHeader, Color32, Layout, Ui};
+use bevy_egui::egui::{
+    Align, Button, CollapsingHeader, Color32, Image, Layout, TextEdit, Ui, Widget,
+};
 use rmf_site_egui::*;
 use std::collections::HashMap;
 
@@ -53,8 +55,10 @@ pub struct ViewScenarios<'w, 's> {
     >,
     change_name: EventWriter<'w, Change<NameInSite>>,
     change_current_scenario: EventWriter<'w, ChangeCurrentScenario>,
+    change_default_scenario: EventWriter<'w, ChangeDefaultScenario>,
     create_new_scenario: EventWriter<'w, CreateScenario>,
     remove_scenario: EventWriter<'w, RemoveScenario>,
+    default_scenario: Res<'w, DefaultScenario>,
     display_scenarios: ResMut<'w, ScenarioDisplay>,
     current_scenario: ResMut<'w, CurrentScenario>,
     current_workspace: Res<'w, CurrentWorkspace>,
@@ -79,11 +83,6 @@ impl<'w, 's> ViewScenarios<'w, 's> {
             if let Ok((_, name, _)) = self.scenarios.get_mut(current_scenario_entity) {
                 ui.horizontal(|ui| {
                     ui.label("Selected: ");
-                    let mut new_name = name.0.clone();
-                    if ui.text_edit_singleline(&mut new_name).changed() {
-                        self.change_name
-                            .write(Change::new(NameInSite(new_name), current_scenario_entity));
-                    }
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         if ui
                             .button("❌")
@@ -92,6 +91,15 @@ impl<'w, 's> ViewScenarios<'w, 's> {
                         {
                             self.remove_scenario
                                 .write(RemoveScenario(current_scenario_entity));
+                        }
+                        let mut new_name = name.0.clone();
+                        if TextEdit::singleline(&mut new_name)
+                            .desired_width(ui.available_width())
+                            .ui(ui)
+                            .changed()
+                        {
+                            self.change_name
+                                .write(Change::new(NameInSite(new_name), current_scenario_entity));
                         }
                     });
                 });
@@ -135,8 +143,9 @@ impl<'w, 's> ViewScenarios<'w, 's> {
                 });
             }
             let mut new_name = self.display_scenarios.new_scenario_name.clone();
-            if ui
-                .text_edit_singleline(&mut new_name)
+            if TextEdit::singleline(&mut new_name)
+                .desired_width(ui.available_width())
+                .ui(ui)
                 .on_hover_text("Name for the new scenario")
                 .changed()
             {
@@ -176,7 +185,9 @@ impl<'w, 's> ViewScenarios<'w, 's> {
                     ui,
                     &mut self.change_name,
                     &mut self.change_current_scenario,
+                    &mut self.change_default_scenario,
                     &mut self.current_scenario,
+                    &self.default_scenario,
                     scenario_entity,
                     vec![version],
                     &scenario_children,
@@ -192,7 +203,9 @@ fn show_scenario_widget(
     ui: &mut Ui,
     change_name: &mut EventWriter<Change<NameInSite>>,
     change_current_scenario: &mut EventWriter<ChangeCurrentScenario>,
+    change_default_scenario: &mut EventWriter<ChangeDefaultScenario>,
     current_scenario: &mut CurrentScenario,
+    default_scenario: &DefaultScenario,
     scenario_entity: Entity,
     scenario_version: Vec<u32>,
     scenario_children: &HashMap<Entity, Vec<Entity>>,
@@ -215,10 +228,26 @@ fn show_scenario_widget(
             change_current_scenario.write(ChangeCurrentScenario(entity));
         }
         ui.colored_label(Color32::DARK_GRAY, scenario_version_str.clone());
-        let mut new_name = name.0.clone();
-        if ui.text_edit_singleline(&mut new_name).changed() {
-            change_name.write(Change::new(NameInSite(new_name), entity));
-        }
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            ui.add(Image::new(icons.home.egui()));
+            let is_default = default_scenario.0.is_some_and(|e| e == entity);
+            let mut toggle_default = is_default;
+            ui.checkbox(&mut toggle_default, "")
+                .on_hover_text("Make this the default scenario");
+            if toggle_default && !is_default {
+                change_default_scenario.write(ChangeDefaultScenario(Some(entity)));
+            } else if is_default && !toggle_default {
+                change_default_scenario.write(ChangeDefaultScenario(None));
+            }
+            let mut new_name = name.0.clone();
+            if TextEdit::singleline(&mut new_name)
+                .desired_width(ui.available_width())
+                .ui(ui)
+                .changed()
+            {
+                change_name.write(Change::new(NameInSite(new_name), entity));
+            }
+        });
     });
 
     // Display children recursively
@@ -239,7 +268,9 @@ fn show_scenario_widget(
                         ui,
                         change_name,
                         change_current_scenario,
+                        change_default_scenario,
                         current_scenario,
+                        default_scenario,
                         *child,
                         version,
                         &scenario_children,

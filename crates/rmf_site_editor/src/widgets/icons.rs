@@ -85,6 +85,7 @@ pub struct Icons {
     pub global: Icon,
     pub hide: Icon,
     pub show: Icon,
+    pub home: Icon,
 }
 
 impl FromWorld for Icons {
@@ -113,6 +114,7 @@ impl FromWorld for Icons {
         let global = IconBuilder::new("widgets/icons/global.png", &asset_server);
         let hide = IconBuilder::new("widgets/icons/hide.png", &asset_server);
         let show = IconBuilder::new("widgets/icons/show.png", &asset_server);
+        let home = IconBuilder::new("widgets/icons/home.png", &asset_server);
 
         // Note: Building the icons is a two-stage process because we cannot
         // get the mutable EguiContext resource at the same time as the
@@ -143,6 +145,7 @@ impl FromWorld for Icons {
             global: global.build(&mut egui_context),
             hide: hide.build(&mut egui_context),
             show: show.build(&mut egui_context),
+            home: home.build(&mut egui_context),
         }
     }
 }
@@ -186,6 +189,7 @@ fn add_widgets_icons(app: &mut App) {
     embedded_asset!(app, "src/", "icons/global.png");
     embedded_asset!(app, "src/", "icons/hidden.png");
     embedded_asset!(app, "src/", "icons/hide.png");
+    embedded_asset!(app, "src/", "icons/home.png");
     embedded_asset!(app, "src/", "icons/link.png");
     embedded_asset!(app, "src/", "icons/merge.png");
     embedded_asset!(app, "src/", "icons/opaque.png");
