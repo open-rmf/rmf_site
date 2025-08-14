@@ -18,7 +18,9 @@ pub mod exit_confirmation;
 use exit_confirmation::ExitConfirmationPlugin;
 
 // Bevy plugins that are public dependencies, mixing versions won't work for downstream users
+pub use bevy;
 pub use bevy_egui;
+pub use bevy_impulse;
 
 pub mod keyboard;
 use keyboard::*;
