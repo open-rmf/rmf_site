@@ -560,6 +560,7 @@ impl BuildingMap {
                         InstanceModifier {
                             pose: Some(model_pose),
                             inclusion: Some(Inclusion::Included),
+                            on_level: Some(level_id),
                         },
                     );
             }
@@ -582,6 +583,7 @@ impl BuildingMap {
                         InstanceModifier {
                             pose: Some(model_pose),
                             inclusion: Some(Inclusion::Included),
+                            on_level: Some(level_id),
                         },
                     );
             }

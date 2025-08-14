@@ -108,6 +108,10 @@ pub use primitive_shape::*;
 pub mod recall_plugin;
 pub use recall_plugin::RecallPlugin;
 
+pub mod robot;
+#[allow(unused_imports)]
+pub use robot::*;
+
 pub mod robot_properties;
 pub use robot_properties::*;
 
@@ -149,6 +153,8 @@ use crate::{AppState, RegisterIssueType};
 pub use rmf_site_format::{DirectionalLight, PointLight, SpotLight, Style, *};
 
 use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
+
+use bevy_infinite_grid::*;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SiteUpdateSet {
@@ -200,6 +206,9 @@ impl Plugin for SitePlugin {
                 SiteUpdateSet::BetweenTransformAndVisibility,
                 SiteUpdateSet::BetweenTransformAndVisibilityFlush,
                 VisibilitySystems::VisibilityPropagate,
+                // TODO(luca) remove this when https://github.com/bevyengine/bevy/pull/19064 (or
+                // alternative fix) is merged and released
+                bevy::asset::AssetEvents,
             )
                 .chain(),
         )
@@ -215,6 +224,7 @@ impl Plugin for SitePlugin {
         .init_resource::<SiteAssets>()
         .init_resource::<CurrentLevel>()
         .init_resource::<CurrentScenario>()
+        .init_resource::<DefaultScenario>()
         .init_resource::<ExportHandlers>()
         .init_resource::<Trashcan>()
         .init_resource::<PhysicalLightToggle>()
@@ -222,6 +232,7 @@ impl Plugin for SitePlugin {
         .add_event::<ImportNavGraphs>()
         .add_event::<ChangeCurrentSite>()
         .add_event::<ChangeCurrentScenario>()
+        .add_event::<ChangeDefaultScenario>()
         .add_event::<CreateScenario>()
         .add_event::<RemoveScenario>()
         .add_event::<SaveSite>()
@@ -287,8 +298,10 @@ impl Plugin for SitePlugin {
             PropertyPlugin::<Inclusion, InstanceMarker>::default(),
             PropertyPlugin::<Inclusion, Task>::default(),
             PropertyPlugin::<TaskParams, Task>::default(),
+            PropertyPlugin::<OnLevel<Entity>, Robot>::default(),
             SlotcarSdfPlugin,
         ))
+        .add_plugins((InfiniteGridPlugin,))
         .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
         .add_issue_type(&DUPLICATED_LIFT_NAME_ISSUE_UUID, "Duplicate lift name")
         .add_issue_type(
@@ -312,6 +325,8 @@ impl Plugin for SitePlugin {
                 check_for_close_unconnected_anchors,
                 check_for_orphan_model_instances,
                 check_for_hidden_model_instances,
+                check_for_accidentally_moved_instances,
+                check_for_invalid_level_assignments,
                 fetch_image_for_texture,
                 detect_last_selected_texture::<FloorMarker>,
                 apply_last_selected_texture::<FloorMarker>
@@ -433,10 +448,12 @@ impl Plugin for SitePlugin {
                 add_physical_camera_visuals,
                 check_selected_is_included,
                 check_for_missing_root_modifiers::<InstanceMarker>,
+                update_default_scenario,
             )
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
         )
-        .add_observer(handle_inclusion_change_for_model_visibility);
+        .add_observer(handle_inclusion_change_for_model_visibility)
+        .add_observer(handle_on_level_change);
     }
 }

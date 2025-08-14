@@ -1440,7 +1440,14 @@ fn generate_scenarios(
             &Affiliation<Entity>,
         )>,
         Query<&SiteID, Without<Pending>>,
-        Query<(Option<&Modifier<Pose>>, Option<&Modifier<Inclusion>>), With<Affiliation<Entity>>>,
+        Query<
+            (
+                Option<&Modifier<Pose>>,
+                Option<&Modifier<Inclusion>>,
+                Option<&Modifier<OnLevel<Entity>>>,
+            ),
+            With<Affiliation<Entity>>,
+        >,
         Query<
             (Option<&Modifier<Inclusion>>, Option<&Modifier<TaskParams>>),
             With<Affiliation<Entity>>,
@@ -1465,7 +1472,7 @@ fn generate_scenarios(
                                 instances: scenario_modifiers
                                     .iter()
                                     .filter_map(|(e_element, e_modifier)| {
-                                        let Ok((pose, inclusion)) =
+                                        let Ok((pose, inclusion, on_level)) =
                                             instance_modifiers.get(*e_modifier)
                                         else {
                                             return Some(Err(SiteGenerationError::BrokenModifier(
@@ -1473,9 +1480,23 @@ fn generate_scenarios(
                                             )));
                                         };
 
+                                        let on_level = match on_level
+                                            .map(|l| **l)
+                                            .and_then(|level| level.0)
+                                        {
+                                            Some(e) => Some({
+                                                match site_id.get(e) {
+                                                    Ok(id) => id.0,
+                                                    Err(_) => return Some(Err(SiteGenerationError::BrokenLevelReference(e))),
+                                                }
+                                            }),
+                                            None => None,
+                                        };
+
                                         let modifier = InstanceModifier {
                                             pose: pose.map(|p| **p),
                                             inclusion: inclusion.map(|i| **i),
+                                            on_level,
                                         };
 
                                         if modifier.is_default() {

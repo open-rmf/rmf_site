@@ -100,7 +100,7 @@ impl Plugin for InspectRobotPropertiesPlugin {
             .init_resource::<RobotPropertyWidgetRegistry>();
         app.add_event::<UpdateRobotPropertyKinds>().add_systems(
             PreUpdate,
-            check_for_missing_robot_property_kinds
+            check_for_invalid_robot_property_kinds
                 .after(SiteUpdateSet::ProcessChangesFlush)
                 .run_if(AppState::in_displaying_mode()),
         );
@@ -391,11 +391,11 @@ pub fn show_robot_property_widget<T: RobotProperty>(
     change_robot_property.write(Change::new(ModelProperty(new_robot), description_entity));
 }
 
-/// Unique UUID to identify issue of missing robot property kind
-pub const MISSING_ROBOT_PROPERTY_KIND_ISSUE_UUID: Uuid =
+/// Unique UUID to identify issue of invalid robot property kind
+pub const INVALID_ROBOT_PROPERTY_KIND_ISSUE_UUID: Uuid =
     Uuid::from_u128(0x655d6b52d8dd4f4f8324a77c497d9396u128);
 
-pub fn check_for_missing_robot_property_kinds(
+pub fn check_for_invalid_robot_property_kinds(
     mut commands: Commands,
     mut validate_events: EventReader<ValidateWorkspace>,
     robot_property_widgets: Res<RobotPropertyWidgetRegistry>,
@@ -410,31 +410,33 @@ pub fn check_for_missing_robot_property_kinds(
                 if widget_registration.kinds.is_empty() {
                     continue;
                 }
-                if value
+                let property_kind = value
                     .as_object()
                     .and_then(|m| m.get("kind"))
-                    .and_then(|k| k.as_str())
-                    .is_some_and(|k| widget_registration.kinds.contains_key(&k.to_string()))
+                    .and_then(|k| k.as_str());
+                // Ignore if
+                // - This RobotProperty simple toggles on-off
+                // - This RobotProperty does not have a RobotPropertyKind
+                // - This RobotPropertyKind is valid and registered
+                if value.is_null()
+                    || property_kind.is_none()
+                    || property_kind
+                        .is_some_and(|k| widget_registration.kinds.contains_key(&k.to_string()))
                 {
                     continue;
                 }
 
-                let brief = match value {
-                    Value::Null => format!(
-                        "RobotPropertyKind not found for RobotProperty {:?} \
-                        with affiliated model description {:?}",
-                        property, description_name.0
-                    ),
-                    _ => format!(
-                        "Invalid RobotPropertyKind found for RobotProperty {:?} \
-                        with affiliated model description {:?}",
-                        property, description_name.0,
-                    ),
-                };
+                let brief = format!(
+                    "Invalid RobotPropertyKind {:?} found for RobotProperty {:?} \
+                    with affiliated model description {:?}",
+                    property_kind.unwrap(),
+                    property,
+                    description_name.0,
+                );
                 let issue = Issue {
                     key: IssueKey {
                         entities: [entity].into(),
-                        kind: MISSING_ROBOT_PROPERTY_KIND_ISSUE_UUID,
+                        kind: INVALID_ROBOT_PROPERTY_KIND_ISSUE_UUID,
                     },
                     brief,
                     hint: format!(
