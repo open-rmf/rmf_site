@@ -43,6 +43,9 @@ pub struct Guided {
     pub lanes: BTreeMap<u32, Lane<u32>>,
     /// Properties of each special location
     pub locations: BTreeMap<u32, Location<u32>>,
+    /// Mutex groups associated with this site
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub mutex_groups: BTreeMap<u32, MutexGroup>,
 }
 
 impl Guided {

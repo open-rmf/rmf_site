@@ -211,3 +211,28 @@ impl<T: RefTrait> Recall for RecallAssociatedGraphs<T> {
         }
     }
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
+pub struct MutexGroup {
+    /// Name of this mutex group
+    pub name: NameInSite,
+    #[serde(skip)]
+    pub group: Group,
+    #[serde(skip)]
+    pub marker: MutexMarker,
+}
+
+impl MutexGroup {
+    pub fn new(name: NameInSite) -> Self {
+        MutexGroup {
+            name,
+            group: Default::default(),
+            marker: Default::default(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct MutexMarker;
