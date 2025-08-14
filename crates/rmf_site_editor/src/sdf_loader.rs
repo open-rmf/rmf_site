@@ -148,6 +148,12 @@ fn compute_model_source<'a, 'b>(
                     )));
                 }
             }
+            AssetSource::Ros(_) => {
+                // TODO(@xiyuoh)
+                return Err(SdfError::UnsupportedAssetSource(format!(
+                    "Ros meshes not supported for now"
+                )));
+            }
         }
         Ok(asset_source)
     } else {
