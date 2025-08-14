@@ -21,7 +21,7 @@ use crate::{
     CurrentWorkspace,
 };
 use bevy::prelude::*;
-use bevy_egui::egui::{ComboBox, Ui};
+use bevy_egui::egui::{ComboBox, TextEdit, Ui};
 use pathdiff::diff_paths;
 use rmf_site_format::{Affiliation, AssetSource, RecallAssetSource};
 
@@ -132,17 +132,25 @@ impl<'a> InspectAssetSourceComponent<'a> {
                             }
                         };
                     }
-                    ui.text_edit_singleline(name);
+                    TextEdit::singleline(name)
+                        .desired_width(ui.available_width())
+                        .show(ui);
                 });
             }
             AssetSource::Remote(uri) => {
-                ui.text_edit_singleline(uri);
+                TextEdit::singleline(uri)
+                    .desired_width(ui.available_width())
+                    .show(ui);
             }
             AssetSource::Search(name) => {
-                ui.text_edit_singleline(name);
+                TextEdit::singleline(name)
+                    .desired_width(ui.available_width())
+                    .show(ui);
             }
             AssetSource::Package(path) => {
-                ui.text_edit_singleline(path);
+                TextEdit::singleline(path)
+                    .desired_width(ui.available_width())
+                    .show(ui);
             }
             AssetSource::Ros(uri) => {
                 ui.text_edit_singleline(uri);

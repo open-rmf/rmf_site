@@ -28,7 +28,7 @@ use crate::{
     AppState, ChangeRank, CurrentWorkspace, WorkspaceLoader, WorkspaceSaver,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{CollapsingHeader, ImageButton, Ui};
+use bevy_egui::egui::{CollapsingHeader, ImageButton, TextEdit, Ui, Widget};
 use rmf_site_egui::*;
 
 /// Add a widget for viewing and editing navigation graphs.
@@ -134,7 +134,9 @@ impl<'w, 's> ViewNavGraphs<'w, 's> {
             if let Some(color) = &mut self.display_nav_graph.color {
                 color_edit(ui, color);
             }
-            ui.text_edit_singleline(&mut self.display_nav_graph.name);
+            TextEdit::singleline(&mut self.display_nav_graph.name)
+                .desired_width(ui.available_width())
+                .show(ui);
             if add {
                 self.commands
                     .spawn((Transform::default(), Visibility::default()))
@@ -193,7 +195,11 @@ impl<'w, 's> ViewNavGraphs<'w, 's> {
                 }
 
                 let mut new_name = name.0.clone();
-                if ui.text_edit_singleline(&mut new_name).changed() {
+                if TextEdit::singleline(&mut new_name)
+                    .desired_width(ui.available_width())
+                    .ui(ui)
+                    .changed()
+                {
                     self.change_name.write(Change::new(NameInSite(new_name), e));
                 }
             });

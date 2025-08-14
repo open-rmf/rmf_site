@@ -24,7 +24,7 @@ use rmf_site_format::{
     UserCameraPoseMarker,
 };
 
-use super::{ChangeCurrentScenario, CreateScenario};
+use super::{ChangeCurrentScenario, CreateScenario, DefaultScenario};
 
 /// Used as an event to command that a new site should be made the current one
 #[derive(Clone, Copy, Debug, Event)]
@@ -64,6 +64,7 @@ pub fn change_site(
     mut current_level: ResMut<CurrentLevel>,
     current_scenario: ResMut<CurrentScenario>,
     cached_levels: Query<&CachedLevel>,
+    default_scenario: Res<DefaultScenario>,
     mut visibility: Query<&mut Visibility>,
     open_sites: Query<Entity, With<NameOfSite>>,
     children: Query<&Children>,
@@ -158,10 +159,12 @@ pub fn change_site(
             }
         } else {
             if let Ok(children) = children.get(cmd.site) {
-                let any_scenario = children
-                    .iter()
-                    .filter(|child| scenarios.get(*child).is_ok())
-                    .next();
+                let any_scenario = default_scenario.0.or_else(|| {
+                    children
+                        .iter()
+                        .filter(|child| scenarios.get(*child).is_ok())
+                        .next()
+                });
                 if let Some(new_scenario) = any_scenario {
                     change_current_scenario.write(ChangeCurrentScenario(new_scenario));
                 } else {
