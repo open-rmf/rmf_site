@@ -39,7 +39,7 @@ pub struct SiteProperties<T: RefTrait> {
     pub filtered_issues: FilteredIssues<T>,
     #[serde(default, skip_serializing_if = "FilteredIssueKinds::is_empty")]
     pub filtered_issue_kinds: FilteredIssueKinds,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub extension_settings: SiteExtensionSettings,
 }
 
