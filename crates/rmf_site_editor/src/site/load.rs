@@ -135,7 +135,9 @@ pub enum LoadSiteError {
     JsonParsingError(#[from] serde_json::Error),
     #[error("Unrecognized file type: {0}")]
     UnrecognizedFileType(PathBuf),
-    #[error("Cannot determine data format for raw data. It could not be parsed as .building.yaml, .site.json, or .site.ron")]
+    #[error(
+        "Cannot determine data format for raw data. It could not be parsed as .building.yaml, .site.json, or .site.ron"
+    )]
     UnknownDataFormat,
 }
 
@@ -184,6 +186,22 @@ fn generate_site_entities(
         .insert(Category::Site)
         .insert(WorkspaceMarker)
         .id();
+
+    commands
+        .spawn(InfiniteGridBundle {
+            transform: Transform {
+                translation: Vec3::new(0., 0., -0.01),
+                rotation: Quat::from_rotation_x(90_f32.to_radians()),
+                scale: Vec3::splat(1.0),
+            },
+            settings: InfiniteGridSettings {
+                minor_line_color: Color::srgb(0.2, 0.2, 0.2),
+                major_line_color: Color::srgb(0.4, 0.4, 0.4),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .insert(ChildOf(site_id));
 
     for (anchor_id, anchor) in &site_data.anchors {
         let anchor_entity = commands
@@ -367,6 +385,7 @@ fn generate_site_entities(
             let door_entity = commands
                 .spawn(door.convert(&id_to_entity).for_site(site_id)?)
                 .insert(Dependents::single(lift_entity))
+                .insert(SiteID(*door_id))
                 .insert(ChildOf(lift_entity))
                 .id();
             id_to_entity.insert(*door_id, door_entity);
@@ -532,6 +551,7 @@ fn generate_site_entities(
             Some(parent_id) => *id_to_entity.get(&parent_id).unwrap_or(&site_id),
             None => site_id,
         };
+
         let scenario = scenario_data.convert(&id_to_entity).for_site(site_id)?;
         let scenario_entity = commands
             .spawn(scenario.properties.clone())
@@ -542,77 +562,58 @@ fn generate_site_entities(
         consider_id(*scenario_id);
 
         // Spawn instance modifier entities
-        let mut scenario_modifiers: ScenarioModifiers<Entity> = ScenarioModifiers::default();
-        for (instance_id, instance) in scenario_data.instances.iter() {
-            if let Some(instance_entity) = id_to_entity.get(&instance_id) {
-                if instance.pose.is_some() || instance.visibility.is_some() {
-                    let modifier_entity = commands
-                        .spawn(Affiliation(Some(*instance_entity)))
-                        .insert(ChildOf(scenario_entity))
-                        .id();
-                    if let Some(pose) = instance.pose {
-                        commands
-                            .entity(modifier_entity)
-                            .insert(Modifier::<Pose>::new(pose));
-                    }
-                    if let Some(vis) = instance.visibility {
-                        let visibility = if vis {
-                            Visibility::Inherited
-                        } else {
-                            Visibility::Hidden
-                        };
-                        commands
-                            .entity(modifier_entity)
-                            .insert(Modifier::<Visibility>::new(visibility));
-                    }
-                    scenario_modifiers.insert(*instance_entity, modifier_entity);
-                } else {
-                    error!(
-                        "Model instance {} does not have all required modifiers in scenario {}!",
-                        instance_id, scenario.properties.name.0
-                    );
-                }
-            } else {
-                error!(
-                    "Model instance {} referenced by scenario {} is missing! This should \
-                    not happen, please report this bug to the maintainers of rmf_site_editor.",
-                    instance_id, scenario.properties.name.0
-                );
+        for (instance_id, instance_modifier) in scenario_data.instances.iter() {
+            let instance_entity = id_to_entity
+                .get(instance_id)
+                .ok_or(*instance_id)
+                .for_site(site_id)?;
+
+            if let Some(pose) = instance_modifier.pose {
+                commands.trigger(UpdateModifier::modify(
+                    scenario_entity,
+                    *instance_entity,
+                    pose,
+                ));
+            }
+            if let Some(inclusion) = instance_modifier.inclusion {
+                commands.trigger(UpdateModifier::modify(
+                    scenario_entity,
+                    *instance_entity,
+                    inclusion,
+                ));
+            }
+            if let Some(level_entity) = instance_modifier
+                .on_level
+                .and_then(|level_id| id_to_entity.get(&level_id))
+            {
+                commands.trigger(UpdateModifier::modify(
+                    scenario_entity,
+                    *instance_entity,
+                    OnLevel(Some(*level_entity)),
+                ));
             }
         }
-        for (task_id, task_data) in scenario_data.tasks.iter() {
-            if let Some(task_entity) = id_to_entity.get(&task_id) {
-                if task_data.inclusion.is_some() || task_data.params.is_some() {
-                    let modifier_entity = commands
-                        .spawn(Affiliation(Some(*task_entity)))
-                        .insert(ChildOf(scenario_entity))
-                        .id();
-                    if let Some(inclusion) = task_data.inclusion {
-                        commands
-                            .entity(modifier_entity)
-                            .insert(Modifier::<Inclusion>::new(inclusion));
-                    }
-                    if let Some(params) = &task_data.params {
-                        commands
-                            .entity(modifier_entity)
-                            .insert(Modifier::<TaskParams>::new(params.clone()));
-                    }
-                    scenario_modifiers.insert(*task_entity, modifier_entity);
-                } else {
-                    error!(
-                        "Task {} does not have all required modifiers in scenario {}!",
-                        task_id, scenario.properties.name.0
-                    );
-                }
-            } else {
-                error!(
-                    "Task {} referenced by scenario {} is missing! This should \
-                    not happen, please report this bug to the maintainers of rmf_site_editor.",
-                    task_id, scenario.properties.name.0
-                );
+        // Spawn task modifier entities
+        for (task_id, task_modifier) in scenario_data.tasks.iter() {
+            let task_entity = id_to_entity
+                .get(task_id)
+                .ok_or(*task_id)
+                .for_site(site_id)?;
+            if let Some(inclusion) = task_modifier.inclusion {
+                commands.trigger(UpdateModifier::modify(
+                    scenario_entity,
+                    *task_entity,
+                    inclusion,
+                ));
+            }
+            if let Some(params) = &task_modifier.params {
+                commands.trigger(UpdateModifier::modify(
+                    scenario_entity,
+                    *task_entity,
+                    params.clone(),
+                ));
             }
         }
-        commands.entity(scenario_entity).insert(scenario_modifiers);
     }
 
     let nav_graph_rankings = match RecencyRanking::<NavGraphMarker>::from_u32(

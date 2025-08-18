@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{site::*, CurrentWorkspace, Issue, ValidateWorkspace};
+use crate::{layers, site::*, CurrentWorkspace, Issue, ValidateWorkspace};
 use bevy::{
     ecs::{hierarchy::ChildOf, relationship::AncestorIter},
     prelude::*,
@@ -178,8 +178,11 @@ pub fn update_lift_cabin(
         let cabin_tf = match cabin {
             LiftCabin::Rect(params) => {
                 let Aabb { center, .. } = params.aabb();
-                let cabin_tf =
-                    Transform::from_translation(Vec3::new(center.x, center.y, FLOOR_LAYER_START));
+                let cabin_tf = Transform::from_translation(Vec3::new(
+                    center.x,
+                    center.y,
+                    layers::ZLayer::Floor.to_z(),
+                ));
                 let floor_mesh: Mesh = make_flat_rect_mesh(
                     params.depth + 2.0 * params.thickness(),
                     params.width + 2.0 * params.thickness(),
@@ -237,7 +240,7 @@ pub fn update_lift_cabin(
                                             .contains(&level)
                                     })
                                     .is_some();
-                                aabb.center.z = LANE_LAYER_LIMIT;
+                                aabb.center.z = layers::ZLayer::Doormat.to_z();
                                 let mesh = make_flat_mesh_for_aabb(aabb);
                                 child_of
                                     .spawn((

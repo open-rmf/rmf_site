@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{site::*, RecencyRanking};
+use crate::{layers, site::*, RecencyRanking};
 use bevy::{
     ecs::hierarchy::ChildOf,
     math::Affine3A,
@@ -31,7 +31,6 @@ use rmf_site_mesh::*;
 use rmf_site_picking::Selectable;
 
 pub const FALLBACK_FLOOR_SIZE: f32 = 0.1;
-pub const FLOOR_LAYER_START: f32 = DRAWING_LAYER_START + 0.001;
 
 #[derive(Debug, Clone, Copy, Component)]
 pub struct FloorSegments {
@@ -192,8 +191,10 @@ fn make_floor_mesh(
 }
 
 fn floor_height(rank: Option<&RecencyRank<FloorMarker>>) -> f32 {
-    rank.map(|r| r.proportion() * (LANE_LAYER_START - FLOOR_LAYER_START) + FLOOR_LAYER_START)
-        .unwrap_or(FLOOR_LAYER_START)
+    let floor_layer_start = layers::ZLayer::Floor.to_z();
+    let lane_layer_start = layers::ZLayer::Lane.to_z();
+    rank.map(|r| r.proportion() * (lane_layer_start - floor_layer_start) + floor_layer_start)
+        .unwrap_or(floor_layer_start)
 }
 
 #[inline]

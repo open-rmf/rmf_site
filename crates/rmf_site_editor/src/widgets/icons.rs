@@ -85,6 +85,7 @@ pub struct Icons {
     pub global: Icon,
     pub hide: Icon,
     pub show: Icon,
+    pub home: Icon,
 }
 
 impl FromWorld for Icons {
@@ -113,6 +114,7 @@ impl FromWorld for Icons {
         let global = IconBuilder::new("widgets/icons/global.png", &asset_server);
         let hide = IconBuilder::new("widgets/icons/hide.png", &asset_server);
         let show = IconBuilder::new("widgets/icons/show.png", &asset_server);
+        let home = IconBuilder::new("widgets/icons/home.png", &asset_server);
 
         // Note: Building the icons is a two-stage process because we cannot
         // get the mutable EguiContext resource at the same time as the
@@ -143,6 +145,7 @@ impl FromWorld for Icons {
             global: global.build(&mut egui_context),
             hide: hide.build(&mut egui_context),
             show: show.build(&mut egui_context),
+            home: home.build(&mut egui_context),
         }
     }
 }
@@ -175,58 +178,28 @@ impl Icons {
 }
 
 fn add_widgets_icons(app: &mut App) {
-    // Taken from https://github.com/bevyengine/bevy/issues/10377#issuecomment-1858797002
-    // TODO(luca) remove once we migrate to Bevy 0.13 that includes the fix
-    #[cfg(any(not(target_family = "windows"), target_env = "gnu"))]
-    {
-        embedded_asset!(app, "src/", "icons/add.png");
-        embedded_asset!(app, "src/", "icons/alignment.png");
-        embedded_asset!(app, "src/", "icons/alpha.png");
-        embedded_asset!(app, "src/", "icons/confirm.png");
-        embedded_asset!(app, "src/", "icons/down.png");
-        embedded_asset!(app, "src/", "icons/edit.png");
-        embedded_asset!(app, "src/", "icons/empty.png");
-        embedded_asset!(app, "src/", "icons/exit.png");
-        embedded_asset!(app, "src/", "icons/global.png");
-        embedded_asset!(app, "src/", "icons/hidden.png");
-        embedded_asset!(app, "src/", "icons/hide.png");
-        embedded_asset!(app, "src/", "icons/link.png");
-        embedded_asset!(app, "src/", "icons/merge.png");
-        embedded_asset!(app, "src/", "icons/opaque.png");
-        embedded_asset!(app, "src/", "icons/reject.png");
-        embedded_asset!(app, "src/", "icons/search.png");
-        embedded_asset!(app, "src/", "icons/select.png");
-        embedded_asset!(app, "src/", "icons/selected.png");
-        embedded_asset!(app, "src/", "icons/show.png");
-        embedded_asset!(app, "src/", "icons/to_bottom.png");
-        embedded_asset!(app, "src/", "icons/to_top.png");
-        embedded_asset!(app, "src/", "icons/trash.png");
-        embedded_asset!(app, "src/", "icons/up.png");
-    }
-    #[cfg(all(target_family = "windows", not(target_env = "gnu")))]
-    {
-        embedded_asset!(app, "src\\", "icons\\add.png");
-        embedded_asset!(app, "src\\", "icons\\alignment.png");
-        embedded_asset!(app, "src\\", "icons\\alpha.png");
-        embedded_asset!(app, "src\\", "icons\\confirm.png");
-        embedded_asset!(app, "src\\", "icons\\down.png");
-        embedded_asset!(app, "src\\", "icons\\edit.png");
-        embedded_asset!(app, "src\\", "icons\\empty.png");
-        embedded_asset!(app, "src\\", "icons\\exit.png");
-        embedded_asset!(app, "src\\", "icons\\global.png");
-        embedded_asset!(app, "src\\", "icons\\hidden.png");
-        embedded_asset!(app, "src\\", "icons\\hide.png");
-        embedded_asset!(app, "src\\", "icons\\link.png");
-        embedded_asset!(app, "src\\", "icons\\merge.png");
-        embedded_asset!(app, "src\\", "icons\\opaque.png");
-        embedded_asset!(app, "src\\", "icons\\reject.png");
-        embedded_asset!(app, "src\\", "icons\\search.png");
-        embedded_asset!(app, "src\\", "icons\\select.png");
-        embedded_asset!(app, "src\\", "icons\\selected.png");
-        embedded_asset!(app, "src\\", "icons\\show.png");
-        embedded_asset!(app, "src\\", "icons\\to_bottom.png");
-        embedded_asset!(app, "src\\", "icons\\to_top.png");
-        embedded_asset!(app, "src\\", "icons\\trash.png");
-        embedded_asset!(app, "src\\", "icons\\up.png");
-    }
+    embedded_asset!(app, "src/", "icons/add.png");
+    embedded_asset!(app, "src/", "icons/alignment.png");
+    embedded_asset!(app, "src/", "icons/alpha.png");
+    embedded_asset!(app, "src/", "icons/confirm.png");
+    embedded_asset!(app, "src/", "icons/down.png");
+    embedded_asset!(app, "src/", "icons/edit.png");
+    embedded_asset!(app, "src/", "icons/empty.png");
+    embedded_asset!(app, "src/", "icons/exit.png");
+    embedded_asset!(app, "src/", "icons/global.png");
+    embedded_asset!(app, "src/", "icons/hidden.png");
+    embedded_asset!(app, "src/", "icons/hide.png");
+    embedded_asset!(app, "src/", "icons/home.png");
+    embedded_asset!(app, "src/", "icons/link.png");
+    embedded_asset!(app, "src/", "icons/merge.png");
+    embedded_asset!(app, "src/", "icons/opaque.png");
+    embedded_asset!(app, "src/", "icons/reject.png");
+    embedded_asset!(app, "src/", "icons/search.png");
+    embedded_asset!(app, "src/", "icons/select.png");
+    embedded_asset!(app, "src/", "icons/selected.png");
+    embedded_asset!(app, "src/", "icons/show.png");
+    embedded_asset!(app, "src/", "icons/to_bottom.png");
+    embedded_asset!(app, "src/", "icons/to_top.png");
+    embedded_asset!(app, "src/", "icons/trash.png");
+    embedded_asset!(app, "src/", "icons/up.png");
 }

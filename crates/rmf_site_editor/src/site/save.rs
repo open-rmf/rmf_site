@@ -42,10 +42,10 @@ pub struct SaveSite {
 pub enum SiteGenerationError {
     #[error("the specified entity [{0:?}] does not refer to a site")]
     InvalidSiteEntity(Entity),
-    #[error("an object has a reference to an anchor that does not exist")]
-    BrokenAnchorReference(Entity),
-    #[error("an object has a reference to a group that does not exist")]
-    BrokenAffiliation(Entity),
+    #[error("an object [{object:?}] has a reference to an anchor [{anchor:?}] that is not valid")]
+    BrokenAnchorReference { object: Entity, anchor: Entity },
+    #[error("an object [{object:?}] has a reference to a group [{group:?}] that is not valid")]
+    BrokenAffiliation { object: Entity, group: Entity },
     #[error("an object has a reference to an empty group")]
     EmptyAffiliation(Entity),
     #[error("an object has a reference to a level that does not exist")]
@@ -66,6 +66,8 @@ pub enum SiteGenerationError {
     InvalidLiftDoorReference { door: Entity, anchor: Entity },
     #[error("an object has a reference to a modifier that does not exist")]
     BrokenModifier(Entity),
+    #[error("A site element [{0:?}] is missing a site ID")]
+    MissingSiteID(Entity),
 }
 
 /// This is used when a drawing is being edited to fix its parenting before we
@@ -117,7 +119,7 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
         >,
         Query<Entity, (With<ModelMarker>, With<Group>)>,
         Query<Entity, (With<ModelMarker>, Without<Group>, Without<Preview>)>,
-        Query<Entity, With<ScenarioMarker>>,
+        Query<(Entity, &Affiliation<Entity>), With<ScenarioModifiers<Entity>>>,
         Query<Entity, (With<Task>, Without<Pending>)>,
         Query<
             Entity,
@@ -217,18 +219,23 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
             }
         }
 
-        // Ensure root scenarios have the smallest Site_ID, since when deserializing, child scenarios would
-        // require parent scenarios to already be spawned and have its parent entity
-        if let Ok(scenario) = scenarios.get(*site_child) {
+        if let Ok((scenario, _)) = scenarios.get(*site_child) {
+            // Ensure root scenarios have the smallest Site_ID, since when deserializing, child scenarios would
+            // require parent scenarios to already be spawned and have its parent entity
             let mut queue = vec![scenario];
+            let mut target_scenario = scenario;
+            while let Ok((e, target_parent)) = scenarios.get(target_scenario) {
+                let Some(p) = target_parent.0 else {
+                    break;
+                };
+                queue.push(e);
+                target_scenario = p;
+            }
+            queue.reverse();
+
             while let Some(scenario) = queue.pop() {
                 if !site_ids.contains(scenario) {
                     new_entities.push(scenario);
-                }
-                if let Ok(scenario_children) = children.get(scenario) {
-                    for child in scenario_children {
-                        queue.push(*child);
-                    }
                 }
             }
         }
@@ -422,31 +429,31 @@ fn generate_levels(
         q_user_camera_poses,
     ) = state.get(world);
 
-    let get_anchor_id = |entity| {
+    let get_anchor_id = |object, anchor| {
         let (_, site_id) = q_anchors
-            .get(entity)
-            .map_err(|_| SiteGenerationError::BrokenAnchorReference(entity))?;
+            .get(anchor)
+            .map_err(|_| SiteGenerationError::BrokenAnchorReference { object, anchor })?;
         Ok(site_id.0)
     };
 
-    let get_group_id = |entity| {
+    let get_group_id = |object, group| {
         q_groups
-            .get(entity)
+            .get(group)
             .map(|id| id.0)
-            .map_err(|_| SiteGenerationError::BrokenAffiliation(entity))
+            .map_err(|_| SiteGenerationError::BrokenAffiliation { object, group })
     };
 
-    let get_anchor_id_edge = |edge: &Edge<Entity>| {
-        let left = get_anchor_id(edge.left())?;
-        let right = get_anchor_id(edge.right())?;
+    let get_anchor_id_edge = |object, edge: &Edge<Entity>| {
+        let left = get_anchor_id(object, edge.left())?;
+        let right = get_anchor_id(object, edge.right())?;
         Ok(Edge::new(left, right))
     };
 
-    let get_anchor_id_path = |entities: &Vec<Entity>| {
+    let get_anchor_id_path = |object, entities: &Vec<Entity>| {
         let mut anchor_ids = Vec::new();
         anchor_ids.reserve(entities.len());
         for entity in entities {
-            let id = get_anchor_id(*entity)?;
+            let id = get_anchor_id(object, *entity)?;
             anchor_ids.push(id);
         }
         Ok(Path(anchor_ids))
@@ -488,7 +495,7 @@ fn generate_levels(
                     }
                     if let Ok((edge, o_edge, name, kind, id)) = q_doors.get(c) {
                         let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
-                        let anchors = get_anchor_id_edge(edge)?;
+                        let anchors = get_anchor_id_edge(c, edge)?;
                         level.doors.insert(
                             id.0,
                             Door {
@@ -518,7 +525,7 @@ fn generate_levels(
                             }
                             if let Ok((edge, o_edge, distance, id)) = q_measurements.get(e) {
                                 let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
-                                let anchors = get_anchor_id_edge(edge)?;
+                                let anchors = get_anchor_id_edge(e, edge)?;
                                 measurements.insert(
                                     id.0,
                                     Measurement {
@@ -530,9 +537,9 @@ fn generate_levels(
                             }
                             if let Ok((point, o_point, affiliation, id)) = q_fiducials.get(e) {
                                 let point = o_point.map(|x| &x.0).unwrap_or(point);
-                                let anchor = Point(get_anchor_id(point.0)?);
-                                let affiliation = if let Affiliation(Some(e)) = affiliation {
-                                    Affiliation(Some(get_group_id(*e)?))
+                                let anchor = Point(get_anchor_id(e, point.0)?);
+                                let affiliation = if let Affiliation(Some(a)) = affiliation {
+                                    Affiliation(Some(get_group_id(e, *a)?))
                                 } else {
                                     Affiliation(None)
                                 };
@@ -564,9 +571,9 @@ fn generate_levels(
                     }
                     if let Ok((path, o_path, texture, preferred_alpha, id)) = q_floors.get(c) {
                         let path = o_path.map(|x| &x.0).unwrap_or(path);
-                        let anchors = get_anchor_id_path(&path)?;
+                        let anchors = get_anchor_id_path(c, &path)?;
                         let texture = if let Affiliation(Some(e)) = texture {
-                            Affiliation(Some(get_group_id(*e)?))
+                            Affiliation(Some(get_group_id(c, *e)?))
                         } else {
                             Affiliation(None)
                         };
@@ -603,9 +610,9 @@ fn generate_levels(
                     }
                     if let Ok((edge, o_edge, texture, id)) = q_walls.get(c) {
                         let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
-                        let anchors = get_anchor_id_edge(edge)?;
+                        let anchors = get_anchor_id_edge(c, edge)?;
                         let texture = if let Affiliation(Some(e)) = texture {
-                            Affiliation(Some(get_group_id(*e)?))
+                            Affiliation(Some(get_group_id(c, *e)?))
                         } else {
                             Affiliation(None)
                         };
@@ -682,10 +689,10 @@ fn generate_lifts(
 
     let mut lifts = BTreeMap::new();
 
-    let get_anchor_id = |entity| {
+    let get_anchor_id = |object, anchor| {
         let (site_id, _) = q_anchors
-            .get(entity)
-            .map_err(|_| SiteGenerationError::BrokenAnchorReference(entity))?;
+            .get(anchor)
+            .map_err(|_| SiteGenerationError::BrokenAnchorReference { object, anchor })?;
         Ok(site_id.0)
     };
 
@@ -696,9 +703,9 @@ fn generate_lifts(
         Ok(site_id.0)
     };
 
-    let get_anchor_id_edge = |edge: &Edge<Entity>| {
-        let left = get_anchor_id(edge.left())?;
-        let right = get_anchor_id(edge.right())?;
+    let get_anchor_id_edge = |object, edge: &Edge<Entity>| {
+        let left = get_anchor_id(object, edge.left())?;
+        let right = get_anchor_id(object, edge.right())?;
         Ok(Edge::new(left, right))
     };
 
@@ -761,7 +768,7 @@ fn generate_lifts(
         let validate_level_door_anchors = |door: Entity, edge: &Edge<Entity>| {
             validate_level_door_anchor(door, edge.left())?;
             validate_level_door_anchor(door, edge.right())?;
-            get_anchor_id_edge(edge)
+            get_anchor_id_edge(door, edge)
         };
 
         let mut cabin_anchors = BTreeMap::new();
@@ -798,7 +805,7 @@ fn generate_lifts(
             }
         }
 
-        let reference_anchors = get_anchor_id_edge(edge)?;
+        let reference_anchors = get_anchor_id_edge(lift_entity, edge)?;
         lifts.insert(
             id.0,
             Lift {
@@ -849,13 +856,19 @@ fn generate_fiducials(
         };
         let anchor = q_anchor_ids
             .get(point.0)
-            .map_err(|_| SiteGenerationError::BrokenAnchorReference(point.0))?
+            .map_err(|_| SiteGenerationError::BrokenAnchorReference {
+                object: *child,
+                anchor: point.0,
+            })?
             .0;
         let anchor = Point(anchor);
         let affiliation = if let Some(e) = affiliation.0 {
             let group_id = q_group_ids
                 .get(e)
-                .map_err(|_| SiteGenerationError::BrokenAffiliation(e))?
+                .map_err(|_| SiteGenerationError::BrokenAffiliation {
+                    object: *child,
+                    group: e,
+                })?
                 .0;
             Affiliation(Some(group_id))
         } else {
@@ -973,6 +986,7 @@ fn generate_lanes(
     let mut state: SystemState<(
         Query<
             (
+                Entity,
                 &Edge<Entity>,
                 Option<&Original<Edge<Entity>>>,
                 &Motion,
@@ -989,27 +1003,27 @@ fn generate_lanes(
 
     let (q_lanes, q_nav_graphs, q_anchors) = state.get(world);
 
-    let get_anchor_id = |entity| {
+    let get_anchor_id = |object, anchor| {
         let site_id = q_anchors
-            .get(entity)
-            .map_err(|_| SiteGenerationError::BrokenAnchorReference(entity))?;
+            .get(anchor)
+            .map_err(|_| SiteGenerationError::BrokenAnchorReference { object, anchor })?;
         Ok(site_id.0)
     };
 
-    let get_anchor_id_edge = |edge: &Edge<Entity>| {
-        let left = get_anchor_id(edge.left())?;
-        let right = get_anchor_id(edge.right())?;
+    let get_anchor_id_edge = |object, edge: &Edge<Entity>| {
+        let left = get_anchor_id(object, edge.left())?;
+        let right = get_anchor_id(object, edge.right())?;
         Ok(Edge::new(left, right))
     };
 
     let mut lanes = BTreeMap::new();
-    for (edge, o_edge, forward, reverse, graphs, lane_id, child_of) in &q_lanes {
+    for (e, edge, o_edge, forward, reverse, graphs, lane_id, child_of) in &q_lanes {
         if child_of.parent() != site {
             continue;
         }
 
         let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
-        let edge = get_anchor_id_edge(edge)?;
+        let edge = get_anchor_id_edge(e, edge)?;
         let graphs = graphs
             .to_u32(&q_nav_graphs)
             .map_err(|e| SiteGenerationError::BrokenNavGraphReference(e))?;
@@ -1036,6 +1050,7 @@ fn generate_locations(
     let mut state: SystemState<(
         Query<
             (
+                Entity,
                 &Point<Entity>,
                 Option<&Original<Point<Entity>>>,
                 &LocationTags,
@@ -1052,21 +1067,21 @@ fn generate_locations(
 
     let (q_locations, q_nav_graphs, q_anchors) = state.get(world);
 
-    let get_anchor_id = |entity| {
+    let get_anchor_id = |object, anchor| {
         let site_id = q_anchors
-            .get(entity)
-            .map_err(|_| SiteGenerationError::BrokenAnchorReference(entity))?;
+            .get(anchor)
+            .map_err(|_| SiteGenerationError::BrokenAnchorReference { object, anchor })?;
         Ok(site_id.0)
     };
 
     let mut locations = BTreeMap::new();
-    for (point, o_point, tags, name, graphs, location_id, child_of) in &q_locations {
+    for (e, point, o_point, tags, name, graphs, location_id, child_of) in &q_locations {
         if child_of.parent() != site {
             continue;
         }
 
         let point = o_point.map(|x| &x.0).unwrap_or(point);
-        let point = get_anchor_id(point.0)?;
+        let point = get_anchor_id(e, point.0)?;
         let graphs = graphs
             .to_u32(&q_nav_graphs)
             .map_err(|e| SiteGenerationError::BrokenNavGraphReference(e))?;
@@ -1378,23 +1393,29 @@ fn generate_scenarios(
     world: &mut World,
 ) -> Result<BTreeMap<u32, Scenario<u32>>, SiteGenerationError> {
     let mut state: SystemState<(
-        Query<(Entity, &NameInSite, &SiteID, &Affiliation<Entity>), With<ScenarioMarker>>,
         Query<(
-            Option<&Modifier<Pose>>,
-            Option<&Modifier<Visibility>>,
+            Entity,
+            &ScenarioModifiers<Entity>,
+            &NameInSite,
+            &SiteID,
             &Affiliation<Entity>,
         )>,
-        Query<&SiteID, With<InstanceMarker>>,
-        Query<(
-            Option<&Modifier<Inclusion>>,
-            Option<&Modifier<TaskParams>>,
-            &Affiliation<Entity>,
-        )>,
-        Query<&SiteID, (With<Task>, Without<Pending>)>,
+        Query<&SiteID, Without<Pending>>,
+        Query<
+            (
+                Option<&Modifier<Pose>>,
+                Option<&Modifier<Inclusion>>,
+                Option<&Modifier<OnLevel<Entity>>>,
+            ),
+            With<Affiliation<Entity>>,
+        >,
+        Query<
+            (Option<&Modifier<Inclusion>>, Option<&Modifier<TaskParams>>),
+            With<Affiliation<Entity>>,
+        >,
         Query<&Children>,
     )> = SystemState::new(world);
-    let (scenarios, instance_modifiers, instances, task_modifiers, tasks, children) =
-        state.get(world);
+    let (scenarios, site_id, instance_modifiers, task_modifiers, children) = state.get(world);
     let mut res = BTreeMap::<u32, Scenario<u32>>::new();
 
     if let Ok(site_children) = children.get(site) {
@@ -1403,73 +1424,90 @@ fn generate_scenarios(
                 let mut queue = vec![entity];
 
                 while let Some(scenario) = queue.pop() {
-                    let mut scenario_instance_modifiers = Vec::new();
-                    let mut scenario_task_modifiers = Vec::new();
-                    if let Ok(scenario_children) = children.get(scenario) {
-                        for scenario_child in scenario_children.iter() {
-                            if scenarios.contains(scenario_child) {
-                                queue.push(scenario_child);
-                            } else if instance_modifiers
-                                .get(scenario_child)
-                                .is_ok_and(|(p, v, _)| p.is_some() || v.is_some())
-                            {
-                                scenario_instance_modifiers.push(scenario_child);
-                            } else if task_modifiers
-                                .get(scenario_child)
-                                .is_ok_and(|(i, p, _)| i.is_some() || p.is_some())
-                            {
-                                scenario_task_modifiers.push(scenario_child);
-                            }
-                        }
-                    }
-
-                    if let Ok((_, name, site_id, parent_scenario)) = scenarios.get(scenario) {
+                    if let Ok((_, scenario_modifiers, name, scenario_id, parent_scenario)) =
+                        scenarios.get(scenario)
+                    {
                         res.insert(
-                            site_id.0,
+                            scenario_id.0,
                             Scenario {
-                                instances: scenario_instance_modifiers
+                                instances: scenario_modifiers
                                     .iter()
-                                    .map(|e| {
-                                        let (pose, visibility, affiliation) = instance_modifiers
-                                            .get(*e)
-                                            .map_err(|_| SiteGenerationError::BrokenModifier(*e))?;
-                                        let a = affiliation
-                                            .0
-                                            .ok_or(SiteGenerationError::EmptyAffiliation(*e))?;
-                                        let id = instances.get(a).map(|id| id.0).map_err(|_| {
-                                            SiteGenerationError::BrokenAffiliation(a)
-                                        })?;
-                                        Ok((
-                                            id,
-                                            InstanceModifier {
-                                                pose: pose.map(|p| **p),
-                                                visibility: visibility.map(|v| match **v {
-                                                    Visibility::Hidden => false,
-                                                    _ => true,
-                                                }),
-                                            },
-                                        ))
+                                    .filter_map(|(e_element, e_modifier)| {
+                                        let Ok((pose, inclusion, on_level)) =
+                                            instance_modifiers.get(*e_modifier)
+                                        else {
+                                            return Some(Err(SiteGenerationError::BrokenModifier(
+                                                *e_modifier,
+                                            )));
+                                        };
+
+                                        let on_level = match on_level
+                                            .map(|l| **l)
+                                            .and_then(|level| level.0)
+                                        {
+                                            Some(e) => Some({
+                                                match site_id.get(e) {
+                                                    Ok(id) => id.0,
+                                                    Err(_) => return Some(Err(SiteGenerationError::BrokenLevelReference(e))),
+                                                }
+                                            }),
+                                            None => None,
+                                        };
+
+                                        let modifier = InstanceModifier {
+                                            pose: pose.map(|p| **p),
+                                            inclusion: inclusion.map(|i| **i),
+                                            on_level,
+                                        };
+
+                                        if modifier.is_default() {
+                                            return None;
+                                        }
+
+                                        // Currently sub-assets such as visual and collision geometries
+                                        // are automatically being assigned pose and inclusion modifiers
+                                        // but we do not allow those to change, and we do not save them.
+                                        // Those sub-assets do not have their own Site IDs, so we filter
+                                        // them out here.
+                                        //
+                                        // TODO(@mxgrey): Figure out a setup that will prevent sub-assets
+                                        // from having modifiers at all.
+                                        let element_id =
+                                            site_id.get(*e_element).map(|id| id.0).ok()?;
+
+                                        Some(Ok((element_id, modifier)))
                                     })
                                     .collect::<Result<_, _>>()?,
-                                tasks: scenario_task_modifiers
+                                tasks: scenario_modifiers
                                     .iter()
-                                    .map(|e| {
-                                        let (inclusion, task_params, affiliation) = task_modifiers
-                                            .get(*e)
-                                            .map_err(|_| SiteGenerationError::BrokenModifier(*e))?;
-                                        let a = affiliation
-                                            .0
-                                            .ok_or(SiteGenerationError::EmptyAffiliation(*e))?;
-                                        let id = tasks.get(a).map(|id| id.0).map_err(|_| {
-                                            SiteGenerationError::BrokenAffiliation(a)
-                                        })?;
-                                        Ok((
-                                            id,
-                                            TaskModifier {
-                                                inclusion: inclusion.map(|i| **i),
-                                                params: task_params.map(|p| (**p).clone()),
-                                            },
-                                        ))
+                                    .filter_map(|(e_element, e_modifier)| {
+                                        let Ok((inclusion, task_params)) =
+                                            task_modifiers.get(*e_modifier)
+                                        else {
+                                            return Some(Err(SiteGenerationError::BrokenModifier(
+                                                *e_modifier,
+                                            )));
+                                        };
+
+                                        if task_params.is_none() {
+                                            // This is not a task modifier
+                                            return None;
+                                        }
+
+                                        let modifier = TaskModifier {
+                                            inclusion: inclusion.map(|i| **i),
+                                            params: task_params.map(|p| (**p).clone()),
+                                        };
+
+                                        let Ok(id) = site_id.get(*e_element).map(|id| id.0) else {
+                                            // Every task element must have a Site ID. If it is
+                                            // missing, that implies an error has occurred.
+                                            return Some(Err(SiteGenerationError::MissingSiteID(
+                                                *e_element,
+                                            )));
+                                        };
+
+                                        Some(Ok((id, modifier)))
                                     })
                                     .collect::<Result<_, _>>()?,
                                 properties: ScenarioBundle {
@@ -1478,15 +1516,16 @@ fn generate_scenarios(
                                         Some(parent) => {
                                             let parent_id = scenarios
                                                 .get(parent)
-                                                .map(|(_, _, id, _)| id.0)
+                                                .map(|(_, _, _, id, _)| id.0)
                                                 .map_err(|_| {
-                                                    SiteGenerationError::BrokenAffiliation(parent)
+                                                    SiteGenerationError::MissingSiteID(parent)
                                                 })?;
                                             Affiliation(Some(parent_id))
                                         }
                                         None => Affiliation(None),
                                     },
-                                    marker: ScenarioMarker,
+                                    // ScenarioModifiers are not serialized
+                                    scenario_modifiers: ScenarioModifiers::default(),
                                 },
                             },
                         );
@@ -1742,6 +1781,152 @@ pub fn save_site(world: &mut World) {
                     new_path.to_str().unwrap_or("<failed to render??>")
                 );
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::*;
+    use std::{path::Path, time::Duration};
+    use testdir::testdir;
+
+    #[test]
+    #[cfg(not(target_arch = "wasm32"))]
+    fn headless_load_and_save_roundtrip() {
+        let target_test_dir = testdir!();
+        let rmf_site_editor_manifest_dir_str = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+        // Go from crates/rmf_site_editor to workspace root directory
+        let workspace_dir = Path::new(&rmf_site_editor_manifest_dir_str)
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap();
+
+        let assets_dir = workspace_dir.join("assets");
+        let source = assets_dir.join("demo_maps").join("test.site.json");
+
+        let test_site_dir = "sites";
+        let original = target_test_dir
+            .join(test_site_dir)
+            .join("test_original.site.json");
+        let destination = target_test_dir
+            .join(test_site_dir)
+            .join("test_destination.site.json");
+
+        std::fs::create_dir_all(target_test_dir.join(test_site_dir)).unwrap();
+
+        // Copy the source file into the test directory.
+        //
+        // Later we will do a diff between the two files to make sure they are
+        // exactly equal, but saving to a new folder can alter the relative
+        // paths within the site. To make sure the exported copy is exactly the
+        // same as the original, the copy must be saved to the same folder as
+        // the original. However we do not want tests to produce files in a
+        // source folder, so we copy the source file into the target directory
+        // and then do a roundtrip into the same directory.
+        std::fs::copy(&source, &original).unwrap();
+
+        #[cfg(unix)]
+        {
+            // Create a symlink to avoid a slew of error log messages while loading.
+            // We can ignore the result of this, because the test should still pass
+            // even if the symlinking doesn't work, we'll just see some noisy error
+            // logs in stdout.
+            let _ = std::os::unix::fs::symlink(
+                assets_dir.join("models"),
+                target_test_dir.join("models"),
+            );
+            let _ = std::os::unix::fs::symlink(
+                assets_dir.join("drawings"),
+                target_test_dir.join("drawings"),
+            );
+        }
+
+        let destination = destination.to_str().unwrap().to_owned();
+
+        let mut app = App::new();
+        app.insert_resource(Autoload::file(original.clone(), None))
+            .add_plugins(SiteEditor::default().save_as_path(Some(destination.clone())))
+            .add_plugins(TestTimeoutPlugin::new(Duration::from_secs(10)));
+
+        // Run until the file is saved or until the timeout occurs
+        app.run();
+
+        assert!(std::fs::exists(&destination).unwrap());
+
+        #[cfg(not(target_os = "windows"))]
+        {
+            // For non-windows we can just compare the new and old files directly
+            let original = original.to_str().unwrap().to_owned();
+            assert!(file_diff::diff(&original, &destination));
+
+            let source = source.to_str().unwrap().to_owned();
+            assert!(file_diff::diff(&source, &destination));
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::prelude::*;
+            // Windows uses different characters to represent newlines and path
+            // separators, so we cannot do a 1-to-1 comparison between the original
+            // and the generated file. We will simply check whether the new file
+            // is within 10% the size of the original file size since the differences
+            // incurred by these format changes should not be too significant.
+            let original_file_size = std::fs::metadata(&original).unwrap().file_size() as f64;
+            let destination_file_size = std::fs::metadata(&destination).unwrap().file_size() as f64;
+            let difference_ratio =
+                f64::abs(original_file_size - destination_file_size) / original_file_size;
+
+            assert!(
+                difference_ratio <= 0.1,
+                " - Original file size: {original_file_size} \
+                \n - Destination file size: {destination_file_size} \
+                \n - Destination file contents:\n{}",
+                std::fs::read_to_string(&destination).unwrap(),
+            );
+        }
+
+        // At the end of a successful test we should delete the testdir.
+        // This will avoid accumulating disk space with each test run.
+        let _ = std::fs::remove_dir_all(target_test_dir);
+    }
+
+    pub(crate) struct TestTimeoutPlugin {
+        max_duration: Duration,
+    }
+
+    impl TestTimeoutPlugin {
+        pub(crate) fn new(max_duration: Duration) -> Self {
+            Self { max_duration }
+        }
+    }
+
+    impl Default for TestTimeoutPlugin {
+        fn default() -> Self {
+            TestTimeoutPlugin {
+                max_duration: Duration::from_secs(30),
+            }
+        }
+    }
+
+    impl Plugin for TestTimeoutPlugin {
+        fn build(&self, app: &mut App) {
+            app.insert_resource(TestTimeout {
+                max_duration: self.max_duration,
+            })
+            .add_systems(Update, test_timeout);
+        }
+    }
+
+    #[derive(Resource)]
+    struct TestTimeout {
+        max_duration: Duration,
+    }
+
+    fn test_timeout(time: Res<Time>, timeout: Res<TestTimeout>, mut exit: EventWriter<AppExit>) {
+        if time.elapsed() > timeout.max_duration {
+            exit.write(AppExit::error());
         }
     }
 }

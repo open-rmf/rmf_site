@@ -15,7 +15,7 @@
  *
 */
 
-use crate::site::*;
+use crate::{layers, site::*};
 use bevy::{
     asset::embedded_asset,
     math::{primitives, Affine3A},
@@ -24,21 +24,9 @@ use bevy::{
 use rmf_site_mesh::*;
 
 pub(crate) fn add_site_icons(app: &mut App) {
-    // Taken from https://github.com/bevyengine/bevy/issues/10377#issuecomment-1858797002
-    // TODO(luca) remove once we migrate to Bevy 0.13 that includes the fix
-    #[cfg(any(not(target_family = "windows"), target_env = "gnu"))]
-    {
-        embedded_asset!(app, "src/", "icons/battery.png");
-        embedded_asset!(app, "src/", "icons/parking.png");
-        embedded_asset!(app, "src/", "icons/stopwatch.png");
-    }
-
-    #[cfg(all(target_family = "windows", not(target_env = "gnu")))]
-    {
-        embedded_asset!(app, "src\\", "icons\\battery.png");
-        embedded_asset!(app, "src\\", "icons\\parking.png");
-        embedded_asset!(app, "src\\", "icons\\stopwatch.png");
-    }
+    embedded_asset!(app, "src/", "icons/battery.png");
+    embedded_asset!(app, "src/", "icons/parking.png");
+    embedded_asset!(app, "src/", "icons/stopwatch.png");
 }
 
 #[derive(Resource)]
@@ -226,7 +214,9 @@ impl FromWorld for SiteAssets {
         let location_mesh = meshes.add(
             Mesh::from(
                 make_icon_halo(1.1 * LANE_WIDTH / 2.0, 0.01, 6).transform_by(
-                    Affine3A::from_translation((0.00125 + LOCATION_LAYER_HEIGHT) * Vec3::Z),
+                    Affine3A::from_translation(
+                        (0.00125 + layers::ZLayer::Location.to_z()) * Vec3::Z,
+                    ),
                 ),
             )
             .with_generated_outline_normals()
@@ -235,7 +225,9 @@ impl FromWorld for SiteAssets {
         let fiducial_mesh = meshes.add(
             Mesh::from(
                 make_icon_halo(1.1 * LANE_WIDTH / 2.0, 0.01, 4).transform_by(
-                    Affine3A::from_translation((0.00125 + LOCATION_LAYER_HEIGHT) * Vec3::Z),
+                    Affine3A::from_translation(
+                        (0.00125 + layers::ZLayer::Location.to_z()) * Vec3::Z,
+                    ),
                 ),
             )
             .with_generated_outline_normals()

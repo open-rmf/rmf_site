@@ -15,16 +15,10 @@
  *
 */
 
-use crate::site::*;
+use crate::{layers, site::*};
 use bevy::prelude::*;
 use rmf_site_format::{Edge, MeasurementMarker};
 use rmf_site_picking::Selectable;
-
-// Used as an offset relative to its parent drawing (given by ranking)
-pub const DEFAULT_MEASUREMENT_OFFSET: f32 = (FLOOR_LAYER_START - DRAWING_LAYER_START) / 10.0;
-// Used as a default when spawning, at the top of the drawing layer
-pub const DEFAULT_MEASUREMENT_HEIGHT: f32 =
-    FLOOR_LAYER_START - (FLOOR_LAYER_START - DRAWING_LAYER_START) / 10.0;
 
 /// Stores which (child) entity contains the measurement mesh
 #[derive(Component, Debug, Clone, Deref, DerefMut)]
@@ -48,7 +42,7 @@ pub fn add_measurement_visuals(
             LANE_WIDTH,
         );
         // TODO(luca) proper layering rather than hardcoded
-        transform.translation.z = DEFAULT_MEASUREMENT_HEIGHT;
+        transform.translation.z = layers::ZLayer::Measurement.to_z();
 
         let child_id = commands
             .spawn((
