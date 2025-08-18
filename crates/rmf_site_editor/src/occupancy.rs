@@ -15,7 +15,10 @@
  *
 */
 
-use crate::{layers, site::{Category, LevelElevation, NameOfSite, SiteAssets}};
+use crate::{
+    layers,
+    site::{Category, LevelElevation, NameOfSite, SiteAssets},
+};
 use bevy::{
     ecs::{hierarchy::ChildOf, relationship::AncestorIter},
     math::{swizzles::*, Affine3A, Mat3A, Vec2, Vec3A},
@@ -301,7 +304,9 @@ fn calculate_grid(
                     .spawn((
                         Mesh3d(meshes.add(mesh)),
                         MeshMaterial3d(assets.occupied_material.clone()),
-                        Transform::from_translation([0.0, 0.0, layers::ZLayer::OccupancyGrid.to_z()].into()),
+                        Transform::from_translation(
+                            [0.0, 0.0, layers::ZLayer::OccupancyGrid.to_z()].into(),
+                        ),
                         Visibility::default(),
                     ))
                     .insert(Grid {

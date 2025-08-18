@@ -214,7 +214,9 @@ impl FromWorld for SiteAssets {
         let location_mesh = meshes.add(
             Mesh::from(
                 make_icon_halo(1.1 * LANE_WIDTH / 2.0, 0.01, 6).transform_by(
-                    Affine3A::from_translation((0.00125 + layers::ZLayer::Location.to_z()) * Vec3::Z),
+                    Affine3A::from_translation(
+                        (0.00125 + layers::ZLayer::Location.to_z()) * Vec3::Z,
+                    ),
                 ),
             )
             .with_generated_outline_normals()
@@ -223,7 +225,9 @@ impl FromWorld for SiteAssets {
         let fiducial_mesh = meshes.add(
             Mesh::from(
                 make_icon_halo(1.1 * LANE_WIDTH / 2.0, 0.01, 4).transform_by(
-                    Affine3A::from_translation((0.00125 + layers::ZLayer::Location.to_z()) * Vec3::Z),
+                    Affine3A::from_translation(
+                        (0.00125 + layers::ZLayer::Location.to_z()) * Vec3::Z,
+                    ),
                 ),
             )
             .with_generated_outline_normals()

@@ -55,9 +55,17 @@ pub fn update_lane_visual_cues(
                 true,
             )
         } else if hovered.cue() {
-            (&site_assets.hover_material, layers::ZLayer::HoveredLane.to_z(), true)
+            (
+                &site_assets.hover_material,
+                layers::ZLayer::HoveredLane.to_z(),
+                true,
+            )
         } else if selected.cue() {
-            (&site_assets.select_material, layers::ZLayer::SelectedLane.to_z(), true)
+            (
+                &site_assets.select_material,
+                layers::ZLayer::SelectedLane.to_z(),
+                true,
+            )
         } else {
             (&site_assets.unassigned_lane_material, 0.0, false)
         };

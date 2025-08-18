@@ -79,7 +79,8 @@ impl<'w, 's> GraphSelect<'w, 's> {
         .map(|(m, d)| {
             (
                 m.0,
-                d.proportion() * (layers::ZLayer::Doormat.to_z() - layers::ZLayer::Lane.to_z()) + layers::ZLayer::Lane.to_z(),
+                d.proportion() * (layers::ZLayer::Doormat.to_z() - layers::ZLayer::Lane.to_z())
+                    + layers::ZLayer::Lane.to_z(),
             )
         })
         .unwrap_or((
