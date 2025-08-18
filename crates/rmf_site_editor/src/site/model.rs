@@ -191,10 +191,16 @@ fn load_asset_source(
     }
 }
 
+// TODO(@xiyuoh) make this into a feature
+#[derive(Component, Clone, Debug)]
+pub struct SceneHandle(pub UntypedHandle);
+
 pub fn spawn_scene_for_loaded_model(
     In((parent, h, source)): In<(Entity, UntypedHandle, AssetSource)>,
     world: &mut World,
 ) -> Option<(Entity, bool)> {
+    // TODO(@xiyuoh) make this into a feature
+    world.entity_mut(parent).insert(SceneHandle(h.clone()));
     // For each model that is loading, check if its scene has finished loading
     // yet. If the scene has finished loading, then insert it as a child of the
     // model entity and make it selectable.
