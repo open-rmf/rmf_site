@@ -8,9 +8,12 @@ use bevy_math::prelude::*;
 use bevy_picking::pointer::{PointerId, PointerInteraction};
 use bevy_transform::components::Transform;
 use rmf_site_camera::*;
+use std::time::Instant;
 use tracing::warn;
 
 use crate::*;
+
+const DOUBLE_CLICK_DURATION_MILLISECONDS: u128 = 500;
 
 pub fn process_new_selector(
     In(key): In<BufferKey<RunSelector>>,
@@ -418,5 +421,31 @@ pub(crate) fn build_selection_workflow(
 
         // This workflow only makes sense to run in serial.
         DeliverySettings::Serial
+    }
+}
+
+pub fn send_double_click_event(
+    mut select: EventReader<Select>,
+    selection: ResMut<Selection>,
+    mut double_clicked: Local<DoubleClickSelection>,
+    mut double_click_select: EventWriter<DoubleClickSelect>,
+) {
+    for _ in select.read() {
+        let current_time = Instant::now();
+
+        if let Some(last_entity) = double_clicked.last_selected_entity {
+            let elapsed_time = current_time
+                .duration_since(double_clicked.last_selected_time)
+                .as_millis();
+
+            let Some(selected_entity) = selection.0 else {
+                return;
+            };
+            if last_entity == selected_entity && elapsed_time < DOUBLE_CLICK_DURATION_MILLISECONDS {
+                double_click_select.write(DoubleClickSelect(selection.0));
+            }
+        }
+        double_clicked.last_selected_entity = selection.0;
+        double_clicked.last_selected_time = current_time;
     }
 }

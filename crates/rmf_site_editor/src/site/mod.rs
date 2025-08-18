@@ -447,8 +447,6 @@ impl Plugin for SitePlugin {
                 update_drawing_rank,
                 add_physical_camera_visuals,
                 check_selected_is_included,
-                check_double_click_event,
-                focus_camera_on_double_clicked_object,
                 check_for_missing_root_modifiers::<InstanceMarker>,
                 update_default_scenario,
             )

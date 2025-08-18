@@ -130,6 +130,28 @@ pub enum CameraCommandType {
     FovZoom,
 }
 
+#[derive(Component)]
+pub struct CameraTarget {
+    pub point: Vec3,
+}
+
+#[derive(Clone, Copy, Resource)]
+pub struct PanToElement {
+    pub target: Option<Entity>,
+    pub interruptible: bool,
+    pub persistent: bool,
+}
+
+impl Default for PanToElement {
+    fn default() -> Self {
+        Self {
+            target: None,
+            interruptible: true,
+            persistent: false,
+        }
+    }
+}
+
 /// True/false for whether the headlight should be on or off
 #[derive(Clone, Copy, PartialEq, Eq, Deref, DerefMut, Resource)]
 pub struct HeadlightToggle(pub bool);

@@ -15,11 +15,19 @@ pub struct Selection(pub Option<Entity>);
 pub struct Hovering(pub Option<Entity>);
 
 /// Used as a resource to keep track of which entity is currently double clicked.
-#[derive(Default, Debug, Clone, Copy, Resource)]
+#[derive(Debug, Clone, Copy, Resource)]
 pub struct DoubleClickSelection {
     pub last_selected_entity: Option<Entity>,
-    pub last_selected_time: Option<Instant>,
-    pub entity: Option<Entity>,
+    pub last_selected_time: Instant,
+}
+
+impl Default for DoubleClickSelection {
+    fn default() -> Self {
+        DoubleClickSelection {
+            last_selected_entity: None,
+            last_selected_time: Instant::now(),
+        }
+    }
 }
 
 /// A resource to track what kind of blockers are preventing the selection
