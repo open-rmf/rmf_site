@@ -19,8 +19,8 @@ use crate::{
     site::{
         get_current_workspace_path, Anchor, DefaultFile, FiducialMarker, GlobalDrawingVisibility,
         LayerVisibility, MeasurementMarker, MeasurementSegment, RecencyRank,
-        DEFAULT_MEASUREMENT_OFFSET, FLOOR_LAYER_START,
     },
+    layers,
     CurrentWorkspace,
 };
 use bevy::{asset::LoadState, ecs::hierarchy::ChildOf, math::Affine3A, prelude::*};
@@ -59,8 +59,6 @@ impl DrawingBundle {
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct DrawingMarker;
 
-pub const DRAWING_LAYER_START: f32 = 0.0;
-
 #[derive(Debug, Clone, Copy, Component)]
 pub struct DrawingSegments {
     leaf: Entity,
@@ -72,8 +70,10 @@ pub struct DrawingSegments {
 pub struct LoadingDrawing(Handle<Image>);
 
 fn drawing_layer_height(rank: Option<&RecencyRank<DrawingMarker>>) -> f32 {
-    rank.map(|r| r.proportion() * (FLOOR_LAYER_START - DRAWING_LAYER_START) + DRAWING_LAYER_START)
-        .unwrap_or(DRAWING_LAYER_START)
+    let floor_layer_start = layers::ZLayer::Floor.to_z();
+    let drawing_layer_start = layers::ZLayer::Draw.to_z();
+    rank.map(|r| r.proportion() * (floor_layer_start - drawing_layer_start) + drawing_layer_start)
+        .unwrap_or(drawing_layer_start)
 }
 
 pub fn add_drawing_visuals(
@@ -249,7 +249,7 @@ pub fn update_drawing_rank(
                 if let Ok(segment) = measurements.get(*child) {
                     transforms
                         .get_mut(**segment)
-                        .map(|mut tf| tf.translation.z = z + DEFAULT_MEASUREMENT_OFFSET)
+                        .map(|mut tf| tf.translation.z = z + layers::ZLayer::get_offset())
                         .ok();
                 }
             }

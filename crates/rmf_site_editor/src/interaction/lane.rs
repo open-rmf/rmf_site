@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{interaction::*, site::*};
+use crate::{interaction::*, layers, site::*};
 use bevy::prelude::*;
 use rmf_site_format::{Edge, LaneMarker};
 
@@ -51,13 +51,13 @@ pub fn update_lane_visual_cues(
         let (m, h, v) = if hovered.cue() && selected.cue() {
             (
                 &site_assets.hover_select_material,
-                HOVERED_LANE_OFFSET,
+                layers::ZLayer::HoveredLane.to_z(),
                 true,
             )
         } else if hovered.cue() {
-            (&site_assets.hover_material, HOVERED_LANE_OFFSET, true)
+            (&site_assets.hover_material, layers::ZLayer::HoveredLane.to_z(), true)
         } else if selected.cue() {
-            (&site_assets.select_material, SELECTED_LANE_OFFSET, true)
+            (&site_assets.select_material, layers::ZLayer::SelectedLane.to_z(), true)
         } else {
             (&site_assets.unassigned_lane_material, 0.0, false)
         };
