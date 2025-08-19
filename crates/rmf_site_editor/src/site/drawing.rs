@@ -71,7 +71,7 @@ pub struct LoadingDrawing(Handle<Image>);
 
 fn drawing_layer_height(rank: Option<&RecencyRank<DrawingMarker>>) -> f32 {
     let floor_layer_start = layers::ZLayer::Floor.to_z();
-    let drawing_layer_start = layers::ZLayer::Draw.to_z();
+    let drawing_layer_start = layers::ZLayer::Drawing.to_z();
     rank.map(|r| r.proportion() * (floor_layer_start - drawing_layer_start) + drawing_layer_start)
         .unwrap_or(drawing_layer_start)
 }
@@ -249,7 +249,11 @@ pub fn update_drawing_rank(
                 if let Ok(segment) = measurements.get(*child) {
                     transforms
                         .get_mut(**segment)
-                        .map(|mut tf| tf.translation.z = z + layers::ZLayer::get_offset())
+                        .map(|mut tf| {
+                            tf.translation.z = z
+                                + (layers::ZLayer::Measurement.to_z()
+                                    - layers::ZLayer::Drawing.to_z())
+                        })
                         .ok();
                 }
             }
