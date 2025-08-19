@@ -19,14 +19,48 @@ use crate::site::*;
 use bevy::{
     asset::embedded_asset,
     math::{primitives, Affine3A},
+    pbr::MaterialExtension,
     prelude::*,
+    render::render_resource::{AsBindGroup, ShaderRef},
 };
 use rmf_site_mesh::*;
 
-pub(crate) fn add_site_icons(app: &mut App) {
+const LANE_SHADER_PATH: &str = "embedded://librmf_site_editor/site/shaders/lane_arrow_shader.wgsl";
+
+pub(crate) fn add_site_assets(app: &mut App) {
     embedded_asset!(app, "src/", "icons/battery.png");
     embedded_asset!(app, "src/", "icons/parking.png");
     embedded_asset!(app, "src/", "icons/stopwatch.png");
+
+    embedded_asset!(app, "src/", "shaders/lane_arrow_shader.wgsl");
+}
+
+#[derive(Asset, AsBindGroup, Reflect, Debug, Clone, Component)]
+pub struct LaneArrowMaterial {
+    #[uniform(100)]
+    pub single_arrow_color: LinearRgba,
+    #[uniform(101)]
+    pub double_arrow_color: LinearRgba,
+    #[uniform(102)]
+    pub background_color: LinearRgba,
+    #[uniform(103)]
+    pub number_of_arrows: f32,
+    #[uniform(104)]
+    pub forward_speed: f32,
+    #[uniform(105)]
+    pub backward_speed: f32,
+    #[uniform(106)]
+    pub bidirectional: u32,
+}
+
+impl MaterialExtension for LaneArrowMaterial {
+    fn fragment_shader() -> ShaderRef {
+        LANE_SHADER_PATH.into()
+    }
+
+    fn deferred_fragment_shader() -> ShaderRef {
+        LANE_SHADER_PATH.into()
+    }
 }
 
 #[derive(Resource)]
