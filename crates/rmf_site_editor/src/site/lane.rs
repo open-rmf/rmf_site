@@ -18,6 +18,7 @@
 use crate::site::*;
 use crate::{CurrentWorkspace, Issue, ValidateWorkspace};
 use bevy::ecs::{hierarchy::ChildOf, relationship::AncestorIter};
+use bevy::pbr::ExtendedMaterial;
 use bevy::prelude::*;
 use rmf_site_format::{Edge, LaneMarker};
 use std::collections::{BTreeSet, HashMap};
@@ -27,6 +28,9 @@ pub const SELECTED_LANE_OFFSET: f32 = 0.001;
 pub const HOVERED_LANE_OFFSET: f32 = 0.002;
 pub const LANE_LAYER_START: f32 = FLOOR_LAYER_START + 0.001;
 pub const LANE_LAYER_LIMIT: f32 = LANE_LAYER_START + SELECTED_LANE_OFFSET;
+const LANE_BASE_COLOR: Color = Color::srgb(1.0, 0.5, 0.3);
+const LANE_SINGLE_ARROW_COLOR: Color = Color::srgb(0.83, 0.33, 0.09);
+const LANE_DOUBLE_ARROW_COLOR: Color = Color::srgb(1.0, 0.60, 0.42);
 
 // TODO(MXG): Make this configurable, perhaps even a field in the Lane data
 // so users can customize the lane width per lane.
@@ -88,7 +92,17 @@ pub fn assign_orphan_nav_elements_to_site(
 
 pub fn add_lane_visuals(
     mut commands: Commands,
-    lanes: Query<(Entity, &Edge<Entity>, &AssociatedGraphs<Entity>), Added<LaneMarker>>,
+    lanes: Query<
+        (
+            Entity,
+            &Motion,
+            &ReverseLane,
+            Option<&RecallMotion>,
+            &Edge<Entity>,
+            &AssociatedGraphs<Entity>,
+        ),
+        Added<LaneMarker>,
+    >,
     graphs: GraphSelect,
     anchors: AnchorParams,
     child_of: Query<&ChildOf>,
@@ -96,8 +110,9 @@ pub fn add_lane_visuals(
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
     current_level: Res<CurrentLevel>,
+    mut extended_materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, LaneArrowMaterial>>>,
 ) {
-    for (e, edge, associated_graphs) in &lanes {
+    for (e, motion, reverse, recall, edge, associated_graphs) in &lanes {
         for anchor in &edge.array() {
             if let Ok(mut deps) = dependents.get_mut(*anchor) {
                 deps.insert(e);
@@ -162,17 +177,54 @@ pub fn add_lane_visuals(
             assets.lane_end_outline.clone(),
         );
 
-        let (mid, mid_outline) = spawn_lane_mesh_and_outline(
-            line_stroke_transform(&start_anchor, &end_anchor, LANE_WIDTH),
-            assets.lane_mid_mesh.clone(),
-            assets.lane_mid_outline.clone(),
-        );
-
         let (end, end_outline) = spawn_lane_mesh_and_outline(
             Transform::from_translation(end_anchor),
             assets.lane_end_mesh.clone(),
             assets.lane_end_outline.clone(),
         );
+
+        let is_bidirectional = *reverse != ReverseLane::Disable;
+        let forward_speed_limit = motion.speed_limit.unwrap_or(1.0);
+        let backward_speed_limit = match reverse {
+            ReverseLane::Same => forward_speed_limit,
+            _ => recall
+                .map(|rec: &RecallMotion| rec.speed_limit.unwrap_or(1.0))
+                .unwrap_or(1.0),
+        };
+
+        let mid = commands
+            .spawn((
+                Mesh3d(assets.lane_mid_mesh.clone()),
+                MeshMaterial3d(extended_materials.add(ExtendedMaterial {
+                    base: StandardMaterial {
+                        depth_bias: 3.0,
+                        ..default()
+                    },
+                    extension: assets::LaneArrowMaterial {
+                        single_arrow_color: LANE_SINGLE_ARROW_COLOR.into(),
+                        double_arrow_color: LANE_DOUBLE_ARROW_COLOR.into(),
+                        background_color: LANE_BASE_COLOR.into(),
+                        number_of_arrows: (start_anchor - end_anchor).length() / LANE_WIDTH,
+                        forward_speed: forward_speed_limit,
+                        backward_speed: backward_speed_limit,
+                        bidirectional: is_bidirectional as u32,
+                    },
+                })),
+                line_stroke_transform(&start_anchor, &end_anchor, LANE_WIDTH),
+                Visibility::default(),
+            ))
+            .insert(ChildOf(layer))
+            .id();
+
+        let mid_outline: Entity = commands
+            .spawn((
+                Mesh3d(assets.lane_mid_outline.clone()),
+                MeshMaterial3d::<StandardMaterial>::default(),
+                Transform::from_translation(-0.000_5 * Vec3::Z),
+                Visibility::Hidden,
+            ))
+            .insert(ChildOf(mid))
+            .id();
 
         commands
             .entity(e)
@@ -198,6 +250,8 @@ fn update_lane_visuals(
     segments: &LaneSegments,
     anchors: &AnchorParams,
     transforms: &mut Query<&mut Transform>,
+    lane_materials: Query<&MeshMaterial3d<ExtendedMaterial<StandardMaterial, LaneArrowMaterial>>>,
+    extended_materials: &mut ResMut<Assets<ExtendedMaterial<StandardMaterial, LaneArrowMaterial>>>,
 ) {
     let start_anchor = anchors
         .point_in_parent_frame_of(edge.left(), Category::Lane, entity)
@@ -211,9 +265,55 @@ fn update_lane_visuals(
     }
     if let Some(mut tf) = transforms.get_mut(segments.mid).ok() {
         *tf = line_stroke_transform(&start_anchor, &end_anchor, LANE_WIDTH);
+
+        if let Ok(mat) = lane_materials.get(segments.mid) {
+            if let Some(lane_mat) = extended_materials.get_mut(&mat.0) {
+                lane_mat.extension.number_of_arrows =
+                    (start_anchor - end_anchor).length() / LANE_WIDTH;
+            }
+        }
     }
     if let Some(mut tf) = transforms.get_mut(segments.end).ok() {
         *tf = Transform::from_translation(end_anchor);
+    }
+}
+
+pub fn update_lane_motion_visuals(
+    mut lanes: Query<
+        (
+            &LaneSegments,
+            &Motion,
+            &ReverseLane,
+            Option<&RecallReverseLane>,
+        ),
+        Or<(Changed<Motion>, Changed<ReverseLane>, Changed<RecallMotion>)>,
+    >,
+    mut lane_materials: Query<
+        &MeshMaterial3d<ExtendedMaterial<StandardMaterial, LaneArrowMaterial>>,
+    >,
+    mut extended_materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, LaneArrowMaterial>>>,
+) {
+    if lane_materials.is_empty() {
+        return;
+    }
+
+    for (segments, motion, reverse, recall) in &mut lanes {
+        if let Some(mat) = lane_materials.get_mut(segments.mid).ok() {
+            if let Some(lane_mat) = extended_materials.get_mut(&mat.0) {
+                let is_bidirectional = *reverse != ReverseLane::Disable;
+                let forward_speed_limit = motion.speed_limit.unwrap_or(1.0);
+                let backward_speed_limit = match reverse {
+                    ReverseLane::Same => forward_speed_limit,
+                    _ => recall
+                        .and_then(|rec| rec.previous.speed_limit)
+                        .unwrap_or(1.0),
+                };
+
+                lane_mat.extension.forward_speed = forward_speed_limit;
+                lane_mat.extension.backward_speed = backward_speed_limit;
+                lane_mat.extension.bidirectional = is_bidirectional as u32;
+            }
+        }
     }
 }
 
@@ -233,10 +333,20 @@ pub fn update_changed_lane(
     levels: Query<(), With<LevelElevation>>,
     graphs: GraphSelect,
     mut transforms: Query<&mut Transform>,
+    lane_materials: Query<&MeshMaterial3d<ExtendedMaterial<StandardMaterial, LaneArrowMaterial>>>,
+    mut extended_materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, LaneArrowMaterial>>>,
     current_level: Res<CurrentLevel>,
 ) {
     for (e, edge, associated, segments, mut visibility) in &mut lanes {
-        update_lane_visuals(e, edge, segments, &anchors, &mut transforms);
+        update_lane_visuals(
+            e,
+            edge,
+            segments,
+            &anchors,
+            &mut transforms,
+            lane_materials,
+            &mut extended_materials,
+        );
 
         let new_visibility = if should_display_lane(
             edge,
@@ -267,11 +377,21 @@ pub fn update_lane_for_moved_anchor(
         ),
     >,
     mut transforms: Query<&mut Transform>,
+    lane_materials: Query<&MeshMaterial3d<ExtendedMaterial<StandardMaterial, LaneArrowMaterial>>>,
+    mut extended_materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, LaneArrowMaterial>>>,
 ) {
     for dependents in &changed_anchors {
         for dependent in dependents.iter() {
             if let Ok((e, edge, segments)) = lanes.get(*dependent) {
-                update_lane_visuals(e, edge, segments, &anchors, &mut transforms);
+                update_lane_visuals(
+                    e,
+                    edge,
+                    segments,
+                    &anchors,
+                    &mut transforms,
+                    lane_materials,
+                    &mut extended_materials,
+                );
             }
         }
     }
