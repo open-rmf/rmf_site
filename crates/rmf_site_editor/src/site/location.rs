@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{layers, site::*};
+use crate::{layers::ZLayer, site::*};
 use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 use rmf_site_animate::Spinning;
 use rmf_site_picking::VisualCue;
@@ -100,7 +100,7 @@ pub fn add_location_visuals(
         let position = anchors
             .point_in_parent_frame_of(point.0, Category::Location, e)
             .unwrap()
-            + layers::ZLayer::Location.to_z() * Vec3::Z;
+            + ZLayer::Location.to_z() * Vec3::Z;
 
         let mut tag_meshes = LocationTagMeshes::default();
         for tag in tags.iter() {
@@ -168,7 +168,7 @@ pub fn update_changed_location(
             .point_in_parent_frame_of(point.0, Category::Location, e)
             .unwrap();
         tf.translation = position;
-        tf.translation.z = layers::ZLayer::Location.to_z();
+        tf.translation.z = ZLayer::Location.to_z();
 
         let new_visibility = if should_display_point(
             point,
@@ -206,7 +206,7 @@ pub fn update_location_for_moved_anchors(
                     .point_in_parent_frame_of(point.0, Category::Location, e)
                     .unwrap();
                 tf.translation = position;
-                tf.translation.z = layers::ZLayer::Location.to_z();
+                tf.translation.z = ZLayer::Location.to_z();
             }
         }
     }

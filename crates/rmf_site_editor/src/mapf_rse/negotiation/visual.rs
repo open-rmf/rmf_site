@@ -16,8 +16,7 @@
 */
 
 use super::*;
-use crate::layers;
-use crate::site::line_stroke_transform;
+use crate::{layers::ZLayer, site::line_stroke_transform};
 use bevy::ecs::hierarchy::ChildOf;
 use bevy::math::prelude::Rectangle;
 
@@ -110,7 +109,7 @@ pub fn visualise_selected_node(
             });
 
             let translation_to_vec3 = |x: f32, y: f32| {
-                return Vec3::new(x, y, layers::ZLayer::RobotPath.to_z());
+                return Vec3::new(x, y, ZLayer::RobotPath.to_z());
             };
 
             // Draws robot start and goal position

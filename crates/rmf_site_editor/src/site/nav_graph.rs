@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{layers, site::*};
+use crate::{layers::ZLayer, site::*};
 use bevy::{ecs::system::SystemParam, prelude::*};
 
 #[derive(SystemParam)]
@@ -79,13 +79,13 @@ impl<'w, 's> GraphSelect<'w, 's> {
         .map(|(m, d)| {
             (
                 m.0,
-                d.proportion() * (layers::ZLayer::Doormat.to_z() - layers::ZLayer::Lane.to_z())
-                    + layers::ZLayer::Lane.to_z(),
+                d.proportion() * (ZLayer::Doormat.to_z() - ZLayer::Lane.to_z())
+                    + ZLayer::Lane.to_z(),
             )
         })
         .unwrap_or((
             self.assets.unassigned_lane_material.clone(),
-            layers::ZLayer::Doormat.to_z(),
+            ZLayer::Doormat.to_z(),
         ))
     }
 
