@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{interaction::*, site::*};
+use crate::{interaction::*, layers::ZLayer, site::*};
 
 #[derive(Component, Clone, Copy)]
 pub struct Popup {
@@ -31,8 +31,8 @@ pub fn add_popups(
     for e in &new_poppers {
         commands.entity(e).insert(Popup {
             regular: 0.,
-            hovered: HOVERED_LANE_OFFSET,
-            selected: SELECTED_LANE_OFFSET,
+            hovered: ZLayer::HoveredLane.to_z(),
+            selected: ZLayer::SelectedLane.to_z(),
         });
     }
 }
