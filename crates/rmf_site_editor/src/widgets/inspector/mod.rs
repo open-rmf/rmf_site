@@ -315,6 +315,7 @@ impl FromWorld for MainInspector {
 pub struct Inspector<'w, 's> {
     children: Query<'w, 's, &'static Children>,
     heading: Query<'w, 's, (Option<&'static Category>, Option<&'static SiteID>)>,
+    inspect_for_query: Query<'w, 's, &'static InspectFor>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for Inspector<'w, 's> {
@@ -340,10 +341,16 @@ impl<'w, 's> WidgetSystem<Tile> for Inspector<'w, 's> {
                     return;
                 };
 
-                let Some(selection) = selection.0 else {
+                let Some(mut selection) = selection.0 else {
                     ui.label("Nothing selected");
                     return;
                 };
+
+                let inspect_for_query = state.get_mut(world).inspect_for_query;
+
+                if let Ok(inspect_for) = inspect_for_query.get(selection) {
+                    selection = inspect_for.entity;
+                }
 
                 let params = state.get(world);
 
