@@ -26,6 +26,35 @@ pub const DEFAULT_PATH_WIDTH: f32 = 0.2;
 #[derive(Component)]
 pub struct PathVisualMarker;
 
+#[derive(Component)]
+pub enum MAPFDebugInfo {
+    Success {
+        longest_plan_duration_s: f32,
+        colors: Vec<[f32; 3]>,
+        elapsed_time: Duration,
+    },
+    Failed {
+        longest_plan_duration: f32,
+        colors: Vec<[f32; 3]>,
+        elapsed_time: Duration,
+        solution: Option<NegotiationNode>,
+        negotiation_history: Vec<NegotiationNode>,
+        entity_id_map: HashMap<usize, Entity>,
+        error_message: Option<String>,
+        conflicting_endpoints: Vec<(Entity, Entity)>,
+    },
+}
+
+struct PathMesh {
+    entities: Vec<Entity>,
+    end_time: f32,
+}
+
+struct PlanVizInfo {
+    color: [f32; 3],
+    mesh_entities: Vec<PathMesh>,
+}
+
 pub fn visualise_selected_node(
     mut commands: Commands,
     negotiation_task: Res<NegotiationTask>,
@@ -34,9 +63,24 @@ pub fn visualise_selected_node(
     path_visuals: Query<Entity, With<PathVisualMarker>>,
     mut meshes: ResMut<Assets<Mesh>>,
     robots: Query<&Affiliation<Entity>, With<Robot>>,
+    mut move_to: EventWriter<MoveTo>,
+    mut robots: Query<(Entity, &Affiliation<Entity>), With<Robot>>,
     robot_descriptions: Query<&CircleCollision, (With<ModelMarker>, With<Group>)>,
     current_level: Res<CurrentLevel>,
 ) {
+    now: Res<Time>,
+    open_sites: Query<Entity, With<NameOfSite>>,
+    current_workspace: Res<CurrentWorkspace>,
+    mapf_info: Query<&MAPFDebugInfo>
+) {
+    let Some(current_site) = current_workspace.to_site(&open_sites) else {
+        return;
+    };
+
+    let Some(mapf) = mapf_info.get(current_site).ok() else {
+        return;
+    };
+
     // Return unless complete
     let NegotiationTaskStatus::Complete {
         elapsed_time: _,
@@ -171,6 +215,29 @@ pub fn visualise_selected_node(
                     .insert(ChildOf(level_entity));
             };
 
+            let time_now = debug_data.time;
+            if let Ok(interp) = proposal
+                .1
+                .meta
+                .trajectory
+                .motion()
+                .compute_position(&mapf::motion::TimePoint::from_secs_f32(time_now))
+            {
+                let robot_yaw =
+                    crate::ops::atan2(interp.rotation.im as f32, interp.rotation.re as f32);
+
+                let new_trans = [
+                    interp.translation.x as f32,
+                    interp.translation.y as f32,
+                    0.0,
+                ];
+                let new_quat = Quat::from_rotation_z(robot_yaw);
+                move_to.write(MoveTo {
+                    entity: robot_entity,
+                    transform: Transform::from_rotation(new_quat)
+                        .with_translation(new_trans.into()),
+                });
+            }
             for slice in proposal.1.meta.trajectory.windows(2) {
                 let start_pos = slice[0].position.translation;
                 let end_pos = slice[1].position.translation;

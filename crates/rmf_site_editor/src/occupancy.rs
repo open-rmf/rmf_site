@@ -45,10 +45,6 @@ impl Plugin for OccupancyPlugin {
     }
 }
 
-// TODO (Nielsen) : Gather all layers in layers.rs
-pub const OFFSET: f32 = 0.001;
-pub const OCCUPANCY_LAYER_START: f32 = LANE_LAYER_START + OFFSET;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Cell {
     pub x: i64,
