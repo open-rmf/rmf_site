@@ -21,7 +21,7 @@ use bevy::{
     tasks::{futures::check_ready, Task, TaskPool},
 };
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, VecDeque},
     fmt::Debug,
     time::{Duration, Instant},
 };
@@ -33,8 +33,10 @@ use crate::{
         Affiliation, CircleCollision, CurrentLevel, DifferentialDrive, GoToPlace, Group,
         LocationTags, ModelMarker, NameInSite, Point, Pose, Robot, Task as RobotTask,
     },
+    CurrentWorkspace,
 };
 use mapf::negotiation::*;
+use rmf_site_format::NameOfSite;
 
 use mapf::negotiation::{Agent, Obstacle, Scenario as MapfScenario};
 
@@ -137,9 +139,15 @@ impl Default for NegotiationTask {
 pub struct NegotiationDebugData {
     pub show_debug_panel: bool,
     pub selected_negotiation_node: Option<usize>,
-    pub visualize_trajectories: bool,
     pub playback_speed: f32,
     pub time: f32,
+}
+
+impl NegotiationDebugData {
+    fn reset(&mut self) {
+        self.time = 0.0;
+        self.selected_negotiation_node = None;
+    }
 }
 
 impl Default for NegotiationDebugData {
@@ -147,7 +155,6 @@ impl Default for NegotiationDebugData {
         Self {
             show_debug_panel: false,
             selected_negotiation_node: None,
-            visualize_trajectories: true,
             playback_speed: 1.0,
             time: 0.0,
         }
@@ -155,8 +162,11 @@ impl Default for NegotiationDebugData {
 }
 
 pub fn handle_compute_negotiation_complete(
+    mut commands: Commands,
     mut negotiation_debug_data: ResMut<NegotiationDebugData>,
     mut negotiation_task: ResMut<NegotiationTask>,
+    open_sites: Query<Entity, With<NameOfSite>>,
+    current_workspace: Res<CurrentWorkspace>,
 ) {
     fn bits_string_to_entity(bits_string: &str) -> Entity {
         // SAFETY: This assumes function input bits_string to be output from entity.to_bits().to_string()
@@ -174,6 +184,11 @@ pub fn handle_compute_negotiation_complete(
         let mut colors = Vec::new();
         let mut longest_plan_duration = 0.0;
 
+        let Some(site) = current_workspace.to_site(&open_sites) else {
+            error!("Cannot find current site");
+            return;
+        };
+
         match result {
             Ok((solution, negotiation_history, name_map)) => {
                 negotiation_debug_data.selected_negotiation_node = Some(solution.id);
@@ -186,6 +201,21 @@ pub fn handle_compute_negotiation_complete(
                     }
                     colors.push(ColorPicker::get_color());
                 }
+
+                commands.entity(site).insert(MAPFDebugInfo::Success {
+                    longest_plan_duration_s: longest_plan_duration,
+                    colors: colors.clone(),
+                    elapsed_time: elapsed_time,
+                    solution: solution.clone(),
+                    entity_id_map: name_map
+                        .clone()
+                        .into_iter()
+                        .map(|(id, bits_string)| (id, bits_string_to_entity(&bits_string)))
+                        .collect(),
+                    path_mesh_info: VecDeque::new(),
+                    negotiation_history: negotiation_history.clone(),
+                });
+
                 negotiation_task.status = NegotiationTaskStatus::Complete {
                     longest_plan_duration,
                     colors,
@@ -226,6 +256,13 @@ pub fn handle_compute_negotiation_complete(
                             .collect();
                     }
                 }
+
+                commands.entity(site).insert(MAPFDebugInfo::Failed {
+                    error_message: err_msg.clone(),
+                    conflicts: conflicts.clone(),
+                    negotiation_history: negotiation_history.clone(),
+                    entity_id_map: entity_id_map.clone(),
+                });
 
                 negotiation_task.status = NegotiationTaskStatus::Complete {
                     longest_plan_duration,

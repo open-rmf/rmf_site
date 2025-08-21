@@ -18,11 +18,6 @@
 pub mod negotiation;
 pub use negotiation::*;
 
-pub mod config_widget;
-pub use config_widget::*;
-
-use rmf_site_egui::properties_panel::PropertiesTilePlugin;
-
 use bevy::prelude::*;
 
 #[derive(Default)]
@@ -30,7 +25,6 @@ pub struct MapfRsePlugin;
 
 impl Plugin for MapfRsePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(NegotiationPlugin)
-            .add_plugins(PropertiesTilePlugin::<MapfConfigWidget>::new());
+        app.add_plugins(NegotiationPlugin);
     }
 }
