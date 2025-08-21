@@ -16,9 +16,11 @@
 */
 
 use super::*;
-use crate::{layers::ZLayer, site::line_stroke_transform};
+use crate::{interaction::MoveTo, layers::ZLayer, site::line_stroke_transform, CurrentWorkspace};
 use bevy::ecs::hierarchy::ChildOf;
 use bevy::math::prelude::Rectangle;
+use mapf::motion::Motion;
+use rmf_site_format::NameOfSite;
 
 pub const DEFAULT_PATH_WIDTH: f32 = 0.2;
 
@@ -57,31 +59,23 @@ struct PlanVizInfo {
 pub fn visualise_selected_node(
     mut commands: Commands,
     negotiation_task: Res<NegotiationTask>,
-    debug_data: ResMut<NegotiationDebugData>,
+    mut debug_data: ResMut<NegotiationDebugData>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     path_visuals: Query<Entity, With<PathVisualMarker>>,
     mut meshes: ResMut<Assets<Mesh>>,
-    robots: Query<&Affiliation<Entity>, With<Robot>>,
     mut move_to: EventWriter<MoveTo>,
     mut robots: Query<(Entity, &Affiliation<Entity>), With<Robot>>,
     robot_descriptions: Query<&CircleCollision, (With<ModelMarker>, With<Group>)>,
     current_level: Res<CurrentLevel>,
-) {
     now: Res<Time>,
     open_sites: Query<Entity, With<NameOfSite>>,
     current_workspace: Res<CurrentWorkspace>,
-    mapf_info: Query<&MAPFDebugInfo>
+    mapf_info: Query<&MAPFDebugInfo>,
 ) {
-    let Some(current_site) = current_workspace.to_site(&open_sites) else {
-        return;
-    };
-
-    let Some(mapf) = mapf_info.get(current_site).ok() else {
-        return;
-    };
-
     // Return unless complete
     let NegotiationTaskStatus::Complete {
+        longest_plan_duration,
+        colors,
         elapsed_time: _,
         solution,
         negotiation_history,
@@ -121,12 +115,12 @@ pub fn visualise_selected_node(
     };
 
     if debug_data.visualize_trajectories {
-        for proposal in selected_node.proposals.iter() {
+        for (i, proposal) in selected_node.proposals.iter().enumerate() {
             let Some(entity_id) = entity_id_map.get(&proposal.0) else {
                 warn!("Unable to find entity id in map");
                 continue;
             };
-            let Ok(affiliation) = robots.get(*entity_id) else {
+            let Ok((robot_entity, affiliation)) = robots.get(*entity_id) else {
                 warn!("Unable to get robot entity's affiliation");
                 continue;
             };
@@ -147,13 +141,18 @@ pub fn visualise_selected_node(
             }
 
             let lane_material = materials.add(StandardMaterial {
-                base_color: Color::srgb(1.0, 0.0, 0.0),
+                base_color: Color::srgb_from_array(colors[i]),
                 unlit: true,
                 ..Default::default()
             });
 
-            let translation_to_vec3 = |x: f32, y: f32| {
-                return Vec3::new(x, y, ZLayer::RobotPath.to_z());
+            let translation_to_vec3 = |x: f32, y: f32, t: f32| {
+                let mut z_offset = 0.0;
+                if let Some(next_z_layer) = ZLayer::RobotPath.next() {
+                    z_offset = (1.0 - (t / longest_plan_duration))
+                        * ZLayer::get_z_offset(ZLayer::RobotPath, next_z_layer);
+                }
+                return Vec3::new(x, y, ZLayer::RobotPath.to_z() + z_offset);
             };
 
             // Draws robot start and goal position
@@ -169,9 +168,9 @@ pub fn visualise_selected_node(
 
                 // TODO (Nielsen) : Convert translation directly to Vec3
                 let robot_start_pos =
-                    translation_to_vec3(robot_start_pos.x as f32, robot_start_pos.y as f32);
+                    translation_to_vec3(robot_start_pos.x as f32, robot_start_pos.y as f32, 0.0);
                 let robot_goal_pos =
-                    translation_to_vec3(robot_goal_pos.x as f32, robot_goal_pos.y as f32);
+                    translation_to_vec3(robot_goal_pos.x as f32, robot_goal_pos.y as f32, 0.0);
 
                 let mut spawn_circle_mesh = |pos| {
                     commands
@@ -214,7 +213,13 @@ pub fn visualise_selected_node(
                     .insert(ChildOf(level_entity));
             };
 
+            debug_data.time += now.delta_secs();
+            if debug_data.time >= *longest_plan_duration {
+                debug_data.time = 0.0;
+            }
+
             let time_now = debug_data.time;
+
             if let Ok(interp) = proposal
                 .1
                 .meta
@@ -240,8 +245,15 @@ pub fn visualise_selected_node(
             for slice in proposal.1.meta.trajectory.windows(2) {
                 let start_pos = slice[0].position.translation;
                 let end_pos = slice[1].position.translation;
-                let start_pos = translation_to_vec3(start_pos.x as f32, start_pos.y as f32);
-                let end_pos = translation_to_vec3(end_pos.x as f32, end_pos.y as f32);
+
+                let end_time = slice[1].time.as_secs_f32();
+                if time_now > end_time {
+                    continue;
+                }
+                let start_time = slice[0].time.as_secs_f32();
+                let start_pos =
+                    translation_to_vec3(start_pos.x as f32, start_pos.y as f32, start_time);
+                let end_pos = translation_to_vec3(end_pos.x as f32, end_pos.y as f32, end_time);
 
                 let robot_width = collision_radius * 2.0;
                 spawn_path_mesh(

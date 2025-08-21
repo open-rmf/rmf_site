@@ -18,8 +18,9 @@
 use crate::{
     interaction::DragPlaneBundle,
     site::{
-        Change, CircleCollision, Collision, CurrentScenario, Delete, Mobility, RobotProperty,
-        RobotPropertyKind, SiteAssets, UpdateProperty,
+        get_current_workspace_path, Change, CircleCollision, Collision, CurrentScenario,
+        DefaultFile, Delete, Mobility, RobotProperty, RobotPropertyKind, SiteAssets,
+        UpdateModifier,
     },
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
     CurrentWorkspace, Issue, ValidateWorkspace,
@@ -41,8 +42,8 @@ use bevy_impulse::*;
 use bevy_mod_outline::{GenerateOutlineNormalsSettings, OutlineMeshExt};
 use rmf_site_camera::MODEL_PREVIEW_LAYER;
 use rmf_site_format::{
-    Affiliation, AssetSource, Group, IssueKey, ModelInstance, ModelMarker, ModelProperty,
-    NameInSite, Pending, Robot, Scale,
+    Affiliation, AssetSource, Group, Inclusion, IssueKey, ModelInstance, ModelMarker,
+    ModelProperty, NameInSite, Pending, Robot, Scale,
 };
 use rmf_site_picking::Preview;
 use smallvec::SmallVec;

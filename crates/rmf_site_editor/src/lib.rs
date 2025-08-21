@@ -57,8 +57,6 @@ use sdf_loader::*;
 pub mod wireframe;
 use wireframe::*;
 
-pub mod layers;
-
 use aabb::AabbUpdatePlugin;
 use interaction::InteractionPlugin;
 use site::{OSMViewPlugin, SitePlugin};
