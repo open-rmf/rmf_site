@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    layers,
+    layers::ZLayer,
     site::{Category, LevelElevation, NameOfSite, SiteAssets},
 };
 use bevy::{
@@ -296,7 +296,7 @@ pub fn calculate_grid(
                 let p = Vec3::new(
                     cell_size * (cell.x as f32 + 0.5),
                     cell_size * (cell.y as f32 + 0.5),
-                    layers::ZLayer::Lane.to_z() / 2.0,
+                    ZLayer::Lane.to_z() / 2.0,
                 );
                 mesh = mesh.merge_with(
                     make_flat_square_mesh(cell_size).transform_by(Affine3A::from_translation(p)),
@@ -309,7 +309,7 @@ pub fn calculate_grid(
                         Mesh3d(meshes.add(mesh)),
                         MeshMaterial3d(assets.occupied_material.clone()),
                         Transform::from_translation(
-                            [0.0, 0.0, layers::ZLayer::OccupancyGrid.to_z()].into(),
+                            [0.0, 0.0, ZLayer::OccupancyGrid.to_z()].into(),
                         ),
                         Visibility::default(),
                     ))

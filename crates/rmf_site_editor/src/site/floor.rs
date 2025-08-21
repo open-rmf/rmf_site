@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{layers, site::*, RecencyRanking};
+use crate::{layers::ZLayer, site::*, RecencyRanking};
 use bevy::{
     ecs::hierarchy::ChildOf,
     math::Affine3A,
@@ -191,8 +191,8 @@ fn make_floor_mesh(
 }
 
 fn floor_height(rank: Option<&RecencyRank<FloorMarker>>) -> f32 {
-    let floor_layer_start = layers::ZLayer::Floor.to_z();
-    let lane_layer_start = layers::ZLayer::Lane.to_z();
+    let floor_layer_start = ZLayer::Floor.to_z();
+    let lane_layer_start = ZLayer::Lane.to_z();
     rank.map(|r| r.proportion() * (lane_layer_start - floor_layer_start) + floor_layer_start)
         .unwrap_or(floor_layer_start)
 }

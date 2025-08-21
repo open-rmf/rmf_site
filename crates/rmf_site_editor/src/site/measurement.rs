@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{layers, site::*};
+use crate::{layers::ZLayer, site::*};
 use bevy::prelude::*;
 use rmf_site_format::{Edge, MeasurementMarker};
 use rmf_site_picking::Selectable;
@@ -41,8 +41,8 @@ pub fn add_measurement_visuals(
                 .unwrap(),
             LANE_WIDTH,
         );
-        // TODO(luca) proper layering rather than hardcoded
-        transform.translation.z = layers::ZLayer::Measurement.to_z();
+
+        transform.translation.z = ZLayer::Measurement.to_z();
 
         let child_id = commands
             .spawn((
