@@ -79,6 +79,9 @@ pub use preview::*;
 pub mod select_impl;
 pub use select_impl::*;
 
+pub mod user_camera;
+pub use user_camera::*;
+
 use bevy::prelude::*;
 use bevy_mod_outline::OutlinePlugin;
 
@@ -225,6 +228,8 @@ impl Plugin for InteractionPlugin {
                     add_cursor_hover_visualization,
                     add_physical_light_visual_cues,
                     add_popups,
+                    register_double_click_event,
+                    update_camera_targets,
                 )
                     .run_if(in_state(InteractionState::Enable))
                     .in_set(InteractionUpdateSet::AddVisuals),
