@@ -190,7 +190,7 @@ impl<'w, 's> MapfConfigWidget<'w, 's> {
         ui.separator();
         match &self.negotiation_task.status {
             NegotiationTaskStatus::Complete {
-                longest_plan_duration: _,
+                longest_plan_duration,
                 colors: _,
                 elapsed_time,
                 solution: _,
@@ -202,6 +202,35 @@ impl<'w, 's> MapfConfigWidget<'w, 's> {
                 EguiGrid::new("negotiation_data")
                     .num_columns(2)
                     .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            ui.label("Plan time: ");
+                            ui.add(
+                                DragValue::new(&mut self.negotiation_debug.time)
+                                    .range(0.0..=*longest_plan_duration),
+                            );
+                        });
+                        ui.end_row();
+
+                        ui.horizontal(|ui| {
+                            ui.label("Playback speed: ");
+                            ui.add(
+                                DragValue::new(&mut self.negotiation_debug.playback_speed)
+                                    .range(0.0..=8.0),
+                            );
+                        });
+                        ui.end_row();
+
+                        if self.negotiation_debug.playback_speed == 0.0 {
+                            if ui.button("Resume animation").clicked() {
+                                self.negotiation_debug.playback_speed = 1.0;
+                            }
+                        } else {
+                            if ui.button("Pause animation").clicked() {
+                                self.negotiation_debug.playback_speed = 0.0;
+                            }
+                        }
+                        ui.end_row();
+
                         ui.label("Execution Time");
                         ui.label(format!("{:.2} s", elapsed_time.as_secs_f32()));
                         ui.end_row();

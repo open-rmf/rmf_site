@@ -115,6 +115,10 @@ pub fn visualise_selected_node(
     };
 
     if debug_data.visualize_trajectories {
+        debug_data.time += debug_data.playback_speed * now.delta_secs();
+        if debug_data.time >= *longest_plan_duration {
+            debug_data.time = 0.0;
+        }
         for (i, proposal) in selected_node.proposals.iter().enumerate() {
             let Some(entity_id) = entity_id_map.get(&proposal.0) else {
                 warn!("Unable to find entity id in map");
@@ -213,11 +217,6 @@ pub fn visualise_selected_node(
                     .insert(ChildOf(level_entity));
             };
 
-            debug_data.time += now.delta_secs();
-            if debug_data.time >= *longest_plan_duration {
-                debug_data.time = 0.0;
-            }
-
             let time_now = debug_data.time;
 
             if let Ok(interp) = proposal
@@ -246,11 +245,12 @@ pub fn visualise_selected_node(
                 let start_pos = slice[0].position.translation;
                 let end_pos = slice[1].position.translation;
 
-                let end_time = slice[1].time.as_secs_f32();
-                if time_now > end_time {
+                let start_time = slice[0].time.as_secs_f32();
+                if time_now > start_time {
                     continue;
                 }
-                let start_time = slice[0].time.as_secs_f32();
+                let end_time = slice[1].time.as_secs_f32();
+
                 let start_pos =
                     translation_to_vec3(start_pos.x as f32, start_pos.y as f32, start_time);
                 let end_pos = translation_to_vec3(end_pos.x as f32, end_pos.y as f32, end_time);
