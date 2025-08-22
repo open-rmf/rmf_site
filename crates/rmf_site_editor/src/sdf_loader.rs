@@ -148,10 +148,10 @@ fn compute_model_source<'a, 'b>(
                     )));
                 }
             }
-            AssetSource::Ros(_) => {
+            AssetSource::Memory(_) => {
                 // TODO(@xiyuoh)
                 return Err(SdfError::UnsupportedAssetSource(format!(
-                    "Ros meshes not supported for now"
+                    "In-memory meshes not supported for now"
                 )));
             }
         }

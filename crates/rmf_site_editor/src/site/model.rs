@@ -83,7 +83,7 @@ pub fn get_all_for_source(source: &AssetSource) -> Vec<AssetSource> {
         AssetSource::Local(_)
         | AssetSource::Remote(_)
         | AssetSource::Package(_)
-        | AssetSource::Ros(_) => {
+        | AssetSource::Memory(_) => {
             let mut v = Vec::new();
             v.push(source.clone());
             v
@@ -161,9 +161,9 @@ fn load_asset_source(
     let base_path = current_workspace.and_then(|w| get_current_workspace_path(w, site_files));
 
     async move {
-        if let AssetSource::Ros(path) = source {
-            let handle: Handle<Scene> =
-                asset_server.load(GltfAssetLabel::Scene(0).from_asset(format!("ros://{}", path)));
+        if let AssetSource::Memory(path) = source {
+            let handle: Handle<Scene> = asset_server
+                .load(GltfAssetLabel::Scene(0).from_asset(format!("memory://{}", path)));
             Ok(handle.untyped())
         } else {
             let asset_path = match String::try_from(&source.with_base_path(base_path.as_ref())) {
