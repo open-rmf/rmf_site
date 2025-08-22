@@ -41,6 +41,9 @@ pub use drawing::*;
 pub mod edge;
 pub use edge::*;
 
+pub mod extensions;
+pub use extensions::*;
+
 pub mod fiducial;
 pub use fiducial::*;
 

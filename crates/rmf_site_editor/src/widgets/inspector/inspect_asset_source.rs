@@ -57,6 +57,7 @@ impl<'a> InspectAssetSourceComponent<'a> {
             AssetSource::Remote(uri) => uri,
             AssetSource::Search(name) => name,
             AssetSource::Package(path) => path,
+            AssetSource::Memory(uri) => uri,
         };
         ui.horizontal(|ui| {
             ui.label("Source");
@@ -150,6 +151,9 @@ impl<'a> InspectAssetSourceComponent<'a> {
                 TextEdit::singleline(path)
                     .desired_width(ui.available_width())
                     .show(ui);
+            }
+            AssetSource::Memory(uri) => {
+                ui.text_edit_singleline(uri);
             }
         }
         ui.add_space(10.0);
