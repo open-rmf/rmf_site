@@ -33,6 +33,8 @@ use occupancy::OccupancyPlugin;
 pub mod issue;
 use issue::*;
 
+pub mod layers;
+
 pub mod demo_world;
 pub mod log;
 mod recency;

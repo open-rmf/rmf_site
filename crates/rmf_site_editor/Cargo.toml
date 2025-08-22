@@ -16,6 +16,7 @@ name = "extending_site_editor"
 path = "examples/extending_menu.rs"
 
 [dependencies]
+strum = {workspace = true}
 bevy_mod_outline = {workspace = true}
 bevy_gltf_export = {workspace = true}
 bevy_stl = {workspace = true}
