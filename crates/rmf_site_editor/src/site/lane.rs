@@ -15,18 +15,13 @@
  *
 */
 
-use crate::site::*;
+use crate::{layers, site::*};
 use crate::{CurrentWorkspace, Issue, ValidateWorkspace};
 use bevy::ecs::{hierarchy::ChildOf, relationship::AncestorIter};
 use bevy::prelude::*;
 use rmf_site_format::{Edge, LaneMarker};
 use std::collections::{BTreeSet, HashMap};
 use uuid::Uuid;
-
-pub const SELECTED_LANE_OFFSET: f32 = 0.001;
-pub const HOVERED_LANE_OFFSET: f32 = 0.002;
-pub const LANE_LAYER_START: f32 = FLOOR_LAYER_START + 0.001;
-pub const LANE_LAYER_LIMIT: f32 = LANE_LAYER_START + SELECTED_LANE_OFFSET;
 
 // TODO(MXG): Make this configurable, perhaps even a field in the Lane data
 // so users can customize the lane width per lane.
@@ -184,7 +179,7 @@ pub fn add_lane_visuals(
                 outlines: [start_outline, mid_outline, end_outline],
             })
             .insert((
-                Transform::from_translation([0., 0., LANE_LAYER_START].into()),
+                Transform::from_translation([0., 0., layers::ZLayer::Lane.to_z()].into()),
                 visibility,
             ))
             .insert(Category::Lane)
