@@ -18,7 +18,7 @@
 use super::*;
 use crate::{
     mapf_rse::debug_panel::egui::DragValue, occupancy, occupancy::CalculateGrid,
-    prelude::SystemState, view_occupancy::OccupancyDisplay,
+    prelude::SystemState,
 };
 use bevy::ecs::system::SystemParam;
 use bevy_egui::egui::{
@@ -38,10 +38,22 @@ impl Plugin for NegotiationDebugPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<NegotiationDebugData>()
             .init_resource::<MAPFMenu>()
+            .init_resource::<OccupancyInfo>()
             .add_systems(Update, handle_debug_panel_visibility);
         let panel = PanelWidget::new(negotiation_debug_panel, &mut app.world_mut());
         let widget = Widget::new::<NegotiationDebugWidget>(&mut app.world_mut());
         app.world_mut().spawn((panel, widget));
+    }
+}
+
+#[derive(Resource)]
+pub struct OccupancyInfo {
+    cell_size: f32,
+}
+
+impl Default for OccupancyInfo {
+    fn default() -> OccupancyInfo {
+        OccupancyInfo { cell_size: 0.1 }
     }
 }
 
@@ -55,7 +67,7 @@ pub struct NegotiationDebugWidget<'w, 's> {
     grids: Query<'w, 's, (Entity, &'static Grid)>,
     current_level: Res<'w, CurrentLevel>,
     child_of: Query<'w, 's, &'static ChildOf>,
-    occupancy_display: ResMut<'w, OccupancyDisplay>,
+    occupancy_info: ResMut<'w, OccupancyInfo>,
     calculate_grid: EventWriter<'w, CalculateGrid>,
     robots: Query<'w, 's, Entity, With<Robot>>,
     open_sites: Query<'w, 's, Entity, With<NameOfSite>>,
@@ -84,9 +96,13 @@ impl<'w, 's> WidgetSystem for NegotiationDebugWidget<'w, 's> {
 
         ui.heading("Negotiation Debugger");
         params.show_gotoplace_tasks(ui);
+        ui.separator();
         params.show_occupancy_grid(ui);
+        ui.separator();
         params.show_planner_settings(ui);
+        ui.separator();
         params.show_generate_plan(ui);
+        ui.separator();
 
         match params.negotiation_task.status {
             NegotiationTaskStatus::Complete { .. } => {
@@ -94,7 +110,7 @@ impl<'w, 's> WidgetSystem for NegotiationDebugWidget<'w, 's> {
             }
             NegotiationTaskStatus::InProgress { start_time } => {
                 ui.label(format!(
-                    "In Progress: {} s",
+                    "Planning in Progress: {} s",
                     start_time.elapsed().as_secs_f32()
                 ));
             }
@@ -162,7 +178,7 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
             // robots in calculation. However the cell size param used is
             // consistent, so any updated value will reflect accordingly
             ui.add(
-                DragValue::new(&mut self.occupancy_display.cell_size)
+                DragValue::new(&mut self.occupancy_info.cell_size)
                     .range(0.1..=1.0)
                     .suffix(" m")
                     .speed(0.01),
@@ -174,7 +190,7 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
                 .clicked()
             {
                 self.calculate_grid.write(CalculateGrid {
-                    cell_size: self.occupancy_display.cell_size,
+                    cell_size: self.occupancy_info.cell_size,
                     ignore: self.robots.iter().collect(),
                     ..default()
                 });
@@ -189,7 +205,7 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
                 EguiGrid::new("occupancy_map_info")
                     .num_columns(2)
                     .show(ui, |ui| {
-                        ui.label("Range");
+                        ui.label("Min Cell");
                         ui.label(format!("{:?}", grid.range.min_cell()));
                         ui.end_row();
                         ui.label("Max Cell");
@@ -253,7 +269,7 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
                     let occupancy_grid = self.get_occupancy_grid();
                     if occupancy_grid.is_none() {
                         self.calculate_grid.write(CalculateGrid {
-                            cell_size: self.occupancy_display.cell_size,
+                            cell_size: self.occupancy_info.cell_size,
                             ignore: self.robots.iter().collect(),
                             ..default()
                         });
@@ -346,7 +362,7 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
         ui.horizontal(|ui| {
             if ui.button("Clear Plans").clicked() {
                 self.commands.entity(site).remove::<MAPFDebugInfo>();
-                self.negotiation_task.status = NegotiationTaskStatus::NotStarted;
+                self.negotiation_task.reset();
                 for e in self.path_visuals.iter() {
                     self.commands.entity(e).despawn();
                 }
