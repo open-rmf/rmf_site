@@ -1013,6 +1013,7 @@
   },
   "robots": {
     "52": {
+      "fleet": "HospitalRobot",
       "properties": {
         "Collision": {
           "config": {

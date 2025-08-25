@@ -33,7 +33,7 @@ pub struct Robot {
 impl Default for Robot {
     fn default() -> Self {
         Self {
-            fleet: String::new(),
+            fleet: "<Unnamed>".to_string(),
             properties: BTreeMap::new(),
         }
     }
