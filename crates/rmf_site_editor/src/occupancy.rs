@@ -303,6 +303,14 @@ pub fn calculate_grid(
                 );
             }
 
+            let grid = Grid {
+                occupied: level_occupied,
+                cell_size,
+                floor,
+                ceiling,
+                range,
+            };
+
             commands.entity(level).with_children(|level| {
                 level
                     .spawn((
@@ -313,13 +321,7 @@ pub fn calculate_grid(
                         ),
                         Visibility::default(),
                     ))
-                    .insert(Grid {
-                        occupied: level_occupied,
-                        cell_size,
-                        floor,
-                        ceiling,
-                        range,
-                    });
+                    .insert(grid);
             });
         }
     }

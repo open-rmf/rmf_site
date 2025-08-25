@@ -316,6 +316,49 @@ pub fn is_planning_in_progress(
     return false;
 }
 
+fn get_occupancy_grid_and_cell_size(
+    current_level: Res<CurrentLevel>,
+    grids: Query<(Entity, &Grid)>,
+    child_of: Query<&ChildOf>,
+) -> (HashMap<i64, Vec<i64>>, f32) {
+    // Occupancy
+    let mut occupancy = HashMap::<i64, Vec<i64>>::new();
+    let mut cell_size = 1.0;
+    let grid = grids.iter().find_map(|(grid_entity, grid)| {
+        if let Some(level_entity) = current_level.0 {
+            if child_of
+                .get(grid_entity)
+                .is_ok_and(|co| co.parent() == level_entity)
+            {
+                Some(grid)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    });
+
+    if grid.is_none() {}
+
+    match grid {
+        Some(grid) => {
+            cell_size = grid.cell_size;
+            for cell in grid.occupied.iter() {
+                occupancy.entry(cell.y).or_default().push(cell.x);
+            }
+            for (_, column) in &mut occupancy {
+                column.sort_unstable();
+            }
+        }
+        None => {
+            occupancy.entry(0).or_default().push(0);
+            warn!("No occupancy grid found, defaulting to empty");
+        }
+    }
+    (occupancy, cell_size)
+}
+
 pub fn start_compute_negotiation(
     locations: Query<(&NameInSite, &Point<Entity>), With<LocationTags>>,
     anchors: Query<&GlobalTransform>,
@@ -368,41 +411,7 @@ pub fn start_compute_negotiation(
         }
     }
 
-    // Occupancy
-    let mut occupancy = HashMap::<i64, Vec<i64>>::new();
-    let mut cell_size = 1.0;
-    let grid = grids.iter().find_map(|(grid_entity, grid)| {
-        if let Some(level_entity) = current_level.0 {
-            if child_of
-                .get(grid_entity)
-                .is_ok_and(|co| co.parent() == level_entity)
-            {
-                Some(grid)
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    });
-
-    if grid.is_none() {}
-
-    match grid {
-        Some(grid) => {
-            cell_size = grid.cell_size;
-            for cell in grid.occupied.iter() {
-                occupancy.entry(cell.y).or_default().push(cell.x);
-            }
-            for (_, column) in &mut occupancy {
-                column.sort_unstable();
-            }
-        }
-        None => {
-            occupancy.entry(0).or_default().push(0);
-            warn!("No occupancy grid found, defaulting to empty");
-        }
-    }
+    let (occupancy, cell_size) = get_occupancy_grid_and_cell_size(current_level, grids, child_of);
 
     // Agent
     let mut agents = BTreeMap::<String, Agent>::new();

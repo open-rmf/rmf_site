@@ -98,6 +98,14 @@ impl<'w, 's> WidgetSystem for NegotiationDebugWidget<'w, 's> {
     fn show(_: (), ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) {
         let mut params = state.get_mut(world);
 
+        if params.get_occupancy_grid().is_none() {
+            params.calculate_grid.write(CalculateGrid {
+                cell_size: params.occupancy_info.cell_size,
+                ignore: params.robots.iter().collect(),
+                ..default()
+            });
+        }
+
         ui.heading("Negotiation Debugger");
         params.show_gotoplace_tasks(ui);
         ui.separator();
@@ -113,21 +121,29 @@ impl<'w, 's> WidgetSystem for NegotiationDebugWidget<'w, 's> {
         };
 
         if let Some(debug_info) = params.mapf_info.get(site).ok() {
-            match *debug_info {
+            match debug_info {
                 MAPFDebugInfo::Success { .. } => {
-                    params.show_completed(ui);
+                    params.show_successful_plan(ui);
                 }
                 MAPFDebugInfo::InProgress {
                     start_time,
                     task: _,
                 } => {
-                    ui.label(format!(
-                        "Planning in Progress: {} s",
-                        start_time.elapsed().as_secs_f32()
-                    ));
+                    Self::show_inprogress_plan(ui, start_time);
                 }
-                MAPFDebugInfo::Failed { .. } => {
-                    ui.label("MAPF Debug failed");
+                MAPFDebugInfo::Failed {
+                    error_message,
+                    entity_id_map,
+                    negotiation_history,
+                    conflicts,
+                } => {
+                    Self::show_failed_plan(
+                        ui,
+                        error_message,
+                        entity_id_map,
+                        negotiation_history,
+                        conflicts,
+                    );
                 }
             }
         } else {
@@ -320,34 +336,38 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
             });
     }
 
-    fn show_failed_plan(plan_info: &MAPFDebugInfo, ui: &mut Ui) {
-        if let MAPFDebugInfo::Failed {
-            error_message,
-            entity_id_map: _,
-            negotiation_history,
-            conflicts: _,
-        } = plan_info
-        {
-            // Error display
-            ui.add_space(10.0);
-            ui.label("Errors");
-            if let Some(error_message) = error_message {
-                outline_frame(ui, |ui| {
-                    ui.horizontal_wrapped(|ui| {
-                        ui.label(error_message.clone());
-                    });
-                });
-            } else {
-                outline_frame(ui, |ui| {
-                    ui.label("No errors");
-                });
-            }
-
-            Self::show_negotiation_history(negotiation_history, ui);
-        }
+    fn show_inprogress_plan(ui: &mut Ui, start_time: &Instant) {
+        ui.label(format!(
+            "Planning in Progress: {} s",
+            start_time.elapsed().as_secs_f32()
+        ));
     }
 
-    pub fn show_completed(&mut self, ui: &mut Ui) {
+    fn show_failed_plan(
+        ui: &mut Ui,
+        error_message: &Option<String>,
+        _entity_id_map: &HashMap<usize, Entity>,
+        negotiation_history: &Vec<NegotiationNode>,
+        _conflicts: &Vec<(Entity, Entity)>,
+    ) {
+        ui.add_space(10.0);
+        ui.label("Errors");
+        if let Some(error_message) = error_message {
+            outline_frame(ui, |ui| {
+                ui.horizontal_wrapped(|ui| {
+                    ui.label(error_message.clone());
+                });
+            });
+        } else {
+            outline_frame(ui, |ui| {
+                ui.label("No errors");
+            });
+        }
+
+        Self::show_negotiation_history(negotiation_history, ui);
+    }
+
+    pub fn show_successful_plan(&mut self, ui: &mut Ui) {
         let Some(site) = self.current_workspace.to_site(&self.open_sites) else {
             return;
         };
@@ -364,7 +384,6 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
             negotiation_history,
         } = plan_info
         else {
-            Self::show_failed_plan(plan_info, ui);
             return;
         };
 
