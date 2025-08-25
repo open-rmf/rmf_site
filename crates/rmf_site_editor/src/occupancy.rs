@@ -83,6 +83,10 @@ impl Cell {
             y: self.y + y,
         }
     }
+
+    pub fn to_xy(&self) -> [i64; 2] {
+        [self.x, self.y]
+    }
 }
 
 #[derive(Component)]
@@ -163,7 +167,7 @@ enum Group {
     None,
 }
 
-fn calculate_grid(
+pub fn calculate_grid(
     mut commands: Commands,
     mut request: EventReader<CalculateGrid>,
     bodies: Query<(Entity, &Mesh3d, &Aabb, &GlobalTransform)>,
@@ -299,6 +303,14 @@ fn calculate_grid(
                 );
             }
 
+            let grid = Grid {
+                occupied: level_occupied,
+                cell_size,
+                floor,
+                ceiling,
+                range,
+            };
+
             commands.entity(level).with_children(|level| {
                 level
                     .spawn((
@@ -309,13 +321,7 @@ fn calculate_grid(
                         ),
                         Visibility::default(),
                     ))
-                    .insert(Grid {
-                        occupied: level_occupied,
-                        cell_size,
-                        floor,
-                        ceiling,
-                        range,
-                    });
+                    .insert(grid);
             });
         }
     }
