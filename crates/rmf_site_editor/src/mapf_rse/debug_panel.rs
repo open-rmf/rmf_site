@@ -18,7 +18,7 @@
 use super::*;
 use crate::{
     mapf_rse::debug_panel::egui::DragValue, occupancy, occupancy::CalculateGrid,
-    prelude::SystemState,
+    prelude::SystemState, site::Change,
 };
 use bevy::ecs::system::SystemParam;
 use bevy_egui::egui::{
@@ -39,6 +39,7 @@ impl Plugin for NegotiationDebugPlugin {
         app.init_resource::<NegotiationDebugData>()
             .init_resource::<MAPFMenu>()
             .init_resource::<OccupancyInfo>()
+            .init_resource::<MAPFDebugDisplay>()
             .add_systems(Update, handle_debug_panel_visibility);
         let panel = PanelWidget::new(negotiation_debug_panel, &mut app.world_mut());
         let widget = Widget::new::<NegotiationDebugWidget>(&mut app.world_mut());
@@ -59,7 +60,7 @@ impl Default for OccupancyInfo {
 
 #[derive(SystemParam)]
 pub struct NegotiationDebugWidget<'w, 's> {
-    negotiation_task: ResMut<'w, NegotiationTask>,
+    debugger_settings: ResMut<'w, DebuggerSettings>,
     negotiation_debug_data: ResMut<'w, NegotiationDebugData>,
     negotiation_params: ResMut<'w, NegotiationParams>,
     negotiation_request: EventWriter<'w, NegotiationRequest>,
@@ -75,10 +76,13 @@ pub struct NegotiationDebugWidget<'w, 's> {
     mapf_info: Query<'w, 's, &'static MAPFDebugInfo>,
     commands: Commands<'w, 's>,
     path_visuals: Query<'w, 's, Entity, With<PathVisualMarker>>,
+    display_mapf_debug: ResMut<'w, MAPFDebugDisplay>,
+    robots_opose: Query<'w, 's, (Entity, Option<&'static Original<Pose>>), With<Robot>>,
+    change_pose: EventWriter<'w, Change<Pose>>,
 }
 
 fn negotiation_debug_panel(In(input): In<PanelWidgetInput>, world: &mut World) {
-    if world.resource::<NegotiationDebugData>().show_debug_panel {
+    if world.resource::<MAPFDebugDisplay>().show {
         egui::SidePanel::left("negotiation_debug_panel")
             .resizable(true)
             .min_width(320.0)
@@ -104,19 +108,34 @@ impl<'w, 's> WidgetSystem for NegotiationDebugWidget<'w, 's> {
         params.show_generate_plan(ui);
         ui.separator();
 
-        match params.negotiation_task.status {
-            NegotiationTaskStatus::Complete { .. } => {
-                params.show_completed(ui);
+        let Some(site) = params.current_workspace.to_site(&params.open_sites) else {
+            return;
+        };
+
+        if let Some(debug_info) = params.mapf_info.get(site).ok() {
+            match *debug_info {
+                MAPFDebugInfo::Success { .. } => {
+                    params.show_completed(ui);
+                }
+                MAPFDebugInfo::InProgress {
+                    start_time,
+                    task: _,
+                } => {
+                    ui.label(format!(
+                        "Planning in Progress: {} s",
+                        start_time.elapsed().as_secs_f32()
+                    ));
+                }
+                MAPFDebugInfo::Failed { .. } => {
+                    ui.label("MAPF Debug failed");
+                }
             }
-            NegotiationTaskStatus::InProgress { start_time } => {
-                ui.label(format!(
-                    "Planning in Progress: {} s",
-                    start_time.elapsed().as_secs_f32()
-                ));
-            }
-            _ => {
-                ui.label("No negotiation started");
-            }
+        } else {
+            ui.label("No planning started");
+        }
+
+        if ui.button("Close").clicked() {
+            params.display_mapf_debug.show = false;
         }
     }
 }
@@ -239,52 +258,53 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
     }
 
     pub fn show_generate_plan(&mut self, ui: &mut Ui) {
-        ui.horizontal(|ui| {
-            let mut allow_generate_plan = true;
+        let mut allow_generate_plan = true;
+        let mut error_msgs: Vec<&str> = Vec::new();
 
-            let mut error_msg = "Test".to_owned();
+        if self.negotiation_params.queue_length_limit <= 0 {
+            error_msgs.push("Set negotiation params queue length limit > 0");
+            allow_generate_plan = false;
+        }
 
-            if self.negotiation_params.queue_length_limit <= 0 {
-                error_msg += "Set negotiation params queue length limit > 0\n";
-                allow_generate_plan = false;
-            }
-
-            if self.negotiation_task.status.is_in_progress() {
-                error_msg += "Negotiation task is in progress\n";
-                allow_generate_plan = false;
-            }
-
-            let num_gotoplace_tasks = self.get_gotoplace_tasks();
-            if num_gotoplace_tasks <= 0 {
-                error_msg += "No gotoplace tasks\n";
-                allow_generate_plan = false;
-            }
-
-            ui.add_enabled_ui(allow_generate_plan, |ui| {
-                if ui
-                    .button("Generate Plans")
-                    .on_hover_text(error_msg)
-                    .clicked()
-                {
-                    let occupancy_grid = self.get_occupancy_grid();
-                    if occupancy_grid.is_none() {
-                        self.calculate_grid.write(CalculateGrid {
-                            cell_size: self.occupancy_info.cell_size,
-                            ignore: self.robots.iter().collect(),
-                            ..default()
-                        });
-                    }
-                    self.negotiation_request.write(NegotiationRequest);
+        if let Some(site) = self.current_workspace.to_site(&self.open_sites) {
+            if let Some(plan_info) = self.mapf_info.get(site).ok() {
+                if matches!(*plan_info, MAPFDebugInfo::InProgress { .. }) {
+                    error_msgs.push("Negotiation task is in progress");
+                    allow_generate_plan = false;
                 }
-            });
+            }
+        }
+
+        if self.get_gotoplace_tasks() == 0 {
+            error_msgs.push("No gotoplace tasks");
+            allow_generate_plan = false;
+        }
+
+        ui.add_enabled_ui(allow_generate_plan, |ui| {
+            if ui.button("Generate Plans").clicked() {
+                let occupancy_grid = self.get_occupancy_grid();
+                if occupancy_grid.is_none() {
+                    self.calculate_grid.write(CalculateGrid {
+                        cell_size: self.occupancy_info.cell_size,
+                        ignore: self.robots.iter().collect(),
+                        ..default()
+                    });
+                }
+                self.negotiation_request.write(NegotiationRequest);
+            }
         });
+        ui.end_row();
+        if !error_msgs.is_empty() {
+            ui.label("Unable to generate plan due to:");
+        }
+        ui.end_row();
+        for err_msg in error_msgs {
+            ui.label(format!("-{}", err_msg));
+            ui.end_row();
+        }
     }
 
-    fn show_negotiation_history(
-        mut negotiation_debug_data: &mut ResMut<NegotiationDebugData>,
-        negotiation_history: &Vec<NegotiationNode>,
-        ui: &mut Ui,
-    ) {
+    fn show_negotiation_history(negotiation_history: &Vec<NegotiationNode>, ui: &mut Ui) {
         CollapsingHeader::new("Negotiation history")
             .default_open(false)
             .show(ui, |ui| {
@@ -292,23 +312,15 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
                 ScrollArea::vertical().show(ui, |ui| {
                     for negotiation_node in negotiation_history {
                         let _id = negotiation_node.id;
-                        let _response = show_negotiation_node(
-                            ui,
-                            &mut id_response_map,
-                            &mut negotiation_debug_data,
-                            negotiation_node,
-                        );
+                        let _response =
+                            show_negotiation_node(ui, &mut id_response_map, negotiation_node);
                         // id_response_map.insert(id, &mut response);
                     }
                 });
             });
     }
 
-    fn show_failed_plan(
-        mut negotiation_debug_data: &mut ResMut<NegotiationDebugData>,
-        plan_info: &MAPFDebugInfo,
-        ui: &mut Ui,
-    ) {
+    fn show_failed_plan(plan_info: &MAPFDebugInfo, ui: &mut Ui) {
         if let MAPFDebugInfo::Failed {
             error_message,
             entity_id_map: _,
@@ -331,7 +343,7 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
                 });
             }
 
-            Self::show_negotiation_history(&mut negotiation_debug_data, negotiation_history, ui);
+            Self::show_negotiation_history(negotiation_history, ui);
         }
     }
 
@@ -346,15 +358,13 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
 
         let MAPFDebugInfo::Success {
             longest_plan_duration_s,
-            colors: _,
             elapsed_time,
             solution,
             entity_id_map: _,
-            path_mesh_info: _,
             negotiation_history,
         } = plan_info
         else {
-            Self::show_failed_plan(&mut self.negotiation_debug_data, plan_info, ui);
+            Self::show_failed_plan(plan_info, ui);
             return;
         };
 
@@ -362,11 +372,19 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
         ui.horizontal(|ui| {
             if ui.button("Clear Plans").clicked() {
                 self.commands.entity(site).remove::<MAPFDebugInfo>();
-                self.negotiation_task.reset();
+                self.negotiation_debug_data.reset();
                 for e in self.path_visuals.iter() {
                     self.commands.entity(e).despawn();
                 }
-                self.negotiation_debug_data.reset();
+                // Reset back to start
+                for (robot_entity, robot_opose) in self.robots_opose.iter() {
+                    if let Some(opose) = robot_opose {
+                        self.change_pose.write(Change::new(opose.0, robot_entity));
+                    }
+                    self.commands
+                        .entity(robot_entity)
+                        .remove::<Original<Pose>>();
+                }
             }
         });
 
@@ -382,19 +400,19 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
         ui.horizontal(|ui| {
             ui.label("Playback speed: ");
             ui.add(egui::Slider::new(
-                &mut self.negotiation_debug_data.playback_speed,
+                &mut self.debugger_settings.playback_speed,
                 0.0..=8.0,
             ));
         });
         ui.end_row();
 
-        if self.negotiation_debug_data.playback_speed == 0.0 {
+        if self.debugger_settings.playback_speed == 0.0 {
             if ui.button("Resume animation").clicked() {
-                self.negotiation_debug_data.playback_speed = 1.0;
+                self.debugger_settings.playback_speed = 1.0;
             }
         } else {
             if ui.button("Pause animation").clicked() {
-                self.negotiation_debug_data.playback_speed = 0.0;
+                self.debugger_settings.playback_speed = 0.0;
             }
         }
         ui.end_row();
@@ -406,21 +424,15 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
             elapsed_time.as_secs_f32()
         ));
 
-        show_negotiation_node(
-            ui,
-            &mut HashMap::new(),
-            &mut self.negotiation_debug_data,
-            solution,
-        );
+        show_negotiation_node(ui, &mut HashMap::new(), solution);
 
-        Self::show_negotiation_history(&mut self.negotiation_debug_data, negotiation_history, ui);
+        Self::show_negotiation_history(negotiation_history, ui);
     }
 }
 
 fn show_negotiation_node(
     ui: &mut Ui,
     id_response_map: &mut HashMap<usize, &mut Response>,
-    negotiation_debug_data: &mut ResMut<NegotiationDebugData>,
     node: &NegotiationNode,
 ) -> Response {
     Frame::default()
@@ -432,10 +444,7 @@ fn show_negotiation_node(
 
             let id = node.id;
             ui.horizontal(|ui| {
-                let selected = negotiation_debug_data.selected_negotiation_node == Some(id);
-                if ui.radio(selected, format!("#{}", node.id)).clicked() {
-                    negotiation_debug_data.selected_negotiation_node = Some(id);
-                }
+                ui.label(format!("#{}", id));
                 ui.label("|");
                 ui.label(format!("Keys: {}", node.keys.len()));
                 ui.label("|");
@@ -484,13 +493,18 @@ fn outline_frame<R>(ui: &mut Ui, add_body: impl FnOnce(&mut Ui) -> R) -> Respons
 fn handle_debug_panel_visibility(
     mut menu_events: EventReader<MenuEvent>,
     mapf_menu: Res<MAPFMenu>,
-    mut negotiation_debug: ResMut<NegotiationDebugData>,
+    mut mapf_debug_window: ResMut<MAPFDebugDisplay>,
 ) {
     for event in menu_events.read() {
         if event.clicked() && event.source() == mapf_menu.debug_panel {
-            negotiation_debug.show_debug_panel = true;
+            mapf_debug_window.show = true;
         }
     }
+}
+
+#[derive(Resource, Debug, Clone, Default)]
+pub struct MAPFDebugDisplay {
+    pub show: bool,
 }
 
 #[derive(Resource)]

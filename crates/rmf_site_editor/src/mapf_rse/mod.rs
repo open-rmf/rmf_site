@@ -21,22 +21,22 @@ use bevy::{
     tasks::{futures::check_ready, Task, TaskPool},
 };
 use std::{
-    collections::{BTreeMap, HashMap, VecDeque},
+    collections::{BTreeMap, HashMap},
     fmt::Debug,
     time::{Duration, Instant},
 };
 
 use crate::{
     color_picker::ColorPicker,
-    occupancy::{calculate_grid, Cell, Grid},
+    occupancy::{Cell, Grid},
     site::{
-        Affiliation, CircleCollision, CurrentLevel, DifferentialDrive, GoToPlace, Group,
+        Affiliation, Change, CircleCollision, CurrentLevel, DifferentialDrive, GoToPlace, Group,
         LocationTags, ModelMarker, NameInSite, Point, Pose, Robot, Task as RobotTask,
     },
     CurrentWorkspace,
 };
 use mapf::negotiation::*;
-use rmf_site_format::{NameOfSite, TaskKind};
+use rmf_site_format::{NameOfSite, Original, TaskKind};
 
 use mapf::negotiation::{Agent, Obstacle, Scenario as MapfScenario};
 
@@ -53,12 +53,13 @@ impl Plugin for NegotiationPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<NegotiationRequest>()
             .init_resource::<NegotiationParams>()
-            .init_resource::<NegotiationTask>()
+            .init_resource::<NegotiationDebugData>()
+            .init_resource::<DebuggerSettings>()
             .add_plugins(NegotiationDebugPlugin::default())
             .add_systems(
                 Update,
                 (
-                    start_compute_negotiation.before(calculate_grid),
+                    start_compute_negotiation,
                     handle_changed_collision,
                     handle_removed_tasks,
                     handle_changed_tasks,
@@ -75,6 +76,7 @@ impl Plugin for NegotiationPlugin {
 #[derive(Event)]
 pub struct NegotiationRequest;
 
+// Algorithm-specific parameters
 #[derive(Debug, Clone, Resource)]
 pub struct NegotiationParams {
     pub queue_length_limit: usize,
@@ -88,92 +90,36 @@ impl Default for NegotiationParams {
     }
 }
 
-#[derive(Debug, Default, Clone)]
-pub enum NegotiationTaskStatus {
-    #[default]
-    NotStarted,
-    InProgress {
-        start_time: Instant,
-    },
-    Complete {
-        longest_plan_duration: f32,
-        colors: Vec<[f32; 3]>,
-        elapsed_time: Duration,
-        solution: Option<NegotiationNode>,
-        negotiation_history: Vec<NegotiationNode>,
-        entity_id_map: HashMap<usize, Entity>,
-        error_message: Option<String>,
-        conflicting_endpoints: Vec<(Entity, Entity)>,
-    },
-}
-
-impl NegotiationTaskStatus {
-    pub fn is_in_progress(&self) -> bool {
-        matches!(self, NegotiationTaskStatus::InProgress { .. })
-    }
-}
-
-#[derive(Debug, Resource)]
-pub struct NegotiationTask {
-    task: Task<
-        Result<
-            (
-                NegotiationNode,
-                Vec<NegotiationNode>,
-                HashMap<usize, String>,
-            ),
-            NegotiationError,
-        >,
-    >,
-    pub status: NegotiationTaskStatus,
-}
-
-impl NegotiationTask {
-    fn reset(&mut self) {
-        self.task = TaskPool::new().spawn_local(async move {
-            Err(NegotiationError::PlanningImpossible(
-                "Not started yet".into(),
-            ))
-        });
-        self.status = NegotiationTaskStatus::NotStarted;
-    }
-}
-
-impl Default for NegotiationTask {
-    fn default() -> Self {
-        Self {
-            task: TaskPool::new().spawn_local(async move {
-                Err(NegotiationError::PlanningImpossible(
-                    "Not started yet".into(),
-                ))
-            }),
-            status: NegotiationTaskStatus::NotStarted,
-        }
-    }
-}
-
 #[derive(Resource)]
 pub struct NegotiationDebugData {
-    pub show_debug_panel: bool,
-    pub selected_negotiation_node: Option<usize>,
-    pub playback_speed: f32,
     pub time: f32,
+    pub colors: Vec<[f32; 3]>,
 }
 
 impl NegotiationDebugData {
     fn reset(&mut self) {
         self.time = 0.0;
-        self.selected_negotiation_node = None;
+    }
+}
+
+#[derive(Resource)]
+pub struct DebuggerSettings {
+    pub playback_speed: f32,
+}
+
+impl Default for DebuggerSettings {
+    fn default() -> Self {
+        Self {
+            playback_speed: 1.0,
+        }
     }
 }
 
 impl Default for NegotiationDebugData {
     fn default() -> Self {
         Self {
-            show_debug_panel: false,
-            selected_negotiation_node: None,
-            playback_speed: 1.0,
             time: 0.0,
+            colors: Vec::new(),
         }
     }
 }
@@ -198,10 +144,11 @@ pub fn remove_robot_path_entities(
 
 pub fn handle_compute_negotiation_complete(
     mut commands: Commands,
-    mut negotiation_debug_data: ResMut<NegotiationDebugData>,
-    mut negotiation_task: ResMut<NegotiationTask>,
+    mut debug_data: ResMut<NegotiationDebugData>,
     open_sites: Query<Entity, With<NameOfSite>>,
     current_workspace: Res<CurrentWorkspace>,
+    mut mapf_info: Query<&mut MAPFDebugInfo>,
+    robots: Query<(Entity, &Pose, Option<&Original<Pose>>), With<Robot>>,
 ) {
     fn bits_string_to_entity(bits_string: &str) -> Entity {
         // SAFETY: This assumes function input bits_string to be output from entity.to_bits().to_string()
@@ -210,23 +157,41 @@ pub fn handle_compute_negotiation_complete(
         Entity::from_bits(bits)
     }
 
-    let NegotiationTaskStatus::InProgress { start_time } = negotiation_task.status else {
+    let Some(site) = current_workspace.to_site(&open_sites) else {
         return;
     };
 
-    if let Some(result) = check_ready(&mut negotiation_task.task) {
+    let Some(mut plan_info) = mapf_info.get_mut(site).ok() else {
+        return;
+    };
+
+    let MAPFDebugInfo::InProgress {
+        start_time,
+        ref mut task,
+    } = *plan_info
+    else {
+        return;
+    };
+
+    if let Some(result) = check_ready(task) {
         let elapsed_time = start_time.elapsed();
-        let mut colors = Vec::new();
-        let mut longest_plan_duration = 0.0;
 
         let Some(site) = current_workspace.to_site(&open_sites) else {
-            error!("Cannot find current site");
             return;
         };
 
         match result {
             Ok((solution, negotiation_history, name_map)) => {
-                negotiation_debug_data.selected_negotiation_node = Some(solution.id);
+                let colors = &mut debug_data.colors;
+                let mut longest_plan_duration = 0.0;
+
+                if colors.len() < solution.proposals.len() {
+                    let num_colors_required = solution.proposals.len() - colors.len();
+                    for _ in 0..num_colors_required {
+                        colors.push(ColorPicker::get_color());
+                    }
+                }
+
                 for proposal in solution.proposals.iter() {
                     if let Some(last_waypt) = proposal.1.meta.trajectory.last() {
                         let plan_duration = last_waypt.time.duration_from_zero().as_secs_f32();
@@ -234,12 +199,20 @@ pub fn handle_compute_negotiation_complete(
                             longest_plan_duration = plan_duration;
                         }
                     }
-                    colors.push(ColorPicker::get_color());
+                }
+
+                // Inserts original poses of robot
+                for (_, robot_entity_str) in name_map.iter() {
+                    let robot_entity = bits_string_to_entity(robot_entity_str);
+                    if let Some((_, pose, _)) = robots.get(robot_entity).ok() {
+                        commands
+                            .entity(robot_entity)
+                            .insert(Original::<Pose>(*pose));
+                    }
                 }
 
                 commands.entity(site).insert(MAPFDebugInfo::Success {
                     longest_plan_duration_s: longest_plan_duration,
-                    colors: colors.clone(),
                     elapsed_time: elapsed_time,
                     solution: solution.clone(),
                     entity_id_map: name_map
@@ -247,23 +220,8 @@ pub fn handle_compute_negotiation_complete(
                         .into_iter()
                         .map(|(id, bits_string)| (id, bits_string_to_entity(&bits_string)))
                         .collect(),
-                    path_mesh_info: VecDeque::new(),
                     negotiation_history: negotiation_history.clone(),
                 });
-
-                negotiation_task.status = NegotiationTaskStatus::Complete {
-                    longest_plan_duration,
-                    colors,
-                    elapsed_time,
-                    solution: Some(solution),
-                    negotiation_history,
-                    entity_id_map: name_map
-                        .into_iter()
-                        .map(|(id, bits_string)| (id, bits_string_to_entity(&bits_string)))
-                        .collect(),
-                    error_message: None,
-                    conflicting_endpoints: Vec::new(),
-                };
             }
             Err(err) => {
                 let mut negotiation_history = Vec::new();
@@ -298,17 +256,6 @@ pub fn handle_compute_negotiation_complete(
                     negotiation_history: negotiation_history.clone(),
                     entity_id_map: entity_id_map.clone(),
                 });
-
-                negotiation_task.status = NegotiationTaskStatus::Complete {
-                    longest_plan_duration,
-                    colors,
-                    elapsed_time: elapsed_time,
-                    solution: None,
-                    negotiation_history: negotiation_history,
-                    entity_id_map: entity_id_map,
-                    error_message: err_msg,
-                    conflicting_endpoints: conflicts,
-                };
             }
         };
     }
@@ -349,6 +296,26 @@ fn handle_changed_collision(
     }
 }
 
+pub fn is_planning_in_progress(
+    open_sites: Query<Entity, With<NameOfSite>>,
+    current_workspace: Res<CurrentWorkspace>,
+    mapf_info: Query<&MAPFDebugInfo>,
+) -> bool {
+    let Some(site) = current_workspace.to_site(&open_sites) else {
+        return false;
+    };
+
+    let Some(plan_info) = mapf_info.get(site).ok() else {
+        return false;
+    };
+
+    if matches!(*plan_info, MAPFDebugInfo::InProgress { .. }) {
+        warn!("Negotiation requested while another negotiation is in progress");
+        return true;
+    }
+    return false;
+}
+
 pub fn start_compute_negotiation(
     locations: Query<(&NameInSite, &Point<Entity>), With<LocationTags>>,
     anchors: Query<&GlobalTransform>,
@@ -358,13 +325,23 @@ pub fn start_compute_negotiation(
     current_level: Res<CurrentLevel>,
     grids: Query<(Entity, &Grid)>,
     child_of: Query<&ChildOf>,
-    robots: Query<(Entity, &NameInSite, &Pose, &Affiliation<Entity>), With<Robot>>,
+    mut robots: Query<
+        (
+            Entity,
+            &NameInSite,
+            &Pose,
+            &Affiliation<Entity>,
+            Option<&Original<Pose>>,
+        ),
+        With<Robot>,
+    >,
     robot_descriptions: Query<(&DifferentialDrive, &CircleCollision)>,
     tasks: Query<(&RobotTask, &GoToPlace)>,
-    mut negotiation_task: ResMut<NegotiationTask>,
     open_sites: Query<Entity, With<NameOfSite>>,
     current_workspace: Res<CurrentWorkspace>,
+    mapf_info: Query<&MAPFDebugInfo>,
     mut commands: Commands,
+    mut change_pose: EventWriter<Change<Pose>>,
 ) {
     if negotiation_request.is_empty() {
         return;
@@ -372,18 +349,24 @@ pub fn start_compute_negotiation(
 
     negotiation_request.clear();
 
-    if negotiation_task.status.is_in_progress() {
-        warn!("Negotiation requested while another negotiation is in progress");
-        return;
-    }
-
     let Some(site) = current_workspace.to_site(&open_sites) else {
         return;
     };
 
+    if is_planning_in_progress(open_sites, current_workspace, mapf_info) {
+        warn!("Planning is in progress!");
+        return;
+    }
+
     commands.entity(site).remove::<MAPFDebugInfo>();
     negotiation_debug_data.reset();
-    negotiation_task.reset();
+    // Reset back to start
+    for (robot_entity, _, _, _, robot_opose) in robots.iter_mut() {
+        if let Some(opose) = robot_opose {
+            change_pose.write(Change::new(opose.0, robot_entity));
+            commands.entity(robot_entity).remove::<Original<Pose>>();
+        }
+    }
 
     // Occupancy
     let mut occupancy = HashMap::<i64, Vec<i64>>::new();
@@ -402,6 +385,9 @@ pub fn start_compute_negotiation(
             None
         }
     });
+
+    if grid.is_none() {}
+
     match grid {
         Some(grid) => {
             cell_size = grid.cell_size;
@@ -424,7 +410,7 @@ pub fn start_compute_negotiation(
     for (task, go_to_place) in tasks.iter() {
         // Identify robot
         let robot_name = task.robot();
-        for (robot_entity, robot_site_name, robot_pose, robot_group) in robots.iter() {
+        for (robot_entity, robot_site_name, robot_pose, robot_group, robot_opose) in robots.iter() {
             if robot_name == robot_site_name.0 {
                 // Match location to entity
                 for (location_name, Point(anchor_entity)) in locations.iter() {
@@ -439,14 +425,15 @@ pub fn start_compute_negotiation(
                             warn!("Unable to get robot's collision model");
                             continue;
                         };
+                        let pose = if let Some(opose) = robot_opose {
+                            opose.0
+                        } else {
+                            *robot_pose
+                        };
                         let goal_pos = goal_transform.translation();
                         let agent = Agent {
-                            start: to_discrete_xy(
-                                robot_pose.trans[0],
-                                robot_pose.trans[1],
-                                cell_size,
-                            ),
-                            yaw: f64::from(robot_pose.rot.yaw().radians()),
+                            start: to_discrete_xy(pose.trans[0], pose.trans[1], cell_size),
+                            yaw: f64::from(pose.rot.yaw().radians()),
                             goal: to_discrete_xy(goal_pos.x, goal_pos.y, cell_size),
                             radius: f64::from(circle_collision.radius),
                             speed: f64::from(differential_drive.translational_speed),
@@ -482,10 +469,11 @@ pub fn start_compute_negotiation(
     let queue_length_limit = negotiation_params.queue_length_limit;
 
     // Execute asynchronously
-    let start_time = Instant::now();
-    negotiation_task.status = NegotiationTaskStatus::InProgress { start_time };
-    negotiation_task.task =
-        TaskPool::new().spawn_local(async move { negotiate(&scenario, Some(queue_length_limit)) });
+    commands.entity(site).insert(MAPFDebugInfo::InProgress {
+        start_time: Instant::now(),
+        task: TaskPool::new()
+            .spawn_local(async move { negotiate(&scenario, Some(queue_length_limit)) }),
+    });
 }
 
 fn to_discrete_xy(x: f32, y: f32, cell_size: f32) -> [i64; 2] {

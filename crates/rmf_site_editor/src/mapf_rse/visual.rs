@@ -15,10 +15,12 @@
  *
 */
 
-use std::collections::VecDeque;
-
 use super::*;
-use crate::{interaction::MoveTo, layers::ZLayer, site::line_stroke_transform, CurrentWorkspace};
+use crate::{
+    layers::ZLayer,
+    site::{line_stroke_transform, Change},
+    CurrentWorkspace,
+};
 use bevy::ecs::hierarchy::ChildOf;
 use bevy::math::prelude::Rectangle;
 use mapf::motion::Motion;
@@ -33,12 +35,23 @@ pub struct PathVisualMarker;
 pub enum MAPFDebugInfo {
     Success {
         longest_plan_duration_s: f32,
-        colors: Vec<[f32; 3]>,
         elapsed_time: Duration,
         solution: NegotiationNode,
         entity_id_map: HashMap<usize, Entity>,
         negotiation_history: Vec<NegotiationNode>,
-        path_mesh_info: VecDeque<MeshInfo>,
+    },
+    InProgress {
+        start_time: Instant,
+        task: Task<
+            Result<
+                (
+                    NegotiationNode,
+                    Vec<NegotiationNode>,
+                    HashMap<usize, String>,
+                ),
+                NegotiationError,
+            >,
+        >,
     },
     Failed {
         error_message: Option<String>,
@@ -48,18 +61,13 @@ pub enum MAPFDebugInfo {
     },
 }
 
-pub struct MeshInfo {
-    entity: Entity,
-    time: f32,
-}
-
 pub fn visualise_selected_node(
     mut commands: Commands,
     mut debug_data: ResMut<NegotiationDebugData>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     path_visuals: Query<Entity, With<PathVisualMarker>>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut move_to: EventWriter<MoveTo>,
+    mut change_pose: EventWriter<Change<Pose>>,
     robots: Query<(Entity, &Affiliation<Entity>), With<Robot>>,
     robot_descriptions: Query<&CircleCollision, (With<ModelMarker>, With<Group>)>,
     current_level: Res<CurrentLevel>,
@@ -67,6 +75,7 @@ pub fn visualise_selected_node(
     open_sites: Query<Entity, With<NameOfSite>>,
     current_workspace: Res<CurrentWorkspace>,
     mapf_info: Query<&MAPFDebugInfo>,
+    debugger_settings: Res<DebuggerSettings>,
 ) {
     let Some(site) = current_workspace.to_site(&open_sites) else {
         return;
@@ -78,11 +87,9 @@ pub fn visualise_selected_node(
 
     let MAPFDebugInfo::Success {
         longest_plan_duration_s,
-        colors,
         elapsed_time: _,
         solution,
         entity_id_map,
-        path_mesh_info,
         negotiation_history: _,
     } = plan_info
     else {
@@ -101,13 +108,7 @@ pub fn visualise_selected_node(
         commands.entity(e).despawn();
     }
 
-    debug_data.time += debug_data.playback_speed * now.delta_secs();
-
-    while let Some(item) = path_mesh_info.front() {
-        if debug_data.time >= item.time {
-            commands.entity(item.entity).despawn();
-        }
-    }
+    debug_data.time += debugger_settings.playback_speed * now.delta_secs();
 
     if debug_data.time >= *longest_plan_duration_s {
         debug_data.time = 0.0;
@@ -138,7 +139,7 @@ pub fn visualise_selected_node(
         }
 
         let lane_material = materials.add(StandardMaterial {
-            base_color: Color::srgb_from_array(colors[i]),
+            base_color: Color::srgb_from_array(debug_data.colors[i]),
             unlit: true,
             ..Default::default()
         });
@@ -221,16 +222,21 @@ pub fn visualise_selected_node(
         {
             let robot_yaw = crate::ops::atan2(interp.rotation.im as f32, interp.rotation.re as f32);
 
-            let new_trans = [
+            let new_trans = translation_to_vec3(
                 interp.translation.x as f32,
                 interp.translation.y as f32,
-                0.0,
-            ];
+                time_now,
+            );
+
             let new_quat = Quat::from_rotation_z(robot_yaw);
-            move_to.write(MoveTo {
-                entity: robot_entity,
-                transform: Transform::from_rotation(new_quat).with_translation(new_trans.into()),
-            });
+
+            change_pose.write(Change::new(
+                Pose {
+                    trans: new_trans.into(),
+                    rot: new_quat.into(),
+                },
+                robot_entity,
+            ));
         }
         for slice in proposal.1.meta.trajectory.windows(2) {
             let start_pos = slice[0].position.translation;
