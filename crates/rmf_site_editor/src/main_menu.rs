@@ -32,7 +32,7 @@ fn egui_ui(
         #[cfg(not(target_arch = "wasm32"))]
         {
             if let Some(filename) = autoload.filename.take() {
-                workspace_loader.load_from_path(filename);
+                let _ = workspace_loader.load_from_path(filename);
             }
         }
         return;

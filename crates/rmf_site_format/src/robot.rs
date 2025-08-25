@@ -15,25 +15,26 @@
  *
 */
 
+use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::Component;
+use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component), require(OnLevel<Entity>))]
 pub struct Robot {
     // TODO(@xiyuoh) Fleet name is a string for now, we probably want some kind of
     // fleet registration at some point
     pub fleet: String,
-    pub properties: HashMap<String, serde_json::Value>,
+    pub properties: BTreeMap<String, serde_json::Value>,
 }
 
 impl Default for Robot {
     fn default() -> Self {
         Self {
             fleet: String::new(),
-            properties: HashMap::new(),
+            properties: BTreeMap::new(),
         }
     }
 }

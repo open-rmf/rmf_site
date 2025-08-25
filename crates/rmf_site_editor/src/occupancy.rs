@@ -15,7 +15,10 @@
  *
 */
 
-use crate::site::{Category, LevelElevation, NameOfSite, SiteAssets, LANE_LAYER_START};
+use crate::{
+    layers::ZLayer,
+    site::{Category, LevelElevation, NameOfSite, SiteAssets},
+};
 use bevy::{
     ecs::{hierarchy::ChildOf, relationship::AncestorIter},
     math::{swizzles::*, Affine3A, Mat3A, Vec2, Vec3A},
@@ -135,12 +138,23 @@ impl GridRange {
 pub struct CalculateGrid {
     /// How large is each cell
     pub cell_size: f32,
+    // Ignore these entities
+    pub ignore: HashSet<Entity>,
     /// Ignore meshes below this height
     pub floor: f32,
     /// Ignore meshes above this height
     pub ceiling: f32,
-    // Ignore these entities
-    pub ignore: HashSet<Entity>,
+}
+
+impl Default for CalculateGrid {
+    fn default() -> Self {
+        Self {
+            cell_size: 0.1,
+            ignore: HashSet::default(),
+            floor: 0.01,
+            ceiling: 1.5,
+        }
+    }
 }
 
 enum Group {
@@ -278,7 +292,7 @@ fn calculate_grid(
                 let p = Vec3::new(
                     cell_size * (cell.x as f32 + 0.5),
                     cell_size * (cell.y as f32 + 0.5),
-                    LANE_LAYER_START / 2.0,
+                    ZLayer::Lane.to_z() / 2.0,
                 );
                 mesh = mesh.merge_with(
                     make_flat_square_mesh(cell_size).transform_by(Affine3A::from_translation(p)),
@@ -290,7 +304,9 @@ fn calculate_grid(
                     .spawn((
                         Mesh3d(meshes.add(mesh)),
                         MeshMaterial3d(assets.occupied_material.clone()),
-                        Transform::default(),
+                        Transform::from_translation(
+                            [0.0, 0.0, ZLayer::OccupancyGrid.to_z()].into(),
+                        ),
                         Visibility::default(),
                     ))
                     .insert(Grid {

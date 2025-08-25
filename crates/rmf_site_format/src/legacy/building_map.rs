@@ -5,12 +5,12 @@ use crate::{
     alignment::align_legacy_building, legacy::model::Model, Affiliation, Anchor, Angle,
     AssetSource, AssociatedGraphs, Category, DisplayColor, Dock as SiteDock,
     Drawing as SiteDrawing, DrawingProperties, Fiducial as SiteFiducial, FiducialGroup,
-    FiducialMarker, Guided, InstanceModifier, Lane as SiteLane, LaneMarker, Level as SiteLevel,
-    LevelElevation, LevelProperties as SiteLevelProperties, ModelDescriptionBundle, ModelInstance,
-    Motion, NameInSite, NameOfSite, NavGraph, Navigation, OrientationConstraint, Parented,
-    PixelsPerMeter, Pose, PreferredSemiTransparency, RankingsInLevel, ReverseLane, Robot, Rotation,
-    Scenario, Site, SiteProperties, Task, Texture as SiteTexture, TextureGroup, UserCameraPose,
-    DEFAULT_NAV_GRAPH_COLORS,
+    FiducialMarker, Guided, Inclusion, InstanceModifier, Lane as SiteLane, LaneMarker,
+    Level as SiteLevel, LevelElevation, LevelProperties as SiteLevelProperties,
+    ModelDescriptionBundle, ModelInstance, Motion, NameInSite, NameOfSite, NavGraph, Navigation,
+    OrientationConstraint, Parented, PixelsPerMeter, Pose, PreferredSemiTransparency,
+    RankingsInLevel, ReverseLane, Robot, Rotation, Scenario, Site, SiteProperties, Task,
+    Texture as SiteTexture, TextureGroup, UserCameraPose, DEFAULT_NAV_GRAPH_COLORS,
 };
 use glam::{DAffine2, DMat3, DQuat, DVec2, DVec3, EulerRot};
 use serde::{Deserialize, Serialize};
@@ -536,7 +536,8 @@ impl BuildingMap {
                         model_instance_id,
                         InstanceModifier {
                             pose: Some(model_pose),
-                            visibility: Some(true),
+                            inclusion: Some(Inclusion::Included),
+                            on_level: Some(level_id),
                         },
                     );
             }
@@ -558,7 +559,8 @@ impl BuildingMap {
                         model_instance_id,
                         InstanceModifier {
                             pose: Some(model_pose),
-                            visibility: Some(true),
+                            inclusion: Some(Inclusion::Included),
+                            on_level: Some(level_id),
                         },
                     );
             }

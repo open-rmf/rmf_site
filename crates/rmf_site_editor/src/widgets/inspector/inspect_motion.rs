@@ -33,6 +33,7 @@ use rmf_site_format::{
 #[derive(SystemParam)]
 pub struct InspectMotion<'w, 's> {
     forward: InspectForwardMotion<'w, 's>,
+    reverse: InspectReverseMotion<'w, 's>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectMotion<'w, 's> {
@@ -44,6 +45,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectMotion<'w, 's> {
     ) {
         let mut params = state.get_mut(world);
         params.forward.show_widget(selection, ui);
+        params.reverse.show_widget(selection, ui);
     }
 }
 
@@ -121,19 +123,21 @@ impl<'w, 's> InspectReverseMotion<'w, 's> {
                 }
             });
 
-        match &mut new_reverse {
-            ReverseLane::Different(motion) => {
-                ui.add_space(10.0);
-                if let Some(new_motion) =
-                    InspectMotionComponent::new(motion, &recall.previous).show(ui)
-                {
-                    new_reverse = ReverseLane::Different(new_motion);
+        ui.push_id("reverse_motion", |ui| {
+            match &mut new_reverse {
+                ReverseLane::Different(motion) => {
+                    ui.add_space(10.0);
+                    if let Some(new_motion) =
+                        InspectMotionComponent::new(motion, &recall.previous).show(ui)
+                    {
+                        new_reverse = ReverseLane::Different(new_motion);
+                    }
+                }
+                _ => {
+                    // Do nothing
                 }
             }
-            _ => {
-                // Do nothing
-            }
-        }
+        });
 
         if new_reverse != *reverse {
             self.change_lane_reverse.write(Change::new(new_reverse, id));

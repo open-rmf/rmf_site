@@ -20,11 +20,11 @@ use bevy::ecs::hierarchy::ChildOf;
 use bevy::prelude::*;
 use rmf_site_camera::{active_camera_maybe, resources::CameraConfig, ActiveCameraQuery};
 use rmf_site_format::{
-    LevelElevation, LevelProperties, NameInSite, NameOfSite, Pose, ScenarioMarker,
+    LevelElevation, LevelProperties, NameInSite, NameOfSite, Pose, ScenarioModifiers,
     UserCameraPoseMarker,
 };
 
-use super::{ChangeCurrentScenario, CreateScenario};
+use super::{ChangeCurrentScenario, CreateScenario, DefaultScenario};
 
 /// Used as an event to command that a new site should be made the current one
 #[derive(Clone, Copy, Debug, Event)]
@@ -64,12 +64,13 @@ pub fn change_site(
     mut current_level: ResMut<CurrentLevel>,
     current_scenario: ResMut<CurrentScenario>,
     cached_levels: Query<&CachedLevel>,
+    default_scenario: Res<DefaultScenario>,
     mut visibility: Query<&mut Visibility>,
     open_sites: Query<Entity, With<NameOfSite>>,
     children: Query<&Children>,
     child_of: Query<&ChildOf>,
     levels: Query<Entity, With<LevelElevation>>,
-    scenarios: Query<Entity, With<ScenarioMarker>>,
+    scenarios: Query<Entity, With<ScenarioModifiers<Entity>>>,
 ) {
     let mut set_visibility = |entity, value| {
         if let Ok(mut v) = visibility.get_mut(entity) {
@@ -95,8 +96,7 @@ pub fn change_site(
             {
                 warn!(
                     "Requested level change to an entity {:?} that is not a level of the requested site {:?}",
-                    chosen_level,
-                    cmd.site,
+                    chosen_level, cmd.site,
                 );
                 return;
             }
@@ -159,10 +159,12 @@ pub fn change_site(
             }
         } else {
             if let Ok(children) = children.get(cmd.site) {
-                let any_scenario = children
-                    .iter()
-                    .filter(|child| scenarios.get(*child).is_ok())
-                    .next();
+                let any_scenario = default_scenario.0.or_else(|| {
+                    children
+                        .iter()
+                        .filter(|child| scenarios.get(*child).is_ok())
+                        .next()
+                });
                 if let Some(new_scenario) = any_scenario {
                     change_current_scenario.write(ChangeCurrentScenario(new_scenario));
                 } else {

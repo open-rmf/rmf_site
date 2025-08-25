@@ -18,10 +18,10 @@ use crate::{
     site::{
         count_scenarios_with_inclusion, Affiliation, Category, Change, CurrentScenario, Delete,
         DispatchTaskRequest, GetModifier, Group, Inclusion, Modifier, NameInSite, Pending, Robot,
-        RobotTaskRequest, ScenarioMarker, ScenarioModifiers, Task, TaskKinds, TaskParams,
-        TaskRequest, UpdateModifier, UpdateTaskModifier,
+        RobotTaskRequest, ScenarioModifiers, SiteUpdateSet, Task, TaskKinds, TaskParams,
+        TaskRequest, UpdateModifier,
     },
-    AppState, Icons,
+    AppState, CurrentWorkspace, Icons,
 };
 use bevy::{
     ecs::system::{SystemParam, SystemState},
@@ -65,7 +65,13 @@ impl Plugin for MainTasksPlugin {
             .init_resource::<EditTask>()
             .init_resource::<CreateTaskDialog>()
             .add_event::<EditModeEvent>()
-            .add_systems(Update, show_create_task_dialog);
+            .add_systems(Update, show_create_task_dialog)
+            .add_systems(
+                PostUpdate,
+                handle_task_edit
+                    .run_if(AppState::in_displaying_mode())
+                    .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
+            );
     }
 }
 
@@ -154,12 +160,10 @@ pub struct ViewTasks<'w, 's> {
             &'static ScenarioModifiers<Entity>,
             &'static Affiliation<Entity>,
         ),
-        With<ScenarioMarker>,
     >,
     task_kinds: ResMut<'w, TaskKinds>,
     task_widget: ResMut<'w, TaskWidget>,
     tasks: Query<'w, 's, (Entity, &'static Task), Without<Pending>>,
-    update_task_modifier: EventWriter<'w, UpdateModifier<UpdateTaskModifier>>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for ViewTasks<'w, 's> {
@@ -235,7 +239,6 @@ impl<'w, 's> ViewTasks<'w, 's> {
                                     &self.get_inclusion_modifier,
                                     &self.get_params_modifier,
                                     &mut self.change_task,
-                                    &mut self.update_task_modifier,
                                     &mut self.delete,
                                     &mut self.edit_mode,
                                     &self.edit_task,
@@ -259,6 +262,7 @@ impl<'w, 's> ViewTasks<'w, 's> {
                     .spawn(Task::default())
                     .insert(Category::Task)
                     .insert(TaskParams::default())
+                    .insert(Inclusion::Included) // New tasks created are included by default
                     .insert(Pending)
                     .id();
                 self.edit_mode.write(EditModeEvent {
@@ -280,7 +284,6 @@ fn show_task_widget(
     get_inclusion_modifier: &GetModifier<Modifier<Inclusion>>,
     get_params_modifier: &GetModifier<Modifier<TaskParams>>,
     change_task: &mut EventWriter<Change<Task>>,
-    update_task_modifier: &mut EventWriter<UpdateModifier<UpdateTaskModifier>>,
     delete: &mut EventWriter<Delete>,
     edit_mode: &mut EventWriter<EditModeEvent>,
     edit_task: &Res<EditTask>,
@@ -334,11 +337,7 @@ fn show_task_widget(
                                 .on_hover_text("Task is hidden in this scenario")
                                 .clicked()
                             {
-                                update_task_modifier.write(UpdateModifier::new(
-                                    scenario,
-                                    task_entity,
-                                    UpdateTaskModifier::Include,
-                                ));
+                                commands.entity(task_entity).insert(Inclusion::Included);
                             }
                         } else {
                             if ui
@@ -352,18 +351,13 @@ fn show_task_widget(
                                     .is_ok_and(|(_, a)| a.0.is_some())
                                 {
                                     // If parent scenario exists, clicking this button toggles to ResetInclusion
-                                    update_task_modifier.write(UpdateModifier::new(
+                                    commands.trigger(UpdateModifier::<Inclusion>::reset(
                                         scenario,
                                         task_entity,
-                                        UpdateTaskModifier::ResetInclusion,
                                     ));
                                 } else {
                                     // Otherwise, toggle to Hidden
-                                    update_task_modifier.write(UpdateModifier::new(
-                                        scenario,
-                                        task_entity,
-                                        UpdateTaskModifier::Hide,
-                                    ));
+                                    commands.entity(task_entity).insert(Inclusion::Hidden);
                                 }
                             }
                         }
@@ -374,11 +368,7 @@ fn show_task_widget(
                             .on_hover_text("Task inclusion is inherited in this scenario")
                             .clicked()
                         {
-                            update_task_modifier.write(UpdateModifier::new(
-                                scenario,
-                                task_entity,
-                                UpdateTaskModifier::Hide,
-                            ));
+                            commands.entity(task_entity).insert(Inclusion::Hidden);
                         }
                     }
 
@@ -435,7 +425,6 @@ fn show_task_widget(
                 robots,
                 task_kinds,
                 change_task,
-                update_task_modifier,
             );
         });
 }
@@ -452,7 +441,6 @@ fn show_editable_task(
     robots: &Query<(Entity, &NameInSite, &Robot), Without<Group>>,
     task_kinds: &ResMut<TaskKinds>,
     change_task: &mut EventWriter<Change<Task>>,
-    update_task_modifier: &mut EventWriter<UpdateModifier<UpdateTaskModifier>>,
 ) {
     let mut new_task = task.clone();
     let task_request = new_task.request();
@@ -627,11 +615,8 @@ fn show_editable_task(
                         .on_hover_text("Reset task parameters to parent scenario params")
                         .clicked()
                     {
-                        update_task_modifier.write(UpdateModifier::new(
-                            scenario,
-                            task_entity,
-                            UpdateTaskModifier::ResetParams,
-                        ));
+                        commands
+                            .trigger(UpdateModifier::<TaskParams>::reset(scenario, task_entity));
                     }
                 }
             }
@@ -644,11 +629,7 @@ fn show_editable_task(
         }
 
         if new_task_params != *task_params {
-            update_task_modifier.write(UpdateModifier::new(
-                scenario,
-                task_entity,
-                UpdateTaskModifier::Modify(new_task_params),
-            ));
+            commands.entity(task_entity).insert(new_task_params);
         }
     }
 }
@@ -667,7 +648,6 @@ fn show_create_task_dialog(
         Query<(Entity, &NameInSite, &Robot), Without<Group>>,
         ResMut<TaskKinds>,
         EventWriter<Change<Task>>,
-        EventWriter<UpdateModifier<UpdateTaskModifier>>,
     )>,
     widget_state: &mut SystemState<(Query<&Children>, Res<TaskWidget>)>,
     dialog_state: &mut SystemState<(ResMut<CreateTaskDialog>, EventWriter<EditModeEvent>)>,
@@ -696,14 +676,8 @@ fn show_create_task_dialog(
         .resizable(false)
         .anchor(Align2::CENTER_CENTER, [0.0, 0.0])
         .show(&mut ctx, |ui| {
-            let (
-                mut commands,
-                get_params_modifier,
-                robots,
-                task_kinds,
-                mut change_task,
-                mut update_task_modifier,
-            ) = edit_state.get_mut(world);
+            let (mut commands, get_params_modifier, robots, task_kinds, mut change_task) =
+                edit_state.get_mut(world);
             show_editable_task(
                 ui,
                 &mut commands,
@@ -716,7 +690,6 @@ fn show_create_task_dialog(
                 &robots,
                 &task_kinds,
                 &mut change_task,
-                &mut update_task_modifier,
             );
             edit_state.apply(world);
             ui.separator();
@@ -975,5 +948,35 @@ fn edit_labels_widget(ui: &mut Ui, task_params: &mut TaskParams) {
     });
     for i in remove_labels.drain(..).rev() {
         task_params.labels_mut().remove(i);
+    }
+}
+
+/// Updates the current EditTask entity based on the triggered edit mode event
+pub fn handle_task_edit(
+    mut commands: Commands,
+    mut create_task_dialog: ResMut<CreateTaskDialog>,
+    mut delete: EventWriter<Delete>,
+    mut edit_mode: EventReader<EditModeEvent>,
+    mut edit_task: ResMut<EditTask>,
+    pending_tasks: Query<&mut Task, With<Pending>>,
+    current_workspace: Res<CurrentWorkspace>,
+) {
+    // TODO(@xiyuoh) fix bug where the egui panel glitches when the EditTask resource is being accessed
+    if let Some(edit) = edit_mode.read().last() {
+        match edit.mode {
+            EditMode::New(task_entity) => {
+                if let Some(site_entity) = current_workspace.root {
+                    commands.entity(task_entity).insert(ChildOf(site_entity));
+                }
+                edit_task.0 = Some(task_entity);
+                create_task_dialog.visible = true;
+            }
+            EditMode::Edit(task_entity) => {
+                if let Some(pending_task) = edit_task.0.filter(|e| pending_tasks.get(*e).is_ok()) {
+                    delete.write(Delete::new(pending_task));
+                }
+                edit_task.0 = task_entity;
+            }
+        }
     }
 }

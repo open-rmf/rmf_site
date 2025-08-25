@@ -160,13 +160,19 @@ async fn fetch_asset<'a>(
     Ok(Box::new(VecReader::new(bytes)))
 }
 
-fn get_path_from_env() -> Result<PathBuf, env::VarError> {
+fn get_path_from_env() -> Result<Vec<PathBuf>, env::VarError> {
     let var = env::var(MODEL_ENVIRONMENT_VARIABLE)?;
-    let path = PathBuf::from(var);
+    let mut paths = Vec::<PathBuf>::new();
+    for path in env::split_paths(&var) {
+        if path.exists() {
+            paths.push(path);
+        }
+    }
     // TODO wrap error to be more explicative
-    match path.exists() {
-        true => Ok(path),
-        false => Err(env::VarError::NotPresent),
+    if paths.is_empty() {
+        Err(env::VarError::NotPresent)
+    } else {
+        Ok(paths)
     }
 }
 
@@ -244,11 +250,14 @@ impl Plugin for SiteAssetIoPlugin {
                     // Attempt to fetch from the server and save it to the cache directory
 
                     let asset_name = path.to_str().unwrap().to_owned();
-                    if let Ok(mut path) = get_path_from_env() {
+                    if let Ok(paths) = get_path_from_env() {
                         // Check if file exists
-                        path.push(&asset_name);
-                        if path.exists() {
-                            return Box::pin(async move { load_from_file(path) });
+                        for path in paths.iter() {
+                            let mut path = path.to_path_buf();
+                            path.push(&asset_name);
+                            if path.exists() {
+                                return Box::pin(async move { load_from_file(path) });
+                            }
                         }
                     }
 
