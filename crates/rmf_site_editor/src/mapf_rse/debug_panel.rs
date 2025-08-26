@@ -25,8 +25,8 @@ use crate::{
 };
 use bevy::ecs::system::SystemParam;
 use bevy_egui::egui::{
-    self, Align, CollapsingHeader, Color32, Frame, Grid as EguiGrid, Response, ScrollArea, Stroke,
-    Ui,
+    self, Align, CollapsingHeader, Color32, ComboBox, Frame, Grid as EguiGrid, Response,
+    ScrollArea, Stroke, Ui,
 };
 use rmf_site_egui::{
     MenuEvent, MenuItem, PanelWidget, PanelWidgetInput, ToolMenu, TryShowWidgetWorld, Widget,
@@ -47,6 +47,11 @@ impl Plugin for NegotiationDebugPlugin {
         let widget = Widget::new::<NegotiationDebugWidget>(&mut app.world_mut());
         app.world_mut().spawn((panel, widget));
     }
+}
+
+#[derive(Component, Debug, Clone)]
+pub struct DebugGoal {
+    pub location: String,
 }
 
 #[derive(SystemParam)]
@@ -71,6 +76,8 @@ pub struct NegotiationDebugWidget<'w, 's> {
     robots_opose: Query<'w, 's, (Entity, Option<&'static Original<Pose>>), With<Robot>>,
     change_pose: EventWriter<'w, Change<Pose>>,
     locations: Query<'w, 's, &'static NameInSite, With<LocationTags>>,
+    robots:
+        Query<'w, 's, (Entity, &'static NameInSite, Option<&'static mut DebugGoal>), With<Robot>>,
 }
 
 fn negotiation_debug_panel(In(input): In<PanelWidgetInput>, world: &mut World) {
@@ -91,6 +98,8 @@ impl<'w, 's> WidgetSystem for NegotiationDebugWidget<'w, 's> {
         let mut params = state.get_mut(world);
 
         ui.heading("Negotiation Debugger");
+        params.show_robot_goals(ui);
+        ui.separator();
         params.show_gotoplace_tasks(ui);
         ui.separator();
         params.show_occupancy_grid(ui);
@@ -141,19 +150,6 @@ impl<'w, 's> WidgetSystem for NegotiationDebugWidget<'w, 's> {
 }
 
 impl<'w, 's> NegotiationDebugWidget<'w, 's> {
-    fn get_gotoplace_tasks(&self) -> usize {
-        self.tasks
-            .iter()
-            .filter(|task| {
-                if task.request().category() == GoToPlace::label() {
-                    true
-                } else {
-                    false
-                }
-            })
-            .count()
-    }
-
     fn get_occupancy_grid(&self) -> std::option::Option<&occupancy::Grid> {
         // Occupancy Grid Info
         let occupancy_grid = self
@@ -176,6 +172,50 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
             })
             .next();
         occupancy_grid
+    }
+
+    pub fn show_robot_goals(&mut self, ui: &mut Ui) {
+        for (robot_entity, robot_name, robot_goal) in self.robots.iter_mut() {
+            if let Some(mut goal) = robot_goal {
+                ui.horizontal(|ui| {
+                    ui.label(format!("{} goal: ", robot_name.0));
+
+                    let selected_location_name = if goal.location.is_empty() {
+                        "Selected location".into()
+                    } else {
+                        goal.location.clone()
+                    };
+
+                    let mut new_goal_location = goal.location.clone();
+
+                    ComboBox::from_id_salt(format!("select_go_to_location_{}", robot_entity))
+                        .selected_text(selected_location_name)
+                        .show_ui(ui, |ui| {
+                            for location_name in self.locations.iter() {
+                                ui.selectable_value(
+                                    &mut new_goal_location,
+                                    location_name.0.clone(),
+                                    location_name.0.clone(),
+                                );
+                            }
+                        });
+
+                    if goal.location != new_goal_location {
+                        goal.location = new_goal_location;
+                    }
+
+                    if !goal.location.is_empty() {
+                        if ui.button("Clear selection").clicked() {
+                            goal.location = String::new();
+                        }
+                    }
+                });
+            } else {
+                self.commands.entity(robot_entity).insert(DebugGoal {
+                    location: "".into(),
+                });
+            }
+        }
     }
 
     pub fn show_gotoplace_tasks(&mut self, ui: &mut Ui) {
@@ -277,11 +317,6 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
                     allow_generate_plan = false;
                 }
             }
-        }
-
-        if self.get_gotoplace_tasks() == 0 {
-            error_msgs.push("No gotoplace tasks");
-            allow_generate_plan = false;
         }
 
         ui.add_enabled_ui(allow_generate_plan, |ui| {

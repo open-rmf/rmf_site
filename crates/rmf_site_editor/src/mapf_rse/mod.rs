@@ -60,6 +60,7 @@ impl Plugin for NegotiationPlugin {
                 Update,
                 (
                     start_compute_negotiation,
+                    handle_changed_debug_goal,
                     handle_changed_collision,
                     handle_removed_tasks,
                     handle_changed_tasks,
@@ -270,6 +271,15 @@ fn handle_removed_tasks(
     }
 }
 
+fn handle_changed_debug_goal(
+    debug_goals_changed: Query<(), Changed<DebugGoal>>,
+    mut negotiation_request: EventWriter<NegotiationRequest>,
+) {
+    if !debug_goals_changed.is_empty() {
+        negotiation_request.write(NegotiationRequest);
+    }
+}
+
 fn handle_changed_tasks(
     robot_tasks_changed: Query<&RobotTask, Changed<RobotTask>>,
     mut negotiation_request: EventWriter<NegotiationRequest>,
@@ -335,15 +345,14 @@ pub fn start_compute_negotiation(
     mut robots: Query<
         (
             Entity,
-            &NameInSite,
             &Pose,
             &Affiliation<Entity>,
             Option<&Original<Pose>>,
+            Option<&DebugGoal>,
         ),
         With<Robot>,
     >,
     robot_descriptions: Query<(&DifferentialDrive, &CircleCollision)>,
-    tasks: Query<(&RobotTask, &GoToPlace)>,
     open_sites: Query<Entity, With<NameOfSite>>,
     current_workspace: Res<CurrentWorkspace>,
     mapf_info: Query<&MAPFDebugInfo>,
@@ -389,7 +398,7 @@ pub fn start_compute_negotiation(
 
     commands.entity(site).remove::<MAPFDebugInfo>();
     // Reset back to start
-    for (robot_entity, _, _, _, robot_opose) in robots.iter_mut() {
+    for (robot_entity, _, _, robot_opose, _) in robots.iter_mut() {
         if let Some(opose) = robot_opose {
             change_pose.write(Change::new(opose.0, robot_entity));
             commands.entity(robot_entity).remove::<Original<Pose>>();
@@ -407,44 +416,39 @@ pub fn start_compute_negotiation(
 
     // Agent
     let mut agents = BTreeMap::<String, Agent>::new();
-    // Only loop tasks that have specified a valid robot
-    for (task, go_to_place) in tasks.iter() {
-        // Identify robot
-        let robot_name = task.robot();
-        for (robot_entity, robot_site_name, robot_pose, robot_group, robot_opose) in robots.iter() {
-            if robot_name == robot_site_name.0 {
-                // Match location to entity
-                for (location_name, Point(anchor_entity)) in locations.iter() {
-                    if location_name.0 == go_to_place.location {
-                        let Ok(goal_transform) = anchors.get(*anchor_entity) else {
-                            warn!("Unable to get robot's goal transform");
-                            continue;
-                        };
-                        let Some((differential_drive, circle_collision)) =
-                            robot_group.0.and_then(|e| robot_descriptions.get(e).ok())
-                        else {
-                            warn!("Unable to get robot's collision model");
-                            continue;
-                        };
-                        let pose = if let Some(opose) = robot_opose {
-                            opose.0
-                        } else {
-                            *robot_pose
-                        };
-                        let goal_pos = goal_transform.translation();
-                        let agent = Agent {
-                            start: to_discrete_xy(pose.trans[0], pose.trans[1], cell_size),
-                            yaw: f64::from(pose.rot.yaw().radians()),
-                            goal: to_discrete_xy(goal_pos.x, goal_pos.y, cell_size),
-                            radius: f64::from(circle_collision.radius),
-                            speed: f64::from(differential_drive.translational_speed),
-                            spin: f64::from(differential_drive.rotational_speed),
-                        };
-                        let agent_id = robot_entity.to_bits().to_string();
-                        agents.insert(agent_id, agent);
-                        break;
-                    }
-                }
+    for (robot_entity, robot_pose, robot_group, robot_opose, debug_goal) in robots.iter() {
+        let Some(robot_goal) = debug_goal else {
+            continue;
+        };
+        // Match location to entity
+        for (location_name, Point(anchor_entity)) in locations.iter() {
+            if location_name.0 == robot_goal.location {
+                let Ok(goal_transform) = anchors.get(*anchor_entity) else {
+                    warn!("Unable to get robot's goal transform");
+                    continue;
+                };
+                let Some((differential_drive, circle_collision)) =
+                    robot_group.0.and_then(|e| robot_descriptions.get(e).ok())
+                else {
+                    warn!("Unable to get robot's collision model");
+                    continue;
+                };
+                let pose = if let Some(opose) = robot_opose {
+                    opose.0
+                } else {
+                    *robot_pose
+                };
+                let goal_pos = goal_transform.translation();
+                let agent = Agent {
+                    start: to_discrete_xy(pose.trans[0], pose.trans[1], cell_size),
+                    yaw: f64::from(pose.rot.yaw().radians()),
+                    goal: to_discrete_xy(goal_pos.x, goal_pos.y, cell_size),
+                    radius: f64::from(circle_collision.radius),
+                    speed: f64::from(differential_drive.translational_speed),
+                    spin: f64::from(differential_drive.rotational_speed),
+                };
+                let agent_id = robot_entity.to_bits().to_string();
+                agents.insert(agent_id, agent);
                 break;
             }
         }
