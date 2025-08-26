@@ -17,7 +17,7 @@
 
 use super::*;
 use crate::{
-    mapf_rse::debug_panel::egui::DragValue, occupancy, occupancy::CalculateGrid,
+    mapf_rse::debug_panel::egui::DragValue, occupancy, occupancy::CalculateGridRequest,
     prelude::SystemState, site::Change,
 };
 use bevy::ecs::system::SystemParam;
@@ -49,7 +49,7 @@ impl Plugin for NegotiationDebugPlugin {
 
 #[derive(Resource)]
 pub struct OccupancyInfo {
-    cell_size: f32,
+    pub cell_size: f32,
 }
 
 impl Default for OccupancyInfo {
@@ -69,8 +69,8 @@ pub struct NegotiationDebugWidget<'w, 's> {
     current_level: Res<'w, CurrentLevel>,
     child_of: Query<'w, 's, &'static ChildOf>,
     occupancy_info: ResMut<'w, OccupancyInfo>,
-    calculate_grid: EventWriter<'w, CalculateGrid>,
-    robots: Query<'w, 's, Entity, With<Robot>>,
+    calculate_grid: EventWriter<'w, CalculateGridRequest>,
+    name_in_site: Query<'w, 's, &'static NameInSite>,
     open_sites: Query<'w, 's, Entity, With<NameOfSite>>,
     current_workspace: Res<'w, CurrentWorkspace>,
     mapf_info: Query<'w, 's, &'static MAPFDebugInfo>,
@@ -97,14 +97,6 @@ fn negotiation_debug_panel(In(input): In<PanelWidgetInput>, world: &mut World) {
 impl<'w, 's> WidgetSystem for NegotiationDebugWidget<'w, 's> {
     fn show(_: (), ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) {
         let mut params = state.get_mut(world);
-
-        if params.get_occupancy_grid().is_none() {
-            params.calculate_grid.write(CalculateGrid {
-                cell_size: params.occupancy_info.cell_size,
-                ignore: params.robots.iter().collect(),
-                ..default()
-            });
-        }
 
         ui.heading("Negotiation Debugger");
         params.show_gotoplace_tasks(ui);
@@ -195,13 +187,21 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
     }
 
     pub fn show_gotoplace_tasks(&mut self, ui: &mut Ui) {
-        // Negotiation Request Properties
-        // Agent tasks
-        ui.separator();
-        ui.label(format!(
-            "# of Robot GoToPlace Tasks: {}",
-            self.get_gotoplace_tasks()
-        ));
+        let tasks = self.tasks.iter().filter(|task| {
+            if task.request().category() == GoToPlace::label() {
+                true
+            } else {
+                false
+            }
+        });
+        let mut num_tasks = 0;
+        for task in tasks {
+            ui.separator();
+            ui.label(format!("Task {}", num_tasks));
+            ui.label(format!("Robot name - {}", task.robot()));
+            ui.label(format!("Description - {}", task.request().description()));
+            num_tasks += 1;
+        }
     }
 
     pub fn show_occupancy_grid(&mut self, ui: &mut Ui) {
@@ -224,11 +224,7 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
                 .on_hover_text("Click to calculate occupancy without robots")
                 .clicked()
             {
-                self.calculate_grid.write(CalculateGrid {
-                    cell_size: self.occupancy_info.cell_size,
-                    ignore: self.robots.iter().collect(),
-                    ..default()
-                });
+                self.calculate_grid.write(CalculateGridRequest);
             }
         });
 
@@ -298,14 +294,6 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
 
         ui.add_enabled_ui(allow_generate_plan, |ui| {
             if ui.button("Generate Plans").clicked() {
-                let occupancy_grid = self.get_occupancy_grid();
-                if occupancy_grid.is_none() {
-                    self.calculate_grid.write(CalculateGrid {
-                        cell_size: self.occupancy_info.cell_size,
-                        ignore: self.robots.iter().collect(),
-                        ..default()
-                    });
-                }
                 self.negotiation_request.write(NegotiationRequest);
             }
         });
@@ -380,7 +368,7 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
             longest_plan_duration_s,
             elapsed_time,
             solution,
-            entity_id_map: _,
+            entity_id_map,
             negotiation_history,
         } = plan_info
         else {
@@ -391,7 +379,6 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
         ui.horizontal(|ui| {
             if ui.button("Clear Plans").clicked() {
                 self.commands.entity(site).remove::<MAPFDebugInfo>();
-                self.negotiation_debug_data.reset();
                 for e in self.path_visuals.iter() {
                     self.commands.entity(e).despawn();
                 }
@@ -406,6 +393,25 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
                 }
             }
         });
+
+        for (i, proposal) in solution.proposals.iter().enumerate() {
+            let Some(robot_entity) = entity_id_map.get(&proposal.0) else {
+                warn!("Unable to find robot entity");
+                continue;
+            };
+            ui.horizontal(|ui| {
+                let text = if let Some(name) = self.name_in_site.get(*robot_entity).ok() {
+                    format!("{} color: ", name.0)
+                } else {
+                    format!("robot {} color: ", i)
+                };
+                ui.label(text);
+                egui::widgets::color_picker::color_edit_button_rgb(
+                    ui,
+                    &mut self.negotiation_debug_data.colors[i],
+                );
+            });
+        }
 
         ui.horizontal(|ui| {
             ui.label("Plan time: ");

@@ -28,7 +28,7 @@ use std::{
 
 use crate::{
     color_picker::ColorPicker,
-    occupancy::{Cell, Grid},
+    occupancy::{CalculateGridRequest, Cell, Grid},
     site::{
         Affiliation, Change, CircleCollision, CurrentLevel, DifferentialDrive, GoToPlace, Group,
         LocationTags, ModelMarker, NameInSite, Point, Pose, Robot, Task as RobotTask,
@@ -65,9 +65,7 @@ impl Plugin for NegotiationPlugin {
                     handle_changed_tasks,
                     handle_compute_negotiation_complete,
                     visualise_selected_node,
-                    remove_robot_path_entities
-                        .after(start_compute_negotiation)
-                        .after(visualise_selected_node),
+                    remove_robot_path_entities,
                 ),
             );
     }
@@ -211,6 +209,7 @@ pub fn handle_compute_negotiation_complete(
                     }
                 }
 
+                debug_data.reset();
                 commands.entity(site).insert(MAPFDebugInfo::Success {
                     longest_plan_duration_s: longest_plan_duration,
                     elapsed_time: elapsed_time,
@@ -290,9 +289,18 @@ fn handle_changed_tasks(
 fn handle_changed_collision(
     collision_changed: Query<Entity, Changed<CircleCollision>>,
     mut negotiation_request: EventWriter<NegotiationRequest>,
+    open_sites: Query<Entity, With<NameOfSite>>,
+    current_workspace: Res<CurrentWorkspace>,
+    mapf_info: Query<&MAPFDebugInfo>,
 ) {
     if !collision_changed.is_empty() {
-        negotiation_request.write(NegotiationRequest);
+        let Some(site) = current_workspace.to_site(&open_sites) else {
+            return;
+        };
+
+        if mapf_info.get(site).ok().is_some() {
+            negotiation_request.write(NegotiationRequest);
+        }
     }
 }
 
@@ -316,55 +324,11 @@ pub fn is_planning_in_progress(
     return false;
 }
 
-fn get_occupancy_grid_and_cell_size(
-    current_level: Res<CurrentLevel>,
-    grids: Query<(Entity, &Grid)>,
-    child_of: Query<&ChildOf>,
-) -> (HashMap<i64, Vec<i64>>, f32) {
-    // Occupancy
-    let mut occupancy = HashMap::<i64, Vec<i64>>::new();
-    let mut cell_size = 1.0;
-    let grid = grids.iter().find_map(|(grid_entity, grid)| {
-        if let Some(level_entity) = current_level.0 {
-            if child_of
-                .get(grid_entity)
-                .is_ok_and(|co| co.parent() == level_entity)
-            {
-                Some(grid)
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    });
-
-    if grid.is_none() {}
-
-    match grid {
-        Some(grid) => {
-            cell_size = grid.cell_size;
-            for cell in grid.occupied.iter() {
-                occupancy.entry(cell.y).or_default().push(cell.x);
-            }
-            for (_, column) in &mut occupancy {
-                column.sort_unstable();
-            }
-        }
-        None => {
-            occupancy.entry(0).or_default().push(0);
-            warn!("No occupancy grid found, defaulting to empty");
-        }
-    }
-    (occupancy, cell_size)
-}
-
 pub fn start_compute_negotiation(
     locations: Query<(&NameInSite, &Point<Entity>), With<LocationTags>>,
     anchors: Query<&GlobalTransform>,
     mut negotiation_request: EventReader<NegotiationRequest>,
     negotiation_params: Res<NegotiationParams>,
-    mut negotiation_debug_data: ResMut<NegotiationDebugData>,
     current_level: Res<CurrentLevel>,
     grids: Query<(Entity, &Grid)>,
     child_of: Query<&ChildOf>,
@@ -385,10 +349,32 @@ pub fn start_compute_negotiation(
     mapf_info: Query<&MAPFDebugInfo>,
     mut commands: Commands,
     mut change_pose: EventWriter<Change<Pose>>,
+    mut calculate_grid: EventWriter<CalculateGridRequest>,
 ) {
     if negotiation_request.is_empty() {
         return;
     }
+
+    let grid = grids.iter().find_map(|(grid_entity, grid)| {
+        if let Some(level_entity) = current_level.0 {
+            if child_of
+                .get(grid_entity)
+                .is_ok_and(|co| co.parent() == level_entity)
+            {
+                Some(grid)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    });
+
+    let Some(grid) = grid else {
+        warn!("No occupancy grid, sending calculate grid request");
+        calculate_grid.write(CalculateGridRequest);
+        return;
+    };
 
     negotiation_request.clear();
 
@@ -402,7 +388,6 @@ pub fn start_compute_negotiation(
     }
 
     commands.entity(site).remove::<MAPFDebugInfo>();
-    negotiation_debug_data.reset();
     // Reset back to start
     for (robot_entity, _, _, _, robot_opose) in robots.iter_mut() {
         if let Some(opose) = robot_opose {
@@ -411,7 +396,14 @@ pub fn start_compute_negotiation(
         }
     }
 
-    let (occupancy, cell_size) = get_occupancy_grid_and_cell_size(current_level, grids, child_of);
+    let mut occupancy = HashMap::<i64, Vec<i64>>::new();
+    let cell_size = grid.cell_size;
+    for cell in grid.occupied.iter() {
+        occupancy.entry(cell.y).or_default().push(cell.x);
+    }
+    for (_, column) in &mut occupancy {
+        column.sort_unstable();
+    }
 
     // Agent
     let mut agents = BTreeMap::<String, Agent>::new();

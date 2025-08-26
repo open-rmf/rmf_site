@@ -96,10 +96,6 @@ pub fn visualise_selected_node(
         return;
     };
 
-    if !debug_data.is_changed() {
-        return;
-    }
-
     let Some(level_entity) = current_level.0 else {
         return;
     };
