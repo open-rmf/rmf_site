@@ -17,8 +17,11 @@
 
 use super::*;
 use crate::{
-    mapf_rse::debug_panel::egui::DragValue, occupancy, occupancy::CalculateGridRequest,
-    prelude::SystemState, site::Change,
+    mapf_rse::debug_panel::egui::DragValue,
+    occupancy,
+    occupancy::{CalculateGridRequest, OccupancyInfo},
+    prelude::SystemState,
+    site::Change,
 };
 use bevy::ecs::system::SystemParam;
 use bevy_egui::egui::{
@@ -38,23 +41,11 @@ impl Plugin for NegotiationDebugPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<NegotiationDebugData>()
             .init_resource::<MAPFMenu>()
-            .init_resource::<OccupancyInfo>()
             .init_resource::<MAPFDebugDisplay>()
             .add_systems(Update, handle_debug_panel_visibility);
         let panel = PanelWidget::new(negotiation_debug_panel, &mut app.world_mut());
         let widget = Widget::new::<NegotiationDebugWidget>(&mut app.world_mut());
         app.world_mut().spawn((panel, widget));
-    }
-}
-
-#[derive(Resource)]
-pub struct OccupancyInfo {
-    pub cell_size: f32,
-}
-
-impl Default for OccupancyInfo {
-    fn default() -> OccupancyInfo {
-        OccupancyInfo { cell_size: 0.1 }
     }
 }
 
@@ -79,6 +70,7 @@ pub struct NegotiationDebugWidget<'w, 's> {
     display_mapf_debug: ResMut<'w, MAPFDebugDisplay>,
     robots_opose: Query<'w, 's, (Entity, Option<&'static Original<Pose>>), With<Robot>>,
     change_pose: EventWriter<'w, Change<Pose>>,
+    locations: Query<'w, 's, &'static NameInSite, With<LocationTags>>,
 }
 
 fn negotiation_debug_panel(In(input): In<PanelWidgetInput>, world: &mut World) {

@@ -17,7 +17,6 @@
 
 use crate::{
     layers::ZLayer,
-    mapf_rse::OccupancyInfo,
     site::{Category, LevelElevation, NameOfSite, SiteAssets},
 };
 use bevy::{
@@ -43,7 +42,19 @@ pub struct OccupancyPlugin;
 impl Plugin for OccupancyPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<CalculateGridRequest>()
+            .init_resource::<OccupancyInfo>()
             .add_systems(Update, handle_calculate_grid_request);
+    }
+}
+
+#[derive(Resource)]
+pub struct OccupancyInfo {
+    pub cell_size: f32,
+}
+
+impl Default for OccupancyInfo {
+    fn default() -> OccupancyInfo {
+        OccupancyInfo { cell_size: 0.1 }
     }
 }
 
