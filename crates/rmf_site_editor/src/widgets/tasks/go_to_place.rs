@@ -16,6 +16,7 @@
 */
 use super::{EditTask, TaskWidget};
 use crate::{
+    mapf_rse::DebugGoal,
     site::{update_task_kind_component, LocationTags, NameInSite, Task, TaskKind, TaskKinds},
     widgets::prelude::*,
 };
@@ -28,7 +29,7 @@ use bevy::{
 };
 use bevy_egui::egui::ComboBox;
 use rmf_site_egui::*;
-use rmf_site_format::GoToPlace;
+use rmf_site_format::{GoToPlace, Robot};
 
 #[derive(Default)]
 pub struct GoToPlacePlugin {}
@@ -58,6 +59,9 @@ pub struct ViewGoToPlace<'w, 's> {
     locations: Query<'w, 's, &'static NameInSite, With<LocationTags>>,
     edit_task: Res<'w, EditTask>,
     tasks: Query<'w, 's, (&'static mut GoToPlace, &'static mut Task)>,
+    robot_debug_goal:
+        Query<'w, 's, (Entity, &'static NameInSite, Option<&'static mut DebugGoal>), With<Robot>>,
+    commands: Commands<'w, 's>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for ViewGoToPlace<'w, 's> {
@@ -100,6 +104,19 @@ impl<'w, 's> WidgetSystem<Tile> for ViewGoToPlace<'w, 's> {
 
         if *go_to_place != new_go_to_place {
             *go_to_place = new_go_to_place.clone();
+            let task_robot_name = task.robot();
+            for (robot_entity, robot_name, debug_goal) in params.robot_debug_goal.iter_mut() {
+                if robot_name.0 == task_robot_name {
+                    if let Some(mut goal) = debug_goal {
+                        goal.location = go_to_place.location.clone();
+                    } else {
+                        params.commands.entity(robot_entity).insert(DebugGoal {
+                            location: go_to_place.location.clone(),
+                        });
+                    }
+                    break;
+                }
+            }
 
             if let Ok(description) = serde_json::to_value(new_go_to_place.clone()) {
                 *task.request_mut().description_mut() = description;
