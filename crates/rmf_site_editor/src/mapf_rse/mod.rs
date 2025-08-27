@@ -272,11 +272,16 @@ fn handle_removed_tasks(
 }
 
 fn handle_changed_debug_goal(
-    debug_goals_changed: Query<(), Changed<DebugGoal>>,
+    debug_goals_changed: Query<Entity, Changed<DebugGoal>>,
+    debug_goals_added: Query<(), Added<DebugGoal>>,
     mut negotiation_request: EventWriter<NegotiationRequest>,
 ) {
-    if !debug_goals_changed.is_empty() {
-        negotiation_request.write(NegotiationRequest);
+    for entity in debug_goals_changed.iter() {
+        // If it is not a newly-added component
+        if !debug_goals_added.get(entity).ok().is_some() {
+            negotiation_request.write(NegotiationRequest);
+            return;
+        }
     }
 }
 
@@ -455,7 +460,7 @@ pub fn start_compute_negotiation(
     }
 
     if agents.len() == 0 {
-        warn!("No agents with valid GoToPlace task");
+        warn!("No agents with valid debug goal component");
         return;
     }
 

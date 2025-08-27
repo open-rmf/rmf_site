@@ -319,6 +319,27 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
             }
         }
 
+        let num_valid_robot_goals = self
+            .robots
+            .iter()
+            .map(|(_, _, robot_goal)| {
+                if let Some(debug_goal) = robot_goal {
+                    if !debug_goal.location.is_empty() {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
+            })
+            .filter(|is_valid| *is_valid)
+            .count();
+        if num_valid_robot_goals == 0 {
+            error_msgs.push("No valid robot goals set");
+            allow_generate_plan = false;
+        }
+
         ui.add_enabled_ui(allow_generate_plan, |ui| {
             if ui.button("Generate Plans").clicked() {
                 self.negotiation_request.write(NegotiationRequest);

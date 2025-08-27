@@ -68,7 +68,15 @@ pub fn visualise_selected_node(
     path_visuals: Query<Entity, With<PathVisualMarker>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut change_pose: EventWriter<Change<Pose>>,
-    robots: Query<(Entity, &Affiliation<Entity>), With<Robot>>,
+    mut robots: Query<
+        (
+            Entity,
+            &Affiliation<Entity>,
+            &Pose,
+            Option<&mut Original<Pose>>,
+        ),
+        With<Robot>,
+    >,
     robot_descriptions: Query<&CircleCollision, (With<ModelMarker>, With<Group>)>,
     current_level: Res<CurrentLevel>,
     now: Res<Time>,
@@ -76,6 +84,8 @@ pub fn visualise_selected_node(
     current_workspace: Res<CurrentWorkspace>,
     mapf_info: Query<&MAPFDebugInfo>,
     debugger_settings: Res<DebuggerSettings>,
+    mapf_debug_window: Res<MAPFDebugDisplay>,
+    mut change_plan: EventWriter<NegotiationRequest>,
 ) {
     let Some(site) = current_workspace.to_site(&open_sites) else {
         return;
@@ -104,6 +114,30 @@ pub fn visualise_selected_node(
         commands.entity(e).despawn();
     }
 
+    if mapf_debug_window.is_changed() {
+        if mapf_debug_window.show {
+            for (_, _, pose, robot_opose) in robots.iter_mut() {
+                if let Some(mut opose) = robot_opose {
+                    if opose.0 != *pose {
+                        opose.0 = *pose;
+                        change_plan.write(NegotiationRequest);
+                        break;
+                    }
+                }
+            }
+        } else {
+            for (robot_entity, _, _, robot_opose) in robots.iter() {
+                if let Some(opose) = robot_opose {
+                    change_pose.write(Change::new(opose.0, robot_entity));
+                }
+            }
+        }
+    }
+
+    if !mapf_debug_window.show {
+        return;
+    }
+
     debug_data.time += debugger_settings.playback_speed * now.delta_secs();
 
     if debug_data.time >= *longest_plan_duration_s {
@@ -114,7 +148,7 @@ pub fn visualise_selected_node(
             warn!("Unable to find entity id in map");
             continue;
         };
-        let Ok((robot_entity, affiliation)) = robots.get(*entity_id) else {
+        let Ok((robot_entity, affiliation, _, _)) = robots.get(*entity_id) else {
             warn!("Unable to get robot entity's affiliation");
             continue;
         };
