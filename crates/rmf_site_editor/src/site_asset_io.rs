@@ -353,7 +353,7 @@ impl Plugin for SiteAssetIoPlugin {
             }),
         )
         .register_asset_source(
-            "ros",
+            "memory",
             BevyAssetSource::build().with_reader(move || Box::new(reader.clone())),
         );
     }
