@@ -158,42 +158,66 @@ pub fn init_cameras(
 pub fn change_projection_mode(
     projection_mode: Res<ProjectionMode>,
     mut cameras: Query<(&mut Camera, &mut Visibility)>,
-    ortho_cams: Query<Entity, With<OrthographicCameraRoot>>,
-    persp_cams: Query<Entity, With<PerspectiveCameraRoot>>,
+    ortho_cams: Query<(Entity, &Children), With<OrthographicCameraRoot>>,
+    persp_cams: Query<(Entity, &Children), With<PerspectiveCameraRoot>>,
 ) {
     let projection_mode = *projection_mode;
 
     match projection_mode {
         ProjectionMode::Perspective => {
-            for ortho_cam in ortho_cams {
+            for (ortho_cam, children) in ortho_cams {
                 let Ok((mut camera, mut visibility)) = cameras.get_mut(ortho_cam) else {
                     continue;
                 };
                 camera.is_active = false;
                 *visibility = Visibility::Hidden;
+                for child in children {
+                    let Ok((mut child_camera, _)) = cameras.get_mut(*child) else {
+                        continue;
+                    };
+                    child_camera.is_active = false;
+                }
             }
-            for persp_cam in persp_cams {
+            for (persp_cam, children) in persp_cams {
                 let Ok((mut camera, mut visibility)) = cameras.get_mut(persp_cam) else {
                     continue;
                 };
                 camera.is_active = true;
                 *visibility = Visibility::Inherited;
+                for child in children {
+                    let Ok((mut child_camera, _)) = cameras.get_mut(*child) else {
+                        continue;
+                    };
+                    child_camera.is_active = true;
+                }
             }
         }
         ProjectionMode::Orthographic => {
-            for ortho_cam in ortho_cams {
+            for (ortho_cam, children) in ortho_cams {
                 let Ok((mut camera, mut visibility)) = cameras.get_mut(ortho_cam) else {
                     continue;
                 };
                 camera.is_active = true;
                 *visibility = Visibility::Inherited;
+                for child in children {
+                    let Ok((mut child_camera, _)) = cameras.get_mut(*child) else {
+                        continue;
+                    };
+                    child_camera.is_active = true;
+                }
             }
-            for persp_cam in persp_cams {
+            for (persp_cam, children) in persp_cams {
                 let Ok((mut camera, mut visibility)) = cameras.get_mut(persp_cam) else {
                     continue;
                 };
                 camera.is_active = false;
                 *visibility = Visibility::Hidden;
+                for child in children {
+                    let Ok((mut child_camera, _)) = cameras.get_mut(*child) else {
+                        continue;
+                    };
+                    child_camera.is_active = false;
+                }
             }
         }
     }
