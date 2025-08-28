@@ -73,7 +73,7 @@ pub use move_layer::*;
 
 pub mod sdf_export_menu;
 use rmf_site_egui::*;
-use rmf_site_picking::{Hover, UiFocused, SelectionServiceStages};
+use rmf_site_picking::{Hover, SelectionServiceStages, UiFocused};
 pub use sdf_export_menu::*;
 
 pub mod selector_widget;
