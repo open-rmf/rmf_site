@@ -173,7 +173,6 @@ pub fn visualise_selected_node(
 
         let mut draw_path = |start_pos: Vec3, end_pos: Vec3| {
             let Some(material) = robot_materials.get(*robot_entity).ok() else {
-                error!("Unable to find robot's material");
                 return;
             };
 

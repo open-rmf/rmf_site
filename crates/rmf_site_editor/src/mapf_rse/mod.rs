@@ -51,8 +51,7 @@ pub struct NegotiationPlugin;
 
 impl Plugin for NegotiationPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<NegotiationRequest>()
-            .init_resource::<NegotiationParams>()
+        app.init_resource::<NegotiationParams>()
             .init_resource::<NegotiationDebugData>()
             .init_resource::<DebuggerSettings>()
             .add_plugins(NegotiationDebugPlugin::default())
@@ -71,6 +70,7 @@ impl Plugin for NegotiationPlugin {
                     handle_changed_debug_goal,
                     handle_changed_collision,
                     handle_removed_plan_info,
+                    handle_changed_plan_info,
                 ),
             );
     }
@@ -133,6 +133,30 @@ fn get_occupancy_hashmap_from_grid(grid: &Grid) -> HashMap<i64, Vec<i64>> {
     }
 
     occupancy
+}
+
+fn bits_string_to_entity(bits_string: &str) -> Entity {
+    // SAFETY: This assumes function input bits_string to be output from entity.to_bits().to_string()
+    // Currently, this is fetched from start_compute_negotiation fn, e.g. the key of BTreeMap in scenario.agents
+    let bits = u64::from_str_radix(bits_string, 10).expect("Invalid entity id");
+    Entity::from_bits(bits)
+}
+
+fn name_map_to_entity_map(name_map: HashMap<usize, String>) -> HashMap<usize, Entity> {
+    let mut entity_id_map = HashMap::new();
+    for (k, robot_entity_str) in name_map.iter() {
+        let robot_entity = bits_string_to_entity(robot_entity_str);
+        entity_id_map.insert(*k, robot_entity);
+    }
+
+    entity_id_map
+}
+
+fn conflicts_map_to_vec(conflicts_map: HashMap<String, String>) -> Vec<(Entity, Entity)> {
+    conflicts_map
+        .into_iter()
+        .map(|(a, b)| (bits_string_to_entity(&a), bits_string_to_entity(&b)))
+        .collect()
 }
 
 fn handle_start_negotiation(
@@ -281,17 +305,7 @@ fn handle_completed_negotiation(
     open_sites: Query<Entity, With<NameOfSite>>,
     current_workspace: Res<CurrentWorkspace>,
     mut mapf_info: Query<&mut MAPFDebugInfo>,
-    robots: Query<(Entity, &Pose, Option<&Original<Pose>>), With<Robot>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    robot_debug_materials: Query<&DebugMaterial, With<Robot>>,
 ) {
-    fn bits_string_to_entity(bits_string: &str) -> Entity {
-        // SAFETY: This assumes function input bits_string to be output from entity.to_bits().to_string()
-        // Currently, this is fetched from start_compute_negotiation fn, e.g. the key of BTreeMap in scenario.agents
-        let bits = u64::from_str_radix(bits_string, 10).expect("Invalid entity id");
-        Entity::from_bits(bits)
-    }
-
     let Some(site) = current_workspace.to_site(&open_sites) else {
         return;
     };
@@ -317,86 +331,60 @@ fn handle_completed_negotiation(
 
         match result {
             Ok((solution, negotiation_history, name_map)) => {
-                let mut longest_plan_duration_s = 0.0;
-
-                for proposal in solution.proposals.iter() {
-                    if let Some(last_waypt) = proposal.1.meta.trajectory.last() {
-                        let plan_duration = last_waypt.time.duration_from_zero().as_secs_f32();
-                        if plan_duration > longest_plan_duration_s {
-                            longest_plan_duration_s = plan_duration;
+                let longest_plan_duration_s = if let Some(max_duration_s) = solution
+                    .proposals
+                    .iter()
+                    .map(|proposal| {
+                        if let Some(last_waypt) = proposal.1.meta.trajectory.last() {
+                            last_waypt.time.duration_from_zero().as_secs_f32()
+                        } else {
+                            error!("Trajectory is empty, setting trajectory duration to 0s!");
+                            0.0
                         }
-                    }
-                }
-
-                let mut entity_id_map = HashMap::new();
-
-                for (k, robot_entity_str) in name_map.iter() {
-                    let robot_entity = bits_string_to_entity(robot_entity_str);
-
-                    // Inserts original poses for each robot if no original pose
-                    if let Some((_, pose, opose)) = robots.get(robot_entity).ok() {
-                        if opose.is_none() {
-                            commands
-                                .entity(robot_entity)
-                                .insert(Original::<Pose>(*pose));
-                        }
-                    }
-
-                    // Inserts DebugMaterial component for each robot if don't exist
-                    if robot_debug_materials.get(robot_entity).ok().is_none() {
-                        commands.entity(robot_entity).insert(DebugMaterial {
-                            handle: materials.add(StandardMaterial {
-                                base_color: Color::srgb_from_array(ColorPicker::get_color()),
-                                unlit: true,
-                                ..Default::default()
-                            }),
-                        });
-                    }
-
-                    entity_id_map.insert(*k, robot_entity);
-                }
+                    })
+                    .reduce(f32::max)
+                {
+                    max_duration_s
+                } else {
+                    error!("Solution proposals are empty, setting longest plan duration to 0s!");
+                    0.0
+                };
 
                 debug_data.reset();
                 commands.entity(site).insert(MAPFDebugInfo::Success {
                     longest_plan_duration_s,
                     elapsed_time,
                     solution,
-                    entity_id_map,
+                    entity_id_map: name_map_to_entity_map(name_map),
                     negotiation_history,
                 });
             }
             Err(err) => {
                 let mut negotiation_history = Vec::new();
                 let mut entity_id_map = HashMap::new();
-                let mut err_msg = Some(err.to_string());
+                let mut error_message = Some(err.to_string());
                 let mut conflicts = Vec::new();
 
                 match err {
                     NegotiationError::PlanningImpossible(msg) => {
-                        if let Some(err_str) = err_msg {
-                            err_msg = Some([err_str, msg].join(" "));
+                        if let Some(err_str) = error_message {
+                            error_message = Some([err_str, msg].join(" "));
                         }
                     }
                     NegotiationError::ConflictingEndpoints(conflicts_map) => {
-                        conflicts = conflicts_map
-                            .into_iter()
-                            .map(|(a, b)| (bits_string_to_entity(&a), bits_string_to_entity(&b)))
-                            .collect();
+                        conflicts = conflicts_map_to_vec(conflicts_map);
                     }
                     NegotiationError::PlanningFailed((neg_history, name_map)) => {
                         negotiation_history = neg_history;
-                        entity_id_map = name_map
-                            .into_iter()
-                            .map(|(id, bits_string)| (id, bits_string_to_entity(&bits_string)))
-                            .collect();
+                        entity_id_map = name_map_to_entity_map(name_map);
                     }
                 }
 
                 commands.entity(site).insert(MAPFDebugInfo::Failed {
-                    error_message: err_msg.clone(),
-                    conflicts: conflicts.clone(),
-                    negotiation_history: negotiation_history.clone(),
-                    entity_id_map: entity_id_map.clone(),
+                    error_message,
+                    conflicts,
+                    negotiation_history,
+                    entity_id_map,
                 });
             }
         };
@@ -419,7 +407,7 @@ fn handle_changed_debug_goal(
             }
         }
 
-        // If it is not a newly-added component
+        // If it is not a newly-added component (changed debug goal) send replanning request
         if !debug_goals_added.get(entity).ok().is_some() {
             any_debug_goal_changed = true;
         }
@@ -443,6 +431,58 @@ fn handle_changed_collision(
 
         if mapf_info.get(site).ok().is_some() {
             negotiation_request.write(NegotiationRequest);
+        }
+    }
+}
+
+fn handle_changed_plan_info(
+    changed_plan_info: Query<&MAPFDebugInfo, Changed<MAPFDebugInfo>>,
+    robots: Query<(Entity, &Pose, Option<&Original<Pose>>), With<Robot>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    robot_debug_materials: Query<&DebugMaterial, With<Robot>>,
+    mut commands: Commands,
+    mut change_pose: EventWriter<Change<Pose>>,
+) {
+    for plan_info in changed_plan_info.iter() {
+        match plan_info {
+            MAPFDebugInfo::Success {
+                longest_plan_duration_s: _,
+                elapsed_time: _,
+                solution: _,
+                entity_id_map,
+                negotiation_history: _,
+            } => {
+                for (_, robot_entity) in entity_id_map.iter() {
+                    // Inserts original poses for each robot if no original pose
+                    if let Some((_, pose, opose)) = robots.get(*robot_entity).ok() {
+                        if opose.is_none() {
+                            commands
+                                .entity(*robot_entity)
+                                .insert(Original::<Pose>(*pose));
+                        }
+                    }
+
+                    // Inserts DebugMaterial component for each robot if don't exist
+                    if robot_debug_materials.get(*robot_entity).ok().is_none() {
+                        commands.entity(*robot_entity).insert(DebugMaterial {
+                            handle: materials.add(StandardMaterial {
+                                base_color: Color::srgb_from_array(ColorPicker::get_color()),
+                                unlit: true,
+                                ..Default::default()
+                            }),
+                        });
+                    }
+                }
+            }
+            MAPFDebugInfo::InProgress { .. } => {}
+            MAPFDebugInfo::Failed { .. } => {
+                for (robot_entity, _, robot_opose) in robots.iter() {
+                    if let Some(opose) = robot_opose {
+                        change_pose.write(Change::new(opose.0, robot_entity));
+                        commands.entity(robot_entity).remove::<Original<Pose>>();
+                    }
+                }
+            }
         }
     }
 }

@@ -43,6 +43,7 @@ pub struct OccupancyPlugin;
 impl Plugin for OccupancyPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<CalculateGridRequest>()
+            .add_event::<NegotiationRequest>()
             .init_resource::<OccupancyInfo>()
             .add_systems(Update, handle_calculate_grid_request);
     }
