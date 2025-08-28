@@ -15,13 +15,10 @@
  *
 */
 
-use crate::site::*;
+use crate::{layers::ZLayer, site::*};
 use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 use rmf_site_picking::{Hovered, Select, Selected, VisualCue};
 
-// TODO(@mxgrey): Consider using recency rankings for Locations so they don't
-// experience z-fighting.
-pub const LOCATION_LAYER_HEIGHT: f32 = LANE_LAYER_LIMIT + SELECTED_LANE_OFFSET;
 pub const BILLBOARD_LENGTH: f32 = 0.3;
 const BILLBOARD_BASE_OFFSET: Vec3 = Vec3::new(0., 0., BILLBOARD_LENGTH / 3. * 0.5);
 const BILLBOARD_EMPTY_OFFSET: Vec3 = Vec3::new(0., 0., BILLBOARD_LENGTH * 0.5);
@@ -102,7 +99,7 @@ pub fn add_location_visuals(
         let position = anchors
             .point_in_parent_frame_of(point.0, Category::Location, e)
             .unwrap()
-            + LOCATION_LAYER_HEIGHT * Vec3::Z;
+            + ZLayer::Location.to_z() * Vec3::Z;
 
         let only_workcell_tags = !tags.iter().any(|t| !t.is_workcell());
         let mut billboard_meshes = BillboardMeshes::default();
@@ -209,7 +206,7 @@ pub fn update_changed_location(
             .point_in_parent_frame_of(point.0, Category::Location, e)
             .unwrap();
         tf.translation = position;
-        tf.translation.z = LOCATION_LAYER_HEIGHT;
+        tf.translation.z = ZLayer::Location.to_z();
 
         let new_visibility = if should_display_point(
             point,
@@ -247,7 +244,7 @@ pub fn update_location_for_moved_anchors(
                     .point_in_parent_frame_of(point.0, Category::Location, e)
                     .unwrap();
                 tf.translation = position;
-                tf.translation.z = LOCATION_LAYER_HEIGHT;
+                tf.translation.z = ZLayer::Location.to_z();
             }
         }
     }

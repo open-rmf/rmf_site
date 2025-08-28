@@ -16,15 +16,11 @@
 */
 
 use super::*;
-use crate::site::{line_stroke_transform, LANE_LAYER_START};
+use crate::{layers::ZLayer, site::line_stroke_transform};
 use bevy::ecs::hierarchy::ChildOf;
 use bevy::math::prelude::Rectangle;
 
 pub const DEFAULT_PATH_WIDTH: f32 = 0.2;
-
-// TODO (Nielsen) : Gather all layers in layers.rs
-pub const OFFSET: f32 = 0.002;
-pub const ROBOT_PATH_LAYER_START: f32 = LANE_LAYER_START + OFFSET;
 
 #[derive(Component)]
 pub struct PathVisualMarker;
@@ -113,7 +109,7 @@ pub fn visualise_selected_node(
             });
 
             let translation_to_vec3 = |x: f32, y: f32| {
-                return Vec3::new(x, y, ROBOT_PATH_LAYER_START);
+                return Vec3::new(x, y, ZLayer::RobotPath.to_z());
             };
 
             // Draws robot start and goal position
