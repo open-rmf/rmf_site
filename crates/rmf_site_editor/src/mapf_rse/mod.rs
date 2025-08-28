@@ -31,12 +31,12 @@ use crate::{
     occupancy::{CalculateGridRequest, Cell, Grid},
     site::{
         Affiliation, Change, CircleCollision, CurrentLevel, DifferentialDrive, GoToPlace, Group,
-        LocationTags, ModelMarker, NameInSite, Point, Pose, Robot, Task as RobotTask,
+        LocationTags, ModelMarker, NameInSite, Point, Pose, Robot,
     },
     CurrentWorkspace,
 };
 use mapf::negotiation::*;
-use rmf_site_format::{NameOfSite, Original, TaskKind};
+use rmf_site_format::{NameOfSite, Original};
 
 use mapf::negotiation::{Agent, Obstacle, Scenario as MapfScenario};
 
@@ -59,14 +59,18 @@ impl Plugin for NegotiationPlugin {
             .add_systems(
                 Update,
                 (
-                    start_compute_negotiation,
+                    handle_start_negotiation,
+                    handle_completed_negotiation,
+                    // Ensures removal of MAPFDebugInfo takes effect before visualizing solution
+                    visualise_selected_node.after(handle_start_negotiation),
+                ),
+            )
+            .add_systems(
+                Last,
+                (
                     handle_changed_debug_goal,
                     handle_changed_collision,
-                    handle_removed_tasks,
-                    handle_changed_tasks,
-                    handle_compute_negotiation_complete,
-                    visualise_selected_node,
-                    remove_robot_path_entities,
+                    handle_removed_plan_info,
                 ),
             );
     }
@@ -92,7 +96,6 @@ impl Default for NegotiationParams {
 #[derive(Resource)]
 pub struct NegotiationDebugData {
     pub time: f32,
-    pub colors: Vec<[f32; 3]>,
 }
 
 impl NegotiationDebugData {
@@ -116,38 +119,171 @@ impl Default for DebuggerSettings {
 
 impl Default for NegotiationDebugData {
     fn default() -> Self {
-        Self {
-            time: 0.0,
-            colors: Vec::new(),
-        }
+        Self { time: 0.0 }
     }
 }
 
-pub fn remove_robot_path_entities(
+fn get_occupancy_hashmap_from_grid(grid: &Grid) -> HashMap<i64, Vec<i64>> {
+    let mut occupancy = HashMap::<i64, Vec<i64>>::new();
+    for cell in grid.occupied.iter() {
+        occupancy.entry(cell.y).or_default().push(cell.x);
+    }
+    for (_, column) in &mut occupancy {
+        column.sort_unstable();
+    }
+
+    occupancy
+}
+
+fn handle_start_negotiation(
+    locations: Query<&Point<Entity>, With<LocationTags>>,
+    anchors: Query<&GlobalTransform>,
+    mut negotiation_request: EventReader<NegotiationRequest>,
+    negotiation_params: Res<NegotiationParams>,
+    current_level: Res<CurrentLevel>,
+    grids: Query<(Entity, &Grid)>,
+    child_of: Query<&ChildOf>,
+    robots: Query<
+        (
+            Entity,
+            &Pose,
+            &Affiliation<Entity>,
+            Option<&Original<Pose>>,
+            &DebugGoal,
+        ),
+        With<Robot>,
+    >,
+    robot_descriptions: Query<(&DifferentialDrive, &CircleCollision)>,
     open_sites: Query<Entity, With<NameOfSite>>,
     current_workspace: Res<CurrentWorkspace>,
-    mapf_info: Query<&MAPFDebugInfo>,
-    path_visuals: Query<Entity, With<PathVisualMarker>>,
+    mapf_info: Query<&mut MAPFDebugInfo>,
     mut commands: Commands,
+    mut calculate_grid: EventWriter<CalculateGridRequest>,
 ) {
     let Some(site) = current_workspace.to_site(&open_sites) else {
         return;
     };
 
-    if mapf_info.get(site).ok().is_none() {
-        for e in path_visuals.iter() {
-            commands.entity(e).despawn();
+    if negotiation_request.is_empty() {
+        return;
+    }
+
+    let grid = grids.iter().find_map(|(grid_entity, grid)| {
+        if let Some(level_entity) = current_level.0 {
+            if child_of
+                .get(grid_entity)
+                .is_ok_and(|co| co.parent() == level_entity)
+            {
+                Some(grid)
+            } else {
+                None
+            }
+        } else {
+            None
         }
+    });
+
+    negotiation_request.clear();
+
+    let Some(grid) = grid else {
+        warn!("No occupancy grid, sending calculate grid request");
+        calculate_grid.write(CalculateGridRequest);
+        return;
     };
+
+    if let Some(plan_info) = mapf_info.get(site).ok() {
+        if matches!(*plan_info, MAPFDebugInfo::InProgress { .. }) {
+            warn!("Negotiation requested while another negotiation is in progress");
+            return;
+        }
+        commands.entity(site).remove::<MAPFDebugInfo>();
+    };
+
+    let cell_size = grid.cell_size;
+    let occupancy = get_occupancy_hashmap_from_grid(grid);
+
+    // Agent
+    let mut agents = BTreeMap::<String, Agent>::new();
+    for (robot_entity, robot_pose, robot_group, robot_opose, debug_goal) in robots.iter() {
+        let Some(location_entity) = debug_goal.entity else {
+            continue;
+        };
+        let Some(Point(anchor_entity)) = locations.get(location_entity).ok() else {
+            error!("Unable to query for location entity");
+            continue;
+        };
+
+        let Ok(goal_transform) = anchors.get(*anchor_entity) else {
+            warn!("Unable to query for robot's goal transform");
+            continue;
+        };
+        let Some((differential_drive, circle_collision)) =
+            robot_group.0.and_then(|e| robot_descriptions.get(e).ok())
+        else {
+            warn!("Unable to query for robot's collision model");
+            continue;
+        };
+        let pose = if let Some(opose) = robot_opose {
+            opose.0
+        } else {
+            *robot_pose
+        };
+        let goal_pos = goal_transform.translation();
+
+        let to_discrete_xy = |x: f32, y: f32, cell_size: f32| -> [i64; 2] {
+            Cell::from_point(Vec2::new(x, y), cell_size).to_xy()
+        };
+
+        let agent = Agent {
+            start: to_discrete_xy(pose.trans[0], pose.trans[1], cell_size),
+            yaw: f64::from(pose.rot.yaw().radians()),
+            goal: to_discrete_xy(goal_pos.x, goal_pos.y, cell_size),
+            radius: f64::from(circle_collision.radius),
+            speed: f64::from(differential_drive.translational_speed),
+            spin: f64::from(differential_drive.rotational_speed),
+        };
+        let agent_id = robot_entity.to_bits().to_string();
+        agents.insert(agent_id, agent);
+    }
+
+    if agents.is_empty() {
+        warn!("No agents with valid debug goal component");
+        return;
+    }
+
+    info!(
+        "Successfully sent planning request for {} agents!",
+        agents.len()
+    );
+
+    let scenario = MapfScenario {
+        agents: agents,
+        obstacles: Vec::<Obstacle>::new(),
+        occupancy: occupancy,
+        cell_size: f64::from(cell_size),
+        camera_bounds: None,
+    };
+    let queue_length_limit = negotiation_params.queue_length_limit;
+
+    // Execute asynchronously
+    let new_plan_info = MAPFDebugInfo::InProgress {
+        start_time: Instant::now(),
+        task: TaskPool::new()
+            .spawn_local(async move { negotiate(&scenario, Some(queue_length_limit)) }),
+    };
+
+    commands.entity(site).insert(new_plan_info);
 }
 
-pub fn handle_compute_negotiation_complete(
+fn handle_completed_negotiation(
     mut commands: Commands,
     mut debug_data: ResMut<NegotiationDebugData>,
     open_sites: Query<Entity, With<NameOfSite>>,
     current_workspace: Res<CurrentWorkspace>,
     mut mapf_info: Query<&mut MAPFDebugInfo>,
     robots: Query<(Entity, &Pose, Option<&Original<Pose>>), With<Robot>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    robot_debug_materials: Query<&DebugMaterial, With<Robot>>,
 ) {
     fn bits_string_to_entity(bits_string: &str) -> Entity {
         // SAFETY: This assumes function input bits_string to be output from entity.to_bits().to_string()
@@ -181,46 +317,52 @@ pub fn handle_compute_negotiation_complete(
 
         match result {
             Ok((solution, negotiation_history, name_map)) => {
-                let colors = &mut debug_data.colors;
-                let mut longest_plan_duration = 0.0;
-
-                if colors.len() < solution.proposals.len() {
-                    let num_colors_required = solution.proposals.len() - colors.len();
-                    for _ in 0..num_colors_required {
-                        colors.push(ColorPicker::get_color());
-                    }
-                }
+                let mut longest_plan_duration_s = 0.0;
 
                 for proposal in solution.proposals.iter() {
                     if let Some(last_waypt) = proposal.1.meta.trajectory.last() {
                         let plan_duration = last_waypt.time.duration_from_zero().as_secs_f32();
-                        if plan_duration > longest_plan_duration {
-                            longest_plan_duration = plan_duration;
+                        if plan_duration > longest_plan_duration_s {
+                            longest_plan_duration_s = plan_duration;
                         }
                     }
                 }
 
-                // Inserts original poses of robot
-                for (_, robot_entity_str) in name_map.iter() {
+                let mut entity_id_map = HashMap::new();
+
+                for (k, robot_entity_str) in name_map.iter() {
                     let robot_entity = bits_string_to_entity(robot_entity_str);
-                    if let Some((_, pose, _)) = robots.get(robot_entity).ok() {
-                        commands
-                            .entity(robot_entity)
-                            .insert(Original::<Pose>(*pose));
+
+                    // Inserts original poses for each robot if no original pose
+                    if let Some((_, pose, opose)) = robots.get(robot_entity).ok() {
+                        if opose.is_none() {
+                            commands
+                                .entity(robot_entity)
+                                .insert(Original::<Pose>(*pose));
+                        }
                     }
+
+                    // Inserts DebugMaterial component for each robot if don't exist
+                    if robot_debug_materials.get(robot_entity).ok().is_none() {
+                        commands.entity(robot_entity).insert(DebugMaterial {
+                            handle: materials.add(StandardMaterial {
+                                base_color: Color::srgb_from_array(ColorPicker::get_color()),
+                                unlit: true,
+                                ..Default::default()
+                            }),
+                        });
+                    }
+
+                    entity_id_map.insert(*k, robot_entity);
                 }
 
                 debug_data.reset();
                 commands.entity(site).insert(MAPFDebugInfo::Success {
-                    longest_plan_duration_s: longest_plan_duration,
-                    elapsed_time: elapsed_time,
-                    solution: solution.clone(),
-                    entity_id_map: name_map
-                        .clone()
-                        .into_iter()
-                        .map(|(id, bits_string)| (id, bits_string_to_entity(&bits_string)))
-                        .collect(),
-                    negotiation_history: negotiation_history.clone(),
+                    longest_plan_duration_s,
+                    elapsed_time,
+                    solution,
+                    entity_id_map,
+                    negotiation_history,
                 });
             }
             Err(err) => {
@@ -261,43 +403,29 @@ pub fn handle_compute_negotiation_complete(
     }
 }
 
-fn handle_removed_tasks(
-    mut removed_tasks: RemovedComponents<RobotTask>,
-    mut negotiation_request: EventWriter<NegotiationRequest>,
-) {
-    if !removed_tasks.is_empty() {
-        negotiation_request.write(NegotiationRequest);
-        removed_tasks.clear();
-    }
-}
-
 fn handle_changed_debug_goal(
-    debug_goals_changed: Query<Entity, Changed<DebugGoal>>,
+    debug_goals_changed: Query<(Entity, Option<&Original<Pose>>, &DebugGoal), Changed<DebugGoal>>,
     debug_goals_added: Query<(), Added<DebugGoal>>,
     mut negotiation_request: EventWriter<NegotiationRequest>,
+    mut change_pose: EventWriter<Change<Pose>>,
+    mut commands: Commands,
 ) {
-    for entity in debug_goals_changed.iter() {
-        // If it is not a newly-added component
-        if !debug_goals_added.get(entity).ok().is_some() {
-            negotiation_request.write(NegotiationRequest);
-            return;
-        }
-    }
-}
-
-fn handle_changed_tasks(
-    robot_tasks_changed: Query<&RobotTask, Changed<RobotTask>>,
-    mut negotiation_request: EventWriter<NegotiationRequest>,
-) {
-    for robot_task in robot_tasks_changed.iter() {
-        if let RobotTask::Direct(robot_task_request) = robot_task {
-            if robot_task_request.request.is_valid()
-                && robot_task_request.request.category() == GoToPlace::label()
-            {
-                negotiation_request.write(NegotiationRequest);
-                return;
+    let mut any_debug_goal_changed = false;
+    for (entity, original_pose, debug_goal) in debug_goals_changed.iter() {
+        if debug_goal.location.is_empty() {
+            if let Some(pose) = original_pose {
+                change_pose.write(Change::new(pose.0, entity));
+                commands.entity(entity).remove::<Original<Pose>>();
             }
         }
+
+        // If it is not a newly-added component
+        if !debug_goals_added.get(entity).ok().is_some() {
+            any_debug_goal_changed = true;
+        }
+    }
+    if any_debug_goal_changed {
+        negotiation_request.write(NegotiationRequest);
     }
 }
 
@@ -319,173 +447,15 @@ fn handle_changed_collision(
     }
 }
 
-pub fn is_planning_in_progress(
-    open_sites: Query<Entity, With<NameOfSite>>,
-    current_workspace: Res<CurrentWorkspace>,
-    mapf_info: Query<&MAPFDebugInfo>,
-) -> bool {
-    let Some(site) = current_workspace.to_site(&open_sites) else {
-        return false;
-    };
-
-    let Some(plan_info) = mapf_info.get(site).ok() else {
-        return false;
-    };
-
-    if matches!(*plan_info, MAPFDebugInfo::InProgress { .. }) {
-        warn!("Negotiation requested while another negotiation is in progress");
-        return true;
-    }
-    return false;
-}
-
-pub fn start_compute_negotiation(
-    locations: Query<(&NameInSite, &Point<Entity>), With<LocationTags>>,
-    anchors: Query<&GlobalTransform>,
-    mut negotiation_request: EventReader<NegotiationRequest>,
-    negotiation_params: Res<NegotiationParams>,
-    current_level: Res<CurrentLevel>,
-    grids: Query<(Entity, &Grid)>,
-    child_of: Query<&ChildOf>,
-    mut robots: Query<
-        (
-            Entity,
-            &Pose,
-            &Affiliation<Entity>,
-            Option<&Original<Pose>>,
-            Option<&DebugGoal>,
-        ),
-        With<Robot>,
-    >,
-    robot_descriptions: Query<(&DifferentialDrive, &CircleCollision)>,
-    open_sites: Query<Entity, With<NameOfSite>>,
-    current_workspace: Res<CurrentWorkspace>,
-    mapf_info: Query<&MAPFDebugInfo>,
+fn handle_removed_plan_info(
+    path_visuals: Query<Entity, With<PathVisualMarker>>,
+    mut removed_plan_info: RemovedComponents<MAPFDebugInfo>,
     mut commands: Commands,
-    mut change_pose: EventWriter<Change<Pose>>,
-    mut calculate_grid: EventWriter<CalculateGridRequest>,
 ) {
-    if negotiation_request.is_empty() {
-        return;
-    }
-
-    let grid = grids.iter().find_map(|(grid_entity, grid)| {
-        if let Some(level_entity) = current_level.0 {
-            if child_of
-                .get(grid_entity)
-                .is_ok_and(|co| co.parent() == level_entity)
-            {
-                Some(grid)
-            } else {
-                None
-            }
-        } else {
-            None
+    if !removed_plan_info.is_empty() {
+        for e in path_visuals.iter() {
+            commands.entity(e).despawn();
         }
-    });
-
-    let Some(grid) = grid else {
-        warn!("No occupancy grid, sending calculate grid request");
-        calculate_grid.write(CalculateGridRequest);
-        return;
-    };
-
-    negotiation_request.clear();
-
-    let Some(site) = current_workspace.to_site(&open_sites) else {
-        return;
-    };
-
-    if is_planning_in_progress(open_sites, current_workspace, mapf_info) {
-        warn!("Planning is in progress!");
-        return;
+        removed_plan_info.clear();
     }
-
-    commands.entity(site).remove::<MAPFDebugInfo>();
-    // Reset back to start
-    for (robot_entity, _, _, robot_opose, _) in robots.iter_mut() {
-        if let Some(opose) = robot_opose {
-            change_pose.write(Change::new(opose.0, robot_entity));
-            commands.entity(robot_entity).remove::<Original<Pose>>();
-        }
-    }
-
-    let mut occupancy = HashMap::<i64, Vec<i64>>::new();
-    let cell_size = grid.cell_size;
-    for cell in grid.occupied.iter() {
-        occupancy.entry(cell.y).or_default().push(cell.x);
-    }
-    for (_, column) in &mut occupancy {
-        column.sort_unstable();
-    }
-
-    // Agent
-    let mut agents = BTreeMap::<String, Agent>::new();
-    for (robot_entity, robot_pose, robot_group, robot_opose, debug_goal) in robots.iter() {
-        let Some(robot_goal) = debug_goal else {
-            continue;
-        };
-        // Match location to entity
-        for (location_name, Point(anchor_entity)) in locations.iter() {
-            if location_name.0 == robot_goal.location {
-                let Ok(goal_transform) = anchors.get(*anchor_entity) else {
-                    warn!("Unable to get robot's goal transform");
-                    continue;
-                };
-                let Some((differential_drive, circle_collision)) =
-                    robot_group.0.and_then(|e| robot_descriptions.get(e).ok())
-                else {
-                    warn!("Unable to get robot's collision model");
-                    continue;
-                };
-                let pose = if let Some(opose) = robot_opose {
-                    opose.0
-                } else {
-                    *robot_pose
-                };
-                let goal_pos = goal_transform.translation();
-                let agent = Agent {
-                    start: to_discrete_xy(pose.trans[0], pose.trans[1], cell_size),
-                    yaw: f64::from(pose.rot.yaw().radians()),
-                    goal: to_discrete_xy(goal_pos.x, goal_pos.y, cell_size),
-                    radius: f64::from(circle_collision.radius),
-                    speed: f64::from(differential_drive.translational_speed),
-                    spin: f64::from(differential_drive.rotational_speed),
-                };
-                let agent_id = robot_entity.to_bits().to_string();
-                agents.insert(agent_id, agent);
-                break;
-            }
-        }
-    }
-
-    if agents.len() == 0 {
-        warn!("No agents with valid debug goal component");
-        return;
-    }
-
-    info!(
-        "Successfully sent planning request for {} agents!",
-        agents.len()
-    );
-
-    let scenario = MapfScenario {
-        agents: agents,
-        obstacles: Vec::<Obstacle>::new(),
-        occupancy: occupancy,
-        cell_size: f64::from(cell_size),
-        camera_bounds: None,
-    };
-    let queue_length_limit = negotiation_params.queue_length_limit;
-
-    // Execute asynchronously
-    commands.entity(site).insert(MAPFDebugInfo::InProgress {
-        start_time: Instant::now(),
-        task: TaskPool::new()
-            .spawn_local(async move { negotiate(&scenario, Some(queue_length_limit)) }),
-    });
-}
-
-fn to_discrete_xy(x: f32, y: f32, cell_size: f32) -> [i64; 2] {
-    Cell::from_point(Vec2::new(x, y), cell_size).to_xy()
 }

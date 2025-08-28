@@ -42,7 +42,10 @@ impl Plugin for NegotiationDebugPlugin {
         app.init_resource::<NegotiationDebugData>()
             .init_resource::<MAPFMenu>()
             .init_resource::<MAPFDebugDisplay>()
-            .add_systems(Update, handle_debug_panel_visibility);
+            .add_systems(
+                Update,
+                (handle_debug_panel_visibility, handle_debug_panel_changed),
+            );
         let panel = PanelWidget::new(negotiation_debug_panel, &mut app.world_mut());
         let widget = Widget::new::<NegotiationDebugWidget>(&mut app.world_mut());
         app.world_mut().spawn((panel, widget));
@@ -52,6 +55,28 @@ impl Plugin for NegotiationDebugPlugin {
 #[derive(Component, Debug, Clone)]
 pub struct DebugGoal {
     pub location: String,
+    pub entity: Option<Entity>,
+}
+
+impl DebugGoal {
+    fn reset(&mut self) {
+        self.location = String::new();
+        self.entity = None;
+    }
+}
+
+impl Default for DebugGoal {
+    fn default() -> Self {
+        Self {
+            location: String::new(),
+            entity: None,
+        }
+    }
+}
+
+#[derive(Component)]
+pub struct DebugMaterial {
+    pub handle: Handle<StandardMaterial>,
 }
 
 #[derive(SystemParam)]
@@ -71,13 +96,12 @@ pub struct NegotiationDebugWidget<'w, 's> {
     current_workspace: Res<'w, CurrentWorkspace>,
     mapf_info: Query<'w, 's, &'static MAPFDebugInfo>,
     commands: Commands<'w, 's>,
-    path_visuals: Query<'w, 's, Entity, With<PathVisualMarker>>,
     display_mapf_debug: ResMut<'w, MAPFDebugDisplay>,
-    robots_opose: Query<'w, 's, (Entity, Option<&'static Original<Pose>>), With<Robot>>,
-    change_pose: EventWriter<'w, Change<Pose>>,
-    locations: Query<'w, 's, &'static NameInSite, With<LocationTags>>,
+    locations: Query<'w, 's, (Entity, &'static NameInSite), With<LocationTags>>,
     robots:
         Query<'w, 's, (Entity, &'static NameInSite, Option<&'static mut DebugGoal>), With<Robot>>,
+    robot_debug_materials: Query<'w, 's, &'static DebugMaterial, With<Robot>>,
+    materials: ResMut<'w, Assets<StandardMaterial>>,
 }
 
 fn negotiation_debug_panel(In(input): In<PanelWidgetInput>, world: &mut World) {
@@ -191,7 +215,7 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
                     ComboBox::from_id_salt(format!("select_go_to_location_{}", robot_entity))
                         .selected_text(selected_location_name)
                         .show_ui(ui, |ui| {
-                            for location_name in self.locations.iter() {
+                            for (_, location_name) in self.locations.iter() {
                                 ui.selectable_value(
                                     &mut new_goal_location,
                                     location_name.0.clone(),
@@ -200,20 +224,30 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
                             }
                         });
 
+                    // TODO(Nielsen): Save location as entity in task
                     if goal.location != new_goal_location {
-                        goal.location = new_goal_location;
+                        if let Some((location_entity, _)) = self
+                            .locations
+                            .iter()
+                            .find(|(_, location_name)| location_name.0 == new_goal_location)
+                        {
+                            goal.location = new_goal_location;
+                            goal.entity = Some(location_entity);
+                        } else {
+                            error!("Unable to find location entity from name");
+                        }
                     }
 
                     if !goal.location.is_empty() {
                         if ui.button("Clear selection").clicked() {
-                            goal.location = String::new();
+                            goal.reset();
                         }
                     }
                 });
             } else {
-                self.commands.entity(robot_entity).insert(DebugGoal {
-                    location: "".into(),
-                });
+                self.commands
+                    .entity(robot_entity)
+                    .insert(DebugGoal::default());
             }
         }
     }
@@ -244,17 +278,15 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
             // from those in the occupancy widget, as those do not ignore mobile
             // robots in calculation. However the cell size param used is
             // consistent, so any updated value will reflect accordingly
-            ui.add(
-                DragValue::new(&mut self.occupancy_info.cell_size)
-                    .range(0.1..=1.0)
-                    .suffix(" m")
-                    .speed(0.01),
-            )
-            .on_hover_text("Slide to calculate occupancy without robots");
             if ui
-                .button("Calculate Occupancy")
-                .on_hover_text("Click to calculate occupancy without robots")
-                .clicked()
+                .add(
+                    DragValue::new(&mut self.occupancy_info.cell_size)
+                        .range(0.1..=1.0)
+                        .suffix(" m")
+                        .speed(0.01),
+                )
+                .on_hover_text("Slide to calculate occupancy without robots")
+                .changed()
             {
                 self.calculate_grid.write(CalculateGridRequest);
             }
@@ -426,18 +458,10 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
         // Visualize
         ui.horizontal(|ui| {
             if ui.button("Clear Plans").clicked() {
-                self.commands.entity(site).remove::<MAPFDebugInfo>();
-                for e in self.path_visuals.iter() {
-                    self.commands.entity(e).despawn();
-                }
-                // Reset back to start
-                for (robot_entity, robot_opose) in self.robots_opose.iter() {
-                    if let Some(opose) = robot_opose {
-                        self.change_pose.write(Change::new(opose.0, robot_entity));
+                for (_, _, debug_goal) in self.robots.iter_mut() {
+                    if let Some(mut goal) = debug_goal {
+                        goal.reset();
                     }
-                    self.commands
-                        .entity(robot_entity)
-                        .remove::<Original<Pose>>();
                 }
             }
         });
@@ -454,10 +478,16 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
                     format!("robot {} color: ", i)
                 };
                 ui.label(text);
-                egui::widgets::color_picker::color_edit_button_rgb(
-                    ui,
-                    &mut self.negotiation_debug_data.colors[i],
-                );
+                if let Some(debug_material) = self.robot_debug_materials.get(*robot_entity).ok() {
+                    if let Some(material) = self.materials.get_mut(debug_material.handle.id()) {
+                        let old_color = material.base_color.to_srgba().to_f32_array_no_alpha();
+                        let mut color = old_color.clone();
+                        egui::widgets::color_picker::color_edit_button_rgb(ui, &mut color);
+                        if old_color != color {
+                            material.base_color = Color::srgb_from_array(color);
+                        }
+                    }
+                }
             });
         }
 
@@ -571,6 +601,50 @@ fn handle_debug_panel_visibility(
     for event in menu_events.read() {
         if event.clicked() && event.source() == mapf_menu.debug_panel {
             mapf_debug_window.show = true;
+        }
+    }
+}
+
+fn handle_debug_panel_changed(
+    mapf_debug_window: Res<MAPFDebugDisplay>,
+    mut robots: Query<(Entity, &Pose, Option<&mut Original<Pose>>), With<Robot>>,
+    mut change_pose: EventWriter<Change<Pose>>,
+    mut change_plan: EventWriter<NegotiationRequest>,
+    mut path_visibilities: Query<&mut Visibility, With<PathVisualMarker>>,
+) {
+    if mapf_debug_window.is_changed() {
+        if mapf_debug_window.show {
+            // If debug window is opened and robot pose has changed, rewrite original pose and
+            // trigger replan request
+            let mut any_changed_pose = false;
+            for (_, pose, robot_opose) in robots.iter_mut() {
+                if let Some(mut opose) = robot_opose {
+                    if opose.0 != *pose {
+                        opose.0 = *pose;
+                        any_changed_pose = true;
+                    }
+                }
+            }
+
+            if any_changed_pose {
+                change_plan.write(NegotiationRequest);
+            }
+
+            // Make all paths visible
+            for mut v in path_visibilities.iter_mut() {
+                *v = Visibility::Visible;
+            }
+        } else {
+            // If debug window is closed, move robot to original pose
+            for (robot_entity, _, robot_opose) in robots.iter() {
+                if let Some(opose) = robot_opose {
+                    change_pose.write(Change::new(opose.0, robot_entity));
+                }
+            }
+            // Hide all paths
+            for mut v in path_visibilities.iter_mut() {
+                *v = Visibility::Hidden;
+            }
         }
     }
 }

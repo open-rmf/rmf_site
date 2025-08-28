@@ -56,7 +56,7 @@ impl Plugin for GoToPlacePlugin {
 
 #[derive(SystemParam)]
 pub struct ViewGoToPlace<'w, 's> {
-    locations: Query<'w, 's, &'static NameInSite, With<LocationTags>>,
+    locations: Query<'w, 's, (Entity, &'static NameInSite), With<LocationTags>>,
     edit_task: Res<'w, EditTask>,
     tasks: Query<'w, 's, (&'static mut GoToPlace, &'static mut Task)>,
     robot_debug_goal:
@@ -79,7 +79,10 @@ impl<'w, 's> WidgetSystem<Tile> for ViewGoToPlace<'w, 's> {
         }
 
         let selected_location_name = if go_to_place.location.is_empty()
-            || !params.locations.iter().any(|l| l.0 == go_to_place.location)
+            || !params
+                .locations
+                .iter()
+                .any(|l| l.1 .0 == go_to_place.location)
         {
             "Select Location".to_string()
         } else {
@@ -92,7 +95,7 @@ impl<'w, 's> WidgetSystem<Tile> for ViewGoToPlace<'w, 's> {
             ComboBox::from_id_salt("select_go_to_location")
                 .selected_text(selected_location_name)
                 .show_ui(ui, |ui| {
-                    for location_name in params.locations.iter() {
+                    for (_, location_name) in params.locations.iter() {
                         ui.selectable_value(
                             &mut new_go_to_place.location,
                             location_name.0.clone(),
@@ -105,14 +108,30 @@ impl<'w, 's> WidgetSystem<Tile> for ViewGoToPlace<'w, 's> {
         if *go_to_place != new_go_to_place {
             *go_to_place = new_go_to_place.clone();
             let task_robot_name = task.robot();
+            // TODO(Nielsen): Save location as entity in task and robot as entity in task to avoid iterating
             for (robot_entity, robot_name, debug_goal) in params.robot_debug_goal.iter_mut() {
                 if robot_name.0 == task_robot_name {
+                    let location = go_to_place.location.clone();
+                    let mut entity = None;
+
+                    if let Some((location_entity, _)) = params
+                        .locations
+                        .iter()
+                        .find(|(_, location_name)| location_name.0 == go_to_place.location)
+                    {
+                        entity = Some(location_entity);
+                    } else {
+                        error!("Unable to find location entity from name");
+                    }
+
                     if let Some(mut goal) = debug_goal {
                         goal.location = go_to_place.location.clone();
+                        goal.entity = entity;
                     } else {
-                        params.commands.entity(robot_entity).insert(DebugGoal {
-                            location: go_to_place.location.clone(),
-                        });
+                        params
+                            .commands
+                            .entity(robot_entity)
+                            .insert(DebugGoal { location, entity });
                     }
                     break;
                 }

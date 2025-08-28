@@ -17,6 +17,7 @@
 
 use crate::{
     layers::ZLayer,
+    mapf_rse::NegotiationRequest,
     site::{Category, LevelElevation, NameOfSite, SiteAssets},
 };
 use bevy::{
@@ -199,6 +200,7 @@ fn handle_calculate_grid_request(
     meshes: ResMut<Assets<Mesh>>,
     assets: Res<SiteAssets>,
     grids: Query<Entity, With<Grid>>,
+    mut replan: EventWriter<NegotiationRequest>,
 ) {
     if request.read().last().is_some() {
         let grid = CalculateGrid {
@@ -209,6 +211,9 @@ fn handle_calculate_grid_request(
         calculate_grid(
             grid, commands, bodies, meta, child_of, levels, sites, meshes, assets, grids,
         );
+
+        // TODO: (Nielsen) Use bevy impulse workflow
+        replan.write(NegotiationRequest);
     }
 }
 

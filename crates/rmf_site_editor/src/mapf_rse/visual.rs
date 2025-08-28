@@ -18,12 +18,11 @@
 use super::*;
 use crate::{
     layers::ZLayer,
-    site::{line_stroke_transform, Change},
+    site::{line_stroke_transform, Change, SiteAssets},
     CurrentWorkspace,
 };
 use bevy::ecs::hierarchy::ChildOf;
-use bevy::math::prelude::Rectangle;
-use mapf::motion::Motion;
+use mapf::motion::{se2::WaypointSE2, Motion, TimeCmp};
 use rmf_site_format::NameOfSite;
 
 pub const DEFAULT_PATH_WIDTH: f32 = 0.2;
@@ -61,22 +60,23 @@ pub enum MAPFDebugInfo {
     },
 }
 
+fn get_robot_z_from_time(t: f32, longest_plan_duration_s: f32) -> f32 {
+    let mut z = ZLayer::RobotPath.to_z();
+    if let Some(next_z_layer) = ZLayer::RobotPath.next() {
+        z += (1.0 - (t / longest_plan_duration_s))
+            * ZLayer::get_z_offset(ZLayer::RobotPath, next_z_layer);
+    } else {
+        error!("No Z-layer after robot path!");
+    }
+    z
+}
+
 pub fn visualise_selected_node(
     mut commands: Commands,
     mut debug_data: ResMut<NegotiationDebugData>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
     path_visuals: Query<Entity, With<PathVisualMarker>>,
-    mut meshes: ResMut<Assets<Mesh>>,
     mut change_pose: EventWriter<Change<Pose>>,
-    mut robots: Query<
-        (
-            Entity,
-            &Affiliation<Entity>,
-            &Pose,
-            Option<&mut Original<Pose>>,
-        ),
-        With<Robot>,
-    >,
+    robots: Query<&Affiliation<Entity>, With<Robot>>,
     robot_descriptions: Query<&CircleCollision, (With<ModelMarker>, With<Group>)>,
     current_level: Res<CurrentLevel>,
     now: Res<Time>,
@@ -85,13 +85,22 @@ pub fn visualise_selected_node(
     mapf_info: Query<&MAPFDebugInfo>,
     debugger_settings: Res<DebuggerSettings>,
     mapf_debug_window: Res<MAPFDebugDisplay>,
-    mut change_plan: EventWriter<NegotiationRequest>,
+    site_assets: Res<SiteAssets>,
+    robot_materials: Query<&DebugMaterial, With<Robot>>,
 ) {
+    if !mapf_debug_window.show {
+        return;
+    }
+
     let Some(site) = current_workspace.to_site(&open_sites) else {
         return;
     };
 
     let Some(plan_info) = mapf_info.get(site).ok() else {
+        return;
+    };
+
+    let Some(level_entity) = current_level.0 else {
         return;
     };
 
@@ -106,111 +115,40 @@ pub fn visualise_selected_node(
         return;
     };
 
-    let Some(level_entity) = current_level.0 else {
-        return;
-    };
-
+    // TODO(Nielsen): to optimize
     for e in path_visuals.iter() {
         commands.entity(e).despawn();
     }
 
-    if mapf_debug_window.is_changed() {
-        if mapf_debug_window.show {
-            for (_, _, pose, robot_opose) in robots.iter_mut() {
-                if let Some(mut opose) = robot_opose {
-                    if opose.0 != *pose {
-                        opose.0 = *pose;
-                        change_plan.write(NegotiationRequest);
-                        break;
-                    }
-                }
-            }
-        } else {
-            for (robot_entity, _, _, robot_opose) in robots.iter() {
-                if let Some(opose) = robot_opose {
-                    change_pose.write(Change::new(opose.0, robot_entity));
-                }
-            }
-        }
-    }
-
-    if !mapf_debug_window.show {
-        return;
-    }
-
+    // Update current animation time
     debug_data.time += debugger_settings.playback_speed * now.delta_secs();
 
-    if debug_data.time >= *longest_plan_duration_s {
+    if debug_data.time > *longest_plan_duration_s {
         debug_data.time = 0.0;
     }
-    for (i, proposal) in solution.proposals.iter().enumerate() {
-        let Some(entity_id) = entity_id_map.get(&proposal.0) else {
-            warn!("Unable to find entity id in map");
+
+    for proposal in solution.proposals.iter() {
+        let Some(robot_entity) = entity_id_map.get(&proposal.0) else {
+            warn!("Unable to query for robot's entity id in map");
             continue;
         };
-        let Ok((robot_entity, affiliation, _, _)) = robots.get(*entity_id) else {
-            warn!("Unable to get robot entity's affiliation");
+        let Some(affiliation) = robots.get(*robot_entity).ok() else {
+            warn!("Unable to query for robot entity's affiliation");
             continue;
         };
         let Some(description_entity) = affiliation.0 else {
-            warn!("No model description entity found");
+            warn!("Unable to query for robot's model description entity");
             continue;
         };
 
-        let mut collision_radius = DEFAULT_PATH_WIDTH / 2.0;
-
-        if let Ok(cc) = robot_descriptions.get(description_entity) {
-            collision_radius = cc.radius;
-        } else {
-            warn!(
-                "No circle collision model found for robot's model description, using default value of {}",
-                collision_radius
-            );
-        }
-
-        let lane_material = materials.add(StandardMaterial {
-            base_color: Color::srgb_from_array(debug_data.colors[i]),
-            unlit: true,
-            ..Default::default()
-        });
-
-        let translation_to_vec3 = |x: f32, y: f32, t: f32| {
-            let mut z_offset = 0.0;
-            if let Some(next_z_layer) = ZLayer::RobotPath.next() {
-                z_offset = (1.0 - (t / longest_plan_duration_s))
-                    * ZLayer::get_z_offset(ZLayer::RobotPath, next_z_layer);
-            }
-            return Vec3::new(x, y, ZLayer::RobotPath.to_z() + z_offset);
-        };
-
-        let mut spawn_path_mesh = |start_pos,
-                                   end_pos,
-                                   lane_material: Handle<StandardMaterial>,
-                                   lane_mesh,
-                                   circle_mesh,
-                                   robot_width| {
-            commands
-                .spawn((
-                    Mesh3d(circle_mesh),
-                    MeshMaterial3d(lane_material.clone()),
-                    Transform::from_translation(start_pos),
-                    Visibility::default(),
-                ))
-                .insert(PathVisualMarker)
-                .insert(ChildOf(level_entity));
-            commands
-                .spawn((
-                    Mesh3d(lane_mesh),
-                    MeshMaterial3d(lane_material.clone()),
-                    line_stroke_transform(&start_pos, &end_pos, robot_width),
-                    Visibility::default(),
-                ))
-                .insert(PathVisualMarker)
-                .insert(ChildOf(level_entity));
+        let Some(collision_model) = robot_descriptions.get(description_entity).ok() else {
+            error!("No circle collision model found for robot's model description");
+            continue;
         };
 
         let time_now = debug_data.time;
 
+        // Move robot to current position in trajectory
         if let Ok(interp) = proposal
             .1
             .meta
@@ -220,44 +158,73 @@ pub fn visualise_selected_node(
         {
             let robot_yaw = crate::ops::atan2(interp.rotation.im as f32, interp.rotation.re as f32);
 
-            let new_trans = translation_to_vec3(
-                interp.translation.x as f32,
-                interp.translation.y as f32,
-                time_now,
-            );
-
-            let new_quat = Quat::from_rotation_z(robot_yaw);
-
             change_pose.write(Change::new(
                 Pose {
-                    trans: new_trans.into(),
-                    rot: new_quat.into(),
+                    trans: [
+                        interp.translation.x as f32,
+                        interp.translation.y as f32,
+                        get_robot_z_from_time(time_now, *longest_plan_duration_s),
+                    ],
+                    rot: Quat::from_rotation_z(robot_yaw).into(),
                 },
-                robot_entity,
+                *robot_entity,
             ));
         }
-        for slice in proposal.1.meta.trajectory.windows(2) {
-            let start_pos = slice[0].position.translation;
-            let end_pos = slice[1].position.translation;
 
-            let start_time = slice[0].time.as_secs_f32();
-            if time_now > start_time {
+        let mut draw_path = |start_pos: Vec3, end_pos: Vec3| {
+            let Some(material) = robot_materials.get(*robot_entity).ok() else {
+                error!("Unable to find robot's material");
+                return;
+            };
+
+            // Draws a rectangle connecting start and end pos
+            commands
+                .spawn((
+                    Mesh3d(site_assets.robot_path_rectangle_mesh.clone()),
+                    MeshMaterial3d(material.handle.clone()),
+                    line_stroke_transform(&start_pos, &end_pos, collision_model.radius * 2.0),
+                    Visibility::default(),
+                ))
+                .insert(PathVisualMarker)
+                .insert(ChildOf(level_entity));
+
+            // Draws two circles, at start and end pos
+            let mut draw_circle_fn = |pos| {
+                let radius = collision_model.radius;
+                commands
+                    .spawn((
+                        Mesh3d(site_assets.robot_path_circle_mesh.clone()),
+                        MeshMaterial3d(material.handle.clone()),
+                        Transform::from_translation(pos).with_scale([radius, radius, 1.0].into()),
+                        Visibility::default(),
+                    ))
+                    .insert(PathVisualMarker)
+                    .insert(ChildOf(level_entity));
+            };
+
+            draw_circle_fn(start_pos);
+            draw_circle_fn(end_pos);
+        };
+
+        let waypoint_to_xyz = |tf: TimeCmp<WaypointSE2>| {
+            let time = tf.time.as_secs_f32();
+            Vec3::new(
+                tf.position.translation.x as f32,
+                tf.position.translation.y as f32,
+                get_robot_z_from_time(time, *longest_plan_duration_s),
+            )
+        };
+
+        for slice in proposal.1.meta.trajectory.windows(2) {
+            // Do not draw if the path is old (expired)
+            if time_now > slice[0].time.as_secs_f32() {
                 continue;
             }
-            let end_time = slice[1].time.as_secs_f32();
 
-            let start_pos = translation_to_vec3(start_pos.x as f32, start_pos.y as f32, start_time);
-            let end_pos = translation_to_vec3(end_pos.x as f32, end_pos.y as f32, end_time);
+            let start_pos = waypoint_to_xyz(slice[0]);
+            let end_pos = waypoint_to_xyz(slice[1]);
 
-            let robot_width = collision_radius * 2.0;
-            spawn_path_mesh(
-                start_pos,
-                end_pos,
-                lane_material.clone(),
-                meshes.add(Mesh::from(Rectangle::new(1.0, 1.0))),
-                meshes.add(Circle::new(collision_radius)),
-                robot_width,
-            );
+            draw_path(start_pos, end_pos);
         }
     }
 }
