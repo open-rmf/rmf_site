@@ -24,7 +24,6 @@ use rmf_site_format::{Edge, LaneMarker};
 use std::collections::{BTreeSet, HashMap};
 use uuid::Uuid;
 
-const LANE_BASE_COLOR: Color = Color::srgb(1.0, 0.5, 0.3);
 const LANE_SINGLE_ARROW_COLOR: Color = Color::srgb(0.83, 0.33, 0.09);
 const LANE_DOUBLE_ARROW_COLOR: Color = Color::srgb(1.0, 0.70, 0.48);
 
@@ -115,7 +114,7 @@ pub fn add_lane_visuals(
             }
         }
 
-        let (lane_material, height) = graphs.display_style(associated_graphs);
+        let (lane_material, lane_color, height) = graphs.display_style(associated_graphs);
         let visibility = if should_display_lane(
             edge,
             associated_graphs,
@@ -199,7 +198,7 @@ pub fn add_lane_visuals(
                     extension: assets::LaneArrowMaterial {
                         single_arrow_color: LANE_SINGLE_ARROW_COLOR.into(),
                         double_arrow_color: LANE_DOUBLE_ARROW_COLOR.into(),
-                        background_color: LANE_BASE_COLOR.into(),
+                        background_color: lane_color.into(),
                         number_of_arrows: (start_anchor - end_anchor).length() / LANE_WIDTH,
                         forward_speed: forward_speed_limit,
                         backward_speed: backward_speed_limit,
@@ -486,7 +485,7 @@ pub fn update_visibility_for_lanes(
 
     if graph_change {
         for (_, associated_graphs, segments, _) in &lanes {
-            let (mat, height) = graphs.display_style(associated_graphs);
+            let (mat, _, height) = graphs.display_style(associated_graphs);
             for e in segments.iter() {
                 if let Ok(mut m) = materials.get_mut(e) {
                     *m = MeshMaterial3d(mat.clone());
@@ -499,7 +498,7 @@ pub fn update_visibility_for_lanes(
         }
     } else {
         for (_, associated_graphs, segments) in &lanes_with_changed_association {
-            let (mat, height) = graphs.display_style(associated_graphs);
+            let (mat, _, height) = graphs.display_style(associated_graphs);
             for e in segments.iter() {
                 if let Ok(mut m) = materials.get_mut(e) {
                     *m = MeshMaterial3d(mat.clone());

@@ -27,6 +27,8 @@ use rmf_site_mesh::*;
 
 const LANE_SHADER_PATH: &str = "embedded://librmf_site_editor/site/shaders/lane_arrow_shader.wgsl";
 
+pub const NAV_UNASSIGNED_COLOR: Color = Color::srgb(0.1, 0.1, 0.1);
+
 pub(crate) fn add_site_assets(app: &mut App) {
     embedded_asset!(app, "src/", "icons/battery.png");
     embedded_asset!(app, "src/", "icons/parking.png");
@@ -136,7 +138,7 @@ impl FromWorld for SiteAssets {
             .get_resource_mut::<Assets<StandardMaterial>>()
             .unwrap();
         let unassigned_lane_material =
-            materials.add(old_default_material(Color::srgb(0.1, 0.1, 0.1)));
+            materials.add(old_default_material(NAV_UNASSIGNED_COLOR));
         let select_color = Color::srgb(1., 0.3, 1.);
         let hover_color = Color::srgb(0.3, 1., 1.);
         let hover_select_color = Color::srgb(1.0, 0.0, 0.3);

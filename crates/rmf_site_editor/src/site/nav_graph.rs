@@ -26,6 +26,7 @@ pub struct GraphSelect<'w, 's> {
         (
             Entity,
             &'static MeshMaterial3d<StandardMaterial>,
+            &'static DisplayColor,
             &'static Visibility,
             &'static RecencyRank<NavGraphMarker>,
         ),
@@ -43,48 +44,50 @@ impl<'w, 's> GraphSelect<'w, 's> {
     pub fn display_style(
         &self,
         associated_graphs: &AssociatedGraphs<Entity>,
-    ) -> (Handle<StandardMaterial>, f32) {
+    ) -> (Handle<StandardMaterial>, Color, f32) {
         match associated_graphs {
             AssociatedGraphs::All => self
                 .graphs
                 .iter()
-                .filter(|(_, _, v, _)| !matches!(v, Visibility::Hidden))
-                .max_by(|(_, _, _, a), (_, _, _, b)| a.cmp(b))
-                .map(|(_, m, _, d)| (m.clone(), *d)),
+                .filter(|(_, _, _, v, _)| !matches!(v, Visibility::Hidden))
+                .max_by(|(_, _, _, _, a), (_, _, _, _, b)| a.cmp(b))
+                .map(|(_, m, c, _, d)| (m.clone(), *c, *d)),
             AssociatedGraphs::Only(set) => set
                 .iter()
                 .filter(|e| {
                     self.graphs
                         .get(**e)
                         .ok()
-                        .filter(|(_, _, v, _)| !matches!(v, Visibility::Hidden))
+                        .filter(|(_, _, _, v, _)| !matches!(v, Visibility::Hidden))
                         .is_some()
                 })
                 .max_by(|a, b| {
                     self.graphs
                         .get(**a)
                         .unwrap()
-                        .3
-                        .cmp(self.graphs.get(**b).unwrap().3)
+                        .4
+                        .cmp(self.graphs.get(**b).unwrap().4)
                 })
-                .map(|e| self.graphs.get(*e).map(|(_, m, _, d)| (m.clone(), *d)).ok())
+                .map(|e| self.graphs.get(*e).map(|(_, m, c, _, d)| (m.clone(), *c, *d)).ok())
                 .flatten(),
             AssociatedGraphs::AllExcept(set) => self
                 .graphs
                 .iter()
-                .filter(|(e, _, v, _)| !matches!(v, Visibility::Hidden) && !set.contains(e))
-                .max_by(|(_, _, _, a), (_, _, _, b)| a.cmp(b))
-                .map(|(_, m, _, d)| (m.clone(), *d)),
+                .filter(|(e, _, _, v, _)| !matches!(v, Visibility::Hidden) && !set.contains(e))
+                .max_by(|(_, _, _, _, a), (_, _, _, _, b)| a.cmp(b))
+                .map(|(_, m, c, _, d)| (m.clone(), *c, *d)),
         }
-        .map(|(m, d)| {
+        .map(|(m, c, d)| {
             (
                 m.0,
+                c.to_bevy(),
                 d.proportion() * (ZLayer::Doormat.to_z() - ZLayer::Lane.to_z())
                     + ZLayer::Lane.to_z(),
             )
         })
         .unwrap_or((
             self.assets.unassigned_lane_material.clone(),
+            NAV_UNASSIGNED_COLOR,
             ZLayer::Doormat.to_z(),
         ))
     }
@@ -96,7 +99,7 @@ impl<'w, 's> GraphSelect<'w, 's> {
                     || self
                         .graphs
                         .iter()
-                        .find(|(_, _, v, _)| !matches!(v, Visibility::Hidden))
+                        .find(|(_, _, _, v, _)| !matches!(v, Visibility::Hidden))
                         .is_some()
             }
             AssociatedGraphs::Only(set) => {
@@ -108,16 +111,16 @@ impl<'w, 's> GraphSelect<'w, 's> {
                             self.graphs
                                 .get(**e)
                                 .ok()
-                                .filter(|(_, _, v, _)| !matches!(v, Visibility::Hidden))
+                                .filter(|(_, _, _, v, _)| !matches!(v, Visibility::Hidden))
                                 .is_some()
                         })
                         .is_some()
             }
             AssociatedGraphs::AllExcept(set) => {
-                self.graphs.iter().find(|(e, _, v, _)| !matches!(v, Visibility::Hidden) && !set.contains(e)).is_some()
+                self.graphs.iter().find(|(e, _, _, v, _)| !matches!(v, Visibility::Hidden) && !set.contains(e)).is_some()
                 // If all graphs are excluded for this lane then we want it to remain
                 // visible but with the unassigned material
-                || self.graphs.iter().find(|(e, _, _, _)| !set.contains(e)).is_none()
+                || self.graphs.iter().find(|(e, _, _, _, _)| !set.contains(e)).is_none()
             }
         }
     }
