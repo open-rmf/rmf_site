@@ -426,26 +426,26 @@ pub(crate) fn build_selection_workflow(
 
 pub fn send_double_click_event(
     mut select: EventReader<Select>,
-    selection: ResMut<Selection>,
     mut double_clicked: Local<DoubleClickSelection>,
     mut double_click_select: EventWriter<DoubleClickSelect>,
 ) {
-    for _ in select.read() {
+    for selected in select.read() {
         let current_time = Instant::now();
+
+        let Some(selected_entity) = selected.0.map(|c| c.candidate) else {
+            return;
+        };
 
         if let Some(last_entity) = double_clicked.last_selected_entity {
             let elapsed_time = current_time
                 .duration_since(double_clicked.last_selected_time)
                 .as_millis();
 
-            let Some(selected_entity) = selection.0 else {
-                return;
-            };
             if last_entity == selected_entity && elapsed_time < DOUBLE_CLICK_DURATION_MILLISECONDS {
-                double_click_select.write(DoubleClickSelect(selection.0));
+                double_click_select.write(DoubleClickSelect(selected_entity));
             }
         }
-        double_clicked.last_selected_entity = selection.0;
+        double_clicked.last_selected_entity = Some(selected_entity);
         double_clicked.last_selected_time = current_time;
     }
 }

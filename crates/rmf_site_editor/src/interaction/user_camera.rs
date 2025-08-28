@@ -25,10 +25,7 @@ pub fn register_double_click_event(
     mut pan_to: ResMut<PanToElement>,
 ) {
     for double_click_entity in double_click.read() {
-        let Some(target_entity) = double_click_entity.0 else {
-            return;
-        };
-        pan_to.target = Some(target_entity);
+        pan_to.target = Some(double_click_entity.0);
     }
 }
 
@@ -59,7 +56,7 @@ fn calculate_new_target(
     } else if let Ok(path) = paths.get(entity) {
         let anchors = &path.0;
 
-        if anchors.iter().count() == 0 {
+        if anchors.len() == 0 {
             return Vec3::ZERO;
         }
         let mut total_position = Vec3::ZERO;
@@ -70,7 +67,7 @@ fn calculate_new_target(
             };
             total_position += global_transform.translation();
         }
-        let average_anchor = total_position / anchors.iter().count() as f32;
+        let average_anchor = total_position / anchors.len() as f32;
         return average_anchor;
     } else {
         return Vec3::ZERO;

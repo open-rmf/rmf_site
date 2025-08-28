@@ -34,5 +34,5 @@ impl Select {
 }
 
 /// Used as an event to command a change in the double clicked entity.
-#[derive(Default, Debug, Clone, Copy, Deref, DerefMut, Event, Stream)]
-pub struct DoubleClickSelect(pub Option<Entity>);
+#[derive(Debug, Clone, Copy, Deref, DerefMut, Event, Stream)]
+pub struct DoubleClickSelect(pub Entity);

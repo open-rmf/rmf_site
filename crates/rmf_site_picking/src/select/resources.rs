@@ -14,8 +14,8 @@ pub struct Selection(pub Option<Entity>);
 #[derive(Default, Debug, Clone, Copy, Deref, DerefMut, Resource)]
 pub struct Hovering(pub Option<Entity>);
 
-/// Used as a resource to keep track of which entity is currently double clicked.
-#[derive(Debug, Clone, Copy, Resource)]
+/// Used to keep track of which entity is currently double clicked.
+#[derive(Debug, Clone, Copy)]
 pub struct DoubleClickSelection {
     pub last_selected_entity: Option<Entity>,
     pub last_selected_time: Instant,

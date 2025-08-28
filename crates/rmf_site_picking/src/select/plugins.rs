@@ -59,7 +59,6 @@ where
         .init_resource::<SelectionBlockers>()
         .init_resource::<Selection>()
         .init_resource::<Hovering>()
-        .init_resource::<DoubleClickSelection>()
         .add_event::<DoubleClickSelect>()
         .add_event::<Select>()
         .add_event::<Hover>()

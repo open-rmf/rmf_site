@@ -131,6 +131,7 @@ pub enum CameraCommandType {
 }
 
 #[derive(Component)]
+#[component(immutable)]
 pub struct CameraTarget {
     pub point: Vec3,
 }
