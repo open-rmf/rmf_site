@@ -48,6 +48,9 @@ impl LocationTag {
     pub fn is_holding_point(&self) -> bool {
         matches!(self, Self::HoldingPoint)
     }
+    pub fn is_workcell(&self) -> bool {
+        matches!(self, Self::Workcell(_))
+    }
     pub fn workcell(&self) -> Option<&Model> {
         match self {
             Self::Workcell(model) => Some(model),

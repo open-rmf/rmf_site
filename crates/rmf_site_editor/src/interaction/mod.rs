@@ -16,9 +16,10 @@
 */
 
 use crate::site::{
-    update_anchor_transforms, CollisionMeshMarker, CurrentEditDrawing, CurrentLevel, DoorMarker,
-    FiducialMarker, FloorMarker, LaneMarker, LiftCabin, LiftCabinDoorMarker, LocationTags,
-    MeasurementMarker, SiteUpdateSet, ToggleLiftDoorAvailability, VisualMeshMarker, WallMarker,
+    update_anchor_transforms, update_location_for_changed_location_tags, CollisionMeshMarker,
+    CurrentEditDrawing, CurrentLevel, DoorMarker, FiducialMarker, FloorMarker, LaneMarker,
+    LiftCabin, LiftCabinDoorMarker, LocationTags, MeasurementMarker, SiteUpdateSet,
+    ToggleLiftDoorAvailability, VisualMeshMarker, WallMarker,
 };
 
 pub mod anchor;
@@ -26,6 +27,9 @@ pub use anchor::*;
 
 pub mod assets;
 pub use assets::*;
+
+pub mod billboard;
+pub use billboard::*;
 
 use rmf_site_camera::plugins::CameraSetupPlugin;
 
@@ -202,6 +206,9 @@ impl Plugin for InteractionPlugin {
                     update_drag_motions
                         .after(update_gizmo_click_start)
                         .after(update_gizmo_release),
+                    update_billboard_location,
+                    update_billboard_text_hover_visualisation,
+                    update_billboard_hover_visualization,
                     handle_lift_doormat_clicks.after(update_gizmo_click_start),
                     manage_previews,
                     update_physical_camera_preview,
@@ -225,6 +232,7 @@ impl Plugin for InteractionPlugin {
                     add_cursor_hover_visualization,
                     add_physical_light_visual_cues,
                     add_popups,
+                    add_billboard_visual_cues.after(update_location_for_changed_location_tags),
                 )
                     .run_if(in_state(InteractionState::Enable))
                     .in_set(InteractionUpdateSet::AddVisuals),

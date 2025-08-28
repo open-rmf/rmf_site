@@ -70,16 +70,20 @@ impl CanvasTooltips {
             }
         }
 
-        let text = self.tips.join("\n");
+        let pointer_pos = ctx.input(|i| i.pointer.hover_pos());
 
-        egui::Area::new("canvas_tooltip_area".into()).show(ctx, |ui| {
-            egui::containers::popup::show_tooltip_text(
-                ctx,
-                ui.layer_id(),
-                "cursor_tooltip".into(),
-                text,
-            );
-        });
+        if let Some(pos) = pointer_pos {
+            egui::Area::new("canvas_tooltip_area".into())
+                .fixed_pos(pos + egui::vec2(16.0, 16.0))
+                .show(ctx, |ui| {
+                    egui::containers::Frame::popup(ui.style()).show(ui, |ui| {
+                        ui.set_max_width(300.0);
+                        for tip in &self.tips {
+                            ui.label(tip.as_ref());
+                        }
+                    });
+                });
+        }
 
         self.previous = self.tips.drain(..).collect();
     }

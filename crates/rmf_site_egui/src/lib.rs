@@ -22,6 +22,11 @@ pub use canvas_tooltips::*;
 pub mod menu_bar;
 pub use menu_bar::*;
 
+#[derive(Component, Clone, Copy)]
+pub struct InspectFor {
+    pub entity: Entity,
+}
+
 /// Implement this on a [`SystemParam`] struct to make it a widget that can be
 /// plugged into the site editor UI.
 ///
