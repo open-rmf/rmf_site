@@ -198,7 +198,7 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
         occupancy_grid
     }
 
-    pub fn show_robot_goals(&mut self, ui: &mut Ui) {
+    fn show_robot_goals(&mut self, ui: &mut Ui) {
         for (robot_entity, robot_name, robot_goal) in self.robots.iter_mut() {
             if let Some(mut goal) = robot_goal {
                 ui.horizontal(|ui| {
@@ -252,7 +252,7 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
         }
     }
 
-    pub fn show_gotoplace_tasks(&mut self, ui: &mut Ui) {
+    fn show_gotoplace_tasks(&mut self, ui: &mut Ui) {
         let tasks = self.tasks.iter().filter(|task| {
             if task.request().category() == GoToPlace::label() {
                 true
@@ -270,7 +270,7 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
         }
     }
 
-    pub fn show_occupancy_grid(&mut self, ui: &mut Ui) {
+    fn show_occupancy_grid(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
             ui.label("Cell Size: ");
             // The button + slider combination help to indicate that cell size
@@ -320,7 +320,7 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
         });
     }
 
-    pub fn show_planner_settings(&mut self, ui: &mut Ui) {
+    fn show_planner_settings(&mut self, ui: &mut Ui) {
         // Planner settings
         ui.horizontal(|ui| {
             ui.label("Queue Length Limit: ");
@@ -333,7 +333,7 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
         ui.end_row();
     }
 
-    pub fn show_generate_plan(&mut self, ui: &mut Ui) {
+    fn show_generate_plan(&mut self, ui: &mut Ui) {
         let mut allow_generate_plan = true;
         let mut error_msgs: Vec<&str> = Vec::new();
 
@@ -435,7 +435,7 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
         Self::show_negotiation_history(negotiation_history, ui);
     }
 
-    pub fn show_successful_plan(&mut self, ui: &mut Ui) {
+    fn show_successful_plan(&mut self, ui: &mut Ui) {
         let Some(site) = self.current_workspace.to_site(&self.open_sites) else {
             return;
         };
