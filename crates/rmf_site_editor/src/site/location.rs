@@ -26,11 +26,11 @@ const BILLBOARD_MARGIN: Vec3 = Vec3::new(0., 0., BILLBOARD_LENGTH * 0.9);
 
 #[derive(Component, Clone, Default)]
 pub struct BillboardMeshes {
-    base: Option<Entity>,
-    charging: Option<Entity>,
-    holding: Option<Entity>,
-    parking: Option<Entity>,
-    empty_billboard: Option<Entity>,
+    pub base: Option<Entity>,
+    pub charging: Option<Entity>,
+    pub holding: Option<Entity>,
+    pub parking: Option<Entity>,
+    pub empty_billboard: Option<Entity>,
 }
 
 #[derive(Component, Clone, Debug)]
@@ -75,6 +75,7 @@ pub fn add_location_visuals(
     levels: Query<(), With<LevelElevation>>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
     current_level: Res<CurrentLevel>,
 ) {
     for (e, point, associated_graphs, tags) in &locations {
@@ -108,10 +109,15 @@ pub fn add_location_visuals(
         commands.entity(e).add_child(base_id);
 
         if tags.len() == 0 || only_workcell_tags {
-            // if no location tags, spawn empty billboard marker
+            // If no location tags, spawn empty billboard marker
+            let new_material = materials
+                .get(&assets.empty_billboard_material)
+                .unwrap()
+                .clone();
+
             commands.entity(base_id).insert((
                 Mesh3d(assets.billboard_mesh.clone()),
-                MeshMaterial3d(assets.empty_billboard_material.clone()),
+                MeshMaterial3d(materials.add(new_material)),
                 BillboardMarker {
                     caption_text: None,
                     offset: BILLBOARD_EMPTY_OFFSET,
@@ -120,7 +126,7 @@ pub fn add_location_visuals(
             ));
             billboard_meshes.empty_billboard = Some(base_id);
         } else {
-            // if location tags exist, spawn billboard base
+            // If location tags exist, spawn billboard base
             commands.entity(base_id).insert((
                 Mesh3d(assets.billboard_base_mesh.clone()),
                 MeshMaterial3d(assets.base_billboard_material.clone()),
@@ -138,26 +144,29 @@ pub fn add_location_visuals(
         for tag in tags.iter() {
             let id = commands.spawn_empty().id();
 
-            let (material, text) = match tag {
+            let (material_handle, text) = match tag {
                 LocationTag::Charger => {
                     billboard_meshes.charging = Some(id);
-                    (assets.charger_material.clone(), "charging")
+                    (&assets.charger_material, "charging")
                 }
                 LocationTag::ParkingSpot => {
                     billboard_meshes.parking = Some(id);
-                    (assets.parking_material.clone(), "parking")
+                    (&assets.parking_material, "parking")
                 }
                 LocationTag::HoldingPoint => {
                     billboard_meshes.holding = Some(id);
-                    (assets.holding_point_material.clone(), "holding")
+                    (&assets.holding_point_material, "holding")
                 }
                 // Workcells are not visualized
                 LocationTag::Workcell(_) => continue,
             };
 
+            // New material instance created for each billboard as the AlphaMode of each billboard is toggled on hover
+            let new_material = materials.get(material_handle).unwrap().clone();
+
             commands.entity(id).insert((
                 Mesh3d(assets.billboard_mesh.clone()),
-                MeshMaterial3d(material),
+                MeshMaterial3d(materials.add(new_material)),
                 BillboardMarker {
                     caption_text: Some(text.to_string()),
                     offset: offset,
@@ -265,17 +274,21 @@ pub fn update_location_for_changed_location_tags(
     >,
     mut billboards: Query<&mut BillboardMarker, With<BillboardMarker>>,
     assets: Res<SiteAssets>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     for (e, tags, mut billboard_meshes, mut hovered, mut selected) in &mut locations {
         select.write(Select::new(Some(e)));
 
         let only_workcell_tags = !tags.iter().any(|t| !t.is_workcell());
 
-        // despawn unused billboards
+        // Despawn unused billboards
         if let Some(id) = billboard_meshes.empty_billboard {
             if tags.len() > 0 || !only_workcell_tags {
                 commands.entity(id).despawn();
                 billboard_meshes.empty_billboard = None;
+
+                hovered.support_hovering.remove(&id);
+                selected.support_selected.remove(&id);
             }
         }
         if let Some(id) = billboard_meshes.charging {
@@ -313,12 +326,16 @@ pub fn update_location_for_changed_location_tags(
         }
 
         if (tags.len() == 0 || only_workcell_tags) && billboard_meshes.empty_billboard.is_none() {
-            // if no location tags exist and no empty billboard marker spawned, spawn empty billboard marker
+            // If no location tags exist and no empty billboard marker spawned, spawn empty billboard marker
             let id = commands.spawn_empty().id();
+            let new_material = materials
+                .get(&assets.empty_billboard_material)
+                .unwrap()
+                .clone();
 
             commands.entity(id).insert((
                 Mesh3d(assets.billboard_mesh.clone()),
-                MeshMaterial3d(assets.empty_billboard_material.clone()),
+                MeshMaterial3d(materials.add(new_material)),
                 BillboardMarker {
                     caption_text: None,
                     offset: BILLBOARD_EMPTY_OFFSET,
@@ -328,7 +345,7 @@ pub fn update_location_for_changed_location_tags(
             commands.entity(e).add_child(id);
             billboard_meshes.empty_billboard = Some(id);
         } else if billboard_meshes.base.is_none() {
-            // if location tags exist and no billboard base spawned, spawn billboard base
+            // If location tags exist and no billboard base spawned, spawn billboard base
             let id = commands.spawn_empty().id();
 
             commands.entity(id).insert((
@@ -355,7 +372,7 @@ pub fn update_location_for_changed_location_tags(
                 LocationTag::Workcell(_) => continue,
             };
 
-            // if there exists a spawned billboard for this tag, shift existing billboard
+            // If there exists a spawned billboard for this tag, shift existing billboard
             if existing_billboard_id.is_some() {
                 let Some(billboard_id) = existing_billboard_id else {
                     return;
@@ -369,29 +386,32 @@ pub fn update_location_for_changed_location_tags(
                 continue;
             }
 
-            // there is no existing billboard for this tag, hence spawn new billboard
+            // There is no existing billboard for this tag, hence spawn new billboard
             let id = commands.spawn_empty().id();
 
-            let (material, text) = match tag {
+            let (material_handle, text) = match tag {
                 LocationTag::Charger => {
                     billboard_meshes.charging = Some(id);
-                    (assets.charger_material.clone(), "charging")
+                    (&assets.charger_material, "charging")
                 }
                 LocationTag::ParkingSpot => {
                     billboard_meshes.parking = Some(id);
-                    (assets.parking_material.clone(), "parking")
+                    (&assets.parking_material, "parking")
                 }
                 LocationTag::HoldingPoint => {
                     billboard_meshes.holding = Some(id);
-                    (assets.holding_point_material.clone(), "holding")
+                    (&assets.holding_point_material, "holding")
                 }
                 // Workcells are not visualized
                 LocationTag::Workcell(_) => continue,
             };
 
+            // New material instance created for each billboard as the AlphaMode of each billboard is toggled on hover
+            let new_material = materials.get(material_handle).unwrap().clone();
+
             commands.entity(id).insert((
                 Mesh3d(assets.billboard_mesh.clone()),
-                MeshMaterial3d(material),
+                MeshMaterial3d(materials.add(new_material)),
                 BillboardMarker {
                     caption_text: Some(text.to_string()),
                     offset: offset,
@@ -412,7 +432,6 @@ pub fn update_visibility_for_locations(
             &AssociatedGraphs<Entity>,
             &mut Visibility,
             &mut MeshMaterial3d<StandardMaterial>,
-            // &mut
         ),
         (With<LocationTags>, Without<NavGraphMarker>),
     >,

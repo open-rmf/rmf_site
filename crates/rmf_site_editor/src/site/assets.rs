@@ -230,13 +230,11 @@ impl FromWorld for SiteAssets {
                 .unwrap(),
         );
         let location_mesh = meshes.add(
-            Mesh::from(
-                make_icon_halo(1.1 * LANE_WIDTH / 2.0, 0.01, 6).transform_by(
-                    Affine3A::from_translation((0.00125 + ZLayer::Location.to_z()) * Vec3::Z),
-                ),
-            )
-            .with_generated_outline_normals()
-            .unwrap(),
+            Mesh::from(Torus::new(LANE_WIDTH / 2.0, 1.4 * LANE_WIDTH / 2.0))
+                .rotated_by(Quat::from_rotation_x(90_f32.to_radians()))
+                .scaled_by(Vec3::new(1.0, 1.0, 0.3))
+                .with_generated_outline_normals()
+                .unwrap(),
         );
         let fiducial_mesh = meshes.add(
             Mesh::from(

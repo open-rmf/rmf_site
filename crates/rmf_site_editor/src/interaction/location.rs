@@ -22,23 +22,69 @@ use std::borrow::Cow;
 
 pub fn add_billboard_visual_cues(
     mut commands: Commands,
-    mut billboards: Query<(Entity, &ChildOf), (Added<BillboardMarker>, With<BillboardMarker>)>,
+    mut billboards: Query<(Entity, &ChildOf), Changed<BillboardMarker>>,
     points: Query<&Point<Entity>>,
     locations: Query<Entity, With<LocationTags>>,
 ) {
+    // Updates newly spawned billboards on existing locations
     for (e, parent) in billboards.iter_mut() {
-        commands.entity(e).insert(VisualCue::no_outline());
+        update_billboard_visual_cues(&mut commands, e, parent, points, locations);
+    }
+}
 
-        if let Ok(point) = points.get(parent.0) {
-            let mut drag_plane_bundle = DragPlaneBundle::new(point.0, Vec3::Z);
-            drag_plane_bundle.selectable.element = e;
-
-            if let Ok(location) = locations.get(parent.0) {
-                commands.entity(e).insert(InspectFor { entity: location });
+pub fn update_location_visual_cues(
+    mut commands: Commands,
+    billboards: Query<(Entity, &ChildOf), With<BillboardMarker>>,
+    points: Query<&Point<Entity>>,
+    locations: Query<Entity, With<LocationTags>>,
+    changed_locations: Query<
+        &BillboardMeshes,
+        Or<(Changed<Point<Entity>>, Changed<BillboardMeshes>)>,
+    >,
+) {
+    // Updates billboards on newly spawned or moved locations
+    for meshes in changed_locations {
+        [
+            meshes.base,
+            meshes.charging,
+            meshes.holding,
+            meshes.parking,
+            meshes.empty_billboard,
+        ]
+        .map(|mesh| {
+            if let Some(e) = mesh {
+                let Ok((bb_entity, parent)) = billboards.get(e) else {
+                    warn!("could not find billboard");
+                    return;
+                };
+                update_billboard_visual_cues(&mut commands, bb_entity, parent, points, locations);
             }
+        });
+    }
+}
 
-            commands.entity(e).insert(drag_plane_bundle);
+fn update_billboard_visual_cues(
+    commands: &mut Commands,
+    e: Entity,
+    parent: &ChildOf,
+    points: Query<&Point<Entity>>,
+    locations: Query<Entity, With<LocationTags>>,
+) {
+    commands.entity(e).insert(VisualCue::no_outline());
+
+    if let Ok(point) = points.get(parent.0) {
+        let mut drag_plane_bundle = DragPlaneBundle::new(point.0, Vec3::Z);
+        drag_plane_bundle.selectable.element = e;
+
+        if let Ok(location) = locations.get(parent.0) {
+            commands.entity(e).insert(InspectFor { entity: location });
+            let mut drag_plane_bundle = DragPlaneBundle::new(point.0, Vec3::Z);
+            drag_plane_bundle.selectable.element = location;
+
+            commands.entity(location).insert(drag_plane_bundle);
         }
+
+        commands.entity(e).insert(drag_plane_bundle);
     }
 }
 
@@ -65,8 +111,8 @@ fn new_billboard_position(billboard_vec: Vec3, camera_vec: Vec3) -> Vec3 {
 }
 
 pub fn update_billboard_location(
-    query_mesh: Query<(&mut Transform, &BillboardMarker), With<BillboardMarker>>,
-    query_cameras: Query<(&Projection, &GlobalTransform), Without<BillboardMarker>>,
+    query_mesh: Query<(&mut Transform, &BillboardMarker)>,
+    query_cameras: Query<(&Projection, &GlobalTransform)>,
     active_camera: ActiveCameraQuery,
 ) {
     let Ok(active_camera_entity) = active_camera_maybe(&active_camera) else {
@@ -119,10 +165,7 @@ pub fn update_billboard_hover_visualization(
             &BillboardMarker,
             &mut MeshMaterial3d<StandardMaterial>,
         ),
-        (
-            Or<(Changed<Hovered>, Changed<Selected>)>,
-            With<BillboardMarker>,
-        ),
+        Or<(Changed<Hovered>, Changed<Selected>)>,
     >,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut parents: Query<

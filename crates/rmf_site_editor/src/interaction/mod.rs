@@ -28,9 +28,6 @@ pub use anchor::*;
 pub mod assets;
 pub use assets::*;
 
-pub mod billboard;
-pub use billboard::*;
-
 use rmf_site_camera::plugins::CameraSetupPlugin;
 
 pub mod category_visibility;
@@ -53,6 +50,9 @@ pub use lift::*;
 
 pub mod light;
 pub use light::*;
+
+pub mod location;
+pub use location::*;
 
 pub mod model;
 pub use model::*;
@@ -201,6 +201,7 @@ impl Plugin for InteractionPlugin {
                     update_outline_visualization.after(SelectionServiceStages::Select),
                     update_highlight_visualization.after(SelectionServiceStages::Select),
                     update_cursor_hover_visualization.after(SelectionServiceStages::Select),
+                    update_location_visual_cues.after(SelectionServiceStages::Select),
                     update_gizmo_click_start.after(SelectionServiceStages::Select),
                     update_gizmo_release,
                     update_drag_motions
