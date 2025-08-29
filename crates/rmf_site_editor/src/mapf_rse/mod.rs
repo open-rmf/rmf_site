@@ -15,11 +15,7 @@
  *
 */
 
-use bevy::{
-    ecs::hierarchy::ChildOf,
-    prelude::*,
-    tasks::{futures::check_ready, Task, TaskPool},
-};
+use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 use std::{
     collections::{BTreeMap, HashMap},
     fmt::Debug,
@@ -28,16 +24,19 @@ use std::{
 
 use crate::{
     color_picker::ColorPicker,
+    layers::ZLayer,
     occupancy::{CalculateGridRequest, Cell, Grid},
     site::{
-        Affiliation, Change, CircleCollision, CurrentLevel, DifferentialDrive, GoToPlace, Group,
-        LocationTags, ModelMarker, NameInSite, Point, Pose, Robot,
+        line_stroke_transform, Affiliation, Change, CircleCollision, CurrentLevel,
+        DifferentialDrive, GoToPlace, Group, LocationTags, ModelMarker, Point, Pose, Robot,
+        SiteAssets,
     },
     CurrentWorkspace,
 };
 use mapf::negotiation::*;
 use rmf_site_format::{NameOfSite, Original};
 
+use mapf::motion::{se2::WaypointSE2, TimeCmp};
 use mapf::negotiation::{Agent, Obstacle, Scenario as MapfScenario};
 
 pub mod debug_panel;
@@ -51,7 +50,8 @@ pub struct NegotiationPlugin;
 
 impl Plugin for NegotiationPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<NegotiationParams>()
+        app.add_event::<SetPathAllVisibleRequest>()
+            .init_resource::<NegotiationParams>()
             .init_resource::<NegotiationDebugData>()
             .init_resource::<DebuggerSettings>()
             .add_plugins(NegotiationDebugPlugin::default())
@@ -69,8 +69,9 @@ impl Plugin for NegotiationPlugin {
                 (
                     handle_changed_debug_goal,
                     handle_changed_collision,
-                    handle_removed_plan_info,
                     handle_changed_plan_info,
+                    handle_removed_plan_info,
+                    handle_set_path_all_visible,
                 ),
             );
     }
@@ -78,6 +79,9 @@ impl Plugin for NegotiationPlugin {
 
 #[derive(Event)]
 pub struct NegotiationRequest;
+
+#[derive(Event)]
+pub struct SetPathAllVisibleRequest;
 
 // Algorithm-specific parameters
 #[derive(Debug, Clone, Resource)]
@@ -96,6 +100,10 @@ impl Default for NegotiationParams {
 #[derive(Resource)]
 pub struct NegotiationDebugData {
     pub time: f32,
+    pub start_pointers: Vec<usize>,
+    pub trajectory_lengths: Vec<usize>,
+    pub circle_entities: Vec<Entity>,
+    pub rectangle_entities: Vec<Entity>,
 }
 
 impl NegotiationDebugData {
@@ -119,7 +127,13 @@ impl Default for DebuggerSettings {
 
 impl Default for NegotiationDebugData {
     fn default() -> Self {
-        Self { time: 0.0 }
+        Self {
+            time: 0.0,
+            start_pointers: Vec::new(),
+            trajectory_lengths: Vec::new(),
+            circle_entities: Vec::new(),
+            rectangle_entities: Vec::new(),
+        }
     }
 }
 
@@ -142,7 +156,7 @@ fn bits_string_to_entity(bits_string: &str) -> Entity {
     Entity::from_bits(bits)
 }
 
-fn name_map_to_entity_map(name_map: HashMap<usize, String>) -> HashMap<usize, Entity> {
+fn name_map_to_entity_map(name_map: &HashMap<usize, String>) -> HashMap<usize, Entity> {
     let mut entity_id_map = HashMap::new();
     for (k, robot_entity_str) in name_map.iter() {
         let robot_entity = bits_string_to_entity(robot_entity_str);
@@ -157,6 +171,34 @@ fn conflicts_map_to_vec(conflicts_map: HashMap<String, String>) -> Vec<(Entity, 
         .into_iter()
         .map(|(a, b)| (bits_string_to_entity(&a), bits_string_to_entity(&b)))
         .collect()
+}
+
+fn get_robot_z_from_time(t: f32, longest_plan_duration_s: f32) -> f32 {
+    let mut z = ZLayer::RobotPath.to_z();
+    if let Some(next_z_layer) = ZLayer::RobotPath.next() {
+        z += (1.0 - (t / longest_plan_duration_s))
+            * ZLayer::get_z_offset(ZLayer::RobotPath, next_z_layer);
+    } else {
+        error!("No Z-layer after robot path!");
+    }
+    z
+}
+
+fn get_start_pointers_from_trajectory_lengths(trajectory_lengths: &Vec<usize>) -> Vec<usize> {
+    let mut start_pointers = Vec::new();
+    start_pointers.push(0);
+    if trajectory_lengths.len() <= 1 {
+        return start_pointers;
+    }
+    let mut num_total_waypoint_pairs = 0;
+    for i in 0..trajectory_lengths.len() - 1 {
+        // One trajectory contains N mesh entities
+        // where N is trajectory length - 1, e.g. number of waypoint pairs in a trajectory
+        let num_waypoint_pairs = trajectory_lengths[i] - 1;
+        num_total_waypoint_pairs += num_waypoint_pairs;
+        start_pointers.push(num_total_waypoint_pairs);
+    }
+    start_pointers
 }
 
 fn handle_start_negotiation(
@@ -220,6 +262,8 @@ fn handle_start_negotiation(
             warn!("Negotiation requested while another negotiation is in progress");
             return;
         }
+
+        info!("Removing MAPF Debug Info");
         commands.entity(site).remove::<MAPFDebugInfo>();
     };
 
@@ -290,13 +334,10 @@ fn handle_start_negotiation(
     let queue_length_limit = negotiation_params.queue_length_limit;
 
     // Execute asynchronously
-    let new_plan_info = MAPFDebugInfo::InProgress {
+    commands.entity(site).insert(MAPFDebugInfo::InProgress {
         start_time: Instant::now(),
-        task: TaskPool::new()
-            .spawn_local(async move { negotiate(&scenario, Some(queue_length_limit)) }),
-    };
-
-    commands.entity(site).insert(new_plan_info);
+        task: negotiate(&scenario, Some(queue_length_limit)),
+    });
 }
 
 fn handle_completed_negotiation(
@@ -304,91 +345,85 @@ fn handle_completed_negotiation(
     mut debug_data: ResMut<NegotiationDebugData>,
     open_sites: Query<Entity, With<NameOfSite>>,
     current_workspace: Res<CurrentWorkspace>,
-    mut mapf_info: Query<&mut MAPFDebugInfo>,
+    mapf_info: Query<&MAPFDebugInfo>,
 ) {
     let Some(site) = current_workspace.to_site(&open_sites) else {
         return;
     };
 
-    let Some(mut plan_info) = mapf_info.get_mut(site).ok() else {
+    let Some(plan_info) = mapf_info.get(site).ok() else {
         return;
     };
 
-    let MAPFDebugInfo::InProgress {
-        start_time,
-        ref mut task,
-    } = *plan_info
-    else {
+    let MAPFDebugInfo::InProgress { start_time, task } = plan_info else {
         return;
     };
 
-    if let Some(result) = check_ready(task) {
-        let elapsed_time = start_time.elapsed();
+    let elapsed_time = start_time.elapsed();
 
-        let Some(site) = current_workspace.to_site(&open_sites) else {
-            return;
-        };
+    let Some(site) = current_workspace.to_site(&open_sites) else {
+        return;
+    };
 
-        match result {
-            Ok((solution, negotiation_history, name_map)) => {
-                let longest_plan_duration_s = if let Some(max_duration_s) = solution
-                    .proposals
-                    .iter()
-                    .map(|proposal| {
-                        if let Some(last_waypt) = proposal.1.meta.trajectory.last() {
-                            last_waypt.time.duration_from_zero().as_secs_f32()
-                        } else {
-                            error!("Trajectory is empty, setting trajectory duration to 0s!");
-                            0.0
-                        }
-                    })
-                    .reduce(f32::max)
-                {
-                    max_duration_s
-                } else {
-                    error!("Solution proposals are empty, setting longest plan duration to 0s!");
-                    0.0
-                };
-
-                debug_data.reset();
-                commands.entity(site).insert(MAPFDebugInfo::Success {
-                    longest_plan_duration_s,
-                    elapsed_time,
-                    solution,
-                    entity_id_map: name_map_to_entity_map(name_map),
-                    negotiation_history,
-                });
-            }
-            Err(err) => {
-                let mut negotiation_history = Vec::new();
-                let mut entity_id_map = HashMap::new();
-                let mut error_message = Some(err.to_string());
-                let mut conflicts = Vec::new();
-
-                match err {
-                    NegotiationError::PlanningImpossible(msg) => {
-                        if let Some(err_str) = error_message {
-                            error_message = Some([err_str, msg].join(" "));
-                        }
+    match task {
+        Ok((solution, negotiation_history, name_map)) => {
+            let longest_plan_duration_s = if let Some(max_duration_s) = solution
+                .proposals
+                .iter()
+                .map(|proposal| {
+                    if let Some(last_waypt) = proposal.1.meta.trajectory.last() {
+                        last_waypt.time.duration_from_zero().as_secs_f32()
+                    } else {
+                        error!("Trajectory is empty, setting trajectory duration to 0s!");
+                        0.0
                     }
-                    NegotiationError::ConflictingEndpoints(conflicts_map) => {
-                        conflicts = conflicts_map_to_vec(conflicts_map);
-                    }
-                    NegotiationError::PlanningFailed((neg_history, name_map)) => {
-                        negotiation_history = neg_history;
-                        entity_id_map = name_map_to_entity_map(name_map);
+                })
+                .reduce(f32::max)
+            {
+                max_duration_s
+            } else {
+                error!("Solution proposals are empty, setting longest plan duration to 0s!");
+                0.0
+            };
+
+            debug_data.reset();
+            commands.entity(site).insert(MAPFDebugInfo::Success {
+                longest_plan_duration_s,
+                elapsed_time,
+                solution: solution.clone(),
+                entity_id_map: name_map_to_entity_map(name_map),
+                negotiation_history: negotiation_history.clone(),
+            });
+        }
+        Err(err) => {
+            let mut negotiation_history = Vec::new();
+            let mut entity_id_map = HashMap::new();
+            let mut error_message = Some(err.to_string());
+            let mut conflicts = Vec::new();
+
+            match err {
+                NegotiationError::PlanningImpossible(msg) => {
+                    if let Some(err_str) = error_message {
+                        error_message = Some([err_str, msg.to_string()].join(" "));
                     }
                 }
-
-                commands.entity(site).insert(MAPFDebugInfo::Failed {
-                    error_message,
-                    conflicts,
-                    negotiation_history,
-                    entity_id_map,
-                });
+                NegotiationError::ConflictingEndpoints(conflicts_map) => {
+                    conflicts = conflicts_map_to_vec(conflicts_map.clone());
+                }
+                NegotiationError::PlanningFailed((neg_history, name_map)) => {
+                    negotiation_history = neg_history.to_vec();
+                    entity_id_map = name_map_to_entity_map(name_map);
+                }
             }
-        };
-    }
+
+            commands.entity(site).insert(MAPFDebugInfo::Failed {
+                error_message,
+                conflicts,
+                negotiation_history,
+                entity_id_map,
+            });
+        }
+    };
 }
 
 fn handle_changed_debug_goal(
@@ -437,50 +472,226 @@ fn handle_changed_collision(
 
 fn handle_changed_plan_info(
     changed_plan_info: Query<&MAPFDebugInfo, Changed<MAPFDebugInfo>>,
-    robots: Query<(Entity, &Pose, Option<&Original<Pose>>), With<Robot>>,
+    robots: Query<(Entity, &Affiliation<Entity>, &Pose, Option<&Original<Pose>>), With<Robot>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     robot_debug_materials: Query<&DebugMaterial, With<Robot>>,
     mut commands: Commands,
     mut change_pose: EventWriter<Change<Pose>>,
+    mut debug_data: ResMut<NegotiationDebugData>,
+    site_assets: Res<SiteAssets>,
+    current_level: Res<CurrentLevel>,
+    robot_materials: Query<&DebugMaterial, With<Robot>>,
+    robot_descriptions: Query<&CircleCollision, (With<ModelMarker>, With<Group>)>,
+    mut path_meshes: Query<
+        (
+            &mut Visibility,
+            &mut MeshMaterial3d<StandardMaterial>,
+            &mut Transform,
+        ),
+        With<PathVisualMarker>,
+    >,
 ) {
-    for plan_info in changed_plan_info.iter() {
-        match plan_info {
-            MAPFDebugInfo::Success {
-                longest_plan_duration_s: _,
-                elapsed_time: _,
-                solution: _,
-                entity_id_map,
-                negotiation_history: _,
-            } => {
-                for (_, robot_entity) in entity_id_map.iter() {
-                    // Inserts original poses for each robot if no original pose
-                    if let Some((_, pose, opose)) = robots.get(*robot_entity).ok() {
-                        if opose.is_none() {
-                            commands
-                                .entity(*robot_entity)
-                                .insert(Original::<Pose>(*pose));
-                        }
-                    }
+    let Some(level_entity) = current_level.0 else {
+        return;
+    };
+    let Some(plan_info) = changed_plan_info.iter().next() else {
+        return;
+    };
 
+    info!("Plan info changed");
+    match plan_info {
+        MAPFDebugInfo::Success {
+            longest_plan_duration_s,
+            elapsed_time: _,
+            solution,
+            entity_id_map,
+            negotiation_history: _,
+        } => {
+            debug_data.trajectory_lengths.clear();
+
+            for proposal in solution.proposals.iter() {
+                debug_data
+                    .trajectory_lengths
+                    .push(proposal.1.meta.trajectory.len());
+            }
+
+            for (mut visibility, _, _) in path_meshes.iter_mut() {
+                *visibility = Visibility::Hidden;
+            }
+
+            debug_data.start_pointers =
+                get_start_pointers_from_trajectory_lengths(&debug_data.trajectory_lengths);
+
+            for (i, proposal) in solution.proposals.iter().enumerate() {
+                let Some(robot_entity) = entity_id_map.get(&proposal.0) else {
+                    error!("Unable to query for robot entity from entity id map");
+                    continue;
+                };
+                let Some((_, affiliation, _, _)) = robots.get(*robot_entity).ok() else {
+                    warn!("Unable to query for robot entity's affiliation");
+                    continue;
+                };
+                let Some(description_entity) = affiliation.0 else {
+                    warn!("Unable to query for robot's model description entity");
+                    continue;
+                };
+
+                let Some(collision_model) = robot_descriptions.get(description_entity).ok() else {
+                    error!("No circle collision model found for robot's model description");
+                    continue;
+                };
+
+                let material = if let Some(material) = robot_materials.get(*robot_entity).ok() {
+                    material.clone()
+                } else {
+                    let material = DebugMaterial {
+                        handle: materials.add(StandardMaterial {
+                            base_color: Color::srgb_from_array(ColorPicker::get_color()),
+                            unlit: true,
+                            ..Default::default()
+                        }),
+                    };
+
+                    let material_copy = material.clone();
                     // Inserts DebugMaterial component for each robot if don't exist
                     if robot_debug_materials.get(*robot_entity).ok().is_none() {
-                        commands.entity(*robot_entity).insert(DebugMaterial {
-                            handle: materials.add(StandardMaterial {
-                                base_color: Color::srgb_from_array(ColorPicker::get_color()),
-                                unlit: true,
-                                ..Default::default()
-                            }),
-                        });
+                        commands.entity(*robot_entity).insert(material);
+                    }
+                    material_copy
+                };
+
+                let waypoint_to_xyz = |tf: TimeCmp<WaypointSE2>| {
+                    let time = tf.time.as_secs_f32();
+                    Vec3::new(
+                        tf.position.translation.x as f32,
+                        tf.position.translation.y as f32,
+                        get_robot_z_from_time(time, *longest_plan_duration_s),
+                    )
+                };
+
+                let start_ptr = debug_data.start_pointers[i];
+                for (waypt_id, slice) in proposal.1.meta.trajectory.windows(2).enumerate() {
+                    let start_pos = waypoint_to_xyz(slice[0]);
+                    let end_pos = waypoint_to_xyz(slice[1]);
+
+                    let radius = collision_model.radius;
+
+                    let rectangle_tf = line_stroke_transform(&start_pos, &end_pos, radius * 2.0);
+                    let start_circle_tf = Transform::from_translation(start_pos)
+                        .with_scale([radius, radius, 1.0].into());
+                    let end_circle_tf = Transform::from_translation(end_pos)
+                        .with_scale([radius, radius, 1.0].into());
+
+                    let id = start_ptr + waypt_id;
+
+                    if id < debug_data.rectangle_entities.len() {
+                        let mut change_material_and_tf = |mesh_entity_id, tf_to| {
+                            if let Some((mut visibility, mut material_mut, mut tf)) =
+                                path_meshes.get_mut(mesh_entity_id).ok()
+                            {
+                                *material_mut = MeshMaterial3d(material.handle.clone());
+                                *tf = tf_to;
+                                *visibility = Visibility::Visible;
+                            }
+                        };
+
+                        let rect_entity_id = debug_data.rectangle_entities[id];
+                        let start_circle_entity_id = debug_data.circle_entities[2 * id];
+                        let end_circle_entity_id = debug_data.circle_entities[2 * id + 1];
+
+                        change_material_and_tf(rect_entity_id, rectangle_tf);
+                        change_material_and_tf(start_circle_entity_id, start_circle_tf);
+                        change_material_and_tf(end_circle_entity_id, end_circle_tf);
+                    } else {
+                        // not enough entities, have to insert new ones
+                        // Spawns a rectangle connecting start and end pos
+                        let rectangle_entity_id = commands
+                            .spawn((
+                                Mesh3d(site_assets.robot_path_rectangle_mesh.clone()),
+                                MeshMaterial3d(material.handle.clone()),
+                                rectangle_tf,
+                                Visibility::default(),
+                            ))
+                            .insert(PathVisualMarker)
+                            .insert(ChildOf(level_entity))
+                            .id();
+
+                        // Spawns two circles, at start and end pos
+                        let mut spawn_circle_fn = |tf| {
+                            let id = commands
+                                .spawn((
+                                    Mesh3d(site_assets.robot_path_circle_mesh.clone()),
+                                    MeshMaterial3d(material.handle.clone()),
+                                    tf,
+                                    Visibility::default(),
+                                ))
+                                .insert(PathVisualMarker)
+                                .insert(ChildOf(level_entity))
+                                .id();
+                            id
+                        };
+
+                        let start_circle_entity_id = spawn_circle_fn(start_circle_tf);
+                        let end_circle_entity_id = spawn_circle_fn(end_circle_tf);
+
+                        debug_data.rectangle_entities.push(rectangle_entity_id);
+                        debug_data.circle_entities.push(start_circle_entity_id);
+                        debug_data.circle_entities.push(end_circle_entity_id);
                     }
                 }
             }
-            MAPFDebugInfo::InProgress { .. } => {}
-            MAPFDebugInfo::Failed { .. } => {
-                for (robot_entity, _, robot_opose) in robots.iter() {
-                    if let Some(opose) = robot_opose {
-                        change_pose.write(Change::new(opose.0, robot_entity));
-                        commands.entity(robot_entity).remove::<Original<Pose>>();
+
+            for (_, robot_entity) in entity_id_map.iter() {
+                // Inserts original poses for each robot if no original pose
+                if let Some((_, _, pose, opose)) = robots.get(*robot_entity).ok() {
+                    if opose.is_none() {
+                        commands
+                            .entity(*robot_entity)
+                            .insert(Original::<Pose>(*pose));
                     }
+                }
+            }
+        }
+        MAPFDebugInfo::InProgress { .. } => {}
+        MAPFDebugInfo::Failed { .. } => {
+            for (robot_entity, _, _, robot_opose) in robots.iter() {
+                if let Some(opose) = robot_opose {
+                    change_pose.write(Change::new(opose.0, robot_entity));
+                    commands.entity(robot_entity).remove::<Original<Pose>>();
+                }
+            }
+        }
+    }
+}
+
+fn handle_set_path_all_visible(
+    set_path_visible_request: EventReader<SetPathAllVisibleRequest>,
+    mut path_mesh_visibilities: Query<&mut Visibility, With<PathVisualMarker>>,
+    mut debug_data: ResMut<NegotiationDebugData>,
+) {
+    if !set_path_visible_request.is_empty() {
+        // Reset all start pointers
+        debug_data.start_pointers =
+            get_start_pointers_from_trajectory_lengths(&debug_data.trajectory_lengths);
+        let total_active_path_mesh_entities: usize =
+            debug_data.trajectory_lengths.iter().sum::<usize>()
+                - debug_data.trajectory_lengths.len();
+        for i in 0..debug_data.rectangle_entities.len() {
+            let visibility = if i < total_active_path_mesh_entities {
+                Visibility::Visible
+            } else {
+                Visibility::Hidden
+            };
+
+            let mesh_entities = [
+                debug_data.rectangle_entities[i],
+                debug_data.circle_entities[2 * i],
+                debug_data.circle_entities[2 * i + 1],
+            ];
+
+            for mesh_entity in mesh_entities {
+                if let Some(mut visibility_mut) = path_mesh_visibilities.get_mut(mesh_entity).ok() {
+                    *visibility_mut = visibility;
                 }
             }
         }
@@ -488,13 +699,12 @@ fn handle_changed_plan_info(
 }
 
 fn handle_removed_plan_info(
-    path_visuals: Query<Entity, With<PathVisualMarker>>,
+    mut path_visibilities: Query<&mut Visibility, With<PathVisualMarker>>,
     mut removed_plan_info: RemovedComponents<MAPFDebugInfo>,
-    mut commands: Commands,
 ) {
     if !removed_plan_info.is_empty() {
-        for e in path_visuals.iter() {
-            commands.entity(e).despawn();
+        for mut visibility in path_visibilities.iter_mut() {
+            *visibility = Visibility::Hidden;
         }
         removed_plan_info.clear();
     }

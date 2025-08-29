@@ -32,7 +32,7 @@ use rmf_site_egui::{
     MenuEvent, MenuItem, PanelWidget, PanelWidgetInput, ToolMenu, TryShowWidgetWorld, Widget,
     WidgetSystem,
 };
-use rmf_site_format::{Task, TaskKind};
+use rmf_site_format::{NameInSite, Task, TaskKind};
 
 #[derive(Default)]
 pub struct NegotiationDebugPlugin;
@@ -74,7 +74,7 @@ impl Default for DebugGoal {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct DebugMaterial {
     pub handle: Handle<StandardMaterial>,
 }
@@ -199,7 +199,7 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
     }
 
     fn show_robot_goals(&mut self, ui: &mut Ui) {
-        for (robot_entity, robot_name, robot_goal) in self.robots.iter_mut() {
+        for (robot_entity, robot_name, robot_goal) in self.robots.iter_mut().sort::<&NameInSite>() {
             if let Some(mut goal) = robot_goal {
                 ui.horizontal(|ui| {
                     ui.label(format!("{} goal: ", robot_name.0));
@@ -611,6 +611,7 @@ fn handle_debug_panel_changed(
     mut change_pose: EventWriter<Change<Pose>>,
     mut change_plan: EventWriter<NegotiationRequest>,
     mut path_visibilities: Query<&mut Visibility, With<PathVisualMarker>>,
+    mut set_all_paths_visible: EventWriter<SetPathAllVisibleRequest>,
 ) {
     if mapf_debug_window.is_changed() {
         if mapf_debug_window.show {
@@ -630,10 +631,7 @@ fn handle_debug_panel_changed(
                 change_plan.write(NegotiationRequest);
             }
 
-            // Make all paths visible
-            for mut v in path_visibilities.iter_mut() {
-                *v = Visibility::Visible;
-            }
+            set_all_paths_visible.write(SetPathAllVisibleRequest);
         } else {
             // If debug window is closed, move robot to original pose
             for (robot_entity, _, robot_opose) in robots.iter() {
