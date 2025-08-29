@@ -66,18 +66,8 @@ pub fn app_ui() -> Element {
             }
             div {
                 id: "cube-rotation",
-                label { "rotation:" }
-                input {
-                    r#type: "number",
-                    min: "0.0",
-                    max: "10.0",
-                    step: "0.1",
-                    value: cube_transform.read().read_component().map(|n| format!("{:#}", n.rotation)).unwrap_or("???".to_string()),
-                    oninput: move |event| {
-                        if let Ok(speed) = event.value().parse::<f32>() {
-                            cube_translation_speed.peek().set_resource(CubeTranslationSpeed(speed));
-                        }
-                    }
+                label {
+                    {"Cube Rotation: ".to_string() + &cube_transform.read().read_component().map(|n| format!("{:#}", n.rotation)).unwrap_or("???".to_string())}
                 }
             }
             div {

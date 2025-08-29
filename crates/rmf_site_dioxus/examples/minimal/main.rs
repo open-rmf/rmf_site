@@ -1,4 +1,4 @@
-//! world for testing dioxus integration.
+//! minimal example showing each of the hooks
 
 use bevy::prelude::*;
 use bevy_dioxus_sync::plugins::DioxusPlugin;

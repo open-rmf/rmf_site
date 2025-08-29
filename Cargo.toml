@@ -67,10 +67,10 @@ anyhow = "*"
 bevy_egui = "0.34" # Ensure this matches other downstream crate's bevy_egui version (E.G: bevy-inspector-egui) before updating.
 
 ### update these once dioxus 0.7 comes out.
-bevy_dioxus_sync = {git = "https://github.com/rydb/bevy_dioxus_sync", rev = "b127232"}
-dioxus-native = {git = "https://github.com/DioxusLabs/dioxus", rev = "ed568be4"}
-dioxus-native-dom = {git = "https://github.com/DioxusLabs/dioxus", rev = "ed568be4"}
-dioxus = {git = "https://github.com/DioxusLabs/dioxus", rev = "ed568be4"}
+bevy_dioxus_sync = {git = "https://github.com/rydb/bevy_dioxus_sync", rev = "fca69a2"}
+dioxus-native = {git = "https://github.com/DioxusLabs/dioxus", rev = "80731da"}
+dioxus-native-dom = {git = "https://github.com/DioxusLabs/dioxus", rev = "80731da"}
+dioxus = {git = "https://github.com/DioxusLabs/dioxus", rev = "80731da"}
 ###
 
 bevy-inspector-egui = "0.31"
