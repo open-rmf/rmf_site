@@ -69,6 +69,7 @@ impl Plugin for CameraSetupPlugin {
             .init_resource::<CursorCommand>()
             .init_resource::<KeyboardCommand>()
             .init_resource::<HeadlightToggle>()
+            .init_resource::<PanToElement>()
             .init_resource::<CameraConfig>()
             .init_resource::<OrbitMarkerMaterial>()
             .init_resource::<PickMarkerMesh>()
@@ -93,6 +94,6 @@ impl Plugin for CameraSetupPlugin {
                 )
                     .chain(),
             )
-            .add_systems(Update, update_orbit_center_marker);
+            .add_systems(Update, (update_orbit_center_marker, focus_camera_on_target));
     }
 }

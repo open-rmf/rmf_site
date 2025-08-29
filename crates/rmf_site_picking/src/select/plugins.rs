@@ -59,6 +59,7 @@ where
         .init_resource::<SelectionBlockers>()
         .init_resource::<Selection>()
         .init_resource::<Hovering>()
+        .add_event::<DoubleClickSelect>()
         .add_event::<Select>()
         .add_event::<Hover>()
         .add_event::<RunSelector>()
@@ -79,7 +80,10 @@ where
                     .in_set(SelectionServiceStages::SelectFlush),
             ),
         )
-        .add_systems(Update, make_selectable_entities_pickable);
+        .add_systems(
+            Update,
+            (make_selectable_entities_pickable, send_double_click_event),
+        );
         let default_selection_service = app.world().get_resource::<T>();
         let Some(default_selection_service) = default_selection_service else {
             panic!(
