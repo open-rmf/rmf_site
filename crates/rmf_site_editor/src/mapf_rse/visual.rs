@@ -62,8 +62,7 @@ pub fn visualise_selected_node(
     mapf_info: Query<&MAPFDebugInfo>,
     debugger_settings: Res<DebuggerSettings>,
     mapf_debug_window: Res<MAPFDebugDisplay>,
-    mut visibilities: Query<&mut Visibility, With<PathVisualMarker>>,
-    mut set_all_paths_visible: EventWriter<SetPathAllVisibleRequest>,
+    mut path_mesh_visibilities: Query<&mut Visibility, With<PathVisualMarker>>,
 ) {
     if !mapf_debug_window.show {
         return;
@@ -92,7 +91,7 @@ pub fn visualise_selected_node(
     debug_data.time += debugger_settings.playback_speed * now.delta_secs();
 
     if debug_data.time > *longest_plan_duration_s {
-        set_all_paths_visible.write(SetPathAllVisibleRequest);
+        set_path_all_visible(&mut debug_data, &mut path_mesh_visibilities);
         debug_data.time = 0.0;
         return;
     }
@@ -117,7 +116,6 @@ pub fn visualise_selected_node(
             .compute_position(&mapf::motion::TimePoint::from_secs_f32(time_now))
         {
             let robot_yaw = crate::ops::atan2(interp.rotation.im as f32, interp.rotation.re as f32);
-
             change_pose.write(Change::new(
                 Pose {
                     trans: [
@@ -153,7 +151,7 @@ pub fn visualise_selected_node(
             let start_circle_entity = debug_data.circle_entities[2 * cur_ptr];
             let end_circle_entity = debug_data.circle_entities[2 * cur_ptr + 1];
             for mesh_entity in [*rect_entity, start_circle_entity, end_circle_entity] {
-                if let Some(mut visibility_mut) = visibilities.get_mut(mesh_entity).ok() {
+                if let Some(mut visibility_mut) = path_mesh_visibilities.get_mut(mesh_entity).ok() {
                     *visibility_mut = Visibility::Hidden;
                 }
             }

@@ -25,7 +25,7 @@ use std::{
 use crate::{
     color_picker::ColorPicker,
     layers::ZLayer,
-    occupancy::{CalculateGridRequest, Cell, Grid},
+    occupancy::{CalculateGridRequest, Cell, Grid, OccupancyVisualMarker},
     site::{
         line_stroke_transform, Affiliation, Change, CircleCollision, CurrentLevel,
         DifferentialDrive, GoToPlace, Group, LocationTags, ModelMarker, Point, Pose, Robot,
@@ -50,18 +50,16 @@ pub struct NegotiationPlugin;
 
 impl Plugin for NegotiationPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<SetPathAllVisibleRequest>()
-            .init_resource::<NegotiationParams>()
+        app.init_resource::<NegotiationParams>()
             .init_resource::<NegotiationDebugData>()
             .init_resource::<DebuggerSettings>()
             .add_plugins(NegotiationDebugPlugin::default())
             .add_systems(
                 Update,
                 (
-                    handle_start_negotiation,
+                    handle_start_negotiation.before(visualise_selected_node),
                     handle_completed_negotiation,
-                    // Ensures removal of MAPFDebugInfo takes effect before visualizing solution
-                    visualise_selected_node.after(handle_start_negotiation),
+                    visualise_selected_node.before(handle_debug_panel_changed),
                 ),
             )
             .add_systems(
@@ -71,7 +69,6 @@ impl Plugin for NegotiationPlugin {
                     handle_changed_collision,
                     handle_changed_plan_info,
                     handle_removed_plan_info,
-                    handle_set_path_all_visible,
                 ),
             );
     }
@@ -79,9 +76,6 @@ impl Plugin for NegotiationPlugin {
 
 #[derive(Event)]
 pub struct NegotiationRequest;
-
-#[derive(Event)]
-pub struct SetPathAllVisibleRequest;
 
 // Algorithm-specific parameters
 #[derive(Debug, Clone, Resource)]
@@ -109,6 +103,8 @@ pub struct NegotiationDebugData {
 impl NegotiationDebugData {
     fn reset(&mut self) {
         self.time = 0.0;
+        self.trajectory_lengths.clear();
+        self.start_pointers.clear();
     }
 }
 
@@ -225,6 +221,7 @@ fn handle_start_negotiation(
     mapf_info: Query<&mut MAPFDebugInfo>,
     mut commands: Commands,
     mut calculate_grid: EventWriter<CalculateGridRequest>,
+    mut debug_data: ResMut<NegotiationDebugData>,
 ) {
     let Some(site) = current_workspace.to_site(&open_sites) else {
         return;
@@ -250,6 +247,7 @@ fn handle_start_negotiation(
     });
 
     negotiation_request.clear();
+    debug_data.reset();
 
     let Some(grid) = grid else {
         warn!("No occupancy grid, sending calculate grid request");
@@ -342,7 +340,6 @@ fn handle_start_negotiation(
 
 fn handle_completed_negotiation(
     mut commands: Commands,
-    mut debug_data: ResMut<NegotiationDebugData>,
     open_sites: Query<Entity, With<NameOfSite>>,
     current_workspace: Res<CurrentWorkspace>,
     mapf_info: Query<&MAPFDebugInfo>,
@@ -386,7 +383,6 @@ fn handle_completed_negotiation(
                 0.0
             };
 
-            debug_data.reset();
             commands.entity(site).insert(MAPFDebugInfo::Success {
                 longest_plan_duration_s,
                 elapsed_time,
@@ -507,8 +503,6 @@ fn handle_changed_plan_info(
             entity_id_map,
             negotiation_history: _,
         } => {
-            debug_data.trajectory_lengths.clear();
-
             for proposal in solution.proposals.iter() {
                 debug_data
                     .trajectory_lengths
@@ -585,6 +579,7 @@ fn handle_changed_plan_info(
                     let id = start_ptr + waypt_id;
 
                     if id < debug_data.rectangle_entities.len() {
+                        // reuse existing mesh entities
                         let mut change_material_and_tf = |mesh_entity_id, tf_to| {
                             if let Some((mut visibility, mut material_mut, mut tf)) =
                                 path_meshes.get_mut(mesh_entity_id).ok()
@@ -603,32 +598,31 @@ fn handle_changed_plan_info(
                         change_material_and_tf(start_circle_entity_id, start_circle_tf);
                         change_material_and_tf(end_circle_entity_id, end_circle_tf);
                     } else {
-                        // not enough entities, have to insert new ones
+                        // not enough mesh entities, have to insert new ones
+                        let mut spawn_as_child_and_get_id = |entity| {
+                            commands
+                                .spawn(entity)
+                                .insert(PathVisualMarker)
+                                .insert(ChildOf(level_entity))
+                                .id()
+                        };
+
                         // Spawns a rectangle connecting start and end pos
-                        let rectangle_entity_id = commands
-                            .spawn((
-                                Mesh3d(site_assets.robot_path_rectangle_mesh.clone()),
-                                MeshMaterial3d(material.handle.clone()),
-                                rectangle_tf,
-                                Visibility::default(),
-                            ))
-                            .insert(PathVisualMarker)
-                            .insert(ChildOf(level_entity))
-                            .id();
+                        let rectangle_entity_id = spawn_as_child_and_get_id((
+                            Mesh3d(site_assets.robot_path_rectangle_mesh.clone()),
+                            MeshMaterial3d(material.handle.clone()),
+                            rectangle_tf,
+                            Visibility::default(),
+                        ));
 
                         // Spawns two circles, at start and end pos
                         let mut spawn_circle_fn = |tf| {
-                            let id = commands
-                                .spawn((
-                                    Mesh3d(site_assets.robot_path_circle_mesh.clone()),
-                                    MeshMaterial3d(material.handle.clone()),
-                                    tf,
-                                    Visibility::default(),
-                                ))
-                                .insert(PathVisualMarker)
-                                .insert(ChildOf(level_entity))
-                                .id();
-                            id
+                            spawn_as_child_and_get_id((
+                                Mesh3d(site_assets.robot_path_circle_mesh.clone()),
+                                MeshMaterial3d(material.handle.clone()),
+                                tf,
+                                Visibility::default(),
+                            ))
                         };
 
                         let start_circle_entity_id = spawn_circle_fn(start_circle_tf);
@@ -664,35 +658,31 @@ fn handle_changed_plan_info(
     }
 }
 
-fn handle_set_path_all_visible(
-    set_path_visible_request: EventReader<SetPathAllVisibleRequest>,
-    mut path_mesh_visibilities: Query<&mut Visibility, With<PathVisualMarker>>,
-    mut debug_data: ResMut<NegotiationDebugData>,
+pub fn set_path_all_visible(
+    debug_data: &mut ResMut<NegotiationDebugData>,
+    path_mesh_visibilities: &mut Query<&mut Visibility, With<PathVisualMarker>>,
 ) {
-    if !set_path_visible_request.is_empty() {
-        // Reset all start pointers
-        debug_data.start_pointers =
-            get_start_pointers_from_trajectory_lengths(&debug_data.trajectory_lengths);
-        let total_active_path_mesh_entities: usize =
-            debug_data.trajectory_lengths.iter().sum::<usize>()
-                - debug_data.trajectory_lengths.len();
-        for i in 0..debug_data.rectangle_entities.len() {
-            let visibility = if i < total_active_path_mesh_entities {
-                Visibility::Visible
-            } else {
-                Visibility::Hidden
-            };
+    // Reset all start pointers
+    debug_data.start_pointers =
+        get_start_pointers_from_trajectory_lengths(&debug_data.trajectory_lengths);
+    let total_active_path_mesh_entities: usize =
+        debug_data.trajectory_lengths.iter().sum::<usize>() - debug_data.trajectory_lengths.len();
+    for i in 0..debug_data.rectangle_entities.len() {
+        let visibility = if i < total_active_path_mesh_entities {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
 
-            let mesh_entities = [
-                debug_data.rectangle_entities[i],
-                debug_data.circle_entities[2 * i],
-                debug_data.circle_entities[2 * i + 1],
-            ];
+        let mesh_entities = [
+            debug_data.rectangle_entities[i],
+            debug_data.circle_entities[2 * i],
+            debug_data.circle_entities[2 * i + 1],
+        ];
 
-            for mesh_entity in mesh_entities {
-                if let Some(mut visibility_mut) = path_mesh_visibilities.get_mut(mesh_entity).ok() {
-                    *visibility_mut = visibility;
-                }
+        for mesh_entity in mesh_entities {
+            if let Some(mut visibility_mut) = path_mesh_visibilities.get_mut(mesh_entity).ok() {
+                *visibility_mut = visibility;
             }
         }
     }

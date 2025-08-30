@@ -102,6 +102,7 @@ pub struct NegotiationDebugWidget<'w, 's> {
         Query<'w, 's, (Entity, &'static NameInSite, Option<&'static mut DebugGoal>), With<Robot>>,
     robot_debug_materials: Query<'w, 's, &'static DebugMaterial, With<Robot>>,
     materials: ResMut<'w, Assets<StandardMaterial>>,
+    path_mesh_visibilities: Query<'w, 's, &'static mut Visibility, With<PathVisualMarker>>,
 }
 
 fn negotiation_debug_panel(In(input): In<PanelWidgetInput>, world: &mut World) {
@@ -493,10 +494,18 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
 
         ui.horizontal(|ui| {
             ui.label("Plan time: ");
-            ui.add(egui::Slider::new(
-                &mut self.negotiation_debug_data.time,
-                0.0..=*longest_plan_duration_s,
-            ));
+            if ui
+                .add(egui::Slider::new(
+                    &mut self.negotiation_debug_data.time,
+                    0.0..=*longest_plan_duration_s,
+                ))
+                .changed()
+            {
+                set_path_all_visible(
+                    &mut self.negotiation_debug_data,
+                    &mut self.path_mesh_visibilities,
+                );
+            };
         });
         ui.end_row();
 
@@ -605,13 +614,17 @@ fn handle_debug_panel_visibility(
     }
 }
 
-fn handle_debug_panel_changed(
+pub fn handle_debug_panel_changed(
     mapf_debug_window: Res<MAPFDebugDisplay>,
     mut robots: Query<(Entity, &Pose, Option<&mut Original<Pose>>), With<Robot>>,
     mut change_pose: EventWriter<Change<Pose>>,
     mut change_plan: EventWriter<NegotiationRequest>,
-    mut path_visibilities: Query<&mut Visibility, With<PathVisualMarker>>,
-    mut set_all_paths_visible: EventWriter<SetPathAllVisibleRequest>,
+    mut debug_data: ResMut<NegotiationDebugData>,
+    mut path_mesh_visibilities: Query<&mut Visibility, With<PathVisualMarker>>,
+    mut occ_mesh_visibilities: Query<
+        &mut Visibility,
+        (With<OccupancyVisualMarker>, Without<PathVisualMarker>),
+    >,
 ) {
     if mapf_debug_window.is_changed() {
         if mapf_debug_window.show {
@@ -631,7 +644,12 @@ fn handle_debug_panel_changed(
                 change_plan.write(NegotiationRequest);
             }
 
-            set_all_paths_visible.write(SetPathAllVisibleRequest);
+            set_path_all_visible(&mut debug_data, &mut path_mesh_visibilities);
+
+            // Show all occupancies
+            occ_mesh_visibilities.iter_mut().for_each(|mut o| {
+                *o = Visibility::Visible;
+            });
         } else {
             // If debug window is closed, move robot to original pose
             for (robot_entity, _, robot_opose) in robots.iter() {
@@ -639,10 +657,16 @@ fn handle_debug_panel_changed(
                     change_pose.write(Change::new(opose.0, robot_entity));
                 }
             }
+
             // Hide all paths
-            for mut v in path_visibilities.iter_mut() {
+            path_mesh_visibilities.iter_mut().for_each(|mut v| {
                 *v = Visibility::Hidden;
-            }
+            });
+
+            // Hide all occupancies
+            occ_mesh_visibilities.iter_mut().for_each(|mut o| {
+                *o = Visibility::Hidden;
+            });
         }
     }
 }

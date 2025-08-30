@@ -17,7 +17,7 @@
 
 use crate::{
     layers::ZLayer,
-    mapf_rse::NegotiationRequest,
+    mapf_rse::{MAPFDebugDisplay, NegotiationRequest},
     site::{Category, LevelElevation, NameOfSite, SiteAssets},
 };
 use bevy::{
@@ -59,6 +59,9 @@ impl Default for OccupancyInfo {
         OccupancyInfo { cell_size: 0.1 }
     }
 }
+
+#[derive(Component)]
+pub struct OccupancyVisualMarker;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Cell {
@@ -188,38 +191,6 @@ fn handle_calculate_grid_request(
     mut request: EventReader<CalculateGridRequest>,
     occupancy_info: Res<OccupancyInfo>,
     robots: Query<Entity, With<Robot>>,
-    commands: Commands,
-    bodies: Query<(Entity, &Mesh3d, &Aabb, &GlobalTransform)>,
-    meta: Query<(
-        Option<&ChildOf>,
-        Option<&Category>,
-        Option<&ComputedVisualCue>,
-    )>,
-    child_of: Query<&ChildOf>,
-    levels: Query<Entity, With<LevelElevation>>,
-    sites: Query<(), With<NameOfSite>>,
-    meshes: ResMut<Assets<Mesh>>,
-    assets: Res<SiteAssets>,
-    grids: Query<Entity, With<Grid>>,
-    mut replan: EventWriter<NegotiationRequest>,
-) {
-    if request.read().last().is_some() {
-        let grid = CalculateGrid {
-            cell_size: occupancy_info.cell_size,
-            ignore: robots.iter().collect(),
-            ..default()
-        };
-        calculate_grid(
-            grid, commands, bodies, meta, child_of, levels, sites, meshes, assets, grids,
-        );
-
-        // TODO: (Nielsen) Use bevy impulse workflow
-        replan.write(NegotiationRequest);
-    }
-}
-
-pub fn calculate_grid(
-    calculate_grid: CalculateGrid,
     mut commands: Commands,
     bodies: Query<(Entity, &Mesh3d, &Aabb, &GlobalTransform)>,
     meta: Query<(
@@ -233,6 +204,50 @@ pub fn calculate_grid(
     mut meshes: ResMut<Assets<Mesh>>,
     assets: Res<SiteAssets>,
     grids: Query<Entity, With<Grid>>,
+    mut replan: EventWriter<NegotiationRequest>,
+    mapf_debug_window: Res<MAPFDebugDisplay>,
+) {
+    if request.read().last().is_some() {
+        let grid = CalculateGrid {
+            cell_size: occupancy_info.cell_size,
+            ignore: robots.iter().collect(),
+            ..default()
+        };
+        calculate_grid(
+            &grid,
+            &mut commands,
+            &bodies,
+            &meta,
+            &child_of,
+            &levels,
+            &sites,
+            &mut meshes,
+            &assets,
+            &grids,
+            &mapf_debug_window,
+        );
+
+        // TODO: (Nielsen) Use bevy impulse workflow
+        replan.write(NegotiationRequest);
+    }
+}
+
+pub fn calculate_grid(
+    calculate_grid: &CalculateGrid,
+    commands: &mut Commands,
+    bodies: &Query<(Entity, &Mesh3d, &Aabb, &GlobalTransform)>,
+    meta: &Query<(
+        Option<&ChildOf>,
+        Option<&Category>,
+        Option<&ComputedVisualCue>,
+    )>,
+    child_of: &Query<&ChildOf>,
+    levels: &Query<Entity, With<LevelElevation>>,
+    sites: &Query<(), With<NameOfSite>>,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    assets: &Res<SiteAssets>,
+    grids: &Query<Entity, With<Grid>>,
+    mapf_debug_window: &Res<MAPFDebugDisplay>,
 ) {
     let start_time = Instant::now();
     // let mut occupied: HashSet<Cell> = HashSet::new();
@@ -322,7 +337,7 @@ pub fn calculate_grid(
     let delta = finish_time - start_time;
     info!("Occupancy calculation time: {}", delta.as_secs_f32());
 
-    for grid in &grids {
+    for grid in grids {
         commands.entity(grid).despawn();
     }
 
@@ -336,7 +351,7 @@ pub fn calculate_grid(
         }
     }
 
-    for level in &levels {
+    for level in levels {
         let mut mesh = MeshBuffer::empty();
         let level_occupied = match occupied.remove(&level) {
             Some(o) => o,
@@ -361,15 +376,22 @@ pub fn calculate_grid(
             range,
         };
 
+        let visibility = if mapf_debug_window.show {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
+
         commands.entity(level).with_children(|level| {
             level
                 .spawn((
                     Mesh3d(meshes.add(mesh)),
                     MeshMaterial3d(assets.occupied_material.clone()),
                     Transform::from_translation([0.0, 0.0, ZLayer::OccupancyGrid.to_z()].into()),
-                    Visibility::default(),
+                    visibility,
                 ))
-                .insert(grid);
+                .insert(grid)
+                .insert(OccupancyVisualMarker);
         });
     }
 }
