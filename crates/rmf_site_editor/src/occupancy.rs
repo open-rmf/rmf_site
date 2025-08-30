@@ -17,7 +17,7 @@
 
 use crate::{
     layers::ZLayer,
-    mapf_rse::{MAPFDebugDisplay, NegotiationRequest},
+    mapf_rse::NegotiationRequest,
     site::{Category, LevelElevation, NameOfSite, SiteAssets},
 };
 use bevy::{
@@ -205,7 +205,6 @@ fn handle_calculate_grid_request(
     assets: Res<SiteAssets>,
     grids: Query<Entity, With<Grid>>,
     mut replan: EventWriter<NegotiationRequest>,
-    mapf_debug_window: Res<MAPFDebugDisplay>,
 ) {
     if request.read().last().is_some() {
         let grid = CalculateGrid {
@@ -224,7 +223,6 @@ fn handle_calculate_grid_request(
             &mut meshes,
             &assets,
             &grids,
-            &mapf_debug_window,
         );
 
         // TODO: (Nielsen) Use bevy impulse workflow
@@ -247,7 +245,6 @@ pub fn calculate_grid(
     meshes: &mut ResMut<Assets<Mesh>>,
     assets: &Res<SiteAssets>,
     grids: &Query<Entity, With<Grid>>,
-    mapf_debug_window: &Res<MAPFDebugDisplay>,
 ) {
     let start_time = Instant::now();
     // let mut occupied: HashSet<Cell> = HashSet::new();
@@ -376,19 +373,13 @@ pub fn calculate_grid(
             range,
         };
 
-        let visibility = if mapf_debug_window.show {
-            Visibility::Visible
-        } else {
-            Visibility::Hidden
-        };
-
         commands.entity(level).with_children(|level| {
             level
                 .spawn((
                     Mesh3d(meshes.add(mesh)),
                     MeshMaterial3d(assets.occupied_material.clone()),
                     Transform::from_translation([0.0, 0.0, ZLayer::OccupancyGrid.to_z()].into()),
-                    visibility,
+                    Visibility::default(),
                 ))
                 .insert(grid)
                 .insert(OccupancyVisualMarker);
