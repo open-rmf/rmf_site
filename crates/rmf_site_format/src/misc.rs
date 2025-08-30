@@ -438,7 +438,7 @@ impl From<Transform> for Pose {
 /// The unique name of the site element within its site.
 /// NOTE: We call this `NameInSite` instead of just `Name` because `Name`
 /// conflicts with another `Name` defined in `bevy::prelude`.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(transparent)]
 #[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut, Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]

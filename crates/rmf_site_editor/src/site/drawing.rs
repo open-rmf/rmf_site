@@ -70,10 +70,11 @@ pub struct DrawingSegments {
 pub struct LoadingDrawing(Handle<Image>);
 
 fn drawing_layer_height(rank: Option<&RecencyRank<DrawingMarker>>) -> f32 {
-    let floor_layer_start = ZLayer::Floor.to_z();
-    let drawing_layer_start = ZLayer::Drawing.to_z();
-    rank.map(|r| r.proportion() * (floor_layer_start - drawing_layer_start) + drawing_layer_start)
-        .unwrap_or(drawing_layer_start)
+    rank.map(|r| {
+        r.proportion() * ZLayer::get_z_offset(ZLayer::Drawing, ZLayer::Floor)
+            + ZLayer::Drawing.to_z()
+    })
+    .unwrap_or(ZLayer::Drawing.to_z())
 }
 
 pub fn add_drawing_visuals(
@@ -251,7 +252,7 @@ pub fn update_drawing_rank(
                         .get_mut(**segment)
                         .map(|mut tf| {
                             tf.translation.z =
-                                z + (ZLayer::Measurement.to_z() - ZLayer::Drawing.to_z())
+                                z + ZLayer::get_z_offset(ZLayer::Drawing, ZLayer::Measurement)
                         })
                         .ok();
                 }

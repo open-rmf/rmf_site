@@ -66,6 +66,8 @@ pub struct SiteAssets {
     pub charger_material: Handle<StandardMaterial>,
     pub holding_point_material: Handle<StandardMaterial>,
     pub parking_material: Handle<StandardMaterial>,
+    pub robot_path_rectangle_mesh: Handle<Mesh>,
+    pub robot_path_circle_mesh: Handle<Mesh>,
 }
 
 pub fn old_default_material(base_color: Color) -> StandardMaterial {
@@ -236,6 +238,9 @@ impl FromWorld for SiteAssets {
                 .unwrap(),
         );
 
+        let robot_path_rectangle_mesh = meshes.add(Rectangle::new(1.0, 1.0));
+        let robot_path_circle_mesh = meshes.add(Circle::new(1.0));
+
         Self {
             level_anchor_mesh,
             lift_anchor_mesh,
@@ -272,6 +277,8 @@ impl FromWorld for SiteAssets {
             charger_material,
             holding_point_material,
             parking_material,
+            robot_path_rectangle_mesh,
+            robot_path_circle_mesh,
         }
     }
 }

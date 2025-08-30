@@ -79,7 +79,7 @@ impl<'w, 's> GraphSelect<'w, 's> {
         .map(|(m, d)| {
             (
                 m.0,
-                d.proportion() * (ZLayer::Doormat.to_z() - ZLayer::Lane.to_z())
+                d.proportion() * ZLayer::get_z_offset(ZLayer::Lane, ZLayer::Doormat)
                     + ZLayer::Lane.to_z(),
             )
         })
