@@ -19,6 +19,8 @@ var<uniform> forward_speed: f32;
 var<uniform> backward_speed: f32;
 @group(2) @binding(106)
 var<uniform> bidirectional: u32;
+@group(2) @binding(107)
+var<uniform> is_active: u32;
 
 @fragment
 fn fragment(
@@ -26,52 +28,66 @@ fn fragment(
     @builtin(front_facing) is_front: bool,
 ) -> FragmentOutput{
     let is_bidirectional = (bidirectional == 1);
+    let is_active = (is_active == 1);
 
     let single_arrow_color = single_arrow_base_color.rgb;
     let double_arrow_color = double_arrow_base_color.rgb;
     let background_color = background_base_color.rgb;
 
-    var is_forward = false;
-    var is_backward = false;
+    var final_pixel_color = background_color;
+    if !(is_bidirectional && !is_active) {
+        var is_forward = false;
+        var is_backward = false;
 
-    let side_margin = 0.1;
-    let end_margin = 1.0 / number_of_tiles;
-    var thickness = 0.2 / number_of_tiles;
+        let forward_arrow_width_ratio = 0.5;
+        let backward_arrow_width_ratio = 0.5;
 
-    if in.uv.y > side_margin
-        && in.uv.y < (1.0 - side_margin)
-        && in.uv.x > end_margin * 0.5
-        && in.uv.x < (1.0 - end_margin * 0.5)
-    {
-        let forward_progress = fract(globals.time * forward_speed * 0.5);
+        let side_margin = 0.1;
+        let end_margin = 1.0 / number_of_tiles;
+        let thickness = 0.2 / number_of_tiles;
 
-        if !is_bidirectional {
-            let x_top = 0.5 - abs(in.uv.y - 0.5) + forward_progress;
+        var forward_progress = 0.0;
+        var backward_progress = 0.0;
 
-            is_forward = check_forward_pixel(in.uv.x, x_top, thickness, number_of_tiles);
-        } else {
-            var thickness = thickness * 0.75;
-            var number_of_tiles = number_of_tiles * 1.5;
-            
-            if in.uv.y < 0.5 - (side_margin * 0.25) {
-                let y_val = in.uv.y - side_margin * 0.25;
-                let x_top = 0.25 - abs(y_val - 0.25) + forward_progress;
+        if in.uv.y > side_margin
+            && in.uv.y < (1.0 - side_margin)
+            && in.uv.x > end_margin * 0.5
+            && in.uv.x < (1.0 - end_margin * 0.5)
+        {
+            if is_active {
+                forward_progress = fract(globals.time * forward_speed * 0.5);
+            }
 
+            if !is_bidirectional {
+                let x_top = 0.5 - abs(in.uv.y - 0.5) + forward_progress;
                 is_forward = check_forward_pixel(in.uv.x, x_top, thickness, number_of_tiles);
-            } else if in.uv.y > 0.5 + (side_margin * 0.25) {
-                let backward_progress = fract(globals.time * backward_speed * 0.5);
+                
+            } else {
+                if in.uv.y < forward_arrow_width_ratio - (side_margin * 0.25) {
+                    let y_val = in.uv.y - side_margin * 0.25;
+                    let forward_width = forward_arrow_width_ratio * 0.5;
+                    let x_top = forward_width - abs(y_val - forward_width) + forward_progress;
 
-                let y_val = in.uv.y - 0.5 + side_margin * 0.25;
-                let x_top = 0.25 + abs(y_val - 0.25) - backward_progress;
+                    is_forward = check_forward_pixel(in.uv.x, x_top, thickness, number_of_tiles);
+                } 
+                if in.uv.y > (1 - backward_arrow_width_ratio) + (side_margin * 0.25) && !is_forward {
+                    if is_active {
+                        backward_progress = fract(globals.time * backward_speed * 0.5);
+                    }
 
-                is_backward = check_backward_pixel(in.uv.x, x_top, thickness, number_of_tiles);
+                    let y_val = in.uv.y - (1 - backward_arrow_width_ratio) + side_margin * 0.25;
+                    let backward_width = backward_arrow_width_ratio * 0.5;
+                    let x_top = backward_width + abs(y_val - backward_width) - backward_progress;
+
+                    is_backward = check_backward_pixel(in.uv.x, x_top, thickness, number_of_tiles);
+                }
             }
         }
-    }
 
-    let is_arrow_pixel = is_forward || is_backward;
-    let final_arrow_color = select(single_arrow_color, double_arrow_color, is_backward);
-    let final_pixel_color = select(background_color, final_arrow_color, is_arrow_pixel);
+        let is_arrow_pixel = is_forward || is_backward;
+        let final_arrow_color = select(single_arrow_color, double_arrow_color, is_backward);
+        final_pixel_color = select(background_color, final_arrow_color, is_arrow_pixel);
+    }
 
     var pbr_input = pbr_input_from_standard_material(in, true);
     pbr_input.material.base_color = vec4<f32>(final_pixel_color, 1.0);

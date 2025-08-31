@@ -68,7 +68,12 @@ impl<'w, 's> GraphSelect<'w, 's> {
                         .4
                         .cmp(self.graphs.get(**b).unwrap().4)
                 })
-                .map(|e| self.graphs.get(*e).map(|(_, m, c, _, d)| (m.clone(), *c, *d)).ok())
+                .map(|e| {
+                    self.graphs
+                        .get(*e)
+                        .map(|(_, m, c, _, d)| (m.clone(), *c, *d))
+                        .ok()
+                })
                 .flatten(),
             AssociatedGraphs::AllExcept(set) => self
                 .graphs

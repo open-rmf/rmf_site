@@ -53,6 +53,8 @@ pub struct LaneArrowMaterial {
     pub backward_speed: f32,
     #[uniform(106)]
     pub bidirectional: u32,
+    #[uniform(107)]
+    pub is_active: u32,
 }
 
 impl MaterialExtension for LaneArrowMaterial {
@@ -137,8 +139,7 @@ impl FromWorld for SiteAssets {
         let mut materials = world
             .get_resource_mut::<Assets<StandardMaterial>>()
             .unwrap();
-        let unassigned_lane_material =
-            materials.add(old_default_material(NAV_UNASSIGNED_COLOR));
+        let unassigned_lane_material = materials.add(old_default_material(NAV_UNASSIGNED_COLOR));
         let select_color = Color::srgb(1., 0.3, 1.);
         let hover_color = Color::srgb(0.3, 1., 1.);
         let hover_select_color = Color::srgb(1.0, 0.0, 0.3);

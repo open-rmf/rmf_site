@@ -24,9 +24,6 @@ use rmf_site_format::{Edge, LaneMarker};
 use std::collections::{BTreeSet, HashMap};
 use uuid::Uuid;
 
-const LANE_SINGLE_ARROW_COLOR: Color = Color::srgb(0.83, 0.33, 0.09);
-const LANE_DOUBLE_ARROW_COLOR: Color = Color::srgb(1.0, 0.70, 0.48);
-
 // TODO(MXG): Make this configurable, perhaps even a field in the Lane data
 // so users can customize the lane width per lane.
 pub const LANE_WIDTH: f32 = 0.5;
@@ -196,13 +193,14 @@ pub fn add_lane_visuals(
                         ..default()
                     },
                     extension: assets::LaneArrowMaterial {
-                        single_arrow_color: LANE_SINGLE_ARROW_COLOR.into(),
-                        double_arrow_color: LANE_DOUBLE_ARROW_COLOR.into(),
+                        single_arrow_color: lane_color.into(),
+                        double_arrow_color: lane_color.into(),
                         background_color: lane_color.into(),
                         number_of_arrows: (start_anchor - end_anchor).length() / LANE_WIDTH,
                         forward_speed: forward_speed_limit,
                         backward_speed: backward_speed_limit,
                         bidirectional: is_bidirectional as u32,
+                        is_active: false as u32,
                     },
                 })),
                 line_stroke_transform(&start_anchor, &end_anchor, LANE_WIDTH),
@@ -406,6 +404,46 @@ pub fn remove_association_for_deleted_graphs(
                 AssociatedGraphs::AllExcept(set) => {
                     set.remove(&e);
                 }
+            }
+        }
+    }
+}
+
+pub fn update_color_for_lanes(
+    changed_lanes: Query<
+        (&AssociatedGraphs<Entity>, &LaneSegments),
+        (
+            With<LaneMarker>,
+            Or<(Changed<AssociatedGraphs<Entity>>, Without<NavGraphMarker>)>,
+        ),
+    >,
+    graphs: GraphSelect,
+    lane_materials: Query<&MeshMaterial3d<ExtendedMaterial<StandardMaterial, LaneArrowMaterial>>>,
+    mut extended_materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, LaneArrowMaterial>>>,
+) {
+    for (associated, segments) in changed_lanes {
+        let (_, color, _) = graphs.display_style(associated);
+        let new_color = color.to_linear();
+
+        if let Ok(ext_mat) = lane_materials.get(segments.mid) {
+            if let Some(lane_mat) = extended_materials.get_mut(&ext_mat.0) {
+                lane_mat.extension.background_color = new_color.into();
+
+                let dark_color_diff = 0.1;
+                let light_color_diff = 0.5;
+
+                lane_mat.extension.single_arrow_color = Color::srgb(
+                    (new_color.red - dark_color_diff).clamp(0.0, 1.0),
+                    (new_color.green - dark_color_diff).clamp(0.0, 1.0),
+                    (new_color.blue - dark_color_diff).clamp(0.0, 1.0),
+                )
+                .into();
+                lane_mat.extension.double_arrow_color = Color::srgb(
+                    (new_color.red + light_color_diff).clamp(0.0, 1.0),
+                    (new_color.green + light_color_diff).clamp(0.0, 1.0),
+                    (new_color.blue + light_color_diff).clamp(0.0, 1.0),
+                )
+                .into();
             }
         }
     }
