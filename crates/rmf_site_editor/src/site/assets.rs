@@ -21,12 +21,15 @@ use bevy::{
     math::{primitives, Affine3A},
     prelude::*,
 };
+use bevy_rich_text3d::TextAtlas;
 use rmf_site_mesh::*;
 
-pub(crate) fn add_site_icons(app: &mut App) {
+pub(crate) fn add_site_assets(app: &mut App) {
     embedded_asset!(app, "src/", "icons/battery.png");
     embedded_asset!(app, "src/", "icons/parking.png");
     embedded_asset!(app, "src/", "icons/stopwatch.png");
+
+    embedded_asset!(app, "src/", "textures/door_bottom.png");
 }
 
 #[derive(Resource)]
@@ -56,6 +59,8 @@ pub struct SiteAssets {
     pub lift_anchor_mesh: Handle<Mesh>,
     pub site_anchor_mesh: Handle<Mesh>,
     pub lift_wall_material: Handle<StandardMaterial>,
+    pub door_cue_material: Handle<StandardMaterial>,
+    pub text3d_material: Handle<StandardMaterial>,
     pub door_body_material: Handle<StandardMaterial>,
     pub translucent_black: Handle<StandardMaterial>,
     pub translucent_white: Handle<StandardMaterial>,
@@ -97,6 +102,8 @@ impl FromWorld for SiteAssets {
             asset_server.load("embedded://librmf_site_editor/site/icons/stopwatch.png");
         let parking_texture =
             asset_server.load("embedded://librmf_site_editor/site/icons/parking.png");
+        let door_texture: Handle<Image> =
+            asset_server.load("embedded://librmf_site_editor/site/textures/door_bottom.png");
 
         let mut materials = world
             .get_resource_mut::<Assets<StandardMaterial>>()
@@ -159,6 +166,19 @@ impl FromWorld for SiteAssets {
         let translucent_black = materials.add(StandardMaterial {
             alpha_mode: AlphaMode::Blend,
             ..old_default_material(Color::srgba(0., 0., 0., 0.8))
+        });
+        let door_cue_material = materials.add(StandardMaterial {
+            base_color_texture: Some(door_texture),
+            depth_bias: 5.0,
+            alpha_mode: AlphaMode::Blend,
+            ..default()
+        });
+        let text3d_material = materials.add(StandardMaterial {
+            base_color_texture: Some(TextAtlas::DEFAULT_IMAGE.clone_weak()),
+            alpha_mode: AlphaMode::Mask(0.5),
+            unlit: true,
+            cull_mode: None,
+            ..Default::default()
         });
         let translucent_white = materials.add(StandardMaterial {
             alpha_mode: AlphaMode::Blend,
@@ -262,6 +282,8 @@ impl FromWorld for SiteAssets {
             unassigned_anchor_material,
             preview_anchor_material,
             lift_wall_material,
+            door_cue_material,
+            text3d_material,
             door_body_material,
             translucent_black,
             translucent_white,

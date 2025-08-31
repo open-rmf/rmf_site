@@ -21,12 +21,17 @@ use bevy::{
     prelude::*,
     render::primitives::Aabb,
 };
+use bevy_rich_text3d::*;
 use rmf_site_format::{Edge, LiftCabin};
 use rmf_site_mesh::*;
-use rmf_site_picking::Selectable;
+use rmf_site_picking::{Selectable, VisualCue};
 use std::collections::BTreeSet;
 use std::collections::HashMap;
+use std::num::NonZero;
 use uuid::Uuid;
+
+const LIFT_NAME_LINE_LIMIT: usize = 15;
+const LIFT_NAME_CHARACTER_LENGTH: f32 = 0.08;
 
 #[derive(Clone, Copy, Debug, Component, Deref, DerefMut)]
 pub struct ChildLiftCabinGroup(pub Entity);
@@ -147,6 +152,32 @@ pub fn add_tags_to_lift(
     }
 }
 
+fn find_lift_character_limit(lift_width: f32) -> usize {
+    let number_of_characters = lift_width / LIFT_NAME_CHARACTER_LENGTH - 4.0;
+    let new_limit = (1).max((number_of_characters.floor() as usize).min(LIFT_NAME_LINE_LIMIT));
+    new_limit
+}
+
+fn handle_name_limit(limit: usize, name: String) -> String {
+    if name.len() <= limit || limit == 0 {
+        return name;
+    }
+    let str = name;
+
+    let mut result = String::new();
+    let mut current_line_length = 0;
+
+    for c in str.chars() {
+        if current_line_length >= limit {
+            result.push('\n');
+            current_line_length = 0;
+        }
+        result.push(c);
+        current_line_length += 1;
+    }
+    result
+}
+
 pub fn update_lift_cabin(
     mut commands: Commands,
     lifts: Query<
@@ -157,8 +188,13 @@ pub fn update_lift_cabin(
             Option<&ChildCabinAnchorGroup>,
             Option<&ChildLiftCabinGroup>,
             &ChildOf,
+            &NameInSite,
         ),
-        Or<(Changed<LiftCabin<Entity>>, Changed<ChildOf>)>,
+        Or<(
+            Changed<LiftCabin<Entity>>,
+            Changed<ChildOf>,
+            Changed<NameInSite>,
+        )>,
     >,
     mut cabin_anchor_groups: Query<&mut Transform, With<CabinAnchorGroup>>,
     level_visits: Query<&LevelVisits<Entity>>,
@@ -169,7 +205,7 @@ pub fn update_lift_cabin(
     mut meshes: ResMut<Assets<Mesh>>,
     levels: Query<(Entity, &ChildOf), With<LevelElevation>>,
 ) {
-    for (e, cabin, recall, child_anchor_group, child_cabin_group, site) in &lifts {
+    for (e, cabin, recall, child_anchor_group, child_cabin_group, site, name) in &lifts {
         // Despawn the previous cabin
         if let Some(cabin_group) = child_cabin_group {
             commands.entity(cabin_group.0).despawn();
@@ -215,6 +251,33 @@ pub fn update_lift_cabin(
                                 Visibility::default(),
                             ))
                             .insert(Selectable::new(e));
+
+                        let limit = find_lift_character_limit(params.width);
+                        let display_name = handle_name_limit(limit, name.0.clone());
+
+                        child_of
+                            .spawn((
+                                Text3d::new(display_name),
+                                Text3dStyling {
+                                    size: 250.,
+                                    weight: Weight(900),
+                                    stroke: NonZero::new(10),
+                                    color: Srgba::BLACK,
+                                    stroke_color: Srgba::WHITE,
+                                    world_scale: Some(Vec2::splat(0.125)),
+                                    layer_offset: 0.001,
+                                    align: TextAlign::Center,
+                                    ..Default::default()
+                                },
+                                Mesh3d::default(),
+                                MeshMaterial3d(assets.text3d_material.clone()),
+                                Transform {
+                                    translation: Vec3::new(0., 0., 0.005),
+                                    rotation: Quat::from_rotation_z(90_f32.to_radians()),
+                                    scale: Vec3::ONE,
+                                },
+                            ))
+                            .insert(VisualCue::no_outline());
 
                         child_of
                             .spawn((

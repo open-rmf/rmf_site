@@ -184,7 +184,7 @@ pub struct SitePlugin;
 
 impl Plugin for SitePlugin {
     fn build(&self, app: &mut App) {
-        add_site_icons(app);
+        add_site_assets(app);
         app.configure_sets(
             PreUpdate,
             (
