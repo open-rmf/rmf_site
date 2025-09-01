@@ -19,16 +19,54 @@ use crate::{layers::ZLayer, site::*};
 use bevy::{
     asset::embedded_asset,
     math::{primitives, Affine3A},
+    pbr::MaterialExtension,
     prelude::*,
+    render::render_resource::{AsBindGroup, ShaderRef},
 };
 use rmf_site_mesh::*;
 
-pub(crate) fn add_site_icons(app: &mut App) {
+const LANE_SHADER_PATH: &str = "embedded://librmf_site_editor/site/shaders/lane_arrow_shader.wgsl";
+
+pub const NAV_UNASSIGNED_COLOR: Color = Color::srgb(0.1, 0.1, 0.1);
+
+pub(crate) fn add_site_assets(app: &mut App) {
     embedded_asset!(app, "src/", "billboards/base.png");
     embedded_asset!(app, "src/", "billboards/charging.png");
     embedded_asset!(app, "src/", "billboards/parking.png");
     embedded_asset!(app, "src/", "billboards/holding.png");
     embedded_asset!(app, "src/", "billboards/empty.png");
+
+    embedded_asset!(app, "src/", "shaders/lane_arrow_shader.wgsl");
+}
+
+#[derive(Asset, AsBindGroup, Reflect, Debug, Clone, Component)]
+pub struct LaneArrowMaterial {
+    #[uniform(100)]
+    pub single_arrow_color: LinearRgba,
+    #[uniform(101)]
+    pub double_arrow_color: LinearRgba,
+    #[uniform(102)]
+    pub background_color: LinearRgba,
+    #[uniform(103)]
+    pub number_of_arrows: f32,
+    #[uniform(104)]
+    pub forward_speed: f32,
+    #[uniform(105)]
+    pub backward_speed: f32,
+    #[uniform(106)]
+    pub bidirectional: u32,
+    #[uniform(107)]
+    pub is_active: u32,
+}
+
+impl MaterialExtension for LaneArrowMaterial {
+    fn fragment_shader() -> ShaderRef {
+        LANE_SHADER_PATH.into()
+    }
+
+    fn deferred_fragment_shader() -> ShaderRef {
+        LANE_SHADER_PATH.into()
+    }
 }
 
 #[derive(Resource)]
@@ -111,8 +149,7 @@ impl FromWorld for SiteAssets {
         let mut materials = world
             .get_resource_mut::<Assets<StandardMaterial>>()
             .unwrap();
-        let unassigned_lane_material =
-            materials.add(old_default_material(Color::srgb(0.1, 0.1, 0.1)));
+        let unassigned_lane_material = materials.add(old_default_material(NAV_UNASSIGNED_COLOR));
         let select_color = Color::srgb(1., 0.3, 1.);
         let hover_color = Color::srgb(0.3, 1., 1.);
         let hover_select_color = Color::srgb(1.0, 0.0, 0.3);

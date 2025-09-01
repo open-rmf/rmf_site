@@ -154,7 +154,10 @@ pub use rmf_site_format::{DirectionalLight, PointLight, SpotLight, Style, *};
 
 use rmf_site_picking::SelectionServiceStages;
 
-use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
+use bevy::{
+    pbr::ExtendedMaterial, prelude::*, render::view::visibility::VisibilitySystems,
+    transform::TransformSystem,
+};
 
 use bevy_infinite_grid::*;
 
@@ -186,7 +189,7 @@ pub struct SitePlugin;
 
 impl Plugin for SitePlugin {
     fn build(&self, app: &mut App) {
-        add_site_icons(app);
+        add_site_assets(app);
         app.configure_sets(
             PreUpdate,
             (
@@ -302,6 +305,7 @@ impl Plugin for SitePlugin {
             PropertyPlugin::<TaskParams, Task>::default(),
             PropertyPlugin::<OnLevel<Entity>, Robot>::default(),
             SlotcarSdfPlugin,
+            MaterialPlugin::<ExtendedMaterial<StandardMaterial, LaneArrowMaterial>>::default(),
         ))
         .add_plugins((InfiniteGridPlugin,))
         .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
@@ -414,6 +418,7 @@ impl Plugin for SitePlugin {
                 remove_association_for_deleted_graphs,
                 add_unused_fiducial_tracker,
                 update_fiducial_usage_tracker,
+                update_color_for_lanes.after(update_material_for_display_color),
                 update_visibility_for_lanes.after(remove_association_for_deleted_graphs),
                 update_visibility_for_locations.after(remove_association_for_deleted_graphs),
                 update_changed_location,
@@ -451,6 +456,7 @@ impl Plugin for SitePlugin {
                 check_selected_is_included,
                 check_for_missing_root_modifiers::<InstanceMarker>,
                 update_default_scenario,
+                update_lane_motion_visuals,
             )
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
