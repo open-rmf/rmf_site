@@ -19,22 +19,64 @@ use crate::{layers::ZLayer, site::*};
 use bevy::{
     asset::embedded_asset,
     math::{primitives, Affine3A},
+    pbr::MaterialExtension,
     prelude::*,
+    render::render_resource::{AsBindGroup, ShaderRef},
 };
 use bevy_rich_text3d::TextAtlas;
 use rmf_site_mesh::*;
 
+const LANE_SHADER_PATH: &str = "embedded://librmf_site_editor/site/shaders/lane_arrow_shader.wgsl";
+
+pub const NAV_UNASSIGNED_COLOR: Color = Color::srgb(0.1, 0.1, 0.1);
+
 pub(crate) fn add_site_assets(app: &mut App) {
-    embedded_asset!(app, "src/", "icons/battery.png");
-    embedded_asset!(app, "src/", "icons/parking.png");
-    embedded_asset!(app, "src/", "icons/stopwatch.png");
+    embedded_asset!(app, "src/", "billboards/base.png");
+    embedded_asset!(app, "src/", "billboards/charging.png");
+    embedded_asset!(app, "src/", "billboards/parking.png");
+    embedded_asset!(app, "src/", "billboards/holding.png");
+    embedded_asset!(app, "src/", "billboards/empty.png");
+
+    embedded_asset!(app, "src/", "shaders/lane_arrow_shader.wgsl");
 
     embedded_asset!(app, "src/", "textures/door_bottom.png");
+}
+
+#[derive(Asset, AsBindGroup, Reflect, Debug, Clone, Component)]
+pub struct LaneArrowMaterial {
+    #[uniform(100)]
+    pub single_arrow_color: LinearRgba,
+    #[uniform(101)]
+    pub double_arrow_color: LinearRgba,
+    #[uniform(102)]
+    pub background_color: LinearRgba,
+    #[uniform(103)]
+    pub number_of_arrows: f32,
+    #[uniform(104)]
+    pub forward_speed: f32,
+    #[uniform(105)]
+    pub backward_speed: f32,
+    #[uniform(106)]
+    pub bidirectional: u32,
+    #[uniform(107)]
+    pub is_active: u32,
+}
+
+impl MaterialExtension for LaneArrowMaterial {
+    fn fragment_shader() -> ShaderRef {
+        LANE_SHADER_PATH.into()
+    }
+
+    fn deferred_fragment_shader() -> ShaderRef {
+        LANE_SHADER_PATH.into()
+    }
 }
 
 #[derive(Resource)]
 pub struct SiteAssets {
     pub lift_floor_material: Handle<StandardMaterial>,
+    pub billboard_base_mesh: Handle<Mesh>,
+    pub billboard_mesh: Handle<Mesh>,
     pub lane_mid_mesh: Handle<Mesh>,
     pub lane_mid_outline: Handle<Mesh>,
     pub lane_end_mesh: Handle<Mesh>,
@@ -68,9 +110,11 @@ pub struct SiteAssets {
     pub occupied_material: Handle<StandardMaterial>,
     pub default_mesh_grey_material: Handle<StandardMaterial>,
     pub location_tag_mesh: Handle<Mesh>,
+    pub base_billboard_material: Handle<StandardMaterial>,
     pub charger_material: Handle<StandardMaterial>,
     pub holding_point_material: Handle<StandardMaterial>,
     pub parking_material: Handle<StandardMaterial>,
+    pub empty_billboard_material: Handle<StandardMaterial>,
 }
 
 pub fn old_default_material(base_color: Color) -> StandardMaterial {
@@ -86,9 +130,9 @@ pub fn old_default_material(base_color: Color) -> StandardMaterial {
 pub fn old_default_material_t(base_color_texture: Handle<Image>) -> StandardMaterial {
     StandardMaterial {
         base_color_texture: Some(base_color_texture),
-        perceptual_roughness: 0.089,
-        metallic: 0.01,
-        // fog_enabled: false,
+        alpha_mode: AlphaMode::Blend,
+        depth_bias: 15.0,
+        unlit: true,
         ..default()
     }
 }
@@ -96,20 +140,23 @@ pub fn old_default_material_t(base_color_texture: Handle<Image>) -> StandardMate
 impl FromWorld for SiteAssets {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.get_resource::<AssetServer>().unwrap();
+        let base_billboard_texture =
+            asset_server.load("embedded://librmf_site_editor/site/billboards/base.png");
         let charger_texture =
-            asset_server.load("embedded://librmf_site_editor/site/icons/battery.png");
+            asset_server.load("embedded://librmf_site_editor/site/billboards/charging.png");
         let holding_point_texture =
-            asset_server.load("embedded://librmf_site_editor/site/icons/stopwatch.png");
+            asset_server.load("embedded://librmf_site_editor/site/billboards/holding.png");
         let parking_texture =
-            asset_server.load("embedded://librmf_site_editor/site/icons/parking.png");
+            asset_server.load("embedded://librmf_site_editor/site/billboards/parking.png");
+        let empty_billboard_texture =
+            asset_server.load("embedded://librmf_site_editor/site/billboards/empty.png");
         let door_texture: Handle<Image> =
             asset_server.load("embedded://librmf_site_editor/site/textures/door_bottom.png");
 
         let mut materials = world
             .get_resource_mut::<Assets<StandardMaterial>>()
             .unwrap();
-        let unassigned_lane_material =
-            materials.add(old_default_material(Color::srgb(0.1, 0.1, 0.1)));
+        let unassigned_lane_material = materials.add(old_default_material(NAV_UNASSIGNED_COLOR));
         let select_color = Color::srgb(1., 0.3, 1.);
         let hover_color = Color::srgb(0.3, 1., 1.);
         let hover_select_color = Color::srgb(1.0, 0.0, 0.3);
@@ -191,11 +238,19 @@ impl FromWorld for SiteAssets {
         let default_mesh_grey_material =
             materials.add(old_default_material(Color::srgb(0.7, 0.7, 0.7)));
 
-        let charger_material = materials.add(old_default_material_t(charger_texture));
+        let base_billboard_material = materials.add(old_default_material_t(base_billboard_texture));
+        let charger_material: Handle<StandardMaterial> =
+            materials.add(old_default_material_t(charger_texture));
         let holding_point_material = materials.add(old_default_material_t(holding_point_texture));
         let parking_material = materials.add(old_default_material_t(parking_texture));
+        let empty_billboard_material =
+            materials.add(old_default_material_t(empty_billboard_texture));
 
         let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
+        let billboard_base_mesh =
+            meshes.add(Rectangle::new(BILLBOARD_LENGTH, BILLBOARD_LENGTH / 3.0));
+        let billboard_mesh: Handle<Mesh> =
+            meshes.add(Rectangle::new(BILLBOARD_LENGTH, BILLBOARD_LENGTH));
         let level_anchor_mesh = meshes.add(
             Mesh::from(
                 primitives::Sphere::new(0.05), // TODO(MXG): Make the vertex radius configurable
@@ -232,13 +287,11 @@ impl FromWorld for SiteAssets {
                 .unwrap(),
         );
         let location_mesh = meshes.add(
-            Mesh::from(
-                make_icon_halo(1.1 * LANE_WIDTH / 2.0, 0.01, 6).transform_by(
-                    Affine3A::from_translation((0.00125 + ZLayer::Location.to_z()) * Vec3::Z),
-                ),
-            )
-            .with_generated_outline_normals()
-            .unwrap(),
+            Mesh::from(Torus::new(LANE_WIDTH / 2.0, 1.4 * LANE_WIDTH / 2.0))
+                .rotated_by(Quat::from_rotation_x(90_f32.to_radians()))
+                .scaled_by(Vec3::new(1.0, 1.0, 0.3))
+                .with_generated_outline_normals()
+                .unwrap(),
         );
         let fiducial_mesh = meshes.add(
             Mesh::from(
@@ -265,6 +318,8 @@ impl FromWorld for SiteAssets {
             lane_mid_outline,
             lane_end_mesh,
             lane_end_outline,
+            billboard_mesh,
+            billboard_base_mesh,
             box_mesh,
             location_mesh,
             fiducial_mesh,
@@ -291,9 +346,11 @@ impl FromWorld for SiteAssets {
             occupied_material,
             default_mesh_grey_material,
             location_tag_mesh,
+            base_billboard_material,
             charger_material,
             holding_point_material,
             parking_material,
+            empty_billboard_material,
         }
     }
 }
