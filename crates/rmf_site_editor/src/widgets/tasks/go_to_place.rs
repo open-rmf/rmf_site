@@ -44,6 +44,16 @@ impl Plugin for GoToPlacePlugin {
                 |mut e_cmd| {
                     e_cmd.remove::<GoToPlace>();
                 },
+                |e, world| {
+                    let Some(go_to_place) = world.entity(e).get::<GoToPlace>() else {
+                        return false;
+                    };
+                    if go_to_place.location.is_empty() {
+                        return false;
+                    }
+                    // TODO(@xiyuoh) check if location is valid via entity
+                    return true;
+                },
             ),
         );
         let widget = Widget::<Tile>::new::<ViewGoToPlace>(&mut app.world_mut());

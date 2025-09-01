@@ -44,6 +44,7 @@ impl Plugin for WaitForPlugin {
                 |mut e_cmd| {
                     e_cmd.remove::<WaitFor>();
                 },
+                |e, world| world.entity(e).get::<WaitFor>().is_some(),
             ),
         );
         let widget = Widget::<Tile>::new::<ViewWaitFor>(&mut app.world_mut());

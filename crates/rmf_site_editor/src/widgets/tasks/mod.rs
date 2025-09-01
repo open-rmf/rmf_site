@@ -691,6 +691,13 @@ fn show_create_task_dialog(
                 &task_kinds,
                 &mut change_task,
             );
+            let task_request_category = pending_task.request().category();
+            let task_kind_is_valid =
+                if let Some((_, _, valid_fn)) = task_kinds.0.get(&task_request_category) {
+                    Some(valid_fn.clone())
+                } else {
+                    None
+                };
             edit_state.apply(world);
             ui.separator();
 
@@ -716,8 +723,13 @@ fn show_create_task_dialog(
                 if ui.button("Cancel").clicked() {
                     reset_edit = true;
                 }
-                ui.add_enabled_ui(pending_task.is_valid(), |ui| {
-                    // TODO(@xiyuoh) Also check validity of TaskKind (e.g. GoToPlace)
+                let task_is_valid = if let Some(task_kind_is_valid) = task_kind_is_valid {
+                    pending_task.is_valid() && task_kind_is_valid(task_entity, world)
+                } else {
+                    // If task kind valid fn cannot be retrieved, task is invalid
+                    false
+                };
+                ui.add_enabled_ui(task_is_valid, |ui| {
                     if ui
                         .button("Add Task")
                         .on_hover_text("Add this task to the current scenario")
@@ -835,10 +847,14 @@ fn edit_task_kind_widget(
     // Insert selected TaskKind component
     let new_category = task.request().category();
     if new_category != current_category {
-        if let Some(remove_fn) = task_kinds.0.get(&current_category).map(|(_, rm_fn)| rm_fn) {
+        if let Some(remove_fn) = task_kinds
+            .0
+            .get(&current_category)
+            .map(|(_, rm_fn, _)| rm_fn)
+        {
             remove_fn(commands.entity(task_entity));
         }
-        if let Some(insert_fn) = task_kinds.0.get(&new_category).map(|(is_fn, _)| is_fn) {
+        if let Some(insert_fn) = task_kinds.0.get(&new_category).map(|(is_fn, _, _)| is_fn) {
             insert_fn(commands.entity(task_entity));
         }
     }
