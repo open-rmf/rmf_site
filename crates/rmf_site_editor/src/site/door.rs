@@ -184,7 +184,7 @@ fn find_door_position_tfs(kind: &DoorType, length: f32, offset: f32) -> Vec<Tran
     let left_door_length = (length - DOUBLE_DOOR_GAP) / 2.0 - offset;
     let right_door_length = (length - DOUBLE_DOOR_GAP) / 2.0 + offset;
 
-    let door_swing_tf = match kind {
+    match kind {
         DoorType::SingleSliding(door) => vec![door_slide_tf(
             door.towards,
             door.position,
@@ -235,8 +235,7 @@ fn find_door_position_tfs(kind: &DoorType, length: f32, offset: f32) -> Vec<Tran
             ),
         ],
         DoorType::Model(_) => vec![door_slide_tf(Side::Left, 0.0, length, false, 0.0)],
-    };
-    door_swing_tf
+    }
 }
 
 fn make_door_visuals(
@@ -259,16 +258,17 @@ fn make_door_visuals(
 
     let (inner, outline) = make_door_cues(length, kind);
 
-    let get_double_door_tfs =
-        |mid_offset: f32| -> Vec<Transform> { find_door_position_tfs(kind, length, mid_offset) };
-
     let door_tfs = match kind {
         // TODO(luca) implement model variant
         DoorType::SingleSwing(_) | DoorType::SingleSliding(_) | DoorType::Model(_) => {
             find_door_position_tfs(kind, length, 0.0)
         }
-        DoorType::DoubleSwing(door) => get_double_door_tfs(door.compute_offset(length)),
-        DoorType::DoubleSliding(door) => get_double_door_tfs(door.compute_offset(length)),
+        DoorType::DoubleSwing(door) => {
+            find_door_position_tfs(kind, length, door.compute_offset(length))
+        }
+        DoorType::DoubleSliding(door) => {
+            find_door_position_tfs(kind, length, door.compute_offset(length))
+        }
     };
 
     let name_scale = Vec3::new(1.0 / door_tfs[0].scale.z, 1.0 / door_tfs[0].scale.y, 1.0);
@@ -375,7 +375,6 @@ fn make_door_cues(door_width: f32, kind: &DoorType) -> (Mesh, Mesh) {
             door_slide_stop_line(-door_width / 2.0)
                 .merge_with(door_slide_stop_line(door_width / 2.0))
                 .add_normalised_uv()
-                .scale_uv(0.5, 1.0)
                 .merge_with(
                     door_slide_arrows(start, stop)
                         .add_normalised_uv()
@@ -394,7 +393,6 @@ fn make_door_cues(door_width: f32, kind: &DoorType) -> (Mesh, Mesh) {
                 .merge_with(door_slide_stop_line(mid))
                 .merge_with(door_slide_stop_line(right))
                 .add_normalised_uv()
-                .scale_uv(0.5, 1.0)
                 .merge_with(
                     (door_slide_arrows(mid + tweak, left - tweak))
                         .merge_with(door_slide_arrows(mid - tweak, right + tweak))
