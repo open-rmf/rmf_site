@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{issue::*, site::*, layers::ZLayer};
+use crate::{issue::*, layers::ZLayer, site::*};
 use bevy::{
     ecs::{hierarchy::ChildOf, relationship::AncestorIter},
     prelude::*,
@@ -448,7 +448,7 @@ fn create_door_name(
             // layer unless we multiply this z value by 2, even though it should
             // win in the z-buffer without that. We should investigate the cause
             // of this.
-            translation: Vec3::new(0.0, 0.0, 2.0*ZLayer::LabelText.to_z()),
+            translation: Vec3::new(0.0, 0.0, 2.0 * ZLayer::LabelText.to_z()),
             rotation: Quat::from_rotation_z(90_f32.to_radians()),
             scale: Vec3::ONE,
         },
