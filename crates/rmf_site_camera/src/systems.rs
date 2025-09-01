@@ -1,4 +1,6 @@
 use crate::*;
+use bevy_time::Time;
+use bevy_transform::components::GlobalTransform;
 use tracing::warn;
 
 /// init cameras for project
@@ -244,6 +246,7 @@ pub fn toggle_headlights(
 }
 
 pub fn camera_config(
+    mut pan_to: ResMut<PanToElement>,
     mut cursor_command: ResMut<CursorCommand>,
     mut keyboard_command: ResMut<KeyboardCommand>,
     mut cameras: Query<(&mut Projection, &mut Transform)>,
@@ -271,6 +274,17 @@ pub fn camera_config(
         rotation_delta = keyboard_command.take_rotation_delta();
         fov_delta = keyboard_command.take_fov_delta();
         scale_delta = keyboard_command.take_scale_delta();
+    }
+
+    // stop camera panning if there exists user input that moves the camera
+    if pan_to.interruptible
+        && pan_to.target.is_some()
+        && (translation_delta != Vec3::ZERO
+            || rotation_delta != Quat::IDENTITY
+            || fov_delta != 0.
+            || scale_delta != 0.)
+    {
+        pan_to.target = None;
     }
 
     match *projection_mode {
@@ -406,5 +420,51 @@ pub fn update_orbit_center_marker(
         }
     } else {
         *marker_visibility = Visibility::Hidden;
+    }
+}
+
+pub fn focus_camera_on_target(
+    mut pan_to: ResMut<PanToElement>,
+    time: Res<Time>,
+    active_camera: ActiveCameraQuery,
+    global_transforms: Query<&GlobalTransform>,
+    mut transforms: Query<&mut Transform>,
+    camera_targets: Query<&CameraTarget>,
+) {
+    let Some(target_entity) = pan_to.target else {
+        return;
+    };
+
+    let Ok(active_camera_entity) = active_camera_maybe(&active_camera) else {
+        return;
+    };
+    let Ok(mut camera_transform) = transforms.get_mut(active_camera_entity) else {
+        return;
+    };
+
+    let target_position;
+
+    if let Ok(target) = camera_targets.get(target_entity) {
+        target_position = target.point;
+    } else if let Ok(global_transform) = global_transforms.get(target_entity) {
+        target_position = global_transform.translation();
+    } else {
+        warn!("cannot find camera pan target");
+        return;
+    };
+
+    let rotation_speed = 2.0;
+    let camera_motion = camera_transform.looking_at(target_position, Vec3::Z);
+
+    let current_direction: Vec3 = camera_transform.forward().into();
+    let target_direction: Vec3 = camera_motion.forward().into();
+    let rotation_difference = current_direction - target_direction;
+
+    if rotation_difference.length() > 0.05 {
+        camera_transform.rotation = camera_transform
+            .rotation
+            .slerp(camera_motion.rotation, rotation_speed * time.delta_secs());
+    } else if !pan_to.persistent {
+        pan_to.target = None;
     }
 }

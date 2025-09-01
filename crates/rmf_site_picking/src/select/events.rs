@@ -32,3 +32,7 @@ impl Select {
         Select(Some(SelectionCandidate::provisional(candidate)))
     }
 }
+
+/// Used as an event to command a change in the double clicked entity.
+#[derive(Debug, Clone, Copy, Deref, DerefMut, Event, Stream)]
+pub struct DoubleClickSelect(pub Entity);
