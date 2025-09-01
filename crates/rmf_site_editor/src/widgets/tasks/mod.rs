@@ -37,6 +37,7 @@ use bevy_egui::{
 use rmf_site_egui::*;
 use serde_json::Value;
 use smallvec::SmallVec;
+use std::collections::BTreeMap;
 
 pub mod go_to_place;
 pub use go_to_place::*;
@@ -175,38 +176,18 @@ impl<'w, 's> WidgetSystem<Tile> for ViewTasks<'w, 's> {
     ) {
         ui.label(RichText::new("Tasks").size(18.0));
         ui.add_space(10.0);
-        let mut params = state.get_mut(world);
-        params.show_widget(ui);
+        let params = state.get_mut(world);
 
-        // Display children widgets if editing existing task
-        if params
-            .edit_task
-            .0
-            .is_some_and(|e| params.tasks.get(e).is_ok())
-        {
-            let children: Result<SmallVec<[_; 16]>, _> = params
-                .children
-                .get(params.task_widget.id)
-                .map(|children| children.iter().collect());
-            let Ok(children) = children else {
-                return;
-            };
-
-            for child in children {
-                let tile = Tile { id, panel };
-                let _ = world.try_show_in(child, tile, ui);
-            }
-        }
-        ui.add_space(10.0);
-    }
-}
-
-impl<'w, 's> ViewTasks<'w, 's> {
-    pub fn show_widget(&mut self, ui: &mut Ui) {
-        let Some(current_scenario_entity) = self.current_scenario.0 else {
+        let Some(current_scenario_entity) = params.current_scenario.0 else {
             ui.label("No scenario selected, unable to display or create tasks.");
             return;
         };
+        // TODO(@xiyuoh) sort tasks by request time/start time/created time
+        let mut tasks = BTreeMap::<Entity, Task>::new();
+        for (e, task) in params.tasks.iter() {
+            tasks.insert(e, task.clone());
+        }
+
         // View and modify tasks in current scenario
         Frame::default()
             .inner_margin(4.0)
@@ -214,7 +195,7 @@ impl<'w, 's> ViewTasks<'w, 's> {
             .stroke(Stroke::new(1.0, Color32::GRAY))
             .show(ui, |ui| {
                 ui.set_min_width(ui.available_width());
-                if self.tasks.is_empty() {
+                if tasks.is_empty() {
                     ui.with_layout(Layout::top_down_justified(Align::LEFT), |ui| {
                         ui.label("No tasks in this scenario");
                     });
@@ -224,28 +205,15 @@ impl<'w, 's> ViewTasks<'w, 's> {
                         .max_height(max_height)
                         .auto_shrink([false, false])
                         .show(ui, |ui| {
-                            for (task_entity, task) in self.tasks.iter() {
-                                let scenario_count = count_scenarios_with_inclusion(
-                                    &self.scenarios,
-                                    task_entity,
-                                    &self.get_inclusion_modifier,
-                                );
+                            for (task_entity, task) in tasks.iter() {
                                 show_task_widget(
                                     ui,
-                                    &mut self.commands,
-                                    task_entity,
-                                    task,
+                                    Tile { id, panel },
+                                    world,
+                                    state,
                                     current_scenario_entity,
-                                    &self.get_inclusion_modifier,
-                                    &self.get_params_modifier,
-                                    &mut self.change_task,
-                                    &mut self.delete,
-                                    &mut self.edit_mode,
-                                    &self.edit_task,
-                                    &mut self.task_kinds,
-                                    &self.robots,
-                                    scenario_count,
-                                    &self.icons,
+                                    *task_entity,
+                                    task,
                                 );
                             }
                         });
@@ -255,9 +223,10 @@ impl<'w, 's> ViewTasks<'w, 's> {
         ui.separator();
         ui.add_space(10.0);
 
-        if self.edit_task.0.is_none() {
+        let mut params = state.get_mut(world);
+        if params.edit_task.0.is_none() {
             if ui.button("✚ Create New Task").clicked() {
-                let new_task = self
+                let new_task = params
                     .commands
                     .spawn(Task::default())
                     .insert(Category::Task)
@@ -265,17 +234,92 @@ impl<'w, 's> ViewTasks<'w, 's> {
                     .insert(Inclusion::Included) // New tasks created are included by default
                     .insert(Pending)
                     .id();
-                self.edit_mode.write(EditModeEvent {
+                params.edit_mode.write(EditModeEvent {
                     scenario: current_scenario_entity,
                     mode: EditMode::New(new_task),
                 });
             }
         }
+        ui.add_space(10.0);
     }
 }
 
-/// Displays the task data and params, and allows users to enter edit mode to modify values
 fn show_task_widget(
+    ui: &mut Ui,
+    Tile { id, panel }: Tile,
+    world: &mut World,
+    state: &mut SystemState<ViewTasks>,
+    scenario: Entity,
+    task_entity: Entity,
+    task: &Task,
+) {
+    let params = state.get_mut(world);
+    let present = params
+        .get_inclusion_modifier
+        .get(scenario, task_entity)
+        .map(|i_modifier| **i_modifier == Inclusion::Included)
+        .unwrap_or(false);
+    let color = if present {
+        Color32::DARK_GRAY
+    } else {
+        Color32::default()
+    };
+
+    Frame::default()
+        .inner_margin(4.0)
+        .fill(color)
+        .corner_radius(2.0)
+        .show(ui, |ui| {
+            ui.set_min_width(ui.available_width());
+
+            let mut params = state.get_mut(world);
+
+            let in_edit_mode = params.edit_task.0.is_some_and(|e| e == task_entity);
+            let scenario_count = count_scenarios_with_inclusion(
+                &params.scenarios,
+                task_entity,
+                &params.get_inclusion_modifier,
+            );
+            show_task_params(
+                ui,
+                &mut params.commands,
+                task_entity,
+                task,
+                scenario,
+                &params.get_inclusion_modifier,
+                &params.get_params_modifier,
+                &mut params.change_task,
+                &mut params.delete,
+                &mut params.edit_mode,
+                &mut params.task_kinds,
+                &params.robots,
+                scenario_count,
+                &params.icons,
+                present,
+                in_edit_mode,
+            );
+
+            // Display children widgets if editing existing task
+            if in_edit_mode {
+                ui.separator();
+                let children: Result<SmallVec<[_; 16]>, _> = params
+                    .children
+                    .get(params.task_widget.id)
+                    .map(|children| children.iter().collect());
+                let Ok(children) = children else {
+                    return;
+                };
+
+                for child in children {
+                    let tile = Tile { id, panel };
+                    let _ = world.try_show_in(child, tile, ui);
+                }
+            }
+        });
+}
+
+/// Displays the task data and params, and allows users to enter edit mode to modify values
+fn show_task_params(
     ui: &mut Ui,
     commands: &mut Commands,
     task_entity: Entity,
@@ -286,147 +330,128 @@ fn show_task_widget(
     change_task: &mut EventWriter<Change<Task>>,
     delete: &mut EventWriter<Delete>,
     edit_mode: &mut EventWriter<EditModeEvent>,
-    edit_task: &Res<EditTask>,
     task_kinds: &ResMut<TaskKinds>,
     robots: &Query<(Entity, &NameInSite, &Robot), Without<Group>>,
     scenario_count: i32,
     icons: &Res<Icons>,
+    present: bool,
+    in_edit_mode: bool,
 ) {
-    let present = get_inclusion_modifier
-        .get(scenario, task_entity)
-        .map(|i_modifier| **i_modifier == Inclusion::Included)
-        .unwrap_or(false);
-    let color = if present {
-        Color32::DARK_GRAY
-    } else {
-        Color32::default()
-    };
-    let in_edit_mode = edit_task.0.is_some_and(|e| e == task_entity);
-    Frame::default()
-        .inner_margin(4.0)
-        .fill(color)
-        .corner_radius(2.0)
-        .show(ui, |ui| {
-            ui.set_min_width(ui.available_width());
-
-            ui.horizontal(|ui| {
-                ui.label("Task ".to_owned() + &task_entity.index().to_string())  // TODO(@xiyuoh) better identifier
-                    .on_hover_text(format!("Task is included in {} scenarios", scenario_count));
-                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+    ui.horizontal(|ui| {
+        ui.label("Task ".to_owned() + &task_entity.index().to_string()) // TODO(@xiyuoh) better identifier
+            .on_hover_text(format!("Task is included in {} scenarios", scenario_count));
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            if ui
+                .add(ImageButton::new(icons.trash.egui()))
+                .on_hover_text("Remove task from all scenarios")
+                .clicked()
+            {
+                delete.write(Delete::new(task_entity));
+            }
+            // Include/hide task
+            // Toggle between 3 inclusion modes: Included -> None (inherit from parent) -> Hidden
+            // If this is a root scenario, we won't include the None option
+            let inclusion_modifier = get_inclusion_modifier
+                .scenarios
+                .get(scenario)
+                .ok()
+                .and_then(|(scenario_modifiers, _)| scenario_modifiers.get(&task_entity))
+                .and_then(|e| get_inclusion_modifier.modifiers.get(*e).ok());
+            if let Some(inclusion_modifier) = inclusion_modifier {
+                // Either explicitly included or hidden
+                if **inclusion_modifier == Inclusion::Hidden {
                     if ui
-                        .add(ImageButton::new(icons.trash.egui()))
-                        .on_hover_text("Remove task from all scenarios")
+                        .add(ImageButton::new(icons.hide.egui()))
+                        .on_hover_text("Task is hidden in this scenario")
                         .clicked()
                     {
-                        delete.write(Delete::new(task_entity));
+                        commands.entity(task_entity).insert(Inclusion::Included);
                     }
-                    // Include/hide task
-                    // Toggle between 3 inclusion modes: Included -> None (inherit from parent) -> Hidden
-                    // If this is a root scenario, we won't include the None option
-                    let inclusion_modifier = get_inclusion_modifier
-                        .scenarios
-                        .get(scenario)
-                        .ok()
-                        .and_then(|(scenario_modifiers, _)| scenario_modifiers.get(&task_entity))
-                        .and_then(|e| get_inclusion_modifier.modifiers.get(*e).ok());
-                    if let Some(inclusion_modifier) = inclusion_modifier {
-                        // Either explicitly included or hidden
-                        if **inclusion_modifier == Inclusion::Hidden {
-                            if ui
-                                .add(ImageButton::new(icons.hide.egui()))
-                                .on_hover_text("Task is hidden in this scenario")
-                                .clicked()
-                            {
-                                commands.entity(task_entity).insert(Inclusion::Included);
-                            }
-                        } else {
-                            if ui
-                                .add(ImageButton::new(icons.show.egui()))
-                                .on_hover_text("Task is included in this scenario")
-                                .clicked()
-                            {
-                                if get_inclusion_modifier
-                                    .scenarios
-                                    .get(scenario)
-                                    .is_ok_and(|(_, a)| a.0.is_some())
-                                {
-                                    // If parent scenario exists, clicking this button toggles to ResetInclusion
-                                    commands.trigger(UpdateModifier::<Inclusion>::reset(
-                                        scenario,
-                                        task_entity,
-                                    ));
-                                } else {
-                                    // Otherwise, toggle to Hidden
-                                    commands.entity(task_entity).insert(Inclusion::Hidden);
-                                }
-                            }
-                        }
-                    } else {
-                        // Modifier is inherited
-                        if ui
-                            .add(ImageButton::new(icons.link.egui()))
-                            .on_hover_text("Task inclusion is inherited in this scenario")
-                            .clicked()
+                } else {
+                    if ui
+                        .add(ImageButton::new(icons.show.egui()))
+                        .on_hover_text("Task is included in this scenario")
+                        .clicked()
+                    {
+                        if get_inclusion_modifier
+                            .scenarios
+                            .get(scenario)
+                            .is_ok_and(|(_, a)| a.0.is_some())
                         {
+                            // If parent scenario exists, clicking this button toggles to ResetInclusion
+                            commands
+                                .trigger(UpdateModifier::<Inclusion>::reset(scenario, task_entity));
+                        } else {
+                            // Otherwise, toggle to Hidden
                             commands.entity(task_entity).insert(Inclusion::Hidden);
                         }
                     }
-
-                    if !in_edit_mode {
-                        if present {
-                            // Do not allow edit if not in current scenario
-                            if ui
-                                .add(ImageButton::new(icons.edit.egui()))
-                                .on_hover_text("Edit task parameters")
-                                .clicked()
-                            {
-                                edit_mode.write(EditModeEvent {
-                                    scenario: scenario,
-                                    mode: EditMode::Edit(Some(task_entity)),
-                                });
-                            }
-                        }
-                    } else {
-                        // Exit edit mode
-                        if ui
-                            .add(ImageButton::new(icons.confirm.egui()))
-                            .on_hover_text("Exit edit mode")
-                            .clicked()
-                        {
-                            edit_mode.write(EditModeEvent {
-                                scenario: scenario,
-                                mode: EditMode::Edit(None),
-                            });
-                        }
-                    }
-                });
-            });
-            if !present {
-                return;
+                }
+            } else {
+                // Modifier is inherited
+                if ui
+                    .add(ImageButton::new(icons.link.egui()))
+                    .on_hover_text("Task inclusion is inherited in this scenario")
+                    .clicked()
+                {
+                    commands.entity(task_entity).insert(Inclusion::Hidden);
+                }
             }
-            ui.separator();
 
-            let Some(task_params) = get_params_modifier
-                .get(scenario, task_entity)
-                .map(|m| (**m).clone())
-            else {
-                return;
-            };
-
-            show_editable_task(
-                ui,
-                commands,
-                task_entity,
-                task,
-                &task_params,
-                scenario,
-                in_edit_mode,
-                get_params_modifier,
-                robots,
-                task_kinds,
-                change_task,
-            );
+            if !in_edit_mode {
+                if present {
+                    // Do not allow edit if not in current scenario
+                    if ui
+                        .add(ImageButton::new(icons.edit.egui()))
+                        .on_hover_text("Edit task parameters")
+                        .clicked()
+                    {
+                        edit_mode.write(EditModeEvent {
+                            scenario: scenario,
+                            mode: EditMode::Edit(Some(task_entity)),
+                        });
+                    }
+                }
+            } else {
+                // Exit edit mode
+                if ui
+                    .add(ImageButton::new(icons.confirm.egui()))
+                    .on_hover_text("Exit edit mode")
+                    .clicked()
+                {
+                    edit_mode.write(EditModeEvent {
+                        scenario: scenario,
+                        mode: EditMode::Edit(None),
+                    });
+                }
+            }
         });
+    });
+    if !present {
+        return;
+    }
+    ui.separator();
+
+    let Some(task_params) = get_params_modifier
+        .get(scenario, task_entity)
+        .map(|m| (**m).clone())
+    else {
+        return;
+    };
+
+    show_editable_task(
+        ui,
+        commands,
+        task_entity,
+        task,
+        &task_params,
+        scenario,
+        in_edit_mode,
+        get_params_modifier,
+        robots,
+        task_kinds,
+        change_task,
+    );
 }
 
 fn show_editable_task(
