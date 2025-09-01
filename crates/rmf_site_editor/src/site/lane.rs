@@ -412,10 +412,7 @@ pub fn remove_association_for_deleted_graphs(
 pub fn update_color_for_lanes(
     changed_lanes: Query<
         (&AssociatedGraphs<Entity>, &LaneSegments),
-        (
-            With<LaneMarker>,
-            Changed<AssociatedGraphs<Entity>>,
-        ),
+        (With<LaneMarker>, Changed<AssociatedGraphs<Entity>>),
     >,
     any_graphs_changed: Query<(), (Changed<DisplayColor>, With<NavGraphMarker>)>,
     all_lanes: Query<(&AssociatedGraphs<Entity>, &LaneSegments), With<LaneMarker>>,
