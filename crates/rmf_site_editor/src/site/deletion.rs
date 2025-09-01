@@ -30,9 +30,9 @@ use bevy::{
     },
     prelude::*,
 };
+use rmf_site_egui::InspectFor;
 use rmf_site_format::{Edge, Path, Point};
 use rmf_site_picking::{Select, Selection};
-use rmf_site_egui::InspectFor;
 use std::collections::HashSet;
 
 /// There are instances where Bevy panics if an entity that is computed to be
