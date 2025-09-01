@@ -152,6 +152,8 @@ use crate::recency::{RecencyRank, RecencyRankingPlugin};
 use crate::{AppState, RegisterIssueType};
 pub use rmf_site_format::{DirectionalLight, PointLight, SpotLight, Style, *};
 
+use rmf_site_picking::SelectionServiceStages;
+
 use bevy::{
     pbr::ExtendedMaterial, prelude::*, render::view::visibility::VisibilitySystems,
     transform::TransformSystem,
@@ -421,7 +423,7 @@ impl Plugin for SitePlugin {
                 update_visibility_for_locations.after(remove_association_for_deleted_graphs),
                 update_changed_location,
                 update_location_for_moved_anchors,
-                update_location_for_changed_location_tags,
+                update_location_for_changed_location_tags.before(SelectionServiceStages::Select),
                 update_changed_fiducial,
                 update_fiducial_for_moved_anchors,
                 handle_consider_associated_graph,

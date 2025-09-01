@@ -16,9 +16,10 @@
 */
 
 use crate::site::{
-    update_anchor_transforms, CollisionMeshMarker, CurrentEditDrawing, CurrentLevel, DoorMarker,
-    FiducialMarker, FloorMarker, LaneMarker, LiftCabin, LiftCabinDoorMarker, LocationTags,
-    MeasurementMarker, SiteUpdateSet, ToggleLiftDoorAvailability, VisualMeshMarker, WallMarker,
+    update_anchor_transforms, update_location_for_changed_location_tags, CollisionMeshMarker,
+    CurrentEditDrawing, CurrentLevel, DoorMarker, FiducialMarker, FloorMarker, LaneMarker,
+    LiftCabin, LiftCabinDoorMarker, LocationTags, MeasurementMarker, SiteUpdateSet,
+    ToggleLiftDoorAvailability, VisualMeshMarker, WallMarker,
 };
 
 pub mod anchor;
@@ -49,6 +50,9 @@ pub use lift::*;
 
 pub mod light;
 pub use light::*;
+
+pub mod location;
+pub use location::*;
 
 pub mod model;
 pub use model::*;
@@ -200,11 +204,15 @@ impl Plugin for InteractionPlugin {
                     update_outline_visualization.after(SelectionServiceStages::Select),
                     update_highlight_visualization.after(SelectionServiceStages::Select),
                     update_cursor_hover_visualization.after(SelectionServiceStages::Select),
+                    update_location_visual_cues.after(SelectionServiceStages::Select),
                     update_gizmo_click_start.after(SelectionServiceStages::Select),
                     update_gizmo_release,
                     update_drag_motions
                         .after(update_gizmo_click_start)
                         .after(update_gizmo_release),
+                    update_billboard_location,
+                    update_billboard_text_hover_visualisation,
+                    update_billboard_hover_visualization,
                     handle_lift_doormat_clicks.after(update_gizmo_click_start),
                     manage_previews,
                     update_physical_camera_preview,
@@ -230,6 +238,7 @@ impl Plugin for InteractionPlugin {
                     add_popups,
                     register_double_click_event,
                     update_camera_targets,
+                    add_billboard_visual_cues.after(update_location_for_changed_location_tags),
                 )
                     .run_if(in_state(InteractionState::Enable))
                     .in_set(InteractionUpdateSet::AddVisuals),
