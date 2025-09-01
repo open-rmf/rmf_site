@@ -414,37 +414,70 @@ pub fn update_color_for_lanes(
         (&AssociatedGraphs<Entity>, &LaneSegments),
         (
             With<LaneMarker>,
-            Or<(Changed<AssociatedGraphs<Entity>>, Without<NavGraphMarker>)>,
+            Changed<AssociatedGraphs<Entity>>,
         ),
     >,
+    any_graphs_changed: Query<(), (Changed<DisplayColor>, With<NavGraphMarker>)>,
+    all_lanes: Query<(&AssociatedGraphs<Entity>, &LaneSegments), With<LaneMarker>>,
     graphs: GraphSelect,
     lane_materials: Query<&MeshMaterial3d<ExtendedMaterial<StandardMaterial, LaneArrowMaterial>>>,
     mut extended_materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, LaneArrowMaterial>>>,
 ) {
-    for (associated, segments) in changed_lanes {
-        let (_, color, _) = graphs.display_style(associated);
-        let new_color = color.to_linear();
+    if any_graphs_changed.is_empty() {
+        // No nav graph colors have changed, so only look at lanes who have changed
+        // their associated graphs
+        for (associated, segments) in changed_lanes {
+            impl_update_color_for_lane(
+                associated,
+                segments,
+                &graphs,
+                &lane_materials,
+                &mut extended_materials,
+            );
+        }
+    } else {
+        // A nav graph color has changed, so update all lanes just to be safe
+        for (associated, segments) in all_lanes {
+            impl_update_color_for_lane(
+                associated,
+                segments,
+                &graphs,
+                &lane_materials,
+                &mut extended_materials,
+            );
+        }
+    }
+}
 
-        if let Ok(ext_mat) = lane_materials.get(segments.mid) {
-            if let Some(lane_mat) = extended_materials.get_mut(&ext_mat.0) {
-                lane_mat.extension.background_color = new_color.into();
+fn impl_update_color_for_lane(
+    associated: &AssociatedGraphs<Entity>,
+    segments: &LaneSegments,
+    graphs: &GraphSelect,
+    lane_materials: &Query<&MeshMaterial3d<ExtendedMaterial<StandardMaterial, LaneArrowMaterial>>>,
+    extended_materials: &mut ResMut<Assets<ExtendedMaterial<StandardMaterial, LaneArrowMaterial>>>,
+) {
+    let (_, color, _) = graphs.display_style(associated);
+    let new_color = color.to_linear();
 
-                let dark_color_diff = 0.1;
-                let light_color_diff = 0.5;
+    if let Ok(ext_mat) = lane_materials.get(segments.mid) {
+        if let Some(lane_mat) = extended_materials.get_mut(&ext_mat.0) {
+            lane_mat.extension.background_color = new_color.into();
 
-                lane_mat.extension.single_arrow_color = Color::srgb(
-                    (new_color.red - dark_color_diff).clamp(0.0, 1.0),
-                    (new_color.green - dark_color_diff).clamp(0.0, 1.0),
-                    (new_color.blue - dark_color_diff).clamp(0.0, 1.0),
-                )
-                .into();
-                lane_mat.extension.double_arrow_color = Color::srgb(
-                    (new_color.red + light_color_diff).clamp(0.0, 1.0),
-                    (new_color.green + light_color_diff).clamp(0.0, 1.0),
-                    (new_color.blue + light_color_diff).clamp(0.0, 1.0),
-                )
-                .into();
-            }
+            let dark_color_diff = 0.1;
+            let light_color_diff = 0.5;
+
+            lane_mat.extension.single_arrow_color = Color::srgb(
+                (new_color.red - dark_color_diff).clamp(0.0, 1.0),
+                (new_color.green - dark_color_diff).clamp(0.0, 1.0),
+                (new_color.blue - dark_color_diff).clamp(0.0, 1.0),
+            )
+            .into();
+            lane_mat.extension.double_arrow_color = Color::srgb(
+                (new_color.red + light_color_diff).clamp(0.0, 1.0),
+                (new_color.green + light_color_diff).clamp(0.0, 1.0),
+                (new_color.blue + light_color_diff).clamp(0.0, 1.0),
+            )
+            .into();
         }
     }
 }
