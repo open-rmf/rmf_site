@@ -23,7 +23,6 @@ use bevy::{prelude::*, window::PrimaryWindow};
 use bevy_egui::EguiContexts;
 use bevy_impulse::*;
 use rmf_site_camera::resources::ProjectionMode;
-use rmf_site_egui::InspectFor;
 use rmf_site_picking::Selection;
 
 /// plugin for managing input settings for rmf_site_editor
@@ -49,7 +48,6 @@ fn handle_keyboard_input(
     primary_windows: Query<Entity, With<PrimaryWindow>>,
     mut workspace_loader: WorkspaceLoader,
     mut workspace_saver: WorkspaceSaver,
-    inspect_fors: Query<&InspectFor>,
 ) {
     let Some(egui_context) = primary_windows
         .single()
@@ -78,13 +76,7 @@ fn handle_keyboard_input(
         || keyboard_input.just_pressed(KeyCode::Backspace)
     {
         if let Some(selection) = selection.0 {
-            // Check if selected entity has an InspectFor component.
-            // Ensures that the deleted entity is also the entity the user sees in the Inspector.
-            if let Ok(inspect_for) = inspect_fors.get(selection) {
-                delete.write(Delete::new(inspect_for.entity));
-            } else {
-                delete.write(Delete::new(selection));
-            }
+            delete.write(Delete::new(selection));
         } else {
             warn!("No selected entity to delete");
         }

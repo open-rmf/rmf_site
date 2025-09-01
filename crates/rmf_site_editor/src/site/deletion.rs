@@ -32,6 +32,7 @@ use bevy::{
 };
 use rmf_site_format::{Edge, Path, Point};
 use rmf_site_picking::{Select, Selection};
+use rmf_site_egui::InspectFor;
 use std::collections::HashSet;
 
 /// There are instances where Bevy panics if an entity that is computed to be
@@ -184,15 +185,22 @@ impl DeletionFilters {
 
 fn handle_deletion_requests(
     world: &mut World,
-    state: &mut SystemState<(EventReader<Delete>, DeletionParams)>,
+    state: &mut SystemState<(EventReader<Delete>, Query<&InspectFor>, DeletionParams)>,
 ) {
-    let (mut deletions, _) = state.get_mut(world);
+    let (mut deletions, inspect_for, _) = state.get_mut(world);
     if deletions.is_empty() {
         return;
     }
     let mut pending_delete: HashSet<Delete> = HashSet::new();
     for delete in deletions.read() {
-        pending_delete.insert(*delete);
+        if let Ok(inspect_for) = inspect_for.get(delete.element) {
+            pending_delete.insert(Delete {
+                element: inspect_for.entity,
+                ..*delete
+            });
+        } else {
+            pending_delete.insert(*delete);
+        }
     }
 
     pending_delete =
@@ -203,7 +211,7 @@ fn handle_deletion_requests(
             deletion_filters.run_boxes(pending_delete, world)
         });
 
-    let (_, mut params) = state.get_mut(world);
+    let (_, _, mut params) = state.get_mut(world);
     for delete in pending_delete.iter() {
         if delete.and_dependents {
             recursive_dependent_delete(delete.element, &mut params);
