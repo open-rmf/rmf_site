@@ -44,14 +44,13 @@ pub fn update_location_visual_cues(
 ) {
     // Updates billboards on newly spawned or moved locations
     for meshes in changed_locations {
-        [
+        for mesh in [
             meshes.base,
             meshes.charging,
             meshes.holding,
             meshes.parking,
             meshes.empty_billboard,
-        ]
-        .map(|mesh| {
+        ] {
             if let Some(e) = mesh {
                 let Ok((bb_entity, parent)) = billboards.get(e) else {
                     warn!("could not find billboard");
@@ -59,7 +58,7 @@ pub fn update_location_visual_cues(
                 };
                 update_billboard_visual_cues(&mut commands, bb_entity, parent, points, locations);
             }
-        });
+        }
     }
 }
 
