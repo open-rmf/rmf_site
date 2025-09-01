@@ -560,10 +560,7 @@ pub fn add_door_visuals(
         for name_entity in [name_on_door, name_on_floor] {
             commands
                 .entity(name_entity)
-                .insert((
-                    VisualCue::no_outline(),
-                    Selectable::new(e),
-                ));
+                .insert((VisualCue::no_outline(), Selectable::new(e)));
         }
 
         // Level doors for lifts may have already been given a Visibility
@@ -748,7 +745,13 @@ pub fn update_changed_door(
 
 pub fn update_door_for_moved_anchors(
     mut commands: Commands,
-    mut doors: Query<(Entity, &Edge<Entity>, &DoorType, &DoorSegments, Option<&NameInSite>)>,
+    mut doors: Query<(
+        Entity,
+        &Edge<Entity>,
+        &DoorType,
+        &DoorSegments,
+        Option<&NameInSite>,
+    )>,
     anchors: AnchorParams,
     changed_anchors: Query<
         &Dependents,
