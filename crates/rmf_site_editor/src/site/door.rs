@@ -99,8 +99,8 @@ pub struct DoorSegments {
     pub body: DoorBodyType,
     pub cue_inner: Entity,
     pub cue_outline: Entity,
-    pub name_door: Entity,
-    pub name_floor: Entity,
+    pub name_on_door: Entity,
+    pub name_on_floor: Entity,
 }
 
 fn find_door_character_limit(door_length: f32) -> usize {
@@ -426,14 +426,12 @@ fn make_door_cues(door_width: f32, kind: &DoorType) -> (Mesh, Mesh) {
 
 fn create_door_name(
     commands: &mut Commands,
-    name: &NameInSite,
+    name: &str,
     scale: Vec3,
     assets: &Res<SiteAssets>,
     door_tf_length: f32,
     door_space_length: f32,
 ) -> (Entity, Entity) {
-    let name_str = &name.0;
-
     let transform_door = (
         Transform {
             translation: Vec3::new(DEFAULT_DOOR_THICKNESS + 0.5, 0.0, 0.0),
@@ -457,10 +455,10 @@ fn create_door_name(
 
     let mut spawn_name = |(tf, length)| {
         let line_limit = find_door_character_limit(length);
-        let name = if name_str.len() > line_limit {
-            handle_name_limit(line_limit, name_str)
+        let name = if name.len() > line_limit {
+            handle_name_limit(line_limit, name)
         } else {
-            name_str.clone()
+            name.to_owned()
         };
 
         commands
@@ -496,7 +494,7 @@ pub fn add_door_visuals(
             Entity,
             &Edge<Entity>,
             &DoorType,
-            &NameInSite,
+            Option<&NameInSite>,
             Option<&Visibility>,
         ),
         (
@@ -548,9 +546,10 @@ pub fn add_door_visuals(
             .id();
 
         let (parent_entity, parent_tf) = (bodies[0], door_tfs[0]);
+
         let (name_door, name_floor) = create_door_name(
             &mut commands,
-            name,
+            name.map(|n| n.0.as_str()).unwrap_or(""),
             name_scale,
             &assets,
             parent_tf.scale.y,
@@ -573,8 +572,8 @@ pub fn add_door_visuals(
                 body,
                 cue_inner,
                 cue_outline,
-                name_door,
-                name_floor,
+                name_on_door: name_door,
+                name_on_floor: name_floor,
             })
             .insert(Category::Door)
             .insert(EdgeLabels::LeftRight)
@@ -596,7 +595,7 @@ fn update_door_visuals(
     edge: &Edge<Entity>,
     kind: &DoorType,
     segments: &DoorSegments,
-    name: &NameInSite,
+    name: Option<&NameInSite>,
     anchors: &AnchorParams,
     transforms: &mut Query<&mut Transform>,
     mesh_handles: &mut Query<&mut Mesh3d>,
@@ -613,11 +612,12 @@ fn update_door_visuals(
         let mut door_transform = transforms.get_mut(*e).unwrap();
         *door_transform = *door_tf;
     }
+
     update_door_name(
         door_length,
-        name,
-        segments.name_door,
-        segments.name_floor,
+        name.map(|n| n.0.as_str()).unwrap_or(""),
+        segments.name_on_door,
+        segments.name_on_floor,
         child_scale,
         texts,
         transforms,
@@ -655,7 +655,7 @@ fn update_door_visuals(
 
 fn update_door_name(
     door_length: f32,
-    name: &NameInSite,
+    name: &str,
     door_entity: Entity,
     floor_entity: Entity,
     name_scale: Vec3,
@@ -671,10 +671,10 @@ fn update_door_name(
     // Resize names for chaged name or changed door length
     let mut update_name = |length, entity| {
         let line_limit = find_door_character_limit(length);
-        let new_name = if name.0.len() > line_limit {
-            handle_name_limit(line_limit, &name.0)
+        let new_name = if name.len() > line_limit {
+            handle_name_limit(line_limit, &name)
         } else {
-            name.0.clone()
+            name.to_owned()
         };
         if let Ok(mut text) = texts.get_mut(entity) {
             let prev_str = match &text.segments[0].0 {
@@ -697,7 +697,7 @@ pub fn update_changed_door(
             Entity,
             &Edge<Entity>,
             &DoorType,
-            &NameInSite,
+            Option<&NameInSite>,
             &mut DoorSegments,
             &mut Hovered,
         ),
@@ -742,7 +742,7 @@ pub fn update_changed_door(
 
 pub fn update_door_for_moved_anchors(
     mut commands: Commands,
-    mut doors: Query<(Entity, &Edge<Entity>, &DoorType, &DoorSegments, &NameInSite)>,
+    mut doors: Query<(Entity, &Edge<Entity>, &DoorType, &DoorSegments, Option<&NameInSite>)>,
     anchors: AnchorParams,
     changed_anchors: Query<
         &Dependents,
@@ -766,7 +766,7 @@ pub fn update_door_for_moved_anchors(
                     edge,
                     kind,
                     &segments,
-                    &name,
+                    name,
                     &anchors,
                     &mut transforms,
                     &mut mesh_handles,
