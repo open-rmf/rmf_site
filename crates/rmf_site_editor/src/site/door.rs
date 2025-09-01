@@ -547,7 +547,7 @@ pub fn add_door_visuals(
 
         let (parent_entity, parent_tf) = (bodies[0], door_tfs[0]);
 
-        let (name_door, name_floor) = create_door_name(
+        let (name_on_door, name_on_floor) = create_door_name(
             &mut commands,
             name.map(|n| n.0.as_str()).unwrap_or(""),
             name_scale,
@@ -556,9 +556,15 @@ pub fn add_door_visuals(
             door_length,
         );
 
-        commands.entity(parent_entity).add_child(name_door);
-        commands.entity(name_door).insert(VisualCue::no_outline());
-        commands.entity(name_floor).insert(VisualCue::no_outline());
+        commands.entity(parent_entity).add_child(name_on_door);
+        for name_entity in [name_on_door, name_on_floor] {
+            commands
+                .entity(name_entity)
+                .insert((
+                    VisualCue::no_outline(),
+                    Selectable::new(e),
+                ));
+        }
 
         // Level doors for lifts may have already been given a Visibility
         // component upon creation, in which case we should respect whatever
@@ -572,14 +578,14 @@ pub fn add_door_visuals(
                 body,
                 cue_inner,
                 cue_outline,
-                name_on_door: name_door,
-                name_on_floor: name_floor,
+                name_on_door,
+                name_on_floor,
             })
             .insert(Category::Door)
             .insert(EdgeLabels::LeftRight)
             .add_children(&[cue_inner, cue_outline])
             .add_children(&bodies)
-            .add_child(name_floor);
+            .add_child(name_on_floor);
 
         for anchor in edge.array() {
             if let Ok(mut deps) = dependents.get_mut(anchor) {

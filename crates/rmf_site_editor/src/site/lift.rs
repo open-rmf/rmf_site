@@ -279,6 +279,7 @@ pub fn update_lift_cabin(
                                     rotation: Quat::from_rotation_z(90_f32.to_radians()),
                                     scale: Vec3::ONE,
                                 },
+                                Selectable::new(e),
                             ))
                             .insert(VisualCue::no_outline());
 
