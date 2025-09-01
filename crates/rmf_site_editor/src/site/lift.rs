@@ -272,7 +272,7 @@ pub fn update_lift_cabin(
                                 Mesh3d::default(),
                                 MeshMaterial3d(assets.text3d_material.clone()),
                                 Transform {
-                                    translation: Vec3::new(0., 0., 0.005),
+                                    translation: Vec3::new(0., 0., 2.0*ZLayer::LabelText.to_z()),
                                     rotation: Quat::from_rotation_z(90_f32.to_radians()),
                                     scale: Vec3::ONE,
                                 },

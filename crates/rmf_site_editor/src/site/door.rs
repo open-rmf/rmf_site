@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{issue::*, site::*};
+use crate::{issue::*, site::*, layers::ZLayer};
 use bevy::{
     ecs::{hierarchy::ChildOf, relationship::AncestorIter},
     prelude::*,
@@ -444,7 +444,11 @@ fn create_door_name(
     );
     let transform_floor = (
         Transform {
-            translation: Vec3::new(0.0, 0.0, 0.008),
+            // TODO(@mxgrey): For some reason the text won't show over a hovered
+            // layer unless we multiply this z value by 2, even though it should
+            // win in the z-buffer without that. We should investigate the cause
+            // of this.
+            translation: Vec3::new(0.0, 0.0, 2.0*ZLayer::LabelText.to_z()),
             rotation: Quat::from_rotation_z(90_f32.to_radians()),
             scale: Vec3::ONE,
         },
@@ -479,10 +483,10 @@ fn create_door_name(
             ))
             .id()
     };
-    let door_tf = spawn_name(transform_door);
-    let floor_tf = spawn_name(transform_floor);
+    let name_on_door = spawn_name(transform_door);
+    let name_on_floor = spawn_name(transform_floor);
 
-    (door_tf, floor_tf)
+    (name_on_door, name_on_floor)
 }
 
 pub fn add_door_visuals(
