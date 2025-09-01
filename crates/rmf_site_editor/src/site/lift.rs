@@ -31,7 +31,7 @@ use std::num::NonZero;
 use uuid::Uuid;
 
 const LIFT_NAME_LINE_LIMIT: usize = 15;
-const LIFT_NAME_CHARACTER_LENGTH: f32 = 0.08;
+const LIFT_NAME_CHARACTER_LENGTH: f32 = 0.225;
 
 #[derive(Clone, Copy, Debug, Component, Deref, DerefMut)]
 pub struct ChildLiftCabinGroup(pub Entity);
@@ -154,7 +154,10 @@ pub fn add_tags_to_lift(
 
 fn find_lift_character_limit(lift_width: f32) -> usize {
     let number_of_characters = lift_width / LIFT_NAME_CHARACTER_LENGTH - 4.0;
-    let new_limit = (1).max((number_of_characters.floor() as usize).min(LIFT_NAME_LINE_LIMIT));
+    let new_limit = usize::min(
+        usize::max(1, number_of_characters.floor() as usize),
+        LIFT_NAME_LINE_LIMIT,
+    );
     new_limit
 }
 
@@ -264,7 +267,7 @@ pub fn update_lift_cabin(
                                     stroke: NonZero::new(10),
                                     color: Srgba::BLACK,
                                     stroke_color: Srgba::WHITE,
-                                    world_scale: Some(Vec2::splat(0.125)),
+                                    world_scale: Some(Vec2::splat(0.5)),
                                     layer_offset: 0.001,
                                     align: TextAlign::Center,
                                     ..Default::default()
