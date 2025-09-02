@@ -19,7 +19,10 @@ use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Component, Reflect};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::fmt;
+use std::{
+    fmt,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
@@ -79,6 +82,8 @@ pub struct TaskRequest {
     pub requester: Option<String>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub fleet_name: Option<String>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub created_time: Option<i32>,
 }
 
 impl Default for TaskRequest {
@@ -89,6 +94,10 @@ impl Default for TaskRequest {
             description_display: None,
             requester: None,
             fleet_name: None,
+            created_time: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map(|d| d.as_millis() as i32)
+                .ok(),
         }
     }
 }
@@ -139,6 +148,14 @@ impl TaskRequest {
 
     pub fn fleet_name_mut(&mut self) -> &mut Option<String> {
         &mut self.fleet_name
+    }
+
+    pub fn created_time(&self) -> Option<i32> {
+        self.created_time.clone()
+    }
+
+    pub fn created_time_mut(&mut self) -> &mut Option<i32> {
+        &mut self.created_time
     }
 }
 

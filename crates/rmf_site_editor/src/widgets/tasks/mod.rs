@@ -37,7 +37,6 @@ use bevy_egui::{
 use rmf_site_egui::*;
 use serde_json::Value;
 use smallvec::SmallVec;
-use std::collections::BTreeMap;
 
 pub mod go_to_place;
 pub use go_to_place::*;
@@ -182,11 +181,36 @@ impl<'w, 's> WidgetSystem<Tile> for ViewTasks<'w, 's> {
             ui.label("No scenario selected, unable to display or create tasks.");
             return;
         };
-        // TODO(@xiyuoh) sort tasks by request time/start time/created time
-        let mut tasks = BTreeMap::<Entity, Task>::new();
+        // Tasks are sorted by start time, then request time, then created time,
+        // depending on which fields are populated
+        let mut tasks = Vec::<(i32, (Entity, Task))>::new();
+        let mut tasks_without_time = Vec::<(i32, (Entity, Task))>::new();
+
         for (e, task) in params.tasks.iter() {
-            tasks.insert(e, task.clone());
+            if let Some(params_modifier) =
+                params.get_params_modifier.get(current_scenario_entity, e)
+            {
+                if let Some(start_time) = params_modifier.start_time() {
+                    tasks.push((start_time, (e, task.clone())));
+                    continue;
+                }
+                if let Some(request_time) = params_modifier.request_time() {
+                    tasks.push((request_time, (e, task.clone())));
+                    continue;
+                }
+            }
+            if let Some(created_time) = task.request().created_time() {
+                tasks.push((created_time, (e, task.clone())));
+                continue;
+            }
+            // We should not reach here as created_time is populated by default,
+            // but in case it comes up as None we sort these by entity index and
+            // place them at the end of the task list
+            tasks_without_time.push((e.index() as i32, (e, task.clone())));
         }
+        tasks.sort_by(|a, b| a.0.cmp(&b.0));
+        tasks_without_time.sort_by(|a, b| a.0.cmp(&b.0));
+        tasks.extend(tasks_without_time);
 
         // View and modify tasks in current scenario
         Frame::default()
@@ -205,7 +229,7 @@ impl<'w, 's> WidgetSystem<Tile> for ViewTasks<'w, 's> {
                         .max_height(max_height)
                         .auto_shrink([false, false])
                         .show(ui, |ui| {
-                            for (task_entity, task) in tasks.iter() {
+                            for (_, (task_entity, task)) in tasks.iter() {
                                 show_task_widget(
                                     ui,
                                     Tile { id, panel },
