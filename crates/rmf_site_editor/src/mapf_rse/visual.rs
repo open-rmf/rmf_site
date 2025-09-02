@@ -64,7 +64,7 @@ pub fn visualise_selected_node(
     mapf_debug_window: Res<MAPFDebugDisplay>,
     mut path_mesh_visibilities: Query<&mut Visibility, With<PathVisualMarker>>,
 ) {
-    if !mapf_debug_window.show {
+    if !mapf_debug_window.show && !mapf_debug_window.run_without_showing {
         return;
     }
 

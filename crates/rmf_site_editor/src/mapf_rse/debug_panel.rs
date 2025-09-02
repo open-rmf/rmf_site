@@ -677,6 +677,7 @@ pub fn handle_debug_panel_changed(
 #[derive(Resource, Debug, Clone, Default)]
 pub struct MAPFDebugDisplay {
     pub show: bool,
+    pub run_without_showing: bool,
 }
 
 #[derive(Resource)]
