@@ -98,6 +98,12 @@ pub struct DoorSegments {
     pub name_on_floor: Entity,
 }
 
+impl DoorSegments {
+    pub fn name_displays(&self) -> [Entity; 2] {
+        [self.name_on_door, self.name_on_floor]
+    }
+}
+
 fn find_door_character_limit(door_length: f32) -> usize {
     // 4.0 is subtracted to account for side margins.
     let number_of_characters = door_length / DOOR_NAME_CHARACTER_LENGTH - 4.0;

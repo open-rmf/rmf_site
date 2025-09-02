@@ -28,6 +28,9 @@ use rmf_site_mesh::*;
 
 const LANE_SHADER_PATH: &str = "embedded://librmf_site_editor/site/shaders/lane_arrow_shader.wgsl";
 
+pub const SELECT_COLOR: Color = Color::srgb(1., 0.3, 1.);
+pub const HOVER_COLOR: Color = Color::srgb(0.3, 1., 1.);
+pub const HOVER_SELECT_COLOR: Color = Color::srgb(1.0, 0.0, 0.3);
 pub const NAV_UNASSIGNED_COLOR: Color = Color::srgb(0.1, 0.1, 0.1);
 
 pub(crate) fn add_site_assets(app: &mut App) {
@@ -36,9 +39,7 @@ pub(crate) fn add_site_assets(app: &mut App) {
     embedded_asset!(app, "src/", "billboards/parking.png");
     embedded_asset!(app, "src/", "billboards/holding.png");
     embedded_asset!(app, "src/", "billboards/empty.png");
-
     embedded_asset!(app, "src/", "shaders/lane_arrow_shader.wgsl");
-
     embedded_asset!(app, "src/", "textures/door_bottom.png");
 }
 
@@ -127,7 +128,7 @@ pub fn old_default_material(base_color: Color) -> StandardMaterial {
     }
 }
 
-pub fn old_default_material_t(base_color_texture: Handle<Image>) -> StandardMaterial {
+pub fn billboard_material(base_color_texture: Handle<Image>) -> StandardMaterial {
     StandardMaterial {
         base_color_texture: Some(base_color_texture),
         alpha_mode: AlphaMode::Blend,
@@ -157,12 +158,9 @@ impl FromWorld for SiteAssets {
             .get_resource_mut::<Assets<StandardMaterial>>()
             .unwrap();
         let unassigned_lane_material = materials.add(old_default_material(NAV_UNASSIGNED_COLOR));
-        let select_color = Color::srgb(1., 0.3, 1.);
-        let hover_color = Color::srgb(0.3, 1., 1.);
-        let hover_select_color = Color::srgb(1.0, 0.0, 0.3);
-        let select_material = materials.add(old_default_material(select_color));
-        let hover_material = materials.add(old_default_material(hover_color));
-        let hover_select_material = materials.add(old_default_material(hover_select_color));
+        let select_material = materials.add(old_default_material(SELECT_COLOR));
+        let hover_material = materials.add(old_default_material(HOVER_COLOR));
+        let hover_select_material = materials.add(old_default_material(HOVER_SELECT_COLOR));
         // let hover_select_material = materials.add(Color::srgb_u8(177, 178, 255));
         // let hover_select_material = materials.add(Color::srgb_u8(214, 28, 78));
         let measurement_material =
@@ -184,17 +182,17 @@ impl FromWorld for SiteAssets {
         let hover_anchor_material = materials.add(StandardMaterial {
             // unlit: true,
             unlit: false,
-            ..old_default_material(hover_color)
+            ..old_default_material(HOVER_COLOR)
         });
         let select_anchor_material = materials.add(StandardMaterial {
             // unlit: true,
             unlit: false,
-            ..old_default_material(select_color)
+            ..old_default_material(SELECT_COLOR)
         });
         let hover_select_anchor_material = materials.add(StandardMaterial {
             // unlit: true,
             unlit: false,
-            ..old_default_material(hover_select_color)
+            ..old_default_material(HOVER_SELECT_COLOR)
         });
         let preview_anchor_material = materials.add(StandardMaterial {
             alpha_mode: AlphaMode::Blend,
@@ -238,13 +236,13 @@ impl FromWorld for SiteAssets {
         let default_mesh_grey_material =
             materials.add(old_default_material(Color::srgb(0.7, 0.7, 0.7)));
 
-        let base_billboard_material = materials.add(old_default_material_t(base_billboard_texture));
+        let base_billboard_material = materials.add(billboard_material(base_billboard_texture));
         let charger_material: Handle<StandardMaterial> =
-            materials.add(old_default_material_t(charger_texture));
-        let holding_point_material = materials.add(old_default_material_t(holding_point_texture));
-        let parking_material = materials.add(old_default_material_t(parking_texture));
+            materials.add(billboard_material(charger_texture));
+        let holding_point_material = materials.add(billboard_material(holding_point_texture));
+        let parking_material = materials.add(billboard_material(parking_texture));
         let empty_billboard_material =
-            materials.add(old_default_material_t(empty_billboard_texture));
+            materials.add(billboard_material(empty_billboard_texture));
 
         let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
         let billboard_base_mesh =
