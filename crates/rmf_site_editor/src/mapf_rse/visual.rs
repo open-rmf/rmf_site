@@ -91,9 +91,13 @@ pub fn visualise_selected_node(
     debug_data.time += debugger_settings.playback_speed * now.delta_secs();
 
     if debug_data.time > *longest_plan_duration_s {
-        set_path_all_visible(&mut debug_data, &mut path_mesh_visibilities);
-        debug_data.time = 0.0;
-        return;
+        if debugger_settings.loop_playback {
+            set_path_all_visible(&mut debug_data, &mut path_mesh_visibilities);
+            debug_data.time = 0.0;
+            return;
+        } else {
+            debug_data.time = *longest_plan_duration_s;
+        }
     }
 
     let original_start_pointers =

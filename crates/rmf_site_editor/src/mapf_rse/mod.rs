@@ -111,12 +111,14 @@ impl NegotiationDebugData {
 #[derive(Resource)]
 pub struct DebuggerSettings {
     pub playback_speed: f32,
+    pub loop_playback: bool,
 }
 
 impl Default for DebuggerSettings {
     fn default() -> Self {
         Self {
             playback_speed: 1.0,
+            loop_playback: true,
         }
     }
 }

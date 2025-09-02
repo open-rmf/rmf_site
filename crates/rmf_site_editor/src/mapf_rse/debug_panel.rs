@@ -527,6 +527,9 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
                 self.debugger_settings.playback_speed = 0.0;
             }
         }
+
+        ui.checkbox(&mut self.debugger_settings.loop_playback, "Loop");
+
         ui.end_row();
 
         // Solution node
