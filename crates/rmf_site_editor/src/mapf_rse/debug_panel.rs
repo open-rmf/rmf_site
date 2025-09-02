@@ -143,10 +143,7 @@ impl<'w, 's> WidgetSystem for NegotiationDebugWidget<'w, 's> {
                 MAPFDebugInfo::Success { .. } => {
                     params.show_successful_plan(ui);
                 }
-                MAPFDebugInfo::InProgress {
-                    start_time,
-                    task: _,
-                } => {
+                MAPFDebugInfo::InProgress { start_time } => {
                     Self::show_inprogress_plan(ui, start_time);
                 }
                 MAPFDebugInfo::Failed {

@@ -43,6 +43,7 @@ pub mod debug_panel;
 pub use debug_panel::*;
 
 pub mod visual;
+use std::thread;
 pub use visual::*;
 
 #[derive(Default)]
@@ -53,6 +54,7 @@ impl Plugin for NegotiationPlugin {
         app.init_resource::<NegotiationParams>()
             .init_resource::<NegotiationDebugData>()
             .init_resource::<DebuggerSettings>()
+            .init_resource::<PlanningProgressChannel>()
             .add_plugins(NegotiationDebugPlugin::default())
             .add_systems(
                 Update,
@@ -76,6 +78,32 @@ impl Plugin for NegotiationPlugin {
 
 #[derive(Event)]
 pub struct NegotiationRequest;
+
+use crossbeam_channel::{unbounded, Receiver, Sender};
+
+pub struct PlanningCompleted {
+    result: Result<
+        (
+            NegotiationNode,
+            Vec<NegotiationNode>,
+            HashMap<usize, String>,
+        ),
+        NegotiationError,
+    >,
+}
+/// Channels that give incremental updates about what models have been fetched.
+#[derive(Debug, Resource)]
+pub struct PlanningProgressChannel {
+    pub sender: Sender<PlanningCompleted>,
+    pub receiver: Receiver<PlanningCompleted>,
+}
+
+impl Default for PlanningProgressChannel {
+    fn default() -> Self {
+        let (sender, receiver) = unbounded();
+        Self { sender, receiver }
+    }
+}
 
 // Algorithm-specific parameters
 #[derive(Debug, Clone, Resource)]
@@ -222,6 +250,7 @@ fn handle_start_negotiation(
     mut commands: Commands,
     mut calculate_grid: EventWriter<CalculateGridRequest>,
     mut debug_data: ResMut<NegotiationDebugData>,
+    planning_progress_channel: Res<PlanningProgressChannel>,
 ) {
     let Some(site) = current_workspace.to_site(&open_sites) else {
         return;
@@ -331,10 +360,17 @@ fn handle_start_negotiation(
     };
     let queue_length_limit = negotiation_params.queue_length_limit;
 
-    // Execute asynchronously
     commands.entity(site).insert(MAPFDebugInfo::InProgress {
         start_time: Instant::now(),
-        task: negotiate(&scenario, Some(queue_length_limit)),
+    });
+
+    let tx = planning_progress_channel.sender.clone();
+    thread::spawn(move || {
+        if let Err(err) = tx.send(PlanningCompleted {
+            result: negotiate(&scenario, Some(queue_length_limit)),
+        }) {
+            error!("Failed sending planning completed {:?}", err);
+        }
     });
 }
 
@@ -343,6 +379,7 @@ fn handle_completed_negotiation(
     open_sites: Query<Entity, With<NameOfSite>>,
     current_workspace: Res<CurrentWorkspace>,
     mapf_info: Query<&MAPFDebugInfo>,
+    planning_progress_channel: Res<PlanningProgressChannel>,
 ) {
     let Some(site) = current_workspace.to_site(&open_sites) else {
         return;
@@ -352,7 +389,15 @@ fn handle_completed_negotiation(
         return;
     };
 
-    let MAPFDebugInfo::InProgress { start_time, task } = plan_info else {
+    let Some((start_time, result)) = (if let MAPFDebugInfo::InProgress { start_time } = plan_info {
+        if let Ok(planning_results) = planning_progress_channel.receiver.try_recv() {
+            Some((start_time, planning_results.result))
+        } else {
+            None
+        }
+    } else {
+        None
+    }) else {
         return;
     };
 
@@ -362,7 +407,7 @@ fn handle_completed_negotiation(
         return;
     };
 
-    match task {
+    match result {
         Ok((solution, negotiation_history, name_map)) => {
             let longest_plan_duration_s = if let Some(max_duration_s) = solution
                 .proposals
@@ -387,7 +432,7 @@ fn handle_completed_negotiation(
                 longest_plan_duration_s,
                 elapsed_time,
                 solution: solution.clone(),
-                entity_id_map: name_map_to_entity_map(name_map),
+                entity_id_map: name_map_to_entity_map(&name_map),
                 negotiation_history: negotiation_history.clone(),
             });
         }
@@ -408,7 +453,7 @@ fn handle_completed_negotiation(
                 }
                 NegotiationError::PlanningFailed((neg_history, name_map)) => {
                     negotiation_history = neg_history.to_vec();
-                    entity_id_map = name_map_to_entity_map(name_map);
+                    entity_id_map = name_map_to_entity_map(&name_map);
                 }
             }
 
@@ -439,7 +484,8 @@ fn handle_changed_debug_goal(
         }
 
         // If it is not a newly-added component (changed debug goal) send replanning request
-        if !debug_goals_added.get(entity).ok().is_some() {
+        // or its a newly-added component with valid location
+        if !debug_goals_added.get(entity).ok().is_some() || !debug_goal.location.is_empty() {
             any_debug_goal_changed = true;
         }
     }
@@ -486,6 +532,7 @@ fn handle_changed_plan_info(
         ),
         With<PathVisualMarker>,
     >,
+    display_mapf_debug: Res<MAPFDebugDisplay>,
 ) {
     let Some(level_entity) = current_level.0 else {
         return;
@@ -578,15 +625,21 @@ fn handle_changed_plan_info(
 
                     let id = start_ptr + waypt_id;
 
+                    let visibility = if display_mapf_debug.show {
+                        Visibility::Visible
+                    } else {
+                        Visibility::Hidden
+                    };
+
                     if id < debug_data.rectangle_entities.len() {
                         // reuse existing mesh entities
                         let mut change_material_and_tf = |mesh_entity_id, tf_to| {
-                            if let Some((mut visibility, mut material_mut, mut tf)) =
+                            if let Some((mut vis, mut material_mut, mut tf)) =
                                 path_meshes.get_mut(mesh_entity_id).ok()
                             {
                                 *material_mut = MeshMaterial3d(material.handle.clone());
                                 *tf = tf_to;
-                                *visibility = Visibility::Visible;
+                                *vis = visibility;
                             }
                         };
 
@@ -612,7 +665,7 @@ fn handle_changed_plan_info(
                             Mesh3d(site_assets.robot_path_rectangle_mesh.clone()),
                             MeshMaterial3d(material.handle.clone()),
                             rectangle_tf,
-                            Visibility::default(),
+                            visibility,
                         ));
 
                         // Spawns two circles, at start and end pos
@@ -621,7 +674,7 @@ fn handle_changed_plan_info(
                                 Mesh3d(site_assets.robot_path_circle_mesh.clone()),
                                 MeshMaterial3d(material.handle.clone()),
                                 tf,
-                                Visibility::default(),
+                                visibility,
                             ))
                         };
 

@@ -36,14 +36,6 @@ pub enum MAPFDebugInfo {
     },
     InProgress {
         start_time: Instant,
-        task: Result<
-            (
-                NegotiationNode,
-                Vec<NegotiationNode>,
-                HashMap<usize, String>,
-            ),
-            NegotiationError,
-        >,
     },
     Failed {
         error_message: Option<String>,
