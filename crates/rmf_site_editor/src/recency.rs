@@ -22,6 +22,7 @@ use std::{
     marker::PhantomData,
     ops::Deref,
 };
+use crate::site::load::load_site;
 
 #[derive(Debug, Clone, Component)]
 pub struct RecencyRanking<T: Component> {
@@ -193,7 +194,7 @@ impl<T: Component> Plugin for RecencyRankingPlugin<T> {
         app.add_event::<ChangeRank<T>>().add_systems(
             Update,
             (
-                update_recency_rankings::<T>,
+                update_recency_rankings::<T>.after(load_site),
                 update_recency_ranks::<T>.after(update_recency_rankings::<T>),
             ),
         );
