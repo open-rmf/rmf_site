@@ -784,7 +784,12 @@ fn show_create_task_dialog(
                         .on_hover_text("Add this task to the current scenario")
                         .clicked()
                     {
-                        world.entity_mut(task_entity).remove::<Pending>();
+                        // Update TaskParams modifier after removing Pending to
+                        // for changes to take effect
+                        world
+                            .entity_mut(task_entity)
+                            .remove::<Pending>()
+                            .insert(pending_task_params);
                         reset_edit = true;
                     }
                 });
