@@ -72,10 +72,13 @@ impl Door {
         let kind = match type_ {
             DoorType::SingleSliding => SingleSlidingDoor {
                 towards: Side::Right,
+                position: 1.0,
             }
             .into(),
             DoorType::DoubleSliding => DoubleSlidingDoor {
                 left_right_ratio: 1. / self.2.right_left_ratio.1 as f32,
+                left_position: 1.0,
+                right_position: 1.0,
             }
             .into(),
             DoorType::SingleTelescope => {
@@ -91,11 +94,14 @@ impl Door {
             DoorType::SingleSwing | DoorType::SingleHinged => SingleSwingDoor {
                 pivot_on: self.to_pivot_on()?,
                 swing: self.to_swing()?,
+                position: 1.0,
             }
             .into(),
             DoorType::DoubleSwing | DoorType::DoubleHinged => DoubleSwingDoor {
                 swing: self.to_swing()?,
                 left_right_ratio: 1. / self.2.right_left_ratio.1 as f32,
+                left_position: 1.0,
+                right_position: 1.0,
             }
             .into(),
             DoorType::Unknown => return Err(PortingError::InvalidType(self.2.type_.1.clone())),
