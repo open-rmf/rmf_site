@@ -49,7 +49,12 @@ pub struct InteractionAssets {
 }
 
 impl InteractionAssets {
-    pub fn make_orientation_cue_meshes(&self, commands: &mut Commands, parent: Entity, scale: f32) {
+    pub fn make_orientation_cue_meshes(
+        &self,
+        commands: &mut Commands,
+        parent: Entity,
+        scale: f32,
+    ) -> [Entity; 3] {
         // The arrows should originate in the mesh origin
         let pos = Vec3::splat(0.0);
         let rot_x = Quat::from_rotation_y(90_f32.to_radians());
@@ -58,9 +63,10 @@ impl InteractionAssets {
         let x_mat = self.x_axis_materials.clone();
         let y_mat = self.y_axis_materials.clone();
         let z_mat = self.z_axis_materials.clone();
-        self.make_axis(commands, None, parent, x_mat, pos, rot_x, scale);
-        self.make_axis(commands, None, parent, y_mat, pos, rot_y, scale);
-        self.make_axis(commands, None, parent, z_mat, pos, rot_z, scale);
+        let x = self.make_axis(commands, None, parent, x_mat, pos, rot_x, scale);
+        let y = self.make_axis(commands, None, parent, y_mat, pos, rot_y, scale);
+        let z = self.make_axis(commands, None, parent, z_mat, pos, rot_z, scale);
+        [x, y, z]
     }
 
     pub fn make_axis(
@@ -244,7 +250,11 @@ impl FromWorld for InteractionAssets {
         let dagger_mesh = meshes.add(make_dagger_mesh());
         let halo_mesh = meshes.add(make_halo_mesh());
         let camera_control_mesh = meshes.add(Mesh::from(primitives::Sphere::new(0.02)));
-        let arrow_mesh = meshes.add(make_triangular_arrow_mesh());
+        let arrow_mesh = make_triangular_arrow_mesh();
+        if let Err(err) = arrow_mesh.clone().with_generated_outline_normals() {
+            error!("Unable to generate outline for arrow mesh: {err}");
+        }
+        let arrow_mesh = meshes.add(arrow_mesh);
         let point_light_socket_mesh = meshes.add(
             make_cylinder(0.06, 0.02).transform_by(Affine3A::from_translation(0.04 * Vec3::Z)),
         );

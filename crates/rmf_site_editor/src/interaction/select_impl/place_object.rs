@@ -25,10 +25,10 @@ use bevy::{
         prelude::*,
         system::{SystemParam, SystemState},
     },
-    prelude::{Deref, DerefMut},
+    prelude::*,
 };
 use bevy_impulse::{testing::Resource, Service};
-use rmf_site_picking::{RunSelector, SelectorInput};
+use rmf_site_picking::{RunSelector, SelectionNodeResult, SelectorInput};
 use tracing::warn;
 
 #[derive(Default)]
@@ -44,12 +44,13 @@ impl Plugin for ObjectPlacementPlugin {
 #[derive(Resource, Clone, Copy)]
 pub struct ObjectPlacementServices {
     pub place_object_2d: Service<Option<Entity>, ()>,
+    pub find_placement_2d: Service<(), Transform>,
+    pub on_key_code_2d: Service<KeyCode, SelectionNodeResult>,
 }
 
 impl ObjectPlacementServices {
     pub fn from_app(app: &mut App) -> Self {
-        let place_object_2d = spawn_place_object_2d_workflow(app);
-        Self { place_object_2d }
+        spawn_place_object_2d_workflow(app)
     }
 }
 

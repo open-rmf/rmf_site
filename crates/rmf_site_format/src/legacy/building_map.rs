@@ -774,6 +774,7 @@ impl BuildingMap {
             model_descriptions,
             robots,
             tasks,
+            extensions: Default::default(),
         })
     }
 }
