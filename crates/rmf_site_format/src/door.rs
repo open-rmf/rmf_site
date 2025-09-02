@@ -109,12 +109,14 @@ impl Default for DoorType {
 pub struct SingleSlidingDoor {
     /// Which side the door slides towards
     pub towards: Side,
+    pub position: f32,
 }
 
 impl Default for SingleSlidingDoor {
     fn default() -> Self {
         Self {
             towards: Side::Left,
+            position: 1.0,
         }
     }
 }
@@ -130,6 +132,8 @@ impl From<SingleSlidingDoor> for DoorType {
 pub struct DoubleSlidingDoor {
     /// Length of the left door divided by the length of the right door
     pub left_right_ratio: f32,
+    pub left_position: f32,
+    pub right_position: f32,
 }
 
 impl DoubleSlidingDoor {
@@ -147,6 +151,8 @@ impl Default for DoubleSlidingDoor {
     fn default() -> Self {
         Self {
             left_right_ratio: 1.0,
+            left_position: 1.0,
+            right_position: 1.0,
         }
     }
 }
@@ -164,6 +170,7 @@ pub struct SingleSwingDoor {
     pub pivot_on: Side,
     /// How does the door swing
     pub swing: Swing,
+    pub position: f32,
 }
 
 impl Default for SingleSwingDoor {
@@ -171,6 +178,7 @@ impl Default for SingleSwingDoor {
         Self {
             pivot_on: Side::Left,
             swing: Swing::Forward(Angle::Deg(90.0)),
+            position: 1.0,
         }
     }
 }
@@ -188,6 +196,8 @@ pub struct DoubleSwingDoor {
     pub swing: Swing,
     /// Length of the left door divided by the length of the right door
     pub left_right_ratio: f32,
+    pub left_position: f32,
+    pub right_position: f32,
 }
 
 impl DoubleSwingDoor {
@@ -206,6 +216,8 @@ impl Default for DoubleSwingDoor {
         Self {
             swing: Swing::Forward(Angle::Deg(90.0)),
             left_right_ratio: 1.0,
+            left_position: 1.0,
+            right_position: 1.0,
         }
     }
 }

@@ -24,7 +24,7 @@ use crate::{
     },
 };
 use bevy::prelude::*;
-use bevy_egui::egui::{ComboBox, DragValue, Ui};
+use bevy_egui::egui::{ComboBox, DragValue, Slider, Ui};
 use rmf_site_egui::WidgetSystem;
 use rmf_site_format::{DoorType, RecallDoorType, Swing};
 
@@ -101,9 +101,22 @@ impl<'a> InspectDoorType<'a> {
                         .on_hover_text("The direction the door will slide towards");
                     InspectSide::new(&mut door.towards).show(ui);
                 });
+                ui.horizontal(|ui| {
+                    ui.label("Position:");
+                    InspectPosition::new(&mut door.position).show(ui);
+                });
             }
             DoorType::DoubleSliding(door) => {
                 left_right_ratio_ui(ui, &mut door.left_right_ratio);
+
+                ui.horizontal(|ui| {
+                    ui.label("Left Position:");
+                    InspectPosition::new(&mut door.left_position).show(ui);
+                });
+                ui.horizontal(|ui| {
+                    ui.label("Right Position:");
+                    InspectPosition::new(&mut door.right_position).show(ui);
+                });
             }
             DoorType::SingleSwing(door) => {
                 ui.horizontal(|ui| {
@@ -112,10 +125,24 @@ impl<'a> InspectDoorType<'a> {
                 });
                 ui.add_space(5.0);
                 InspectSwing::new(&mut door.swing).show(ui);
+
+                ui.horizontal(|ui| {
+                    ui.label("Position:");
+                    InspectPosition::new(&mut door.position).show(ui);
+                });
             }
             DoorType::DoubleSwing(door) => {
                 InspectSwing::new(&mut door.swing).show(ui);
                 left_right_ratio_ui(ui, &mut door.left_right_ratio);
+
+                ui.horizontal(|ui| {
+                    ui.label("Left Position:");
+                    InspectPosition::new(&mut door.left_position).show(ui);
+                });
+                ui.horizontal(|ui| {
+                    ui.label("Right Position:");
+                    InspectPosition::new(&mut door.right_position).show(ui);
+                });
             }
             DoorType::Model(_) => {
                 ui.label("Not yet supported");
@@ -127,6 +154,20 @@ impl<'a> InspectDoorType<'a> {
         } else {
             None
         }
+    }
+}
+
+pub struct InspectPosition<'a> {
+    pub position: &'a mut f32,
+}
+
+impl<'a> InspectPosition<'a> {
+    pub fn new(position: &'a mut f32) -> Self {
+        Self { position }
+    }
+
+    pub fn show(self, ui: &mut Ui) {
+        ui.add(Slider::new(self.position, (0.0)..=(1.0)));
     }
 }
 
