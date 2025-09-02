@@ -16,7 +16,9 @@
 */
 use super::{EditTask, TaskWidget};
 use crate::{
-    site::{update_task_kind_component, LocationTags, NameInSite, Task, TaskKind, TaskKinds},
+    site::{
+        update_task_kind_component, LocationTags, NameInSite, Point, Task, TaskKind, TaskKinds,
+    },
     widgets::prelude::*,
 };
 use bevy::{
@@ -36,38 +38,43 @@ pub struct GoToPlacePlugin {}
 impl Plugin for GoToPlacePlugin {
     fn build(&self, app: &mut App) {
         app.world_mut().resource_mut::<TaskKinds>().0.insert(
-            GoToPlace::label(),
+            GoToPlace::<Entity>::label(),
             (
                 |mut e_cmd| {
-                    e_cmd.insert(GoToPlace::default());
+                    e_cmd.insert(GoToPlace::<Entity>::default());
                 },
                 |mut e_cmd| {
-                    e_cmd.remove::<GoToPlace>();
+                    e_cmd.remove::<GoToPlace<Entity>>();
                 },
                 |e, world| {
-                    let Some(go_to_place) = world.entity(e).get::<GoToPlace>() else {
+                    let Some(loc_entity) = world
+                        .entity(e)
+                        .get::<GoToPlace<Entity>>()
+                        .and_then(|go_to_place| go_to_place.location)
+                        .map(|pt| pt.0)
+                    else {
                         return false;
                     };
-                    if go_to_place.location.is_empty() {
-                        return false;
-                    }
-                    // TODO(@xiyuoh) check if location is valid via entity
-                    return true;
+                    let mut state: SystemState<Query<(), With<LocationTags>>> =
+                        SystemState::new(world);
+                    let locations = state.get(world);
+
+                    locations.get(loc_entity).is_ok()
                 },
             ),
         );
         let widget = Widget::<Tile>::new::<ViewGoToPlace>(&mut app.world_mut());
         let task_widget = app.world().resource::<TaskWidget>().get();
         app.world_mut().spawn(widget).insert(ChildOf(task_widget));
-        app.add_systems(PostUpdate, update_task_kind_component::<GoToPlace>);
+        app.add_systems(PostUpdate, update_task_kind_component::<GoToPlace<Entity>>);
     }
 }
 
 #[derive(SystemParam)]
 pub struct ViewGoToPlace<'w, 's> {
-    locations: Query<'w, 's, &'static NameInSite, With<LocationTags>>,
+    locations: Query<'w, 's, (Entity, &'static NameInSite), With<LocationTags>>,
     edit_task: Res<'w, EditTask>,
-    tasks: Query<'w, 's, (&'static mut GoToPlace, &'static mut Task)>,
+    tasks: Query<'w, 's, (&'static mut GoToPlace<Entity>, &'static mut Task)>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for ViewGoToPlace<'w, 's> {
@@ -84,12 +91,13 @@ impl<'w, 's> WidgetSystem<Tile> for ViewGoToPlace<'w, 's> {
             return;
         }
 
-        let selected_location_name = if go_to_place.location.is_empty()
-            || !params.locations.iter().any(|l| l.0 == go_to_place.location)
+        let selected_location_name = if let Some((_, loc_name)) = go_to_place
+            .location
+            .and_then(|pt| params.locations.get(pt.0).ok())
         {
-            "Select Location".to_string()
+            loc_name.0.clone()
         } else {
-            go_to_place.location.clone()
+            "Select Location".to_string()
         };
 
         let mut new_go_to_place = go_to_place.clone();
@@ -98,11 +106,11 @@ impl<'w, 's> WidgetSystem<Tile> for ViewGoToPlace<'w, 's> {
             ComboBox::from_id_salt("select_go_to_location")
                 .selected_text(selected_location_name)
                 .show_ui(ui, |ui| {
-                    for location_name in params.locations.iter() {
+                    for (loc_entity, loc_name) in params.locations.iter() {
                         ui.selectable_value(
                             &mut new_go_to_place.location,
-                            location_name.0.clone(),
-                            location_name.0.clone(),
+                            Some(Point(loc_entity)),
+                            loc_name.0.clone(),
                         );
                     }
                 });
@@ -113,8 +121,10 @@ impl<'w, 's> WidgetSystem<Tile> for ViewGoToPlace<'w, 's> {
 
             if let Ok(description) = serde_json::to_value(new_go_to_place.clone()) {
                 *task.request_mut().description_mut() = description;
-                *task.request_mut().description_display_mut() =
-                    Some(format!("{}", new_go_to_place.clone()));
+                *task.request_mut().description_display_mut() = new_go_to_place
+                    .location
+                    .and_then(|pt| params.locations.get(pt.0).ok())
+                    .map(|(_, name)| name.0.clone());
             }
         }
     }

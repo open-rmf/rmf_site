@@ -333,26 +333,18 @@ pub trait TaskKind: Component + Serialize + DeserializeOwned {
 // Supported Task kinds
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
-pub struct GoToPlace {
-    pub location: String,
+pub struct GoToPlace<T: RefTrait> {
+    pub location: Option<Point<T>>,
 }
 
-impl Default for GoToPlace {
+impl<T: RefTrait> Default for GoToPlace<T> {
     fn default() -> Self {
-        Self {
-            location: String::new(),
-        }
-    }
-}
-
-impl fmt::Display for GoToPlace {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.location)
+        Self { location: None }
     }
 }
 
 #[cfg(feature = "bevy")]
-impl TaskKind for GoToPlace {
+impl<T: RefTrait + Serialize + DeserializeOwned> TaskKind for GoToPlace<T> {
     fn label() -> String {
         "Go To Place".to_string()
     }

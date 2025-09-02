@@ -225,7 +225,7 @@ pub fn handle_compute_negotiation_complete(
 }
 
 pub fn start_compute_negotiation(
-    locations: Query<(&NameInSite, &Point<Entity>), With<LocationTags>>,
+    locations: Query<&Point<Entity>, With<LocationTags>>,
     anchors: Query<&GlobalTransform>,
     negotiation_request: EventReader<NegotiationRequest>,
     negotiation_params: Res<NegotiationParams>,
@@ -235,7 +235,7 @@ pub fn start_compute_negotiation(
     child_of: Query<&ChildOf>,
     robots: Query<(Entity, &NameInSite, &Pose, &Affiliation<Entity>), With<Robot>>,
     robot_descriptions: Query<(&DifferentialDrive, &CircleCollision)>,
-    tasks: Query<(&RobotTask, &GoToPlace)>,
+    tasks: Query<(&RobotTask, &GoToPlace<Entity>)>,
     mut negotiation_task: ResMut<NegotiationTask>,
 ) {
     if negotiation_request.len() == 0 {
@@ -291,8 +291,11 @@ pub fn start_compute_negotiation(
         for (robot_entity, robot_site_name, robot_pose, robot_group) in robots.iter() {
             if robot_name == robot_site_name.0 {
                 // Match location to entity
-                for (location_name, Point(anchor_entity)) in locations.iter() {
-                    if location_name.0 == go_to_place.location {
+                for Point(anchor_entity) in locations.iter() {
+                    if go_to_place
+                        .location
+                        .is_some_and(|pt| pt.0 == *anchor_entity)
+                    {
                         let Ok(goal_transform) = anchors.get(*anchor_entity) else {
                             warn!("Unable to get robot's goal transform");
                             continue;

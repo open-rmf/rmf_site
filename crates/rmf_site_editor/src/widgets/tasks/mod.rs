@@ -1031,7 +1031,6 @@ pub fn handle_task_edit(
     pending_tasks: Query<&mut Task, With<Pending>>,
     current_workspace: Res<CurrentWorkspace>,
 ) {
-    // TODO(@xiyuoh) fix bug where the egui panel glitches when the EditTask resource is being accessed
     if let Some(edit) = edit_mode.read().last() {
         match edit.mode {
             EditMode::New(task_entity) => {

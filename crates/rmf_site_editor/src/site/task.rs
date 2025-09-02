@@ -21,7 +21,7 @@ use std::collections::HashMap;
 
 pub type InsertTaskKindFn = fn(EntityCommands);
 pub type RemoveTaskKindFn = fn(EntityCommands);
-pub type IsTaskValidFn = fn(Entity, &World) -> bool;
+pub type IsTaskValidFn = fn(Entity, &mut World) -> bool;
 
 #[derive(Resource)]
 pub struct TaskKinds(pub HashMap<String, (InsertTaskKindFn, RemoveTaskKindFn, IsTaskValidFn)>);

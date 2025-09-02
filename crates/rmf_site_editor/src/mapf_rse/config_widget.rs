@@ -80,7 +80,7 @@ impl<'w, 's> MapfConfigWidget<'w, 's> {
             .tasks
             .iter()
             .filter(|task| {
-                if task.request().category() == GoToPlace::label() {
+                if task.request().category() == GoToPlace::<Entity>::label() {
                     true
                 } else {
                     false
