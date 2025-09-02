@@ -155,8 +155,8 @@ impl FromWorld for SiteAssets {
             asset_server.load("embedded://librmf_site_editor/site/billboards/empty.png");
         let door_cue_texture =
             asset_server.load("embedded://librmf_site_editor/site/textures/door_cue.png");
-        let door_cue_highlighted_texture =
-            asset_server.load("embedded://librmf_site_editor/site/textures/door_cue_highlighted.png");
+        let door_cue_highlighted_texture = asset_server
+            .load("embedded://librmf_site_editor/site/textures/door_cue_highlighted.png");
 
         let mut materials = world
             .get_resource_mut::<Assets<StandardMaterial>>()
@@ -249,8 +249,7 @@ impl FromWorld for SiteAssets {
             materials.add(billboard_material(charger_texture));
         let holding_point_material = materials.add(billboard_material(holding_point_texture));
         let parking_material = materials.add(billboard_material(parking_texture));
-        let empty_billboard_material =
-            materials.add(billboard_material(empty_billboard_texture));
+        let empty_billboard_material = materials.add(billboard_material(empty_billboard_texture));
 
         let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
         let billboard_base_mesh =
