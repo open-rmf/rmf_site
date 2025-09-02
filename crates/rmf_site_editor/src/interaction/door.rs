@@ -23,10 +23,12 @@ pub fn update_door_interactive_cues(
         (&Hovered, &Selected, &DoorSegments),
         Or<(Changed<Hovered>, Changed<Selected>)>,
     >,
-    mut styles: Query<&mut Text3dStyling>
+    mut styles: Query<&mut Text3dStyling>,
+    mut materials: Query<&mut MeshMaterial3d<StandardMaterial>>,
+    assets: Res<SiteAssets>,
 ) {
     for (hovered, selected, segments) in &changed_doors {
-        let color = if hovered.cue() && selected.cue() {
+        let text_color = if hovered.cue() && selected.cue() {
             HOVER_SELECT_COLOR
         } else if hovered.cue() {
             HOVER_COLOR
@@ -38,8 +40,18 @@ pub fn update_door_interactive_cues(
 
         for text in segments.name_displays() {
             if let Ok(mut style) = styles.get_mut(text) {
-                style.color = color.into();
+                style.color = text_color.into();
             }
+        }
+
+        let cue_material = if hovered.cue() {
+            assets.door_cue_highlighted_material.clone()
+        } else {
+            assets.door_cue_material.clone()
+        };
+
+        if let Ok(mut material) = materials.get_mut(segments.cue) {
+            **material = cue_material;
         }
     }
 }

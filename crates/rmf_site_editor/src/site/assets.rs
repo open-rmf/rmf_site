@@ -34,13 +34,14 @@ pub const HOVER_SELECT_COLOR: Color = Color::srgb(1.0, 0.0, 0.3);
 pub const NAV_UNASSIGNED_COLOR: Color = Color::srgb(0.1, 0.1, 0.1);
 
 pub(crate) fn add_site_assets(app: &mut App) {
-    embedded_asset!(app, "src/", "billboards/base.png");
-    embedded_asset!(app, "src/", "billboards/charging.png");
-    embedded_asset!(app, "src/", "billboards/parking.png");
-    embedded_asset!(app, "src/", "billboards/holding.png");
-    embedded_asset!(app, "src/", "billboards/empty.png");
+    embedded_asset!(app, "src/", "textures/base.png");
+    embedded_asset!(app, "src/", "textures/charging.png");
+    embedded_asset!(app, "src/", "textures/parking.png");
+    embedded_asset!(app, "src/", "textures/holding.png");
+    embedded_asset!(app, "src/", "textures/empty.png");
+    embedded_asset!(app, "src/", "textures/door_cue.png");
+    embedded_asset!(app, "src/", "textures/door_cue_highlighted.png");
     embedded_asset!(app, "src/", "shaders/lane_arrow_shader.wgsl");
-    embedded_asset!(app, "src/", "textures/door_bottom.png");
 }
 
 #[derive(Asset, AsBindGroup, Reflect, Debug, Clone, Component)]
@@ -103,6 +104,7 @@ pub struct SiteAssets {
     pub site_anchor_mesh: Handle<Mesh>,
     pub lift_wall_material: Handle<StandardMaterial>,
     pub door_cue_material: Handle<StandardMaterial>,
+    pub door_cue_highlighted_material: Handle<StandardMaterial>,
     pub text3d_material: Handle<StandardMaterial>,
     pub door_body_material: Handle<StandardMaterial>,
     pub translucent_black: Handle<StandardMaterial>,
@@ -151,8 +153,10 @@ impl FromWorld for SiteAssets {
             asset_server.load("embedded://librmf_site_editor/site/billboards/parking.png");
         let empty_billboard_texture =
             asset_server.load("embedded://librmf_site_editor/site/billboards/empty.png");
-        let door_texture: Handle<Image> =
-            asset_server.load("embedded://librmf_site_editor/site/textures/door_bottom.png");
+        let door_cue_texture =
+            asset_server.load("embedded://librmf_site_editor/site/textures/door_cue.png");
+        let door_cue_highlighted_texture =
+            asset_server.load("embedded://librmf_site_editor/site/textures/door_cue_highlighted.png");
 
         let mut materials = world
             .get_resource_mut::<Assets<StandardMaterial>>()
@@ -213,8 +217,12 @@ impl FromWorld for SiteAssets {
             ..old_default_material(Color::srgba(0., 0., 0., 0.8))
         });
         let door_cue_material = materials.add(StandardMaterial {
-            base_color_texture: Some(door_texture),
-            depth_bias: 5.0,
+            base_color_texture: Some(door_cue_texture),
+            alpha_mode: AlphaMode::Blend,
+            ..default()
+        });
+        let door_cue_highlighted_material = materials.add(StandardMaterial {
+            base_color_texture: Some(door_cue_highlighted_texture),
             alpha_mode: AlphaMode::Blend,
             ..default()
         });
@@ -336,6 +344,7 @@ impl FromWorld for SiteAssets {
             preview_anchor_material,
             lift_wall_material,
             door_cue_material,
+            door_cue_highlighted_material,
             text3d_material,
             door_body_material,
             translucent_black,
