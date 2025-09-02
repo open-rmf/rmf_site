@@ -19,10 +19,6 @@ use crate::{issue::*, layers::ZLayer, site::*};
 use bevy::{
     ecs::{hierarchy::ChildOf, relationship::AncestorIter},
     prelude::*,
-    render::{
-        mesh::{Indices, PrimitiveTopology},
-        render_asset::RenderAssetUsages,
-    },
 };
 use bevy_rich_text3d::*;
 use rmf_site_format::{Category, DoorType, Edge, DEFAULT_LEVEL_HEIGHT};
@@ -97,8 +93,7 @@ impl DoorBodyType {
 #[derive(Debug, Clone, Copy, Component)]
 pub struct DoorSegments {
     pub body: DoorBodyType,
-    pub cue_inner: Entity,
-    pub cue_outline: Entity,
+    pub cue: Entity,
     pub name_on_door: Entity,
     pub name_on_floor: Entity,
 }
@@ -243,7 +238,7 @@ fn make_door_visuals(
     edge: &Edge<Entity>,
     anchors: &AnchorParams,
     kind: &DoorType,
-) -> (Transform, Vec<Transform>, Mesh, Mesh, f32, Vec3) {
+) -> (Transform, Vec<Transform>, Mesh, f32, Vec3) {
     let p_start = anchors
         .point_in_parent_frame_of(edge.left(), Category::Door, entity)
         .unwrap();
@@ -256,7 +251,7 @@ fn make_door_visuals(
     let yaw = (-dp.x).atan2(dp.y);
     let center = (p_start + p_end) / 2.0;
 
-    let (inner, outline) = make_door_cues(length, kind);
+    let cue = make_door_cues(length, kind);
 
     let door_tfs = match kind {
         // TODO(luca) implement model variant
@@ -280,8 +275,7 @@ fn make_door_visuals(
             ..default()
         },
         door_tfs,
-        inner,
-        outline,
+        cue,
         length,
         name_scale,
     )
@@ -366,7 +360,7 @@ fn door_swing_arc(
     )
 }
 
-fn make_door_cues(door_width: f32, kind: &DoorType) -> (Mesh, Mesh) {
+fn make_door_cues(door_width: f32, kind: &DoorType) -> Mesh {
     match kind {
         DoorType::SingleSliding(door) => {
             let start =
@@ -381,7 +375,7 @@ fn make_door_cues(door_width: f32, kind: &DoorType) -> (Mesh, Mesh) {
                         .flip_uv()
                         .scale_uv(door_width, 1.0),
                 )
-                .into_mesh_and_outline()
+                .into()
         }
         DoorType::DoubleSliding(door) => {
             let left = (door_width - DOOR_STOP_LINE_THICKNESS) / 2.0;
@@ -400,26 +394,20 @@ fn make_door_cues(door_width: f32, kind: &DoorType) -> (Mesh, Mesh) {
                         .flip_uv()
                         .scale_uv(door_width, 1.0),
                 )
-                .into_mesh_and_outline()
+                .into()
         }
         DoorType::SingleSwing(door) => {
-            door_swing_arc(door_width, 1, 0.0, door.pivot_on, door.swing).into_mesh_and_outline()
+            door_swing_arc(door_width, 1, 0.0, door.pivot_on, door.swing).into()
         }
         DoorType::DoubleSwing(door) => {
             let mid = door.compute_offset(door_width);
             door_swing_arc(door_width, 2, -mid, Side::Left, door.swing)
                 .merge_with(door_swing_arc(door_width, 2, mid, Side::Right, door.swing))
-                .into_mesh_and_outline()
+                .into()
         }
-        _ => {
-            let mut mesh = Mesh::new(
-                PrimitiveTopology::TriangleList,
-                RenderAssetUsages::default(),
-            );
-            mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, Vec::<[f32; 3]>::new());
-            mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, Vec::<[f32; 3]>::new());
-            mesh.insert_indices(Indices::U32(vec![]));
-            (mesh.clone(), mesh)
+        DoorType::Model(_) => {
+            error!("Model-type doors are not supported yet");
+            MeshBuffer::empty().into()
         }
     }
 }
@@ -508,7 +496,7 @@ pub fn add_door_visuals(
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     for (e, edge, kind, name, visibility) in &new_doors {
-        let (pose_tf, door_tfs, cue_inner_mesh, cue_outline_mesh, door_length, name_scale) =
+        let (pose_tf, door_tfs, cue_mesh, door_length, name_scale) =
             make_door_visuals(e, edge, &anchors, kind);
 
         let bodies = door_tfs
@@ -526,23 +514,15 @@ pub fn add_door_visuals(
             })
             .collect::<Vec<_>>();
         let body = DoorBodyType::from_door_type(kind, &bodies);
-        let cue_inner = commands
+        let cue = commands
             .spawn((
-                Mesh3d(meshes.add(cue_inner_mesh)),
+                Mesh3d(meshes.add(cue_mesh)),
                 MeshMaterial3d(assets.door_cue_material.clone()),
                 Transform::default(),
                 Visibility::default(),
+                VisualCue::no_outline(),
             ))
             .insert(Selectable::new(e))
-            .id();
-
-        let cue_outline = commands
-            .spawn((
-                Mesh3d(meshes.add(cue_outline_mesh)),
-                MeshMaterial3d(assets.translucent_black.clone()),
-                Transform::default(),
-                Visibility::default(),
-            ))
             .id();
 
         let (parent_entity, parent_tf) = (bodies[0], door_tfs[0]);
@@ -573,14 +553,13 @@ pub fn add_door_visuals(
             .insert((pose_tf, visibility))
             .insert(DoorSegments {
                 body,
-                cue_inner,
-                cue_outline,
+                cue,
                 name_on_door,
                 name_on_floor,
             })
             .insert(Category::Door)
             .insert(EdgeLabels::LeftRight)
-            .add_children(&[cue_inner, cue_outline])
+            .add_children(&[cue])
             .add_children(&bodies)
             .add_child(name_on_floor);
 
@@ -606,7 +585,7 @@ fn update_door_visuals(
     mesh_assets: &mut ResMut<Assets<Mesh>>,
     assets: &Res<SiteAssets>,
 ) -> Option<DoorBodyType> {
-    let (pose_tf, door_tfs, cue_inner_mesh, cue_outline_mesh, door_length, child_scale) =
+    let (pose_tf, door_tfs, cue_mesh, door_length, child_scale) =
         make_door_visuals(entity, edge, anchors, kind);
     let mut door_transform = transforms.get_mut(entity).unwrap();
     *door_transform = pose_tf;
@@ -644,10 +623,8 @@ fn update_door_visuals(
         // Doors were removed, we need to despawn them
         commands.entity(*e).despawn();
     }
-    let mut cue_inner = mesh_handles.get_mut(segments.cue_inner).unwrap();
-    *cue_inner = Mesh3d(mesh_assets.add(cue_inner_mesh));
-    let mut cue_outline = mesh_handles.get_mut(segments.cue_outline).unwrap();
-    *cue_outline = Mesh3d(mesh_assets.add(cue_outline_mesh));
+    let mut cue = mesh_handles.get_mut(segments.cue).unwrap();
+    *cue = Mesh3d(mesh_assets.add(cue_mesh));
     let new_segments = DoorBodyType::from_door_type(kind, &entities);
     if new_segments != segments.body {
         Some(new_segments)
