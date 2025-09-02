@@ -21,6 +21,7 @@ use exit_confirmation::ExitConfirmationPlugin;
 pub use bevy;
 pub use bevy_egui;
 pub use bevy_impulse;
+pub use bevy_rich_text3d::Text3dPlugin;
 
 pub mod keyboard;
 use keyboard::*;
@@ -275,6 +276,10 @@ impl Plugin for SiteEditor {
                 WorkspacePlugin,
                 IssuePlugin,
                 bevy_impulse::ImpulsePlugin::default(),
+                Text3dPlugin {
+                    load_system_fonts: true,
+                    ..Default::default()
+                },
             ));
 
         if self.is_headless() {

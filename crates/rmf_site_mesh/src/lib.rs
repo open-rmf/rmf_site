@@ -188,6 +188,58 @@ impl MeshBuffer {
         self
     }
 
+    pub fn scale_uv(mut self, x_scale: f32, y_scale: f32) -> Self {
+        let Some(uvs) = self.uv else {
+            return self;
+        };
+        let new_uvs = uvs
+            .iter()
+            .map(|p| [p[0] * x_scale, p[1] * y_scale])
+            .collect();
+        self.uv = Some(new_uvs);
+        self
+    }
+
+    pub fn flip_uv(mut self) -> Self {
+        let Some(uvs) = self.uv else {
+            return self;
+        };
+        let new_uvs = uvs.iter().map(|p| [p[1], p[0]]).collect();
+        self.uv = Some(new_uvs);
+        self
+    }
+
+    // For existing positions, allocate UV values between 0 to 1.
+    pub fn add_normalised_uv(mut self) -> Self {
+        let mut min_x = f32::MAX;
+        let mut max_x = f32::MIN;
+        let mut min_y = f32::MAX;
+        let mut max_y = f32::MIN;
+
+        for pos in self.positions.iter() {
+            min_x = min_x.min(pos[0]);
+            max_x = max_x.max(pos[0]);
+            min_y = min_y.min(pos[1]);
+            max_y = max_y.max(pos[1]);
+        }
+
+        let range_x = max_x - min_x;
+        let range_y = max_y - min_y;
+
+        let uvs: Vec<[f32; 2]> = self
+            .positions
+            .iter()
+            .map(|pos| {
+                let x = (pos[0] - min_x) / range_x;
+                let y = (pos[1] - min_y) / range_y;
+                [x, y]
+            })
+            .collect();
+
+        self.uv = Some(uvs);
+        self
+    }
+
     pub fn transform_by(mut self, tf: Affine3A) -> Self {
         for p in &mut self.positions {
             *p = tf.transform_point3((*p).into()).into();

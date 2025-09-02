@@ -16,6 +16,7 @@ pub enum ZLayer {
     Location,
     SelectedLane,
     HoveredLane,
+    LabelText,
 }
 
 impl ZLayer {
