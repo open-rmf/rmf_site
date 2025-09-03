@@ -23,6 +23,7 @@ urdf-rs = { workspace = true, optional = true }
 # Used for lazy initialization of static variable when they are non const
 once_cell = {workspace = true}
 pathdiff = {workspace = true}
+chrono = { workspace = true }
 
 [dev-dependencies]
 float_eq = {workspace = true}

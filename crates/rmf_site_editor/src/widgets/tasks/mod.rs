@@ -185,8 +185,8 @@ impl<'w, 's> WidgetSystem<Tile> for ViewTasks<'w, 's> {
         };
         // Tasks are sorted by start time, then request time, then created time,
         // depending on which fields are populated
-        let mut tasks = Vec::<(i32, (Entity, Task<Entity>))>::new();
-        let mut tasks_without_time = Vec::<(i32, (Entity, Task<Entity>))>::new();
+        let mut tasks = Vec::<(i64, (Entity, Task<Entity>))>::new();
+        let mut tasks_without_time = Vec::<(i64, (Entity, Task<Entity>))>::new();
 
         for (e, task) in params.tasks.iter() {
             if let Some(params_modifier) =
@@ -208,7 +208,7 @@ impl<'w, 's> WidgetSystem<Tile> for ViewTasks<'w, 's> {
             // We should not reach here as created_time is populated by default,
             // but in case it comes up as None we sort these by entity index and
             // place them at the end of the task list
-            tasks_without_time.push((e.index() as i32, (e, task.clone())));
+            tasks_without_time.push((e.index() as i64, (e, task.clone())));
         }
         tasks.sort_by(|a, b| a.0.cmp(&b.0));
         tasks_without_time.sort_by(|a, b| a.0.cmp(&b.0));
@@ -256,7 +256,6 @@ impl<'w, 's> WidgetSystem<Tile> for ViewTasks<'w, 's> {
                     .commands
                     .spawn(Task::<Entity>::default())
                     .insert(Category::Task)
-                    .insert(TaskParams::default())
                     .insert(Inclusion::Included) // New tasks created are included by default
                     .insert(Pending)
                     .id();
@@ -366,7 +365,7 @@ fn show_task_params(
     hover: &mut EventWriter<Hover>,
 ) {
     ui.horizontal(|ui| {
-        ui.label("Task ".to_owned() + &task_entity.index().to_string()) // TODO(@xiyuoh) better identifier
+        ui.label(task.request().id().to_owned())
             .on_hover_text(format!("Task is included in {} scenarios", scenario_count));
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             if ui

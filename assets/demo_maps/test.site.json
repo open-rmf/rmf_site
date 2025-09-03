@@ -856,7 +856,8 @@
               }
             }
           },
-          "inclusion": "Included"
+          "inclusion": "Included",
+          "on_level": 22
         },
         "62": {
           "pose": {
@@ -879,7 +880,8 @@
               ]
             }
           },
-          "inclusion": "Included"
+          "inclusion": "Included",
+          "on_level": 22
         },
         "63": {
           "pose": {
@@ -894,7 +896,8 @@
               }
             }
           },
-          "inclusion": "Included"
+          "inclusion": "Included",
+          "on_level": 22
         },
         "122": {
           "pose": {
@@ -994,6 +997,32 @@
             }
           },
           "inclusion": "Included"
+        },
+        "133": {
+          "inclusion": "Included"
+        },
+        "134": {
+          "inclusion": "Included"
+        }
+      },
+      "tasks": {
+        "133": {
+          "inclusion": "Included",
+          "params": {
+            "unix_millis_earliest_start_time": null,
+            "unix_millis_request_time": null,
+            "priority": null,
+            "labels": []
+          }
+        },
+        "134": {
+          "inclusion": "Included",
+          "params": {
+            "unix_millis_earliest_start_time": null,
+            "unix_millis_request_time": null,
+            "priority": null,
+            "labels": []
+          }
         }
       },
       "name": "Default Scenario",
@@ -1054,7 +1083,7 @@
   },
   "model_instances": {
     "53": {
-      "parent": 1,
+      "parent": 22,
       "name": "L1_robot",
       "pose": {
         "trans": [
@@ -1222,6 +1251,36 @@
         }
       },
       "description": 129
+    }
+  },
+  "tasks": {
+    "133": {
+      "Direct": {
+        "robot": 53,
+        "fleet": "HospitalRobot",
+        "request": {
+          "id": "task-20250903-093917",
+          "category": "Wait For",
+          "description": {
+            "duration": 30.0
+          },
+          "description_display": "30 seconds",
+          "created_time": 1756892357328
+        }
+      }
+    },
+    "134": {
+      "Dispatch": {
+        "request": {
+          "id": "task-20250903-093931",
+          "category": "Go To Place",
+          "description": {
+            "location": 4294968127
+          },
+          "description_display": "A",
+          "created_time": 1756892371119
+        }
+      }
     }
   }
 }

@@ -39,6 +39,7 @@ ron = "0.10"
 thiserror = "*"
 glam = { version = "0.29" } # Ensure that this match's bevy_math's glam before updating.
 uuid = { version = "1.13"}
+chrono = "*"
 sdformat_rs = { git = "https://github.com/open-rmf/sdf_rust_experimental", rev = "514949e" }
 urdf-rs = { version = "0.7.3"}
 once_cell = "1"

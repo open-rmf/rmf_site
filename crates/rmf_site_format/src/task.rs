@@ -18,39 +18,38 @@
 use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Component, Reflect};
+use chrono::DateTime;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
+    collections::HashMap,
     fmt,
     time::{SystemTime, UNIX_EPOCH},
 };
+use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct TaskParams {
-    #[serde(default, skip_serializing_if = "is_default")]
-    pub unix_millis_earliest_start_time: Option<i32>,
-    #[serde(default, skip_serializing_if = "is_default")]
-    pub unix_millis_request_time: Option<i32>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    pub unix_millis_earliest_start_time: Option<i64>,
+    pub unix_millis_request_time: Option<i64>,
     pub priority: Option<serde_json::Value>,
-    #[serde(default, skip_serializing_if = "is_default")]
     pub labels: Vec<String>,
 }
 
 impl TaskParams {
-    pub fn start_time(&self) -> Option<i32> {
+    pub fn start_time(&self) -> Option<i64> {
         self.unix_millis_earliest_start_time.clone()
     }
 
-    pub fn start_time_mut(&mut self) -> &mut Option<i32> {
+    pub fn start_time_mut(&mut self) -> &mut Option<i64> {
         &mut self.unix_millis_earliest_start_time
     }
 
-    pub fn request_time(&self) -> Option<i32> {
+    pub fn request_time(&self) -> Option<i64> {
         self.unix_millis_request_time.clone()
     }
 
-    pub fn request_time_mut(&mut self) -> &mut Option<i32> {
+    pub fn request_time_mut(&mut self) -> &mut Option<i64> {
         &mut self.unix_millis_request_time
     }
 
@@ -73,6 +72,7 @@ impl TaskParams {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct TaskRequest {
+    pub id: String,
     pub category: String,
     #[serde(default, skip_serializing_if = "is_default")]
     pub description: serde_json::Value,
@@ -83,21 +83,28 @@ pub struct TaskRequest {
     #[serde(default, skip_serializing_if = "is_default")]
     pub fleet_name: Option<String>,
     #[serde(default, skip_serializing_if = "is_default")]
-    pub created_time: Option<i32>,
+    pub created_time: Option<i64>,
 }
 
 impl Default for TaskRequest {
     fn default() -> Self {
+        let created_time = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_millis() as i64)
+            .ok();
+        let id = created_time
+            .map(|t| std::time::Duration::from_millis(t as u64))
+            .and_then(|d| DateTime::from_timestamp(d.as_secs() as i64, d.subsec_nanos()))
+            .map(|dt| format!("task-{}", dt.format("%Y%m%d-%H%M%S").to_string()))
+            .unwrap_or(format!("task-{}", Uuid::new_v4().to_string()));
         TaskRequest {
+            id,
             category: "".to_string(),
             description: serde_json::Value::Null,
             description_display: None,
             requester: None,
             fleet_name: None,
-            created_time: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .map(|d| d.as_millis() as i32)
-                .ok(),
+            created_time,
         }
     }
 }
@@ -108,6 +115,14 @@ impl TaskRequest {
             return false;
         }
         true
+    }
+
+    pub fn id(&self) -> String {
+        self.id.clone()
+    }
+
+    pub fn id_mut(&mut self) -> &mut String {
+        &mut self.id
     }
 
     pub fn category(&self) -> String {
@@ -150,11 +165,11 @@ impl TaskRequest {
         &mut self.fleet_name
     }
 
-    pub fn created_time(&self) -> Option<i32> {
+    pub fn created_time(&self) -> Option<i64> {
         self.created_time.clone()
     }
 
-    pub fn created_time_mut(&mut self) -> &mut Option<i32> {
+    pub fn created_time_mut(&mut self) -> &mut Option<i64> {
         &mut self.created_time
     }
 }
@@ -246,7 +261,7 @@ impl<T: RefTrait> RobotTaskRequest<T> {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component), require(TaskParams))]
 pub enum Task<T: RefTrait> {
     Dispatch(DispatchTaskRequest),
     Direct(RobotTaskRequest<T>),
@@ -257,6 +272,19 @@ impl<T: RefTrait> Default for Task<T> {
         Task::<T>::Dispatch(DispatchTaskRequest {
             request: TaskRequest::default(),
         })
+    }
+}
+
+impl<T: RefTrait> Task<T> {
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Task<U>, T> {
+        match self {
+            Task::<T>::Dispatch(request) => Ok(Task::<U>::Dispatch(request.clone())),
+            Task::<T>::Direct(request) => Ok(Task::<U>::Direct(RobotTaskRequest {
+                robot: request.robot.convert(id_map)?,
+                fleet: request.fleet.clone(),
+                request: request.request.clone(),
+            })),
+        }
     }
 }
 
