@@ -55,6 +55,7 @@ impl Plugin for NegotiationPlugin {
             .init_resource::<NegotiationDebugData>()
             .init_resource::<DebuggerSettings>()
             .init_resource::<PlanningProgressChannel>()
+            .add_event::<SetAllPathVisibleRequest>()
             .add_plugins(NegotiationDebugPlugin::default())
             .add_systems(
                 Update,
@@ -62,6 +63,7 @@ impl Plugin for NegotiationPlugin {
                     handle_start_negotiation.before(visualise_selected_node),
                     handle_completed_negotiation,
                     visualise_selected_node.before(handle_debug_panel_changed),
+                    handle_set_all_path_visible.before(visualise_selected_node),
                 ),
             )
             .add_systems(
@@ -78,6 +80,9 @@ impl Plugin for NegotiationPlugin {
 
 #[derive(Event)]
 pub struct NegotiationRequest;
+
+#[derive(Event)]
+pub struct SetAllPathVisibleRequest;
 
 use crossbeam_channel::{unbounded, Receiver, Sender};
 
@@ -699,8 +704,7 @@ fn handle_changed_plan_info(
                 }
             }
         }
-        MAPFDebugInfo::InProgress { .. } => {}
-        MAPFDebugInfo::Failed { .. } => {
+        MAPFDebugInfo::InProgress { .. } => {
             for (robot_entity, _, _, robot_opose) in robots.iter() {
                 if let Some(opose) = robot_opose {
                     change_pose.write(Change::new(opose.0, robot_entity));
@@ -708,10 +712,11 @@ fn handle_changed_plan_info(
                 }
             }
         }
+        MAPFDebugInfo::Failed { .. } => {}
     }
 }
 
-pub fn set_path_all_visible(
+pub fn set_all_path_visible(
     debug_data: &mut ResMut<NegotiationDebugData>,
     path_mesh_visibilities: &mut Query<&mut Visibility, With<PathVisualMarker>>,
 ) {
@@ -750,5 +755,15 @@ fn handle_removed_plan_info(
             *visibility = Visibility::Hidden;
         }
         removed_plan_info.clear();
+    }
+}
+
+fn handle_set_all_path_visible(
+    mut set_all_path_visible_request: EventReader<SetAllPathVisibleRequest>,
+    mut debug_data: ResMut<NegotiationDebugData>,
+    mut path_mesh_visibilities: Query<&mut Visibility, With<PathVisualMarker>>,
+) {
+    if set_all_path_visible_request.read().last().is_some() {
+        set_all_path_visible(&mut debug_data, &mut path_mesh_visibilities);
     }
 }

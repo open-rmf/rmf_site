@@ -55,6 +55,7 @@ pub fn visualise_selected_node(
     debugger_settings: Res<DebuggerSettings>,
     mapf_debug_window: Res<MAPFDebugDisplay>,
     mut path_mesh_visibilities: Query<&mut Visibility, With<PathVisualMarker>>,
+    mut set_all_path_visible_request: EventWriter<SetAllPathVisibleRequest>,
 ) {
     if !mapf_debug_window.show {
         return;
@@ -83,7 +84,7 @@ pub fn visualise_selected_node(
     debug_data.time += debugger_settings.playback_speed * now.delta_secs();
 
     if debug_data.time > *longest_plan_duration_s {
-        set_path_all_visible(&mut debug_data, &mut path_mesh_visibilities);
+        set_all_path_visible_request.write(SetAllPathVisibleRequest);
         debug_data.time = 0.0;
         return;
     }

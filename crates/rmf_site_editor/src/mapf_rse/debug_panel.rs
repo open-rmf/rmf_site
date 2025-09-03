@@ -102,7 +102,7 @@ pub struct NegotiationDebugWidget<'w, 's> {
         Query<'w, 's, (Entity, &'static NameInSite, Option<&'static mut DebugGoal>), With<Robot>>,
     robot_debug_materials: Query<'w, 's, &'static DebugMaterial, With<Robot>>,
     materials: ResMut<'w, Assets<StandardMaterial>>,
-    path_mesh_visibilities: Query<'w, 's, &'static mut Visibility, With<PathVisualMarker>>,
+    set_all_path_visible_request: EventWriter<'w, SetAllPathVisibleRequest>,
 }
 
 fn negotiation_debug_panel(In(input): In<PanelWidgetInput>, world: &mut World) {
@@ -498,10 +498,8 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
                 ))
                 .changed()
             {
-                set_path_all_visible(
-                    &mut self.negotiation_debug_data,
-                    &mut self.path_mesh_visibilities,
-                );
+                self.set_all_path_visible_request
+                    .write(SetAllPathVisibleRequest);
             };
         });
         ui.end_row();
@@ -616,12 +614,12 @@ pub fn handle_debug_panel_changed(
     mut robots: Query<(Entity, &Pose, Option<&mut Original<Pose>>), With<Robot>>,
     mut change_pose: EventWriter<Change<Pose>>,
     mut change_plan: EventWriter<NegotiationRequest>,
-    mut debug_data: ResMut<NegotiationDebugData>,
     mut path_mesh_visibilities: Query<&mut Visibility, With<PathVisualMarker>>,
     mut occ_mesh_visibilities: Query<
         &mut Visibility,
         (With<OccupancyVisualMarker>, Without<PathVisualMarker>),
     >,
+    mut set_all_path_visible_request: EventWriter<SetAllPathVisibleRequest>,
 ) {
     if mapf_debug_window.is_changed() {
         if mapf_debug_window.show {
@@ -641,7 +639,7 @@ pub fn handle_debug_panel_changed(
                 change_plan.write(NegotiationRequest);
             }
 
-            set_path_all_visible(&mut debug_data, &mut path_mesh_visibilities);
+            set_all_path_visible_request.write(SetAllPathVisibleRequest);
 
             // Show all occupancies
             occ_mesh_visibilities.iter_mut().for_each(|mut o| {
