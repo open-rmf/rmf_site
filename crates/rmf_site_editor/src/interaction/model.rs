@@ -55,6 +55,5 @@ pub fn update_model_instance_visual_cues(
                 }
             }
         }
-        // TODO(@xiyuoh) support task-based visual cues
     }
 }

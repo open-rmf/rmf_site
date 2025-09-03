@@ -28,9 +28,10 @@ use bevy::{
     },
     prelude::*,
 };
-use bevy_egui::egui::ComboBox;
+use bevy_egui::egui::{ComboBox, SelectableLabel};
 use rmf_site_egui::*;
 use rmf_site_format::GoToPlace;
+use rmf_site_picking::Hover;
 
 #[derive(Default)]
 pub struct GoToPlacePlugin {}
@@ -75,6 +76,7 @@ pub struct ViewGoToPlace<'w, 's> {
     locations: Query<'w, 's, (Entity, &'static NameInSite), With<LocationTags>>,
     edit_task: Res<'w, EditTask>,
     tasks: Query<'w, 's, (&'static mut GoToPlace<Entity>, &'static mut Task)>,
+    hover: EventWriter<'w, Hover>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for ViewGoToPlace<'w, 's> {
@@ -106,12 +108,25 @@ impl<'w, 's> WidgetSystem<Tile> for ViewGoToPlace<'w, 's> {
             ComboBox::from_id_salt("select_go_to_location")
                 .selected_text(selected_location_name)
                 .show_ui(ui, |ui| {
-                    for (loc_entity, loc_name) in params.locations.iter() {
-                        ui.selectable_value(
-                            &mut new_go_to_place.location,
-                            Some(Point(loc_entity)),
-                            loc_name.0.clone(),
-                        );
+                    // Sort locations alphabetically
+                    let mut locations = params.locations.iter().fold(
+                        Vec::<(Entity, String)>::new(),
+                        |mut l, (e, name)| {
+                            l.push((e, name.0.clone()));
+                            l
+                        },
+                    );
+                    locations.sort_by(|a, b| a.1.cmp(&b.1));
+                    for (loc_entity, loc_name) in locations.iter() {
+                        let resp = ui.add(SelectableLabel::new(
+                            new_go_to_place.location == Some(Point(*loc_entity)),
+                            loc_name.clone(),
+                        ));
+                        if resp.clicked() {
+                            new_go_to_place.location = Some(Point(*loc_entity));
+                        } else if resp.hovered() {
+                            params.hover.write(Hover(Some(*loc_entity)));
+                        }
                     }
                 });
         });
