@@ -41,7 +41,7 @@ pub struct MapfConfigWidget<'w, 's> {
     negotiation_task: Res<'w, NegotiationTask>,
     occupancy_display: ResMut<'w, OccupancyDisplay>,
     robots: Query<'w, 's, Entity, With<Robot>>,
-    tasks: Query<'w, 's, &'static Task>,
+    tasks: Query<'w, 's, &'static Task<Entity>>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for MapfConfigWidget<'w, 's> {

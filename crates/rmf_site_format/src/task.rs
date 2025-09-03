@@ -193,18 +193,18 @@ impl DispatchTaskRequest {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct RobotTaskRequest {
-    pub robot: String,
+pub struct RobotTaskRequest<T: RefTrait> {
+    pub robot: Affiliation<T>,
     pub fleet: String,
     pub request: TaskRequest,
 }
 
-impl TaskRequestType for RobotTaskRequest {
+impl<T: RefTrait> TaskRequestType for RobotTaskRequest<T> {
     fn is_valid(&self) -> bool {
         if self.fleet.is_empty() {
             return false;
         }
-        if self.robot.is_empty() {
+        if self.robot.0.is_none() {
             return false;
         }
         self.request.is_valid()
@@ -219,8 +219,8 @@ impl TaskRequestType for RobotTaskRequest {
     }
 }
 
-impl RobotTaskRequest {
-    pub fn new(robot: String, fleet: String, request: TaskRequest) -> Self {
+impl<T: RefTrait> RobotTaskRequest<T> {
+    pub fn new(robot: Affiliation<T>, fleet: String, request: TaskRequest) -> Self {
         Self {
             robot,
             fleet,
@@ -228,11 +228,11 @@ impl RobotTaskRequest {
         }
     }
 
-    pub fn robot(&self) -> String {
+    pub fn robot(&self) -> Affiliation<T> {
         self.robot.clone()
     }
 
-    pub fn robot_mut(&mut self) -> &mut String {
+    pub fn robot_mut(&mut self) -> &mut Affiliation<T> {
         &mut self.robot
     }
 
@@ -247,79 +247,79 @@ impl RobotTaskRequest {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
-pub enum Task {
+pub enum Task<T: RefTrait> {
     Dispatch(DispatchTaskRequest),
-    Direct(RobotTaskRequest),
+    Direct(RobotTaskRequest<T>),
 }
 
-impl Default for Task {
+impl<T: RefTrait> Default for Task<T> {
     fn default() -> Self {
-        Task::Dispatch(DispatchTaskRequest {
+        Task::<T>::Dispatch(DispatchTaskRequest {
             request: TaskRequest::default(),
         })
     }
 }
 
-impl Task {
+impl<T: RefTrait> Task<T> {
     pub fn is_valid(&self) -> bool {
         match self {
-            Task::Dispatch(dispatch_task_request) => dispatch_task_request.is_valid(),
-            Task::Direct(robot_task_request) => robot_task_request.is_valid(),
+            Task::<T>::Dispatch(dispatch_task_request) => dispatch_task_request.is_valid(),
+            Task::<T>::Direct(robot_task_request) => robot_task_request.is_valid(),
         }
     }
 
     pub fn is_dispatch(&self) -> bool {
         match self {
-            Task::Dispatch(_) => true,
+            Task::<T>::Dispatch(_) => true,
             _ => false,
         }
     }
 
     pub fn is_direct(&self) -> bool {
         match self {
-            Task::Direct(_) => true,
+            Task::<T>::Direct(_) => true,
             _ => false,
         }
     }
 
     pub fn request(&self) -> TaskRequest {
         match self {
-            Task::Dispatch(dispatch_task_request) => dispatch_task_request.request(),
-            Task::Direct(robot_task_request) => robot_task_request.request(),
+            Task::<T>::Dispatch(dispatch_task_request) => dispatch_task_request.request(),
+            Task::<T>::Direct(robot_task_request) => robot_task_request.request(),
         }
     }
 
     pub fn request_mut(&mut self) -> &mut TaskRequest {
         match self {
-            Task::Dispatch(dispatch_task_request) => dispatch_task_request.request_mut(),
-            Task::Direct(robot_task_request) => robot_task_request.request_mut(),
+            Task::<T>::Dispatch(dispatch_task_request) => dispatch_task_request.request_mut(),
+            Task::<T>::Direct(robot_task_request) => robot_task_request.request_mut(),
         }
     }
 
-    pub fn robot(&self) -> String {
+    pub fn robot(&self) -> Affiliation<T> {
         match self {
-            Task::Direct(robot_task_request) => robot_task_request.robot(),
-            _ => "".to_string(),
+            Task::<T>::Direct(robot_task_request) => robot_task_request.robot(),
+            _ => Affiliation(None),
         }
     }
 
-    pub fn robot_mut(&mut self) -> Option<&mut String> {
+    pub fn robot_mut(&mut self) -> Option<&mut Affiliation<T>> {
         match self {
-            Task::Direct(robot_task_request) => Some(robot_task_request.robot_mut()),
+            Task::<T>::Direct(robot_task_request) => Some(robot_task_request.robot_mut()),
             _ => None,
         }
     }
 
     pub fn fleet(&self) -> String {
         match self {
-            Task::Direct(robot_task_request) => robot_task_request.fleet(),
+            Task::<T>::Direct(robot_task_request) => robot_task_request.fleet(),
             _ => "".to_string(),
         }
     }
 
     pub fn fleet_mut(&mut self) -> Option<&mut String> {
         match self {
-            Task::Direct(robot_task_request) => Some(robot_task_request.fleet_mut()),
+            Task::<T>::Direct(robot_task_request) => Some(robot_task_request.fleet_mut()),
             _ => None,
         }
     }

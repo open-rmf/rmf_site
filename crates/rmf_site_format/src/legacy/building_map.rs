@@ -208,7 +208,7 @@ impl BuildingMap {
         let mut model_instances: BTreeMap<u32, Parented<u32, ModelInstance<u32>>> = BTreeMap::new();
         let mut model_description_name_map = HashMap::<String, u32>::new();
         let mut scenarios: BTreeMap<u32, Scenario<u32>> = BTreeMap::new();
-        let tasks: BTreeMap<u32, Task> = BTreeMap::new(); // Tasks not supported in legacy
+        let tasks: BTreeMap<u32, Task<u32>> = BTreeMap::new(); // Tasks not supported in legacy
         let default_scenario_id = site_id.next().unwrap();
         scenarios.insert(default_scenario_id, Scenario::default());
 

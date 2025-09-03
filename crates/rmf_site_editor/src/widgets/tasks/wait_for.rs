@@ -57,7 +57,7 @@ impl Plugin for WaitForPlugin {
 #[derive(SystemParam)]
 pub struct ViewWaitFor<'w, 's> {
     edit_task: Res<'w, EditTask>,
-    tasks: Query<'w, 's, (&'static mut WaitFor, &'static mut Task)>,
+    tasks: Query<'w, 's, (&'static mut WaitFor, &'static mut Task<Entity>)>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for ViewWaitFor<'w, 's> {

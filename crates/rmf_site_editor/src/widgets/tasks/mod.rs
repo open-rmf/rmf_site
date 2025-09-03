@@ -30,11 +30,12 @@ use bevy::{
 use bevy_egui::{
     egui::{
         Align, Align2, CollapsingHeader, Color32, ComboBox, DragValue, Frame, Grid, ImageButton,
-        Layout, RichText, ScrollArea, Stroke, TextEdit, Ui, Window,
+        Layout, RichText, ScrollArea, SelectableLabel, Stroke, TextEdit, Ui, Window,
     },
     EguiContexts,
 };
 use rmf_site_egui::*;
+use rmf_site_picking::Hover;
 use serde_json::Value;
 use smallvec::SmallVec;
 
@@ -143,13 +144,14 @@ pub struct EditModeEvent {
 pub struct ViewTasks<'w, 's> {
     children: Query<'w, 's, &'static Children>,
     commands: Commands<'w, 's>,
-    change_task: EventWriter<'w, Change<Task>>,
+    change_task: EventWriter<'w, Change<Task<Entity>>>,
     current_scenario: ResMut<'w, CurrentScenario>,
     delete: EventWriter<'w, Delete>,
     edit_mode: EventWriter<'w, EditModeEvent>,
     edit_task: Res<'w, EditTask>,
     get_inclusion_modifier: GetModifier<'w, 's, Modifier<Inclusion>>,
     get_params_modifier: GetModifier<'w, 's, Modifier<TaskParams>>,
+    hover: EventWriter<'w, Hover>,
     icons: Res<'w, Icons>,
     robots: Query<'w, 's, (Entity, &'static NameInSite, &'static Robot), Without<Group>>,
     scenarios: Query<
@@ -163,7 +165,7 @@ pub struct ViewTasks<'w, 's> {
     >,
     task_kinds: ResMut<'w, TaskKinds>,
     task_widget: ResMut<'w, TaskWidget>,
-    tasks: Query<'w, 's, (Entity, &'static Task), Without<Pending>>,
+    tasks: Query<'w, 's, (Entity, &'static Task<Entity>), Without<Pending>>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for ViewTasks<'w, 's> {
@@ -183,8 +185,8 @@ impl<'w, 's> WidgetSystem<Tile> for ViewTasks<'w, 's> {
         };
         // Tasks are sorted by start time, then request time, then created time,
         // depending on which fields are populated
-        let mut tasks = Vec::<(i32, (Entity, Task))>::new();
-        let mut tasks_without_time = Vec::<(i32, (Entity, Task))>::new();
+        let mut tasks = Vec::<(i32, (Entity, Task<Entity>))>::new();
+        let mut tasks_without_time = Vec::<(i32, (Entity, Task<Entity>))>::new();
 
         for (e, task) in params.tasks.iter() {
             if let Some(params_modifier) =
@@ -252,7 +254,7 @@ impl<'w, 's> WidgetSystem<Tile> for ViewTasks<'w, 's> {
             if ui.button("✚ Create New Task").clicked() {
                 let new_task = params
                     .commands
-                    .spawn(Task::default())
+                    .spawn(Task::<Entity>::default())
                     .insert(Category::Task)
                     .insert(TaskParams::default())
                     .insert(Inclusion::Included) // New tasks created are included by default
@@ -275,7 +277,7 @@ fn show_task_widget(
     state: &mut SystemState<ViewTasks>,
     scenario: Entity,
     task_entity: Entity,
-    task: &Task,
+    task: &Task<Entity>,
 ) {
     let params = state.get_mut(world);
     let present = params
@@ -321,6 +323,7 @@ fn show_task_widget(
                 &params.icons,
                 present,
                 in_edit_mode,
+                &mut params.hover,
             );
 
             // Display children widgets if editing existing task
@@ -347,11 +350,11 @@ fn show_task_params(
     ui: &mut Ui,
     commands: &mut Commands,
     task_entity: Entity,
-    task: &Task,
+    task: &Task<Entity>,
     scenario: Entity,
     get_inclusion_modifier: &GetModifier<Modifier<Inclusion>>,
     get_params_modifier: &GetModifier<Modifier<TaskParams>>,
-    change_task: &mut EventWriter<Change<Task>>,
+    change_task: &mut EventWriter<Change<Task<Entity>>>,
     delete: &mut EventWriter<Delete>,
     edit_mode: &mut EventWriter<EditModeEvent>,
     task_kinds: &ResMut<TaskKinds>,
@@ -360,6 +363,7 @@ fn show_task_params(
     icons: &Res<Icons>,
     present: bool,
     in_edit_mode: bool,
+    hover: &mut EventWriter<Hover>,
 ) {
     ui.horizontal(|ui| {
         ui.label("Task ".to_owned() + &task_entity.index().to_string()) // TODO(@xiyuoh) better identifier
@@ -475,6 +479,7 @@ fn show_task_params(
         robots,
         task_kinds,
         change_task,
+        hover,
     );
 }
 
@@ -482,14 +487,15 @@ fn show_editable_task(
     ui: &mut Ui,
     commands: &mut Commands,
     task_entity: Entity,
-    task: &Task,
+    task: &Task<Entity>,
     task_params: &TaskParams,
     scenario: Entity,
     in_edit_mode: bool,
     get_params_modifier: &GetModifier<Modifier<TaskParams>>,
     robots: &Query<(Entity, &NameInSite, &Robot), Without<Group>>,
     task_kinds: &ResMut<TaskKinds>,
-    change_task: &mut EventWriter<Change<Task>>,
+    change_task: &mut EventWriter<Change<Task<Entity>>>,
+    hover: &mut EventWriter<Hover>,
 ) {
     let mut new_task = task.clone();
     let task_request = new_task.request();
@@ -511,9 +517,15 @@ fn show_editable_task(
                         });
                     }
                     Task::Direct(_) => {
+                        let robot_name = task
+                            .robot()
+                            .0
+                            .and_then(|e| robots.get(e).ok())
+                            .map(|(_, name, _)| name.0.clone())
+                            .unwrap_or("<Unnamed>".to_string());
                         ui.horizontal(|ui| {
                             let _ = ui.selectable_label(true, "Direct");
-                            ui.label(task.fleet().to_owned() + "/" + &task.robot());
+                            ui.label(task.fleet().to_owned() + "/" + &robot_name);
                         });
                     }
                 }
@@ -525,6 +537,7 @@ fn show_editable_task(
                     robots,
                     task.robot(),
                     task.fleet(),
+                    hover,
                 );
             }
             ui.end_row();
@@ -688,7 +701,7 @@ fn show_create_task_dialog(
     task_state: &mut SystemState<(
         Res<CurrentScenario>,
         Res<EditTask>,
-        Query<(&Task, &TaskParams), With<Pending>>,
+        Query<(&Task<Entity>, &TaskParams), With<Pending>>,
     )>,
     egui_context_state: &mut SystemState<EguiContexts>,
     edit_state: &mut SystemState<(
@@ -696,7 +709,8 @@ fn show_create_task_dialog(
         GetModifier<Modifier<TaskParams>>,
         Query<(Entity, &NameInSite, &Robot), Without<Group>>,
         ResMut<TaskKinds>,
-        EventWriter<Change<Task>>,
+        EventWriter<Change<Task<Entity>>>,
+        EventWriter<Hover>,
     )>,
     widget_state: &mut SystemState<(Query<&Children>, Res<TaskWidget>)>,
     dialog_state: &mut SystemState<(ResMut<CreateTaskDialog>, EventWriter<EditModeEvent>)>,
@@ -725,7 +739,7 @@ fn show_create_task_dialog(
         .resizable(false)
         .anchor(Align2::CENTER_CENTER, [0.0, 0.0])
         .show(&mut ctx, |ui| {
-            let (mut commands, get_params_modifier, robots, task_kinds, mut change_task) =
+            let (mut commands, get_params_modifier, robots, task_kinds, mut change_task, mut hover) =
                 edit_state.get_mut(world);
             show_editable_task(
                 ui,
@@ -739,6 +753,7 @@ fn show_create_task_dialog(
                 &robots,
                 &task_kinds,
                 &mut change_task,
+                &mut hover,
             );
             let task_request_category = pending_task.request().category();
             let task_kind_is_valid =
@@ -808,11 +823,12 @@ fn show_create_task_dialog(
 
 fn edit_request_type_widget(
     ui: &mut Ui,
-    task: &mut Task,
+    task: &mut Task<Entity>,
     task_request: &TaskRequest,
     robots: &Query<(Entity, &NameInSite, &Robot), Without<Group>>,
-    robot: String,
+    robot: Affiliation<Entity>,
     fleet: String,
+    hover: &mut EventWriter<Hover>,
 ) {
     let mut is_robot_task_request = task.is_direct();
     ui.horizontal(|ui| {
@@ -844,22 +860,44 @@ fn edit_request_type_widget(
             ui.end_row();
 
             ui.label("Robot:");
-            let selected_robot = if robot_task_request.robot().is_empty() {
-                "Select Robot".to_string()
+            let selected_robot = if let Some((_, robot_name, _)) = robot_task_request
+                .robot()
+                .0
+                .and_then(|e| robots.get(e).ok())
+            {
+                robot_name.0.clone()
             } else {
-                robot_task_request.robot()
+                "Select Robot".to_string()
             };
             ComboBox::from_id_salt("select_robot_for_task")
                 .selected_text(selected_robot)
                 .show_ui(ui, |ui| {
-                    for (_, robot_name, robot) in robots.iter() {
-                        ui.selectable_value(
-                            robot_task_request.robot_mut(),
-                            robot_name.0.clone(),
-                            robot_name.0.clone(),
-                        );
+                    // Sort robots alphabetically
+                    let mut sorted_robots = robots.iter().fold(
+                        Vec::<(Entity, String, Robot)>::new(),
+                        |mut l, (e, name, r)| {
+                            l.push((e, name.0.clone(), r.clone()));
+                            l
+                        },
+                    );
+                    sorted_robots.sort_by(|a, b| a.1.cmp(&b.1));
+                    for (robot_entity, robot_name, robot) in sorted_robots.iter() {
+                        let requested_robot = robot_task_request.robot_mut();
+                        let resp = ui.add(SelectableLabel::new(
+                            requested_robot.0.is_some_and(|e| e == *robot_entity),
+                            robot_name.clone(),
+                        ));
+                        if resp.clicked() {
+                            *requested_robot = Affiliation(Some(*robot_entity));
+                        } else if resp.hovered() {
+                            hover.write(Hover(Some(*robot_entity)));
+                        }
                         // Update fleet according to selected robot
-                        if robot_task_request.robot() == robot_name.0 {
+                        if robot_task_request
+                            .robot()
+                            .0
+                            .is_some_and(|e| e == *robot_entity)
+                        {
                             *robot_task_request.fleet_mut() = robot.fleet.clone();
                         }
                     }
@@ -877,7 +915,7 @@ fn edit_request_type_widget(
 fn edit_task_kind_widget(
     ui: &mut Ui,
     commands: &mut Commands,
-    task: &mut Task,
+    task: &mut Task<Entity>,
     task_entity: Entity,
     task_kinds: &ResMut<TaskKinds>,
 ) {
@@ -914,7 +952,7 @@ fn edit_task_kind_widget(
     }
 }
 
-fn edit_requester_widget(ui: &mut Ui, task: &mut Task) {
+fn edit_requester_widget(ui: &mut Ui, task: &mut Task<Entity>) {
     let new_task_request = task.request_mut();
     let requester = new_task_request
         .requester_mut()
@@ -927,7 +965,7 @@ fn edit_requester_widget(ui: &mut Ui, task: &mut Task) {
     }
 }
 
-fn edit_fleet_widget(ui: &mut Ui, task: &mut Task) {
+fn edit_fleet_widget(ui: &mut Ui, task: &mut Task<Entity>) {
     // TODO(@xiyuoh) when available, insert combobox of registered fleets
     let new_task_request = task.request_mut();
     let fleet_name = new_task_request
@@ -1028,7 +1066,7 @@ pub fn handle_task_edit(
     mut delete: EventWriter<Delete>,
     mut edit_mode: EventReader<EditModeEvent>,
     mut edit_task: ResMut<EditTask>,
-    pending_tasks: Query<&mut Task, With<Pending>>,
+    pending_tasks: Query<&mut Task<Entity>, With<Pending>>,
     current_workspace: Res<CurrentWorkspace>,
 ) {
     if let Some(edit) = edit_mode.read().last() {

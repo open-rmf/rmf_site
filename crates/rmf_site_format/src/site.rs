@@ -150,7 +150,7 @@ pub struct Site {
     pub model_instances: BTreeMap<u32, Parented<u32, ModelInstance<u32>>>,
     /// Tasks available in this site
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub tasks: BTreeMap<u32, Task>,
+    pub tasks: BTreeMap<u32, Task<u32>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]

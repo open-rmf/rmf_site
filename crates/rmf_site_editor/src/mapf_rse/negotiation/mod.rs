@@ -30,7 +30,7 @@ use crate::{
     occupancy::{Cell, Grid},
     site::{
         Affiliation, CircleCollision, CurrentLevel, DifferentialDrive, GoToPlace, Group,
-        LocationTags, ModelMarker, NameInSite, Point, Pose, Robot, Task as RobotTask,
+        LocationTags, ModelMarker, Point, Pose, Robot, Task as RobotTask,
     },
 };
 use mapf::negotiation::*;
@@ -233,9 +233,9 @@ pub fn start_compute_negotiation(
     current_level: Res<CurrentLevel>,
     grids: Query<(Entity, &Grid)>,
     child_of: Query<&ChildOf>,
-    robots: Query<(Entity, &NameInSite, &Pose, &Affiliation<Entity>), With<Robot>>,
+    robots: Query<(Entity, &Pose, &Affiliation<Entity>), With<Robot>>,
     robot_descriptions: Query<(&DifferentialDrive, &CircleCollision)>,
-    tasks: Query<(&RobotTask, &GoToPlace<Entity>)>,
+    tasks: Query<(&RobotTask<Entity>, &GoToPlace<Entity>)>,
     mut negotiation_task: ResMut<NegotiationTask>,
 ) {
     if negotiation_request.len() == 0 {
@@ -286,10 +286,8 @@ pub fn start_compute_negotiation(
     let mut agents = BTreeMap::<String, Agent>::new();
     // Only loop tasks that have specified a valid robot
     for (task, go_to_place) in tasks.iter() {
-        // Identify robot
-        let robot_name = task.robot();
-        for (robot_entity, robot_site_name, robot_pose, robot_group) in robots.iter() {
-            if robot_name == robot_site_name.0 {
+        for (robot_entity, robot_pose, robot_group) in robots.iter() {
+            if task.robot().0.is_some_and(|e| robot_entity == e) {
                 // Match location to entity
                 for Point(anchor_entity) in locations.iter() {
                     if go_to_place
