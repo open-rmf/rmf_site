@@ -290,10 +290,7 @@ pub fn start_compute_negotiation(
             if task.robot().0.is_some_and(|e| robot_entity == e) {
                 // Match location to entity
                 for Point(anchor_entity) in locations.iter() {
-                    if go_to_place
-                        .location
-                        .is_some_and(|pt| pt.0 == *anchor_entity)
-                    {
+                    if go_to_place.location.0.is_some_and(|e| e == *anchor_entity) {
                         let Ok(goal_transform) = anchors.get(*anchor_entity) else {
                             warn!("Unable to get robot's goal transform");
                             continue;

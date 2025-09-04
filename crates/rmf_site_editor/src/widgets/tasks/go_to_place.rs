@@ -17,7 +17,8 @@
 use super::{EditTask, TaskWidget};
 use crate::{
     site::{
-        update_task_kind_component, LocationTags, NameInSite, Point, Task, TaskKind, TaskKinds,
+        update_task_kind_component, Affiliation, LocationTags, NameInSite, SiteID, Task, TaskKind,
+        TaskKinds,
     },
     widgets::prelude::*,
 };
@@ -51,8 +52,7 @@ impl Plugin for GoToPlacePlugin {
                     let Some(loc_entity) = world
                         .entity(e)
                         .get::<GoToPlace<Entity>>()
-                        .and_then(|go_to_place| go_to_place.location)
-                        .map(|pt| pt.0)
+                        .and_then(|go_to_place| go_to_place.location.0)
                     else {
                         return false;
                     };
@@ -73,7 +73,8 @@ impl Plugin for GoToPlacePlugin {
 
 #[derive(SystemParam)]
 pub struct ViewGoToPlace<'w, 's> {
-    locations: Query<'w, 's, (Entity, &'static NameInSite), With<LocationTags>>,
+    locations:
+        Query<'w, 's, (Entity, &'static NameInSite, Option<&'static SiteID>), With<LocationTags>>,
     edit_task: Res<'w, EditTask>,
     tasks: Query<'w, 's, (&'static mut GoToPlace<Entity>, &'static mut Task<Entity>)>,
     hover: EventWriter<'w, Hover>,
@@ -93,9 +94,10 @@ impl<'w, 's> WidgetSystem<Tile> for ViewGoToPlace<'w, 's> {
             return;
         }
 
-        let selected_location_name = if let Some((_, loc_name)) = go_to_place
+        let selected_location_name = if let Some((_, loc_name, _)) = go_to_place
             .location
-            .and_then(|pt| params.locations.get(pt.0).ok())
+            .0
+            .and_then(|e| params.locations.get(e).ok())
         {
             loc_name.0.clone()
         } else {
@@ -111,7 +113,7 @@ impl<'w, 's> WidgetSystem<Tile> for ViewGoToPlace<'w, 's> {
                     // Sort locations alphabetically
                     let mut sorted_locations = params.locations.iter().fold(
                         Vec::<(Entity, String)>::new(),
-                        |mut l, (e, name)| {
+                        |mut l, (e, name, _)| {
                             l.push((e, name.0.clone()));
                             l
                         },
@@ -119,11 +121,11 @@ impl<'w, 's> WidgetSystem<Tile> for ViewGoToPlace<'w, 's> {
                     sorted_locations.sort_by(|a, b| a.1.cmp(&b.1));
                     for (loc_entity, loc_name) in sorted_locations.iter() {
                         let resp = ui.add(SelectableLabel::new(
-                            new_go_to_place.location == Some(Point(*loc_entity)),
+                            new_go_to_place.location == Affiliation(Some(*loc_entity)),
                             loc_name.clone(),
                         ));
                         if resp.clicked() {
-                            new_go_to_place.location = Some(Point(*loc_entity));
+                            new_go_to_place.location = Affiliation(Some(*loc_entity));
                         } else if resp.hovered() {
                             params.hover.write(Hover(Some(*loc_entity)));
                         }
@@ -134,12 +136,25 @@ impl<'w, 's> WidgetSystem<Tile> for ViewGoToPlace<'w, 's> {
         if *go_to_place != new_go_to_place {
             *go_to_place = new_go_to_place.clone();
 
-            if let Ok(description) = serde_json::to_value(new_go_to_place.clone()) {
+            // Convert Location entity to SiteID before serializing
+            if let Some(description) = new_go_to_place
+                .location
+                .0
+                .and_then(|e| params.locations.get(e).ok())
+                .and_then(|(_, _, site_id)| site_id)
+                .and_then(|id| {
+                    serde_json::to_value(GoToPlace::<u32> {
+                        location: Affiliation(Some(**id)),
+                    })
+                    .ok()
+                })
+            {
                 *task.request_mut().description_mut() = description;
                 *task.request_mut().description_display_mut() = new_go_to_place
                     .location
-                    .and_then(|pt| params.locations.get(pt.0).ok())
-                    .map(|(_, name)| name.0.clone());
+                    .0
+                    .and_then(|e| params.locations.get(e).ok())
+                    .map(|(_, name, _)| name.0.clone());
             }
         }
     }

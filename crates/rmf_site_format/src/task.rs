@@ -362,12 +362,14 @@ pub trait TaskKind: Component + Serialize + DeserializeOwned {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
 pub struct GoToPlace<T: RefTrait> {
-    pub location: Option<Point<T>>,
+    pub location: Affiliation<T>,
 }
 
 impl<T: RefTrait> Default for GoToPlace<T> {
     fn default() -> Self {
-        Self { location: None }
+        Self {
+            location: Affiliation(None),
+        }
     }
 }
 
