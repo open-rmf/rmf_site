@@ -67,7 +67,8 @@ impl Plugin for GoToPlacePlugin {
         let widget = Widget::<Tile>::new::<ViewGoToPlace>(&mut app.world_mut());
         let task_widget = app.world().resource::<TaskWidget>().get();
         app.world_mut().spawn(widget).insert(ChildOf(task_widget));
-        app.add_systems(PostUpdate, update_task_kind_component::<GoToPlace<Entity>>);
+        app.add_systems(PostUpdate, update_task_kind_component::<GoToPlace<Entity>>)
+            .add_observer(on_load_go_to_place);
     }
 }
 
@@ -137,6 +138,11 @@ impl<'w, 's> WidgetSystem<Tile> for ViewGoToPlace<'w, 's> {
             *go_to_place = new_go_to_place.clone();
 
             // Convert Location entity to SiteID before serializing
+            let location_name = new_go_to_place
+                .location
+                .0
+                .and_then(|e| params.locations.get(e).ok())
+                .map(|(_, name, _)| name.0.clone());
             if let Some(description) = new_go_to_place
                 .location
                 .0
@@ -144,18 +150,50 @@ impl<'w, 's> WidgetSystem<Tile> for ViewGoToPlace<'w, 's> {
                 .and_then(|(_, _, site_id)| site_id)
                 .and_then(|id| {
                     serde_json::to_value(GoToPlace::<u32> {
-                        location: Affiliation(Some(**id)),
+                        location: Affiliation(Some(id.0)),
                     })
                     .ok()
                 })
             {
                 *task.request_mut().description_mut() = description;
-                *task.request_mut().description_display_mut() = new_go_to_place
-                    .location
-                    .0
-                    .and_then(|e| params.locations.get(e).ok())
-                    .map(|(_, name, _)| name.0.clone());
             }
+            *task.request_mut().description_display_mut() = location_name;
+        }
+    }
+}
+
+/// When loading a GoToPlace task from file, locations are stored as SiteID.
+/// Since task description is serialized as JSON, we won't be able to do the
+/// usual Entity <-> SiteID conversion. This observer checks that the GoToPlace
+/// task/location entity loaded is valid. If not, use location name stored in
+/// description display to select location entity.
+fn on_load_go_to_place(
+    trigger: Trigger<OnInsert, Task<Entity>>,
+    mut commands: Commands,
+    tasks: Query<(Entity, &Task<Entity>, Option<&GoToPlace<Entity>>)>,
+    locations: Query<(Entity, &NameInSite), With<LocationTags>>,
+) {
+    let Ok((task_entity, task, go_to_place)) = tasks.get(trigger.target()) else {
+        return;
+    };
+    if task.request().category() != GoToPlace::<Entity>::label() {
+        return;
+    }
+    // Ignore if this is a valid location entity
+    if go_to_place.is_some_and(|gtp| gtp.location.0.is_some_and(|e| locations.get(e).is_ok())) {
+        return;
+    }
+
+    // Rely on description display for location name matching
+    let Some(location_name) = task.request().description_display() else {
+        return;
+    };
+    for (entity, name) in locations.iter() {
+        if location_name == *name.0 {
+            commands.entity(task_entity).insert(GoToPlace::<Entity> {
+                location: Affiliation(Some(entity)),
+            });
+            return;
         }
     }
 }
