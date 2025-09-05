@@ -144,15 +144,15 @@ impl FromWorld for SiteAssets {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.get_resource::<AssetServer>().unwrap();
         let base_billboard_texture =
-            asset_server.load("embedded://librmf_site_editor/site/billboards/base.png");
+            asset_server.load("embedded://librmf_site_editor/site/textures/base.png");
         let charger_texture =
-            asset_server.load("embedded://librmf_site_editor/site/billboards/charging.png");
+            asset_server.load("embedded://librmf_site_editor/site/textures/charging.png");
         let holding_point_texture =
-            asset_server.load("embedded://librmf_site_editor/site/billboards/holding.png");
+            asset_server.load("embedded://librmf_site_editor/site/textures/holding.png");
         let parking_texture =
-            asset_server.load("embedded://librmf_site_editor/site/billboards/parking.png");
+            asset_server.load("embedded://librmf_site_editor/site/textures/parking.png");
         let empty_billboard_texture =
-            asset_server.load("embedded://librmf_site_editor/site/billboards/empty.png");
+            asset_server.load("embedded://librmf_site_editor/site/textures/empty.png");
         let door_cue_texture =
             asset_server.load("embedded://librmf_site_editor/site/textures/door_cue.png");
         let door_cue_highlighted_texture = asset_server
