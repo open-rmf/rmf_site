@@ -21,9 +21,10 @@ use std::collections::HashMap;
 
 pub type InsertTaskKindFn = fn(EntityCommands);
 pub type RemoveTaskKindFn = fn(EntityCommands);
+pub type IsTaskValidFn = fn(Entity, &mut World) -> bool;
 
 #[derive(Resource)]
-pub struct TaskKinds(pub HashMap<String, (InsertTaskKindFn, RemoveTaskKindFn)>);
+pub struct TaskKinds(pub HashMap<String, (InsertTaskKindFn, RemoveTaskKindFn, IsTaskValidFn)>);
 
 impl FromWorld for TaskKinds {
     fn from_world(_world: &mut World) -> Self {
@@ -31,13 +32,13 @@ impl FromWorld for TaskKinds {
     }
 }
 
-impl Element for Task {}
+impl Element for Task<Entity> {}
 
 impl StandardProperty for TaskParams {}
 
 pub fn update_task_kind_component<T: TaskKind>(
     mut commands: Commands,
-    tasks: Query<(Entity, Ref<Task>, Option<&T>)>,
+    tasks: Query<(Entity, Ref<Task<Entity>>, Option<&T>)>,
 ) {
     for (entity, task, task_kind) in tasks.iter() {
         if task.is_changed() {

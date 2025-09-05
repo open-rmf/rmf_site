@@ -31,9 +31,12 @@ impl Property for Inclusion {
     fn on_new_element(
         for_element: Entity,
         in_scenario: Entity,
-        _value: Inclusion,
+        value: Inclusion,
         world: &mut World,
     ) {
+        // Insert inclusion modifier with given value into target scenario
+        world.trigger(UpdateModifier::modify(in_scenario, for_element, value));
+
         let mut scenario_state: SystemState<
             Query<(Entity, &ScenarioModifiers<Entity>, &Affiliation<Entity>)>,
         > = SystemState::new(world);
