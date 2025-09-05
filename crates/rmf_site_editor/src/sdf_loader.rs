@@ -333,8 +333,12 @@ fn load_model<'a, 'b>(
                     if plugin.name == "slotcar".to_string()
                         || plugin.filename == "libslotcar.so".to_string()
                     {
+                        // Use commands instead of direct access to world as we
+                        // want this to be queued up after robot data has been
+                        // inserted into model descriptions during loading
                         world
-                            .entity_mut(e)
+                            .commands()
+                            .entity(e)
                             .insert(DifferentialDrive::from(&plugin.elements))
                             .insert(Battery::from(&plugin.elements))
                             .insert(AmbientSystem::from(&plugin.elements))
