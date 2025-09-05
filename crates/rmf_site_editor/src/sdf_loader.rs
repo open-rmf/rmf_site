@@ -24,8 +24,8 @@ use thiserror::Error;
 use sdformat_rs::{SdfGeometry, SdfPose, Vector3d};
 
 use crate::site::{
-    AmbientSystem, Battery, CollisionMeshMarker, DifferentialDrive, InsertSlotcarComponent,
-    MechanicalSystem, VisualMeshMarker,
+    AmbientSystem, Battery, CollisionMeshMarker, DifferentialDrive, MechanicalSystem,
+    VisualMeshMarker,
 };
 use rmf_site_format::{
     Angle, AssetSource, Category, IsStatic, Model, ModelMarker, NameInSite, Pose, PrimitiveShape,
