@@ -2,6 +2,7 @@
 members = [
     "crates/*"
 ]
+default-members = ["crates/rmf_site_editor"]
 
 # This is needed for packages that are part of a workspace to use the 2nd version
 # of the cargo dependency resolving algorithm. In ordinary crates this would be
