@@ -1,0 +1,28 @@
+[package]
+name = "rmf_site_map_server"
+version = "0.0.1"
+authors = ["Luca Della Vedova <lucadv@intrinsic.ai>"]
+edition = "2021"
+
+[dependencies]
+anyhow = {version = "1", features = ["backtrace"]}
+rmf_site_format = { workspace = true }
+
+[[bin]]
+name = "site_map_server"
+path = "src/main.rs"
+
+[dependencies.rclrs]
+version = "0.4"
+
+[dependencies.rosidl_runtime_rs]
+version = "0.4"
+
+[dependencies.rmf_building_map_msgs]
+version = "*"
+
+[dependencies.service_msgs]
+version = "*"
+
+[package.metadata.ros]
+install_to_share = ["launch"]
