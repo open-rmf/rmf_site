@@ -20,19 +20,19 @@ use bevy::{
         component::{ComponentId, ComponentInfo},
         hierarchy::ChildOf,
         query::QueryData,
-        system::{EntityCommands, SystemParam},
+        system::SystemParam,
     },
     prelude::*,
 };
 use bevy_egui::egui::{CollapsingHeader, ComboBox, RichText, Ui};
 use rmf_site_egui::*;
 use smallvec::SmallVec;
-use std::{collections::HashMap, fmt::Debug};
+use std::fmt::Debug;
 
 use crate::{
     site::{
-        update_model_instances, Affiliation, AssetSource, Change, Group, IsStatic, ModelLoader,
-        ModelMarker, ModelProperty, ModelPropertyQuery, NameInSite, Scale,
+        model_property::*, update_model_instances, Affiliation, AssetSource, Change, Group,
+        ModelLoader, ModelMarker, ModelProperty, ModelPropertyQuery, NameInSite,
     },
     widgets::{prelude::*, Inspect},
     MainInspector,
@@ -83,75 +83,6 @@ pub struct ModelDescriptionInspector {
 impl ModelDescriptionInspector {
     pub fn get(&self) -> Entity {
         self.id
-    }
-}
-
-/// Function that inserts a default property into an entity
-type InsertModelPropertyFn = fn(EntityCommands);
-
-fn get_insert_model_property_fn<T: Component + Default>() -> InsertModelPropertyFn {
-    |mut e_commands| {
-        e_commands.insert(T::default());
-    }
-}
-
-/// Function that removes a property, if it exists, from an entity
-type RemoveModelPropertyFn = fn(EntityCommands);
-
-fn get_remove_model_property_fn<T: Component + Default>() -> RemoveModelPropertyFn {
-    |mut e_commands| {
-        e_commands.remove::<T>();
-    }
-}
-
-/// This resource keeps track of all the properties that can be configured for a model description.
-#[derive(Resource)]
-pub struct ModelPropertyData {
-    pub required: HashMap<ComponentId, (String, InsertModelPropertyFn, RemoveModelPropertyFn)>,
-    pub optional: HashMap<ComponentId, (String, InsertModelPropertyFn, RemoveModelPropertyFn)>,
-}
-
-impl FromWorld for ModelPropertyData {
-    fn from_world(world: &mut World) -> Self {
-        let mut required = HashMap::new();
-        world.register_component::<ModelProperty<AssetSource>>();
-        required.insert(
-            world
-                .components()
-                .component_id::<ModelProperty<AssetSource>>()
-                .unwrap(),
-            (
-                "Asset Source".to_string(),
-                get_insert_model_property_fn::<ModelProperty<AssetSource>>(),
-                get_remove_model_property_fn::<ModelProperty<AssetSource>>(),
-            ),
-        );
-        world.register_component::<ModelProperty<Scale>>();
-        required.insert(
-            world
-                .components()
-                .component_id::<ModelProperty<Scale>>()
-                .unwrap(),
-            (
-                "Scale".to_string(),
-                get_insert_model_property_fn::<ModelProperty<Scale>>(),
-                get_remove_model_property_fn::<ModelProperty<Scale>>(),
-            ),
-        );
-        world.register_component::<ModelProperty<IsStatic>>();
-        required.insert(
-            world
-                .components()
-                .component_id::<ModelProperty<IsStatic>>()
-                .unwrap(),
-            (
-                "Is Static".to_string(),
-                get_insert_model_property_fn::<IsStatic>(),
-                get_remove_model_property_fn::<IsStatic>(),
-            ),
-        );
-        let optional = HashMap::new();
-        Self { required, optional }
     }
 }
 

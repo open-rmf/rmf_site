@@ -84,6 +84,9 @@ pub use measurement::*;
 pub mod model;
 pub use model::*;
 
+pub mod model_property;
+pub use model_property::*;
+
 pub mod modifier;
 pub use modifier::*;
 
@@ -306,6 +309,7 @@ impl Plugin for SitePlugin {
             PropertyPlugin::<OnLevel<Entity>, Robot>::default(),
             SlotcarSdfPlugin,
             MaterialPlugin::<ExtendedMaterial<StandardMaterial, LaneArrowMaterial>>::default(),
+            RobotPropertiesPlugin::default(),
         ))
         .add_plugins((InfiniteGridPlugin,))
         .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")

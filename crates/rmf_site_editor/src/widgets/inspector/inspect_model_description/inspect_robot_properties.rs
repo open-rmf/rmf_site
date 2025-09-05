@@ -18,12 +18,11 @@
 use super::*;
 use crate::{
     site::{
-        recall_plugin::UpdateRecallSet, robot_properties::*, update_model_instances, Change, Group,
-        IssueKey, ModelMarker, ModelProperty, ModelPropertyQuery, NameInSite, Recall, RecallPlugin,
-        Robot, SiteUpdateSet,
+        recall_plugin::UpdateRecallSet, robot_properties::*, Change, Group, IssueKey, ModelMarker,
+        ModelProperty, ModelPropertyQuery, NameInSite, Recall, RecallPlugin, Robot, SiteUpdateSet,
     },
     widgets::Inspect,
-    AppState, Issue, ModelPropertyData, ValidateWorkspace,
+    AppState, Issue, ValidateWorkspace,
 };
 use bevy::{
     ecs::{component::Mutable, hierarchy::ChildOf, system::SystemParam},
@@ -64,29 +63,6 @@ impl Plugin for InspectRobotPropertiesPlugin {
     fn build(&self, app: &mut App) {
         // Allows us to toggle Robot as a configurable property
         // from the model description inspector
-        app.world_mut().register_component::<ModelProperty<Robot>>();
-        let component_id = app
-            .world()
-            .components()
-            .component_id::<ModelProperty<Robot>>()
-            .unwrap();
-        app.add_systems(PreUpdate, update_model_instances::<Robot>)
-            .init_resource::<ModelPropertyData>()
-            .world_mut()
-            .resource_mut::<ModelPropertyData>()
-            .optional
-            .insert(
-                component_id,
-                (
-                    "Robot".to_string(),
-                    |mut e_cmd| {
-                        e_cmd.insert(ModelProperty::<Robot>::default());
-                    },
-                    |mut e_cmd| {
-                        e_cmd.remove::<ModelProperty<Robot>>();
-                    },
-                ),
-            );
         let inspector = app.world().resource::<ModelDescriptionInspector>().id;
         let widget = Widget::<Inspect>::new::<InspectRobotProperties>(app.world_mut());
         let id = app
@@ -98,7 +74,7 @@ impl Plugin for InspectRobotPropertiesPlugin {
             .insert_resource(RobotPropertiesInspector { id });
         app.world_mut()
             .init_resource::<RobotPropertyWidgetRegistry>();
-        app.add_event::<UpdateRobotPropertyKinds>().add_systems(
+        app.add_systems(
             PreUpdate,
             check_for_invalid_robot_property_kinds
                 .after(SiteUpdateSet::ProcessChangesFlush)
