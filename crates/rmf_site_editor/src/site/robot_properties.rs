@@ -37,28 +37,21 @@ impl Plugin for RobotPropertiesPlugin {
     fn build(&self, app: &mut App) {
         // Allows us to toggle Robot as a configurable property
         // from the model description inspector
-        app.world_mut().register_component::<ModelProperty<Robot>>();
-        let component_id = app
-            .world()
-            .components()
-            .component_id::<ModelProperty<Robot>>()
-            .unwrap();
-        app.init_resource::<ModelPropertyData>()
-            .world_mut()
-            .resource_mut::<ModelPropertyData>()
-            .optional
-            .insert(
-                component_id,
-                (
-                    "Robot".to_string(),
-                    |mut e_cmd| {
-                        e_cmd.insert(ModelProperty::<Robot>::default());
-                    },
-                    |mut e_cmd| {
-                        e_cmd.remove::<ModelProperty<Robot>>();
-                    },
-                ),
-            );
+        let component_id = app.world_mut().register_component::<ModelProperty<Robot>>();
+        let mut model_property_data = ModelPropertyData::from_world(app.world_mut());
+        model_property_data.optional.insert(
+            component_id,
+            (
+                "Robot".to_string(),
+                |mut e_cmd| {
+                    e_cmd.insert(ModelProperty::<Robot>::default());
+                },
+                |mut e_cmd| {
+                    e_cmd.remove::<ModelProperty<Robot>>();
+                },
+            ),
+        );
+        app.insert_resource(model_property_data);
         app.add_event::<UpdateRobotPropertyKinds>()
             .add_systems(PreUpdate, update_model_instances::<Robot>);
     }
