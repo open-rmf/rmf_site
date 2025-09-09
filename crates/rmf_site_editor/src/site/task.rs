@@ -15,7 +15,10 @@
  *
 */
 
-use crate::site::{Element, StandardProperty, Task, TaskKind, TaskParams};
+use crate::site::{
+    Affiliation, Element, Group, ModelMarker, ModelProperty, Robot, StandardProperty, Task,
+    TaskKind, TaskParams,
+};
 use bevy::prelude::*;
 use std::collections::HashMap;
 
@@ -49,6 +52,29 @@ pub fn update_task_kind_component<T: TaskKind>(
                     serde_json::from_value::<T>(task_request.description())
                 {
                     commands.entity(entity).insert(task_kind_component);
+                }
+            }
+        }
+    }
+}
+
+// This systems monitors for changes in a Robot's fleet and updates relevant
+// RobotTaskRequests accordingly
+// TODO(@xiyuoh) This does not update fleet name for DispatchTasks, since they
+// are not tagged to any robot. Convert fleet name to its own component so that
+// we can track non-direct task fleet name changes too.
+pub fn update_direct_task_fleet(
+    robots: Query<(Entity, Ref<Robot>), (With<ModelMarker>, Without<Group>)>,
+    mut tasks: Query<&mut Task<Entity>>,
+) {
+    for (entity, robot) in robots.iter() {
+        if robot.is_changed() {
+            for mut task in tasks.iter_mut() {
+                if task.robot().0.is_some_and(|e| e == entity) && task.fleet() != robot.fleet {
+                    // Update fleet name if it has changed
+                    if let Some(fleet) = task.fleet_mut() {
+                        *fleet = robot.fleet.clone();
+                    }
                 }
             }
         }

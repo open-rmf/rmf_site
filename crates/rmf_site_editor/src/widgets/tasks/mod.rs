@@ -589,7 +589,7 @@ fn show_editable_task(
                     if !in_edit_mode {
                         ui.label(task_request.fleet_name().unwrap_or("None".to_string()));
                     } else {
-                        edit_fleet_widget(ui, &mut new_task);
+                        edit_fleet_widget(ui, &mut new_task, robots);
                     }
                 });
             }
@@ -854,10 +854,6 @@ fn edit_request_type_widget(
         if let Task::Direct(ref mut robot_task_request) = task {
             ui.end_row();
 
-            ui.label("Fleet:");
-            ui.add(TextEdit::singleline(robot_task_request.fleet_mut()));
-            ui.end_row();
-
             ui.label("Robot:");
             let selected_robot = if let Some((_, robot_name, _)) = robot_task_request
                 .robot()
@@ -901,6 +897,10 @@ fn edit_request_type_widget(
                         }
                     }
                 });
+            ui.end_row();
+
+            ui.label("Fleet:");
+            ui.label(robot_task_request.fleet());
         } else {
             warn!("Unable to select Direct task!");
         }
@@ -964,15 +964,33 @@ fn edit_requester_widget(ui: &mut Ui, task: &mut Task<Entity>) {
     }
 }
 
-fn edit_fleet_widget(ui: &mut Ui, task: &mut Task<Entity>) {
+fn edit_fleet_widget(
+    ui: &mut Ui,
+    task: &mut Task<Entity>,
+    robots: &Query<(Entity, &NameInSite, &Robot), Without<Group>>,
+) {
     // TODO(@xiyuoh) when available, insert combobox of registered fleets
     let new_task_request = task.request_mut();
     let fleet_name = new_task_request
         .fleet_name_mut()
         .get_or_insert(String::new());
-    TextEdit::singleline(fleet_name)
-        .desired_width(ui.available_width())
-        .show(ui);
+    // Sort fleets alphabetically; only list fleets with robots
+    let mut sorted_fleets = robots
+        .iter()
+        .fold(Vec::<String>::new(), |mut l, (_, _, robot)| {
+            if !l.contains(&robot.fleet) {
+                l.push(robot.fleet.clone());
+            }
+            l
+        });
+    sorted_fleets.sort();
+    ComboBox::from_id_salt("select_fleet")
+        .selected_text(fleet_name.clone())
+        .show_ui(ui, |ui| {
+            for f in sorted_fleets.iter() {
+                ui.selectable_value(fleet_name, f.clone(), f.clone());
+            }
+        });
     if fleet_name.is_empty() {
         *new_task_request.fleet_name_mut() = None;
     }

@@ -457,6 +457,7 @@ impl Plugin for SitePlugin {
                 check_for_missing_root_modifiers::<InstanceMarker>,
                 update_default_scenario,
                 update_lane_motion_visuals,
+                update_direct_task_fleet,
             )
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
