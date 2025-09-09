@@ -63,7 +63,7 @@ fn insert_slotcar_components(
         (Without<ModelMarker>, Without<Group>),
     >,
     robot_properties: Query<
-        &IsStatic,
+        Option<&IsStatic>,
         (
             With<ModelMarker>,
             With<Group>,
@@ -110,7 +110,7 @@ fn insert_slotcar_components(
                 };
 
                 // Only insert Mobility if robot is not static
-                if !is_static.0 {
+                if !is_static.is_some_and(|is| is.0) {
                     if let Ok(mobility_value) = serialize_robot_property_from_kind::<
                         Mobility,
                         DifferentialDrive,
