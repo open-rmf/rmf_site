@@ -51,7 +51,6 @@ impl Plugin for SlotcarSdfPlugin {
 fn insert_slotcar_components(
     mut commands: Commands,
     mut change_robot_property: EventWriter<Change<ModelProperty<Robot>>>,
-    is_static: Query<&ModelProperty<IsStatic>, (With<ModelMarker>, With<Group>)>,
     robot_property_kinds: Query<
         // All 4 components will be present (see sdf_loader.rs)
         (
@@ -64,12 +63,15 @@ fn insert_slotcar_components(
         (Without<ModelMarker>, Without<Group>),
     >,
     robot_properties: Query<
+        &IsStatic,
         (
-            Option<&Mobility>,
-            Option<&PowerSource>,
-            Option<&PowerDissipation>,
+            With<ModelMarker>,
+            With<Group>,
+            Without<Mobility>,
+            Without<Collision>,
+            Without<PowerSource>,
+            Without<PowerDissipation>,
         ),
-        (With<ModelMarker>, With<Group>),
     >,
     model_descriptions: Query<&ModelProperty<Robot>, (With<ModelMarker>, With<Group>)>,
     model_instances: ModelPropertyQuery<Robot>,
@@ -101,13 +103,14 @@ fn insert_slotcar_components(
                 // from the earlier system. For now we will process data from Battery/
                 // DifferentialDrive/MechanicalSystem/AmbientSystem in a single system.
 
-                // Only allow overwriting RobotProperties that are not present
-                let Ok((mobility, power_source, power_dissipation)) = robot_properties.get(desc)
-                else {
+                let Ok(is_static) = robot_properties.get(desc) else {
+                    // This description entity has an existing RobotProperty,
+                    // do not allow overwriting
                     continue;
                 };
 
-                if mobility.is_none() && is_static.get(desc).is_ok_and(|is| !is.0 .0) {
+                // Only insert Mobility if robot is not static
+                if !is_static.0 {
                     if let Ok(mobility_value) = serialize_robot_property_from_kind::<
                         Mobility,
                         DifferentialDrive,
@@ -117,44 +120,37 @@ fn insert_slotcar_components(
                     }
                 }
 
-                if power_source.is_none() {
-                    if let Ok(power_source_value) =
-                        serialize_robot_property_from_kind::<PowerSource, Battery>(battery.clone())
-                    {
-                        robot
-                            .properties
-                            .insert(PowerSource::label(), power_source_value);
-                    }
+                if let Ok(power_source_value) =
+                    serialize_robot_property_from_kind::<PowerSource, Battery>(battery.clone())
+                {
+                    robot
+                        .properties
+                        .insert(PowerSource::label(), power_source_value);
                 }
 
-                if power_dissipation.is_none() {
-                    let mut power_dissipation_config = Map::new();
-                    if let Some(power_dissipation_map) = power_dissipation_config
-                        .entry("config")
-                        .or_insert(Value::Object(Map::new()))
-                        .as_object_mut()
+                let mut power_dissipation_config = Map::new();
+                if let Some(power_dissipation_map) = power_dissipation_config
+                    .entry("config")
+                    .or_insert(Value::Object(Map::new()))
+                    .as_object_mut()
+                {
+                    if let Ok(mechanical_system_value) =
+                        serialize_robot_property_kind::<MechanicalSystem>(mechanical_system.clone())
                     {
-                        if let Ok(mechanical_system_value) =
-                            serialize_robot_property_kind::<MechanicalSystem>(
-                                mechanical_system.clone(),
-                            )
-                        {
-                            power_dissipation_map
-                                .insert(MechanicalSystem::label(), mechanical_system_value);
-                        }
-                        if let Ok(ambient_system_value) =
-                            serialize_robot_property_kind::<AmbientSystem>(ambient_system.clone())
-                        {
-                            power_dissipation_map
-                                .insert(AmbientSystem::label(), ambient_system_value);
-                        }
+                        power_dissipation_map
+                            .insert(MechanicalSystem::label(), mechanical_system_value);
                     }
-                    if !power_dissipation_config.is_empty() {
-                        robot.properties.insert(
-                            PowerDissipation::label(),
-                            Value::Object(power_dissipation_config),
-                        );
+                    if let Ok(ambient_system_value) =
+                        serialize_robot_property_kind::<AmbientSystem>(ambient_system.clone())
+                    {
+                        power_dissipation_map.insert(AmbientSystem::label(), ambient_system_value);
                     }
+                }
+                if !power_dissipation_config.is_empty() {
+                    robot.properties.insert(
+                        PowerDissipation::label(),
+                        Value::Object(power_dissipation_config),
+                    );
                 }
 
                 change_robot_property.write(Change::new(ModelProperty(robot), desc));
