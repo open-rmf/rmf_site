@@ -321,20 +321,38 @@ fn handle_model_loading(
             ));
         };
         // Now we have a handle and a parent entity, call the spawn scene service
-        let res = channel
-            .query(
-                (request.parent, handle, request.source.clone()),
-                spawn_scene_for_loaded_model.into_blocking_callback(),
-            )
-            .await
-            .available()
-            .ok_or_else(|| {
-                ModelLoadingError::new(
-                    request.clone(),
-                    ModelLoadingErrorKind::WorkflowExecutionError,
+        // Keep it in a loop to ensure that we retrieve the assets even if they
+        // arrive late
+        let t_initial = std::time::Instant::now();
+        // TODO(@xiyuoh) make this configurable
+        let timeout = std::time::Duration::from_secs(5);
+        let spawn_scene = loop {
+            let res = channel
+                .query(
+                    (request.parent, handle.clone(), request.source.clone()),
+                    spawn_scene_for_loaded_model.into_blocking_callback(),
                 )
-            })?;
-        let Some((scene_entity, is_scene)) = res else {
+                .await
+                .available()
+                .ok_or_else(|| {
+                    ModelLoadingError::new(
+                        request.clone(),
+                        ModelLoadingErrorKind::WorkflowExecutionError,
+                    )
+                })?;
+            if let Some((scene_entity, is_scene)) = res {
+                break Some((scene_entity, is_scene));
+            }
+            let elapsed = std::time::Instant::now() - t_initial;
+            if timeout < elapsed {
+                info!(
+                    "Attempt to spawn scene for loaded model exceeded timeout '
+                    'of {timeout:?}: {elapsed:?}"
+                );
+                break None;
+            }
+        };
+        let Some((scene_entity, is_scene)) = spawn_scene else {
             return Err(ModelLoadingError::new(
                 request.clone(),
                 ModelLoadingErrorKind::NonModelAsset,
