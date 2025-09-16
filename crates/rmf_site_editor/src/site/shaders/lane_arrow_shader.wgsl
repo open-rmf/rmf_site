@@ -5,6 +5,20 @@
     forward_io::{VertexOutput, FragmentOutput},
 }
 
+struct ArrowShaderProperties {
+    number_of_arrows: f32,
+    @align(16)
+    forward_speed: f32,
+    @align(16)
+    backward_speed: f32,
+}
+
+struct LaneShaderProperties {
+    bidirectional: u32,
+    @align(16)
+    is_active: u32,
+}
+
 @group(2) @binding(100)
 var<uniform> single_arrow_base_color: vec4<f32>;
 @group(2) @binding(101)
@@ -12,23 +26,17 @@ var<uniform> double_arrow_base_color: vec4<f32>;
 @group(2) @binding(102)
 var<uniform> background_base_color: vec4<f32>;
 @group(2) @binding(103)
-var<uniform> number_of_tiles: f32;
+var<uniform> arrows: ArrowShaderProperties;
 @group(2) @binding(104)
-var<uniform> forward_speed: f32;
-@group(2) @binding(105)
-var<uniform> backward_speed: f32;
-@group(2) @binding(106)
-var<uniform> bidirectional: u32;
-@group(2) @binding(107)
-var<uniform> is_active: u32;
+var<uniform> lane: LaneShaderProperties;
 
 @fragment
 fn fragment(
     in: VertexOutput,
     @builtin(front_facing) is_front: bool,
 ) -> FragmentOutput{
-    let is_bidirectional = (bidirectional == 1);
-    let is_active = (is_active == 1);
+    let is_bidirectional = (lane.bidirectional == 1);
+    let is_active = (lane.is_active == 1);
 
     let single_arrow_color = single_arrow_base_color.rgb;
     let double_arrow_color = double_arrow_base_color.rgb;
@@ -43,8 +51,8 @@ fn fragment(
         let backward_arrow_width_ratio = 0.5;
 
         let side_margin = 0.1;
-        let end_margin = 1.0 / number_of_tiles;
-        let thickness = 0.2 / number_of_tiles;
+        let end_margin = 1.0 / arrows.number_of_arrows;
+        let thickness = 0.2 / arrows.number_of_arrows;
 
         var forward_progress = 0.0;
         var backward_progress = 0.0;
@@ -55,31 +63,31 @@ fn fragment(
             && in.uv.x < (1.0 - end_margin * 0.5)
         {
             if is_active {
-                forward_progress = fract(globals.time * forward_speed * 0.5);
+                forward_progress = fract(globals.time * arrows.forward_speed * 0.5);
             }
 
             if !is_bidirectional {
                 let x_top = 0.5 - abs(in.uv.y - 0.5) + forward_progress;
-                is_forward = check_forward_pixel(in.uv.x, x_top, thickness, number_of_tiles);
-                
+                is_forward = check_forward_pixel(in.uv.x, x_top, thickness, arrows.number_of_arrows);
+
             } else {
                 if in.uv.y < forward_arrow_width_ratio - (side_margin * 0.25) {
                     let y_val = in.uv.y - side_margin * 0.25;
                     let forward_width = forward_arrow_width_ratio * 0.5;
                     let x_top = forward_width - abs(y_val - forward_width) + forward_progress;
 
-                    is_forward = check_forward_pixel(in.uv.x, x_top, thickness, number_of_tiles);
-                } 
+                    is_forward = check_forward_pixel(in.uv.x, x_top, thickness, arrows.number_of_arrows);
+                }
                 if in.uv.y > (1 - backward_arrow_width_ratio) + (side_margin * 0.25) && !is_forward {
                     if is_active {
-                        backward_progress = fract(globals.time * backward_speed * 0.5);
+                        backward_progress = fract(globals.time * arrows.backward_speed * 0.5);
                     }
 
                     let y_val = in.uv.y - (1 - backward_arrow_width_ratio) + side_margin * 0.25;
                     let backward_width = backward_arrow_width_ratio * 0.5;
                     let x_top = backward_width + abs(y_val - backward_width) - backward_progress;
 
-                    is_backward = check_backward_pixel(in.uv.x, x_top, thickness, number_of_tiles);
+                    is_backward = check_backward_pixel(in.uv.x, x_top, thickness, arrows.number_of_arrows);
                 }
             }
         }
@@ -123,8 +131,8 @@ fn check_forward_pixel (
         let x_top_tile = (tile_length * i) + x_top;
         let overlap_x_top_tile = (tile_length * i) + overlap_x_top;
 
-        if ((x_top_tile >= x) && (x_top_tile <= x + thickness)) 
-            || (overlap && (overlap_x_top_tile >= x) && (overlap_x_top_tile <= x + thickness)) 
+        if ((x_top_tile >= x) && (x_top_tile <= x + thickness))
+            || (overlap && (overlap_x_top_tile >= x) && (overlap_x_top_tile <= x + thickness))
         {
             return true;
         }
@@ -158,7 +166,7 @@ fn check_backward_pixel (
         let overlap_x_top_tile = (tile_length * i) + overlap_x_top;
 
         if ((x >= x_top_tile) && (x <= x_top_tile + thickness))
-            || (overlap && (x >= overlap_x_top_tile) && (x <= overlap_x_top_tile + thickness)) 
+            || (overlap && (x >= overlap_x_top_tile) && (x <= overlap_x_top_tile + thickness))
         {
             return true;
         }

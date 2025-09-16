@@ -196,11 +196,17 @@ pub fn add_lane_visuals(
                         single_arrow_color: lane_color.into(),
                         double_arrow_color: lane_color.into(),
                         background_color: lane_color.into(),
-                        number_of_arrows: (start_anchor - end_anchor).length() / LANE_WIDTH,
-                        forward_speed: forward_speed_limit,
-                        backward_speed: backward_speed_limit,
-                        bidirectional: is_bidirectional as u32,
-                        is_active: false as u32,
+                        arrows: ArrowShaderProperties {
+                            number_of_arrows: (start_anchor - end_anchor).length() / LANE_WIDTH,
+                            forward_speed: forward_speed_limit,
+                            backward_speed: backward_speed_limit,
+                            ..Default::default()
+                        },
+                        lane: LaneShaderProperties {
+                            bidirectional: is_bidirectional as u32,
+                            is_active: false as u32,
+                            ..Default::default()
+                        },
                     },
                 })),
                 line_stroke_transform(&start_anchor, &end_anchor, LANE_WIDTH),
@@ -261,7 +267,7 @@ fn update_lane_visuals(
 
         if let Ok(mat) = lane_materials.get(segments.mid) {
             if let Some(lane_mat) = extended_materials.get_mut(&mat.0) {
-                lane_mat.extension.number_of_arrows =
+                lane_mat.extension.arrows.number_of_arrows =
                     (start_anchor - end_anchor).length() / LANE_WIDTH;
             }
         }
@@ -302,9 +308,9 @@ pub fn update_lane_motion_visuals(
                         .unwrap_or(1.0),
                 };
 
-                lane_mat.extension.forward_speed = forward_speed_limit;
-                lane_mat.extension.backward_speed = backward_speed_limit;
-                lane_mat.extension.bidirectional = is_bidirectional as u32;
+                lane_mat.extension.arrows.forward_speed = forward_speed_limit;
+                lane_mat.extension.arrows.backward_speed = backward_speed_limit;
+                lane_mat.extension.lane.bidirectional = is_bidirectional as u32;
             }
         }
     }

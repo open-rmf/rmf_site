@@ -84,7 +84,7 @@ pub fn update_lane_visual_cues(
 
         if let Some(mat) = lane_materials.get_mut(pieces.mid).ok() {
             if let Some(lane_mat) = extended_materials.get_mut(&mat.0) {
-                lane_mat.extension.is_active = if hovered.cue() || selected.cue() {
+                lane_mat.extension.lane.is_active = if hovered.cue() || selected.cue() {
                     true as u32
                 } else {
                     false as u32
