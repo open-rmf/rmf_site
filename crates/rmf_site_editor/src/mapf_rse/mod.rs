@@ -102,6 +102,7 @@ pub struct NegotiationDebugData {
 
 impl NegotiationDebugData {
     fn reset(&mut self) {
+        println!("{}", std::backtrace::Backtrace::force_capture());
         self.time = 0.0;
         self.trajectory_lengths.clear();
         self.start_pointers.clear();
@@ -220,7 +221,7 @@ fn handle_start_negotiation(
     robot_descriptions: Query<(&DifferentialDrive, &CircleCollision)>,
     open_sites: Query<Entity, With<NameOfSite>>,
     current_workspace: Res<CurrentWorkspace>,
-    mapf_info: Query<&mut MAPFDebugInfo>,
+    mut mapf_info: Query<&mut MAPFDebugInfo>,
     mut commands: Commands,
     mut calculate_grid: EventWriter<CalculateGridRequest>,
     mut debug_data: ResMut<NegotiationDebugData>,
@@ -249,7 +250,6 @@ fn handle_start_negotiation(
     });
 
     negotiation_request.clear();
-    debug_data.reset();
 
     let Some(grid) = grid else {
         warn!("No occupancy grid, sending calculate grid request");
@@ -296,6 +296,7 @@ fn handle_start_negotiation(
         } else {
             *robot_pose
         };
+        // let pose = *robot_pose;
         let goal_pos = goal_transform.translation();
 
         let to_discrete_xy = |x: f32, y: f32, cell_size: f32| -> [i64; 2] {
@@ -334,10 +335,13 @@ fn handle_start_negotiation(
     let queue_length_limit = negotiation_params.queue_length_limit;
 
     // Execute asynchronously
-    commands.entity(site).insert(MAPFDebugInfo::InProgress {
+    let progress = MAPFDebugInfo::InProgress {
         start_time: Instant::now(),
         task: negotiate(&scenario, Some(queue_length_limit)),
-    });
+    };
+
+    debug_data.reset();
+    commands.entity(site).insert(progress);
 }
 
 fn handle_completed_negotiation(

@@ -1609,7 +1609,7 @@ pub fn generate_site(
 pub fn save_site(world: &mut World) {
     let save_events: Vec<_> = world.resource_mut::<Events<SaveSite>>().drain().collect();
     for save_event in save_events {
-        let mut new_path = dbg!(save_event.to_location);
+        let mut new_path = save_event.to_location;
         let path_str = match new_path.to_str() {
             Some(s) => s,
             None => {
@@ -1757,7 +1757,6 @@ pub fn save_site(world: &mut World) {
                     }
                 };
 
-                dbg!(&new_path);
                 for (name, nav_graph) in legacy::nav_graph::NavGraph::from_site(&site) {
                     let graph_file = new_path.clone().join(name + ".nav.yaml");
                     info!(
