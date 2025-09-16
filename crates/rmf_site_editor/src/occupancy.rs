@@ -31,10 +31,7 @@ use bevy::{
 use itertools::Itertools;
 use rmf_site_mesh::*;
 use rmf_site_picking::ComputedVisualCue;
-use std::{
-    collections::{HashMap, HashSet},
-    time::Instant,
-};
+use std::collections::{HashMap, HashSet};
 
 pub struct OccupancyPlugin;
 
@@ -180,7 +177,6 @@ fn calculate_grid(
     grids: Query<Entity, With<Grid>>,
 ) {
     if let Some(request) = request.read().last() {
-        let start_time = Instant::now();
         // let mut occupied: HashSet<Cell> = HashSet::new();
         let mut occupied: HashMap<Entity, HashSet<Cell>> = HashMap::new();
         let mut range = GridRange::new();
@@ -263,10 +259,6 @@ fn calculate_grid(
                 }
             }
         }
-
-        let finish_time = Instant::now();
-        let delta = finish_time - start_time;
-        info!("Occupancy calculation time: {}", delta.as_secs_f32());
 
         for grid in &grids {
             commands.entity(grid).despawn();

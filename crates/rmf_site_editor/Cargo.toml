@@ -60,10 +60,12 @@ bevy_rich_text3d = {workspace = true}
 clap = { workspace = true, features = ["color", "derive", "help", "usage", "suggestions"] }
 bevy_egui = {workspace = true}
 bevy_impulse = { workspace = true}
+web-time = {workspace = true}
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 bevy_egui = { workspace = true, default-features = false, features = ["open_url", "default_fonts", "render"] }
 bevy_impulse = { workspace = true, features = ["single_threaded_async"]}
+web-time = {workspace = true}
 
 [dev-dependencies]
 file_diff = {workspace = true}
