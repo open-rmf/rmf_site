@@ -19,6 +19,7 @@ use bevy::{
     ecs::{event::Events, hierarchy::ChildOf, system::SystemState},
     prelude::*,
 };
+use bevy_impulse::RunCommandsOnWorldExt;
 use rmf_site_picking::Preview;
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
@@ -26,7 +27,9 @@ use std::{
 };
 use thiserror::Error as ThisError;
 
-use crate::{exit_confirmation::SiteChanged, recency::RecencyRanking, site::*, ExportFormat};
+use crate::{
+    exit_confirmation::SiteChanged, occupancy::Grid, recency::RecencyRanking, site::*, ExportFormat,
+};
 use rmf_site_format::*;
 use sdformat_rs::yaserde;
 
@@ -1606,6 +1609,35 @@ pub fn generate_site(
     });
 }
 
+pub fn export_grid(world: &mut World, path: &PathBuf) {
+    let mut system_state: SystemState<(Query<&Grid>,)> = SystemState::new(world);
+    let (grids,) = system_state.get(&world);
+
+    let mut i = 0;
+    for grid in grids {
+        let mut img = image::RgbImage::new(
+            (grid.range.width() + 1) as u32,
+            (grid.range.height() + 1) as u32,
+        );
+
+        img.fill(255u8);
+
+        for cell in &grid.occupied {
+            img.put_pixel(
+                (cell.x - grid.range.min_cell().x) as u32,
+                (cell.y - grid.range.min_cell().y) as u32,
+                image::Rgb([0, 0, 0]),
+            );
+        }
+
+        let mut path = path.clone();
+        path.push(format!("occupancy.{}.png", i));
+        img.save(path).unwrap();
+
+        i += 1;
+    }
+}
+
 pub fn save_site(world: &mut World) {
     let save_events: Vec<_> = world.resource_mut::<Events<SaveSite>>().drain().collect();
     for save_event in save_events {
@@ -1782,7 +1814,7 @@ pub fn save_site(world: &mut World) {
                 );
             }
             ExportFormat::OccupancyGrid => {
-                println!("Export Occupancy To {:?}", new_path);
+                export_grid(world, &new_path);
             }
         }
     }

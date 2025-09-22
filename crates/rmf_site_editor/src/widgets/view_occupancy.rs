@@ -81,6 +81,7 @@ impl<'w> ViewOccupancy<'w> {
                     floor: 0.01,
                     ceiling: 1.5,
                     ignore: HashSet::new(),
+                    trigger_save: false,
                 });
             }
             if ui
@@ -97,20 +98,20 @@ impl<'w> ViewOccupancy<'w> {
                         floor: 0.01,
                         ceiling: 1.5,
                         ignore: HashSet::new(),
+                        trigger_save: false,
                     });
                 }
             }
         });
 
         if ui.button("Export Occupancy").clicked() {
-            /*self.calculate_grid.write(CalculateGrid {
+            self.calculate_grid.write(CalculateGrid {
                 cell_size: self.display_occupancy.cell_size,
                 floor: 0.01,
                 ceiling: 1.5,
                 ignore: HashSet::new(),
-            });*/
-            self.export_grid.write(ExportOccupancy);
-            println!("Export occupancy clicked");
+                trigger_save: true,
+            });
         }
     }
 }
