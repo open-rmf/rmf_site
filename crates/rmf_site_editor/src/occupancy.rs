@@ -41,6 +41,7 @@ pub struct OccupancyPlugin;
 impl Plugin for OccupancyPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<CalculateGrid>()
+            .add_event::<ExportGrid>()
             .add_systems(Update, calculate_grid);
     }
 }
@@ -133,6 +134,9 @@ impl GridRange {
         (self.min[0]..=self.max[0]).cartesian_product(self.min[1]..=self.max[1])
     }
 }
+
+#[derive(Event, Default)]
+pub struct ExportGrid;
 
 #[derive(Event)]
 pub struct CalculateGrid {

@@ -1781,6 +1781,9 @@ pub fn save_site(world: &mut World) {
                     new_path.to_str().unwrap_or("<failed to render??>")
                 );
             }
+            ExportFormat::OccupancyGrid => {
+                println!("Export Occupancy To {:?}", new_path);
+            }
         }
     }
 }
