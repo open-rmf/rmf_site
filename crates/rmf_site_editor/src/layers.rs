@@ -29,7 +29,6 @@ impl ZLayer {
     }
 
     pub fn get_z_offset(layer_1: ZLayer, layer_2: ZLayer) -> f32 {
-        // Returns layer_2.to_z() - layer_1.to_z()
         return layer_2.to_z() - layer_1.to_z();
     }
 
