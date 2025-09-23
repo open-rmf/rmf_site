@@ -15,7 +15,12 @@
  *
 */
 
-use crate::{occupancy::CalculateGrid, widgets::prelude::*, workspace::WorkspaceSaver, AppState};
+use crate::{
+    occupancy::{CalculateGrid, ExportOccupancy},
+    widgets::prelude::*,
+    workspace::WorkspaceSaver,
+    AppState,
+};
 use bevy::prelude::*;
 use bevy_egui::egui::{CollapsingHeader, DragValue, Ui};
 use rmf_site_egui::*;
@@ -26,13 +31,9 @@ use std::collections::HashSet;
 #[derive(Default)]
 pub struct ViewOccupancyPlugin {}
 
-#[derive(Event)]
-pub struct ExportOccupancy;
-
 impl Plugin for ViewOccupancyPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.init_resource::<OccupancyDisplay>()
-            .add_event::<ExportOccupancy>()
             .add_plugins(PropertiesTilePlugin::<ViewOccupancy>::new())
             .add_systems(
                 Update,
@@ -53,7 +54,6 @@ fn handle_export_occupancy_menu(
 #[derive(SystemParam)]
 pub struct ViewOccupancy<'w> {
     calculate_grid: EventWriter<'w, CalculateGrid>,
-    export_grid: EventWriter<'w, ExportOccupancy>,
     display_occupancy: ResMut<'w, OccupancyDisplay>,
     app_state: Res<'w, State<AppState>>,
 }

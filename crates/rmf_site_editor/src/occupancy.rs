@@ -18,7 +18,6 @@
 use crate::{
     layers::ZLayer,
     site::{Category, LevelElevation, NameOfSite, SiteAssets},
-    widgets::view_occupancy::ExportOccupancy,
 };
 use bevy::{
     ecs::{hierarchy::ChildOf, relationship::AncestorIter},
@@ -42,10 +41,13 @@ pub struct OccupancyPlugin;
 impl Plugin for OccupancyPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<CalculateGrid>()
-            .add_systems(Update, calculate_grid);
+            .add_systems(Update, calculate_grid)
+            .add_event::<ExportOccupancy>();
     }
 }
 
+#[derive(Event)]
+pub struct ExportOccupancy;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Cell {
     pub x: i64,
