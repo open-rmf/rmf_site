@@ -41,10 +41,13 @@ pub struct OccupancyPlugin;
 impl Plugin for OccupancyPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<CalculateGrid>()
-            .add_systems(Update, calculate_grid);
+            .add_systems(Update, calculate_grid)
+            .add_event::<ExportOccupancy>();
     }
 }
 
+#[derive(Event)]
+pub struct ExportOccupancy;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Cell {
     pub x: i64,
@@ -108,6 +111,14 @@ impl GridRange {
         }
     }
 
+    pub fn width(&self) -> usize {
+        self.min[0].abs_diff(self.max[0]) as usize
+    }
+
+    pub fn height(&self) -> usize {
+        self.min[1].abs_diff(self.max[1]) as usize
+    }
+
     pub fn include(&mut self, cell: Cell) {
         self.min[0] = self.min[0].min(cell.x);
         self.min[1] = self.min[1].min(cell.y);
@@ -144,6 +155,8 @@ pub struct CalculateGrid {
     pub floor: f32,
     /// Ignore meshes above this height
     pub ceiling: f32,
+    /// Trigger save event
+    pub trigger_save: bool,
 }
 
 impl Default for CalculateGrid {
@@ -153,6 +166,7 @@ impl Default for CalculateGrid {
             ignore: HashSet::default(),
             floor: 0.01,
             ceiling: 1.5,
+            trigger_save: false,
         }
     }
 }
@@ -166,6 +180,7 @@ enum Group {
 fn calculate_grid(
     mut commands: Commands,
     mut request: EventReader<CalculateGrid>,
+    mut export_writer: EventWriter<ExportOccupancy>,
     bodies: Query<(Entity, &Mesh3d, &Aabb, &GlobalTransform)>,
     meta: Query<(
         Option<&ChildOf>,
@@ -281,7 +296,6 @@ fn calculate_grid(
                 }
             }
         }
-
         for level in &levels {
             let mut mesh = MeshBuffer::empty();
             let level_occupied = match occupied.remove(&level) {
@@ -298,7 +312,6 @@ fn calculate_grid(
                     make_flat_square_mesh(cell_size).transform_by(Affine3A::from_translation(p)),
                 );
             }
-
             commands.entity(level).with_children(|level| {
                 level
                     .spawn((
@@ -317,6 +330,9 @@ fn calculate_grid(
                         range,
                     });
             });
+        }
+        if request.trigger_save {
+            export_writer.write(ExportOccupancy);
         }
     }
 }

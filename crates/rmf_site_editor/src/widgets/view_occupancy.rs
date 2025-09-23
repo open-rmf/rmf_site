@@ -15,7 +15,12 @@
  *
 */
 
-use crate::{occupancy::CalculateGrid, widgets::prelude::*, AppState};
+use crate::{
+    occupancy::{CalculateGrid, ExportOccupancy},
+    widgets::prelude::*,
+    workspace::WorkspaceSaver,
+    AppState,
+};
 use bevy::prelude::*;
 use bevy_egui::egui::{CollapsingHeader, DragValue, Ui};
 use rmf_site_egui::*;
@@ -29,7 +34,20 @@ pub struct ViewOccupancyPlugin {}
 impl Plugin for ViewOccupancyPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.init_resource::<OccupancyDisplay>()
-            .add_plugins(PropertiesTilePlugin::<ViewOccupancy>::new());
+            .add_plugins(PropertiesTilePlugin::<ViewOccupancy>::new())
+            .add_systems(
+                Update,
+                handle_export_occupancy_menu.run_if(AppState::in_displaying_mode()),
+            );
+    }
+}
+
+fn handle_export_occupancy_menu(
+    mut workspace_saver: WorkspaceSaver,
+    mut export_event: EventReader<ExportOccupancy>,
+) {
+    for _ in export_event.read() {
+        workspace_saver.export_occupancy_to_dialog();
     }
 }
 
@@ -63,6 +81,7 @@ impl<'w> ViewOccupancy<'w> {
                     floor: 0.01,
                     ceiling: 1.5,
                     ignore: HashSet::new(),
+                    trigger_save: false,
                 });
             }
             if ui
@@ -79,10 +98,21 @@ impl<'w> ViewOccupancy<'w> {
                         floor: 0.01,
                         ceiling: 1.5,
                         ignore: HashSet::new(),
+                        trigger_save: false,
                     });
                 }
             }
         });
+
+        if ui.button("Export Occupancy").clicked() {
+            self.calculate_grid.write(CalculateGrid {
+                cell_size: self.display_occupancy.cell_size,
+                floor: 0.01,
+                ceiling: 1.5,
+                ignore: HashSet::new(),
+                trigger_save: true,
+            });
+        }
     }
 }
 

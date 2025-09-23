@@ -75,6 +75,7 @@ bytemuck = {version = "1.22"}
 bevy_infinite_grid = { version = "0.15"}
 testdir = "*"
 file_diff = "*"
+image = "0.24"
 
 bevy = "0.16"
 bevy_a11y = "0.16"
