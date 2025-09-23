@@ -21,7 +21,7 @@ use bevy::prelude::*;
 
 use thiserror::Error;
 
-use sdformat_rs::{SdfGeometry, SdfPose, Vector3d};
+use sdformat_rs::{SdfGeometry, SdfModel, SdfPose, Vector3d};
 
 use crate::site::{
     AmbientSystem, Battery, CollisionMeshMarker, DifferentialDrive, MechanicalSystem,
@@ -74,7 +74,7 @@ impl AssetLoader for SdfLoader {
     ) -> Result<Self::Asset, Self::Error> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
-        Ok(load_model(bytes, load_context)?)
+        Ok(load_sdf_as_model(bytes, load_context)?)
     }
 
     fn extensions(&self) -> &[&str] {
@@ -264,7 +264,7 @@ fn spawn_geometry<'a, 'b>(
     Ok(geometry)
 }
 
-fn load_model<'a, 'b>(
+fn load_sdf_as_model<'a, 'b>(
     bytes: Vec<u8>,
     load_context: &'a mut LoadContext<'b>,
 ) -> Result<bevy::scene::Scene, SdfError> {
@@ -272,80 +272,113 @@ fn load_model<'a, 'b>(
     let root = sdformat_rs::from_str::<sdformat_rs::SdfRoot>(sdf_str);
     match root {
         Ok(root) => {
-            if let Some(model) = root.model {
-                let mut world = World::default();
-                let e = world
-                    .spawn((Transform::IDENTITY, Visibility::Inherited))
-                    .id();
-                // TODO(luca) hierarchies and joints, rather than flat link importing
-                // All Open-RMF assets have no hierarchy, for now.
-                for link in &model.link {
-                    let link_pose = parse_pose(&link.pose);
-                    let link_id = world
-                        .spawn((link_pose.transform(), Visibility::Inherited))
-                        .id();
-                    world.entity_mut(e).add_child(link_id);
-                    for visual in &link.visual {
-                        let id = spawn_geometry(
-                            &mut world,
-                            &visual.geometry,
-                            &visual.name,
-                            &visual.pose,
-                            load_context,
-                            model.r#static.unwrap_or(false),
-                        )?;
-                        match id {
-                            Some(id) => {
-                                world
-                                    .entity_mut(id)
-                                    .insert(VisualMeshMarker)
-                                    .insert(Category::Visual)
-                                    .insert(ChildOf(link_id));
-                            }
-                            None => warn!("Found unhandled geometry type {:?}", &visual.geometry),
-                        }
-                    }
-                    for collision in &link.collision {
-                        let id = spawn_geometry(
-                            &mut world,
-                            &collision.geometry,
-                            &collision.name,
-                            &collision.pose,
-                            load_context,
-                            model.r#static.unwrap_or(false),
-                        )?;
-                        match id {
-                            Some(id) => {
-                                world
-                                    .entity_mut(id)
-                                    .insert(CollisionMeshMarker)
-                                    .insert(Category::Collision)
-                                    .insert(ChildOf(link_id));
-                            }
-                            None => {
-                                warn!("Found unhandled geometry type {:?}", &collision.geometry)
-                            }
-                        }
-                    }
+            let mut world = World::default();
+            for sdf_world in &root.world {
+                for model in &sdf_world.model {
+                    load_model_into_world(model, &mut world, load_context)?;
                 }
-                // Load parameters from slotcar plugin
-                for plugin in &model.plugin {
-                    if plugin.name == "slotcar".to_string()
-                        || plugin.filename == "libslotcar.so".to_string()
-                    {
-                        world
-                            .entity_mut(e)
-                            .insert(DifferentialDrive::from(&plugin.elements))
-                            .insert(Battery::from(&plugin.elements))
-                            .insert(AmbientSystem::from(&plugin.elements))
-                            .insert(MechanicalSystem::from(&plugin.elements));
-                    }
-                }
-                Ok(bevy::scene::Scene::new(world))
-            } else {
-                Err(SdfError::MissingModelTag)
             }
+
+            if let Some(model) = root.model {
+                load_model_into_world(&model, &mut world, load_context)?;
+            } else {
+                if root.world.is_empty() {
+                    return Err(SdfError::MissingModelTag);
+                }
+            }
+
+            Ok(bevy::scene::Scene::new(world))
         }
         Err(err) => Err(SdfError::YaserdeError(err)),
     }
+}
+
+fn load_model_into_world<'a, 'b>(
+    root_model: &SdfModel,
+    world: &mut World,
+    load_context: &'a mut LoadContext<'b>,
+) -> Result<(), SdfError> {
+    // TODO(luca) hierarchies and joints, rather than flat link importing
+    // All Open-RMF assets have no hierarchy, for now.
+    let mut model_queue = Vec::new();
+    model_queue.push((None, root_model));
+    while let Some((parent, model)) = model_queue.pop() {
+        let model_pose = parse_pose(&model.pose);
+        let e = world
+            .spawn((model_pose, Visibility::Inherited))
+            .id();
+
+        if let Some(parent) = parent {
+            world.entity_mut(e).insert(ChildOf(parent));
+        }
+
+        for nested_model in &model.model {
+            model_queue.push((Some(e), &*nested_model));
+        }
+
+        for link in &model.link {
+            let link_pose = parse_pose(&link.pose);
+            let link_id = world
+                .spawn((link_pose.transform(), Visibility::Inherited))
+                .id();
+            world.entity_mut(e).add_child(link_id);
+            for visual in &link.visual {
+                let id = spawn_geometry(
+                    world,
+                    &visual.geometry,
+                    &visual.name,
+                    &visual.pose,
+                    load_context,
+                    model.r#static.unwrap_or(false),
+                )?;
+                match id {
+                    Some(id) => {
+                        world
+                            .entity_mut(id)
+                            .insert(VisualMeshMarker)
+                            .insert(Category::Visual)
+                            .insert(ChildOf(link_id));
+                    }
+                    None => warn!("Found unhandled geometry type {:?}", &visual.geometry),
+                }
+            }
+            for collision in &link.collision {
+                let id = spawn_geometry(
+                    world,
+                    &collision.geometry,
+                    &collision.name,
+                    &collision.pose,
+                    load_context,
+                    model.r#static.unwrap_or(false),
+                )?;
+                match id {
+                    Some(id) => {
+                        world
+                            .entity_mut(id)
+                            .insert(CollisionMeshMarker)
+                            .insert(Category::Collision)
+                            .insert(ChildOf(link_id));
+                    }
+                    None => {
+                        warn!("Found unhandled geometry type {:?}", &collision.geometry)
+                    }
+                }
+            }
+        }
+        // Load parameters from slotcar plugin
+        for plugin in &model.plugin {
+            if plugin.name == "slotcar".to_string()
+                || plugin.filename == "libslotcar.so".to_string()
+            {
+                world
+                    .entity_mut(e)
+                    .insert(DifferentialDrive::from(&plugin.elements))
+                    .insert(Battery::from(&plugin.elements))
+                    .insert(AmbientSystem::from(&plugin.elements))
+                    .insert(MechanicalSystem::from(&plugin.elements));
+            }
+        }
+    }
+
+    Ok(())
 }
