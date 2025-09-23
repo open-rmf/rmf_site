@@ -15,6 +15,7 @@
  *
 */
 
+use crate::site::load::load_site;
 use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 use rmf_site_format::SiteID;
 use std::{
@@ -22,7 +23,6 @@ use std::{
     marker::PhantomData,
     ops::Deref,
 };
-use crate::site::load::load_site;
 
 #[derive(Debug, Clone, Component)]
 pub struct RecencyRanking<T: Component> {
