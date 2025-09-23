@@ -1610,17 +1610,21 @@ pub fn generate_site(
 }
 
 pub fn export_grid(world: &mut World, path: &PathBuf) {
-    let mut system_state: SystemState<(Query<&Grid>,)> = SystemState::new(world);
-    let (grids,) = system_state.get(&world);
-
+    let mut system_state: SystemState<(Query<(&Grid, &ChildOf)>, Query<&NameInSite>)> =
+        SystemState::new(world);
+    let (grids, names) = system_state.get(&world);
     let mut i = 0;
-    for grid in grids {
+    for (grid, parent) in grids {
         let mut img = image::RgbImage::new(
             (grid.range.width() + 1) as u32,
             (grid.range.height() + 1) as u32,
         );
 
         img.fill(255u8);
+        let Ok(name) = names.get(parent.0) else {
+            error!("Could not get level name");
+            continue;
+        };
 
         for cell in &grid.occupied {
             img.put_pixel(
@@ -1631,11 +1635,11 @@ pub fn export_grid(world: &mut World, path: &PathBuf) {
         }
 
         let mut path = path.clone();
-        path.push(format!("occupancy.{}.png", i));
+        path.push(format!("occupancy.{}.png", name.0));
         img.save(path).unwrap();
-
         i += 1;
     }
+    info!("Successfully exported {} occupancy grids", i);
 }
 
 pub fn save_site(world: &mut World) {

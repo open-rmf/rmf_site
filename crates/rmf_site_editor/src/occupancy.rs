@@ -332,7 +332,6 @@ fn calculate_grid(
             });
         }
         if request.trigger_save {
-            println!("Calculate grid");
             export_writer.write(ExportOccupancy);
         }
     }
