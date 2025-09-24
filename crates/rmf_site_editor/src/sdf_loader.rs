@@ -334,7 +334,8 @@ fn load_model<'a, 'b>(
                         || plugin.filename == "libslotcar.so".to_string()
                     {
                         world
-                            .entity_mut(e)
+                            .commands()
+                            .entity(e)
                             .insert(DifferentialDrive::from(&plugin.elements))
                             .insert(Battery::from(&plugin.elements))
                             .insert(AmbientSystem::from(&plugin.elements))

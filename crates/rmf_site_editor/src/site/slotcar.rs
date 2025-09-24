@@ -43,11 +43,16 @@ impl Plugin for SlotcarSdfPlugin {
     }
 }
 
+/// When loading SDF models, some RobotPropertyKinds may be directly inserted into
+/// a model instance descendant instead of the instance or affiliated description.
+/// This system checks for such cases and inserts the respective components into
+/// the affiliated model description (if there is no other RobotProperty data
+/// present) and remove it from the original entity.
 fn insert_slotcar_components(
     mut commands: Commands,
     mut change_robot_property: EventWriter<Change<ModelProperty<Robot>>>,
-    is_static: Query<&ModelProperty<IsStatic>, (With<ModelMarker>, With<Group>)>,
     robot_property_kinds: Query<
+        // All 4 components will be present (see sdf_loader.rs)
         (
             Entity,
             &DifferentialDrive,
@@ -57,7 +62,17 @@ fn insert_slotcar_components(
         ),
         (Without<ModelMarker>, Without<Group>),
     >,
-    robot_properties: Query<(&Mobility, &PowerSource), (With<ModelMarker>, With<Group>)>,
+    robot_properties: Query<
+        Option<&IsStatic>,
+        (
+            With<ModelMarker>,
+            With<Group>,
+            Without<Mobility>,
+            Without<Collision>,
+            Without<PowerSource>,
+            Without<PowerDissipation>,
+        ),
+    >,
     model_descriptions: Query<&ModelProperty<Robot>, (With<ModelMarker>, With<Group>)>,
     model_instances: ModelPropertyQuery<Robot>,
     child_of: Query<&ChildOf>,
@@ -66,18 +81,11 @@ fn insert_slotcar_components(
         robot_property_kinds.iter()
     {
         if !model_descriptions.get(e).is_ok() {
-            // A non-description entity has the RobotPropertyKind component, it could have been inserted into a
-            // model instance descendent when processing importing robot plugins
-            // Insert this component in the affiliated description and remove it from the original entity
             let mut description_entity: Option<Entity> = None;
             let mut target_entity: Entity = e;
             while let Ok(parent) = child_of.get(target_entity).map(|co| co.parent()) {
                 if let Some(desc) = model_instances.get(parent).ok().and_then(|a| a.0) {
-                    if !robot_properties.get(desc).is_ok()
-                        && is_static.get(desc).is_ok_and(|is| !is.0 .0)
-                    {
-                        description_entity = Some(desc);
-                    }
+                    description_entity = Some(desc);
                     break;
                 }
                 target_entity = parent;
@@ -94,12 +102,22 @@ fn insert_slotcar_components(
                 // and Robot will result in the later system run to overwrite changes
                 // from the earlier system. For now we will process data from Battery/
                 // DifferentialDrive/MechanicalSystem/AmbientSystem in a single system.
-                if let Ok(mobility_value) = serialize_robot_property_from_kind::<
-                    Mobility,
-                    DifferentialDrive,
-                >(differential_drive.clone())
-                {
-                    robot.properties.insert(Mobility::label(), mobility_value);
+
+                let Ok(is_static) = robot_properties.get(desc) else {
+                    // This description entity has an existing RobotProperty,
+                    // do not allow overwriting
+                    continue;
+                };
+
+                // Only insert Mobility if robot is not static
+                if !is_static.is_some_and(|is| is.0) {
+                    if let Ok(mobility_value) = serialize_robot_property_from_kind::<
+                        Mobility,
+                        DifferentialDrive,
+                    >(differential_drive.clone())
+                    {
+                        robot.properties.insert(Mobility::label(), mobility_value);
+                    }
                 }
 
                 if let Ok(power_source_value) =
