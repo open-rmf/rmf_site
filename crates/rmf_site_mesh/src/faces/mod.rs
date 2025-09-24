@@ -17,7 +17,7 @@
 
 use bevy_color::Color;
 use bevy_math::prelude::*;
-use bevy_math::{Affine3A, primitives};
+use bevy_math::{Affine3A, ops::abs, primitives};
 use bevy_render::prelude::*;
 
 use bevy_render::primitives::Aabb;
@@ -286,8 +286,31 @@ pub fn flat_arc(
         Vec::new()
     };
 
+    let ratio = abs(*sweep / 180_f32.to_radians());
+
+    // Maps UV coordinates along the arc
+    let inner_radius = outer_radius - inner_thickness;
+    let uvs: Vec<[f32; 2]> = positions
+        .iter()
+        .map(|pos| {
+            let p_vec = Vec2::new(pos[0], pos[1]);
+            let distance = p_vec.length();
+            let mut angle = p_vec.y.atan2(p_vec.x);
+
+            if angle < 0.0 {
+                angle += 2.0 * std::f32::consts::PI;
+            }
+
+            let u = (*sweep - angle) / *sweep;
+            let v = (distance - inner_radius) / inner_thickness;
+
+            [u * ratio, v]
+        })
+        .collect();
+
     MeshBuffer::new(positions, normals, indices)
         .with_outline(outline)
+        .with_uv(uvs)
         .transform_by(Affine3A::from_rotation_translation(
             Quat::from_rotation_z(*initial_angle),
             pivot,
@@ -311,12 +334,15 @@ pub fn line_stroke_mesh(start: Vec3, end: Vec3, thickness: f32) -> MeshBuffer {
     let indices: Vec<u32> = vec![0, 1, 2, 0, 2, 3];
     let outline: Vec<u32> = vec![0, 1, 1, 2, 2, 3, 3, 0];
 
+    let uvs: Vec<[f32; 2]> = vec![[1.0, 1.0], [0.0, 1.0], [0.0, 0.0], [1.0, 0.0]];
+
     let center = (start + end) / 2.0;
     let dp = end - start;
     let yaw = dp.y.atan2(dp.x);
 
     MeshBuffer::new(positions, normals, indices)
         .with_outline(outline)
+        .with_uv(uvs)
         .transform_by(Affine3A::from_scale_rotation_translation(
             Vec3::new(dp.length(), thickness, 1.),
             Quat::from_rotation_z(yaw),

@@ -18,7 +18,8 @@
 use crate::{
     interaction::DragPlaneBundle,
     site::{
-        get_current_workspace_path, CurrentScenario, DefaultFile, Delete, SiteAssets,
+        get_current_workspace_path, Change, CircleCollision, Collision, CurrentScenario,
+        DefaultFile, Delete, Mobility, RobotProperty, RobotPropertyKind, SiteAssets,
         UpdateModifier,
     },
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
@@ -34,7 +35,7 @@ use bevy::{
     },
     gltf::Gltf,
     prelude::*,
-    render::view::RenderLayers,
+    render::{mesh::VertexAttributeValues, view::RenderLayers},
     scene::SceneInstance,
 };
 use bevy_impulse::*;
@@ -42,7 +43,7 @@ use bevy_mod_outline::{GenerateOutlineNormalsSettings, OutlineMeshExt};
 use rmf_site_camera::MODEL_PREVIEW_LAYER;
 use rmf_site_format::{
     Affiliation, AssetSource, Group, Inclusion, IssueKey, ModelInstance, ModelMarker,
-    ModelProperty, NameInSite, Pending, Scale,
+    ModelProperty, NameInSite, Pending, Robot, Scale,
 };
 use rmf_site_picking::Preview;
 use smallvec::SmallVec;
@@ -629,6 +630,7 @@ impl ModelLoadingServices {
                     // render layers
                     .then(propagate_model_properties.into_blocking_callback())
                     .then(make_models_selectable.into_blocking_callback())
+                    .then(insert_robot_collision_model.into_blocking_callback())
                     .then(make_models_visible.into_blocking_callback())
                     .map_block(|req| {
                         Ok(ModelLoadingSuccess {
@@ -774,6 +776,83 @@ pub fn update_model_scales(
             tf.scale = **scale;
         }
     }
+}
+
+pub fn insert_robot_collision_model(
+    In(req): In<ModelLoadingRequest>,
+    robot_model_descriptions: Query<&Affiliation<Entity>, With<Robot>>,
+    model_descriptions: Query<&ModelProperty<Robot>, (With<ModelMarker>, With<Group>)>,
+    mesh_handles: Query<&Mesh3d>,
+    all_children: Query<&Children>,
+    meshes: Res<Assets<Mesh>>,
+    mut change_robot_property: EventWriter<Change<ModelProperty<Robot>>>,
+) -> ModelLoadingRequest {
+    let Ok(robot_affiliation) = robot_model_descriptions.get(req.parent) else {
+        return req;
+    };
+
+    let Some(description_entity) = robot_affiliation.0 else {
+        return req;
+    };
+
+    let Ok(ModelProperty(robot)) = model_descriptions.get(description_entity) else {
+        return req;
+    };
+
+    // Check if robot's model description already contains collision model
+    if robot.properties.contains_key(&Collision::label()) {
+        return req;
+    }
+
+    // TODO(Nielsen): Is allocation of 32 sufficient?
+    let mut queue: SmallVec<[Entity; 32]> = SmallVec::new();
+    queue.push(req.parent);
+
+    let mut max_dist_to_mesh_vertex = 0.0;
+
+    while let Some(e) = queue.pop() {
+        if let Ok(mesh_handle) = mesh_handles.get(e) {
+            if let Some(mesh) = meshes.get(mesh_handle) {
+                if let Some(VertexAttributeValues::Float32x3(positions)) =
+                    mesh.attribute(Mesh::ATTRIBUTE_POSITION)
+                {
+                    for p in positions {
+                        let dist_to_mesh_vertex = (p[0] * p[0] + p[1] * p[1]).sqrt();
+                        if dist_to_mesh_vertex > max_dist_to_mesh_vertex {
+                            max_dist_to_mesh_vertex = dist_to_mesh_vertex;
+                        }
+                    }
+                }
+            }
+        }
+
+        if let Ok(children) = all_children.get(e) {
+            for child in children {
+                if queue.spilled() {
+                    warn!("Queue in insert_robot_collision_model is full, using heap allocation");
+                }
+                queue.push(*child);
+            }
+        }
+    }
+
+    let circle_collision = CircleCollision {
+        radius: max_dist_to_mesh_vertex,
+        offset: [0.0, 0.0],
+    };
+
+    if let Ok(serialized_collision) = serde_json::to_value(circle_collision)
+        .map(|circle| Mobility::new(CircleCollision::label(), circle))
+        .and_then(|collision| serde_json::to_value(collision))
+    {
+        let mut new_robot = robot.clone();
+        new_robot
+            .properties
+            .insert(Collision::label(), serialized_collision);
+        change_robot_property.write(Change::new(ModelProperty(new_robot), description_entity));
+    };
+
+    req
 }
 
 pub fn make_models_selectable(

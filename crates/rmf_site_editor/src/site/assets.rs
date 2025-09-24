@@ -19,19 +19,66 @@ use crate::{layers::ZLayer, site::*};
 use bevy::{
     asset::embedded_asset,
     math::{primitives, Affine3A},
+    pbr::MaterialExtension,
     prelude::*,
+    render::render_resource::{AsBindGroup, ShaderRef},
 };
+use bevy_rich_text3d::TextAtlas;
 use rmf_site_mesh::*;
 
-pub(crate) fn add_site_icons(app: &mut App) {
-    embedded_asset!(app, "src/", "icons/battery.png");
-    embedded_asset!(app, "src/", "icons/parking.png");
-    embedded_asset!(app, "src/", "icons/stopwatch.png");
+const LANE_SHADER_PATH: &str = "embedded://librmf_site_editor/site/shaders/lane_arrow_shader.wgsl";
+
+pub const SELECT_COLOR: Color = Color::srgb(1., 0.3, 1.);
+pub const HOVER_COLOR: Color = Color::srgb(0.3, 1., 1.);
+pub const HOVER_SELECT_COLOR: Color = Color::srgb(1.0, 0.0, 0.3);
+pub const NAV_UNASSIGNED_COLOR: Color = Color::srgb(0.1, 0.1, 0.1);
+
+pub(crate) fn add_site_assets(app: &mut App) {
+    embedded_asset!(app, "src/", "textures/base.png");
+    embedded_asset!(app, "src/", "textures/charging.png");
+    embedded_asset!(app, "src/", "textures/parking.png");
+    embedded_asset!(app, "src/", "textures/holding.png");
+    embedded_asset!(app, "src/", "textures/empty.png");
+    embedded_asset!(app, "src/", "textures/door_cue.png");
+    embedded_asset!(app, "src/", "textures/door_cue_highlighted.png");
+    embedded_asset!(app, "src/", "shaders/lane_arrow_shader.wgsl");
+}
+
+#[derive(Asset, AsBindGroup, Reflect, Debug, Clone, Component)]
+pub struct LaneArrowMaterial {
+    #[uniform(100)]
+    pub single_arrow_color: LinearRgba,
+    #[uniform(101)]
+    pub double_arrow_color: LinearRgba,
+    #[uniform(102)]
+    pub background_color: LinearRgba,
+    #[uniform(103)]
+    pub number_of_arrows: f32,
+    #[uniform(104)]
+    pub forward_speed: f32,
+    #[uniform(105)]
+    pub backward_speed: f32,
+    #[uniform(106)]
+    pub bidirectional: u32,
+    #[uniform(107)]
+    pub is_active: u32,
+}
+
+impl MaterialExtension for LaneArrowMaterial {
+    fn fragment_shader() -> ShaderRef {
+        LANE_SHADER_PATH.into()
+    }
+
+    fn deferred_fragment_shader() -> ShaderRef {
+        LANE_SHADER_PATH.into()
+    }
 }
 
 #[derive(Resource)]
 pub struct SiteAssets {
     pub lift_floor_material: Handle<StandardMaterial>,
+    pub billboard_base_mesh: Handle<Mesh>,
+    pub billboard_mesh: Handle<Mesh>,
     pub lane_mid_mesh: Handle<Mesh>,
     pub lane_mid_outline: Handle<Mesh>,
     pub lane_end_mesh: Handle<Mesh>,
@@ -56,6 +103,9 @@ pub struct SiteAssets {
     pub lift_anchor_mesh: Handle<Mesh>,
     pub site_anchor_mesh: Handle<Mesh>,
     pub lift_wall_material: Handle<StandardMaterial>,
+    pub door_cue_material: Handle<StandardMaterial>,
+    pub door_cue_highlighted_material: Handle<StandardMaterial>,
+    pub text3d_material: Handle<StandardMaterial>,
     pub door_body_material: Handle<StandardMaterial>,
     pub translucent_black: Handle<StandardMaterial>,
     pub translucent_white: Handle<StandardMaterial>,
@@ -63,9 +113,13 @@ pub struct SiteAssets {
     pub occupied_material: Handle<StandardMaterial>,
     pub default_mesh_grey_material: Handle<StandardMaterial>,
     pub location_tag_mesh: Handle<Mesh>,
+    pub base_billboard_material: Handle<StandardMaterial>,
     pub charger_material: Handle<StandardMaterial>,
     pub holding_point_material: Handle<StandardMaterial>,
     pub parking_material: Handle<StandardMaterial>,
+    pub empty_billboard_material: Handle<StandardMaterial>,
+    pub robot_path_rectangle_mesh: Handle<Mesh>,
+    pub robot_path_circle_mesh: Handle<Mesh>,
 }
 
 pub fn old_default_material(base_color: Color) -> StandardMaterial {
@@ -78,12 +132,12 @@ pub fn old_default_material(base_color: Color) -> StandardMaterial {
     }
 }
 
-pub fn old_default_material_t(base_color_texture: Handle<Image>) -> StandardMaterial {
+pub fn billboard_material(base_color_texture: Handle<Image>) -> StandardMaterial {
     StandardMaterial {
         base_color_texture: Some(base_color_texture),
-        perceptual_roughness: 0.089,
-        metallic: 0.01,
-        // fog_enabled: false,
+        alpha_mode: AlphaMode::Blend,
+        depth_bias: 15.0,
+        unlit: true,
         ..default()
     }
 }
@@ -91,24 +145,28 @@ pub fn old_default_material_t(base_color_texture: Handle<Image>) -> StandardMate
 impl FromWorld for SiteAssets {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.get_resource::<AssetServer>().unwrap();
+        let base_billboard_texture =
+            asset_server.load("embedded://librmf_site_editor/site/textures/base.png");
         let charger_texture =
-            asset_server.load("embedded://librmf_site_editor/site/icons/battery.png");
+            asset_server.load("embedded://librmf_site_editor/site/textures/charging.png");
         let holding_point_texture =
-            asset_server.load("embedded://librmf_site_editor/site/icons/stopwatch.png");
+            asset_server.load("embedded://librmf_site_editor/site/textures/holding.png");
         let parking_texture =
-            asset_server.load("embedded://librmf_site_editor/site/icons/parking.png");
+            asset_server.load("embedded://librmf_site_editor/site/textures/parking.png");
+        let empty_billboard_texture =
+            asset_server.load("embedded://librmf_site_editor/site/textures/empty.png");
+        let door_cue_texture =
+            asset_server.load("embedded://librmf_site_editor/site/textures/door_cue.png");
+        let door_cue_highlighted_texture = asset_server
+            .load("embedded://librmf_site_editor/site/textures/door_cue_highlighted.png");
 
         let mut materials = world
             .get_resource_mut::<Assets<StandardMaterial>>()
             .unwrap();
-        let unassigned_lane_material =
-            materials.add(old_default_material(Color::srgb(0.1, 0.1, 0.1)));
-        let select_color = Color::srgb(1., 0.3, 1.);
-        let hover_color = Color::srgb(0.3, 1., 1.);
-        let hover_select_color = Color::srgb(1.0, 0.0, 0.3);
-        let select_material = materials.add(old_default_material(select_color));
-        let hover_material = materials.add(old_default_material(hover_color));
-        let hover_select_material = materials.add(old_default_material(hover_select_color));
+        let unassigned_lane_material = materials.add(old_default_material(NAV_UNASSIGNED_COLOR));
+        let select_material = materials.add(old_default_material(SELECT_COLOR));
+        let hover_material = materials.add(old_default_material(HOVER_COLOR));
+        let hover_select_material = materials.add(old_default_material(HOVER_SELECT_COLOR));
         // let hover_select_material = materials.add(Color::srgb_u8(177, 178, 255));
         // let hover_select_material = materials.add(Color::srgb_u8(214, 28, 78));
         let measurement_material =
@@ -130,17 +188,17 @@ impl FromWorld for SiteAssets {
         let hover_anchor_material = materials.add(StandardMaterial {
             // unlit: true,
             unlit: false,
-            ..old_default_material(hover_color)
+            ..old_default_material(HOVER_COLOR)
         });
         let select_anchor_material = materials.add(StandardMaterial {
             // unlit: true,
             unlit: false,
-            ..old_default_material(select_color)
+            ..old_default_material(SELECT_COLOR)
         });
         let hover_select_anchor_material = materials.add(StandardMaterial {
             // unlit: true,
             unlit: false,
-            ..old_default_material(hover_select_color)
+            ..old_default_material(HOVER_SELECT_COLOR)
         });
         let preview_anchor_material = materials.add(StandardMaterial {
             alpha_mode: AlphaMode::Blend,
@@ -160,6 +218,23 @@ impl FromWorld for SiteAssets {
             alpha_mode: AlphaMode::Blend,
             ..old_default_material(Color::srgba(0., 0., 0., 0.8))
         });
+        let door_cue_material = materials.add(StandardMaterial {
+            base_color_texture: Some(door_cue_texture),
+            alpha_mode: AlphaMode::Blend,
+            ..default()
+        });
+        let door_cue_highlighted_material = materials.add(StandardMaterial {
+            base_color_texture: Some(door_cue_highlighted_texture),
+            alpha_mode: AlphaMode::Blend,
+            ..default()
+        });
+        let text3d_material = materials.add(StandardMaterial {
+            base_color_texture: Some(TextAtlas::DEFAULT_IMAGE.clone_weak()),
+            alpha_mode: AlphaMode::Mask(0.5),
+            unlit: true,
+            cull_mode: None,
+            ..Default::default()
+        });
         let translucent_white = materials.add(StandardMaterial {
             alpha_mode: AlphaMode::Blend,
             ..old_default_material(Color::srgba(1., 1., 1., 0.8))
@@ -171,11 +246,18 @@ impl FromWorld for SiteAssets {
         let default_mesh_grey_material =
             materials.add(old_default_material(Color::srgb(0.7, 0.7, 0.7)));
 
-        let charger_material = materials.add(old_default_material_t(charger_texture));
-        let holding_point_material = materials.add(old_default_material_t(holding_point_texture));
-        let parking_material = materials.add(old_default_material_t(parking_texture));
+        let base_billboard_material = materials.add(billboard_material(base_billboard_texture));
+        let charger_material: Handle<StandardMaterial> =
+            materials.add(billboard_material(charger_texture));
+        let holding_point_material = materials.add(billboard_material(holding_point_texture));
+        let parking_material = materials.add(billboard_material(parking_texture));
+        let empty_billboard_material = materials.add(billboard_material(empty_billboard_texture));
 
         let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
+        let billboard_base_mesh =
+            meshes.add(Rectangle::new(BILLBOARD_LENGTH, BILLBOARD_LENGTH / 3.0));
+        let billboard_mesh: Handle<Mesh> =
+            meshes.add(Rectangle::new(BILLBOARD_LENGTH, BILLBOARD_LENGTH));
         let level_anchor_mesh = meshes.add(
             Mesh::from(
                 primitives::Sphere::new(0.05), // TODO(MXG): Make the vertex radius configurable
@@ -212,13 +294,11 @@ impl FromWorld for SiteAssets {
                 .unwrap(),
         );
         let location_mesh = meshes.add(
-            Mesh::from(
-                make_icon_halo(1.1 * LANE_WIDTH / 2.0, 0.01, 6).transform_by(
-                    Affine3A::from_translation((0.00125 + ZLayer::Location.to_z()) * Vec3::Z),
-                ),
-            )
-            .with_generated_outline_normals()
-            .unwrap(),
+            Mesh::from(Torus::new(LANE_WIDTH / 2.0, 1.4 * LANE_WIDTH / 2.0))
+                .rotated_by(Quat::from_rotation_x(90_f32.to_radians()))
+                .scaled_by(Vec3::new(1.0, 1.0, 0.3))
+                .with_generated_outline_normals()
+                .unwrap(),
         );
         let fiducial_mesh = meshes.add(
             Mesh::from(
@@ -236,6 +316,9 @@ impl FromWorld for SiteAssets {
                 .unwrap(),
         );
 
+        let robot_path_rectangle_mesh = meshes.add(Rectangle::new(1.0, 1.0));
+        let robot_path_circle_mesh = meshes.add(Circle::new(1.0));
+
         Self {
             level_anchor_mesh,
             lift_anchor_mesh,
@@ -245,6 +328,8 @@ impl FromWorld for SiteAssets {
             lane_mid_outline,
             lane_end_mesh,
             lane_end_outline,
+            billboard_mesh,
+            billboard_base_mesh,
             box_mesh,
             location_mesh,
             fiducial_mesh,
@@ -262,6 +347,9 @@ impl FromWorld for SiteAssets {
             unassigned_anchor_material,
             preview_anchor_material,
             lift_wall_material,
+            door_cue_material,
+            door_cue_highlighted_material,
+            text3d_material,
             door_body_material,
             translucent_black,
             translucent_white,
@@ -269,9 +357,13 @@ impl FromWorld for SiteAssets {
             occupied_material,
             default_mesh_grey_material,
             location_tag_mesh,
+            base_billboard_material,
             charger_material,
             holding_point_material,
             parking_material,
+            empty_billboard_material,
+            robot_path_rectangle_mesh,
+            robot_path_circle_mesh,
         }
     }
 }
