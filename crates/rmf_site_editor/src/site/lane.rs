@@ -197,7 +197,9 @@ pub fn add_lane_visuals(
                         single_arrow_color: lane_color.into(),
                         double_arrow_color: lane_color.into(),
                         background_color: lane_color.into(),
-                        number_of_arrows: BigF32::new((start_anchor - end_anchor).length() / LANE_WIDTH),
+                        number_of_arrows: BigF32::new(
+                            (start_anchor - end_anchor).length() / LANE_WIDTH,
+                        ),
                         speeds: LaneShaderSpeeds {
                             forward: forward_speed_limit,
                             backward: backward_speed_limit,
