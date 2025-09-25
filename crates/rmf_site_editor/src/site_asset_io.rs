@@ -1,6 +1,7 @@
 use bevy::asset::io::AssetSource as BevyAssetSource;
 use bevy::{
     asset::io::{
+        memory::{Dir, MemoryAssetReader},
         AssetReader, AssetReaderError, AssetSourceBuilder, ErasedAssetReader, PathStream, Reader,
         VecReader,
     },
@@ -233,11 +234,24 @@ where
     }
 }
 
+#[derive(Resource)]
+pub struct MemoryDir {
+    pub dir: Dir,
+}
+
 /// A plugin used to execute the override of the asset io
 pub struct SiteAssetIoPlugin;
 
 impl Plugin for SiteAssetIoPlugin {
     fn build(&self, app: &mut App) {
+        let memory_dir = MemoryDir {
+            dir: Dir::default(),
+        };
+        let reader = MemoryAssetReader {
+            root: memory_dir.dir.clone(),
+        };
+        app.insert_resource(memory_dir);
+
         // the asset server is constructed and added the resource manager
         app.register_asset_source(
             "search",
@@ -337,6 +351,10 @@ impl Plugin for SiteAssetIoPlugin {
                     })
                 }))
             }),
+        )
+        .register_asset_source(
+            "memory",
+            BevyAssetSource::build().with_reader(move || Box::new(reader.clone())),
         );
     }
 }

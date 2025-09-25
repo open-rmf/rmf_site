@@ -122,27 +122,7 @@ impl AppState {
 
 pub fn run(command_line_args: Vec<String>) {
     let mut app = App::new();
-    let mut _export_sdf = None;
-    let mut _export_nav = None;
-
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        let command_line_args = CommandLineArgs::parse_from(command_line_args);
-        if let Some(path) = command_line_args.filename {
-            app.insert_resource(Autoload::file(
-                path.into(),
-                command_line_args.import.map(Into::into),
-            ));
-        }
-        _export_sdf = command_line_args.export_sdf;
-        _export_nav = command_line_args.export_nav;
-    }
-
-    app.add_plugins(
-        SiteEditor::default()
-            .export_sdf(_export_sdf)
-            .export_nav(_export_nav),
-    );
+    app.add_plugins(SiteEditor::from_cli_args(command_line_args));
     app.run();
 }
 
@@ -154,6 +134,7 @@ pub struct SiteEditor {
     /// Contains Some(path) if the site editor is running in headless mode
     /// exporting its nav graphs.
     export_nav: Option<String>,
+    autoload: Option<Autoload>,
     /// Contains Some(path) if the site editor is running in headless mode and
     /// saving the contents of the site as a new path. This is primarily used
     /// for unit testing.
@@ -163,6 +144,32 @@ pub struct SiteEditor {
 impl SiteEditor {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn from_cli_args(command_line_args: Vec<String>) -> Self {
+        let mut _export_sdf = None;
+        let mut _export_nav = None;
+        let mut autoload = None;
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let command_line_args = CommandLineArgs::parse_from(command_line_args);
+            if let Some(path) = command_line_args.filename {
+                autoload = Some(Autoload::file(
+                    path.into(),
+                    command_line_args.import.map(Into::into),
+                ));
+            }
+            _export_sdf = command_line_args.export_sdf;
+            _export_nav = command_line_args.export_nav;
+        }
+
+        Self {
+            export_sdf: _export_sdf,
+            export_nav: _export_nav,
+            autoload,
+            save_as_path: None,
+        }
     }
 
     pub fn export_sdf(mut self, export_to_file: Option<String>) -> Self {
@@ -193,6 +200,9 @@ impl SiteEditor {
 
 impl Plugin for SiteEditor {
     fn build(&self, app: &mut App) {
+        if let Some(autoload) = self.autoload.clone() {
+            app.insert_resource(autoload);
+        }
         let mut plugins = DefaultPlugins
             .set(AssetPlugin {
                 unapproved_path_mode: UnapprovedPathMode::Deny,
