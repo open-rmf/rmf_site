@@ -21,7 +21,7 @@ use bevy::{
     math::{primitives, Affine3A},
     pbr::MaterialExtension,
     prelude::*,
-    render::render_resource::{AsBindGroup, ShaderRef},
+    render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
 };
 use bevy_rich_text3d::TextAtlas;
 use rmf_site_mesh::*;
@@ -44,6 +44,40 @@ pub(crate) fn add_site_assets(app: &mut App) {
     embedded_asset!(app, "src/", "shaders/lane_arrow_shader.wgsl");
 }
 
+#[derive(Default, Debug, Reflect, ShaderType, Clone, Copy, Deref, DerefMut)]
+pub struct BigF32 {
+    #[size(16)]
+    #[align(16)]
+    pub value: f32,
+}
+
+impl BigF32 {
+    pub fn new(value: f32) -> Self {
+        Self { value }
+    }
+}
+
+#[derive(Default, Debug, Reflect, ShaderType, Clone, Copy, Deref, DerefMut)]
+pub struct BigU32 {
+    #[size(16)]
+    #[align(16)]
+    pub value: u32,
+}
+
+impl BigU32 {
+    pub fn new(value: u32) -> Self {
+        Self { value }
+    }
+}
+
+#[derive(Default, Debug, Reflect, ShaderType, Clone, Copy)]
+pub struct LaneShaderSpeeds {
+    pub forward: f32,
+    pub backward: f32,
+    pub _pad1: f32,
+    pub _pad2: f32,
+}
+
 #[derive(Asset, AsBindGroup, Reflect, Debug, Clone, Component)]
 pub struct LaneArrowMaterial {
     #[uniform(100)]
@@ -53,15 +87,13 @@ pub struct LaneArrowMaterial {
     #[uniform(102)]
     pub background_color: LinearRgba,
     #[uniform(103)]
-    pub number_of_arrows: f32,
+    pub number_of_arrows: BigF32,
     #[uniform(104)]
-    pub forward_speed: f32,
+    pub speeds: LaneShaderSpeeds,
     #[uniform(105)]
-    pub backward_speed: f32,
+    pub bidirectional: BigU32,
     #[uniform(106)]
-    pub bidirectional: u32,
-    #[uniform(107)]
-    pub is_active: u32,
+    pub interacting: BigU32,
 }
 
 impl MaterialExtension for LaneArrowMaterial {
@@ -118,6 +150,8 @@ pub struct SiteAssets {
     pub holding_point_material: Handle<StandardMaterial>,
     pub parking_material: Handle<StandardMaterial>,
     pub empty_billboard_material: Handle<StandardMaterial>,
+    pub robot_path_rectangle_mesh: Handle<Mesh>,
+    pub robot_path_circle_mesh: Handle<Mesh>,
 }
 
 pub fn old_default_material(base_color: Color) -> StandardMaterial {
@@ -314,6 +348,9 @@ impl FromWorld for SiteAssets {
                 .unwrap(),
         );
 
+        let robot_path_rectangle_mesh = meshes.add(Rectangle::new(1.0, 1.0));
+        let robot_path_circle_mesh = meshes.add(Circle::new(1.0));
+
         Self {
             level_anchor_mesh,
             lift_anchor_mesh,
@@ -357,6 +394,8 @@ impl FromWorld for SiteAssets {
             holding_point_material,
             parking_material,
             empty_billboard_material,
+            robot_path_rectangle_mesh,
+            robot_path_circle_mesh,
         }
     }
 }

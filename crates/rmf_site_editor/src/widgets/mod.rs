@@ -106,9 +106,6 @@ use view_lights::*;
 pub mod view_nav_graphs;
 use view_nav_graphs::*;
 
-pub mod view_occupancy;
-use view_occupancy::*;
-
 pub mod workspace;
 use workspace::*;
 
@@ -144,7 +141,6 @@ impl Plugin for StandardPropertiesPanelPlugin {
             StandardInspectorPlugin::default(),
             ViewGroupsPlugin::default(),
             ViewLightsPlugin::default(),
-            ViewOccupancyPlugin::default(),
             BuildingPreviewPlugin::default(),
         ));
     }
