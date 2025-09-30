@@ -76,7 +76,13 @@ fn calculate_new_target(
 
 pub fn update_camera_targets(
     mut commands: Commands,
-    changed_anchors: Query<&Dependents, (With<Anchor>, Or<(Changed<Anchor>, Changed<Transform>)>)>,
+    changed_anchors: Query<
+        &Dependents,
+        (
+            With<Anchor>,
+            Or<(Changed<Anchor>, Changed<GlobalTransform>)>,
+        ),
+    >,
     changed_elements: Query<
         Entity,
         Or<(
