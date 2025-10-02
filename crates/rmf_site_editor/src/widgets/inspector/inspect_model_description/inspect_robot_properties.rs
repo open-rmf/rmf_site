@@ -203,11 +203,9 @@ where
                     kinds: HashMap::new(),
                 },
             );
-        app.add_systems(
-            PreUpdate,
-            update_robot_property_components::<Property>.after(UpdateRecallSet),
-        )
-        .add_plugins(RecallPlugin::<RecallProperty>::default());
+        app.add_observer(on_insert_robot_property::<Property>)
+            .add_observer(on_remove_robot_property::<Property>)
+            .add_plugins(RecallPlugin::<RecallProperty>::default());
     }
 }
 
@@ -273,11 +271,8 @@ where
                     },
                 );
             });
-        app.add_systems(
-            PreUpdate,
-            update_robot_property_kind_components::<Kind, Property, RecallKind>,
-        )
-        .add_plugins(RecallPlugin::<RecallKind>::default());
+        app.add_observer(on_update_robot_property_kind::<Kind, Property, RecallKind>)
+            .add_plugins(RecallPlugin::<RecallKind>::default());
     }
 }
 

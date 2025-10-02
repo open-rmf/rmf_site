@@ -869,33 +869,79 @@ pub fn propagate_model_property<Property: Component + Clone + std::fmt::Debug>(
     }
 }
 
-/// This system keeps model instances up to date with the properties of their affiliated descriptions
-pub fn update_model_instances<T: Component + Default + Clone>(
+// TODO(@xiyuoh) Consolidate update_model_instances observers into one
+// The three observers below are all targeting changes to model instances in
+// events where their affiliated descriptions have been updated, or if the
+// affiliation itself has changed.
+// There is effort to support multi-event observers in the future (see
+// https://github.com/bevyengine/bevy/issues/14649).
+// Ideally we can have these logic contained in a single observer that monitors
+// the different types of events that are associated with this update.
+
+/// Monitors changes in affiliated model description and updates the model
+/// instance with model properties from the new affiliation
+pub fn on_insert_affiliated_description<T: Component + Default + Clone>(
+    trigger: Trigger<OnInsert, Affiliation<Entity>>,
     mut commands: Commands,
-    model_properties: Query<Ref<ModelProperty<T>>, (With<ModelMarker>, With<Group>)>,
-    model_instances: Query<(Entity, Ref<Affiliation<Entity>>), (With<ModelMarker>, Without<Group>)>,
-    mut removals: RemovedComponents<ModelProperty<T>>,
+    model_instances: Query<&Affiliation<Entity>, (With<ModelMarker>, Without<Group>)>,
+    model_properties: Query<&ModelProperty<T>, (With<ModelMarker>, With<Group>)>,
 ) {
-    // Removals
-    if !removals.is_empty() {
-        for description_entity in removals.read() {
-            for (instance_entity, affiliation) in model_instances.iter() {
-                if affiliation.0 == Some(description_entity) {
-                    commands.entity(instance_entity).remove::<T>();
-                }
+    let instance_entity = trigger.target();
+    let Some(description_entity) = model_instances
+        .get(instance_entity)
+        .ok()
+        .and_then(|affiliation| affiliation.0)
+    else {
+        return;
+    };
+
+    if let Ok(model_property) = model_properties.get(description_entity) {
+        commands
+            .entity(instance_entity)
+            .insert(model_property.0.clone());
+    } else {
+        commands.entity(instance_entity).remove::<T>();
+    }
+}
+
+/// Propagates any ModelProperty<T> insertion into model descriptions down to
+/// the affiliated model instances
+pub fn on_insert_model_property<T: Component + Default + Clone>(
+    trigger: Trigger<OnInsert, ModelProperty<T>>,
+    mut commands: Commands,
+    model_instances: Query<(Entity, &Affiliation<Entity>), (With<ModelMarker>, Without<Group>)>,
+    model_properties: Query<&ModelProperty<T>, (With<ModelMarker>, With<Group>)>,
+) {
+    for (instance_entity, affiliation) in model_instances.iter() {
+        let Some(description_entity) = affiliation.0 else {
+            continue;
+        };
+
+        if description_entity == trigger.target() {
+            if let Ok(model_property) = model_properties.get(description_entity) {
+                commands
+                    .entity(instance_entity)
+                    .insert(model_property.0.clone());
             }
         }
     }
+}
 
-    // Changes
+/// Propagates any ModelProperty<T> removals from model descriptions down to
+/// the affiliated model instances
+pub fn on_remove_model_property<T: Component + Default + Clone>(
+    trigger: Trigger<OnRemove, ModelProperty<T>>,
+    mut commands: Commands,
+    model_instances: Query<(Entity, &Affiliation<Entity>), (With<ModelMarker>, Without<Group>)>,
+    model_properties: Query<&ModelProperty<T>, (With<ModelMarker>, With<Group>)>,
+) {
     for (instance_entity, affiliation) in model_instances.iter() {
-        if let Some(description_entity) = affiliation.0 {
-            if let Ok(property) = model_properties.get(description_entity) {
-                if property.is_changed() || affiliation.is_changed() {
-                    let mut cmd = commands.entity(instance_entity);
-                    cmd.insert(property.0.clone());
-                }
-            }
+        let Some(description_entity) = affiliation.0 else {
+            continue;
+        };
+
+        if description_entity == trigger.target() {
+            commands.entity(instance_entity).remove::<T>();
         }
     }
 }

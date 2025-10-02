@@ -16,7 +16,8 @@
 */
 
 use crate::site::{
-    update_model_instances, Change, Group, ModelMarker, ModelProperty, ModelPropertyData, Robot,
+    on_insert_affiliated_description, on_insert_model_property, on_remove_model_property, Change,
+    Group, ModelMarker, ModelProperty, ModelPropertyData, Robot,
 };
 use bevy::prelude::*;
 use rmf_site_format::robot_properties::*;
@@ -53,82 +54,87 @@ impl Plugin for RobotPropertiesPlugin {
         );
         app.insert_resource(model_property_data);
         app.add_event::<UpdateRobotPropertyKinds>()
-            .add_systems(PreUpdate, update_model_instances::<Robot>);
+            .add_observer(on_insert_affiliated_description::<Robot>)
+            .add_observer(on_insert_model_property::<Robot>)
+            .add_observer(on_remove_model_property::<Robot>);
     }
 }
 
-/// This system monitors changes to ModelProperty<Robot> and inserts robot property components
-/// to the model descriptions
-pub fn update_robot_property_components<T: RobotProperty>(
+/// Monitors changes in a description's ModelProperty<Robot> and inserts the
+/// updated RobotProperty components accordingly
+pub fn on_insert_robot_property<T: RobotProperty>(
+    trigger: Trigger<Change<ModelProperty<Robot>>>,
     mut commands: Commands,
-    model_properties: Query<(Entity, Ref<ModelProperty<Robot>>), (With<ModelMarker>, With<Group>)>,
-    mut removals: RemovedComponents<ModelProperty<Robot>>,
-    mut update_robot_property_kinds: EventWriter<UpdateRobotPropertyKinds>,
+    model_properties: Query<&ModelProperty<Robot>, (With<ModelMarker>, With<Group>)>,
 ) {
-    let property_label = T::label();
+    let description_entity = trigger.for_element;
+    let Ok(robot) = model_properties.get(description_entity) else {
+        return;
+    };
 
-    // Remove Robot property entirely
-    for description_entity in removals.read() {
-        commands.entity(description_entity).remove::<T>();
-        update_robot_property_kinds.write(UpdateRobotPropertyKinds {
-            entity: description_entity,
-            label: property_label.clone(),
-            value: serde_json::Value::Object(Map::new()),
-        });
-    }
-
-    for (entity, robot) in model_properties.iter() {
-        if robot.is_changed() {
-            // Update robot property
-            let value = match retrieve_robot_property::<T>(robot.0.clone()) {
-                Ok((property, value)) => {
-                    commands.entity(entity).insert(property);
-                    value
-                }
-                Err(RobotPropertyError::PropertyNotFound(_)) => {
-                    commands.entity(entity).remove::<T>();
-                    serde_json::Value::Object(Map::new())
-                }
-                Err(_) => continue,
-            };
-
-            // Update robot property kinds
-            update_robot_property_kinds.write(UpdateRobotPropertyKinds {
-                entity,
-                label: property_label.clone(),
-                value,
-            });
+    // Update robot property
+    let value = match retrieve_robot_property::<T>(robot.0.clone()) {
+        Ok((property, value)) => {
+            commands.entity(description_entity).insert(property);
+            value
         }
-    }
+        Err(RobotPropertyError::PropertyNotFound(_)) => {
+            commands.entity(description_entity).remove::<T>();
+            serde_json::Value::Object(Map::new())
+        }
+        Err(_) => return,
+    };
+
+    // Update robot property kinds
+    commands.trigger(UpdateRobotPropertyKinds {
+        entity: description_entity,
+        label: T::label(),
+        value,
+    });
 }
 
-/// This system inserts or removes robot property kind components when a robot property is updated
-pub fn update_robot_property_kind_components<
+/// Monitors removals of a description's ModelProperty<Robot> and inserts the
+/// updated RobotProperty components accordingly
+pub fn on_remove_robot_property<T: RobotProperty>(
+    trigger: Trigger<OnRemove, ModelProperty<Robot>>,
+    mut commands: Commands,
+) {
+    let description_entity = trigger.target();
+    commands.entity(description_entity).remove::<T>();
+    commands.trigger(UpdateRobotPropertyKinds {
+        entity: description_entity,
+        label: T::label(),
+        value: serde_json::Value::Object(Map::new()),
+    });
+}
+
+/// Monitors updates to a description's RobotProperty components and updates its
+/// RobotPropertyKind components accordingly
+pub fn on_update_robot_property_kind<
     Kind: RobotPropertyKind,
     Property: RobotProperty,
     RecallKind: RecallPropertyKind<Kind = Kind>,
 >(
+    trigger: Trigger<UpdateRobotPropertyKinds>,
     mut commands: Commands,
-    mut update_robot_property_kinds: EventReader<UpdateRobotPropertyKinds>,
     recall_kind: Query<&RecallKind, (With<ModelMarker>, With<Group>)>,
 ) {
-    for update in update_robot_property_kinds.read() {
-        if update.label != Property::label() {
-            continue;
-        }
+    let event = trigger.event();
+    if event.label != Property::label() {
+        return;
+    }
 
-        match retrieve_robot_property_kind::<Kind, Property, RecallKind>(
-            update.value.clone(),
-            recall_kind.get(update.entity).ok(),
-        ) {
-            Ok(property_kind) => {
-                commands.entity(update.entity).insert(property_kind);
-            }
-            Err(RobotPropertyError::PropertyKindNotFound(_)) => {
-                commands.entity(update.entity).remove::<Kind>();
-            }
-            Err(_) => continue,
+    match retrieve_robot_property_kind::<Kind, Property, RecallKind>(
+        event.value.clone(),
+        recall_kind.get(event.entity).ok(),
+    ) {
+        Ok(property_kind) => {
+            commands.entity(event.entity).insert(property_kind);
         }
+        Err(RobotPropertyError::PropertyKindNotFound(_)) => {
+            commands.entity(event.entity).remove::<Kind>();
+        }
+        Err(_) => return,
     }
 }
 

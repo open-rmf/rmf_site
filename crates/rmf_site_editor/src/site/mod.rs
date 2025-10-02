@@ -446,9 +446,6 @@ impl Plugin for SitePlugin {
                 add_measurement_visuals,
                 update_changed_measurement,
                 update_measurement_for_moved_anchors,
-                update_model_instances::<AssetSource>,
-                update_model_instances::<Scale>,
-                update_model_instances::<IsStatic>,
                 update_affiliations,
                 update_members_of_groups.after(update_affiliations),
                 update_model_scales,
@@ -466,6 +463,15 @@ impl Plugin for SitePlugin {
                 .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
         )
         .add_observer(handle_inclusion_change_for_model_visibility)
-        .add_observer(handle_on_level_change);
+        .add_observer(handle_on_level_change)
+        .add_observer(on_insert_affiliated_description::<AssetSource>)
+        .add_observer(on_insert_affiliated_description::<Scale>)
+        .add_observer(on_insert_affiliated_description::<IsStatic>)
+        .add_observer(on_insert_model_property::<AssetSource>)
+        .add_observer(on_insert_model_property::<Scale>)
+        .add_observer(on_insert_model_property::<IsStatic>)
+        .add_observer(on_remove_model_property::<AssetSource>)
+        .add_observer(on_remove_model_property::<Scale>)
+        .add_observer(on_remove_model_property::<IsStatic>);
     }
 }

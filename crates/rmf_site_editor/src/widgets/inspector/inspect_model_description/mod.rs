@@ -31,8 +31,9 @@ use std::fmt::Debug;
 
 use crate::{
     site::{
-        model_property::*, update_model_instances, Affiliation, AssetSource, Change, Group,
-        ModelLoader, ModelMarker, ModelProperty, ModelPropertyQuery, NameInSite,
+        model_property::*, on_insert_affiliated_description, on_insert_model_property,
+        on_remove_model_property, Affiliation, AssetSource, Change, Group, ModelLoader,
+        ModelMarker, ModelProperty, ModelPropertyQuery, NameInSite,
     },
     widgets::{prelude::*, Inspect},
     MainInspector,
@@ -126,7 +127,9 @@ where
             .required
             .contains_key(&component_id)
         {
-            app.add_systems(PreUpdate, update_model_instances::<T>);
+            app.add_observer(on_insert_affiliated_description::<T>)
+                .add_observer(on_insert_model_property::<T>)
+                .add_observer(on_remove_model_property::<T>);
 
             app.world_mut()
                 .resource_mut::<ModelPropertyData>()
