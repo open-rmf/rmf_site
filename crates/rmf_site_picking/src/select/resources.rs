@@ -4,7 +4,7 @@ use bevy_impulse::Service;
 use bytemuck::TransparentWrapper;
 
 use crate::*;
-use std::time::Instant;
+use web_time::Instant;
 
 /// Used as a resource to keep track of which entity is currently selected.
 #[derive(Default, Debug, Clone, Copy, Deref, DerefMut, Resource)]

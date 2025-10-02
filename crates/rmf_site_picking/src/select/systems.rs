@@ -8,8 +8,8 @@ use bevy_math::prelude::*;
 use bevy_picking::pointer::{PointerId, PointerInteraction};
 use bevy_transform::components::Transform;
 use rmf_site_camera::*;
-use std::time::Instant;
 use tracing::warn;
+use web_time::Instant;
 
 use crate::*;
 

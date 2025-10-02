@@ -5720,6 +5720,7 @@ dependencies = [
  "urdf-rs",
  "utm",
  "uuid",
+ "web-time",
 ]
 
 [[package]]
@@ -5808,6 +5809,7 @@ dependencies = [
  "rmf_site_mesh",
  "smallvec",
  "tracing",
+ "web-time",
 ]
 
 [[package]]
