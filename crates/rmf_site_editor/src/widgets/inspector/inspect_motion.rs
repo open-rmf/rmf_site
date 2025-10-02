@@ -51,8 +51,8 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectMotion<'w, 's> {
 
 #[derive(SystemParam)]
 pub struct InspectForwardMotion<'w, 's> {
+    commands: Commands<'w, 's>,
     motions: Query<'w, 's, (&'static Motion, &'static RecallMotion)>,
-    change_lane_motion: EventWriter<'w, Change<Motion>>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectForwardMotion<'w, 's> {
@@ -74,7 +74,7 @@ impl<'w, 's> InspectForwardMotion<'w, 's> {
         };
 
         if let Some(new_motion) = InspectMotionComponent::new(motion, recall).show(ui) {
-            self.change_lane_motion.write(Change::new(new_motion, id));
+            self.commands.trigger(Change::new(new_motion, id));
         }
         ui.add_space(10.0);
     }
@@ -82,8 +82,8 @@ impl<'w, 's> InspectForwardMotion<'w, 's> {
 
 #[derive(SystemParam)]
 pub struct InspectReverseMotion<'w, 's> {
+    commands: Commands<'w, 's>,
     reverse_motions: Query<'w, 's, (&'static ReverseLane, &'static RecallReverseLane)>,
-    change_lane_reverse: EventWriter<'w, Change<ReverseLane>>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectReverseMotion<'w, 's> {
@@ -140,7 +140,7 @@ impl<'w, 's> InspectReverseMotion<'w, 's> {
         });
 
         if new_reverse != *reverse {
-            self.change_lane_reverse.write(Change::new(new_reverse, id));
+            self.commands.trigger(Change::new(new_reverse, id));
         }
         ui.add_space(10.0);
     }

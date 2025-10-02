@@ -38,12 +38,12 @@ use smallvec::SmallVec;
 
 #[derive(SystemParam)]
 pub struct InspectPowerDissipation<'w, 's> {
+    commands: Commands<'w, 's>,
     robot_property_widgets: Res<'w, RobotPropertyWidgetRegistry>,
     model_instances: ModelPropertyQuery<'w, 's, Robot>,
     model_descriptions:
         Query<'w, 's, &'static ModelProperty<Robot>, (With<ModelMarker>, With<Group>)>,
     power_dissipation: Query<'w, 's, &'static PowerDissipation, (With<ModelMarker>, With<Group>)>,
-    change_robot_property: EventWriter<'w, Change<ModelProperty<Robot>>>,
     children: Query<'w, 's, &'static Children>,
     recall_power_dissipation:
         Query<'w, 's, &'static RecallPowerDissipation, (With<ModelMarker>, With<Group>)>,
@@ -124,8 +124,8 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPowerDissipation<'w, 's> {
 
         if update_robot {
             params
-                .change_robot_property
-                .write(Change::new(ModelProperty(new_robot), description_entity));
+                .commands
+                .trigger(Change::new(ModelProperty(new_robot), description_entity));
         }
 
         // Show children widgets
@@ -227,6 +227,7 @@ impl Plugin for InspectMechanicalSystemPlugin {
 
 #[derive(SystemParam)]
 pub struct InspectMechanicalSystem<'w, 's> {
+    commands: Commands<'w, 's>,
     model_instances: ModelPropertyQuery<'w, 's, Robot>,
     model_descriptions: Query<
         'w,
@@ -237,7 +238,6 @@ pub struct InspectMechanicalSystem<'w, 's> {
         ),
         (With<ModelMarker>, With<Group>),
     >,
-    change_robot_property: EventWriter<'w, Change<ModelProperty<Robot>>>,
     recall_mechanical_system:
         Query<'w, 's, &'static RecallMechanicalSystem, (With<ModelMarker>, With<Group>)>,
 }
@@ -350,8 +350,8 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectMechanicalSystem<'w, 's> {
         }
 
         params
-            .change_robot_property
-            .write(Change::new(ModelProperty(new_robot), description_entity));
+            .commands
+            .trigger(Change::new(ModelProperty(new_robot), description_entity));
     }
 }
 
@@ -395,6 +395,7 @@ impl Plugin for InspectAmbientSystemPlugin {
 
 #[derive(SystemParam)]
 pub struct InspectAmbientSystem<'w, 's> {
+    commands: Commands<'w, 's>,
     model_instances: ModelPropertyQuery<'w, 's, Robot>,
     model_descriptions: Query<
         'w,
@@ -405,7 +406,6 @@ pub struct InspectAmbientSystem<'w, 's> {
         ),
         (With<ModelMarker>, With<Group>),
     >,
-    change_robot_property: EventWriter<'w, Change<ModelProperty<Robot>>>,
     recall_ambient_system:
         Query<'w, 's, &'static RecallAmbientSystem, (With<ModelMarker>, With<Group>)>,
 }
@@ -501,7 +501,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectAmbientSystem<'w, 's> {
         }
 
         params
-            .change_robot_property
-            .write(Change::new(ModelProperty(new_robot), description_entity));
+            .commands
+            .trigger(Change::new(ModelProperty(new_robot), description_entity));
     }
 }

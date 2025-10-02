@@ -46,6 +46,7 @@ impl Plugin for ViewScenariosPlugin {
 
 #[derive(SystemParam)]
 pub struct ViewScenarios<'w, 's> {
+    commands: Commands<'w, 's>,
     child_of: Query<'w, 's, &'static ChildOf>,
     scenarios: Query<
         'w,
@@ -53,7 +54,6 @@ pub struct ViewScenarios<'w, 's> {
         (Entity, &'static NameInSite, &'static Affiliation<Entity>),
         With<ScenarioModifiers<Entity>>,
     >,
-    change_name: EventWriter<'w, Change<NameInSite>>,
     change_current_scenario: EventWriter<'w, ChangeCurrentScenario>,
     change_default_scenario: EventWriter<'w, ChangeDefaultScenario>,
     create_new_scenario: EventWriter<'w, CreateScenario>,
@@ -98,8 +98,10 @@ impl<'w, 's> ViewScenarios<'w, 's> {
                             .ui(ui)
                             .changed()
                         {
-                            self.change_name
-                                .write(Change::new(NameInSite(new_name), current_scenario_entity));
+                            self.commands.trigger(Change::new(
+                                NameInSite(new_name),
+                                current_scenario_entity,
+                            ));
                         }
                     });
                 });
@@ -183,7 +185,7 @@ impl<'w, 's> ViewScenarios<'w, 's> {
             .for_each(|(scenario_entity, _, _)| {
                 show_scenario_widget(
                     ui,
-                    &mut self.change_name,
+                    &mut self.commands,
                     &mut self.change_current_scenario,
                     &mut self.change_default_scenario,
                     &mut self.current_scenario,
@@ -201,7 +203,7 @@ impl<'w, 's> ViewScenarios<'w, 's> {
 
 fn show_scenario_widget(
     ui: &mut Ui,
-    change_name: &mut EventWriter<Change<NameInSite>>,
+    commands: &mut Commands,
     change_current_scenario: &mut EventWriter<ChangeCurrentScenario>,
     change_default_scenario: &mut EventWriter<ChangeDefaultScenario>,
     current_scenario: &mut CurrentScenario,
@@ -245,7 +247,7 @@ fn show_scenario_widget(
                 .ui(ui)
                 .changed()
             {
-                change_name.write(Change::new(NameInSite(new_name), entity));
+                commands.trigger(Change::new(NameInSite(new_name), entity));
             }
         });
     });
@@ -266,7 +268,7 @@ fn show_scenario_widget(
                     version.push(subversion);
                     show_scenario_widget(
                         ui,
-                        change_name,
+                        commands,
                         change_current_scenario,
                         change_default_scenario,
                         current_scenario,

@@ -476,14 +476,13 @@ fn handle_changed_debug_goal(
     debug_goals_changed: Query<(Entity, Option<&Original<Pose>>, &DebugGoal), Changed<DebugGoal>>,
     debug_goals_added: Query<(), Added<DebugGoal>>,
     mut negotiation_request: EventWriter<NegotiationRequest>,
-    mut change_pose: EventWriter<Change<Pose>>,
     mut commands: Commands,
 ) {
     let mut any_debug_goal_changed = false;
     for (entity, original_pose, debug_goal) in debug_goals_changed.iter() {
         if debug_goal.location.is_empty() {
             if let Some(pose) = original_pose {
-                change_pose.write(Change::new(pose.0, entity));
+                commands.trigger(Change::new(pose.0, entity));
                 commands.entity(entity).remove::<Original<Pose>>();
             }
         }
@@ -523,7 +522,6 @@ fn handle_changed_plan_info(
     mut materials: ResMut<Assets<StandardMaterial>>,
     robot_debug_materials: Query<&DebugMaterial, With<Robot>>,
     mut commands: Commands,
-    mut change_pose: EventWriter<Change<Pose>>,
     mut debug_data: ResMut<NegotiationDebugData>,
     site_assets: Res<SiteAssets>,
     current_level: Res<CurrentLevel>,
@@ -707,7 +705,7 @@ fn handle_changed_plan_info(
         MAPFDebugInfo::InProgress { .. } => {
             for (robot_entity, _, _, robot_opose) in robots.iter() {
                 if let Some(opose) = robot_opose {
-                    change_pose.write(Change::new(opose.0, robot_entity));
+                    commands.trigger(Change::new(opose.0, robot_entity));
                     commands.entity(robot_entity).remove::<Original<Pose>>();
                 }
             }

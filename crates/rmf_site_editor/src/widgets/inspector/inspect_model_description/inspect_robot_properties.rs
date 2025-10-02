@@ -309,9 +309,9 @@ where
 /// the properties on and off, and select relevant RobotPropertyKinds.
 pub fn show_robot_property_widget<T: RobotProperty>(
     ui: &mut Ui,
+    commands: &mut Commands,
     property_query: Query<&T, (With<ModelMarker>, With<Group>)>,
     property_recall: Option<T>,
-    mut change_robot_property: EventWriter<Change<ModelProperty<Robot>>>,
     robot: &Robot,
     robot_property_widgets: &Res<RobotPropertyWidgetRegistry>,
     description_entity: Entity,
@@ -388,7 +388,7 @@ pub fn show_robot_property_widget<T: RobotProperty>(
             }
         }
     }
-    change_robot_property.write(Change::new(ModelProperty(new_robot), description_entity));
+    commands.trigger(Change::new(ModelProperty(new_robot), description_entity));
 }
 
 /// Unique UUID to identify issue of invalid robot property kind

@@ -30,6 +30,7 @@ use std::collections::BTreeMap;
 
 #[derive(SystemParam)]
 pub struct InspectAssociatedGraphs<'w, 's> {
+    commands: Commands<'w, 's>,
     associated: Query<
         'w,
         's,
@@ -41,7 +42,6 @@ pub struct InspectAssociatedGraphs<'w, 's> {
     graphs: Query<'w, 's, (Entity, &'static NameInSite), With<NavGraphMarker>>,
     icons: Res<'w, Icons>,
     consider_graph: EventWriter<'w, ConsiderAssociatedGraph>,
-    change_associated_graphs: EventWriter<'w, Change<AssociatedGraphs<Entity>>>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectAssociatedGraphs<'w, 's> {
@@ -135,8 +135,7 @@ impl<'w, 's> InspectAssociatedGraphs<'w, 's> {
         }
 
         if new_associated != *associated {
-            self.change_associated_graphs
-                .write(Change::new(new_associated, id));
+            self.commands.trigger(Change::new(new_associated, id));
         }
 
         ui.add_space(10.0);
