@@ -29,10 +29,10 @@ use rmf_site_egui::*;
 
 #[derive(SystemParam)]
 pub struct InspectModelScale<'w, 's> {
+    commands: Commands<'w, 's>,
     model_instances: ModelPropertyQuery<'w, 's, Scale>,
     model_descriptions:
         Query<'w, 's, &'static ModelProperty<Scale>, (With<ModelMarker>, With<Group>)>,
-    change_scale: EventWriter<'w, Change<ModelProperty<Scale>>>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectModelScale<'w, 's> {
@@ -56,18 +56,18 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelScale<'w, 's> {
         };
         if let Some(new_scale) = InspectScaleComponent::new(scale).show(ui) {
             params
-                .change_scale
-                .write(Change::new(ModelProperty(new_scale), description_entity));
+                .commands
+                .trigger(Change::new(ModelProperty(new_scale), description_entity));
         }
     }
 }
 
 #[derive(SystemParam)]
 pub struct InspectModelAssetSource<'w, 's> {
+    commands: Commands<'w, 's>,
     model_instances: ModelPropertyQuery<'w, 's, AssetSource>,
     model_descriptions:
         Query<'w, 's, &'static ModelProperty<AssetSource>, (With<ModelMarker>, With<Group>)>,
-    change_asset_source: EventWriter<'w, Change<ModelProperty<AssetSource>>>,
     current_workspace: Res<'w, CurrentWorkspace>,
     default_file: Query<'w, 's, &'static DefaultFile>,
     model_loader: ModelLoader<'w, 's>,
@@ -104,7 +104,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelAssetSource<'w, 's> {
                 .show(ui)
         {
             // TODO(@xiyuoh) look into removing Change for description asset source updates
-            params.change_asset_source.write(Change::new(
+            params.commands.trigger(Change::new(
                 ModelProperty(new_source.clone()),
                 description_entity,
             ));

@@ -50,7 +50,7 @@ impl Plugin for SlotcarSdfPlugin {
 /// present) and remove it from the original entity.
 fn insert_slotcar_components(
     mut commands: Commands,
-    mut change_robot_property: EventWriter<Change<ModelProperty<Robot>>>,
+    is_static: Query<&ModelProperty<IsStatic>, (With<ModelMarker>, With<Group>)>,
     robot_property_kinds: Query<
         // All 4 components will be present (see sdf_loader.rs)
         (
@@ -153,7 +153,7 @@ fn insert_slotcar_components(
                     );
                 }
 
-                change_robot_property.write(Change::new(ModelProperty(robot), desc));
+                commands.trigger(Change::new(ModelProperty(robot), desc));
             }
             commands
                 .entity(e)

@@ -17,6 +17,7 @@
 
 use crate::{
     layers::ZLayer,
+    mapf_rse::{MAPFDebugDisplay, NegotiationRequest},
     site::{Category, LevelElevation, NameOfSite, SiteAssets},
 };
 use bevy::{
@@ -29,21 +30,36 @@ use bevy::{
     },
 };
 use itertools::Itertools;
+use rmf_site_format::Robot;
 use rmf_site_mesh::*;
 use rmf_site_picking::ComputedVisualCue;
-use std::{
-    collections::{HashMap, HashSet},
-    time::Instant,
-};
+use std::collections::{HashMap, HashSet};
 
 pub struct OccupancyPlugin;
 
 impl Plugin for OccupancyPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<CalculateGrid>()
-            .add_systems(Update, calculate_grid);
+        app.add_event::<CalculateGridRequest>()
+            .add_event::<NegotiationRequest>()
+            .init_resource::<MAPFDebugDisplay>()
+            .init_resource::<OccupancyInfo>()
+            .add_systems(Update, handle_calculate_grid_request);
     }
 }
+
+#[derive(Resource)]
+pub struct OccupancyInfo {
+    pub cell_size: f32,
+}
+
+impl Default for OccupancyInfo {
+    fn default() -> OccupancyInfo {
+        OccupancyInfo { cell_size: 0.1 }
+    }
+}
+
+#[derive(Component)]
+pub struct OccupancyVisualMarker;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Cell {
@@ -82,6 +98,10 @@ impl Cell {
             x: self.x + x,
             y: self.y + y,
         }
+    }
+
+    pub fn to_xy(&self) -> [i64; 2] {
+        [self.x, self.y]
     }
 }
 
@@ -135,6 +155,8 @@ impl GridRange {
 }
 
 #[derive(Event)]
+pub struct CalculateGridRequest;
+
 pub struct CalculateGrid {
     /// How large is each cell
     pub cell_size: f32,
@@ -163,9 +185,11 @@ enum Group {
     None,
 }
 
-fn calculate_grid(
+fn handle_calculate_grid_request(
+    mut request: EventReader<CalculateGridRequest>,
+    occupancy_info: Res<OccupancyInfo>,
+    robots: Query<Entity, With<Robot>>,
     mut commands: Commands,
-    mut request: EventReader<CalculateGrid>,
     bodies: Query<(Entity, &Mesh3d, &Aabb, &GlobalTransform)>,
     meta: Query<(
         Option<&ChildOf>,
@@ -178,146 +202,189 @@ fn calculate_grid(
     mut meshes: ResMut<Assets<Mesh>>,
     assets: Res<SiteAssets>,
     grids: Query<Entity, With<Grid>>,
+    mut replan: EventWriter<NegotiationRequest>,
+    display_mapf_debug: Res<MAPFDebugDisplay>,
 ) {
-    if let Some(request) = request.read().last() {
-        let start_time = Instant::now();
-        // let mut occupied: HashSet<Cell> = HashSet::new();
-        let mut occupied: HashMap<Entity, HashSet<Cell>> = HashMap::new();
-        let mut range = GridRange::new();
-        let cell_size = request.cell_size as f32;
-        let half_cell_size = cell_size / 2.0;
-        let floor = request.floor;
-        let ceiling = request.ceiling;
-        let mid = (floor + ceiling) / 2.0;
-        let half_height = (ceiling - floor) / 2.0;
-        let levels_of_sites = get_levels_of_sites(&levels, &child_of);
+    if request.read().last().is_some() {
+        let grid = CalculateGrid {
+            cell_size: occupancy_info.cell_size,
+            ignore: robots.iter().collect(),
+            ..default()
+        };
+        calculate_grid(
+            &grid,
+            &mut commands,
+            &bodies,
+            &meta,
+            &child_of,
+            &levels,
+            &sites,
+            &mut meshes,
+            &assets,
+            &grids,
+            &display_mapf_debug,
+        );
 
-        let physical_entities = collect_physical_entities(&bodies, &meta);
-        info!("Checking {:?} physical entities", physical_entities.len());
-        for e in &physical_entities {
-            if !request.ignore.is_empty() {
-                if AncestorIter::new(&child_of, *e).any(|p| request.ignore.contains(&p)) {
+        // TODO: (Nielsen) Use bevy impulse workflow
+        replan.write(NegotiationRequest);
+    }
+}
+
+pub fn calculate_grid(
+    calculate_grid: &CalculateGrid,
+    commands: &mut Commands,
+    bodies: &Query<(Entity, &Mesh3d, &Aabb, &GlobalTransform)>,
+    meta: &Query<(
+        Option<&ChildOf>,
+        Option<&Category>,
+        Option<&ComputedVisualCue>,
+    )>,
+    child_of: &Query<&ChildOf>,
+    levels: &Query<Entity, With<LevelElevation>>,
+    sites: &Query<(), With<NameOfSite>>,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    assets: &Res<SiteAssets>,
+    grids: &Query<Entity, With<Grid>>,
+    display_mapf_debug: &Res<MAPFDebugDisplay>,
+) {
+    let mut occupied: HashMap<Entity, HashSet<Cell>> = HashMap::new();
+    let mut range = GridRange::new();
+    let cell_size = calculate_grid.cell_size as f32;
+    let half_cell_size = cell_size / 2.0;
+    let floor = calculate_grid.floor;
+    let ceiling = calculate_grid.ceiling;
+    let mid = (floor + ceiling) / 2.0;
+    let half_height = (ceiling - floor) / 2.0;
+    let levels_of_sites = get_levels_of_sites(&levels, &child_of);
+
+    let physical_entities = collect_physical_entities(&bodies, &meta);
+    info!("Checking {:?} physical entities", physical_entities.len());
+    for e in &physical_entities {
+        if !calculate_grid.ignore.is_empty() {
+            if AncestorIter::new(&child_of, *e).any(|p| calculate_grid.ignore.contains(&p)) {
+                continue;
+            }
+        }
+
+        let (_, mesh, aabb, tf) = match bodies.get(*e) {
+            Ok(body) => body,
+            Err(_) => continue,
+        };
+
+        let e_group = match get_group(*e, &child_of, &levels, &sites) {
+            Group::Level(e) | Group::Site(e) => e,
+            Group::None => continue,
+        };
+
+        let group_occupied = occupied.entry(e_group).or_default();
+
+        let body_range = match grid_range_of_aabb(aabb, tf, cell_size, floor, ceiling) {
+            Some(range) => range,
+            None => continue,
+        };
+
+        range = range.union_with(body_range);
+
+        if let Some(mesh) = meshes.get(mesh) {
+            if mesh.primitive_topology() != PrimitiveTopology::TriangleList {
+                continue;
+            }
+
+            let positions = match mesh.attribute(Mesh::ATTRIBUTE_POSITION) {
+                Some(VertexAttributeValues::Float32x3(positions)) => positions,
+                _ => continue,
+            };
+
+            let indices = match mesh.indices() {
+                Some(Indices::U32(indices)) => indices,
+                _ => {
+                    warn!(
+                        "Unexpected index set for mesh of {e:?}:\n{:?}",
+                        mesh.indices()
+                    );
                     continue;
                 }
-            }
-
-            let (_, mesh, aabb, tf) = match bodies.get(*e) {
-                Ok(body) => body,
-                Err(_) => continue,
             };
 
-            let e_group = match get_group(*e, &child_of, &levels, &sites) {
-                Group::Level(e) | Group::Site(e) => e,
-                Group::None => continue,
-            };
-
-            let group_occupied = occupied.entry(e_group).or_default();
-
-            let body_range = match grid_range_of_aabb(aabb, tf, cell_size, floor, ceiling) {
-                Some(range) => range,
-                None => continue,
-            };
-
-            range = range.union_with(body_range);
-
-            if let Some(mesh) = meshes.get(mesh) {
-                if mesh.primitive_topology() != PrimitiveTopology::TriangleList {
+            for (x, y) in body_range.iter() {
+                let cell = Cell::new(x, y);
+                if group_occupied.contains(&cell) {
+                    // No reason to check this cell since we already know
+                    // that it is occupied.
                     continue;
                 }
 
-                let positions = match mesh.attribute(Mesh::ATTRIBUTE_POSITION) {
-                    Some(VertexAttributeValues::Float32x3(positions)) => positions,
-                    _ => continue,
+                let b = Aabb {
+                    center: Cell::new(x, y)
+                        .to_center_point(cell_size)
+                        .extend(mid)
+                        .into(),
+                    half_extents: Vec3A::new(half_cell_size, half_cell_size, half_height),
                 };
 
-                let indices = match mesh.indices() {
-                    Some(Indices::U32(indices)) => indices,
-                    _ => {
-                        warn!(
-                            "Unexpected index set for mesh of {e:?}:\n{:?}",
-                            mesh.indices()
-                        );
-                        continue;
-                    }
-                };
-
-                for (x, y) in body_range.iter() {
-                    let cell = Cell::new(x, y);
-                    if group_occupied.contains(&cell) {
-                        // No reason to check this cell since we already know
-                        // that it is occupied.
-                        continue;
-                    }
-
-                    let b = Aabb {
-                        center: Cell::new(x, y)
-                            .to_center_point(cell_size)
-                            .extend(mid)
-                            .into(),
-                        half_extents: Vec3A::new(half_cell_size, half_cell_size, half_height),
-                    };
-
-                    if mesh_intersects_box(&b, positions, indices, tf) {
-                        group_occupied.insert(cell);
-                    }
+                if mesh_intersects_box(&b, positions, indices, tf) {
+                    group_occupied.insert(cell);
                 }
             }
         }
+    }
 
-        let finish_time = Instant::now();
-        let delta = finish_time - start_time;
-        info!("Occupancy calculation time: {}", delta.as_secs_f32());
+    for grid in grids {
+        commands.entity(grid).despawn();
+    }
 
-        for grid in &grids {
-            commands.entity(grid).despawn();
-        }
-
-        for (site, levels) in levels_of_sites {
-            let site_occupancy = occupied.get(&site).cloned().unwrap_or_default();
-            for level in levels {
-                let level_occupied = occupied.entry(level).or_default();
-                for cell in &site_occupancy {
-                    level_occupied.insert(*cell);
-                }
+    for (site, levels) in levels_of_sites.iter() {
+        let site_occupancy = occupied.get(&site).cloned().unwrap_or_default();
+        for level in levels {
+            let level_occupied = occupied.entry(*level).or_default();
+            for cell in &site_occupancy {
+                level_occupied.insert(*cell);
             }
         }
+    }
 
-        for level in &levels {
-            let mut mesh = MeshBuffer::empty();
-            let level_occupied = match occupied.remove(&level) {
-                Some(o) => o,
-                None => continue,
-            };
-            for cell in &level_occupied {
-                let p = Vec3::new(
-                    cell_size * (cell.x as f32 + 0.5),
-                    cell_size * (cell.y as f32 + 0.5),
-                    ZLayer::Lane.to_z() / 2.0,
-                );
-                mesh = mesh.merge_with(
-                    make_flat_square_mesh(cell_size).transform_by(Affine3A::from_translation(p)),
-                );
-            }
-
-            commands.entity(level).with_children(|level| {
-                level
-                    .spawn((
-                        Mesh3d(meshes.add(mesh)),
-                        MeshMaterial3d(assets.occupied_material.clone()),
-                        Transform::from_translation(
-                            [0.0, 0.0, ZLayer::OccupancyGrid.to_z()].into(),
-                        ),
-                        Visibility::default(),
-                    ))
-                    .insert(Grid {
-                        occupied: level_occupied,
-                        cell_size,
-                        floor,
-                        ceiling,
-                        range,
-                    });
-            });
+    for level in levels {
+        let mut mesh = MeshBuffer::empty();
+        let level_occupied = match occupied.remove(&level) {
+            Some(o) => o,
+            None => continue,
+        };
+        for cell in &level_occupied {
+            let p = Vec3::new(
+                cell_size * (cell.x as f32 + 0.5),
+                cell_size * (cell.y as f32 + 0.5),
+                ZLayer::Lane.to_z() / 2.0,
+            );
+            mesh = mesh.merge_with(
+                make_flat_square_mesh(cell_size).transform_by(Affine3A::from_translation(p)),
+            );
         }
+
+        let grid = Grid {
+            occupied: level_occupied,
+            cell_size,
+            floor,
+            ceiling,
+            range,
+        };
+
+        let visibility = if display_mapf_debug.show {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
+
+        commands.entity(level).with_children(|level| {
+            level
+                .spawn((
+                    Mesh3d(meshes.add(mesh)),
+                    MeshMaterial3d(assets.occupied_material.clone()),
+                    Transform::from_translation([0.0, 0.0, ZLayer::OccupancyGrid.to_z()].into()),
+                    visibility,
+                ))
+                .insert(grid)
+                .insert(OccupancyVisualMarker);
+        });
     }
 }
 

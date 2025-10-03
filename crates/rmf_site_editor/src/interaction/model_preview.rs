@@ -54,7 +54,7 @@ impl FromWorld for ModelPreviewCamera {
                 label: None,
                 size: image_size,
                 dimension: TextureDimension::D2,
-                format: TextureFormat::Bgra8UnormSrgb,
+                format: TextureFormat::Rgba8UnormSrgb,
                 mip_level_count: 1,
                 sample_count: 1,
                 usage: TextureUsages::TEXTURE_BINDING

@@ -63,6 +63,7 @@ fn diagnostics_panel(In(input): In<PanelWidgetInput>, world: &mut World) {
 /// Use [`DiagnosticsPlugin`] to add this to your application.
 #[derive(SystemParam)]
 pub struct Diagnostics<'w, 's> {
+    commands: Commands<'w, 's>,
     icons: Res<'w, Icons>,
     filters: Query<'w, 's, (&'static FilteredIssues<Entity>, &'static FilteredIssueKinds)>,
     issue_dictionary: Res<'w, IssueDictionary>,
@@ -70,8 +71,6 @@ pub struct Diagnostics<'w, 's> {
     display_diagnostics: ResMut<'w, DiagnosticsDisplay>,
     current_workspace: ResMut<'w, CurrentWorkspace>,
     validate_workspace: EventWriter<'w, ValidateWorkspace>,
-    change_filtered_issues: EventWriter<'w, Change<FilteredIssues<Entity>>>,
-    change_filtered_issue_kinds: EventWriter<'w, Change<FilteredIssueKinds>>,
     selector: SelectorWidget<'w, 's>,
 }
 
@@ -202,12 +201,12 @@ impl<'w, 's> Diagnostics<'w, 's> {
             }
         });
         if new_filtered_issues != *filtered_issues {
-            self.change_filtered_issues
-                .write(Change::new(new_filtered_issues, root));
+            self.commands
+                .trigger(Change::new(new_filtered_issues, root));
         }
         if new_filtered_issue_kinds != *filtered_issue_kinds {
-            self.change_filtered_issue_kinds
-                .write(Change::new(new_filtered_issue_kinds, root));
+            self.commands
+                .trigger(Change::new(new_filtered_issue_kinds, root));
         }
         *self.display_diagnostics = state;
     }

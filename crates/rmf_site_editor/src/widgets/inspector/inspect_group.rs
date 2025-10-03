@@ -26,6 +26,7 @@ use rmf_site_egui::WidgetSystem;
 
 #[derive(SystemParam)]
 pub struct InspectGroup<'w, 's> {
+    commands: Commands<'w, 's>,
     is_group: Query<'w, 's, (), With<Group>>,
     affiliation: Query<'w, 's, &'static Affiliation<Entity>, Without<ModelMarker>>,
     names: Query<'w, 's, &'static NameInSite>,
@@ -33,7 +34,6 @@ pub struct InspectGroup<'w, 's> {
     members: Query<'w, 's, &'static Members>,
     default_file: Query<'w, 's, &'static DefaultFile>,
     current_workspace: Res<'w, CurrentWorkspace>,
-    change_texture: EventWriter<'w, Change<Texture>>,
     selector: SelectorWidget<'w, 's>,
 }
 
@@ -74,7 +74,7 @@ impl<'w, 's> InspectGroup<'w, 's> {
         if let Ok(texture) = self.textures.get(id) {
             ui.label(RichText::new("Texture Properties").size(18.0));
             if let Some(new_texture) = InspectTexture::new(texture, default_file).show(ui) {
-                self.change_texture.write(Change::new(new_texture, id));
+                self.commands.trigger(Change::new(new_texture, id));
             }
             ui.add_space(10.0);
         }
