@@ -120,7 +120,19 @@ impl AppState {
     }
 }
 
+fn handle_errors(error: BevyError, ctx: bevy::ecs::error::ErrorContext) {
+    warn!(
+        "Encountered an error in {} `{}`: {}",
+        ctx.kind(),
+        ctx.name(),
+        error
+    );
+}
+
 pub fn run(command_line_args: Vec<String>) {
+    bevy::ecs::error::GLOBAL_ERROR_HANDLER
+        .set(handle_errors)
+        .expect("The error handler can only be set once, globally.");
     let mut app = App::new();
     app.add_plugins(SiteEditor::from_cli_args(command_line_args));
     app.run();
