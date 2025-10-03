@@ -44,8 +44,6 @@ pub struct InspectLayer<'w, 's> {
     pub icons: Res<'w, Icons>,
     pub selection: Res<'w, Selection>,
     pub begin_edit_drawing: EventWriter<'w, BeginEditDrawing>,
-    pub change_layer_visibility: EventWriter<'w, Change<LayerVisibility>>,
-    pub change_preferred_alpha: EventWriter<'w, Change<PreferredSemiTransparency>>,
     pub floor_change_rank: EventWriter<'w, ChangeRank<FloorMarker>>,
     pub drawing_change_rank: EventWriter<'w, ChangeRank<DrawingMarker>>,
     pub commands: Commands<'w, 's>,
@@ -169,8 +167,7 @@ impl<'w, 's> InspectLayer<'w, 's> {
             if resp.clicked() {
                 match vis.next(default_alpha) {
                     Some(v) => {
-                        self.change_layer_visibility
-                            .write(Change::new(v, id).or_insert());
+                        self.commands.trigger(Change::new(v, id).or_insert());
                     }
                     None => {
                         self.commands.entity(id).remove::<LayerVisibility>();
@@ -183,10 +180,10 @@ impl<'w, 's> InspectLayer<'w, 's> {
                     .add(DragValue::new(&mut alpha).range(0_f32..=1_f32).speed(0.01))
                     .changed()
                 {
-                    self.change_layer_visibility
-                        .write(Change::new(LayerVisibility::Alpha(alpha), id));
-                    self.change_preferred_alpha
-                        .write(Change::new(PreferredSemiTransparency(alpha), id));
+                    self.commands
+                        .trigger(Change::new(LayerVisibility::Alpha(alpha), id));
+                    self.commands
+                        .trigger(Change::new(PreferredSemiTransparency(alpha), id));
                 }
             }
         });

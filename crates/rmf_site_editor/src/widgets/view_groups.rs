@@ -69,7 +69,6 @@ pub struct ViewGroupsEvents<'w, 's> {
     selector: SelectorWidget<'w, 's>,
     merge_groups: EventWriter<'w, MergeGroups>,
     delete: EventWriter<'w, Delete>,
-    name: EventWriter<'w, Change<NameInSite>>,
     commands: Commands<'w, 's>,
     object_placement: ObjectPlacement<'w, 's>,
 }
@@ -258,7 +257,9 @@ impl<'w, 's> ViewGroups<'w, 's> {
                     .ui(ui)
                     .changed()
                 {
-                    events.name.write(Change::new(NameInSite(new_name), *child));
+                    events
+                        .commands
+                        .trigger(Change::new(NameInSite(new_name), *child));
                 }
             });
         }

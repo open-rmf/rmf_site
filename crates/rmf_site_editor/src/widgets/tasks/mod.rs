@@ -120,7 +120,6 @@ pub struct EditModeEvent {
 pub struct ViewTasks<'w, 's> {
     children: Query<'w, 's, &'static Children>,
     commands: Commands<'w, 's>,
-    change_task: EventWriter<'w, Change<Task>>,
     current_scenario: ResMut<'w, CurrentScenario>,
     delete: EventWriter<'w, Delete>,
     edit_mode: EventWriter<'w, EditModeEvent>,
@@ -255,7 +254,6 @@ impl<'w, 's> ViewTasks<'w, 's> {
                     &pending_task_params,
                     &self.task_kinds,
                     &self.robots,
-                    &mut self.change_task,
                 );
             } else {
                 if let Ok((_, existing_task)) = self.tasks.get_mut(task_entity) {
@@ -285,7 +283,6 @@ impl<'w, 's> ViewTasks<'w, 's> {
                         &existing_task_params,
                         &self.task_kinds,
                         &self.robots,
-                        &mut self.change_task,
                     );
                 }
             }
@@ -551,7 +548,6 @@ fn edit_task(
     task_params: &TaskParams,
     task_kinds: &ResMut<TaskKinds>,
     robots: &Query<(Entity, &NameInSite), (With<Robot>, Without<Group>)>,
-    change_task: &mut EventWriter<Change<Task>>,
 ) {
     Grid::new("edit_task_".to_owned() + &task_entity.index().to_string())
         .num_columns(2)
@@ -681,7 +677,7 @@ fn edit_task(
             ui.end_row();
 
             if new_task != *task {
-                change_task.write(Change::new(new_task, task_entity));
+                commands.trigger(Change::new(new_task, task_entity));
             } else {
             }
         });

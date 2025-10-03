@@ -57,6 +57,7 @@ impl<'a> InspectAssetSourceComponent<'a> {
             AssetSource::Remote(uri) => uri,
             AssetSource::Search(name) => name,
             AssetSource::Package(path) => path,
+            AssetSource::Memory(uri) => uri,
         };
         ui.horizontal(|ui| {
             ui.label("Source");
@@ -151,6 +152,9 @@ impl<'a> InspectAssetSourceComponent<'a> {
                     .desired_width(ui.available_width())
                     .show(ui);
             }
+            AssetSource::Memory(uri) => {
+                ui.text_edit_singleline(uri);
+            }
         }
         ui.add_space(10.0);
 
@@ -164,6 +168,7 @@ impl<'a> InspectAssetSourceComponent<'a> {
 
 #[derive(SystemParam)]
 pub struct InspectAssetSource<'w, 's> {
+    commands: Commands<'w, 's>,
     query: Query<
         'w,
         's,
@@ -172,7 +177,6 @@ pub struct InspectAssetSource<'w, 's> {
     >,
     default_file: Query<'w, 's, &'static DefaultFile>,
     current_workspace: Res<'w, CurrentWorkspace>,
-    change_asset_source: EventWriter<'w, Change<AssetSource>>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectAssetSource<'w, 's> {
@@ -195,9 +199,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectAssetSource<'w, 's> {
         if let Some(new_source) =
             InspectAssetSourceComponent::new(source, recall, default_file).show(ui)
         {
-            params
-                .change_asset_source
-                .write(Change::new(new_source, selection));
+            params.commands.trigger(Change::new(new_source, selection));
         }
     }
 }

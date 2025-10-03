@@ -80,7 +80,6 @@ pub struct InspectFiducial<'w, 's> {
     icons: Res<'w, Icons>,
     search_for_fiducial: ResMut<'w, SearchForFiducial>,
     commands: Commands<'w, 's>,
-    change_affiliation: EventWriter<'w, Change<Affiliation<Entity>>>,
     names: Query<'w, 's, &'static NameInSite>,
 }
 
@@ -205,8 +204,8 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectFiducial<'w, 's> {
                                 .insert(ChildOf(tracker.site()))
                                 .id();
                             params
-                                .change_affiliation
-                                .write(Change::new(Affiliation(Some(new_group)), selection));
+                                .commands
+                                .trigger(Change::new(Affiliation(Some(new_group)), selection));
                         }
                     }
                     SearchResult::Match(group) => {
@@ -216,8 +215,8 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectFiducial<'w, 's> {
                             .clicked()
                         {
                             params
-                                .change_affiliation
-                                .write(Change::new(Affiliation(Some(group)), selection));
+                                .commands
+                                .trigger(Change::new(Affiliation(Some(group)), selection));
                         }
                     }
                     SearchResult::Conflict(text) => {
@@ -274,8 +273,8 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectFiducial<'w, 's> {
 
             if new_affiliation != *affiliation {
                 params
-                    .change_affiliation
-                    .write(Change::new(new_affiliation, selection));
+                    .commands
+                    .trigger(Change::new(new_affiliation, selection));
             }
             ui.separator();
         });

@@ -33,6 +33,7 @@ pub enum AssetSource {
     Remote(String),
     Search(String),
     Package(String),
+    Memory(String),
 }
 
 impl AssetSource {
@@ -42,6 +43,7 @@ impl AssetSource {
             Self::Remote(_) => "Remote",
             Self::Search(_) => "Search",
             Self::Package(_) => "Package",
+            Self::Memory(_) => "Memory",
         }
     }
 
@@ -87,6 +89,7 @@ impl AssetSource {
             AssetSource::Local(filename) => String::from("file://") + filename,
             AssetSource::Search(name) => String::from("search://") + name,
             AssetSource::Package(path) => String::from("package://") + path,
+            AssetSource::Memory(path) => String::from("memory://") + path,
         }
     }
 
@@ -157,6 +160,8 @@ impl TryFrom<&str> for AssetSource {
             Ok(AssetSource::Search(uri.to_owned()))
         } else if let Some(uri) = s.strip_prefix("package://") {
             Ok(AssetSource::Package(uri.to_owned()))
+        } else if let Some(uri) = s.strip_prefix("memory://") {
+            Ok(AssetSource::Memory(uri.to_owned()))
         } else {
             Err(format!("Unsupported asset type: {}", s))
         }
@@ -171,6 +176,7 @@ pub struct RecallAssetSource {
     pub search_name: Option<String>,
     pub bundled_name: Option<String>,
     pub package_path: Option<String>,
+    pub ros_resource: Option<String>,
     pub map: Option<(i32, f32, f32)>,
 }
 
@@ -193,6 +199,9 @@ impl Recall for RecallAssetSource {
             }
             AssetSource::Package(path) => {
                 self.package_path = Some(path.clone());
+            }
+            AssetSource::Memory(path) => {
+                self.ros_resource = Some(path.clone());
             }
         }
     }
