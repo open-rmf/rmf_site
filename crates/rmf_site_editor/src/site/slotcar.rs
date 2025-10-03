@@ -50,8 +50,7 @@ impl Plugin for SlotcarSdfPlugin {
 /// present) and remove it from the original entity.
 fn insert_slotcar_components(
     mut commands: Commands,
-    is_static: Query<&ModelProperty<IsStatic>, (With<ModelMarker>, With<Group>)>,
-    robot_property_kinds: Query<
+    slotcar_property_kinds: Query<
         // All 4 components will be present (see sdf_loader.rs)
         (
             Entity,
@@ -62,23 +61,18 @@ fn insert_slotcar_components(
         ),
         (Without<ModelMarker>, Without<Group>),
     >,
-    robot_properties: Query<
-        Option<&IsStatic>,
+    model_descriptions: Query<
         (
-            With<ModelMarker>,
-            With<Group>,
-            Without<Mobility>,
-            Without<Collision>,
-            Without<PowerSource>,
-            Without<PowerDissipation>,
+            Option<&ModelProperty<Robot>>,
+            Option<&ModelProperty<IsStatic>>,
         ),
+        (With<ModelMarker>, With<Group>),
     >,
-    model_descriptions: Query<&ModelProperty<Robot>, (With<ModelMarker>, With<Group>)>,
     model_instances: ModelPropertyQuery<Robot>,
     child_of: Query<&ChildOf>,
 ) {
     for (e, differential_drive, battery, ambient_system, mechanical_system) in
-        robot_property_kinds.iter()
+        slotcar_property_kinds.iter()
     {
         if !model_descriptions.get(e).is_ok() {
             let mut description_entity: Option<Entity> = None;
@@ -92,68 +86,77 @@ fn insert_slotcar_components(
             }
 
             if let Some(desc) = description_entity {
-                let mut robot = match model_descriptions.get(desc) {
-                    Ok(ModelProperty(r)) => r.clone(),
-                    Err(_) => Robot::default(),
-                };
+                if let Ok((opt_desc_robot, opt_desc_is_static)) = model_descriptions.get(desc) {
+                    let mut robot = Robot::default();
 
-                // NOTE(@xiyuoh) It's probably a better idea to generalize this system
-                // for each RobotPropertyKind, but the current design of ChangePlugin
-                // and Robot will result in the later system run to overwrite changes
-                // from the earlier system. For now we will process data from Battery/
-                // DifferentialDrive/MechanicalSystem/AmbientSystem in a single system.
-
-                let Ok(is_static) = robot_properties.get(desc) else {
-                    // This description entity has an existing RobotProperty,
-                    // do not allow overwriting
-                    continue;
-                };
-
-                // Only insert Mobility if robot is not static
-                if !is_static.is_some_and(|is| is.0) {
-                    if let Ok(mobility_value) = serialize_robot_property_from_kind::<
-                        Mobility,
-                        DifferentialDrive,
-                    >(differential_drive.clone())
-                    {
-                        robot.properties.insert(Mobility::label(), mobility_value);
+                    if let Some(desc_robot) = opt_desc_robot {
+                        if !desc_robot.0.properties.is_empty() {
+                            // The robot properties for this model description has already
+                            // been populated, do not overwrite
+                            commands
+                                .entity(e)
+                                .remove::<DifferentialDrive>()
+                                .remove::<Battery>()
+                                .remove::<AmbientSystem>()
+                                .remove::<MechanicalSystem>();
+                            continue;
+                        }
+                        robot = desc_robot.0.clone();
+                    } else {
+                        // We have to insert this ModelProperty as the ChangePlugin does
+                        // not accept changes if the component is not already present
+                        commands.entity(desc).insert(ModelProperty(robot.clone()));
                     }
-                }
 
-                if let Ok(power_source_value) =
-                    serialize_robot_property_from_kind::<PowerSource, Battery>(battery.clone())
-                {
-                    robot
-                        .properties
-                        .insert(PowerSource::label(), power_source_value);
-                }
-
-                let mut power_dissipation_config = Map::new();
-                if let Some(power_dissipation_map) = power_dissipation_config
-                    .entry("config")
-                    .or_insert(Value::Object(Map::new()))
-                    .as_object_mut()
-                {
-                    if let Ok(mechanical_system_value) =
-                        serialize_robot_property_kind::<MechanicalSystem>(mechanical_system.clone())
-                    {
-                        power_dissipation_map
-                            .insert(MechanicalSystem::label(), mechanical_system_value);
+                    // Only insert Mobility if robot is not static
+                    if !opt_desc_is_static.is_some_and(|is_static| is_static.0 .0) {
+                        if let Ok(mobility_value) =
+                            serialize_robot_property_from_kind::<Mobility, DifferentialDrive>(
+                                differential_drive.clone(),
+                            )
+                        {
+                            robot.properties.insert(Mobility::label(), mobility_value);
+                        }
                     }
-                    if let Ok(ambient_system_value) =
-                        serialize_robot_property_kind::<AmbientSystem>(ambient_system.clone())
-                    {
-                        power_dissipation_map.insert(AmbientSystem::label(), ambient_system_value);
-                    }
-                }
-                if !power_dissipation_config.is_empty() {
-                    robot.properties.insert(
-                        PowerDissipation::label(),
-                        Value::Object(power_dissipation_config),
-                    );
-                }
 
-                commands.trigger(Change::new(ModelProperty(robot), desc));
+                    if let Ok(power_source_value) =
+                        serialize_robot_property_from_kind::<PowerSource, Battery>(battery.clone())
+                    {
+                        robot
+                            .properties
+                            .insert(PowerSource::label(), power_source_value);
+                    }
+
+                    let mut power_dissipation_config = Map::new();
+                    if let Some(power_dissipation_map) = power_dissipation_config
+                        .entry("config")
+                        .or_insert(Value::Object(Map::new()))
+                        .as_object_mut()
+                    {
+                        if let Ok(mechanical_system_value) =
+                            serialize_robot_property_kind::<MechanicalSystem>(
+                                mechanical_system.clone(),
+                            )
+                        {
+                            power_dissipation_map
+                                .insert(MechanicalSystem::label(), mechanical_system_value);
+                        }
+                        if let Ok(ambient_system_value) =
+                            serialize_robot_property_kind::<AmbientSystem>(ambient_system.clone())
+                        {
+                            power_dissipation_map
+                                .insert(AmbientSystem::label(), ambient_system_value);
+                        }
+                    }
+                    if !power_dissipation_config.is_empty() {
+                        robot.properties.insert(
+                            PowerDissipation::label(),
+                            Value::Object(power_dissipation_config),
+                        );
+                    }
+
+                    commands.trigger(Change::new(ModelProperty(robot), desc));
+                }
             }
             commands
                 .entity(e)
