@@ -66,15 +66,12 @@ impl Plugin for RobotPropertiesPlugin {
 pub fn on_insert_robot_property<T: RobotProperty>(
     trigger: Trigger<Change<ModelProperty<Robot>>>,
     mut commands: Commands,
-    model_properties: Query<&ModelProperty<Robot>, (With<ModelMarker>, With<Group>)>,
 ) {
     let description_entity = trigger.for_element;
-    let Ok(robot) = model_properties.get(description_entity) else {
-        return;
-    };
+    let robot = trigger.to_value.clone();
 
     // Update robot property
-    let value = match retrieve_robot_property::<T>(robot.0.clone()) {
+    let value = match retrieve_robot_property::<T>(robot.0) {
         Ok((property, value)) => {
             commands.entity(description_entity).insert(property);
             value

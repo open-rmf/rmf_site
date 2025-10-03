@@ -18,8 +18,8 @@
 use super::*;
 use crate::{
     site::{
-        recall_plugin::UpdateRecallSet, robot_properties::*, Change, Group, IssueKey, ModelMarker,
-        ModelProperty, ModelPropertyQuery, NameInSite, Recall, RecallPlugin, Robot, SiteUpdateSet,
+        robot_properties::*, Change, Group, IssueKey, ModelMarker, ModelProperty,
+        ModelPropertyQuery, NameInSite, Recall, RecallPlugin, Robot, SiteUpdateSet,
     },
     widgets::Inspect,
     AppState, Issue, ValidateWorkspace,

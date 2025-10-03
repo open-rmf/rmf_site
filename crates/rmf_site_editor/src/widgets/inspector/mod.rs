@@ -238,8 +238,18 @@ impl Plugin for StandardInspectorPlugin {
                     PowerSource,
                     RecallBattery,
                 >::new(),
-                InspectAmbientSystemPlugin::default(),
-                InspectMechanicalSystemPlugin::default(),
+                InspectRobotPropertyKindPlugin::<
+                    InspectAmbientSystem,
+                    AmbientSystem,
+                    PowerDissipation,
+                    RecallAmbientSystem,
+                >::new(),
+                InspectRobotPropertyKindPlugin::<
+                    InspectMechanicalSystem,
+                    MechanicalSystem,
+                    PowerDissipation,
+                    RecallMechanicalSystem,
+                >::new(),
             ));
     }
 }

@@ -22,13 +22,9 @@ use crate::{
     site::{
         AmbientSystem, Change, Group, MechanicalSystem, ModelMarker, ModelProperty,
         ModelPropertyQuery, PowerDissipation, RecallAmbientSystem, RecallMechanicalSystem,
-        RecallPlugin, RecallPowerDissipation, RecallPropertyKind, Robot, RobotProperty,
-        RobotPropertyKind, UpdateRobotPropertyKinds,
+        RecallPowerDissipation, RecallPropertyKind, Robot, RobotProperty, RobotPropertyKind,
     },
-    widgets::{
-        inspector::inspect_model_description::RobotPropertyKindWidgetRegistration, prelude::*,
-        Inspect,
-    },
+    widgets::{prelude::*, Inspect},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{DragValue, Grid, Ui};
@@ -153,75 +149,6 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPowerDissipation<'w, 's> {
                 }
             });
         }
-    }
-}
-
-/// This systems checks for changes in PowerDissipation and updates changes in the respective
-/// dissipation kinds.
-pub fn update_power_dissipation_kinds_component<T: RobotPropertyKind>(
-    mut commands: Commands,
-    mut update_robot_property_kinds: EventReader<UpdateRobotPropertyKinds>,
-) {
-    for update in update_robot_property_kinds.read() {
-        if update.label != PowerDissipation::label() {
-            continue;
-        }
-
-        let label = T::label();
-        let Some(power_dissipation_map) = update
-            .value
-            .as_object()
-            .and_then(|map| map.get("config"))
-            .and_then(|config| config.as_object())
-        else {
-            continue;
-        };
-        if let Some(kind_component) = power_dissipation_map
-            .get(&label)
-            .and_then(|v| serde_json::from_value::<T>(v.clone()).ok())
-        {
-            commands.entity(update.entity).insert(kind_component);
-        } else {
-            commands.entity(update.entity).remove::<T>();
-        }
-    }
-}
-
-#[derive(Default)]
-pub struct InspectMechanicalSystemPlugin {}
-
-impl Plugin for InspectMechanicalSystemPlugin {
-    fn build(&self, app: &mut App) {
-        let property_label = PowerDissipation::label();
-        let Some(inspector) = app
-            .world()
-            .resource::<RobotPropertyWidgetRegistry>()
-            .0
-            .get(&property_label)
-            .map(|registration| registration.property_widget.clone())
-        else {
-            return;
-        };
-        let widget = Widget::<Inspect>::new::<InspectMechanicalSystem>(app.world_mut());
-        app.world_mut().spawn(widget).insert(ChildOf(inspector));
-        app.world_mut()
-            .resource_mut::<RobotPropertyWidgetRegistry>()
-            .0
-            .get_mut(&property_label)
-            .map(|registration| {
-                registration.kinds.insert(
-                    MechanicalSystem::label(),
-                    RobotPropertyKindWidgetRegistration {
-                        default: || serde_json::to_value(MechanicalSystem::default()),
-                    },
-                );
-            });
-
-        app.add_plugins(RecallPlugin::<RecallMechanicalSystem>::default())
-            .add_systems(
-                PostUpdate,
-                update_power_dissipation_kinds_component::<MechanicalSystem>,
-            );
     }
 }
 
@@ -352,44 +279,6 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectMechanicalSystem<'w, 's> {
         params
             .commands
             .trigger(Change::new(ModelProperty(new_robot), description_entity));
-    }
-}
-
-#[derive(Default)]
-pub struct InspectAmbientSystemPlugin {}
-
-impl Plugin for InspectAmbientSystemPlugin {
-    fn build(&self, app: &mut App) {
-        let property_label = PowerDissipation::label();
-        let Some(inspector) = app
-            .world()
-            .resource::<RobotPropertyWidgetRegistry>()
-            .0
-            .get(&property_label)
-            .map(|registration| registration.property_widget.clone())
-        else {
-            return;
-        };
-        let widget = Widget::<Inspect>::new::<InspectAmbientSystem>(app.world_mut());
-        app.world_mut().spawn(widget).insert(ChildOf(inspector));
-        app.world_mut()
-            .resource_mut::<RobotPropertyWidgetRegistry>()
-            .0
-            .get_mut(&property_label)
-            .map(|registration| {
-                registration.kinds.insert(
-                    AmbientSystem::label(),
-                    RobotPropertyKindWidgetRegistration {
-                        default: || serde_json::to_value(AmbientSystem::default()),
-                    },
-                );
-            });
-
-        app.add_plugins(RecallPlugin::<RecallAmbientSystem>::default())
-            .add_systems(
-                PostUpdate,
-                update_power_dissipation_kinds_component::<AmbientSystem>,
-            );
     }
 }
 
