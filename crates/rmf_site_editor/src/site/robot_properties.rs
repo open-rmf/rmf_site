@@ -105,7 +105,7 @@ pub fn update_robot_property_kind_components<
 
 /// This system updates ModelProperty<Robot> based on updates to the RobotProperty components
 pub fn serialize_and_change_robot_property<Property: RobotProperty>(
-    change_robot_property: &mut EventWriter<Change<ModelProperty<Robot>>>,
+    commands: &mut Commands,
     property: Property,
     robot: &Robot,
     description_entity: Entity,
@@ -115,7 +115,7 @@ pub fn serialize_and_change_robot_property<Property: RobotProperty>(
         new_robot
             .properties
             .insert(Property::label(), new_property_value);
-        change_robot_property.write(Change::new(ModelProperty(new_robot), description_entity));
+        commands.trigger(Change::new(ModelProperty(new_robot), description_entity));
     }
 }
 
@@ -125,7 +125,7 @@ pub fn serialize_and_change_robot_property_kind<
     Property: RobotProperty,
     Kind: RobotPropertyKind,
 >(
-    change_robot_property: &mut EventWriter<Change<ModelProperty<Robot>>>,
+    commands: &mut Commands,
     property_kind: Kind,
     robot: &Robot,
     description_entity: Entity,
@@ -137,6 +137,6 @@ pub fn serialize_and_change_robot_property_kind<
         new_robot
             .properties
             .insert(Property::label(), new_property_value);
-        change_robot_property.write(Change::new(ModelProperty(new_robot), description_entity));
+        commands.trigger(Change::new(ModelProperty(new_robot), description_entity));
     }
 }

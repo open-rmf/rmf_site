@@ -26,8 +26,8 @@ use rmf_site_format::{Affiliation, Scale};
 
 #[derive(SystemParam)]
 pub struct InspectScale<'w, 's> {
+    commands: Commands<'w, 's>,
     scales: Query<'w, 's, &'static Scale, Without<Affiliation<Entity>>>,
-    change_scale: EventWriter<'w, Change<Scale>>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectScale<'w, 's> {
@@ -43,7 +43,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectScale<'w, 's> {
         };
 
         if let Some(new_scale) = InspectScaleComponent::new(scale).show(ui) {
-            params.change_scale.write(Change::new(new_scale, selection));
+            params.commands.trigger(Change::new(new_scale, selection));
         }
         ui.add_space(10.0);
     }

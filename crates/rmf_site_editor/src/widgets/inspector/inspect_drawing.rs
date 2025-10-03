@@ -26,8 +26,8 @@ use rmf_site_egui::WidgetSystem;
 
 #[derive(SystemParam)]
 pub struct InspectDrawing<'w, 's> {
+    commands: Commands<'w, 's>,
     pixels_per_meter: Query<'w, 's, &'static PixelsPerMeter>,
-    change_pixels_per_meter: EventWriter<'w, Change<PixelsPerMeter>>,
     current_workspace: Res<'w, CurrentWorkspace>,
     align_site: EventWriter<'w, AlignSiteDrawings>,
     app_state: Res<'w, State<AppState>>,
@@ -85,8 +85,8 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectDrawing<'w, 's> {
             .show(ui)
         {
             params
-                .change_pixels_per_meter
-                .write(Change::new(PixelsPerMeter(new_ppm), selection));
+                .commands
+                .trigger(Change::new(PixelsPerMeter(new_ppm), selection));
         }
     }
 }

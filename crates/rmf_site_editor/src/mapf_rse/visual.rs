@@ -47,7 +47,7 @@ pub enum MAPFDebugInfo {
 
 pub fn visualise_selected_node(
     mut debug_data: ResMut<NegotiationDebugData>,
-    mut change_pose: EventWriter<Change<Pose>>,
+    mut commands: Commands,
     now: Res<Time>,
     open_sites: Query<Entity, With<NameOfSite>>,
     current_workspace: Res<CurrentWorkspace>,
@@ -109,7 +109,7 @@ pub fn visualise_selected_node(
             .compute_position(&mapf::motion::TimePoint::from_secs_f32(time_now))
         {
             let robot_yaw = crate::ops::atan2(interp.rotation.im as f32, interp.rotation.re as f32);
-            change_pose.write(Change::new(
+            commands.trigger(Change::new(
                 Pose {
                     trans: [
                         interp.translation.x as f32,

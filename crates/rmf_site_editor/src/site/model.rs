@@ -785,7 +785,7 @@ pub fn insert_robot_collision_model(
     mesh_handles: Query<&Mesh3d>,
     all_children: Query<&Children>,
     meshes: Res<Assets<Mesh>>,
-    mut change_robot_property: EventWriter<Change<ModelProperty<Robot>>>,
+    mut commands: Commands,
 ) -> ModelLoadingRequest {
     let Ok(robot_affiliation) = robot_model_descriptions.get(req.parent) else {
         return req;
@@ -849,7 +849,7 @@ pub fn insert_robot_collision_model(
         new_robot
             .properties
             .insert(Collision::label(), serialized_collision);
-        change_robot_property.write(Change::new(ModelProperty(new_robot), description_entity));
+        commands.trigger(Change::new(ModelProperty(new_robot), description_entity));
     };
 
     req

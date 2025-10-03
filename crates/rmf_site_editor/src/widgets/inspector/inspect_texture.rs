@@ -56,7 +56,6 @@ pub struct InspectTextureAffiliation<'w, 's> {
     icons: Res<'w, Icons>,
     search_for_texture: ResMut<'w, SearchForTexture>,
     commands: Commands<'w, 's>,
-    change_affiliation: EventWriter<'w, Change<Affiliation<Entity>>>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectTextureAffiliation<'w, 's> {
@@ -182,8 +181,8 @@ impl<'w, 's> InspectTextureAffiliation<'w, 's> {
                             })
                             .insert(ChildOf(site))
                             .id();
-                        self.change_affiliation
-                            .write(Change::new(Affiliation(Some(new_texture_group)), id));
+                        self.commands
+                            .trigger(Change::new(Affiliation(Some(new_texture_group)), id));
                     }
                 }
                 SearchResult::Match(group) => {
@@ -192,8 +191,8 @@ impl<'w, 's> InspectTextureAffiliation<'w, 's> {
                         .on_hover_text("Select this texture")
                         .clicked()
                     {
-                        self.change_affiliation
-                            .write(Change::new(Affiliation(Some(group)), id));
+                        self.commands
+                            .trigger(Change::new(Affiliation(Some(group)), id));
                     }
                 }
                 SearchResult::Conflict(text) => {
@@ -261,8 +260,7 @@ impl<'w, 's> InspectTextureAffiliation<'w, 's> {
         });
 
         if new_affiliation != *affiliation {
-            self.change_affiliation
-                .write(Change::new(new_affiliation, id));
+            self.commands.trigger(Change::new(new_affiliation, id));
         }
         ui.add_space(10.0);
     }

@@ -21,9 +21,8 @@ use super::{
 };
 use crate::{
     site::{
-        robot_properties::serialize_and_change_robot_property_kind, Battery, Change, Group,
-        ModelMarker, ModelProperty, ModelPropertyQuery, PowerSource, RecallPowerSource, Robot,
-        RobotProperty,
+        robot_properties::serialize_and_change_robot_property_kind, Battery, Group, ModelMarker,
+        ModelProperty, ModelPropertyQuery, PowerSource, RecallPowerSource, Robot, RobotProperty,
     },
     widgets::{prelude::*, Inspect},
 };
@@ -34,12 +33,12 @@ use smallvec::SmallVec;
 
 #[derive(SystemParam)]
 pub struct InspectPowerSource<'w, 's> {
+    commands: Commands<'w, 's>,
     robot_property_widgets: Res<'w, RobotPropertyWidgetRegistry>,
     model_instances: ModelPropertyQuery<'w, 's, Robot>,
     model_descriptions:
         Query<'w, 's, &'static ModelProperty<Robot>, (With<ModelMarker>, With<Group>)>,
     power_source: Query<'w, 's, &'static PowerSource, (With<ModelMarker>, With<Group>)>,
-    change_robot_property: EventWriter<'w, Change<ModelProperty<Robot>>>,
     children: Query<'w, 's, &'static Children>,
     recall_power_source:
         Query<'w, 's, &'static RecallPowerSource, (With<ModelMarker>, With<Group>)>,
@@ -56,7 +55,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPowerSource<'w, 's> {
         state: &mut SystemState<Self>,
         world: &mut World,
     ) {
-        let params = state.get_mut(world);
+        let mut params = state.get_mut(world);
         let Some(description_entity) = get_selected_description_entity(
             selection,
             &params.model_instances,
@@ -79,9 +78,9 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPowerSource<'w, 's> {
 
         show_robot_property_widget::<PowerSource>(
             ui,
+            &mut params.commands,
             params.power_source,
             recall_power_source,
-            params.change_robot_property,
             robot,
             &params.robot_property_widgets,
             description_entity,
@@ -113,6 +112,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPowerSource<'w, 's> {
 
 #[derive(SystemParam)]
 pub struct InspectBattery<'w, 's> {
+    commands: Commands<'w, 's>,
     model_instances: ModelPropertyQuery<'w, 's, Robot>,
     model_descriptions: Query<
         'w,
@@ -120,7 +120,6 @@ pub struct InspectBattery<'w, 's> {
         (&'static ModelProperty<Robot>, &'static Battery),
         (With<ModelMarker>, With<Group>),
     >,
-    change_robot_property: EventWriter<'w, Change<ModelProperty<Robot>>>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectBattery<'w, 's> {
@@ -182,7 +181,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectBattery<'w, 's> {
 
         if new_battery != *battery {
             serialize_and_change_robot_property_kind::<PowerSource, Battery>(
-                &mut params.change_robot_property,
+                &mut params.commands,
                 new_battery,
                 robot,
                 description_entity,

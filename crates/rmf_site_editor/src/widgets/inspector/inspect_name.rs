@@ -26,8 +26,8 @@ use rmf_site_format::NameInSite;
 
 #[derive(SystemParam)]
 pub struct InspectName<'w, 's> {
+    commands: Commands<'w, 's>,
     names_in_site: Query<'w, 's, &'static NameInSite>,
-    change_name_in_site: EventWriter<'w, Change<NameInSite>>,
 }
 
 impl<'w, 's> ShareableWidget for InspectName<'w, 's> {}
@@ -47,9 +47,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectName<'w, 's> {
                 ui.text_edit_singleline(&mut new_name.0);
             });
             if new_name != *name {
-                params
-                    .change_name_in_site
-                    .write(Change::new(new_name, selection));
+                params.commands.trigger(Change::new(new_name, selection));
             }
         }
     }

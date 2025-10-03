@@ -24,8 +24,8 @@ use rmf_site_egui::WidgetSystem;
 
 #[derive(SystemParam)]
 pub struct InspectMeasurement<'w, 's> {
+    commands: Commands<'w, 's>,
     distances: Query<'w, 's, &'static Distance>,
-    change_distance: EventWriter<'w, Change<Distance>>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectMeasurement<'w, 's> {
@@ -49,8 +49,8 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectMeasurement<'w, 's> {
             .show(ui)
         {
             params
-                .change_distance
-                .write(Change::new(Distance(new_distance), selection));
+                .commands
+                .trigger(Change::new(Distance(new_distance), selection));
         }
         ui.add_space(10.0);
     }
