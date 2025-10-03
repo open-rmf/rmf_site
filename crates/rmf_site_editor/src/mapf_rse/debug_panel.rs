@@ -611,8 +611,8 @@ fn handle_debug_panel_visibility(
 
 pub fn handle_debug_panel_changed(
     mapf_debug_window: Res<MAPFDebugDisplay>,
+    mut commands: Commands,
     mut robots: Query<(Entity, &Pose, Option<&mut Original<Pose>>), With<Robot>>,
-    mut change_pose: EventWriter<Change<Pose>>,
     mut change_plan: EventWriter<NegotiationRequest>,
     mut path_mesh_visibilities: Query<&mut Visibility, With<PathVisualMarker>>,
     mut occ_mesh_visibilities: Query<
@@ -649,7 +649,7 @@ pub fn handle_debug_panel_changed(
             // If debug window is closed, move robot to original pose
             for (robot_entity, _, robot_opose) in robots.iter() {
                 if let Some(opose) = robot_opose {
-                    change_pose.write(Change::new(opose.0, robot_entity));
+                    commands.trigger(Change::new(opose.0, robot_entity));
                 }
             }
 

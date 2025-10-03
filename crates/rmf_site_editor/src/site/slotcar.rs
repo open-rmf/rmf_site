@@ -45,7 +45,6 @@ impl Plugin for SlotcarSdfPlugin {
 
 fn insert_slotcar_components(
     mut commands: Commands,
-    mut change_robot_property: EventWriter<Change<ModelProperty<Robot>>>,
     is_static: Query<&ModelProperty<IsStatic>, (With<ModelMarker>, With<Group>)>,
     robot_property_kinds: Query<
         (
@@ -135,7 +134,7 @@ fn insert_slotcar_components(
                     );
                 }
 
-                change_robot_property.write(Change::new(ModelProperty(robot), desc));
+                commands.trigger(Change::new(ModelProperty(robot), desc));
             }
             commands
                 .entity(e)
