@@ -16,8 +16,7 @@
 */
 
 use crate::site::{
-    on_insert_affiliated_description, on_insert_model_property, on_remove_model_property, Change,
-    Group, ModelMarker, ModelProperty, ModelPropertyData, Robot,
+    update_model_instances, Change, Group, ModelMarker, ModelProperty, ModelPropertyData, Robot,
 };
 use bevy::prelude::*;
 use rmf_site_format::robot_properties::*;
@@ -54,11 +53,13 @@ impl Plugin for RobotPropertiesPlugin {
         );
         app.insert_resource(model_property_data);
         app.add_event::<UpdateRobotPropertyKinds>()
-            .add_observer(on_insert_affiliated_description::<Robot>)
-            .add_observer(on_insert_model_property::<Robot>)
-            .add_observer(on_remove_model_property::<Robot>);
+            .add_systems(PostUpdate, update_model_instances::<Robot>);
     }
 }
+
+// TODO(@xiyuoh) Combine on_insert and on_remove observers for RobotProperty
+// when multi-event observers become available (see
+// https://github.com/bevyengine/bevy/issues/14649)
 
 /// Monitors changes in a description's ModelProperty<Robot> and inserts the
 /// updated RobotProperty components accordingly
