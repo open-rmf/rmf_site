@@ -196,7 +196,7 @@ pub struct DragPlane {
     pub frame: FrameOfReference,
 }
 
-#[derive(Bundle)]
+#[derive(Bundle, Clone, Debug)]
 pub struct DragPlaneBundle {
     pub gizmo: Gizmo,
     pub draggable: Draggable,
