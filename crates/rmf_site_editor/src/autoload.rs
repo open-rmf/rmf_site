@@ -18,7 +18,7 @@
 use bevy::prelude::*;
 use std::path::PathBuf;
 
-#[derive(Resource)]
+#[derive(Resource, Clone)]
 pub struct Autoload {
     pub filename: Option<PathBuf>,
     pub import: Option<PathBuf>,

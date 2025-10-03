@@ -25,8 +25,8 @@ use rmf_site_egui::WidgetSystem;
 
 #[derive(SystemParam)]
 pub struct InspectLight<'w, 's> {
+    commands: Commands<'w, 's>,
     lights: Query<'w, 's, (&'static LightKind, &'static RecallLightKind)>,
-    change_light: EventWriter<'w, Change<LightKind>>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectLight<'w, 's> {
@@ -42,7 +42,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectLight<'w, 's> {
         };
 
         if let Some(new_light) = InspectLightKind::new(light, recall).show(ui) {
-            params.change_light.write(Change::new(new_light, selection));
+            params.commands.trigger(Change::new(new_light, selection));
         }
         ui.add_space(10.0);
     }
