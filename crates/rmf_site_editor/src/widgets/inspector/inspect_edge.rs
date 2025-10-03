@@ -75,7 +75,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectEdge<'w, 's> {
         };
 
         let labels = labels.copied().unwrap_or_default();
-        let category = *category;
+        let category = category.clone();
 
         Grid::new("inspect_edge").show(ui, |ui| {
             ui.label("");
@@ -90,7 +90,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectEdge<'w, 's> {
                 id,
                 edge,
                 labels,
-                category,
+                category.clone(),
                 panel,
                 ui,
                 state,
@@ -101,7 +101,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectEdge<'w, 's> {
                 id,
                 edge,
                 labels,
-                category,
+                category.clone(),
                 panel,
                 ui,
                 state,
@@ -140,7 +140,10 @@ impl<'w, 's> InspectEdge<'w, 's> {
             Some(response) => {
                 if response.replace {
                     let mut params = state.get_mut(world);
-                    if params.anchor_selection.replace_side(id, side, category) {
+                    if params
+                        .anchor_selection
+                        .replace_side(id, side, category.clone())
+                    {
                         info!(
                             "Triggered anchor replacement for side \
                             {side:?} of edge {edge:?} with category {category:?}"
