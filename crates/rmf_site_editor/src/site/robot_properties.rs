@@ -57,13 +57,49 @@ impl Plugin for RobotPropertiesPlugin {
     }
 }
 
-// TODO(@xiyuoh) Combine on_insert and on_remove observers for RobotProperty
-// when multi-event observers become available (see
+// TODO(@xiyuoh) Combine on_insert, on_change and on_remove observers for
+// RobotProperty when multi-event observers become available (see
 // https://github.com/bevyengine/bevy/issues/14649)
+
+/// Monitors newly added ModelProperty<Robot> and inserts the relevant
+/// RobotProperty components accordingly
+pub fn on_add_robot_property<T: RobotProperty>(
+    trigger: Trigger<OnAdd, ModelProperty<Robot>>,
+    model_properties: Query<&ModelProperty<Robot>, (With<ModelMarker>, With<Group>)>,
+    mut commands: Commands,
+) {
+    let description_entity = trigger.target();
+    let Ok(robot) = model_properties
+        .get(description_entity)
+        .map(|robot| robot.0.clone())
+    else {
+        return;
+    };
+
+    // Update robot property
+    let value = match retrieve_robot_property::<T>(robot) {
+        Ok((property, value)) => {
+            commands.entity(description_entity).insert(property);
+            value
+        }
+        Err(RobotPropertyError::PropertyNotFound(_)) => {
+            commands.entity(description_entity).remove::<T>();
+            serde_json::Value::Object(Map::new())
+        }
+        Err(_) => return,
+    };
+
+    // Update robot property kinds
+    commands.trigger(UpdateRobotPropertyKinds {
+        entity: description_entity,
+        label: T::label(),
+        value,
+    });
+}
 
 /// Monitors changes in a description's ModelProperty<Robot> and inserts the
 /// updated RobotProperty components accordingly
-pub fn on_insert_robot_property<T: RobotProperty>(
+pub fn on_change_robot_property<T: RobotProperty>(
     trigger: Trigger<Change<ModelProperty<Robot>>>,
     mut commands: Commands,
 ) {
@@ -133,6 +169,34 @@ pub fn on_update_robot_property_kind<
             commands.entity(event.entity).remove::<Kind>();
         }
         Err(_) => return,
+    }
+}
+
+pub fn on_empty_robot_property<T: RobotProperty>(
+    trigger: Trigger<UpdateRobotPropertyKinds>,
+    mut commands: Commands,
+) {
+    let event = trigger.event();
+    let empty_label = EmptyRobotProperty::<T>::label();
+    if event.label != T::label() {
+        return;
+    }
+
+    // Check if config contains EmptyRobotProperty
+    if event
+        .value
+        .as_object()
+        .and_then(|m| m.get("kind"))
+        .and_then(|kind| kind.as_str())
+        .is_some_and(|kind| kind == &empty_label)
+    {
+        commands
+            .entity(event.entity)
+            .insert(EmptyRobotProperty::<T>::default());
+    } else {
+        commands
+            .entity(event.entity)
+            .remove::<EmptyRobotProperty<T>>();
     }
 }
 

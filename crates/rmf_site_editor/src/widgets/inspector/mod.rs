@@ -232,6 +232,7 @@ impl Plugin for StandardInspectorPlugin {
                     Collision,
                     RecallCircleCollision,
                 >::new(),
+                EmptyRobotPropertyPlugin::<Collision>::new(),
                 InspectRobotPropertyKindPlugin::<
                     InspectBattery,
                     Battery,

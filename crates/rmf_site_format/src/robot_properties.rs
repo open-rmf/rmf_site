@@ -190,6 +190,23 @@ pub fn retrieve_robot_property_kind<
     Err(RobotPropertyError::PropertyKindNotFound(Kind::label()))
 }
 
+/// Common RobotPropertyKind used to indicate that this RobotProperty is
+/// intentionally left empty. This helps to prevent overwriting or unwanted
+/// insertion of RobotPropertyKinds.
+#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
+pub struct EmptyRobotProperty<T: RobotProperty> {
+    _ignore: std::marker::PhantomData<T>,
+}
+
+#[cfg(feature = "bevy")]
+impl<T: RobotProperty> RobotPropertyKind for EmptyRobotProperty<T> {
+    fn label() -> String {
+        format!("Empty {}", T::label())
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct Mobility {

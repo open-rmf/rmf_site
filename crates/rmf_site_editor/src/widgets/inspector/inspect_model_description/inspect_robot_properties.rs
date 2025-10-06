@@ -203,7 +203,8 @@ where
                     kinds: HashMap::new(),
                 },
             );
-        app.add_observer(on_insert_robot_property::<Property>)
+        app.add_observer(on_add_robot_property::<Property>)
+            .add_observer(on_change_robot_property::<Property>)
             .add_observer(on_remove_robot_property::<Property>)
             .add_plugins(RecallPlugin::<RecallProperty>::default());
     }
@@ -273,6 +274,38 @@ where
             });
         app.add_observer(on_update_robot_property_kind::<Kind, Property, RecallKind>)
             .add_plugins(RecallPlugin::<RecallKind>::default());
+    }
+}
+
+#[derive(Default)]
+pub struct EmptyRobotPropertyPlugin<T: RobotProperty> {
+    _ignore: std::marker::PhantomData<T>,
+}
+
+impl<T: RobotProperty> EmptyRobotPropertyPlugin<T> {
+    pub fn new() -> Self {
+        Self {
+            _ignore: Default::default(),
+        }
+    }
+}
+
+impl<T: RobotProperty> Plugin for EmptyRobotPropertyPlugin<T> {
+    fn build(&self, app: &mut App) {
+        let property_label = T::label();
+        app.world_mut()
+            .resource_mut::<RobotPropertyWidgetRegistry>()
+            .0
+            .get_mut(&property_label)
+            .map(|registration| {
+                registration.kinds.insert(
+                    EmptyRobotProperty::<T>::label(),
+                    RobotPropertyKindWidgetRegistration {
+                        default: || Ok(Value::Null),
+                    },
+                );
+            });
+        app.add_observer(on_empty_robot_property::<T>);
     }
 }
 
