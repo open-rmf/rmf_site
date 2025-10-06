@@ -327,7 +327,6 @@ impl Plugin for SitePlugin {
             RobotPropertyKindPlugin::<AmbientSystem, PowerDissipation, RecallAmbientSystem>::default(),
             RobotPropertyKindPlugin::<MechanicalSystem, PowerDissipation, RecallMechanicalSystem>::default(),
             RobotPropertyKindPlugin::<Battery, PowerSource, RecallBattery>::default(),
-            
         ))
         .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
         .add_issue_type(&DUPLICATED_LIFT_NAME_ISSUE_UUID, "Duplicate lift name")
