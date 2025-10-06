@@ -209,49 +209,43 @@ impl Plugin for StandardInspectorPlugin {
                 InspectModelDescriptionPlugin::default(),
                 InspectLiftPlugin::default(),
             ))
-            .add_plugins((
-                // Required model properties
-                InspectModelPropertyPlugin::<InspectModelScale, Scale>::new("Scale".to_string()),
-                InspectModelPropertyPlugin::<InspectModelAssetSource, AssetSource>::new(
-                    "Asset Source".to_string(),
+            .add_plugins(
+                (
+                    // Required model properties
+                    InspectModelPropertyPlugin::<InspectModelScale, Scale>::new(
+                        "Scale".to_string(),
+                    ),
+                    InspectModelPropertyPlugin::<InspectModelAssetSource, AssetSource>::new(
+                        "Asset Source".to_string(),
+                    ),
+                    InspectRobotPropertiesPlugin::default(),
+                    InspectRobotPropertyPlugin::<InspectMobility, Mobility>::new(),
+                    InspectRobotPropertyPlugin::<InspectCollision, Collision>::new(),
+                    InspectRobotPropertyPlugin::<InspectPowerSource, PowerSource>::new(),
+                    InspectRobotPropertyPlugin::<InspectPowerDissipation, PowerDissipation>::new(),
+                    InspectRobotPropertyKindPlugin::<
+                        InspectDifferentialDrive,
+                        DifferentialDrive,
+                        Mobility,
+                    >::new(),
+                    InspectRobotPropertyKindPlugin::<
+                        InspectCircleCollision,
+                        CircleCollision,
+                        Collision,
+                    >::new(),
+                    InspectRobotPropertyKindPlugin::<InspectBattery, Battery, PowerSource>::new(),
+                    InspectRobotPropertyKindPlugin::<
+                        InspectAmbientSystem,
+                        AmbientSystem,
+                        PowerDissipation,
+                    >::new(),
+                    InspectRobotPropertyKindPlugin::<
+                        InspectMechanicalSystem,
+                        MechanicalSystem,
+                        PowerDissipation,
+                    >::new(),
                 ),
-                InspectRobotPropertiesPlugin::default(),
-                InspectRobotPropertyPlugin::<InspectMobility, Mobility, RecallMobility>::new(),
-                InspectRobotPropertyPlugin::<InspectCollision, Collision, RecallCollision>::new(),
-                InspectRobotPropertyPlugin::<InspectPowerSource, PowerSource, RecallPowerSource>::new(),
-                InspectRobotPropertyPlugin::<InspectPowerDissipation, PowerDissipation, RecallPowerDissipation>::new(),
-                InspectRobotPropertyKindPlugin::<
-                    InspectDifferentialDrive,
-                    DifferentialDrive,
-                    Mobility,
-                    RecallDifferentialDrive,
-                >::new(),
-                InspectRobotPropertyKindPlugin::<
-                    InspectCircleCollision,
-                    CircleCollision,
-                    Collision,
-                    RecallCircleCollision,
-                >::new(),
-                EmptyRobotPropertyPlugin::<Collision>::new(),
-                InspectRobotPropertyKindPlugin::<
-                    InspectBattery,
-                    Battery,
-                    PowerSource,
-                    RecallBattery,
-                >::new(),
-                InspectRobotPropertyKindPlugin::<
-                    InspectAmbientSystem,
-                    AmbientSystem,
-                    PowerDissipation,
-                    RecallAmbientSystem,
-                >::new(),
-                InspectRobotPropertyKindPlugin::<
-                    InspectMechanicalSystem,
-                    MechanicalSystem,
-                    PowerDissipation,
-                    RecallMechanicalSystem,
-                >::new(),
-            ));
+            );
     }
 }
 

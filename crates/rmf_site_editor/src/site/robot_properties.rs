@@ -16,12 +16,13 @@
 */
 
 use crate::site::{
-    update_model_instances, Change, Group, ModelMarker, ModelProperty, ModelPropertyData, Robot,
+    update_model_instances, Change, Group, ModelMarker, ModelProperty, ModelPropertyData, Recall,
+    RecallPlugin, Robot,
 };
-use bevy::prelude::*;
+use bevy::{ecs::component::Mutable, prelude::*};
 use rmf_site_format::robot_properties::*;
-use serde_json::Map;
-use std::fmt::Debug;
+use serde_json::{Error, Map, Value};
+use std::{collections::HashMap, fmt::Debug};
 
 #[derive(Debug, Event)]
 pub struct UpdateRobotPropertyKinds {
@@ -52,8 +53,158 @@ impl Plugin for RobotPropertiesPlugin {
             ),
         );
         app.insert_resource(model_property_data);
+        app.world_mut().init_resource::<RobotPropertyRegistry>();
         app.add_event::<UpdateRobotPropertyKinds>()
             .add_systems(PostUpdate, update_model_instances::<Robot>);
+    }
+}
+
+type InsertDefaultValueFn = fn() -> Result<Value, Error>;
+
+pub struct RobotPropertyRegistration {
+    pub widget: Option<Entity>,
+    pub kinds: HashMap<String, RobotPropertyKindRegistration>,
+}
+
+pub struct RobotPropertyKindRegistration {
+    pub default: InsertDefaultValueFn,
+}
+
+/// This resource keeps track of all the properties that can be configured for a robot.
+#[derive(Resource, Deref, DerefMut)]
+pub struct RobotPropertyRegistry(pub HashMap<String, RobotPropertyRegistration>);
+
+impl FromWorld for RobotPropertyRegistry {
+    fn from_world(_world: &mut World) -> Self {
+        Self(HashMap::new())
+    }
+}
+
+/// Implement this plugin to add a new configurable robot property to the site
+pub struct RobotPropertyPlugin<Property, RecallProperty>
+where
+    Property: RobotProperty,
+    RecallProperty: Recall + Component<Mutability = Mutable> + Default,
+    RecallProperty::Source: RobotProperty,
+{
+    _ignore: std::marker::PhantomData<(Property, RecallProperty)>,
+}
+
+impl<Property, RecallProperty> Default for RobotPropertyPlugin<Property, RecallProperty>
+where
+    Property: RobotProperty,
+    RecallProperty: Recall + Component<Mutability = Mutable> + Default,
+    RecallProperty::Source: RobotProperty,
+{
+    fn default() -> Self {
+        Self {
+            _ignore: Default::default(),
+        }
+    }
+}
+
+impl<Property, RecallProperty> Plugin for RobotPropertyPlugin<Property, RecallProperty>
+where
+    Property: RobotProperty,
+    RecallProperty: Recall + Component<Mutability = Mutable> + Default,
+    RecallProperty::Source: RobotProperty,
+{
+    fn build(&self, app: &mut App) {
+        app.world_mut()
+            .resource_mut::<RobotPropertyRegistry>()
+            .0
+            .insert(
+                Property::label(),
+                RobotPropertyRegistration {
+                    widget: None,
+                    kinds: HashMap::new(),
+                },
+            );
+        app.add_observer(on_add_robot_property::<Property>)
+            .add_observer(on_change_robot_property::<Property>)
+            .add_observer(on_remove_robot_property::<Property>)
+            .add_plugins(RecallPlugin::<RecallProperty>::default());
+    }
+}
+
+/// Implement this plugin to add a new configurable robot property kind to the site
+pub struct RobotPropertyKindPlugin<Kind, Property, RecallKind>
+where
+    Kind: RobotPropertyKind,
+    Property: RobotProperty,
+    RecallKind: RecallPropertyKind<Kind = Kind>,
+    RecallKind::Source: RobotPropertyKind,
+{
+    _ignore: std::marker::PhantomData<(Kind, Property, RecallKind)>,
+}
+
+impl<Kind, Property, RecallKind> Default for RobotPropertyKindPlugin<Kind, Property, RecallKind>
+where
+    Kind: RobotPropertyKind,
+    Property: RobotProperty,
+    RecallKind: RecallPropertyKind<Kind = Kind>,
+    RecallKind::Source: RobotPropertyKind,
+{
+    fn default() -> Self {
+        Self {
+            _ignore: Default::default(),
+        }
+    }
+}
+
+impl<Kind, Property, RecallKind> Plugin for RobotPropertyKindPlugin<Kind, Property, RecallKind>
+where
+    Kind: RobotPropertyKind,
+    Property: RobotProperty,
+    RecallKind: RecallPropertyKind<Kind = Kind>,
+    RecallKind::Source: RobotPropertyKind,
+{
+    fn build(&self, app: &mut App) {
+        app.world_mut()
+            .resource_mut::<RobotPropertyRegistry>()
+            .0
+            .get_mut(&Property::label())
+            .map(|registration| {
+                registration.kinds.insert(
+                    Kind::label(),
+                    RobotPropertyKindRegistration {
+                        default: || serde_json::to_value(Kind::default()),
+                    },
+                );
+            });
+        app.add_observer(on_update_robot_property_kind::<Kind, Property, RecallKind>)
+            .add_plugins(RecallPlugin::<RecallKind>::default());
+    }
+}
+
+#[derive(Default)]
+pub struct EmptyRobotPropertyPlugin<T: RobotProperty> {
+    _ignore: std::marker::PhantomData<T>,
+}
+
+impl<T: RobotProperty> EmptyRobotPropertyPlugin<T> {
+    pub fn new() -> Self {
+        Self {
+            _ignore: Default::default(),
+        }
+    }
+}
+
+impl<T: RobotProperty> Plugin for EmptyRobotPropertyPlugin<T> {
+    fn build(&self, app: &mut App) {
+        app.world_mut()
+            .resource_mut::<RobotPropertyRegistry>()
+            .0
+            .get_mut(&T::label())
+            .map(|registration| {
+                registration.kinds.insert(
+                    EmptyRobotProperty::<T>::label(),
+                    RobotPropertyKindRegistration {
+                        default: || Ok(Value::Null),
+                    },
+                );
+            });
+        app.add_observer(on_empty_robot_property::<T>);
     }
 }
 
