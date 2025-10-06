@@ -194,6 +194,7 @@ pub fn retrieve_robot_property_kind<
 /// intentionally left empty. This helps to prevent overwriting or unwanted
 /// insertion of RobotPropertyKinds.
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
+#[cfg(feature = "bevy")]
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct EmptyRobotProperty<T: RobotProperty> {
