@@ -69,9 +69,6 @@ pub struct ViewNavGraphs<'w, 's> {
     current_workspace: ResMut<'w, CurrentWorkspace>,
     display_nav_graph: ResMut<'w, NavGraphDisplay>,
     delete: EventWriter<'w, Delete>,
-    change_visibility: EventWriter<'w, Change<Visibility>>,
-    change_name: EventWriter<'w, Change<NameInSite>>,
-    change_color: EventWriter<'w, Change<DisplayColor>>,
     change_rank: EventWriter<'w, ChangeRank<NavGraphMarker>>,
     selector: SelectorWidget<'w, 's>,
     commands: Commands<'w, 's>,
@@ -181,7 +178,7 @@ impl<'w, 's> ViewNavGraphs<'w, 's> {
                         } else {
                             Visibility::Hidden
                         };
-                        self.change_visibility.write(Change::new(visibility, e));
+                        self.commands.trigger(Change::new(visibility, e));
                     }
                 }
 
@@ -190,8 +187,8 @@ impl<'w, 's> ViewNavGraphs<'w, 's> {
                 let mut new_color = color.0;
                 color_edit(ui, &mut new_color);
                 if new_color != color.0 {
-                    self.change_color
-                        .write(Change::new(DisplayColor(new_color), e));
+                    self.commands
+                        .trigger(Change::new(DisplayColor(new_color), e));
                 }
 
                 let mut new_name = name.0.clone();
@@ -200,7 +197,7 @@ impl<'w, 's> ViewNavGraphs<'w, 's> {
                     .ui(ui)
                     .changed()
                 {
-                    self.change_name.write(Change::new(NameInSite(new_name), e));
+                    self.commands.trigger(Change::new(NameInSite(new_name), e));
                 }
             });
         }

@@ -17,7 +17,7 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity, Query, With};
+use bevy::prelude::{Bundle, Color, Component, Deref, DerefMut, Entity, Query, With};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, HashMap};
 
@@ -55,10 +55,17 @@ impl Default for NavGraph {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 #[serde(transparent)]
 #[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
 pub struct DisplayColor(pub [f32; 3]);
+
+impl DisplayColor {
+    #[cfg(feature = "bevy")]
+    pub fn to_bevy(&self) -> Color {
+        Color::srgb(self.0[0], self.0[1], self.0[2])
+    }
+}
 
 /// This component is used by graph elements such as [`Lane`] and [`Location`]
 /// to indicate what graphs they can be associated with.

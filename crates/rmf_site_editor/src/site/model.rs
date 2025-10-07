@@ -18,7 +18,8 @@
 use crate::{
     interaction::DragPlaneBundle,
     site::{
-        get_current_workspace_path, CurrentScenario, DefaultFile, Delete, SiteAssets,
+        get_current_workspace_path, Change, CircleCollision, Collision, CurrentScenario,
+        DefaultFile, Delete, Mobility, RobotProperty, RobotPropertyKind, SiteAssets,
         UpdateModifier,
     },
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
@@ -34,7 +35,7 @@ use bevy::{
     },
     gltf::Gltf,
     prelude::*,
-    render::view::RenderLayers,
+    render::{mesh::VertexAttributeValues, view::RenderLayers},
     scene::SceneInstance,
 };
 use bevy_impulse::*;
@@ -42,7 +43,7 @@ use bevy_mod_outline::{GenerateOutlineNormalsSettings, OutlineMeshExt};
 use rmf_site_camera::MODEL_PREVIEW_LAYER;
 use rmf_site_format::{
     Affiliation, AssetSource, Group, Inclusion, IssueKey, ModelInstance, ModelMarker,
-    ModelProperty, NameInSite, Pending, Scale,
+    ModelProperty, NameInSite, Pending, Robot, Scale,
 };
 use rmf_site_picking::Preview;
 use smallvec::SmallVec;
@@ -80,7 +81,10 @@ pub fn get_all_for_source(source: &AssetSource) -> Vec<AssetSource> {
 
             paths
         }
-        AssetSource::Local(_) | AssetSource::Remote(_) | AssetSource::Package(_) => {
+        AssetSource::Local(_)
+        | AssetSource::Remote(_)
+        | AssetSource::Package(_)
+        | AssetSource::Memory(_) => {
             let mut v = Vec::new();
             v.push(source.clone());
             v
@@ -158,34 +162,46 @@ fn load_asset_source(
     let base_path = current_workspace.and_then(|w| get_current_workspace_path(w, site_files));
 
     async move {
-        let asset_path = match String::try_from(&source.with_base_path(base_path.as_ref())) {
-            Ok(asset_path) => asset_path,
-            Err(err) => {
-                return Err(ModelLoadingErrorKind::InvalidAssetSource(err.to_string()));
-            }
-        };
-        asset_server
-            .load_untyped_async(&asset_path)
-            .await
-            .map_err(|err| {
-                if !matches!(
-                    err,
-                    AssetLoadError::AssetReaderError(AssetReaderError::Io(_))
-                ) {
-                    // AssetReaderError::Io is a common error during searches, so
-                    // we skip it, but other errors may indicate that a problem
-                    // exists in the asset itself.
-                    error!("Failed attempt to load asset with [{asset_path}]: {err}");
+        if let AssetSource::Memory(path) = source {
+            let handle: Handle<Scene> = asset_server
+                .load(GltfAssetLabel::Scene(0).from_asset(format!("memory://{}", path)));
+            Ok(handle.untyped())
+        } else {
+            let asset_path = match String::try_from(&source.with_base_path(base_path.as_ref())) {
+                Ok(asset_path) => asset_path,
+                Err(err) => {
+                    return Err(ModelLoadingErrorKind::InvalidAssetSource(err.to_string()));
                 }
-                ModelLoadingErrorKind::AssetServerError(err.to_string())
-            })
+            };
+            asset_server
+                .load_untyped_async(&asset_path)
+                .await
+                .map_err(|err| {
+                    if !matches!(
+                        err,
+                        AssetLoadError::AssetReaderError(AssetReaderError::Io(_))
+                    ) {
+                        // AssetReaderError::Io is a common error during searches, so
+                        // we skip it, but other errors may indicate that a problem
+                        // exists in the asset itself.
+                        error!("Failed attempt to load asset with [{asset_path}]: {err}");
+                    }
+                    ModelLoadingErrorKind::AssetServerError(err.to_string())
+                })
+        }
     }
 }
+
+// TODO(@xiyuoh) make this into a feature
+#[derive(Component, Clone, Debug)]
+pub struct SceneHandle(pub UntypedHandle);
 
 pub fn spawn_scene_for_loaded_model(
     In((parent, h, source)): In<(Entity, UntypedHandle, AssetSource)>,
     world: &mut World,
 ) -> Option<(Entity, bool)> {
+    // TODO(@xiyuoh) make this into a feature
+    world.entity_mut(parent).insert(SceneHandle(h.clone()));
     // For each model that is loading, check if its scene has finished loading
     // yet. If the scene has finished loading, then insert it as a child of the
     // model entity and make it selectable.
@@ -426,6 +442,7 @@ fn instance_spawn_request_into_model_load_request(
     Ok(ModelLoadingRequest {
         parent: request.parent,
         source: source.0.clone(),
+        interaction: Some(DragPlaneBundle::new(request.parent, Vec3::Z)),
     })
 }
 
@@ -486,7 +503,9 @@ impl<'w, 's> ModelLoader<'w, 's> {
 
     /// Run a basic workflow to update the asset source of an existing entity
     pub fn update_asset_source(&mut self, entity: Entity, source: AssetSource) {
-        self.update_asset_source_impulse(entity, source).detach();
+        let interaction = DragPlaneBundle::new(entity, Vec3::Z);
+        self.update_asset_source_impulse(entity, source, Some(interaction))
+            .detach();
     }
 
     /// Update an asset source and then keep attaching impulses to its outcome.
@@ -496,9 +515,10 @@ impl<'w, 's> ModelLoader<'w, 's> {
         &mut self,
         entity: Entity,
         source: AssetSource,
+        interaction: Option<DragPlaneBundle>,
     ) -> Impulse<'w, 's, '_, ModelLoadingResult, ()> {
         self.commands.request(
-            ModelLoadingRequest::new(entity, source),
+            ModelLoadingRequest::new(entity, source, interaction),
             self.services
                 .load_model
                 .clone()
@@ -517,8 +537,9 @@ impl<'w, 's> ModelLoader<'w, 's> {
                 }
             }
         }
+        let interaction = DragPlaneBundle::new(entity, Vec3::Z);
         for e in instance_entities.iter() {
-            self.update_asset_source_impulse(*e, source.clone())
+            self.update_asset_source_impulse(*e, source.clone(), Some(interaction.clone()))
                 .detach();
         }
     }
@@ -539,7 +560,10 @@ fn load_model_dependencies(
     async move {
         for (model_entity, source) in models {
             channel
-                .query(ModelLoadingRequest::new(model_entity, source), load_model)
+                .query(
+                    ModelLoadingRequest::new(model_entity, source, request.interaction.clone()),
+                    load_model,
+                )
                 .await
                 .available()
                 .ok_or_else(|| {
@@ -606,6 +630,7 @@ impl ModelLoadingServices {
                     // render layers
                     .then(propagate_model_properties.into_blocking_callback())
                     .then(make_models_selectable.into_blocking_callback())
+                    .then(insert_robot_collision_model.into_blocking_callback())
                     .then(make_models_visible.into_blocking_callback())
                     .map_block(|req| {
                         Ok(ModelLoadingSuccess {
@@ -653,11 +678,17 @@ pub struct ModelLoadingRequest {
     pub parent: Entity,
     /// AssetSource pointing to which asset we want to load
     pub source: AssetSource,
+    /// Indicates if and which entity should be made selectable
+    pub interaction: Option<DragPlaneBundle>,
 }
 
 impl ModelLoadingRequest {
-    pub fn new(parent: Entity, source: AssetSource) -> Self {
-        Self { parent, source }
+    pub fn new(parent: Entity, source: AssetSource, interaction: Option<DragPlaneBundle>) -> Self {
+        Self {
+            parent,
+            source,
+            interaction,
+        }
     }
 }
 
@@ -747,6 +778,83 @@ pub fn update_model_scales(
     }
 }
 
+pub fn insert_robot_collision_model(
+    In(req): In<ModelLoadingRequest>,
+    robot_model_descriptions: Query<&Affiliation<Entity>, With<Robot>>,
+    model_descriptions: Query<&ModelProperty<Robot>, (With<ModelMarker>, With<Group>)>,
+    mesh_handles: Query<&Mesh3d>,
+    all_children: Query<&Children>,
+    meshes: Res<Assets<Mesh>>,
+    mut commands: Commands,
+) -> ModelLoadingRequest {
+    let Ok(robot_affiliation) = robot_model_descriptions.get(req.parent) else {
+        return req;
+    };
+
+    let Some(description_entity) = robot_affiliation.0 else {
+        return req;
+    };
+
+    let Ok(ModelProperty(robot)) = model_descriptions.get(description_entity) else {
+        return req;
+    };
+
+    // Check if robot's model description already contains collision model
+    if robot.properties.contains_key(&Collision::label()) {
+        return req;
+    }
+
+    // TODO(Nielsen): Is allocation of 32 sufficient?
+    let mut queue: SmallVec<[Entity; 32]> = SmallVec::new();
+    queue.push(req.parent);
+
+    let mut max_dist_to_mesh_vertex = 0.0;
+
+    while let Some(e) = queue.pop() {
+        if let Ok(mesh_handle) = mesh_handles.get(e) {
+            if let Some(mesh) = meshes.get(mesh_handle) {
+                if let Some(VertexAttributeValues::Float32x3(positions)) =
+                    mesh.attribute(Mesh::ATTRIBUTE_POSITION)
+                {
+                    for p in positions {
+                        let dist_to_mesh_vertex = (p[0] * p[0] + p[1] * p[1]).sqrt();
+                        if dist_to_mesh_vertex > max_dist_to_mesh_vertex {
+                            max_dist_to_mesh_vertex = dist_to_mesh_vertex;
+                        }
+                    }
+                }
+            }
+        }
+
+        if let Ok(children) = all_children.get(e) {
+            for child in children {
+                if queue.spilled() {
+                    warn!("Queue in insert_robot_collision_model is full, using heap allocation");
+                }
+                queue.push(*child);
+            }
+        }
+    }
+
+    let circle_collision = CircleCollision {
+        radius: max_dist_to_mesh_vertex,
+        offset: [0.0, 0.0],
+    };
+
+    if let Ok(serialized_collision) = serde_json::to_value(circle_collision)
+        .map(|circle| Mobility::new(CircleCollision::label(), circle))
+        .and_then(|collision| serde_json::to_value(collision))
+    {
+        let mut new_robot = robot.clone();
+        new_robot
+            .properties
+            .insert(Collision::label(), serialized_collision);
+        commands.trigger(Change::new(ModelProperty(new_robot), description_entity));
+    };
+
+    req
+}
+
 pub fn make_models_selectable(
     In(req): In<ModelLoadingRequest>,
     mut commands: Commands,
@@ -771,12 +879,13 @@ pub fn make_models_selectable(
     {
         return req;
     }
+    let Some(interaction) = req.interaction.clone() else {
+        return req;
+    };
     queue.push(req.parent);
 
     while let Some(e) = queue.pop() {
-        commands
-            .entity(e)
-            .insert(DragPlaneBundle::new(req.parent, Vec3::Z));
+        commands.entity(e).insert(interaction.clone());
 
         if let Ok(mesh_handle) = mesh_handles.get(e) {
             if let Some(mesh) = mesh_assets.get_mut(mesh_handle) {

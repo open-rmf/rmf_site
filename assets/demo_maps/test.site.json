@@ -136,7 +136,8 @@
           "name": "<Unnamed>",
           "kind": {
             "SingleSliding": {
-              "towards": "Left"
+              "towards": "Left",
+              "position": 1.0
             }
           }
         }
@@ -590,7 +591,9 @@
         "47": {
           "kind": {
             "DoubleSliding": {
-              "left_right_ratio": 1.0
+              "left_right_ratio": 1.0,
+              "left_position": 1.0,
+              "right_position": 1.0
             }
           },
           "reference_anchors": [

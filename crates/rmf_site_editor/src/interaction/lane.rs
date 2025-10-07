@@ -16,6 +16,7 @@
 */
 
 use crate::{interaction::*, layers::ZLayer, site::*};
+use bevy::pbr::ExtendedMaterial;
 use bevy::prelude::*;
 use rmf_site_format::{Edge, LaneMarker};
 
@@ -39,6 +40,10 @@ pub fn update_lane_visual_cues(
         ),
     >,
     mut materials: Query<&mut MeshMaterial3d<StandardMaterial>>,
+    mut lane_materials: Query<
+        &MeshMaterial3d<ExtendedMaterial<StandardMaterial, LaneArrowMaterial>>,
+    >,
+    mut extended_materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, LaneArrowMaterial>>>,
     mut visibility: Query<&mut Visibility>,
     site_assets: Res<SiteAssets>,
     cursor: Res<Cursor>,
@@ -76,5 +81,15 @@ pub fn update_lane_visual_cues(
         }
 
         tf.translation.z = h;
+
+        if let Some(mat) = lane_materials.get_mut(pieces.mid).ok() {
+            if let Some(lane_mat) = extended_materials.get_mut(&mat.0) {
+                *lane_mat.extension.interacting = if hovered.cue() || selected.cue() {
+                    true as u32
+                } else {
+                    false as u32
+                };
+            }
+        }
     }
 }
