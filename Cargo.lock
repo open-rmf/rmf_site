@@ -5672,6 +5672,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "rmf_site_cmake"
+version = "0.1.0"
+
+[[package]]
 name = "rmf_site_editor"
 version = "0.0.1"
 dependencies = [
@@ -5761,10 +5765,14 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "testdir",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "urdf-rs",
  "uuid",
 ]
+
+[[package]]
+name = "rmf_site_maps"
+version = "0.1.0"
 
 [[package]]
 name = "rmf_site_mesh"
@@ -8278,3 +8286,7 @@ checksum = "2c9e525af0a6a658e031e95f14b7f889976b74a11ba0eca5a5fc9ac8a1c43a6a"
 dependencies = [
  "zune-core",
 ]
+
+[[patch.unused]]
+name = "rmf_site_format"
+version = "0.0.1"

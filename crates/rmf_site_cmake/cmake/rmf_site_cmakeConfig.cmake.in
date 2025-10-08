@@ -1,0 +1,6 @@
+@PACKAGE_INIT@
+
+get_filename_component(rmf_site_cmake_DIR "${CMAKE_CURRENT_LIST_DIR}" ABSOLUTE)
+
+include("${rmf_site_cmake_DIR}/rmf_site_generate.cmake")
+set(rmf_site_cmake_DATADIR "@DATADIR@")
