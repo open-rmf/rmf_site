@@ -263,10 +263,17 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectMechanicalSystem<'w, 's> {
             if opt_mechanical_system.is_none() || new_mechanical_system != mechanical_system {
                 // Update Robot properties
                 if let Ok(mech_sys_value) = serde_json::to_value(new_mechanical_system) {
-                    if let Some(power_dissipation_map) = new_robot
+                    let power_dissipation_value = new_robot
                         .properties
-                        .get_mut(&power_dissipation_label)
-                        .and_then(|value| value.as_object_mut())
+                        .entry(power_dissipation_label)
+                        .and_modify(|val| {
+                            if val.is_null() {
+                                *val = Value::Object(Map::new());
+                            }
+                        })
+                        .or_insert(Value::Object(Map::new()));
+                    if let Some(power_dissipation_map) = power_dissipation_value
+                        .as_object_mut()
                         .map(|map| map.entry("config").or_insert(Value::Object(Map::new())))
                         .and_then(|config| config.as_object_mut())
                     {
@@ -376,10 +383,17 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectAmbientSystem<'w, 's> {
             if opt_ambient_system.is_none() || new_ambient_system != ambient_system {
                 // Update Robot properties
                 if let Ok(ambient_system_value) = serde_json::to_value(new_ambient_system) {
-                    if let Some(power_dissipation_map) = new_robot
+                    let power_dissipation_value = new_robot
                         .properties
-                        .get_mut(&power_dissipation_label)
-                        .and_then(|value| value.as_object_mut())
+                        .entry(power_dissipation_label)
+                        .and_modify(|val| {
+                            if val.is_null() {
+                                *val = Value::Object(Map::new());
+                            }
+                        })
+                        .or_insert(Value::Object(Map::new()));
+                    if let Some(power_dissipation_map) = power_dissipation_value
+                        .as_object_mut()
                         .map(|map| map.entry("config").or_insert(Value::Object(Map::new())))
                         .and_then(|config| config.as_object_mut())
                     {
