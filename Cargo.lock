@@ -5672,10 +5672,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rmf_site_cmake"
-version = "0.1.0"
-
-[[package]]
 name = "rmf_site_editor"
 version = "0.0.1"
 dependencies = [
@@ -5769,10 +5765,6 @@ dependencies = [
  "urdf-rs",
  "uuid",
 ]
-
-[[package]]
-name = "rmf_site_maps"
-version = "0.1.0"
 
 [[package]]
 name = "rmf_site_mesh"

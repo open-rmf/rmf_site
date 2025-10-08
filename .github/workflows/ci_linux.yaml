@@ -11,9 +11,7 @@ env:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
     - name: deps
       run: |
@@ -28,3 +26,29 @@ jobs:
       run: cargo build --all-targets
     - name: Run tests
       run: cargo test
+
+  build_with_colcon:
+    runs-on: ubuntu-latest
+    container:
+      image: osrf/ros:jazzy-desktop-noble
+    steps:
+    - name: deps
+      run: |
+        sudo apt-get update -y
+        sudo apt-get install -y libasound2-dev libudev-dev libgtk-3-dev git libclang-dev python3-pip python3-vcstool
+        pip install git+https://github.com/colcon/colcon-cargo.git --break-system-packages
+        pip install git+https://github.com/colcon/colcon-ros-cargo.git --break-system-packages
+    - name: Set up workspace
+      run: |
+        mkdir -p site_ws/src
+    - uses: actions/checkout@v4
+      with:
+        path: site_ws/src/rmf_site
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+    - name: Build rmf_site_editor with colcon
+      shell: bash
+      run: |
+        cd site_ws
+        source /opt/ros/jazzy/setup.bash
+        colcon build
