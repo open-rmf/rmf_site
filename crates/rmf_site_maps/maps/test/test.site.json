@@ -1,0 +1,1226 @@
+{
+  "format_version": "0.1",
+  "anchors": {
+    "48": {
+      "Translate2D": [
+        0.89910734,
+        -2.1016164
+      ]
+    },
+    "49": {
+      "Translate2D": [
+        1.8171363,
+        -1.368154
+      ]
+    },
+    "111": {
+      "Translate2D": [
+        -11.563513,
+        4.8737245
+      ]
+    },
+    "113": {
+      "Translate2D": [
+        -3.8040752,
+        12.866406
+      ]
+    },
+    "115": {
+      "Translate2D": [
+        -2.2814283,
+        -5.8536577
+      ]
+    },
+    "117": {
+      "Translate2D": [
+        6.6142654,
+        1.6502275
+      ]
+    }
+  },
+  "properties": {
+    "name": "test"
+  },
+  "levels": {
+    "1": {
+      "properties": {
+        "name": "L1",
+        "elevation": 0.0
+      },
+      "anchors": {
+        "4": {
+          "Translate2D": [
+            -2.9177165,
+            11.50104
+          ]
+        },
+        "5": {
+          "Translate2D": [
+            5.626238,
+            1.8962941
+          ]
+        },
+        "7": {
+          "Translate2D": [
+            -2.6036124,
+            -5.006512
+          ]
+        },
+        "9": {
+          "Translate2D": [
+            -10.630581,
+            4.3118587
+          ]
+        },
+        "11": {
+          "Translate2D": [
+            -7.7893286,
+            7.0370955
+          ]
+        },
+        "12": {
+          "Translate2D": [
+            -6.131694,
+            8.586476
+          ]
+        },
+        "54": {
+          "Translate2D": [
+            2.0232377,
+            -2.6590176
+          ]
+        },
+        "55": {
+          "Translate2D": [
+            -0.29288244,
+            0.3029933
+          ]
+        },
+        "56": {
+          "Translate2D": [
+            -2.9734387,
+            -2.4883811
+          ]
+        },
+        "57": {
+          "Translate2D": [
+            -8.7267065,
+            4.0747776
+          ]
+        },
+        "58": {
+          "Translate2D": [
+            -3.3658063,
+            9.514573
+          ]
+        },
+        "59": {
+          "Translate2D": [
+            2.4568377,
+            3.2150903
+          ]
+        },
+        "60": {
+          "Translate2D": [
+            -3.2445705,
+            3.626802
+          ]
+        }
+      },
+      "doors": {
+        "10": {
+          "anchors": [
+            11,
+            12
+          ],
+          "name": "<Unnamed>",
+          "kind": {
+            "SingleSliding": {
+              "towards": "Left",
+              "position": 1.0
+            }
+          }
+        }
+      },
+      "drawings": {
+        "88": {
+          "properties": {
+            "name": "<Unnamed>",
+            "source": {
+              "Local": "../drawings/blank.png"
+            },
+            "pose": {
+              "trans": [
+                7.935871,
+                1.1052607,
+                0.0
+              ],
+              "rot": {
+                "yaw": {
+                  "deg": 222.35484
+                }
+              }
+            },
+            "pixels_per_meter": 63.224354
+          },
+          "anchors": {
+            "90": {
+              "Translate2D": [
+                175.6419,
+                -1028.5925
+              ]
+            },
+            "91": {
+              "Translate2D": [
+                603.8468,
+                -1042.5441
+              ]
+            },
+            "93": {
+              "Translate2D": [
+                60.768555,
+                -1058.8069
+              ]
+            },
+            "95": {
+              "Translate2D": [
+                66.557495,
+                -75.30847
+              ]
+            },
+            "97": {
+              "Translate2D": [
+                741.3285,
+                -1071.2126
+              ]
+            },
+            "99": {
+              "Translate2D": [
+                743.08374,
+                -67.3313
+              ]
+            }
+          },
+          "fiducials": {
+            "94": {
+              "anchor": 93,
+              "affiliation": 107
+            },
+            "96": {
+              "anchor": 95,
+              "affiliation": 108
+            },
+            "98": {
+              "anchor": 97,
+              "affiliation": 109
+            },
+            "100": {
+              "anchor": 99,
+              "affiliation": 110
+            }
+          },
+          "measurements": {
+            "92": {
+              "anchors": [
+                90,
+                91
+              ]
+            }
+          }
+        }
+      },
+      "floors": {
+        "17": {
+          "anchors": [
+            4,
+            5,
+            7,
+            9
+          ],
+          "texture": 21
+        }
+      },
+      "walls": {
+        "3": {
+          "anchors": [
+            4,
+            5
+          ],
+          "texture": 20
+        },
+        "8": {
+          "anchors": [
+            7,
+            9
+          ],
+          "texture": 20
+        },
+        "13": {
+          "anchors": [
+            9,
+            11
+          ],
+          "texture": 20
+        },
+        "14": {
+          "anchors": [
+            12,
+            4
+          ],
+          "texture": 20
+        },
+        "18": {
+          "anchors": [
+            7,
+            48
+          ],
+          "texture": 20
+        },
+        "19": {
+          "anchors": [
+            5,
+            49
+          ],
+          "texture": 20
+        }
+      },
+      "rankings": {
+        "floors": [
+          17
+        ],
+        "drawings": [
+          88
+        ]
+      }
+    },
+    "22": {
+      "properties": {
+        "name": "L2",
+        "elevation": 8.0
+      },
+      "anchors": {
+        "24": {
+          "Translate2D": [
+            0.8635807,
+            -2.096904
+          ]
+        },
+        "25": {
+          "Translate2D": [
+            -0.10900104,
+            -2.9265592
+          ]
+        },
+        "27": {
+          "Translate2D": [
+            1.8474782,
+            -1.3618848
+          ]
+        },
+        "28": {
+          "Translate2D": [
+            2.9241564,
+            -0.5442949
+          ]
+        },
+        "30": {
+          "Translate2D": [
+            4.534837,
+            -2.844323
+          ]
+        },
+        "32": {
+          "Translate2D": [
+            1.7322063,
+            -5.20413
+          ]
+        },
+        "35": {
+          "Translate2D": [
+            4.44335,
+            7.928091
+          ]
+        },
+        "36": {
+          "Translate2D": [
+            -7.9333005,
+            -2.6363258
+          ]
+        },
+        "38": {
+          "Translate2D": [
+            4.5709176,
+            -18.65399
+          ]
+        },
+        "40": {
+          "Translate2D": [
+            17.068771,
+            -8.788878
+          ]
+        },
+        "43": {
+          "Translate2D": [
+            -7.9225125,
+            -2.6372461
+          ]
+        },
+        "64": {
+          "Translate2D": [
+            3.3128595,
+            4.493992
+          ]
+        },
+        "65": {
+          "Translate2D": [
+            -4.7419496,
+            -1.6166906
+          ]
+        },
+        "66": {
+          "Translate2D": [
+            3.831758,
+            -13.059888
+          ]
+        },
+        "67": {
+          "Translate2D": [
+            12.354929,
+            -7.797161
+          ]
+        },
+        "68": {
+          "Translate2D": [
+            -0.6459558,
+            1.4677408
+          ]
+        },
+        "69": {
+          "Translate2D": [
+            2.2154155,
+            -2.4049113
+          ]
+        }
+      },
+      "drawings": {
+        "101": {
+          "properties": {
+            "name": "<Unnamed>",
+            "source": {
+              "Local": "../drawings/blank.png"
+            },
+            "pose": {
+              "trans": [
+                -3.4525013,
+                -5.836951,
+                0.0
+              ],
+              "rot": {
+                "yaw": {
+                  "deg": 41.184612
+                }
+              }
+            },
+            "pixels_per_meter": 57.370506
+          },
+          "anchors": {
+            "103": {
+              "Translate2D": [
+                64.2487,
+                -64.403984
+              ]
+            },
+            "105": {
+              "Translate2D": [
+                704.854,
+                -59.87687
+              ]
+            }
+          },
+          "fiducials": {
+            "104": {
+              "anchor": 103,
+              "affiliation": 110
+            },
+            "106": {
+              "anchor": 105,
+              "affiliation": 108
+            }
+          }
+        }
+      },
+      "floors": {
+        "42": {
+          "anchors": [
+            35,
+            40,
+            38,
+            43
+          ],
+          "texture": 21
+        }
+      },
+      "walls": {
+        "23": {
+          "anchors": [
+            24,
+            25
+          ],
+          "texture": 20
+        },
+        "26": {
+          "anchors": [
+            27,
+            28
+          ],
+          "texture": 20
+        },
+        "29": {
+          "anchors": [
+            28,
+            30
+          ],
+          "texture": 20
+        },
+        "31": {
+          "anchors": [
+            30,
+            32
+          ],
+          "texture": 20
+        },
+        "33": {
+          "anchors": [
+            32,
+            25
+          ],
+          "texture": 20
+        },
+        "34": {
+          "anchors": [
+            35,
+            36
+          ],
+          "texture": 20
+        },
+        "37": {
+          "anchors": [
+            36,
+            38
+          ],
+          "texture": 20
+        },
+        "39": {
+          "anchors": [
+            38,
+            40
+          ],
+          "texture": 20
+        },
+        "41": {
+          "anchors": [
+            40,
+            35
+          ],
+          "texture": 20
+        }
+      },
+      "rankings": {
+        "floors": [
+          42
+        ],
+        "drawings": [
+          101
+        ]
+      }
+    }
+  },
+  "textures": {
+    "20": {
+      "name": "wall",
+      "texture": {
+        "source": {
+          "Remote": "OpenRobotics/RMF_Materials/textures/white_brick.png"
+        }
+      }
+    },
+    "21": {
+      "name": "tiles",
+      "texture": {
+        "source": {
+          "Remote": "OpenRobotics/RMF_Materials/textures/red_tiles.png"
+        }
+      }
+    }
+  },
+  "fiducial_groups": {
+    "107": {
+      "name": "northeast"
+    },
+    "108": {
+      "name": "southeast"
+    },
+    "109": {
+      "name": "northwest"
+    },
+    "110": {
+      "name": "southwest"
+    }
+  },
+  "fiducials": {
+    "112": {
+      "anchor": 111,
+      "affiliation": 109
+    },
+    "114": {
+      "anchor": 113,
+      "affiliation": 107
+    },
+    "116": {
+      "anchor": 115,
+      "affiliation": 110
+    },
+    "118": {
+      "anchor": 117,
+      "affiliation": 108
+    }
+  },
+  "lifts": {
+    "46": {
+      "cabin_doors": {
+        "47": {
+          "kind": {
+            "DoubleSliding": {
+              "left_right_ratio": 1.0,
+              "left_position": 1.0,
+              "right_position": 1.0
+            }
+          },
+          "reference_anchors": [
+            44,
+            45
+          ],
+          "visits": [
+            1,
+            22
+          ]
+        }
+      },
+      "properties": {
+        "name": "Main Lift",
+        "reference_anchors": [
+          48,
+          49
+        ],
+        "cabin": {
+          "Rect": {
+            "width": 2.25,
+            "depth": 1.88,
+            "front_door": {
+              "door": 47,
+              "width": 1.17,
+              "custom_gap": 0.007
+            }
+          }
+        },
+        "is_static": false
+      },
+      "cabin_anchors": {
+        "44": {
+          "CategorizedTranslate2D": {
+            "General": [
+              1.072,
+              0.585
+            ],
+            "Floor": [
+              1.047,
+              0.585
+            ]
+          }
+        },
+        "45": {
+          "CategorizedTranslate2D": {
+            "General": [
+              1.072,
+              -0.585
+            ],
+            "Floor": [
+              1.047,
+              -0.585
+            ]
+          }
+        }
+      }
+    }
+  },
+  "navigation": {
+    "guided": {
+      "graphs": {
+        "71": {
+          "name": "nav_1",
+          "color": [
+            1.0,
+            0.50000024,
+            0.3
+          ]
+        },
+        "72": {
+          "name": "nav_2",
+          "color": [
+            0.60000014,
+            1.0,
+            0.5
+          ]
+        }
+      },
+      "ranking": [
+        71,
+        72
+      ],
+      "lanes": {
+        "70": {
+          "anchors": [
+            65,
+            66
+          ],
+          "graphs": "All"
+        },
+        "73": {
+          "anchors": [
+            66,
+            67
+          ],
+          "graphs": {
+            "Only": [
+              71
+            ]
+          }
+        },
+        "74": {
+          "anchors": [
+            67,
+            64
+          ],
+          "graphs": "All"
+        },
+        "75": {
+          "anchors": [
+            65,
+            68
+          ],
+          "graphs": "All"
+        },
+        "76": {
+          "anchors": [
+            68,
+            64
+          ],
+          "graphs": "All"
+        },
+        "77": {
+          "anchors": [
+            68,
+            69
+          ],
+          "graphs": {
+            "Only": [
+              71
+            ]
+          }
+        },
+        "78": {
+          "anchors": [
+            54,
+            55
+          ],
+          "graphs": {
+            "Only": [
+              71
+            ]
+          }
+        },
+        "79": {
+          "anchors": [
+            55,
+            56
+          ],
+          "graphs": "All"
+        },
+        "80": {
+          "anchors": [
+            56,
+            57
+          ],
+          "graphs": "All"
+        },
+        "81": {
+          "anchors": [
+            57,
+            58
+          ],
+          "graphs": "All"
+        },
+        "82": {
+          "anchors": [
+            58,
+            59
+          ],
+          "graphs": "All"
+        },
+        "83": {
+          "anchors": [
+            59,
+            55
+          ],
+          "graphs": "All"
+        },
+        "84": {
+          "anchors": [
+            59,
+            60
+          ],
+          "graphs": "All"
+        },
+        "85": {
+          "anchors": [
+            60,
+            57
+          ],
+          "graphs": "All"
+        },
+        "86": {
+          "anchors": [
+            60,
+            56
+          ],
+          "graphs": "All"
+        },
+        "87": {
+          "anchors": [
+            60,
+            58
+          ],
+          "graphs": "All"
+        }
+      },
+      "locations": {
+        "119": {
+          "anchor": 60,
+          "tags": [
+            "Charger",
+            "ParkingSpot",
+            "HoldingPoint"
+          ],
+          "name": "B",
+          "graphs": {
+            "Only": [
+              71
+            ]
+          }
+        },
+        "120": {
+          "anchor": 56,
+          "tags": [
+            "Charger",
+            "ParkingSpot"
+          ],
+          "name": "C",
+          "graphs": "All"
+        },
+        "121": {
+          "anchor": 58,
+          "tags": [],
+          "name": "A",
+          "graphs": {
+            "AllExcept": [
+              72
+            ]
+          }
+        }
+      }
+    }
+  },
+  "scenarios": {
+    "15": {
+      "instances": {
+        "53": {
+          "pose": {
+            "trans": [
+              -5.388103,
+              3.1361117,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "rad": 2.32
+              }
+            }
+          },
+          "inclusion": "Included"
+        },
+        "62": {
+          "pose": {
+            "trans": [
+              6.9579263,
+              -10.074249,
+              0.0
+            ],
+            "rot": {
+              "euler_xyz": [
+                {
+                  "rad": 0.0
+                },
+                {
+                  "rad": -0.0
+                },
+                {
+                  "rad": 0.8
+                }
+              ]
+            }
+          },
+          "inclusion": "Included"
+        },
+        "63": {
+          "pose": {
+            "trans": [
+              4.385328,
+              -14.304664,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "rad": 1.85
+              }
+            }
+          },
+          "inclusion": "Included"
+        },
+        "122": {
+          "pose": {
+            "trans": [
+              3.8475366,
+              2.227222,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "rad": 2.47
+              }
+            }
+          },
+          "inclusion": "Included"
+        },
+        "123": {
+          "pose": {
+            "trans": [
+              -2.3209722,
+              -4.0422535,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "rad": 1.9
+              }
+            }
+          },
+          "inclusion": "Included"
+        },
+        "124": {
+          "pose": {
+            "trans": [
+              -3.2461724,
+              10.349449,
+              0.0
+            ],
+            "rot": {
+              "quat": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ]
+            }
+          },
+          "inclusion": "Included"
+        },
+        "125": {
+          "pose": {
+            "trans": [
+              -5.6969495,
+              -2.9706144,
+              0.0
+            ],
+            "rot": {
+              "quat": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ]
+            }
+          },
+          "inclusion": "Included"
+        },
+        "126": {
+          "pose": {
+            "trans": [
+              4.8841267,
+              -16.490957,
+              0.0
+            ],
+            "rot": {
+              "quat": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ]
+            }
+          },
+          "inclusion": "Included"
+        },
+        "127": {
+          "pose": {
+            "trans": [
+              14.500783,
+              -8.13625,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "rad": 3.42
+              }
+            }
+          },
+          "inclusion": "Included"
+        }
+      },
+      "name": "Default Scenario",
+      "parent_scenario": null
+    }
+  },
+  "model_descriptions": {
+    "52": {
+      "name": "Robot",
+      "source": {
+        "Local": "../models/HospitalRobot/model.sdf"
+      }
+    },
+    "129": {
+      "name": "Chair",
+      "source": {
+        "Local": "../models/WoodenChair/model.sdf"
+      }
+    }
+  },
+  "robots": {
+    "52": {
+      "properties": {
+        "Collision": {
+          "config": {
+            "offset": [
+              0.0,
+              0.0
+            ],
+            "radius": 0.4000000059604645
+          },
+          "kind": "Circle Collision"
+        },
+        "Mobility": {
+          "config": {
+            "bidirectional": false,
+            "rotation_center_offset": [
+              0.0,
+              0.0
+            ],
+            "rotational_speed": 1.0,
+            "translational_speed": 0.5
+          },
+          "kind": "Differential Drive"
+        },
+        "Power Dissipation": null,
+        "Power Source": {
+          "config": {
+            "capacity": 24.0,
+            "charging_current": 5.0,
+            "voltage": 12.0
+          },
+          "kind": "Battery"
+        }
+      }
+    }
+  },
+  "model_instances": {
+    "53": {
+      "parent": 1,
+      "name": "L1_robot",
+      "pose": {
+        "trans": [
+          -5.388103,
+          3.1361117,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "rad": 2.32
+          }
+        }
+      },
+      "description": 52
+    },
+    "62": {
+      "parent": 22,
+      "name": "L2_robot_B",
+      "pose": {
+        "trans": [
+          6.9579263,
+          -10.074249,
+          0.0
+        ],
+        "rot": {
+          "euler_xyz": [
+            {
+              "rad": 0.0
+            },
+            {
+              "rad": -0.0
+            },
+            {
+              "rad": 0.8
+            }
+          ]
+        }
+      },
+      "description": 52
+    },
+    "63": {
+      "parent": 22,
+      "name": "L2_robot_A",
+      "pose": {
+        "trans": [
+          4.385328,
+          -14.304664,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "rad": 1.85
+          }
+        }
+      },
+      "description": 52
+    },
+    "122": {
+      "parent": 1,
+      "name": "Chair_0",
+      "pose": {
+        "trans": [
+          3.8475366,
+          2.227222,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "rad": 2.47
+          }
+        }
+      },
+      "description": 129
+    },
+    "123": {
+      "parent": 1,
+      "name": "Chair_1",
+      "pose": {
+        "trans": [
+          -2.3209722,
+          -4.0422535,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "rad": 1.9
+          }
+        }
+      },
+      "description": 129
+    },
+    "124": {
+      "parent": 1,
+      "name": "Chair_2",
+      "pose": {
+        "trans": [
+          -3.2461724,
+          10.349449,
+          0.0
+        ],
+        "rot": {
+          "quat": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "description": 129
+    },
+    "125": {
+      "parent": 22,
+      "name": "Chair_3",
+      "pose": {
+        "trans": [
+          -5.6969495,
+          -2.9706144,
+          0.0
+        ],
+        "rot": {
+          "quat": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "description": 129
+    },
+    "126": {
+      "parent": 22,
+      "name": "Chair_4",
+      "pose": {
+        "trans": [
+          4.8841267,
+          -16.490957,
+          0.0
+        ],
+        "rot": {
+          "quat": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "description": 129
+    },
+    "127": {
+      "parent": 22,
+      "name": "Chair_5",
+      "pose": {
+        "trans": [
+          14.500783,
+          -8.13625,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "rad": 3.42
+          }
+        }
+      },
+      "description": 129
+    }
+  }
+}
