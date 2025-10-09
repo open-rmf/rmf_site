@@ -7,9 +7,6 @@ authors = ["Grey <grey@openrobotics.org>"]
 [lib]
 crate-type = ["rlib"]
 
-[package.metadata.ros]
-install_to_share = ["../../Cargo.toml"]
-
 [dependencies]
 serde = { workspace = true, features = ["derive", "rc"] }
 serde_yaml = {workspace = true}
