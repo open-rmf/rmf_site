@@ -46,6 +46,7 @@ jobs:
         path: site_ws/src/rmf_site
     - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@stable
+      # TODO(@xiyuoh) Revisit when colcon-cargo supports shared target directory
     - name: Build rmf_site_editor with colcon
       shell: bash
       run: |
