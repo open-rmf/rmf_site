@@ -51,4 +51,4 @@ jobs:
       run: |
         cd site_ws
         source /opt/ros/jazzy/setup.bash
-        colcon build
+        colcon build --packages-select rmf_site_format
