@@ -152,9 +152,10 @@ impl<'w, 's> ViewNavGraphs<'w, 's> {
         let mut selected_graph = None;
         for e in ranking.iter().rev() {
             let e = *e;
-            if self.selector.selection.0.is_some_and(|sel| sel == e) {
+            if self.selector.selection.0.contains(&e) {
                 selected_graph = Some(e);
             }
+
             let (name, color, vis) = match self.graphs.get(e) {
                 Ok(g) => g,
                 Err(_) => continue,

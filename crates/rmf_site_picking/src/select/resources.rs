@@ -2,12 +2,13 @@ use bevy_derive::{Deref, DerefMut};
 pub use bevy_ecs::prelude::*;
 use bevy_impulse::Service;
 use bytemuck::TransparentWrapper;
+use std::collections::HashSet;
 
 use crate::*;
 
 /// Used as a resource to keep track of which entity is currently selected.
-#[derive(Default, Debug, Clone, Copy, Deref, DerefMut, Resource)]
-pub struct Selection(pub Option<Entity>);
+#[derive(Default, Debug, Clone, Deref, DerefMut, Resource)]
+pub struct Selection(pub HashSet<Entity>);
 
 /// Used as a resource to keep track of which entity is currently hovered.
 #[derive(Default, Debug, Clone, Copy, Deref, DerefMut, Resource)]

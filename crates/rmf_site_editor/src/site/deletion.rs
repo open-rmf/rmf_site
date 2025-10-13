@@ -301,7 +301,7 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
             }
         }
 
-        if **params.selection == Some(e) {
+        if params.selection.0.contains(&e) {
             params.select.write(Select(None));
         }
     }
@@ -414,7 +414,7 @@ fn perform_deletions(all_to_delete: HashSet<Entity>, params: &mut DeletionParams
             }
         }
 
-        if **params.selection == Some(e) {
+        if params.selection.0.contains(&e) {
             params.select.write(Select(None));
         }
 

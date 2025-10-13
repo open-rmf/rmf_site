@@ -8,6 +8,7 @@ use bevy_math::prelude::*;
 use bevy_picking::pointer::{PointerId, PointerInteraction};
 use bevy_transform::components::Transform;
 use rmf_site_camera::*;
+// use rmf_site_format::Site::{Group, ModelMarker};
 use tracing::warn;
 
 use crate::*;
@@ -37,21 +38,35 @@ pub fn selection_update(
     }): BlockingServiceInput<Select>,
     mut selected: Query<&mut Selected>,
     mut selection: ResMut<Selection>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
-    if selection.0 != new_selection.map(|s| s.candidate) {
-        if let Some(previous_selection) = selection.0 {
-            if let Ok(mut selected) = selected.get_mut(previous_selection) {
-                selected.is_selected = false;
+    // todo(@johntgz) Should it be SHIFT or CTRL?
+    // If SHIFT is held down, we do not de-select the previous element, we add the selection candidate to the Selection resource
+
+    if let Some(new_selection) = new_selection.map(|s| s.candidate) {
+        if !selection.0.contains(&new_selection) {
+            if keyboard_input.pressed(KeyCode::ShiftLeft) {
+                // todo(@johntgz) Adding entities to the current selection is only supported for Model and ModelInstances only, we should filter it using With<ModelMarker>, Without<Group>
+                // Add a query
+                if let Ok(mut selected) = selected.get_mut(new_selection) {
+                    selected.is_selected = true;
+                    selection.0.insert(new_selection);
+                }
+            } else {
+                // Only one entity can be selected. Un-select all previous selections and add entity to current selection.
+                selection.0.iter().for_each(|previous_selection| {
+                    if let Ok(mut selected) = selected.get_mut(*previous_selection) {
+                        selected.is_selected = false;
+                    }
+                });
+                selection.0.clear();
+
+                if let Ok(mut selected) = selected.get_mut(new_selection) {
+                    selected.is_selected = true;
+                }
+                selection.0.insert(new_selection);
             }
         }
-
-        if let Some(new_selection) = new_selection {
-            if let Ok(mut selected) = selected.get_mut(new_selection.candidate) {
-                selected.is_selected = true;
-            }
-        }
-
-        selection.0 = new_selection.map(|s| s.candidate);
     }
 }
 
@@ -260,7 +275,7 @@ pub fn clear_hover_select(
     mut hovered: Query<&mut Hovered>,
     mut hovering: ResMut<Hovering>,
     mut selected: Query<&mut Selected>,
-    mut selection: ResMut<Selection>,
+    selection: ResMut<Selection>,
 ) {
     if let Some(previous_hovering) = hovering.0.take() {
         if let Ok(mut hovered) = hovered.get_mut(previous_hovering) {
@@ -268,8 +283,8 @@ pub fn clear_hover_select(
         }
     }
 
-    if let Some(previous_selection) = selection.0.take() {
-        if let Ok(mut selected) = selected.get_mut(previous_selection) {
+    for previous_selection in selection.0.iter() {
+        if let Ok(mut selected) = selected.get_mut(*previous_selection) {
             selected.is_selected = false;
         }
     }

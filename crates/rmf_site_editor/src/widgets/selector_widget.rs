@@ -44,7 +44,7 @@ impl<'w, 's> WidgetSystem<Entity, ()> for SelectorWidget<'w, 's> {
 impl<'w, 's> SelectorWidget<'w, 's> {
     pub fn show_widget(&mut self, entity: Entity, ui: &mut Ui) {
         let site_id = self.site_id.get(entity).ok().cloned();
-        let is_selected = self.selection.0.is_some_and(|s| s == entity);
+        let is_selected = self.selection.0.contains(&entity);
 
         let text = match site_id {
             Some(id) => format!("#{}", id.0),

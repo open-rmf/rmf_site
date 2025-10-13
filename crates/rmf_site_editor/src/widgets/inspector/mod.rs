@@ -340,7 +340,7 @@ impl<'w, 's> WidgetSystem<Tile> for Inspector<'w, 's> {
                     return;
                 };
 
-                let Some(selection) = selection.0 else {
+                let Some(&selection) = selection.0.iter().next() else {
                     ui.label("Nothing selected");
                     return;
                 };
