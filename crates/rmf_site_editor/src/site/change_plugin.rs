@@ -16,7 +16,6 @@
 */
 
 use crate::exit_confirmation::SiteChanged;
-use crate::site::SiteUpdateSet;
 use bevy::{ecs::component::Mutable, prelude::*};
 use std::fmt::Debug;
 
@@ -63,38 +62,35 @@ impl<T: Component<Mutability = Mutable> + Clone + Debug> Plugin for ChangePlugin
     fn build(&self, app: &mut App) {
         app.init_resource::<SiteChanged>();
 
-        app.add_event::<Change<T>>().add_systems(
-            PreUpdate,
-            update_changed_values::<T>.in_set(SiteUpdateSet::ProcessChanges),
-        );
+        app.add_event::<Change<T>>()
+            .add_observer(update_changed_values::<T>);
     }
 }
 
 fn update_changed_values<T: Component<Mutability = Mutable> + Clone + Debug>(
+    trigger: Trigger<Change<T>>,
     mut commands: Commands,
     mut values: Query<&mut T>,
-    mut changes: EventReader<Change<T>>,
     mut site_changed: ResMut<SiteChanged>,
 ) {
-    for change in changes.read() {
-        site_changed.0 = true;
+    site_changed.0 = true;
+    let change = trigger.event();
 
-        if let Ok(mut new_value) = values.get_mut(change.for_element) {
-            *new_value = change.to_value.clone();
+    if let Ok(mut new_value) = values.get_mut(change.for_element) {
+        *new_value = change.to_value.clone();
+    } else {
+        if change.allow_insert {
+            commands
+                .entity(change.for_element)
+                .insert(change.to_value.clone());
         } else {
-            if change.allow_insert {
-                commands
-                    .entity(change.for_element)
-                    .insert(change.to_value.clone());
-            } else {
-                error!(
-                    "Unable to change {} data to {:?} for entity {:?} \
+            error!(
+                "Unable to change {} data to {:?} for entity {:?} \
                     because the entity does not have that type",
-                    std::any::type_name::<T>(),
-                    change.to_value,
-                    change.for_element,
-                );
-            }
+                std::any::type_name::<T>(),
+                change.to_value,
+                change.for_element,
+            );
         }
     }
 }

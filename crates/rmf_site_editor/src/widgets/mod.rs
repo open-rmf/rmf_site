@@ -73,7 +73,7 @@ pub use move_layer::*;
 
 pub mod sdf_export_menu;
 use rmf_site_egui::*;
-use rmf_site_picking::{Hover, UiFocused};
+use rmf_site_picking::{Hover, SelectionServiceStages, UiFocused};
 pub use sdf_export_menu::*;
 
 pub mod selector_widget;
@@ -105,9 +105,6 @@ use view_lights::*;
 
 pub mod view_nav_graphs;
 use view_nav_graphs::*;
-
-pub mod view_occupancy;
-use view_occupancy::*;
 
 pub mod workspace;
 use workspace::*;
@@ -144,7 +141,6 @@ impl Plugin for StandardPropertiesPanelPlugin {
             StandardInspectorPlugin::default(),
             ViewGroupsPlugin::default(),
             ViewLightsPlugin::default(),
-            ViewOccupancyPlugin::default(),
             BuildingPreviewPlugin::default(),
         ));
     }
@@ -178,7 +174,8 @@ impl Plugin for StandardUiPlugin {
                 Update,
                 site_ui_layout
                     .in_set(RenderUiSet)
-                    .run_if(AppState::in_displaying_mode()),
+                    .run_if(AppState::in_displaying_mode())
+                    .after(SelectionServiceStages::SelectFlush),
             )
             .add_systems(
                 PostUpdate,

@@ -42,6 +42,7 @@ impl Plugin for ViewLayersPlugin {
 
 #[derive(SystemParam)]
 pub struct ViewLayers<'w, 's> {
+    commands: Commands<'w, 's>,
     floors: Query<
         'w,
         's,
@@ -61,8 +62,6 @@ pub struct ViewLayers<'w, 's> {
     icons: Res<'w, Icons>,
     selection: Res<'w, Selection>,
     current_level: Res<'w, CurrentLevel>,
-    global_floor_vis: EventWriter<'w, Change<GlobalFloorVisibility>>,
-    global_drawing_vis: EventWriter<'w, Change<GlobalDrawingVisibility>>,
     view_layer: InspectLayer<'w, 's>,
     app_state: Res<'w, State<AppState>>,
 }
@@ -112,8 +111,8 @@ impl<'w, 's> ViewLayers<'w, 's> {
                         Self::show_global(text, &self.icons, vis, default_alpha, ui);
 
                         if shown_global != *global {
-                            self.global_floor_vis
-                                .write(Change::new(shown_global, current_level));
+                            self.commands
+                                .trigger(Change::new(shown_global, current_level));
                         }
                     });
                     ui.separator();
@@ -166,8 +165,8 @@ impl<'w, 's> ViewLayers<'w, 's> {
                     });
 
                     if shown_global != *global {
-                        self.global_drawing_vis
-                            .write(Change::new(shown_global, current_level));
+                        self.commands
+                            .trigger(Change::new(shown_global, current_level));
                     }
 
                     if let Some(selected) = Self::show_rankings(

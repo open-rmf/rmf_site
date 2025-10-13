@@ -25,8 +25,8 @@ use rmf_site_format::{PrimitiveShape, RecallPrimitiveShape};
 
 #[derive(SystemParam)]
 pub struct InspectPrimitiveShape<'w, 's> {
+    commands: Commands<'w, 's>,
     primitive_shapes: Query<'w, 's, (&'static PrimitiveShape, &'static RecallPrimitiveShape)>,
-    change_primitive_shape: EventWriter<'w, Change<PrimitiveShape>>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectPrimitiveShape<'w, 's> {
@@ -42,9 +42,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPrimitiveShape<'w, 's> {
         };
 
         if let Some(new_shape) = InspectPrimitiveShapeComponent::new(shape, recall).show(ui) {
-            params
-                .change_primitive_shape
-                .write(Change::new(new_shape, selection));
+            params.commands.trigger(Change::new(new_shape, selection));
         }
         ui.add_space(10.0);
     }

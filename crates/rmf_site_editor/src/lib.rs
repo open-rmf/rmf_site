@@ -21,9 +21,11 @@ use exit_confirmation::ExitConfirmationPlugin;
 pub use bevy;
 pub use bevy_egui;
 pub use bevy_impulse;
+pub use bevy_rich_text3d::Text3dPlugin;
 
 pub mod keyboard;
 use keyboard::*;
+pub mod color_picker;
 
 pub mod widgets;
 use rmf_site_animate::VisualCueAnimationsPlugin;
@@ -62,7 +64,7 @@ use site::{OSMViewPlugin, SitePlugin};
 use site_asset_io::SiteAssetIoPlugin;
 
 pub mod mapf_rse;
-use mapf_rse::MapfRsePlugin;
+use mapf_rse::NegotiationPlugin;
 
 pub mod osm_slippy_map;
 use bevy::render::{
@@ -118,29 +120,21 @@ impl AppState {
     }
 }
 
-pub fn run(command_line_args: Vec<String>) {
-    let mut app = App::new();
-    let mut _export_sdf = None;
-    let mut _export_nav = None;
-
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        let command_line_args = CommandLineArgs::parse_from(command_line_args);
-        if let Some(path) = command_line_args.filename {
-            app.insert_resource(Autoload::file(
-                path.into(),
-                command_line_args.import.map(Into::into),
-            ));
-        }
-        _export_sdf = command_line_args.export_sdf;
-        _export_nav = command_line_args.export_nav;
-    }
-
-    app.add_plugins(
-        SiteEditor::default()
-            .export_sdf(_export_sdf)
-            .export_nav(_export_nav),
+fn handle_errors(error: BevyError, ctx: bevy::ecs::error::ErrorContext) {
+    warn!(
+        "Encountered an error in {} `{}`: {}",
+        ctx.kind(),
+        ctx.name(),
+        error
     );
+}
+
+pub fn run(command_line_args: Vec<String>) {
+    bevy::ecs::error::GLOBAL_ERROR_HANDLER
+        .set(handle_errors)
+        .expect("The error handler can only be set once, globally.");
+    let mut app = App::new();
+    app.add_plugins(SiteEditor::from_cli_args(command_line_args));
     app.run();
 }
 
@@ -152,6 +146,7 @@ pub struct SiteEditor {
     /// Contains Some(path) if the site editor is running in headless mode
     /// exporting its nav graphs.
     export_nav: Option<String>,
+    autoload: Option<Autoload>,
     /// Contains Some(path) if the site editor is running in headless mode and
     /// saving the contents of the site as a new path. This is primarily used
     /// for unit testing.
@@ -161,6 +156,32 @@ pub struct SiteEditor {
 impl SiteEditor {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn from_cli_args(command_line_args: Vec<String>) -> Self {
+        let mut _export_sdf = None;
+        let mut _export_nav = None;
+        let mut autoload = None;
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let command_line_args = CommandLineArgs::parse_from(command_line_args);
+            if let Some(path) = command_line_args.filename {
+                autoload = Some(Autoload::file(
+                    path.into(),
+                    command_line_args.import.map(Into::into),
+                ));
+            }
+            _export_sdf = command_line_args.export_sdf;
+            _export_nav = command_line_args.export_nav;
+        }
+
+        Self {
+            export_sdf: _export_sdf,
+            export_nav: _export_nav,
+            autoload,
+            save_as_path: None,
+        }
     }
 
     pub fn export_sdf(mut self, export_to_file: Option<String>) -> Self {
@@ -191,6 +212,9 @@ impl SiteEditor {
 
 impl Plugin for SiteEditor {
     fn build(&self, app: &mut App) {
+        if let Some(autoload) = self.autoload.clone() {
+            app.insert_resource(autoload);
+        }
         let mut plugins = DefaultPlugins
             .set(AssetPlugin {
                 unapproved_path_mode: UnapprovedPathMode::Deny,
@@ -276,6 +300,16 @@ impl Plugin for SiteEditor {
                 bevy_impulse::ImpulsePlugin::default(),
             ));
 
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            // TODO(@mxgrey): Look into how to get text working in wasm.
+            // Currently we get a "no default font found" panic.
+            app.add_plugins(Text3dPlugin {
+                load_system_fonts: true,
+                ..Default::default()
+            });
+        }
+
         if self.is_headless() {
             // Turn off GPU preprocessing in headless mode so that this can
             // work in GitHub CI. Without this, we were encountering this error:
@@ -289,7 +323,7 @@ impl Plugin for SiteEditor {
             app.add_plugins((StandardUiPlugin::default(), MainMenuPlugin))
                 // Note order matters, plugins that edit the menus must be initialized after the UI
                 .add_plugins((site::ViewMenuPlugin, OSMViewPlugin, SiteWireframePlugin))
-                .add_plugins(MapfRsePlugin::default());
+                .add_plugins(NegotiationPlugin::default());
         }
 
         if self.is_headless_export() {

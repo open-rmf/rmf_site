@@ -27,8 +27,8 @@ use rmf_site_format::PhysicalCameraProperties;
 
 #[derive(SystemParam)]
 pub struct InspectPhysicalCameraProperties<'w, 's> {
+    commands: Commands<'w, 's>,
     physical_camera_properties: Query<'w, 's, &'static PhysicalCameraProperties>,
-    change_physical_camera_properties: EventWriter<'w, Change<PhysicalCameraProperties>>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectPhysicalCameraProperties<'w, 's> {
@@ -85,8 +85,8 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPhysicalCameraProperties<'w, 's> {
             || new_properties.frame_rate != properties.frame_rate
         {
             params
-                .change_physical_camera_properties
-                .write(Change::new(new_properties, selection));
+                .commands
+                .trigger(Change::new(new_properties, selection));
         }
         ui.add_space(10.0);
     }

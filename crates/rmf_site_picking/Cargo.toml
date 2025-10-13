@@ -25,6 +25,7 @@ rmf_site_camera = {workspace = true}
 rmf_site_mesh = {workspace = true}
 rmf_site_animate = {workspace = true}
 bevy_egui = {workspace = true}
+web-time = {workspace = true}
 
 [dev-dependencies]
 bevy = {workspace = true, features = ["dynamic_linking"]}
