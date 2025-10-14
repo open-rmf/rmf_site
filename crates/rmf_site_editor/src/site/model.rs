@@ -337,38 +337,20 @@ fn handle_model_loading(
             ));
         };
         // Now we have a handle and a parent entity, call the spawn scene service
-        // Keep it in a loop to ensure that we retrieve the assets even if they
-        // arrive late
-        let t_initial = std::time::Instant::now();
-        // TODO(@xiyuoh) make this configurable
-        let timeout = std::time::Duration::from_secs(5);
-        let spawn_scene = loop {
-            let res = channel
-                .query(
-                    (request.parent, handle.clone(), request.source.clone()),
-                    spawn_scene_for_loaded_model.into_blocking_callback(),
+        let res = channel
+            .query(
+                (request.parent, handle, request.source.clone()),
+                spawn_scene_for_loaded_model.into_blocking_callback(),
+            )
+            .await
+            .available()
+            .ok_or_else(|| {
+                ModelLoadingError::new(
+                    request.clone(),
+                    ModelLoadingErrorKind::WorkflowExecutionError,
                 )
-                .await
-                .available()
-                .ok_or_else(|| {
-                    ModelLoadingError::new(
-                        request.clone(),
-                        ModelLoadingErrorKind::WorkflowExecutionError,
-                    )
-                })?;
-            if let Some((scene_entity, is_scene)) = res {
-                break Some((scene_entity, is_scene));
-            }
-            let elapsed = std::time::Instant::now() - t_initial;
-            if timeout < elapsed {
-                info!(
-                    "Attempt to spawn scene for loaded model exceeded timeout '
-                    'of {timeout:?}: {elapsed:?}"
-                );
-                break None;
-            }
-        };
-        let Some((scene_entity, is_scene)) = spawn_scene else {
+            })?;
+        let Some((scene_entity, is_scene)) = res else {
             return Err(ModelLoadingError::new(
                 request.clone(),
                 ModelLoadingErrorKind::NonModelAsset,
@@ -388,6 +370,29 @@ fn handle_model_loading(
                 })?;
         }
         Ok(request)
+    }
+}
+
+fn check_model_loading_error(
+    In(AsyncService { request, .. }): AsyncServiceInput<ModelLoadingError>,
+    asset_server: Res<AssetServer>,
+    scene_handles: Query<&SceneHandle>,
+) -> impl Future<Output = Result<ModelLoadingRequest, ModelLoadingError>> {
+    let asset_server = asset_server.clone();
+    let handle = scene_handles.get(request.request.parent).cloned();
+    async move {
+        let Ok(handle) = handle else {
+            return Err(request);
+        };
+
+        // The non-model asset did not load properly, retry model loading workflow
+        if matches!(request.kind, ModelLoadingErrorKind::NonModelAsset)
+            && !asset_server.load_state(handle.0.id()).is_loaded()
+        {
+            return Ok(request.request);
+        }
+
+        Err(request)
     }
 }
 
@@ -632,17 +637,34 @@ impl ModelLoadingServices {
         let skip_if_unchanged = cleanup_if_asset_source_changed.into_blocking_callback();
         let load_model_dependencies = app.world_mut().spawn_service(load_model_dependencies);
         let model_loading_service = app.world_mut().spawn_service(handle_model_loading);
+        let check_model_loading_error = app.world_mut().spawn_service(check_model_loading_error);
         // This workflow tries to load the model without doing any error handling
         let try_load_model: Service<ModelLoadingRequest, ModelLoadingResult, ()> =
-            app.world_mut().spawn_workflow(|scope, builder| {
+            app.world_mut().spawn_io_workflow(|scope, builder| {
+                let model_loading_node = builder.create_node(model_loading_service);
+                let check_model_loading_node = builder.create_node(check_model_loading_error);
+                let load_model_dependencies_node = builder.create_node(load_model_dependencies);
+
                 scope
                     .input
                     .chain(builder)
                     .then(skip_if_unchanged)
                     .branch_for_err(|res| res.connect(scope.terminate))
-                    .then(model_loading_service)
-                    .connect_on_err(scope.terminate)
-                    .then(load_model_dependencies)
+                    .connect(model_loading_node.input);
+
+                model_loading_node.output.chain(builder).fork_result(
+                    |res| res.connect(load_model_dependencies_node.input),
+                    |err| err.connect(check_model_loading_node.input),
+                );
+
+                check_model_loading_node.output.chain(builder).fork_result(
+                    |retry| retry.connect(model_loading_node.input),
+                    |err| err.map_block(|e| Err(e)).connect(scope.terminate),
+                );
+
+                load_model_dependencies_node
+                    .output
+                    .chain(builder)
                     .connect_on_err(scope.terminate)
                     // The model and its dependencies are spawned, make them selectable / propagate
                     // render layers
@@ -656,7 +678,7 @@ impl ModelLoadingServices {
                             unchanged: false,
                         })
                     })
-                    .connect(scope.terminate)
+                    .connect(scope.terminate);
             });
 
         // Complete model loading with error handling, by having it as a separate
