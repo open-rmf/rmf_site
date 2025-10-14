@@ -341,7 +341,7 @@ impl<'w, 's> WidgetSystem<Tile> for Inspector<'w, 's> {
                     return;
                 };
 
-                let Some(&selection) = selection.0.iter().next() else {
+                let Some(mut selection) = selection.0.iter().next().cloned() else {
                     ui.label("Nothing selected");
                     return;
                 };
