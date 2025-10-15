@@ -161,6 +161,7 @@ impl<'w, 's> WidgetSystem<Tile> for ViewGoToPlace<'w, 's> {
             *task.request_mut().description_display_mut() = location_name.clone();
 
             // Update DebugGoal
+            // TODO(@xiyuoh) debug why negotiation loops if goal changes for existing task
             if let Some((robot_entity, debug_goal)) = task
                 .robot()
                 .0
