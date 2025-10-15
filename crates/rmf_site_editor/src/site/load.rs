@@ -17,13 +17,19 @@
 
 use crate::{recency::RecencyRanking, site::*, WorkspaceMarker};
 use bevy::{
-    ecs::{hierarchy::ChildOf, system::SystemParam},
+    ecs::{
+        hierarchy::ChildOf,
+        system::{BoxedSystem, SystemParam, SystemState},
+    },
     prelude::*,
 };
 use rmf_site_format::legacy::{building_map::BuildingMap, PortingError};
+use smallvec::SmallVec;
 use std::{
     collections::{HashMap, HashSet},
+    error::Error,
     path::PathBuf,
+    sync::Arc,
 };
 use thiserror::Error as ThisError;
 
@@ -142,30 +148,135 @@ pub enum LoadSiteError {
 }
 
 trait LoadResult<T> {
-    fn for_site(self, site: Entity) -> Result<T, SiteLoadingError>;
+    fn as_broken_error(self, site: Entity, cause: &'static str) -> Result<T, SiteLoadingError>;
 }
 
 impl<T> LoadResult<T> for Result<T, u32> {
-    fn for_site(self, site: Entity) -> Result<T, SiteLoadingError> {
-        self.map_err(|broken| SiteLoadingError::new(site, broken))
+    fn as_broken_error(self, site: Entity, cause: &'static str) -> Result<T, SiteLoadingError> {
+        self.map_err(|broken| SiteLoadingError {
+            site,
+            error: BrokenEntityError::new(broken, cause).into(),
+        })
     }
 }
 
 pub type LoadSiteResult = Result<LoadSite, LoadSiteError>;
 
-#[derive(ThisError, Debug)]
-#[error("The site has a broken internal reference: {broken}")]
 struct SiteLoadingError {
     site: Entity,
+    error: LoadingError,
+}
+
+/// Errors that can occur while loading a site.
+#[derive(ThisError, Debug)]
+enum LoadingError {
+    #[error(transparent)]
+    BrokenEntity(#[from] BrokenEntityError),
+    #[error("Your site editor application is missing a mandatory extension: {0}")]
+    MissingMandatoryExtension(Arc<str>),
+    #[error("Extension [{extension}] encountered an error: {error}")]
+    ExtensionError {
+        extension: Arc<str>,
+        error: Arc<dyn Error>,
+    },
+}
+
+#[derive(ThisError, Debug)]
+#[error("The site has a broken internal reference: {broken} for {cause}")]
+struct BrokenEntityError {
     broken: u32,
+    cause: &'static str,
     // TODO(@mxgrey): reintroduce Backtrack when it's supported on stable
     // backtrace: Backtrace,
 }
 
-impl SiteLoadingError {
-    fn new(site: Entity, broken: u32) -> Self {
-        Self { site, broken }
+impl BrokenEntityError {
+    fn new(broken: u32, cause: &'static str) -> Self {
+        Self { broken, cause }
     }
+}
+
+pub struct LoadingArgs {
+    /// The entity of the site that is being loaded
+    pub site: Entity,
+    /// The data for the extension that is being loaded
+    pub data: serde_json::Value,
+}
+
+pub type LoadingResult<E> = Result<(), E>;
+
+pub(crate) type LoadingSystem = BoxedSystem<In<LoadingArgs>, Result<(), Arc<dyn Error>>>;
+
+fn load_single_site(
+    world: &mut World,
+    entity_generation_params_state: &mut SystemState<EntityGenerationParams>,
+    site: &rmf_site_format::Site,
+) -> Result<Entity, SiteLoadingError> {
+    let mut entity_generation_params = entity_generation_params_state.get_mut(world);
+    let r = generate_site_entities(
+        &mut entity_generation_params.commands,
+        &mut entity_generation_params.model_loader,
+        site,
+    );
+    entity_generation_params_state.apply(world);
+    let site_entity = r?;
+
+    world
+        .resource_scope::<ExtensionHooks, Result<(), LoadingError>>(|world, mut hooks| {
+            for (extension, data) in &site.extensions.data {
+                let prevent_loading_on_error = site
+                    .properties
+                    .extension_settings
+                    .get(extension)
+                    .map(|settings| settings.prevent_loading_on_error)
+                    .unwrap_or(false);
+
+                let hook = match hooks.hooks.get_mut(extension) {
+                    Some(hook) => hook,
+                    None => {
+                        if prevent_loading_on_error {
+                            return Err(LoadingError::MissingMandatoryExtension(Arc::clone(
+                                extension,
+                            )));
+                        } else {
+                            warn!(
+                                "Missing extension {extension} which was expected by the site data"
+                            );
+                            continue;
+                        }
+                    }
+                };
+
+                if let Some(loading) = &mut hook.loading {
+                    let args = LoadingArgs {
+                        site: site_entity,
+                        data: data.clone(),
+                    };
+                    let r = loading.run(args, world);
+                    loading.apply_deferred(world);
+
+                    if let Err(err) = r {
+                        if prevent_loading_on_error {
+                            return Err(LoadingError::ExtensionError {
+                                extension: Arc::clone(extension),
+                                error: err,
+                            });
+                        } else {
+                            warn!(
+                                "Error occurred while extension [{extension}] was loading: {err}"
+                            );
+                        }
+                    }
+                }
+            }
+            Ok(())
+        })
+        .map_err(|error| SiteLoadingError {
+            site: site_entity,
+            error,
+        })?;
+
+    Ok(site_entity)
 }
 
 fn generate_site_entities(
@@ -251,7 +362,10 @@ fn generate_site_entities(
 
         for (door_id, door) in &level_data.doors {
             let door_entity = commands
-                .spawn(door.convert(&id_to_entity).for_site(site_id)?)
+                .spawn(
+                    door.convert(&id_to_entity)
+                        .as_broken_error(site_id, "door")?,
+                )
                 .insert(SiteID(*door_id))
                 .insert(ChildOf(level_entity))
                 .id();
@@ -278,7 +392,11 @@ fn generate_site_entities(
 
             for (fiducial_id, fiducial) in &drawing.fiducials {
                 let fiducial_entity = commands
-                    .spawn(fiducial.convert(&id_to_entity).for_site(site_id)?)
+                    .spawn(
+                        fiducial
+                            .convert(&id_to_entity)
+                            .as_broken_error(site_id, "drawing fiducial")?,
+                    )
                     .insert(SiteID(*fiducial_id))
                     .insert(ChildOf(drawing_entity))
                     .id();
@@ -288,7 +406,11 @@ fn generate_site_entities(
 
             for (measurement_id, measurement) in &drawing.measurements {
                 let measurement_entity = commands
-                    .spawn(measurement.convert(&id_to_entity).for_site(site_id)?)
+                    .spawn(
+                        measurement
+                            .convert(&id_to_entity)
+                            .as_broken_error(site_id, "measurement")?,
+                    )
                     .insert(SiteID(*measurement_id))
                     .insert(ChildOf(drawing_entity))
                     .id();
@@ -301,7 +423,11 @@ fn generate_site_entities(
 
         for (floor_id, floor) in &level_data.floors {
             commands
-                .spawn(floor.convert(&id_to_entity).for_site(site_id)?)
+                .spawn(
+                    floor
+                        .convert(&id_to_entity)
+                        .as_broken_error(site_id, "floor")?,
+                )
                 .insert(SiteID(*floor_id))
                 .insert(ChildOf(level_entity));
             consider_id(*floor_id);
@@ -309,7 +435,10 @@ fn generate_site_entities(
 
         for (wall_id, wall) in &level_data.walls {
             commands
-                .spawn(wall.convert(&id_to_entity).for_site(site_id)?)
+                .spawn(
+                    wall.convert(&id_to_entity)
+                        .as_broken_error(site_id, "wall")?,
+                )
                 .insert(SiteID(*wall_id))
                 .insert(ChildOf(level_entity));
             consider_id(*wall_id);
@@ -383,7 +512,10 @@ fn generate_site_entities(
 
         for (door_id, door) in &lift_data.cabin_doors {
             let door_entity = commands
-                .spawn(door.convert(&id_to_entity).for_site(site_id)?)
+                .spawn(
+                    door.convert(&id_to_entity)
+                        .as_broken_error(site_id, "cabin door")?,
+                )
                 .insert(Dependents::single(lift_entity))
                 .insert(SiteID(*door_id))
                 .insert(ChildOf(lift_entity))
@@ -396,7 +528,7 @@ fn generate_site_entities(
             lift_data
                 .properties
                 .convert(&id_to_entity)
-                .for_site(site_id)?,
+                .as_broken_error(site_id, "lift")?,
         );
 
         id_to_entity.insert(*lift_id, lift_entity);
@@ -405,7 +537,11 @@ fn generate_site_entities(
 
     for (fiducial_id, fiducial) in &site_data.fiducials {
         let fiducial_entity = commands
-            .spawn(fiducial.convert(&id_to_entity).for_site(site_id)?)
+            .spawn(
+                fiducial
+                    .convert(&id_to_entity)
+                    .as_broken_error(site_id, "site fiducial")?,
+            )
             .insert(SiteID(*fiducial_id))
             .insert(ChildOf(site_id))
             .id();
@@ -426,7 +562,11 @@ fn generate_site_entities(
 
     for (lane_id, lane_data) in &site_data.navigation.guided.lanes {
         let lane = commands
-            .spawn(lane_data.convert(&id_to_entity).for_site(site_id)?)
+            .spawn(
+                lane_data
+                    .convert(&id_to_entity)
+                    .as_broken_error(site_id, "lane")?,
+            )
             .insert(SiteID(*lane_id))
             .insert(ChildOf(site_id))
             .id();
@@ -436,7 +576,11 @@ fn generate_site_entities(
 
     for (location_id, location_data) in &site_data.navigation.guided.locations {
         let location = commands
-            .spawn(location_data.convert(&id_to_entity).for_site(site_id)?)
+            .spawn(
+                location_data
+                    .convert(&id_to_entity)
+                    .as_broken_error(site_id, "location")?,
+            )
             .insert(SiteID(*location_id))
             .insert(ChildOf(site_id))
             .id();
@@ -448,7 +592,7 @@ fn generate_site_entities(
         site_data
             .properties
             .convert(&id_to_entity)
-            .for_site(site_id)?,
+            .as_broken_error(site_id, "site properties")?,
     );
 
     let mut model_description_dependents = HashMap::<Entity, HashSet<Entity>>::new();
@@ -497,13 +641,20 @@ fn generate_site_entities(
         let model_instance = parented_model_instance
             .bundle
             .convert(&id_to_entity)
-            .for_site(site_id)?;
+            .as_broken_error(site_id, "model instance")?;
 
         // The parent id is invalid, we do not spawn this model instance and generate
         // an error instead
         let parent = id_to_entity
             .get(&parented_model_instance.parent)
-            .ok_or_else(|| SiteLoadingError::new(site_id, parented_model_instance.parent))?;
+            .ok_or_else(|| SiteLoadingError {
+                site: site_id,
+                error: BrokenEntityError::new(
+                    parented_model_instance.parent,
+                    "model instance parent",
+                )
+                .into(),
+            })?;
 
         let model_instance_entity = model_loader
             .spawn_model_instance(*parent, model_instance.clone())
@@ -536,7 +687,9 @@ fn generate_site_entities(
     }
 
     for (task_id, task_data) in &site_data.tasks {
-        let task = task_data.convert(&id_to_entity).for_site(site_id)?;
+        let task = task_data
+            .convert(&id_to_entity)
+            .as_broken_error(site_id, "task")?;
         let task_entity = commands
             .spawn(task.clone())
             .insert(SiteID(*task_id))
@@ -553,7 +706,9 @@ fn generate_site_entities(
             None => site_id,
         };
 
-        let scenario = scenario_data.convert(&id_to_entity).for_site(site_id)?;
+        let scenario = scenario_data
+            .convert(&id_to_entity)
+            .as_broken_error(site_id, "scenario data")?;
         let scenario_entity = commands
             .spawn(scenario.properties.clone())
             .insert(SiteID(*scenario_id))
@@ -567,7 +722,7 @@ fn generate_site_entities(
             let instance_entity = id_to_entity
                 .get(instance_id)
                 .ok_or(*instance_id)
-                .for_site(site_id)?;
+                .as_broken_error(site_id, "instance modifier")?;
 
             if let Some(pose) = instance_modifier.pose {
                 commands.trigger(UpdateModifier::modify(
@@ -599,7 +754,7 @@ fn generate_site_entities(
             let task_entity = id_to_entity
                 .get(task_id)
                 .ok_or(*task_id)
-                .for_site(site_id)?;
+                .as_broken_error(site_id, "task modifier")?;
             if let Some(inclusion) = task_modifier.inclusion {
                 commands.trigger(UpdateModifier::modify(
                     scenario_entity,
@@ -641,12 +796,17 @@ fn generate_site_entities(
         for (_, door) in &lift_data.cabin_doors {
             for anchor in door.reference_anchors.array() {
                 commands
-                    .entity(*id_to_entity.get(&anchor).ok_or(anchor).for_site(site_id)?)
+                    .entity(
+                        *id_to_entity
+                            .get(&anchor)
+                            .ok_or(anchor)
+                            .as_broken_error(site_id, "lift door")?,
+                    )
                     .insert(Subordinate(Some(
                         *id_to_entity
                             .get(lift_id)
                             .ok_or(*lift_id)
-                            .for_site(site_id)?,
+                            .as_broken_error(site_id, "lift")?,
                     )));
             }
         }
@@ -655,37 +815,53 @@ fn generate_site_entities(
     return Ok(site_id);
 }
 
+#[derive(SystemParam)]
+pub struct EntityGenerationParams<'w, 's> {
+    commands: Commands<'w, 's>,
+    model_loader: ModelLoader<'w, 's>,
+}
+
+#[derive(SystemParam)]
+pub struct SiteLoadingParams<'w, 's> {
+    load_sites: EventReader<'w, 's, LoadSite>,
+    change_current_site: EventWriter<'w, ChangeCurrentSite>,
+}
+
 pub fn load_site(
-    mut commands: Commands,
-    mut model_loader: ModelLoader,
-    mut load_sites: EventReader<LoadSite>,
-    mut change_current_site: EventWriter<ChangeCurrentSite>,
+    world: &mut World,
+    entity_generation_params_state: &mut SystemState<EntityGenerationParams>,
+    loading_params_state: &mut SystemState<SiteLoadingParams>,
 ) {
-    for cmd in load_sites.read() {
-        let site = match generate_site_entities(&mut commands, &mut model_loader, &cmd.site) {
+    let mut loading_params = loading_params_state.get_mut(world);
+    let sites_to_load: SmallVec<[_; 8]> = loading_params.load_sites.read().cloned().collect();
+    for cmd in sites_to_load {
+        let site = match load_single_site(world, entity_generation_params_state, &cmd.site) {
             Ok(site) => site,
             Err(err) => {
-                commands.entity(err.site).despawn();
+                world.entity_mut(err.site).despawn();
                 error!(
                     "Failed to load the site entities because the file had an \
-                    internal inconsistency:\n{err:#?}\n---\nSite Data:\n{:#?}",
-                    &cmd.site,
+                    internal inconsistency:\n{}\n---\nSite Data:\n{:#?}",
+                    err.error, &cmd.site,
                 );
                 continue;
             }
         };
         if let Some(path) = &cmd.default_file {
-            commands.entity(site).insert(DefaultFile(path.clone()));
+            world.entity_mut(site).insert(DefaultFile(path.clone()));
         }
 
         if cmd.focus {
-            change_current_site.write(ChangeCurrentSite {
+            let mut loading_params = loading_params_state.get_mut(world);
+            loading_params.change_current_site.write(ChangeCurrentSite {
                 site,
                 level: None,
                 scenario: None,
             });
         }
     }
+
+    loading_params_state.apply(world);
 }
 
 #[derive(ThisError, Debug, Clone)]

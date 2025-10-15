@@ -39,6 +39,8 @@ pub struct SiteProperties<T: RefTrait> {
     pub filtered_issues: FilteredIssues<T>,
     #[serde(default, skip_serializing_if = "FilteredIssueKinds::is_empty")]
     pub filtered_issue_kinds: FilteredIssueKinds,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub extension_settings: SiteExtensionSettings,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -91,6 +93,7 @@ impl<T: RefTrait> Default for SiteProperties<T> {
             geographic_offset: GeographicComponent::default(),
             filtered_issues: FilteredIssues::default(),
             filtered_issue_kinds: FilteredIssueKinds::default(),
+            extension_settings: Default::default(),
         }
     }
 }
@@ -102,6 +105,7 @@ impl<T: RefTrait> SiteProperties<T> {
             geographic_offset: self.geographic_offset.clone(),
             filtered_issues: self.filtered_issues.convert(id_map)?,
             filtered_issue_kinds: self.filtered_issue_kinds.clone(),
+            extension_settings: self.extension_settings.clone(),
         })
     }
 }
@@ -151,6 +155,10 @@ pub struct Site {
     /// Tasks available in this site
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub tasks: BTreeMap<u32, Task<u32>>,
+    /// Hook for downstream extensions to put their own serialized data into
+    /// the site file.
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub extensions: Extensions,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]

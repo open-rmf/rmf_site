@@ -148,6 +148,12 @@ fn compute_model_source<'a, 'b>(
                     )));
                 }
             }
+            AssetSource::Memory(_) => {
+                // TODO(@xiyuoh)
+                return Err(SdfError::UnsupportedAssetSource(format!(
+                    "In-memory meshes not supported for now"
+                )));
+            }
         }
         Ok(asset_source)
     } else {

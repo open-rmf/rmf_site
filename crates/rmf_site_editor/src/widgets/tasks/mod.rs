@@ -144,7 +144,6 @@ pub struct EditModeEvent {
 pub struct ViewTasks<'w, 's> {
     children: Query<'w, 's, &'static Children>,
     commands: Commands<'w, 's>,
-    change_task: EventWriter<'w, Change<Task<Entity>>>,
     current_scenario: ResMut<'w, CurrentScenario>,
     delete: EventWriter<'w, Delete>,
     edit_mode: EventWriter<'w, EditModeEvent>,
@@ -313,7 +312,6 @@ fn show_task_widget(
                 scenario,
                 &params.get_inclusion_modifier,
                 &params.get_params_modifier,
-                &mut params.change_task,
                 &mut params.delete,
                 &mut params.edit_mode,
                 &mut params.task_kinds,
@@ -353,7 +351,6 @@ fn show_task_params(
     scenario: Entity,
     get_inclusion_modifier: &GetModifier<Modifier<Inclusion>>,
     get_params_modifier: &GetModifier<Modifier<TaskParams>>,
-    change_task: &mut EventWriter<Change<Task<Entity>>>,
     delete: &mut EventWriter<Delete>,
     edit_mode: &mut EventWriter<EditModeEvent>,
     task_kinds: &ResMut<TaskKinds>,
@@ -477,7 +474,6 @@ fn show_task_params(
         get_params_modifier,
         robots,
         task_kinds,
-        change_task,
         hover,
     );
 }
@@ -493,7 +489,6 @@ fn show_editable_task(
     get_params_modifier: &GetModifier<Modifier<TaskParams>>,
     robots: &Query<(Entity, &NameInSite, &Robot), Without<Group>>,
     task_kinds: &ResMut<TaskKinds>,
-    change_task: &mut EventWriter<Change<Task<Entity>>>,
     hover: &mut EventWriter<Hover>,
 ) {
     let mut new_task = task.clone();
@@ -686,7 +681,7 @@ fn show_editable_task(
     // Trigger appropriate events if changes have been made in edit mode
     if in_edit_mode {
         if new_task != *task {
-            change_task.write(Change::new(new_task, task_entity));
+            commands.trigger(Change::new(new_task, task_entity));
         }
 
         if new_task_params != *task_params {
@@ -708,7 +703,6 @@ fn show_create_task_dialog(
         GetModifier<Modifier<TaskParams>>,
         Query<(Entity, &NameInSite, &Robot), Without<Group>>,
         ResMut<TaskKinds>,
-        EventWriter<Change<Task<Entity>>>,
         EventWriter<Hover>,
     )>,
     widget_state: &mut SystemState<(Query<&Children>, Res<TaskWidget>)>,
@@ -738,7 +732,7 @@ fn show_create_task_dialog(
         .resizable(false)
         .anchor(Align2::CENTER_CENTER, [0.0, 0.0])
         .show(&mut ctx, |ui| {
-            let (mut commands, get_params_modifier, robots, task_kinds, mut change_task, mut hover) =
+            let (mut commands, get_params_modifier, robots, task_kinds, mut hover) =
                 edit_state.get_mut(world);
             show_editable_task(
                 ui,
@@ -751,7 +745,6 @@ fn show_create_task_dialog(
                 &get_params_modifier,
                 &robots,
                 &task_kinds,
-                &mut change_task,
                 &mut hover,
             );
             let task_request_category = pending_task.request().category();

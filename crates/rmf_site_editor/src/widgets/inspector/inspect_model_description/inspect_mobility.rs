@@ -21,8 +21,8 @@ use super::{
 };
 use crate::{
     site::{
-        robot_properties::serialize_and_change_robot_property_kind, Change, DifferentialDrive,
-        Group, Mobility, ModelMarker, ModelProperty, ModelPropertyQuery, RecallMobility, Robot,
+        robot_properties::serialize_and_change_robot_property_kind, DifferentialDrive, Group,
+        Mobility, ModelMarker, ModelProperty, ModelPropertyQuery, RecallMobility, Robot,
         RobotProperty,
     },
     widgets::{prelude::*, Inspect},
@@ -34,12 +34,12 @@ use smallvec::SmallVec;
 
 #[derive(SystemParam)]
 pub struct InspectMobility<'w, 's> {
+    commands: Commands<'w, 's>,
     robot_property_widgets: Res<'w, RobotPropertyWidgetRegistry>,
     model_instances: ModelPropertyQuery<'w, 's, Robot>,
     model_descriptions:
         Query<'w, 's, &'static ModelProperty<Robot>, (With<ModelMarker>, With<Group>)>,
     mobility: Query<'w, 's, &'static Mobility, (With<ModelMarker>, With<Group>)>,
-    change_robot_property: EventWriter<'w, Change<ModelProperty<Robot>>>,
     children: Query<'w, 's, &'static Children>,
     recall_mobility: Query<'w, 's, &'static RecallMobility, (With<ModelMarker>, With<Group>)>,
 }
@@ -55,7 +55,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectMobility<'w, 's> {
         state: &mut SystemState<Self>,
         world: &mut World,
     ) {
-        let params = state.get_mut(world);
+        let mut params = state.get_mut(world);
         let Some(description_entity) = get_selected_description_entity(
             selection,
             &params.model_instances,
@@ -78,9 +78,9 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectMobility<'w, 's> {
 
         show_robot_property_widget::<Mobility>(
             ui,
+            &mut params.commands,
             params.mobility,
             recall_mobility,
-            params.change_robot_property,
             robot,
             &params.robot_property_widgets,
             description_entity,
@@ -111,6 +111,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectMobility<'w, 's> {
 
 #[derive(SystemParam)]
 pub struct InspectDifferentialDrive<'w, 's> {
+    commands: Commands<'w, 's>,
     model_instances: ModelPropertyQuery<'w, 's, Robot>,
     model_descriptions: Query<
         'w,
@@ -118,7 +119,6 @@ pub struct InspectDifferentialDrive<'w, 's> {
         (&'static ModelProperty<Robot>, &'static DifferentialDrive),
         (With<ModelMarker>, With<Group>),
     >,
-    change_robot_property: EventWriter<'w, Change<ModelProperty<Robot>>>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectDifferentialDrive<'w, 's> {
@@ -192,7 +192,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectDifferentialDrive<'w, 's> {
 
         if new_differential_drive != *differential_drive {
             serialize_and_change_robot_property_kind::<Mobility, DifferentialDrive>(
-                &mut params.change_robot_property,
+                &mut params.commands,
                 new_differential_drive,
                 robot,
                 description_entity,

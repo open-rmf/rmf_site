@@ -16,8 +16,7 @@
 */
 
 use crate::site::{
-    Affiliation, Element, Group, ModelMarker, ModelProperty, Robot, StandardProperty, Task,
-    TaskKind, TaskParams,
+    Element, Group, ModelMarker, Robot, StandardProperty, Task, TaskKind, TaskParams,
 };
 use bevy::prelude::*;
 use std::collections::HashMap;

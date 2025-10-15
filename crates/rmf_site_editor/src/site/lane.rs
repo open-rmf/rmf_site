@@ -27,6 +27,7 @@ use uuid::Uuid;
 // TODO(MXG): Make this configurable, perhaps even a field in the Lane data
 // so users can customize the lane width per lane.
 pub const LANE_WIDTH: f32 = 0.5;
+pub const DEFAULT_LANE_ARROW_SPEED: f32 = 0.5;
 
 #[derive(Component, Debug, Clone, Copy)]
 pub struct LaneSegments {
@@ -176,12 +177,12 @@ pub fn add_lane_visuals(
         );
 
         let is_bidirectional = *reverse != ReverseLane::Disable;
-        let forward_speed_limit = motion.speed_limit.unwrap_or(1.0);
+        let forward_speed_limit = motion.speed_limit.unwrap_or(DEFAULT_LANE_ARROW_SPEED);
         let backward_speed_limit = match reverse {
             ReverseLane::Same => forward_speed_limit,
             _ => recall
-                .map(|rec: &RecallMotion| rec.speed_limit.unwrap_or(1.0))
-                .unwrap_or(1.0),
+                .map(|rec: &RecallMotion| rec.speed_limit.unwrap_or(DEFAULT_LANE_ARROW_SPEED))
+                .unwrap_or(DEFAULT_LANE_ARROW_SPEED),
         };
 
         let mid = commands
@@ -196,11 +197,16 @@ pub fn add_lane_visuals(
                         single_arrow_color: lane_color.into(),
                         double_arrow_color: lane_color.into(),
                         background_color: lane_color.into(),
-                        number_of_arrows: (start_anchor - end_anchor).length() / LANE_WIDTH,
-                        forward_speed: forward_speed_limit,
-                        backward_speed: backward_speed_limit,
-                        bidirectional: is_bidirectional as u32,
-                        is_active: false as u32,
+                        number_of_arrows: BigF32::new(
+                            (start_anchor - end_anchor).length() / LANE_WIDTH,
+                        ),
+                        speeds: LaneShaderSpeeds {
+                            forward: forward_speed_limit,
+                            backward: backward_speed_limit,
+                            ..Default::default()
+                        },
+                        bidirectional: BigU32::new(is_bidirectional as u32),
+                        interacting: BigU32::new(false as u32),
                     },
                 })),
                 line_stroke_transform(&start_anchor, &end_anchor, LANE_WIDTH),
@@ -261,7 +267,7 @@ fn update_lane_visuals(
 
         if let Ok(mat) = lane_materials.get(segments.mid) {
             if let Some(lane_mat) = extended_materials.get_mut(&mat.0) {
-                lane_mat.extension.number_of_arrows =
+                *lane_mat.extension.number_of_arrows =
                     (start_anchor - end_anchor).length() / LANE_WIDTH;
             }
         }
@@ -294,17 +300,17 @@ pub fn update_lane_motion_visuals(
         if let Some(mat) = lane_materials.get_mut(segments.mid).ok() {
             if let Some(lane_mat) = extended_materials.get_mut(&mat.0) {
                 let is_bidirectional = *reverse != ReverseLane::Disable;
-                let forward_speed_limit = motion.speed_limit.unwrap_or(1.0);
+                let forward_speed_limit = motion.speed_limit.unwrap_or(DEFAULT_LANE_ARROW_SPEED);
                 let backward_speed_limit = match reverse {
                     ReverseLane::Same => forward_speed_limit,
                     _ => recall
                         .and_then(|rec| rec.previous.speed_limit)
-                        .unwrap_or(1.0),
+                        .unwrap_or(DEFAULT_LANE_ARROW_SPEED),
                 };
 
-                lane_mat.extension.forward_speed = forward_speed_limit;
-                lane_mat.extension.backward_speed = backward_speed_limit;
-                lane_mat.extension.bidirectional = is_bidirectional as u32;
+                lane_mat.extension.speeds.forward = forward_speed_limit;
+                lane_mat.extension.speeds.backward = backward_speed_limit;
+                *lane_mat.extension.bidirectional = is_bidirectional as u32;
             }
         }
     }

@@ -30,8 +30,8 @@ use rmf_site_format::{DoorType, RecallDoorType, Swing};
 
 #[derive(SystemParam)]
 pub struct InspectDoor<'w, 's> {
+    commands: Commands<'w, 's>,
     doors: Query<'w, 's, (&'static DoorType, &'static RecallDoorType)>,
-    change_door: EventWriter<'w, Change<DoorType>>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectDoor<'w, 's> {
@@ -47,7 +47,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectDoor<'w, 's> {
         };
 
         if let Some(new_door) = InspectDoorType::new(door, recall).show(ui) {
-            params.change_door.write(Change::new(new_door, selection));
+            params.commands.trigger(Change::new(new_door, selection));
         }
         ui.add_space(10.0);
     }

@@ -41,11 +41,11 @@ impl Plugin for InspectLiftPlugin {
 
 #[derive(SystemParam)]
 pub struct InspectLiftCabin<'w, 's> {
+    commands: Commands<'w, 's>,
     cabins: Query<'w, 's, (&'static LiftCabin<Entity>, &'static RecallLiftCabin<Entity>)>,
     doors: Query<'w, 's, &'static LevelVisits<Entity>>,
     levels: Query<'w, 's, (&'static NameInSite, &'static LevelElevation)>,
     display_level: Res<'w, LevelDisplay>,
-    change_lift_cabin: EventWriter<'w, Change<LiftCabin<Entity>>>,
     selector: SelectorWidget<'w, 's>,
     toggle_door_levels: EventWriter<'w, ToggleLiftDoorAvailability>,
     current_level: Res<'w, CurrentLevel>,
@@ -254,7 +254,7 @@ impl<'w, 's> InspectLiftCabin<'w, 's> {
                 }
             }
 
-            self.change_lift_cabin.write(Change::new(new_cabin, id));
+            self.commands.trigger(Change::new(new_cabin, id));
         }
         ui.add_space(10.0);
     }

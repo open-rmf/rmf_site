@@ -22,7 +22,7 @@ opt-level = 3
 
 [workspace.dependencies]
 serde = { version = "1.0" }
-strum = "*"
+strum = { version = "*", features = ["derive"] }
 
 rmf_site_picking = { path = "crates/rmf_site_picking" }
 rmf_site_format = { path = "crates/rmf_site_format" }
@@ -76,8 +76,9 @@ bytemuck = {version = "1.22"}
 bevy_infinite_grid = { version = "0.15"}
 testdir = "*"
 file_diff = "*"
+web-time = "1"
 
-bevy = "0.16"
+bevy = {version = "0.16", features = ["configurable_error_handler"]}
 bevy_a11y = "0.16"
 bevy_animation = "0.16"
 bevy_app = "0.16"
@@ -89,7 +90,7 @@ bevy_derive = "0.16"
 bevy_dev_tools = "0.16"
 bevy_diagnostic = "0.16"
 bevy_dylib = "0.16"
-bevy_ecs = "0.16"
+bevy_ecs = {version = "0.16", features = ["configurable_error_handler"]}
 bevy_encase_derive = "0.16"
 bevy_gilrs = "0.16"
 bevy_gizmos = "0.16"

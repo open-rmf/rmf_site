@@ -16,6 +16,7 @@
 */
 use super::{EditTask, TaskWidget};
 use crate::{
+    mapf_rse::DebugGoal,
     site::{
         update_task_kind_component, Affiliation, LocationTags, NameInSite, SiteID, Task, TaskKind,
         TaskKinds,
@@ -31,7 +32,7 @@ use bevy::{
 };
 use bevy_egui::egui::{ComboBox, SelectableLabel};
 use rmf_site_egui::*;
-use rmf_site_format::GoToPlace;
+use rmf_site_format::{GoToPlace, Robot};
 use rmf_site_picking::Hover;
 
 #[derive(Default)]
@@ -79,6 +80,8 @@ pub struct ViewGoToPlace<'w, 's> {
     edit_task: Res<'w, EditTask>,
     tasks: Query<'w, 's, (&'static mut GoToPlace<Entity>, &'static mut Task<Entity>)>,
     hover: EventWriter<'w, Hover>,
+    robot_debug_goal: Query<'w, 's, (Entity, Option<&'static mut DebugGoal>), With<Robot>>,
+    commands: Commands<'w, 's>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for ViewGoToPlace<'w, 's> {
@@ -137,15 +140,13 @@ impl<'w, 's> WidgetSystem<Tile> for ViewGoToPlace<'w, 's> {
         if *go_to_place != new_go_to_place {
             *go_to_place = new_go_to_place.clone();
 
-            // Convert Location entity to SiteID before serializing
-            let location_name = new_go_to_place
-                .location
-                .0
+            let location_entity = new_go_to_place.location.0;
+            let location_name = location_entity
                 .and_then(|e| params.locations.get(e).ok())
                 .map(|(_, name, _)| name.0.clone());
-            if let Some(description) = new_go_to_place
-                .location
-                .0
+
+            // Convert Location entity to SiteID before serializing
+            if let Some(description) = location_entity
                 .and_then(|e| params.locations.get(e).ok())
                 .and_then(|(_, _, site_id)| site_id)
                 .and_then(|id| {
@@ -157,7 +158,25 @@ impl<'w, 's> WidgetSystem<Tile> for ViewGoToPlace<'w, 's> {
             {
                 *task.request_mut().description_mut() = description;
             }
-            *task.request_mut().description_display_mut() = location_name;
+            *task.request_mut().description_display_mut() = location_name.clone();
+
+            // Update DebugGoal
+            if let Some((robot_entity, debug_goal)) = task
+                .robot()
+                .0
+                .and_then(|e_robot| params.robot_debug_goal.get_mut(e_robot).ok())
+            {
+                let goal_location = location_name.unwrap_or("No Location".to_string());
+                if let Some(mut goal) = debug_goal {
+                    goal.location = goal_location;
+                    goal.entity = location_entity;
+                } else {
+                    params.commands.entity(robot_entity).insert(DebugGoal {
+                        location: goal_location,
+                        entity: location_entity,
+                    });
+                }
+            }
         }
     }
 }
