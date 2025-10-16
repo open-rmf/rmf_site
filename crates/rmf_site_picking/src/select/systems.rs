@@ -43,9 +43,7 @@ pub fn selection_update(
     mut selection: ResMut<Selection>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
-    // todo(@johntgz) Should it be SHIFT or CTRL?
     // If SHIFT is held down, we do not de-select the previous element, we add the selection candidate to the Selection resource
-
     if let Some(new_selection) = new_selection.map(|s| s.candidate) {
         if !selection.0.contains(&new_selection) {
             if keyboard_input.pressed(KeyCode::ShiftLeft) {
