@@ -8,7 +8,6 @@ use bevy_math::prelude::*;
 use bevy_picking::pointer::{PointerId, PointerInteraction};
 use bevy_transform::components::Transform;
 use rmf_site_camera::*;
-// use rmf_site_format::Site::{Group, ModelMarker};
 use tracing::warn;
 use web_time::Instant;
 
@@ -47,7 +46,6 @@ pub fn selection_update(
     if let Some(new_selection) = new_selection.map(|s| s.candidate) {
         if !selection.0.contains(&new_selection) {
             if keyboard_input.pressed(KeyCode::ShiftLeft) {
-                // todo(@johntgz) Adding entities to the current selection is only supported for Model and ModelInstances only, we should filter it using With<ModelMarker>, Without<Group>
                 // Add a query
                 if let Ok(mut selected) = selected.get_mut(new_selection) {
                     selected.is_selected = true;
