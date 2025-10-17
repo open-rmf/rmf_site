@@ -53,6 +53,13 @@ fn keyboard_pressed_stream(
         return;
     }
 
+    for key_code in keyboard_input.get_just_released() {
+        orders.for_each(|order| {
+            order
+                .streams()
+                .send(StreamOf((*key_code, ButtonInputType::JustReleased)))
+        });
+    }
     for key_code in keyboard_input.get_pressed() {
         orders.for_each(|order| {
             order
@@ -65,13 +72,6 @@ fn keyboard_pressed_stream(
             order
                 .streams()
                 .send(StreamOf((*key_code, ButtonInputType::JustPressed)))
-        });
-    }
-    for key_code in keyboard_input.get_just_released() {
-        orders.for_each(|order| {
-            order
-                .streams()
-                .send(StreamOf((*key_code, ButtonInputType::JustReleased)))
         });
     }
 }

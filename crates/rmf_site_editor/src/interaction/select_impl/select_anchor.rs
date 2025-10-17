@@ -609,7 +609,11 @@ impl<'w, 's> SelectionFilter for AnchorFilter<'w, 's> {
 
         // There was no anchor currently hovered which means we need to create
         // a new provisional anchor.
-        let Ok(tf) = self.transforms.get(self.cursor.frame) else {
+        let tf = if let Ok(placement_tf) = self.transforms.get(self.cursor.level_anchor_placement) {
+            placement_tf
+        } else if let Ok(cursor_tf) = self.transforms.get(self.cursor.frame) {
+            cursor_tf
+        } else {
             error!("Cannot find cursor transform");
             return None;
         };

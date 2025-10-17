@@ -395,8 +395,8 @@ pub fn on_keyboard_for_create_edges(
                 // to align with either the X- or Y- axis.
                 let edge = edges.get(preview.edge).or_broken_query()?;
                 let end_anchor = edge.right();
-                if end_anchor != cursor.level_anchor_placement {
-                    // We do not want to modify an existing edge
+                if !cursor.is_placement_anchor(end_anchor) {
+                    // We do not want to modify an existing anchor
                     return Ok(());
                 }
                 let Ok(end_anchor_tf) = transform.get(end_anchor) else {
@@ -406,15 +406,11 @@ pub fn on_keyboard_for_create_edges(
 
                 match input_type {
                     ButtonInputType::Pressed => {
-                        let Ok(delta) = transform
-                            .get(edge.left())
-                            .and_then(|tf| {
-                                transform
-                                    .get(cursor.frame)
-                                    .map(|c_tf| (tf.translation, c_tf.translation))
-                            })
-                            .map(|(start_pos, cursor_pos)| cursor_pos - start_pos)
-                        else {
+                        let Ok(delta) = transform.get(edge.left()).and_then(|tf| {
+                            transform
+                                .get(cursor.frame)
+                                .map(|c_tf| c_tf.translation - tf.translation)
+                        }) else {
                             return Ok(());
                         };
                         let offset = if delta.x.abs() > delta.y.abs() {
