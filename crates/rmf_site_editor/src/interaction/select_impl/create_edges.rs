@@ -329,14 +329,16 @@ pub fn on_select_for_create_edges(
 }
 
 pub fn on_keyboard_for_create_edges(
-    In((button, key)): In<(KeyCode, BufferKey<CreateEdges>)>,
+    In(((button, input_type), key)): In<((KeyCode, ButtonInputType), BufferKey<CreateEdges>)>,
     mut access: BufferAccessMut<CreateEdges>,
     mut edges: Query<&'static mut Edge<Entity>>,
     cursor: Res<Cursor>,
     mut commands: Commands,
+    mut move_to: EventWriter<MoveTo>,
+    transform: Query<&'static Transform>,
 ) -> SelectionNodeResult {
-    if !matches!(button, KeyCode::Escape) {
-        // The button was not the escape key, so there's nothing for us to do
+    if !matches!(button, KeyCode::Escape) && !matches!(button, KeyCode::ShiftLeft) {
+        // The button was not the escape or shift key, so there's nothing for us to do
         // here.
         return Ok(());
     }
@@ -344,42 +346,98 @@ pub fn on_keyboard_for_create_edges(
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.newest_mut().or_broken_state()?;
 
-    if let Some(preview) = &mut state.preview_edge {
-        if preview.side == Side::end() {
-            // We currently have an active preview edge and are selecting for
-            // the second point in the edge. Esc means we should back out of the
-            // current edge without exiting the edge creation workflow so the
-            // user can choose a different start point.
-            let mut edge = edges.get_mut(preview.edge).or_broken_query()?;
-            for anchor in edge.array() {
-                commands.queue(ChangeDependent::remove(anchor, preview.edge));
-            }
-            if preview.provisional_start {
-                commands
-                    .get_entity(edge.start())
-                    .or_broken_query()?
-                    .despawn();
-            }
+    if matches!(button, KeyCode::Escape) {
+        if !matches!(input_type, ButtonInputType::JustPressed) {
+            return Ok(());
+        }
+        if let Some(preview) = &mut state.preview_edge {
+            if preview.side == Side::end() {
+                // We currently have an active preview edge and are selecting for
+                // the second point in the edge. Esc means we should back out of the
+                // current edge without exiting the edge creation workflow so the
+                // user can choose a different start point.
+                let mut edge = edges.get_mut(preview.edge).or_broken_query()?;
+                for anchor in edge.array() {
+                    commands.queue(ChangeDependent::remove(anchor, preview.edge));
+                }
+                if preview.provisional_start {
+                    commands
+                        .get_entity(edge.start())
+                        .or_broken_query()?
+                        .despawn();
+                }
 
-            *edge.left_mut() = cursor.level_anchor_placement;
-            *edge.right_mut() = cursor.level_anchor_placement;
-            preview.side = Side::start();
-            preview.provisional_start = false;
-            commands.queue(ChangeDependent::add(
-                cursor.level_anchor_placement,
-                preview.edge,
-            ));
+                *edge.left_mut() = cursor.level_anchor_placement;
+                *edge.right_mut() = cursor.level_anchor_placement;
+                preview.side = Side::start();
+                preview.provisional_start = false;
+                commands.queue(ChangeDependent::add(
+                    cursor.level_anchor_placement,
+                    preview.edge,
+                ));
+            } else {
+                // We are selecting for the first point in the edge. If the user has
+                // pressed Esc then that means they want to stop creating edges
+                // altogether. Return Err(None) to indicate that the workflow should
+                // exit cleaning.
+                return Err(None);
+            }
         } else {
-            // We are selecting for the first point in the edge. If the user has
-            // pressed Esc then that means they want to stop creating edges
-            // altogether. Return Err(None) to indicate that the workflow should
-            // exit cleaning.
+            // We currently have no preview active at all. If the user hits Esc then
+            // they want to exit the workflow altogether.
             return Err(None);
         }
-    } else {
-        // We currently have no preview active at all. If the user hits Esc then
-        // they want to exit the workflow altogether.
-        return Err(None);
+    } else if matches!(button, KeyCode::ShiftLeft) {
+        if let Some(preview) = &mut state.preview_edge {
+            if preview.side == Side::end() {
+                // We currently have an active preview edge and are selecting for
+                // the second point in the edge. Shift means we want the current lane
+                // to align with either the X- or Y- axis.
+                let edge = edges.get(preview.edge).or_broken_query()?;
+                let end_anchor = edge.right();
+                if end_anchor != cursor.level_anchor_placement {
+                    // We do not want to modify an existing edge
+                    return Ok(());
+                }
+                let Ok(end_anchor_tf) = transform.get(end_anchor) else {
+                    return Ok(());
+                };
+                let mut new_end_anchor_tf = end_anchor_tf.clone();
+
+                match input_type {
+                    ButtonInputType::Pressed => {
+                        let Ok(delta) = transform
+                            .get(edge.left())
+                            .and_then(|tf| {
+                                transform
+                                    .get(cursor.frame)
+                                    .map(|c_tf| (tf.translation, c_tf.translation))
+                            })
+                            .map(|(start_pos, cursor_pos)| cursor_pos - start_pos)
+                        else {
+                            return Ok(());
+                        };
+                        let offset = if delta.x.abs() > delta.y.abs() {
+                            Vec3::new(0.0, delta.y, 0.0)
+                        } else {
+                            Vec3::new(delta.x, 0.0, 0.0)
+                        };
+
+                        // Transform of level_anchor_placement is relative to cursor frame
+                        new_end_anchor_tf.translation = -offset;
+                    }
+                    ButtonInputType::JustReleased => {
+                        // Reset level_anchor_placement pos
+                        new_end_anchor_tf.translation = Vec3::default();
+                    }
+                    ButtonInputType::JustPressed => return Ok(()),
+                }
+                move_to.write(MoveTo {
+                    entity: end_anchor,
+                    transform: new_end_anchor_tf,
+                });
+            }
+        }
     }
 
     Ok(())

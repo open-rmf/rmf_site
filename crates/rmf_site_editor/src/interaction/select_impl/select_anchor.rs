@@ -66,7 +66,7 @@ impl Plugin for AnchorSelectionPlugin {
 pub struct AnchorSelectionHelpers {
     pub anchor_select_stream: Service<(), (), (Hover, Select)>,
     pub anchor_cursor_transform: Service<(), ()>,
-    pub keyboard_just_pressed: Service<(), (), StreamOf<KeyCode>>,
+    pub keyboard_pressed: Service<(), (), StreamOf<(KeyCode, ButtonInputType)>>,
     pub cleanup_anchor_selection: Service<(), ()>,
 }
 
@@ -83,15 +83,12 @@ impl AnchorSelectionHelpers {
             .world_mut()
             .spawn_service(cleanup_anchor_selection.into_blocking_service());
 
-        let keyboard_just_pressed = app
-            .world()
-            .resource::<KeyboardServices>()
-            .keyboard_just_pressed;
+        let keyboard_pressed = app.world().resource::<KeyboardServices>().keyboard_pressed;
 
         Self {
             anchor_select_stream,
             anchor_cursor_transform,
-            keyboard_just_pressed,
+            keyboard_pressed,
             cleanup_anchor_selection,
         }
     }
@@ -102,7 +99,10 @@ impl AnchorSelectionHelpers {
         state_setup: Service<BufferKey<State>, SelectionNodeResult>,
         update_preview: Service<(Hover, BufferKey<State>), SelectionNodeResult>,
         update_current: Service<(SelectionCandidate, BufferKey<State>), SelectionNodeResult>,
-        handle_key_code: Service<(KeyCode, BufferKey<State>), SelectionNodeResult>,
+        handle_key_code: Service<
+            ((KeyCode, ButtonInputType), BufferKey<State>),
+            SelectionNodeResult,
+        >,
         cleanup_state: Service<BufferKey<State>, SelectionNodeResult>,
         world: &mut World,
     ) -> Service<Option<Entity>, ()> {
@@ -115,7 +115,7 @@ impl AnchorSelectionHelpers {
             cleanup_state,
             self.anchor_cursor_transform,
             self.anchor_select_stream,
-            self.keyboard_just_pressed,
+            self.keyboard_pressed,
             self.cleanup_anchor_selection,
         ))
     }
@@ -369,11 +369,11 @@ pub fn build_anchor_selection_workflow<State: 'static + Send + Sync>(
     state_setup: Service<BufferKey<State>, SelectionNodeResult>,
     update_preview: Service<(Hover, BufferKey<State>), SelectionNodeResult>,
     update_current: Service<(SelectionCandidate, BufferKey<State>), SelectionNodeResult>,
-    handle_key_code: Service<(KeyCode, BufferKey<State>), SelectionNodeResult>,
+    handle_key_code: Service<((KeyCode, ButtonInputType), BufferKey<State>), SelectionNodeResult>,
     cleanup_state: Service<BufferKey<State>, SelectionNodeResult>,
     anchor_cursor_transform: Service<(), ()>,
     anchor_select_stream: Service<(), (), (Hover, Select)>,
-    keyboard_just_pressed: Service<(), (), StreamOf<KeyCode>>,
+    keyboard_pressed: Service<(), (), StreamOf<(KeyCode, ButtonInputType)>>,
     cleanup_anchor_selection: Service<(), ()>,
 ) -> impl FnOnce(Scope<Option<Entity>, ()>, &mut Builder) {
     move |scope, builder| {
@@ -436,7 +436,7 @@ pub fn build_anchor_selection_workflow<State: 'static + Send + Sync>(
 
         let keyboard = begin_input_services
             .clone_chain(builder)
-            .then_node(keyboard_just_pressed);
+            .then_node(keyboard_pressed);
         keyboard
             .streams
             .chain(builder)
@@ -735,8 +735,10 @@ fn compute_parent_inverse_pose(
     Some(pose.align_with(&Transform::from_matrix((inv_tf * goal_tf).into())))
 }
 
-pub fn exit_on_esc<T>(In((button, _)): In<(KeyCode, BufferKey<T>)>) -> SelectionNodeResult {
-    if matches!(button, KeyCode::Escape) {
+pub fn exit_on_esc<T>(
+    In(((button, input_type), _)): In<((KeyCode, ButtonInputType), BufferKey<T>)>,
+) -> SelectionNodeResult {
+    if matches!(button, KeyCode::Escape) && matches!(input_type, ButtonInputType::JustPressed) {
         // The escape key was pressed so we should exit this mode
         return Err(None);
     }

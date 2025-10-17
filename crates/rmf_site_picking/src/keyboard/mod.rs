@@ -20,22 +20,29 @@ use bevy_ecs::prelude::*;
 use bevy_impulse::*;
 use bevy_input::prelude::*;
 
+pub enum ButtonInputType {
+    Pressed,
+    JustPressed,
+    JustReleased,
+}
+
 pub struct KeyboardServicePlugin;
 
 impl Plugin for KeyboardServicePlugin {
     fn build(&self, app: &mut App) {
-        let keyboard_just_pressed =
-            app.spawn_continuous_service(Last, keyboard_just_pressed_stream);
+        let keyboard_pressed = app.spawn_continuous_service(Last, keyboard_pressed_stream);
 
-        app.insert_resource(KeyboardServices {
-            keyboard_just_pressed,
-        });
+        app.insert_resource(KeyboardServices { keyboard_pressed });
     }
 }
 
-fn keyboard_just_pressed_stream(
-    In(ContinuousService { key }): ContinuousServiceInput<(), (), StreamOf<KeyCode>>,
-    mut orders: ContinuousQuery<(), (), StreamOf<KeyCode>>,
+fn keyboard_pressed_stream(
+    In(ContinuousService { key }): ContinuousServiceInput<
+        (),
+        (),
+        StreamOf<(KeyCode, ButtonInputType)>,
+    >,
+    mut orders: ContinuousQuery<(), (), StreamOf<(KeyCode, ButtonInputType)>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
     let Some(mut orders) = orders.get_mut(&key) else {
@@ -46,12 +53,30 @@ fn keyboard_just_pressed_stream(
         return;
     }
 
+    for key_code in keyboard_input.get_pressed() {
+        orders.for_each(|order| {
+            order
+                .streams()
+                .send(StreamOf((*key_code, ButtonInputType::Pressed)))
+        });
+    }
     for key_code in keyboard_input.get_just_pressed() {
-        orders.for_each(|order| order.streams().send(StreamOf(*key_code)));
+        orders.for_each(|order| {
+            order
+                .streams()
+                .send(StreamOf((*key_code, ButtonInputType::JustPressed)))
+        });
+    }
+    for key_code in keyboard_input.get_just_released() {
+        orders.for_each(|order| {
+            order
+                .streams()
+                .send(StreamOf((*key_code, ButtonInputType::JustReleased)))
+        });
     }
 }
 
 #[derive(Resource)]
 pub struct KeyboardServices {
-    pub keyboard_just_pressed: Service<(), (), StreamOf<KeyCode>>,
+    pub keyboard_pressed: Service<(), (), StreamOf<(KeyCode, ButtonInputType)>>,
 }

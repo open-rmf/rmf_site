@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    interaction::{spawn_place_object_2d_workflow, PlaceObject2d},
+    interaction::{spawn_place_object_2d_workflow, ButtonInputType, PlaceObject2d},
     site::{CurrentLevel, ModelInstance},
 };
 use bevy::{
@@ -45,7 +45,7 @@ impl Plugin for ObjectPlacementPlugin {
 pub struct ObjectPlacementServices {
     pub place_object_2d: Service<Option<Entity>, ()>,
     pub find_placement_2d: Service<(), Transform>,
-    pub on_key_code_2d: Service<KeyCode, SelectionNodeResult>,
+    pub on_key_code_2d: Service<(KeyCode, ButtonInputType), SelectionNodeResult>,
 }
 
 impl ObjectPlacementServices {
