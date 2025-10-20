@@ -478,7 +478,8 @@ fn forward_arrow_color(lane_color: LinearRgba) -> LinearRgba {
         (lane_color.red - dark_color_diff).clamp(0.0, 1.0),
         (lane_color.green - dark_color_diff).clamp(0.0, 1.0),
         (lane_color.blue - dark_color_diff).clamp(0.0, 1.0),
-    ).into()
+    )
+    .into()
 }
 
 fn backward_arrow_color(lane_color: LinearRgba) -> LinearRgba {
@@ -487,7 +488,8 @@ fn backward_arrow_color(lane_color: LinearRgba) -> LinearRgba {
         (lane_color.red + light_color_diff).clamp(0.0, 1.0),
         (lane_color.green + light_color_diff).clamp(0.0, 1.0),
         (lane_color.blue + light_color_diff).clamp(0.0, 1.0),
-    ).into()
+    )
+    .into()
 }
 
 // TODO(MXG): Generalize this to all edges
