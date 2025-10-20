@@ -185,6 +185,7 @@ pub fn add_lane_visuals(
                 .unwrap_or(DEFAULT_LANE_ARROW_SPEED),
         };
 
+        let lane_color = lane_color.to_linear();
         let mid = commands
             .spawn((
                 Mesh3d(assets.lane_mid_mesh.clone()),
@@ -194,9 +195,9 @@ pub fn add_lane_visuals(
                         ..default()
                     },
                     extension: assets::LaneArrowMaterial {
-                        single_arrow_color: lane_color.into(),
-                        double_arrow_color: lane_color.into(),
-                        background_color: lane_color.into(),
+                        single_arrow_color: forward_arrow_color(lane_color),
+                        double_arrow_color: backward_arrow_color(lane_color),
+                        background_color: lane_color,
                         number_of_arrows: BigF32::new(
                             (start_anchor - end_anchor).length() / LANE_WIDTH,
                         ),
@@ -464,25 +465,29 @@ fn impl_update_color_for_lane(
 
     if let Ok(ext_mat) = lane_materials.get(segments.mid) {
         if let Some(lane_mat) = extended_materials.get_mut(&ext_mat.0) {
-            lane_mat.extension.background_color = new_color.into();
-
-            let dark_color_diff = 0.1;
-            let light_color_diff = 0.5;
-
-            lane_mat.extension.single_arrow_color = Color::srgb(
-                (new_color.red - dark_color_diff).clamp(0.0, 1.0),
-                (new_color.green - dark_color_diff).clamp(0.0, 1.0),
-                (new_color.blue - dark_color_diff).clamp(0.0, 1.0),
-            )
-            .into();
-            lane_mat.extension.double_arrow_color = Color::srgb(
-                (new_color.red + light_color_diff).clamp(0.0, 1.0),
-                (new_color.green + light_color_diff).clamp(0.0, 1.0),
-                (new_color.blue + light_color_diff).clamp(0.0, 1.0),
-            )
-            .into();
+            lane_mat.extension.background_color = new_color;
+            lane_mat.extension.single_arrow_color = forward_arrow_color(new_color);
+            lane_mat.extension.double_arrow_color = backward_arrow_color(new_color);
         }
     }
+}
+
+fn forward_arrow_color(lane_color: LinearRgba) -> LinearRgba {
+    let dark_color_diff = 0.1;
+    Color::srgb(
+        (lane_color.red - dark_color_diff).clamp(0.0, 1.0),
+        (lane_color.green - dark_color_diff).clamp(0.0, 1.0),
+        (lane_color.blue - dark_color_diff).clamp(0.0, 1.0),
+    ).into()
+}
+
+fn backward_arrow_color(lane_color: LinearRgba) -> LinearRgba {
+    let light_color_diff = 0.5;
+    Color::srgb(
+        (lane_color.red + light_color_diff).clamp(0.0, 1.0),
+        (lane_color.green + light_color_diff).clamp(0.0, 1.0),
+        (lane_color.blue + light_color_diff).clamp(0.0, 1.0),
+    ).into()
 }
 
 // TODO(MXG): Generalize this to all edges
