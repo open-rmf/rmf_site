@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::*,
-    site::{ChangeDependent, Pending, TextureNeedsAssignment},
+    site::{ChangeDependent, Dependents, Pending, TextureNeedsAssignment},
 };
 use bevy::prelude::*;
 use bevy_impulse::*;
@@ -444,6 +444,8 @@ pub fn cleanup_create_edges(
     mut access: BufferAccessMut<CreateEdges>,
     edges: Query<&'static Edge<Entity>>,
     mut commands: Commands,
+    cursor: Res<Cursor>,
+    mut dependents: Query<&mut Dependents>,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.pull().or_broken_state()?;
@@ -452,5 +454,14 @@ pub fn cleanup_create_edges(
         // We created a preview, so we should despawn it while cleaning up
         preview.cleanup(&edges, &mut commands)?;
     }
+
+    // NOTE(@mxgrey): We resort to this brute force approach as a stopgap measure for
+    // https://github.com/open-rmf/rmf_site/issues/398
+    if let Ok(mut deps) = dependents.get_mut(cursor.level_anchor_placement) {
+        // We're done trying to create edges, so just remove all lingering
+        // dependents from the preview anchor.
+        deps.0.clear();
+    }
+
     Ok(())
 }
