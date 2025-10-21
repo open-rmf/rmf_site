@@ -26,6 +26,7 @@ pub enum LocationTag {
     Charger,
     ParkingSpot,
     HoldingPoint,
+    MutexGroup(String),
     Workcell(Model),
 }
 
@@ -35,6 +36,7 @@ impl LocationTag {
             Self::Charger => "Charger",
             Self::ParkingSpot => "Parking Spot",
             Self::HoldingPoint => "Holding Point",
+            Self::MutexGroup(_) => "Mutex Group",
             Self::Workcell(_) => "Workcell",
         }
     }
@@ -50,6 +52,16 @@ impl LocationTag {
     }
     pub fn is_workcell(&self) -> bool {
         matches!(self, Self::Workcell(_))
+    }
+    pub fn is_mutex_group(&self) -> bool {
+        matches!(self, Self::MutexGroup(_))
+    }
+    pub fn as_mutex_group(&self) -> Option<&String> {
+        if let Self::MutexGroup(name) = self {
+            Some(name)
+        } else {
+            None
+        }
     }
     pub fn workcell(&self) -> Option<&Model> {
         match self {
@@ -104,6 +116,7 @@ impl<T: RefTrait> From<Point<T>> for Location<T> {
 #[derive(Default, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct RecallLocationTags {
+    pub mutex_group_name: Option<String>,
     pub robot_asset_source_recall: RecallAssetSource,
     pub robot_asset_source: Option<AssetSource>,
     pub workcell_asset_source_recall: RecallAssetSource,
@@ -154,6 +167,9 @@ impl Recall for RecallLocationTags {
         for tag in &source.0 {
             // TODO(MXG): Consider isolating this memory per element
             match tag {
+                LocationTag::MutexGroup(name) => {
+                    self.mutex_group_name = Some(name.clone());
+                }
                 LocationTag::Workcell(cell) => {
                     self.workcell_asset_source_recall.remember(&cell.source);
                     self.workcell_asset_source = Some(cell.source.clone());

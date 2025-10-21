@@ -30,6 +30,7 @@ pub struct BillboardMeshes {
     pub charging: Option<Entity>,
     pub holding: Option<Entity>,
     pub parking: Option<Entity>,
+    pub mutex_group: Option<Entity>,
     pub empty_billboard: Option<Entity>,
 }
 
@@ -147,15 +148,19 @@ pub fn add_location_visuals(
             let (material_handle, text) = match tag {
                 LocationTag::Charger => {
                     billboard_meshes.charging = Some(id);
-                    (&assets.charger_material, "charging")
+                    (&assets.charger_material, "charging".to_string())
                 }
                 LocationTag::ParkingSpot => {
                     billboard_meshes.parking = Some(id);
-                    (&assets.parking_material, "parking")
+                    (&assets.parking_material, "parking".to_string())
                 }
                 LocationTag::HoldingPoint => {
                     billboard_meshes.holding = Some(id);
-                    (&assets.holding_point_material, "holding")
+                    (&assets.holding_point_material, "holding".to_string())
+                }
+                LocationTag::MutexGroup(name) => {
+                    billboard_meshes.mutex_group = Some(id);
+                    (&assets.lockpad_material, format!("mutex group: {name}"))
                 }
                 // Workcells are not visualized
                 LocationTag::Workcell(_) => continue,
@@ -168,7 +173,7 @@ pub fn add_location_visuals(
                 Mesh3d(assets.billboard_mesh.clone()),
                 MeshMaterial3d(materials.add(new_material)),
                 BillboardMarker {
-                    caption_text: Some(text.to_string()),
+                    caption_text: Some(text),
                     offset: offset,
                     hover_enabled: true,
                 },
@@ -368,21 +373,25 @@ pub fn update_location_for_changed_location_tags(
                 LocationTag::Charger => billboard_meshes.charging,
                 LocationTag::HoldingPoint => billboard_meshes.holding,
                 LocationTag::ParkingSpot => billboard_meshes.parking,
+                LocationTag::MutexGroup(_) => billboard_meshes.mutex_group,
                 // Workcells are not visualized
                 LocationTag::Workcell(_) => continue,
             };
 
             // If there exists a spawned billboard for this tag, shift existing billboard
-            if existing_billboard_id.is_some() {
-                let Some(billboard_id) = existing_billboard_id else {
-                    return;
-                };
+            if let Some(billboard_id) = existing_billboard_id {
                 let Ok(mut marker) = billboards.get_mut(billboard_id) else {
                     warn!("Billboard not found");
                     return;
                 };
                 marker.offset = offset;
                 offset += BILLBOARD_MARGIN;
+
+                if let LocationTag::MutexGroup(name) = tag {
+                    // Update the caption text in case the mutex group name changed
+                    marker.caption_text = Some(format!("mutex group: {name}"));
+                }
+
                 continue;
             }
 
@@ -392,15 +401,19 @@ pub fn update_location_for_changed_location_tags(
             let (material_handle, text) = match tag {
                 LocationTag::Charger => {
                     billboard_meshes.charging = Some(id);
-                    (&assets.charger_material, "charging")
+                    (&assets.charger_material, "charging".to_string())
                 }
                 LocationTag::ParkingSpot => {
                     billboard_meshes.parking = Some(id);
-                    (&assets.parking_material, "parking")
+                    (&assets.parking_material, "parking".to_string())
                 }
                 LocationTag::HoldingPoint => {
                     billboard_meshes.holding = Some(id);
-                    (&assets.holding_point_material, "holding")
+                    (&assets.holding_point_material, "holding".to_string())
+                }
+                LocationTag::MutexGroup(name) => {
+                    billboard_meshes.mutex_group = Some(id);
+                    (&assets.lockpad_material, format!("mutex group: {name}"))
                 }
                 // Workcells are not visualized
                 LocationTag::Workcell(_) => continue,
@@ -413,7 +426,7 @@ pub fn update_location_for_changed_location_tags(
                 Mesh3d(assets.billboard_mesh.clone()),
                 MeshMaterial3d(materials.add(new_material)),
                 BillboardMarker {
-                    caption_text: Some(text.to_string()),
+                    caption_text: Some(text),
                     offset: offset,
                     hover_enabled: true,
                 },

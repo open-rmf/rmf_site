@@ -316,6 +316,8 @@ pub struct NavVertexProperties {
     // TODO(luca) serialize merge_radius, it is currently skipped
     #[serde(skip_serializing_if = "Option::is_none")]
     pub merge_radius: Option<f32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mutex: Option<String>,
     pub name: String,
 }
 
@@ -340,6 +342,13 @@ impl NavVertexProperties {
             .iter()
             .find(|t| t.is_parking_spot())
             .is_some();
+        props.mutex = location
+            .tags
+            .0
+            .iter()
+            .filter_map(|t| t.as_mutex_group())
+            .next()
+            .cloned();
 
         props
     }

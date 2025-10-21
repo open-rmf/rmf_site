@@ -25,6 +25,8 @@ pub struct VertexProperties {
     #[serde(default, skip_serializing_if = "is_default")]
     pub dock_name: RbmfString,
     #[serde(default, skip_serializing_if = "is_default")]
+    pub mutex: Option<RbmfString>,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub lift_cabin: RbmfString,
 }
 
@@ -55,6 +57,10 @@ impl Vertex {
 
         if me.is_holding_point.1 {
             tags.push(LocationTag::HoldingPoint);
+        }
+
+        if let Some(mutex) = &me.mutex {
+            tags.push(LocationTag::MutexGroup(mutex.1.clone()));
         }
 
         let name = if self.3.is_empty() {

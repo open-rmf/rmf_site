@@ -52,12 +52,20 @@ impl<'w, 's> InspectLocation<'w, 's> {
 
         ui.label(RichText::new("Location Tags").size(18.0));
         let mut deleted_tag = None;
+        let mut changed_tags = Vec::new();
         for (i, tag) in tags.0.iter().enumerate() {
             ui.horizontal(|ui| {
                 if ui.add(ImageButton::new(self.icons.trash.egui())).clicked() {
                     deleted_tag = Some(i);
                 }
                 ui.label(tag.label());
+                if let LocationTag::MutexGroup(name) = &tag {
+                    let mut new_name = name.clone();
+                    ui.text_edit_singleline(&mut new_name);
+                    if *new_name != *name {
+                        changed_tags.push((i, LocationTag::MutexGroup(new_name)));
+                    }
+                }
             });
             ui.add_space(5.0);
             ui.separator();
@@ -79,6 +87,10 @@ impl<'w, 's> InspectLocation<'w, 's> {
                         }
                         if tags.iter().find(|t| t.is_holding_point()).is_none() {
                             variants.push(LocationTag::HoldingPoint);
+                        }
+                        if tags.iter().find(|t| t.is_mutex_group()).is_none() {
+                            let name = recall.mutex_group_name.as_ref().cloned().unwrap_or(String::new());
+                            variants.push(LocationTag::MutexGroup(name));
                         }
                         variants.push(recall.assume_workcell());
 
@@ -114,8 +126,14 @@ impl<'w, 's> InspectLocation<'w, 's> {
             .body_returned
             .flatten();
 
-        if deleted_tag.is_some() || added_tag.is_some() {
+        if deleted_tag.is_some() || added_tag.is_some() || !changed_tags.is_empty() {
             let mut new_tags = tags.clone();
+            for (i, new_tag) in changed_tags {
+                if let Some(tag) = new_tags.get_mut(i) {
+                    *tag = new_tag;
+                }
+            }
+
             if let Some(i) = deleted_tag {
                 new_tags.remove(i);
             }
