@@ -314,6 +314,15 @@ pub fn update_location_for_changed_location_tags(
                 selected.support_selected.remove(&id);
             }
         }
+        if let Some(id) = billboard_meshes.mutex_group {
+            if !tags.iter().any(|t| t.is_mutex_group()) {
+                commands.entity(id).despawn();
+                billboard_meshes.mutex_group = None;
+
+                hovered.support_hovering.remove(&id);
+                selected.support_selected.remove(&id);
+            }
+        }
         if let Some(id) = billboard_meshes.parking {
             if !tags.iter().any(|t| t.is_parking_spot()) {
                 commands.entity(id).despawn();

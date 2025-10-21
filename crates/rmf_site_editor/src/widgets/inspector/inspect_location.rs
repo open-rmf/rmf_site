@@ -85,12 +85,12 @@ impl<'w, 's> InspectLocation<'w, 's> {
                         if tags.iter().find(|t| t.is_parking_spot()).is_none() {
                             variants.push(LocationTag::ParkingSpot);
                         }
-                        if tags.iter().find(|t| t.is_holding_point()).is_none() {
-                            variants.push(LocationTag::HoldingPoint);
-                        }
                         if tags.iter().find(|t| t.is_mutex_group()).is_none() {
                             let name = recall.mutex_group_name.as_ref().cloned().unwrap_or(String::new());
                             variants.push(LocationTag::MutexGroup(name));
+                        }
+                        if tags.iter().find(|t| t.is_holding_point()).is_none() {
+                            variants.push(LocationTag::HoldingPoint);
                         }
                         variants.push(recall.assume_workcell());
 

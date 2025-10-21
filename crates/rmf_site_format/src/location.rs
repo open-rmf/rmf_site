@@ -139,6 +139,14 @@ impl RecallLocationTags {
                         return tag.clone();
                     }
                 }
+                LocationTag::MutexGroup(_) => {
+                    // If the tag is a mutex group, then only accept it if there
+                    // is not already a mutex group in the current set of tags.
+                    // For now we only allow one mutex group assigned per location.
+                    if !current.0.iter().any(|t| t.is_mutex_group()) {
+                        return tag.clone();
+                    }
+                }
                 _ => return tag.clone(),
             }
         }
@@ -147,6 +155,9 @@ impl RecallLocationTags {
         }
         if current.0.iter().find(|t| t.is_parking_spot()).is_none() {
             return LocationTag::ParkingSpot;
+        }
+        if !current.0.iter().any(|t| t.is_mutex_group()) {
+            return LocationTag::MutexGroup(self.mutex_group_name.clone().unwrap_or(String::new()));
         }
         self.assume_workcell()
     }
