@@ -16,8 +16,8 @@
 */
 
 use crate::site::{
-    update_model_instances, Change, Group, ModelMarker, ModelProperty, ModelPropertyData, Recall,
-    RecallPlugin, Robot,
+    update_model_instances, Change, Group, ModelMarker, ModelProperty, ModelPropertyData,
+    NameInSite, Recall, RecallPlugin, Robot,
 };
 use bevy::{ecs::component::Mutable, prelude::*};
 use rmf_site_format::robot_properties::*;
@@ -61,6 +61,7 @@ impl Plugin for RobotPropertiesPlugin {
 
 type InsertDefaultValueFn = fn() -> Result<Value, Error>;
 
+#[derive(Default)]
 pub struct RobotPropertyRegistration {
     pub widget: Option<Entity>,
     pub kinds: HashMap<String, RobotPropertyKindRegistration>,
@@ -81,6 +82,7 @@ impl FromWorld for RobotPropertyRegistry {
 }
 
 /// Implement this plugin to add a new configurable robot property to the site
+#[derive(Default)]
 pub struct RobotPropertyPlugin<Property, RecallProperty>
 where
     Property: RobotProperty,
@@ -88,19 +90,6 @@ where
     RecallProperty::Source: RobotProperty,
 {
     _ignore: std::marker::PhantomData<(Property, RecallProperty)>,
-}
-
-impl<Property, RecallProperty> Default for RobotPropertyPlugin<Property, RecallProperty>
-where
-    Property: RobotProperty,
-    RecallProperty: Recall + Component<Mutability = Mutable> + Default,
-    RecallProperty::Source: RobotProperty,
-{
-    fn default() -> Self {
-        Self {
-            _ignore: Default::default(),
-        }
-    }
 }
 
 impl<Property, RecallProperty> Plugin for RobotPropertyPlugin<Property, RecallProperty>
@@ -113,13 +102,7 @@ where
         app.world_mut()
             .resource_mut::<RobotPropertyRegistry>()
             .0
-            .insert(
-                Property::label(),
-                RobotPropertyRegistration {
-                    widget: None,
-                    kinds: HashMap::new(),
-                },
-            );
+            .insert(Property::label(), RobotPropertyRegistration::default());
         app.add_observer(on_add_robot_property::<Property>)
             .add_observer(on_change_robot_property::<Property>)
             .add_observer(on_remove_robot_property::<Property>)
@@ -128,6 +111,7 @@ where
 }
 
 /// Implement this plugin to add a new configurable robot property kind to the site
+#[derive(Default)]
 pub struct RobotPropertyKindPlugin<Kind, Property, RecallKind>
 where
     Kind: RobotPropertyKind,
@@ -136,20 +120,6 @@ where
     RecallKind::Source: RobotPropertyKind,
 {
     _ignore: std::marker::PhantomData<(Kind, Property, RecallKind)>,
-}
-
-impl<Kind, Property, RecallKind> Default for RobotPropertyKindPlugin<Kind, Property, RecallKind>
-where
-    Kind: RobotPropertyKind,
-    Property: RobotProperty,
-    RecallKind: RecallPropertyKind<Kind = Kind>,
-    RecallKind::Source: RobotPropertyKind,
-{
-    fn default() -> Self {
-        Self {
-            _ignore: Default::default(),
-        }
-    }
 }
 
 impl<Kind, Property, RecallKind> Plugin for RobotPropertyKindPlugin<Kind, Property, RecallKind>
@@ -217,6 +187,7 @@ impl<T: RobotProperty> Plugin for EmptyRobotPropertyPlugin<T> {
 pub fn on_add_robot_property<T: RobotProperty>(
     trigger: Trigger<OnAdd, ModelProperty<Robot>>,
     model_properties: Query<&ModelProperty<Robot>, (With<ModelMarker>, With<Group>)>,
+    name: Query<&NameInSite>,
     mut commands: Commands,
 ) {
     let description_entity = trigger.target();
@@ -224,6 +195,12 @@ pub fn on_add_robot_property<T: RobotProperty>(
         .get(description_entity)
         .map(|robot| robot.0.clone())
     else {
+        warn!(
+            "ModelProperty<Robot> was inserted into a non-description entity [{}]!",
+            name.get(description_entity)
+                .map(|n| n.0.clone())
+                .unwrap_or(format!("{}", description_entity.index()))
+        );
         return;
     };
 
@@ -237,7 +214,10 @@ pub fn on_add_robot_property<T: RobotProperty>(
             commands.entity(description_entity).remove::<T>();
             serde_json::Value::Object(Map::new())
         }
-        Err(_) => return,
+        Err(err) => {
+            error!("Unable to retrieve robot property: {err}");
+            return;
+        }
     };
 
     // Update robot property kinds
@@ -267,7 +247,10 @@ pub fn on_change_robot_property<T: RobotProperty>(
             commands.entity(description_entity).remove::<T>();
             serde_json::Value::Object(Map::new())
         }
-        Err(_) => return,
+        Err(err) => {
+            error!("Unable to retrieve robot property: {err}");
+            return;
+        }
     };
 
     // Update robot property kinds
@@ -319,7 +302,9 @@ pub fn on_update_robot_property_kind<
         Err(RobotPropertyError::PropertyKindNotFound(_)) => {
             commands.entity(event.entity).remove::<Kind>();
         }
-        Err(_) => return,
+        Err(err) => {
+            error!("Unable to retrieve robot property kind: {err}");
+        }
     }
 }
 

@@ -20,7 +20,7 @@ use crate::site::{
     MechanicalSystem, Mobility, ModelMarker, ModelProperty, ModelPropertyQuery, PowerSource, Robot,
     RobotProperty, RobotPropertyKind,
 };
-use bevy::prelude::*;
+use bevy::{ecs::relationship::AncestorIter, prelude::*};
 use rmf_site_format::robot_properties::*;
 use sdformat_rs::{ElementData, ElementMap, XmlElement};
 use serde_json::{Map, Value};
@@ -74,97 +74,78 @@ fn insert_slotcar_components(
     for (e, differential_drive, battery, ambient_system, mechanical_system) in
         slotcar_property_kinds.iter()
     {
-        if !model_descriptions.get(e).is_ok() {
-            let mut description_entity: Option<Entity> = None;
-            let mut target_entity: Entity = e;
-            while let Ok(parent) = child_of.get(target_entity).map(|co| co.parent()) {
-                if let Some(desc) = model_instances.get(parent).ok().and_then(|a| a.0) {
-                    description_entity = Some(desc);
-                    break;
+        let description_entity = AncestorIter::new(&child_of, e)
+            .find(|p| model_instances.get(*p).is_ok())
+            .and_then(|parent| model_instances.get(parent).ok().and_then(|a| a.0));
+
+        if let Some(((opt_desc_robot, opt_desc_is_static), desc)) =
+            description_entity.and_then(|e| model_descriptions.get(e).ok().zip(Some(e)))
+        {
+            let mut robot = Robot::default();
+
+            if let Some(desc_robot) = opt_desc_robot {
+                if !desc_robot.0.properties.is_empty() {
+                    // The robot properties for this model description has already
+                    // been populated, do not overwrite
+                    commands
+                        .entity(e)
+                        .remove::<DifferentialDrive>()
+                        .remove::<Battery>()
+                        .remove::<AmbientSystem>()
+                        .remove::<MechanicalSystem>();
+                    continue;
                 }
-                target_entity = parent;
+                robot = desc_robot.0.clone();
             }
 
-            if let Some(desc) = description_entity {
-                if let Ok((opt_desc_robot, opt_desc_is_static)) = model_descriptions.get(desc) {
-                    let mut robot = Robot::default();
-
-                    if let Some(desc_robot) = opt_desc_robot {
-                        if !desc_robot.0.properties.is_empty() {
-                            // The robot properties for this model description has already
-                            // been populated, do not overwrite
-                            commands
-                                .entity(e)
-                                .remove::<DifferentialDrive>()
-                                .remove::<Battery>()
-                                .remove::<AmbientSystem>()
-                                .remove::<MechanicalSystem>();
-                            continue;
-                        }
-                        robot = desc_robot.0.clone();
-                    } else {
-                        // We have to insert this ModelProperty as the ChangePlugin does
-                        // not accept changes if the component is not already present
-                        commands.entity(desc).insert(ModelProperty(robot.clone()));
-                    }
-
-                    // Only insert Mobility if robot is not static
-                    if !opt_desc_is_static.is_some_and(|is_static| is_static.0 .0) {
-                        if let Ok(mobility_value) =
-                            serialize_robot_property_from_kind::<Mobility, DifferentialDrive>(
-                                differential_drive.clone(),
-                            )
-                        {
-                            robot.properties.insert(Mobility::label(), mobility_value);
-                        }
-                    }
-
-                    if let Ok(power_source_value) =
-                        serialize_robot_property_from_kind::<PowerSource, Battery>(battery.clone())
-                    {
-                        robot
-                            .properties
-                            .insert(PowerSource::label(), power_source_value);
-                    }
-
-                    let mut power_dissipation_config = Map::new();
-                    if let Some(power_dissipation_map) = power_dissipation_config
-                        .entry("config")
-                        .or_insert(Value::Object(Map::new()))
-                        .as_object_mut()
-                    {
-                        if let Ok(mechanical_system_value) =
-                            serialize_robot_property_kind::<MechanicalSystem>(
-                                mechanical_system.clone(),
-                            )
-                        {
-                            power_dissipation_map
-                                .insert(MechanicalSystem::label(), mechanical_system_value);
-                        }
-                        if let Ok(ambient_system_value) =
-                            serialize_robot_property_kind::<AmbientSystem>(ambient_system.clone())
-                        {
-                            power_dissipation_map
-                                .insert(AmbientSystem::label(), ambient_system_value);
-                        }
-                    }
-                    if !power_dissipation_config.is_empty() {
-                        robot.properties.insert(
-                            PowerDissipation::label(),
-                            Value::Object(power_dissipation_config),
-                        );
-                    }
-
-                    commands.trigger(Change::new(ModelProperty(robot), desc));
+            // Only insert Mobility if robot is not static
+            if !opt_desc_is_static.is_some_and(|is_static| is_static.0 .0) {
+                if let Ok(mobility_value) = serialize_robot_property_from_kind::<
+                    Mobility,
+                    DifferentialDrive,
+                >(differential_drive.clone())
+                {
+                    robot.properties.insert(Mobility::label(), mobility_value);
                 }
             }
-            commands
-                .entity(e)
-                .remove::<DifferentialDrive>()
-                .remove::<Battery>()
-                .remove::<AmbientSystem>()
-                .remove::<MechanicalSystem>();
+
+            if let Ok(power_source_value) =
+                serialize_robot_property_from_kind::<PowerSource, Battery>(battery.clone())
+            {
+                robot
+                    .properties
+                    .insert(PowerSource::label(), power_source_value);
+            }
+
+            let mut power_dissipation_map = Map::new();
+            if let Ok(mechanical_system_value) =
+                serialize_robot_property_kind::<MechanicalSystem>(mechanical_system.clone())
+            {
+                power_dissipation_map.insert(MechanicalSystem::label(), mechanical_system_value);
+            }
+            if let Ok(ambient_system_value) =
+                serialize_robot_property_kind::<AmbientSystem>(ambient_system.clone())
+            {
+                power_dissipation_map.insert(AmbientSystem::label(), ambient_system_value);
+            }
+            if !power_dissipation_map.is_empty() {
+                let mut power_dissipation_config = Map::new();
+                power_dissipation_config
+                    .insert("config".to_string(), Value::Object(power_dissipation_map));
+                robot.properties.insert(
+                    PowerDissipation::label(),
+                    Value::Object(power_dissipation_config),
+                );
+            }
+
+            commands.trigger(Change::new(ModelProperty(robot), desc).or_insert());
         }
+        commands
+            .entity(e)
+            .remove::<DifferentialDrive>()
+            .remove::<Battery>()
+            .remove::<AmbientSystem>()
+            .remove::<MechanicalSystem>();
     }
 }
 
