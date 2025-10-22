@@ -25,7 +25,7 @@ use bevy_impulse::*;
 use crate::interaction::{
     set_visibility, Cursor, GizmoBlockers, HighlightAnchors, IntersectGroundPlaneParams,
 };
-use crate::site::{AnchorBundle, CurrentEditDrawing, DrawingMarker, ChildCabinAnchorGroup};
+use crate::site::{AnchorBundle, CurrentEditDrawing, DrawingMarker};
 use crate::workspace::CurrentWorkspace;
 use crate::{interaction::select_impl::*, site::CurrentLevel};
 use rmf_site_format::*;
@@ -178,8 +178,8 @@ impl<'w, 's> AnchorSelection<'w, 's> {
     }
 
     pub fn create_floor(&mut self) {
-        self.create_path::<Floor<Entity>>(
-            create_path_with_texture::<Floor<Entity>>,
+        self.create_path(
+            insert_path_with_texture::<Floor<Entity>>,
             3,
             false,
             true,
@@ -253,9 +253,9 @@ impl<'w, 's> AnchorSelection<'w, 's> {
         true
     }
 
-    pub fn create_path<T: Bundle + From<Path<Entity>>>(
+    pub fn create_path(
         &mut self,
-        spawn_path: fn(Path<Entity>, &mut Commands) -> Entity,
+        insert_path: fn(Path<Entity>, &mut EntityCommands) -> SelectionNodeResult,
         minimum_points: usize,
         allow_inner_loops: bool,
         implied_complete_loop: bool,
@@ -264,7 +264,7 @@ impl<'w, 's> AnchorSelection<'w, 's> {
         let state = self
             .commands
             .spawn(SelectorInput(CreatePath::new(
-                spawn_path,
+                insert_path,
                 minimum_points,
                 allow_inner_loops,
                 implied_complete_loop,

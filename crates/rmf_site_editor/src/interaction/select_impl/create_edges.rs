@@ -52,7 +52,7 @@ pub struct CreateEdges {
     pub preview_edge: Option<PreviewEdge>,
     pub creation_continuity: EdgeCreationContinuity,
     pub scope: AnchorScope,
-    pub level_change: LevelChangeContinuity,
+    pub level_change_continuity: LevelChangeContinuity,
 }
 
 impl CreateEdges {
@@ -65,7 +65,7 @@ impl CreateEdges {
             preview_edge: None,
             creation_continuity: continuity,
             scope,
-            level_change: Default::default(),
+            level_change_continuity: Default::default(),
         }
     }
 
@@ -78,7 +78,7 @@ impl CreateEdges {
             preview_edge: None,
             creation_continuity: continuity,
             scope,
-            level_change: Default::default(),
+            level_change_continuity: Default::default(),
         }
     }
 
@@ -252,22 +252,22 @@ pub fn on_select_for_create_edges(
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.newest_mut().or_broken_state()?;
 
-    // Check if the candidate anchor belongs to the same
-    if let Some(preview) = &mut state.preview_edge {
-        let edge = edges.get(preview.edge).or_broken_query()?;
-        if preview.side == Side::end() {
-            // Check if the current level matches the level of the previously placed anchor
-            if !are_anchors_siblings(edge.start(), selection.candidate, &parents, &lifts)? {
-                match state.level_change {
-                    LevelChangeContinuity::Separate => {
+    // Check if there is a break in level continuity for the new anchor
+    match state.level_change_continuity {
+        LevelChangeContinuity::Separate => {
+            if let Some(preview) = &mut state.preview_edge {
+                let edge = edges.get(preview.edge).or_broken_query()?;
+                if preview.side == Side::end() {
+                    // Check if the current level matches the level of the previously placed anchor
+                    if !are_anchors_siblings(edge.start(), selection.candidate, &parents, &lifts)? {
                         // Perform the backout before assigning the candidate anchor
                         let _ = backout(state, &mut edges, &cursor, &mut commands);
                     }
-                    LevelChangeContinuity::Continuous => {
-                        // Do nothing
-                    }
                 }
             }
+        }
+        LevelChangeContinuity::Continuous => {
+            // Do nothing
         }
     }
 
