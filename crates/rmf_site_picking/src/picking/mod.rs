@@ -69,14 +69,18 @@ pub struct ChangePick {
 
 pub(crate) fn pick_topmost(
     picks: impl Iterator<Item = Entity>,
-    selectable: &Query<&Selectable>,
+    selectable: &Query<&Selectable, Without<Preview>>,
 ) -> Option<Entity> {
     for topmost_entity in picks {
+        dbg!(topmost_entity);
         if let Ok(sel) = selectable.get(topmost_entity) {
+            dbg!();
             if !sel.is_selectable {
+                dbg!();
                 continue;
             }
         } else {
+            dbg!();
             continue;
         }
 
@@ -88,10 +92,10 @@ pub(crate) fn pick_topmost(
 
 // TODO(@mxgrey): Consider making this a service similar to hover_service and select_service
 pub(crate) fn update_picked(
-    selectable: Query<&Selectable>,
+    selectable: Query<&Selectable, Without<Preview>>,
     block_status: Res<PickBlockStatus>,
     pointers: Query<&PointerInteraction>,
-    visual_cues: Query<&ComputedVisualCue>,
+    visual_cues: Query<&ComputedVisualCue, Without<Preview>>,
     mut picked: ResMut<Picked>,
     mut change_pick: EventWriter<ChangePick>,
 ) {
@@ -109,17 +113,26 @@ pub(crate) fn update_picked(
     }
 
     let current_picked = 'current_picked: {
+        let i: Vec<_> = pointers.iter().collect();
+        dbg!(i);
         for interactions in &pointers {
             // First only look at the visual cues that are being xrayed
             if let Some(topmost) = pick_topmost(
                 interactions
                     .iter()
                     .filter(|(e, _)| {
+                        dbg!(e);
+
+                        let f =
+
                         visual_cues
                             .get(*e)
                             .ok()
                             .filter(|cue| cue.xray.any())
                             .is_some()
+
+                        ;
+                        dbg!(f)
                     })
                     .map(|(e, _)| *e),
                 &selectable,
@@ -128,13 +141,19 @@ pub(crate) fn update_picked(
             }
 
             // Now look at all possible pickables
-            if let Some(topmost) = pick_topmost(interactions.iter().map(|(e, _)| *e), &selectable) {
+            if let Some(topmost) = pick_topmost(
+                interactions
+                .iter()
+                .map(|(e, _)| dbg!(*e)),
+                &selectable
+            ) {
                 break 'current_picked Some(topmost);
             }
         }
 
         None
     };
+    dbg!(current_picked);
 
     let refresh = picked.refresh;
     if refresh {

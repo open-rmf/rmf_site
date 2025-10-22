@@ -594,9 +594,16 @@ pub struct AnchorFilter<'w, 's> {
 
 impl<'w, 's> SelectionFilter for AnchorFilter<'w, 's> {
     fn filter_pick(&mut self, select: Entity) -> Option<Entity> {
+
+        let e =
+
         self.inspect
             .filter_pick(select)
             .and_then(|e| self.filter_target(e))
+
+            ;
+        dbg!((e, self.cursor.level_anchor_placement, self.cursor.site_anchor_placement));
+        e
     }
 
     fn filter_select(&mut self, target: Entity) -> Option<Entity> {

@@ -19,7 +19,14 @@ use crate::{
     interaction::*,
     site::{AnchorBundle, ModelLoader, Pending, SiteAssets},
 };
-use bevy::{ecs::system::SystemParam, picking::backend::ray::RayMap, prelude::*};
+use bevy::{
+    ecs::system::SystemParam,
+    picking::{
+        backend::ray::RayMap,
+        Pickable,
+    },
+    prelude::*,
+};
 
 use rmf_site_animate::{Bobbing, Spinning};
 use rmf_site_camera::{active_camera_maybe, ActiveCameraQuery};
@@ -165,6 +172,9 @@ impl FromWorld for Cursor {
 
         let halo = world
             .spawn((
+                Preview,
+                Pending,
+                Pickable::IGNORE,
                 Transform::from_scale([0.2, 0.2, 1.].into()),
                 Mesh3d(halo_mesh),
                 MeshMaterial3d(halo_material),
@@ -176,6 +186,9 @@ impl FromWorld for Cursor {
 
         let dagger = world
             .spawn((
+                Preview,
+                Pending,
+                Pickable::IGNORE,
                 Mesh3d(dagger_mesh),
                 MeshMaterial3d(dagger_material),
                 Transform::default(),
@@ -192,22 +205,33 @@ impl FromWorld for Cursor {
             .insert(Preview)
             .insert(VisualCue::no_outline())
             .with_children(|parent| {
-                parent.spawn((
+                let e = parent.spawn((
+                    Preview,
+                    Pending,
+                    Pickable::IGNORE,
                     Mesh3d(level_anchor_mesh),
                     MeshMaterial3d(preview_anchor_material.clone()),
                     Transform::default(),
                     Visibility::default(),
-                ));
+                ))
+                .id();
+                dbg!(e);
             })
             .id();
 
         let site_anchor_placement = world
-            .spawn(AnchorBundle::new([0., 0.].into()).visible(false))
-            .insert(Pending)
-            .insert(Preview)
-            .insert(VisualCue::no_outline())
+            .spawn((
+                AnchorBundle::new([0., 0.].into()).visible(false),
+                Pending,
+                Preview,
+                Pickable::IGNORE,
+                VisualCue::no_outline(),
+            ))
             .with_children(|parent| {
                 parent.spawn((
+                    Preview,
+                    Pending,
+                    Pickable::IGNORE,
                     Mesh3d(site_anchor_mesh),
                     MeshMaterial3d(preview_anchor_material),
                     Transform::default(),
@@ -217,10 +241,13 @@ impl FromWorld for Cursor {
             .id();
 
         let frame_placement = world
-            .spawn(AnchorBundle::new([0., 0.].into()).visible(false))
-            .insert(Pending)
-            .insert(Preview)
-            .insert(VisualCue::no_outline())
+            .spawn((
+                AnchorBundle::new([0., 0.].into()).visible(false),
+                Pending,
+                Preview,
+                Pickable::IGNORE,
+                VisualCue::no_outline(),
+            ))
             .with_children(|parent| {
                 parent.spawn((
                     Mesh3d(frame_mesh),

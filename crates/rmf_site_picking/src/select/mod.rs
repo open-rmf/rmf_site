@@ -156,10 +156,7 @@ struct InspectorFilter<'w, 's> {
         'w,
         's,
         &'static Selectable,
-        (
-            Without<Preview>,
-            // Without<Pending>
-        ),
+        Without<Preview>,
     >,
 }
 
