@@ -19,10 +19,7 @@ use crate::{
     interaction::*,
     site::{ChangeDependent, Dependents, Pending, TextureNeedsAssignment},
 };
-use bevy::{
-    prelude::*,
-    ecs::relationship::AncestorIter,
-};
+use bevy::prelude::*;
 use bevy_impulse::*;
 use rmf_site_format::{Edge, Side};
 use std::borrow::Borrow;
@@ -53,33 +50,33 @@ pub fn spawn_create_edges_service(
 pub struct CreateEdges {
     pub spawn_edge: fn(Edge<Entity>, &mut Commands) -> Entity,
     pub preview_edge: Option<PreviewEdge>,
-    pub continuity: EdgeContinuity,
+    pub creation_continuity: EdgeCreationContinuity,
     pub scope: AnchorScope,
     pub level_change: LevelChangeContinuity,
 }
 
 impl CreateEdges {
     pub fn new<T: Bundle + From<Edge<Entity>>>(
-        continuity: EdgeContinuity,
+        continuity: EdgeCreationContinuity,
         scope: AnchorScope,
     ) -> Self {
         Self {
             spawn_edge: create_edge::<T>,
             preview_edge: None,
-            continuity,
+            creation_continuity: continuity,
             scope,
             level_change: Default::default(),
         }
     }
 
     pub fn new_with_texture<T: Bundle + From<Edge<Entity>>>(
-        continuity: EdgeContinuity,
+        continuity: EdgeCreationContinuity,
         scope: AnchorScope,
     ) -> Self {
         Self {
             spawn_edge: create_edge_with_texture::<T>,
             preview_edge: None,
-            continuity,
+            creation_continuity: continuity,
             scope,
             level_change: Default::default(),
         }
@@ -162,7 +159,8 @@ impl PreviewEdge {
     }
 }
 
-pub enum EdgeContinuity {
+#[derive(Debug, Clone, Copy)]
+pub enum EdgeCreationContinuity {
     /// Create just a single edge
     Single,
     /// Create a sequence of separate edges
@@ -248,6 +246,7 @@ pub fn on_select_for_create_edges(
     mut edges: Query<&mut Edge<Entity>>,
     mut commands: Commands,
     parents: Query<&ChildOf>,
+    lifts: Query<(), With<LiftCabin<Entity>>>,
     cursor: Res<Cursor>,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
@@ -257,15 +256,8 @@ pub fn on_select_for_create_edges(
     if let Some(preview) = &mut state.preview_edge {
         let edge = edges.get(preview.edge).or_broken_query()?;
         if preview.side == Side::end() {
-            let candidate_parent = parents.get(selection.candidate).or_broken_query()?.parent();
             // Check if the current level matches the level of the previously placed anchor
-            let mut compatible_level = AncestorIter::new(&parents, edge.start()).any(|e| e == candidate_parent);
-            if !compatible_level {
-                let edge_start_parent = parents.get(edge.start()).or_broken_query()?.parent();
-                compatible_level = AncestorIter::new(&parents, candidate_parent).any(|e| e == edge_start_parent);
-            }
-
-            if !compatible_level {
+            if !are_anchors_siblings(edge.start(), selection.candidate, &parents, &lifts)? {
                 match state.level_change {
                     LevelChangeContinuity::Separate => {
                         // Perform the backout before assigning the candidate anchor
@@ -322,19 +314,19 @@ pub fn on_select_for_create_edges(
                     .or_broken_query()?
                     .remove::<Pending>();
 
-                match state.continuity {
-                    EdgeContinuity::Single => {
+                match state.creation_continuity {
+                    EdgeCreationContinuity::Single => {
                         state.preview_edge = None;
                         // This simply means we are terminating the workflow now
                         // because we have finished drawing the single edge
                         return Err(None);
                     }
-                    EdgeContinuity::Separate => {
+                    EdgeCreationContinuity::Separate => {
                         // Start drawing a new edge from a blank slate with the
                         // next selection
                         state.initialize_preview(cursor.level_anchor_placement, &mut commands);
                     }
-                    EdgeContinuity::Continuous => {
+                    EdgeCreationContinuity::Continuous => {
                         // Start drawing a new edge, picking up from the end
                         // point of the previous edge
                         let edge = Edge::new(anchor, cursor.level_anchor_placement);

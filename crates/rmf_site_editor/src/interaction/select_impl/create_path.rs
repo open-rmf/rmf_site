@@ -76,6 +76,16 @@ pub struct CreatePath {
     /// reaching the minimum number of points.
     pub provisional_anchors: HashSet<Entity>,
     pub scope: AnchorScope,
+    pub creation_continuity: PathCreationContinuity,
+    pub level_change: LevelChangeContinuity,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum PathCreationContinuity {
+    /// Create just a single path and exit
+    Single,
+    /// Keep creating paths after the first is finished
+    Multiple,
 }
 
 impl CreatePath {
@@ -94,6 +104,8 @@ impl CreatePath {
             implied_complete_loop,
             scope,
             provisional_anchors: Default::default(),
+            creation_continuity: PathCreationContinuity::Multiple,
+            level_change: Default::default(),
         }
     }
 

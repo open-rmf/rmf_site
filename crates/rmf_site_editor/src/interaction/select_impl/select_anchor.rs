@@ -25,7 +25,7 @@ use bevy_impulse::*;
 use crate::interaction::{
     set_visibility, Cursor, GizmoBlockers, HighlightAnchors, IntersectGroundPlaneParams,
 };
-use crate::site::{AnchorBundle, CurrentEditDrawing, DrawingMarker};
+use crate::site::{AnchorBundle, CurrentEditDrawing, DrawingMarker, ChildCabinAnchorGroup};
 use crate::workspace::CurrentWorkspace;
 use crate::{interaction::select_impl::*, site::CurrentLevel};
 use rmf_site_format::*;
@@ -155,26 +155,26 @@ pub struct AnchorSelection<'w, 's> {
 
 impl<'w, 's> AnchorSelection<'w, 's> {
     pub fn create_lanes(&mut self) {
-        self.create_edges::<Lane<Entity>>(EdgeContinuity::Continuous, AnchorScope::General);
+        self.create_edges::<Lane<Entity>>(EdgeCreationContinuity::Continuous, AnchorScope::General);
     }
 
     pub fn create_measurements(&mut self) {
-        self.create_edges::<Measurement<Entity>>(EdgeContinuity::Separate, AnchorScope::Drawing)
+        self.create_edges::<Measurement<Entity>>(EdgeCreationContinuity::Separate, AnchorScope::Drawing)
     }
 
     pub fn create_walls(&mut self) {
         self.create_edges_with_texture::<Wall<Entity>>(
-            EdgeContinuity::Continuous,
+            EdgeCreationContinuity::Continuous,
             AnchorScope::General,
         );
     }
 
     pub fn create_door(&mut self) {
-        self.create_edges::<Door<Entity>>(EdgeContinuity::Single, AnchorScope::General)
+        self.create_edges::<Door<Entity>>(EdgeCreationContinuity::Separate, AnchorScope::General)
     }
 
     pub fn create_lift(&mut self) {
-        self.create_edges::<LiftProperties<Entity>>(EdgeContinuity::Single, AnchorScope::Site)
+        self.create_edges::<LiftProperties<Entity>>(EdgeCreationContinuity::Separate, AnchorScope::Site)
     }
 
     pub fn create_floor(&mut self) {
@@ -201,7 +201,7 @@ impl<'w, 's> AnchorSelection<'w, 's> {
 
     pub fn create_edges<T: Bundle + From<Edge<Entity>>>(
         &mut self,
-        continuity: EdgeContinuity,
+        continuity: EdgeCreationContinuity,
         scope: AnchorScope,
     ) {
         let state = self
@@ -217,7 +217,7 @@ impl<'w, 's> AnchorSelection<'w, 's> {
 
     pub fn create_edges_with_texture<T: Bundle + From<Edge<Entity>>>(
         &mut self,
-        continuity: EdgeContinuity,
+        continuity: EdgeCreationContinuity,
         scope: AnchorScope,
     ) {
         let state = self
@@ -588,6 +588,7 @@ pub struct AnchorFilter<'w, 's> {
     drawings: Query<'w, 's, &'static PixelsPerMeter, With<DrawingMarker>>,
     child_of: Query<'w, 's, &'static ChildOf>,
     levels: Query<'w, 's, (), With<LevelElevation>>,
+    lifts: Query<'w, 's, (), With<LiftCabin<Entity>>>,
     current_level: Res<'w, CurrentLevel>,
 }
 
@@ -684,9 +685,10 @@ impl<'w, 's> AnchorFilter<'w, 's> {
 
         match &*self.anchor_scope {
             AnchorScope::General => {
-                let is_site = self.open_sites.contains(parent);
-                let is_level = self.levels.contains(parent);
-                if is_site || is_level {
+                let is_site = || self.open_sites.contains(parent);
+                let is_level = || self.levels.contains(parent);
+                let is_lift = || AncestorIter::new(&self.child_of, target).any(|e| self.lifts.contains(e));
+                if is_site() || is_level() || is_lift() {
                     Some(target)
                 } else {
                     None

@@ -20,11 +20,19 @@ pub mod replace_side;
 use replace_side::*;
 
 pub mod select_anchor;
-use rmf_site_format::Pending;
-use rmf_site_picking::{Hover, Select, Selectable, SelectionFilter};
+use rmf_site_format::{Pending, LiftCabin};
+use rmf_site_picking::{Hover, Select, Selectable, SelectionFilter, CommonNodeErrors};
 pub use select_anchor::*;
 
-use bevy::{ecs::system::SystemParam, prelude::*};
+use anyhow::Error as Anyhow;
+
+use bevy::{
+    ecs::{
+        system::SystemParam,
+        relationship::AncestorIter,
+    },
+    prelude::*,
+};
 use rmf_site_picking::Preview;
 
 pub const SELECT_ANCHOR_MODE_LABEL: &'static str = "select_anchor";
@@ -62,4 +70,26 @@ pub enum LevelChangeContinuity {
     /// whatever object was in progress. This should be used for objects that
     /// are allowed to be connected across multiple levels.
     Continuous,
+}
+
+/// Check if these anchors co-exist in the same level. This will account for
+/// cases where you are connecting to site or lift anchors.
+pub fn are_anchors_siblings(
+    a: Entity,
+    b: Entity,
+    parents: &Query<&ChildOf>,
+    lifts: &Query<(), With<LiftCabin<Entity>>>,
+) -> Result<bool, Option<Anyhow>> {
+    let parent_of_a = parents.get(a).or_broken_query()?.parent();
+    let parent_of_b = parents.get(b).or_broken_query()?.parent();
+    let mut are_siblings = AncestorIter::new(&parents, b).any(|e| {
+        e == parent_of_a || lifts.contains(e)
+    });
+    if !are_siblings {
+        are_siblings = AncestorIter::new(&parents, a).any(|e| {
+            e == parent_of_b || lifts.contains(e)
+        });
+    }
+
+    Ok(are_siblings)
 }
