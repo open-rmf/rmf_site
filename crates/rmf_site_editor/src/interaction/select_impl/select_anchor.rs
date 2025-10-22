@@ -188,15 +188,15 @@ impl<'w, 's> AnchorSelection<'w, 's> {
     }
 
     pub fn create_location(&mut self) {
-        self.create_point::<Location<Entity>>(false, AnchorScope::General);
+        self.create_point::<Location<Entity>>(true, AnchorScope::General);
     }
 
     pub fn create_site_fiducial(&mut self) {
-        self.create_point::<Fiducial<Entity>>(false, AnchorScope::Site);
+        self.create_point::<Fiducial<Entity>>(true, AnchorScope::Site);
     }
 
     pub fn create_drawing_fiducial(&mut self) {
-        self.create_point::<Fiducial<Entity>>(false, AnchorScope::Drawing);
+        self.create_point::<Fiducial<Entity>>(true, AnchorScope::Drawing);
     }
 
     pub fn create_edges<T: Bundle + From<Edge<Entity>>>(
