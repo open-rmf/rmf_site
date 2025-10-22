@@ -56,10 +56,7 @@ impl FromWorld for WorkspaceMenu {
             world.entity_mut(save).insert(MenuDisabled);
             world.entity_mut(save_as).insert(MenuDisabled);
         }
-        Self {
-            save,
-            save_as,
-        }
+        Self { save, save_as }
     }
 }
 
