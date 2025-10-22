@@ -424,10 +424,17 @@ impl<T: RefTrait> Door<T> {
 
 impl<T: RefTrait> From<Edge<T>> for Door<T> {
     fn from(edge: Edge<T>) -> Self {
+        // When converting an edge into a door, initialize it as closed instead of open.
+        // This is more intuitive for users who are creating a door.
+        let kind = SingleSlidingDoor {
+            position: 0.0,
+            ..Default::default()
+        };
+
         Door {
             anchors: edge,
             name: NameInSite("<Unnamed>".to_string()),
-            kind: SingleSlidingDoor::default().into(),
+            kind: kind.into(),
             marker: Default::default(),
         }
     }

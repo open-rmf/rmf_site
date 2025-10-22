@@ -19,7 +19,10 @@ use crate::{
     interaction::*,
     site::{ChangeDependent, Dependents, Pending, TextureNeedsAssignment},
 };
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    ecs::relationship::AncestorIter,
+};
 use bevy_impulse::*;
 use rmf_site_format::{Edge, Side};
 use std::borrow::Borrow;
@@ -52,6 +55,7 @@ pub struct CreateEdges {
     pub preview_edge: Option<PreviewEdge>,
     pub continuity: EdgeContinuity,
     pub scope: AnchorScope,
+    pub level_change: LevelChangeContinuity,
 }
 
 impl CreateEdges {
@@ -64,6 +68,7 @@ impl CreateEdges {
             preview_edge: None,
             continuity,
             scope,
+            level_change: Default::default(),
         }
     }
 
@@ -76,10 +81,15 @@ impl CreateEdges {
             preview_edge: None,
             continuity,
             scope,
+            level_change: Default::default(),
         }
     }
 
-    pub fn initialize_preview(&mut self, anchor: Entity, commands: &mut Commands) {
+    pub fn initialize_preview(
+        &mut self,
+        anchor: Entity,
+        commands: &mut Commands,
+    ) {
         let edge = Edge::new(anchor, anchor);
         let edge = (self.spawn_edge)(edge, commands);
         self.preview_edge = Some(PreviewEdge {
@@ -237,10 +247,37 @@ pub fn on_select_for_create_edges(
     mut access: BufferAccessMut<CreateEdges>,
     mut edges: Query<&mut Edge<Entity>>,
     mut commands: Commands,
+    parents: Query<&ChildOf>,
     cursor: Res<Cursor>,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.newest_mut().or_broken_state()?;
+
+    // Check if the candidate anchor belongs to the same
+    if let Some(preview) = &mut state.preview_edge {
+        let edge = edges.get(preview.edge).or_broken_query()?;
+        if preview.side == Side::end() {
+            let candidate_parent = parents.get(selection.candidate).or_broken_query()?.parent();
+            // Check if the current level matches the level of the previously placed anchor
+            let mut compatible_level = AncestorIter::new(&parents, edge.start()).any(|e| e == candidate_parent);
+            if !compatible_level {
+                let edge_start_parent = parents.get(edge.start()).or_broken_query()?.parent();
+                compatible_level = AncestorIter::new(&parents, candidate_parent).any(|e| e == edge_start_parent);
+            }
+
+            if !compatible_level {
+                match state.level_change {
+                    LevelChangeContinuity::Separate => {
+                        // Perform the backout before assigning the candidate anchor
+                        let _ = backout(state, &mut edges, &cursor, &mut commands);
+                    }
+                    LevelChangeContinuity::Continuous => {
+                        // Do nothing
+                    }
+                }
+            }
+        }
+    }
 
     let anchor = selection.candidate;
     if let Some(preview) = &mut state.preview_edge {
@@ -331,7 +368,7 @@ pub fn on_select_for_create_edges(
 pub fn on_keyboard_for_create_edges(
     In((button, key)): In<(KeyCode, BufferKey<CreateEdges>)>,
     mut access: BufferAccessMut<CreateEdges>,
-    mut edges: Query<&'static mut Edge<Entity>>,
+    mut edges: Query<&mut Edge<Entity>>,
     cursor: Res<Cursor>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
@@ -343,7 +380,15 @@ pub fn on_keyboard_for_create_edges(
 
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.newest_mut().or_broken_state()?;
+    backout(state, &mut edges, &cursor, &mut commands)
+}
 
+fn backout(
+    state: &mut CreateEdges,
+    edges: &mut Query<&mut Edge<Entity>>,
+    cursor: &Res<Cursor>,
+    commands: &mut Commands,
+) -> SelectionNodeResult {
     if let Some(preview) = &mut state.preview_edge {
         if preview.side == Side::end() {
             // We currently have an active preview edge and are selecting for
@@ -369,6 +414,10 @@ pub fn on_keyboard_for_create_edges(
                 cursor.level_anchor_placement,
                 preview.edge,
             ));
+            // Allow the parent of the edge to be reset in case this is being
+            // triggerd by a level change.
+            commands.entity(preview.edge).remove::<ChildOf>();
+
         } else {
             // We are selecting for the first point in the edge. If the user has
             // pressed Esc then that means they want to stop creating edges

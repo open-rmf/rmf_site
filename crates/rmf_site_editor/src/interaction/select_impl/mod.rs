@@ -48,3 +48,18 @@ impl<'w, 's> SelectionFilter for InspectorFilter<'w, 's> {
         Some(Select::new(hovered.0))
     }
 }
+
+/// How should a selection tool behave if the level is changed while the tool is active?
+#[derive(Debug, Default, Clone, Copy)]
+pub enum LevelChangeContinuity {
+    /// When the level is changed during a creation workflow, behave as though
+    /// the user has asked to begin creating a separate object, no matter what
+    /// state the object was in previously. This should be used for objects that
+    /// must be fully contained to a single level.
+    #[default]
+    Separate,
+    /// When the level is changed during a creation workflow, continue creating
+    /// whatever object was in progress. This should be used for objects that
+    /// are allowed to be connected across multiple levels.
+    Continuous,
+}
