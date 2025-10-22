@@ -201,7 +201,9 @@ pub fn update_location_for_changed_location_tags(
     assets: Res<SiteAssets>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    for (e, tags, mutex_group, previous_billboard_meshes, mut hovered, mut selected) in &mut locations {
+    for (e, tags, mutex_group, previous_billboard_meshes, mut hovered, mut selected) in
+        &mut locations
+    {
         let mut billboard_meshes = previous_billboard_meshes.copied().unwrap_or_default();
         select.write(Select::new(Some(e)));
 
@@ -380,19 +382,20 @@ pub fn update_location_for_changed_location_tags(
 
             if make_new_billboard {
                 let material = materials.get(&assets.lockpad_material).unwrap().clone();
-                let id = commands.spawn((
-                    Mesh3d(assets.billboard_mesh.clone()),
-                    // A separate copy of the material is created for each billboard
-                    // because we adjust their alpha properties during interaction.
-                    MeshMaterial3d(materials.add(material)),
-                    BillboardMarker {
-                        caption_text: Some(mutex_group_text),
-                        offset: offset,
-                        hover_enabled: true,
-                    },
-                    ChildOf(e),
-                ))
-                .id();
+                let id = commands
+                    .spawn((
+                        Mesh3d(assets.billboard_mesh.clone()),
+                        // A separate copy of the material is created for each billboard
+                        // because we adjust their alpha properties during interaction.
+                        MeshMaterial3d(materials.add(material)),
+                        BillboardMarker {
+                            caption_text: Some(mutex_group_text),
+                            offset: offset,
+                            hover_enabled: true,
+                        },
+                        ChildOf(e),
+                    ))
+                    .id();
 
                 billboard_meshes.mutex_group = Some(id);
 

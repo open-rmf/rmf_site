@@ -1183,12 +1183,12 @@ fn generate_locations(
             .to_u32(&q_nav_graphs)
             .map_err(|e| SiteGenerationError::BrokenNavGraphReference(e))?;
         let mutex = if let Some(mutex_group) = mutex.0 {
-            let mutex_group_id = q_mutex_groups
-                .get(mutex_group)
-                .map_err(|_| SiteGenerationError::BrokenAffiliation {
+            let mutex_group_id = q_mutex_groups.get(mutex_group).map_err(|_| {
+                SiteGenerationError::BrokenAffiliation {
                     object: e,
                     group: mutex_group,
-                })?;
+                }
+            })?;
             Affiliation(Some(mutex_group_id.0))
         } else {
             Affiliation(None)

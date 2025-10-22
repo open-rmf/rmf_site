@@ -26,7 +26,9 @@ use bevy::{
     prelude::*,
 };
 use bevy_egui::egui::{CollapsingHeader, ComboBox, ImageButton, Ui};
-use rmf_site_format::{Affiliation, Group, LaneMarker, MutexGroup, MutexMarker, NameInSite, LocationTags};
+use rmf_site_format::{
+    Affiliation, Group, LaneMarker, LocationTags, MutexGroup, MutexMarker, NameInSite,
+};
 
 #[derive(Resource, Default)]
 pub struct SearchForMutex(pub String);
@@ -43,7 +45,12 @@ impl Plugin for InspectMutexPlugin {
 
 #[derive(SystemParam)]
 pub struct InspectMutexAffiliation<'w, 's> {
-    with_mutex: Query<'w, 's, (&'static Category, &'static Affiliation<Entity>), Or<(With<LaneMarker>, With<LocationTags>)>>,
+    with_mutex: Query<
+        'w,
+        's,
+        (&'static Category, &'static Affiliation<Entity>),
+        Or<(With<LaneMarker>, With<LocationTags>)>,
+    >,
     mutex_groups: Query<'w, 's, &'static NameInSite, (With<Group>, With<MutexMarker>)>,
     child_of: Query<'w, 's, &'static ChildOf>,
     sites: Query<'w, 's, &'static Children, With<WorkspaceMarker>>,
@@ -156,7 +163,8 @@ impl<'w, 's> InspectMutexAffiliation<'w, 's> {
                                 .spawn(MutexGroup::new(NameInSite(search.clone())))
                                 .insert(ChildOf(site))
                                 .id();
-                            self.commands.trigger(Change::new(Affiliation(Some(new_mutex_group)), id));
+                            self.commands
+                                .trigger(Change::new(Affiliation(Some(new_mutex_group)), id));
                         }
                     }
                     SearchResult::Match(group) => {
@@ -165,7 +173,8 @@ impl<'w, 's> InspectMutexAffiliation<'w, 's> {
                             .on_hover_text("Select this mutex")
                             .clicked()
                         {
-                            self.commands.trigger(Change::new(Affiliation(Some(group)), id));
+                            self.commands
+                                .trigger(Change::new(Affiliation(Some(group)), id));
                         }
                     }
                     SearchResult::Conflict(text) => {

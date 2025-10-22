@@ -117,12 +117,11 @@ impl NavGraph {
                         let anchor = Anchor::Translate2D([trans[0], trans[1]]);
 
                         anchor_to_vertex.insert(*id, vertices.len());
-                        let mut vertex =
-                            NavVertex::from_anchor(
-                                &anchor,
-                                location_at_anchor.get(id),
-                                &site.navigation.guided.mutex_groups,
-                            );
+                        let mut vertex = NavVertex::from_anchor(
+                            &anchor,
+                            location_at_anchor.get(id),
+                            &site.navigation.guided.mutex_groups,
+                        );
                         vertex.2.lift = Some(lift_name.clone());
                         vertices.push(vertex);
                     }
@@ -141,8 +140,8 @@ impl NavGraph {
                     vertices.push(NavVertex::from_anchor(
                         anchor,
                         location_at_anchor.get(id),
-                        &site.navigation.guided.mutex_groups),
-                    );
+                        &site.navigation.guided.mutex_groups,
+                    ));
                 }
 
                 let mut level_doors = HashMap::new();
@@ -312,7 +311,11 @@ impl NavVertex {
         mutex_groups: &BTreeMap<u32, MutexGroup>,
     ) -> Self {
         let p = anchor.translation_for_category(Category::General);
-        Self(p[0], p[1], NavVertexProperties::from_location(location, mutex_groups))
+        Self(
+            p[0],
+            p[1],
+            NavVertexProperties::from_location(location, mutex_groups),
+        )
     }
 }
 
@@ -360,17 +363,19 @@ impl NavVertexProperties {
             .is_some();
 
         if let Some(mutex) = location.mutex.0 {
-            props.mutex = Some(mutex_groups
-                .get(&mutex)
-                .map(|m| m.name.0.clone())
-                .unwrap_or_else(|| {
-                    error!(
+            props.mutex = Some(
+                mutex_groups
+                    .get(&mutex)
+                    .map(|m| m.name.0.clone())
+                    .unwrap_or_else(|| {
+                        error!(
                         "nav graph export: Unable to find mutex group #{} name for location [{}]",
                         mutex,
                         props.name,
                     );
-                    String::new()
-                }));
+                        String::new()
+                    }),
+            );
         }
 
         props
