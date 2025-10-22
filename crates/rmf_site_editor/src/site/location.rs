@@ -61,25 +61,16 @@ fn should_display_point(
 
 pub fn add_location_visuals(
     mut commands: Commands,
-    locations: Query<
-        (
-            Entity,
-            &Point<Entity>,
-            &AssociatedGraphs<Entity>,
-            &LocationTags,
-        ),
-        Added<LocationTags>,
-    >,
+    locations: Query<(Entity, &Point<Entity>, &AssociatedGraphs<Entity>), Added<LocationTags>>,
     graphs: GraphSelect,
     anchors: AnchorParams,
     child_of: Query<&ChildOf>,
     levels: Query<(), With<LevelElevation>>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
     current_level: Res<CurrentLevel>,
 ) {
-    for (e, point, associated_graphs, tags) in &locations {
+    for (e, point, associated_graphs) in &locations {
         if let Ok(mut deps) = dependents.get_mut(point.0) {
             deps.insert(e);
         }
