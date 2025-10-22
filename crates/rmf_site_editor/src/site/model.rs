@@ -173,7 +173,7 @@ fn load_asset_source(
                     return Err(ModelLoadingErrorKind::InvalidAssetSource(err.to_string()));
                 }
             };
-            asset_server
+            let handle = asset_server
                 .load_untyped_async(&asset_path)
                 .await
                 .map_err(|err| {
@@ -187,7 +187,15 @@ fn load_asset_source(
                         error!("Failed attempt to load asset with [{asset_path}]: {err}");
                     }
                     ModelLoadingErrorKind::AssetServerError(err.to_string())
+                })?;
+            asset_server
+                .wait_for_asset_untyped(&handle)
+                .await
+                .map_err(|err| {
+                    error!("Failed attempt to load asset with [{asset_path}]: {err}");
+                    ModelLoadingErrorKind::AssetServerError(err.to_string())
                 })
+                .map(|_| handle)
         }
     }
 }
@@ -370,29 +378,6 @@ fn handle_model_loading(
                 })?;
         }
         Ok(request)
-    }
-}
-
-fn check_model_loading_error(
-    In(AsyncService { request, .. }): AsyncServiceInput<ModelLoadingError>,
-    asset_server: Res<AssetServer>,
-    scene_handles: Query<&SceneHandle>,
-) -> impl Future<Output = Result<ModelLoadingRequest, ModelLoadingError>> {
-    let asset_server = asset_server.clone();
-    let handle = scene_handles.get(request.request.parent).cloned();
-    async move {
-        let Ok(handle) = handle else {
-            return Err(request);
-        };
-
-        // The non-model asset did not load properly, retry model loading workflow
-        if matches!(request.kind, ModelLoadingErrorKind::NonModelAsset)
-            && !asset_server.load_state(handle.0.id()).is_loaded()
-        {
-            return Ok(request.request);
-        }
-
-        Err(request)
     }
 }
 
@@ -637,34 +622,17 @@ impl ModelLoadingServices {
         let skip_if_unchanged = cleanup_if_asset_source_changed.into_blocking_callback();
         let load_model_dependencies = app.world_mut().spawn_service(load_model_dependencies);
         let model_loading_service = app.world_mut().spawn_service(handle_model_loading);
-        let check_model_loading_error = app.world_mut().spawn_service(check_model_loading_error);
         // This workflow tries to load the model without doing any error handling
         let try_load_model: Service<ModelLoadingRequest, ModelLoadingResult, ()> =
-            app.world_mut().spawn_io_workflow(|scope, builder| {
-                let model_loading_node = builder.create_node(model_loading_service);
-                let check_model_loading_node = builder.create_node(check_model_loading_error);
-                let load_model_dependencies_node = builder.create_node(load_model_dependencies);
-
+            app.world_mut().spawn_workflow(|scope, builder| {
                 scope
                     .input
                     .chain(builder)
                     .then(skip_if_unchanged)
                     .branch_for_err(|res| res.connect(scope.terminate))
-                    .connect(model_loading_node.input);
-
-                model_loading_node.output.chain(builder).fork_result(
-                    |res| res.connect(load_model_dependencies_node.input),
-                    |err| err.connect(check_model_loading_node.input),
-                );
-
-                check_model_loading_node.output.chain(builder).fork_result(
-                    |retry| retry.connect(model_loading_node.input),
-                    |err| err.map_block(|e| Err(e)).connect(scope.terminate),
-                );
-
-                load_model_dependencies_node
-                    .output
-                    .chain(builder)
+                    .then(model_loading_service)
+                    .connect_on_err(scope.terminate)
+                    .then(load_model_dependencies)
                     .connect_on_err(scope.terminate)
                     // The model and its dependencies are spawned, make them selectable / propagate
                     // render layers
@@ -678,7 +646,7 @@ impl ModelLoadingServices {
                             unchanged: false,
                         })
                     })
-                    .connect(scope.terminate);
+                    .connect(scope.terminate)
             });
 
         // Complete model loading with error handling, by having it as a separate
