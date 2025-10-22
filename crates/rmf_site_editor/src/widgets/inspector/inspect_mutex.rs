@@ -26,7 +26,7 @@ use bevy::{
     prelude::*,
 };
 use bevy_egui::egui::{CollapsingHeader, ComboBox, ImageButton, Ui};
-use rmf_site_format::{Affiliation, Group, LaneMarker, MutexGroup, MutexMarker, NameInSite};
+use rmf_site_format::{Affiliation, Group, LaneMarker, MutexGroup, MutexMarker, NameInSite, LocationTags};
 
 #[derive(Resource, Default)]
 pub struct SearchForMutex(pub String);
@@ -43,14 +43,13 @@ impl Plugin for InspectMutexPlugin {
 
 #[derive(SystemParam)]
 pub struct InspectMutexAffiliation<'w, 's> {
-    with_mutex: Query<'w, 's, (&'static Category, &'static Affiliation<Entity>), With<LaneMarker>>,
+    with_mutex: Query<'w, 's, (&'static Category, &'static Affiliation<Entity>), Or<(With<LaneMarker>, With<LocationTags>)>>,
     mutex_groups: Query<'w, 's, &'static NameInSite, (With<Group>, With<MutexMarker>)>,
     child_of: Query<'w, 's, &'static ChildOf>,
     sites: Query<'w, 's, &'static Children, With<WorkspaceMarker>>,
     icons: Res<'w, Icons>,
     search_for_mutex: ResMut<'w, SearchForMutex>,
     commands: Commands<'w, 's>,
-    change_affiliation: EventWriter<'w, Change<Affiliation<Entity>>>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectMutexAffiliation<'w, 's> {
@@ -157,8 +156,7 @@ impl<'w, 's> InspectMutexAffiliation<'w, 's> {
                                 .spawn(MutexGroup::new(NameInSite(search.clone())))
                                 .insert(ChildOf(site))
                                 .id();
-                            self.change_affiliation
-                                .write(Change::new(Affiliation(Some(new_mutex_group)), id));
+                            self.commands.trigger(Change::new(Affiliation(Some(new_mutex_group)), id));
                         }
                     }
                     SearchResult::Match(group) => {
@@ -167,8 +165,7 @@ impl<'w, 's> InspectMutexAffiliation<'w, 's> {
                             .on_hover_text("Select this mutex")
                             .clicked()
                         {
-                            self.change_affiliation
-                                .write(Change::new(Affiliation(Some(group)), id));
+                            self.commands.trigger(Change::new(Affiliation(Some(group)), id));
                         }
                     }
                     SearchResult::Conflict(text) => {
@@ -235,8 +232,7 @@ impl<'w, 's> InspectMutexAffiliation<'w, 's> {
             });
 
             if new_affiliation != *affiliation {
-                self.change_affiliation
-                    .write(Change::new(new_affiliation, id));
+                self.commands.trigger(Change::new(new_affiliation, id));
             }
             ui.add_space(10.0);
         });

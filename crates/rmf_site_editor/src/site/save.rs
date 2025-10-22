@@ -1150,6 +1150,7 @@ fn generate_locations(
                 Option<&Original<Point<Entity>>>,
                 &LocationTags,
                 &NameInSite,
+                &Affiliation<Entity>,
                 &AssociatedGraphs<Entity>,
                 &SiteID,
                 &ChildOf,
@@ -1158,9 +1159,10 @@ fn generate_locations(
         >,
         Query<&SiteID, With<NavGraphMarker>>,
         Query<&SiteID, With<Anchor>>,
+        Query<&SiteID, (With<Group>, With<MutexMarker>)>,
     )> = SystemState::new(world);
 
-    let (q_locations, q_nav_graphs, q_anchors) = state.get(world);
+    let (q_locations, q_nav_graphs, q_anchors, q_mutex_groups) = state.get(world);
 
     let get_anchor_id = |object, anchor| {
         let site_id = q_anchors
@@ -1170,7 +1172,7 @@ fn generate_locations(
     };
 
     let mut locations = BTreeMap::new();
-    for (e, point, o_point, tags, name, graphs, location_id, child_of) in &q_locations {
+    for (e, point, o_point, tags, name, mutex, graphs, location_id, child_of) in &q_locations {
         if child_of.parent() != site {
             continue;
         }
@@ -1180,6 +1182,17 @@ fn generate_locations(
         let graphs = graphs
             .to_u32(&q_nav_graphs)
             .map_err(|e| SiteGenerationError::BrokenNavGraphReference(e))?;
+        let mutex = if let Some(mutex_group) = mutex.0 {
+            let mutex_group_id = q_mutex_groups
+                .get(mutex_group)
+                .map_err(|_| SiteGenerationError::BrokenAffiliation {
+                    object: e,
+                    group: mutex_group,
+                })?;
+            Affiliation(Some(mutex_group_id.0))
+        } else {
+            Affiliation(None)
+        };
 
         locations.insert(
             location_id.0,
@@ -1187,6 +1200,7 @@ fn generate_locations(
                 anchor: Point(point),
                 tags: tags.clone(),
                 name: name.clone(),
+                mutex,
                 graphs,
             },
         );

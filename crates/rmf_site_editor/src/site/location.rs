@@ -24,7 +24,7 @@ const BILLBOARD_BASE_OFFSET: Vec3 = Vec3::new(0., 0., BILLBOARD_LENGTH / 3. * 0.
 const BILLBOARD_EMPTY_OFFSET: Vec3 = Vec3::new(0., 0., BILLBOARD_LENGTH * 0.5);
 const BILLBOARD_MARGIN: Vec3 = Vec3::new(0., 0., BILLBOARD_LENGTH * 0.9);
 
-#[derive(Component, Clone, Default)]
+#[derive(Component, Clone, Copy, Default)]
 pub struct BillboardMeshes {
     pub base: Option<Entity>,
     pub charging: Option<Entity>,
@@ -103,87 +103,6 @@ pub fn add_location_visuals(
             .unwrap()
             + ZLayer::Location.to_z() * Vec3::Z;
 
-        let only_workcell_tags = !tags.iter().any(|t| !t.is_workcell());
-        let mut billboard_meshes = BillboardMeshes::default();
-
-        let base_id = commands.spawn_empty().id();
-        commands.entity(e).add_child(base_id);
-
-        if tags.len() == 0 || only_workcell_tags {
-            // If no location tags, spawn empty billboard marker
-            let new_material = materials
-                .get(&assets.empty_billboard_material)
-                .unwrap()
-                .clone();
-
-            commands.entity(base_id).insert((
-                Mesh3d(assets.billboard_mesh.clone()),
-                MeshMaterial3d(materials.add(new_material)),
-                BillboardMarker {
-                    caption_text: None,
-                    offset: BILLBOARD_EMPTY_OFFSET,
-                    hover_enabled: true,
-                },
-            ));
-            billboard_meshes.empty_billboard = Some(base_id);
-        } else {
-            // If location tags exist, spawn billboard base
-            commands.entity(base_id).insert((
-                Mesh3d(assets.billboard_base_mesh.clone()),
-                MeshMaterial3d(assets.base_billboard_material.clone()),
-                BillboardMarker {
-                    caption_text: None,
-                    offset: BILLBOARD_BASE_OFFSET,
-                    hover_enabled: false,
-                },
-            ));
-            billboard_meshes.base = Some(base_id);
-        }
-
-        let mut offset = BILLBOARD_MARGIN - BILLBOARD_BASE_OFFSET;
-
-        for tag in tags.iter() {
-            let id = commands.spawn_empty().id();
-
-            let (material_handle, text) = match tag {
-                LocationTag::Charger => {
-                    billboard_meshes.charging = Some(id);
-                    (&assets.charger_material, "charging".to_string())
-                }
-                LocationTag::ParkingSpot => {
-                    billboard_meshes.parking = Some(id);
-                    (&assets.parking_material, "parking".to_string())
-                }
-                LocationTag::HoldingPoint => {
-                    billboard_meshes.holding = Some(id);
-                    (&assets.holding_point_material, "holding".to_string())
-                }
-                LocationTag::MutexGroup(name) => {
-                    billboard_meshes.mutex_group = Some(id);
-                    (&assets.lockpad_material, format!("mutex group: {name}"))
-                }
-                // Workcells are not visualized
-                LocationTag::Workcell(_) => continue,
-            };
-
-            // New material instance created for each billboard as the AlphaMode of each billboard is toggled on hover
-            let new_material = materials.get(material_handle).unwrap().clone();
-
-            commands.entity(id).insert((
-                Mesh3d(assets.billboard_mesh.clone()),
-                MeshMaterial3d(materials.add(new_material)),
-                BillboardMarker {
-                    caption_text: Some(text),
-                    offset: offset,
-                    hover_enabled: true,
-                },
-            ));
-
-            commands.entity(e).add_child(id);
-            offset += BILLBOARD_MARGIN;
-        }
-
-        // TODO(MXG): Put icons on the different visual squares based on the location tags
         commands
             .entity(e)
             .insert((
@@ -193,7 +112,6 @@ pub fn add_location_visuals(
                 visibility,
             ))
             .insert(Category::Location)
-            .insert(billboard_meshes)
             .insert(VisualCue::outline());
     }
 }
@@ -271,75 +189,79 @@ pub fn update_location_for_changed_location_tags(
         (
             Entity,
             &LocationTags,
-            &mut BillboardMeshes,
-            &mut Hovered,
-            &mut Selected,
+            &Affiliation<Entity>,
+            Option<&BillboardMeshes>,
+            Option<&mut Hovered>,
+            Option<&mut Selected>,
         ),
-        Changed<LocationTags>,
+        Or<(Changed<LocationTags>, Changed<Affiliation<Entity>>)>,
     >,
     mut billboards: Query<&mut BillboardMarker, With<BillboardMarker>>,
+    mutex_groups: Query<&NameInSite, (With<MutexMarker>, With<Group>)>,
     assets: Res<SiteAssets>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    for (e, tags, mut billboard_meshes, mut hovered, mut selected) in &mut locations {
+    for (e, tags, mutex_group, previous_billboard_meshes, mut hovered, mut selected) in &mut locations {
+        let mut billboard_meshes = previous_billboard_meshes.copied().unwrap_or_default();
         select.write(Select::new(Some(e)));
 
         let only_workcell_tags = !tags.iter().any(|t| !t.is_workcell());
+        let no_billboards = only_workcell_tags && mutex_group.0.is_none();
+
+        let mut remove_interactions = |id| {
+            if let Some(hovered) = &mut hovered {
+                hovered.support_hovering.remove(&id);
+            }
+            if let Some(selected) = &mut selected {
+                selected.support_selected.remove(&id);
+            }
+        };
 
         // Despawn unused billboards
         if let Some(id) = billboard_meshes.empty_billboard {
-            if tags.len() > 0 || !only_workcell_tags {
+            if !no_billboards {
                 commands.entity(id).despawn();
                 billboard_meshes.empty_billboard = None;
-
-                hovered.support_hovering.remove(&id);
-                selected.support_selected.remove(&id);
+                remove_interactions(id);
             }
         }
         if let Some(id) = billboard_meshes.charging {
             if !tags.iter().any(|t| t.is_charger()) {
                 commands.entity(id).despawn();
                 billboard_meshes.charging = None;
-
-                hovered.support_hovering.remove(&id);
-                selected.support_selected.remove(&id);
+                remove_interactions(id);
             }
         }
         if let Some(id) = billboard_meshes.holding {
             if !tags.iter().any(|t| t.is_holding_point()) {
                 commands.entity(id).despawn();
                 billboard_meshes.holding = None;
-
-                hovered.support_hovering.remove(&id);
-                selected.support_selected.remove(&id);
-            }
-        }
-        if let Some(id) = billboard_meshes.mutex_group {
-            if !tags.iter().any(|t| t.is_mutex_group()) {
-                commands.entity(id).despawn();
-                billboard_meshes.mutex_group = None;
-
-                hovered.support_hovering.remove(&id);
-                selected.support_selected.remove(&id);
+                remove_interactions(id);
             }
         }
         if let Some(id) = billboard_meshes.parking {
             if !tags.iter().any(|t| t.is_parking_spot()) {
                 commands.entity(id).despawn();
                 billboard_meshes.parking = None;
-
-                hovered.support_hovering.remove(&id);
-                selected.support_selected.remove(&id);
+                remove_interactions(id);
             }
         }
-        if tags.len() == 0 || only_workcell_tags {
+        if let Some(id) = billboard_meshes.mutex_group {
+            if mutex_group.0.is_none() {
+                commands.entity(id).despawn();
+                billboard_meshes.mutex_group = None;
+                remove_interactions(id);
+            }
+        }
+
+        if no_billboards {
             if let Some(id) = billboard_meshes.base {
                 commands.entity(id).despawn();
                 billboard_meshes.base = None;
             }
         }
 
-        if (tags.len() == 0 || only_workcell_tags) && billboard_meshes.empty_billboard.is_none() {
+        if no_billboards && billboard_meshes.empty_billboard.is_none() {
             // If no location tags exist and no empty billboard marker spawned, spawn empty billboard marker
             let id = commands.spawn_empty().id();
             let new_material = materials
@@ -382,26 +304,20 @@ pub fn update_location_for_changed_location_tags(
                 LocationTag::Charger => billboard_meshes.charging,
                 LocationTag::HoldingPoint => billboard_meshes.holding,
                 LocationTag::ParkingSpot => billboard_meshes.parking,
-                LocationTag::MutexGroup(_) => billboard_meshes.mutex_group,
                 // Workcells are not visualized
                 LocationTag::Workcell(_) => continue,
             };
 
             // If there exists a spawned billboard for this tag, shift existing billboard
             if let Some(billboard_id) = existing_billboard_id {
-                let Ok(mut marker) = billboards.get_mut(billboard_id) else {
-                    warn!("Billboard not found");
-                    return;
-                };
-                marker.offset = offset;
-                offset += BILLBOARD_MARGIN;
+                if let Ok(mut marker) = billboards.get_mut(billboard_id) {
+                    marker.offset = offset;
+                    offset += BILLBOARD_MARGIN;
 
-                if let LocationTag::MutexGroup(name) = tag {
-                    // Update the caption text in case the mutex group name changed
-                    marker.caption_text = Some(format!("mutex group: {name}"));
+                    continue;
                 }
 
-                continue;
+                error!("Invalid billboard entity [{billboard_id:?}]. Overriding with a new billboard entity.");
             }
 
             // There is no existing billboard for this tag, hence spawn new billboard
@@ -420,19 +336,16 @@ pub fn update_location_for_changed_location_tags(
                     billboard_meshes.holding = Some(id);
                     (&assets.holding_point_material, "holding".to_string())
                 }
-                LocationTag::MutexGroup(name) => {
-                    billboard_meshes.mutex_group = Some(id);
-                    (&assets.lockpad_material, format!("mutex group: {name}"))
-                }
                 // Workcells are not visualized
                 LocationTag::Workcell(_) => continue,
             };
 
-            // New material instance created for each billboard as the AlphaMode of each billboard is toggled on hover
             let new_material = materials.get(material_handle).unwrap().clone();
 
             commands.entity(id).insert((
                 Mesh3d(assets.billboard_mesh.clone()),
+                // A separate copy of the material is created for each billboard
+                // because we adjust their alpha properties during interaction.
                 MeshMaterial3d(materials.add(new_material)),
                 BillboardMarker {
                     caption_text: Some(text),
@@ -444,6 +357,50 @@ pub fn update_location_for_changed_location_tags(
             commands.entity(e).add_child(id);
             offset += BILLBOARD_MARGIN;
         }
+
+        if let Some(mutex_group) = mutex_group.0 {
+            let mutex_group_text = if let Ok(name) = mutex_groups.get(mutex_group) {
+                format!("mutex group: {}", name.0)
+            } else {
+                String::from("<invalid mutex group>")
+            };
+
+            let mut make_new_billboard = true;
+            if let Some(existing_billboard_id) = billboard_meshes.mutex_group {
+                if let Ok(mut marker) = billboards.get_mut(existing_billboard_id) {
+                    marker.offset = offset;
+                    offset += BILLBOARD_MARGIN;
+
+                    marker.caption_text = Some(mutex_group_text.clone());
+                    make_new_billboard = false;
+                } else {
+                    error!("Invalid billboard entity [{existing_billboard_id:?}]. Overriding with a new billboard entity.");
+                }
+            }
+
+            if make_new_billboard {
+                let material = materials.get(&assets.lockpad_material).unwrap().clone();
+                let id = commands.spawn((
+                    Mesh3d(assets.billboard_mesh.clone()),
+                    // A separate copy of the material is created for each billboard
+                    // because we adjust their alpha properties during interaction.
+                    MeshMaterial3d(materials.add(material)),
+                    BillboardMarker {
+                        caption_text: Some(mutex_group_text),
+                        offset: offset,
+                        hover_enabled: true,
+                    },
+                    ChildOf(e),
+                ))
+                .id();
+
+                billboard_meshes.mutex_group = Some(id);
+
+                offset += BILLBOARD_MARGIN;
+            }
+        }
+
+        commands.entity(e).insert(billboard_meshes);
     }
 }
 

@@ -26,7 +26,6 @@ pub enum LocationTag {
     Charger,
     ParkingSpot,
     HoldingPoint,
-    MutexGroup(String),
     Workcell(Model),
 }
 
@@ -36,7 +35,6 @@ impl LocationTag {
             Self::Charger => "Charger",
             Self::ParkingSpot => "Parking Spot",
             Self::HoldingPoint => "Holding Point",
-            Self::MutexGroup(_) => "Mutex Group",
             Self::Workcell(_) => "Workcell",
         }
     }
@@ -53,16 +51,6 @@ impl LocationTag {
     pub fn is_workcell(&self) -> bool {
         matches!(self, Self::Workcell(_))
     }
-    pub fn is_mutex_group(&self) -> bool {
-        matches!(self, Self::MutexGroup(_))
-    }
-    pub fn as_mutex_group(&self) -> Option<&String> {
-        if let Self::MutexGroup(name) = self {
-            Some(name)
-        } else {
-            None
-        }
-    }
     pub fn workcell(&self) -> Option<&Model> {
         match self {
             Self::Workcell(model) => Some(model),
@@ -77,6 +65,7 @@ pub struct Location<T: RefTrait> {
     pub anchor: Point<T>,
     pub tags: LocationTags,
     pub name: NameInSite,
+    pub mutex: Affiliation<T>,
     pub graphs: AssociatedGraphs<T>,
 }
 
@@ -97,6 +86,7 @@ impl<T: RefTrait> Location<T> {
             anchor: self.anchor.convert(id_map)?,
             tags: self.tags.clone(),
             name: self.name.clone(),
+            mutex: self.mutex.convert(id_map)?,
             graphs: self.graphs.convert(id_map)?,
         })
     }
@@ -108,6 +98,7 @@ impl<T: RefTrait> From<Point<T>> for Location<T> {
             anchor,
             tags: Default::default(),
             name: NameInSite("<Unnamed>".to_string()),
+            mutex: Affiliation::default(),
             graphs: AssociatedGraphs::All,
         }
     }
@@ -139,14 +130,6 @@ impl RecallLocationTags {
                         return tag.clone();
                     }
                 }
-                LocationTag::MutexGroup(_) => {
-                    // If the tag is a mutex group, then only accept it if there
-                    // is not already a mutex group in the current set of tags.
-                    // For now we only allow one mutex group assigned per location.
-                    if !current.0.iter().any(|t| t.is_mutex_group()) {
-                        return tag.clone();
-                    }
-                }
                 _ => return tag.clone(),
             }
         }
@@ -155,9 +138,6 @@ impl RecallLocationTags {
         }
         if current.0.iter().find(|t| t.is_parking_spot()).is_none() {
             return LocationTag::ParkingSpot;
-        }
-        if !current.0.iter().any(|t| t.is_mutex_group()) {
-            return LocationTag::MutexGroup(self.mutex_group_name.clone().unwrap_or(String::new()));
         }
         self.assume_workcell()
     }
@@ -178,9 +158,6 @@ impl Recall for RecallLocationTags {
         for tag in &source.0 {
             // TODO(MXG): Consider isolating this memory per element
             match tag {
-                LocationTag::MutexGroup(name) => {
-                    self.mutex_group_name = Some(name.clone());
-                }
                 LocationTag::Workcell(cell) => {
                     self.workcell_asset_source_recall.remember(&cell.source);
                     self.workcell_asset_source = Some(cell.source.clone());
