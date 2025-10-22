@@ -16,7 +16,7 @@
 */
 
 use crate::widgets::{FileMenu, MenuDisabled, MenuEvent, MenuItem, TextMenuItem};
-use crate::{AppState, CreateNewWorkspace, WorkspaceLoader, WorkspaceSaver};
+use crate::{AppState, WorkspaceSaver};
 use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 
 #[derive(Default)]
