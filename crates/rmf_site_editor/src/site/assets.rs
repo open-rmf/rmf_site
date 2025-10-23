@@ -38,6 +38,7 @@ pub(crate) fn add_site_assets(app: &mut App) {
     embedded_asset!(app, "src/", "textures/charging.png");
     embedded_asset!(app, "src/", "textures/parking.png");
     embedded_asset!(app, "src/", "textures/holding.png");
+    embedded_asset!(app, "src/", "textures/lockpad.png");
     embedded_asset!(app, "src/", "textures/empty.png");
     embedded_asset!(app, "src/", "textures/door_cue.png");
     embedded_asset!(app, "src/", "textures/door_cue_highlighted.png");
@@ -149,6 +150,7 @@ pub struct SiteAssets {
     pub charger_material: Handle<StandardMaterial>,
     pub holding_point_material: Handle<StandardMaterial>,
     pub parking_material: Handle<StandardMaterial>,
+    pub lockpad_material: Handle<StandardMaterial>,
     pub empty_billboard_material: Handle<StandardMaterial>,
     pub robot_path_rectangle_mesh: Handle<Mesh>,
     pub robot_path_circle_mesh: Handle<Mesh>,
@@ -185,6 +187,8 @@ impl FromWorld for SiteAssets {
             asset_server.load("embedded://librmf_site_editor/site/textures/holding.png");
         let parking_texture =
             asset_server.load("embedded://librmf_site_editor/site/textures/parking.png");
+        let lockpad_texture =
+            asset_server.load("embedded://librmf_site_editor/site/textures/lockpad.png");
         let empty_billboard_texture =
             asset_server.load("embedded://librmf_site_editor/site/textures/empty.png");
         let door_cue_texture =
@@ -283,6 +287,7 @@ impl FromWorld for SiteAssets {
             materials.add(billboard_material(charger_texture));
         let holding_point_material = materials.add(billboard_material(holding_point_texture));
         let parking_material = materials.add(billboard_material(parking_texture));
+        let lockpad_material = materials.add(billboard_material(lockpad_texture));
         let empty_billboard_material = materials.add(billboard_material(empty_billboard_texture));
 
         let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
@@ -393,6 +398,7 @@ impl FromWorld for SiteAssets {
             charger_material,
             holding_point_material,
             parking_material,
+            lockpad_material,
             empty_billboard_material,
             robot_path_rectangle_mesh,
             robot_path_circle_mesh,

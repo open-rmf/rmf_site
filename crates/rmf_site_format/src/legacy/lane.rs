@@ -1,4 +1,5 @@
 use super::rbmf::*;
+use crate::is_default;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Clone, Default)]
@@ -6,6 +7,8 @@ pub struct LaneProperties {
     pub bidirectional: RbmfBool,
     pub graph_idx: RbmfInt,
     pub orientation: RbmfString,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub mutex: RbmfString,
 }
 
 #[derive(Deserialize, Serialize, Clone, Default)]
