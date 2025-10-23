@@ -42,7 +42,7 @@ pub fn update_level_visibility(
 pub fn handle_on_level_change(
     trigger: Trigger<OnInsert, LastSetValue<OnLevel<Entity>>>,
     mut commands: Commands,
-    on_levels: Query<(Entity, &OnLevel<Entity>)>,
+    on_levels: Query<(Entity, &OnLevel<Entity>), Without<Pending>>,
     level_elevation: Query<(), With<LevelElevation>>,
 ) {
     if let Ok((entity, on_level)) = on_levels.get(trigger.target()) {
