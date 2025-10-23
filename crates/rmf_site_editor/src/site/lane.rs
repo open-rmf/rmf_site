@@ -431,7 +431,17 @@ pub fn update_color_for_lanes(
         (&AssociatedGraphs<Entity>, &LaneSegments),
         (With<LaneMarker>, Changed<AssociatedGraphs<Entity>>),
     >,
-    any_graphs_changed: Query<(), (Changed<DisplayColor>, With<NavGraphMarker>)>,
+    any_graphs_changed: Query<
+        (),
+        (
+            Or<(
+                Changed<DisplayColor>,
+                Changed<RecencyRank<NavGraphMarker>>,
+                Changed<Visibility>,
+            )>,
+            With<NavGraphMarker>
+        )
+    >,
     all_lanes: Query<(&AssociatedGraphs<Entity>, &LaneSegments), With<LaneMarker>>,
     graphs: GraphSelect,
     lane_materials: Query<&MeshMaterial3d<ExtendedMaterial<StandardMaterial, LaneArrowMaterial>>>,
