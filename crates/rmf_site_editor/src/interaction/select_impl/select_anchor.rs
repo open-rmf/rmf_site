@@ -25,7 +25,7 @@ use bevy_impulse::*;
 use crate::interaction::{
     set_visibility, Cursor, GizmoBlockers, HighlightAnchors, IntersectGroundPlaneParams,
 };
-use crate::site::{AnchorBundle, CurrentEditDrawing, DrawingMarker};
+use crate::site::{AnchorBundle, CurrentEditDrawing, DrawingMarker, ChildCabinAnchorGroup};
 use crate::workspace::CurrentWorkspace;
 use crate::{interaction::select_impl::*, site::CurrentLevel};
 use rmf_site_format::*;
@@ -594,7 +594,7 @@ pub struct AnchorFilter<'w, 's> {
     drawings: Query<'w, 's, &'static PixelsPerMeter, With<DrawingMarker>>,
     child_of: Query<'w, 's, &'static ChildOf>,
     levels: Query<'w, 's, (), With<LevelElevation>>,
-    lifts: Query<'w, 's, (), With<LiftCabin<Entity>>>,
+    lifts: Query<'w, 's, (Entity, &'static LiftCabin<Entity>, &'static ChildCabinAnchorGroup)>,
     current_level: Res<'w, CurrentLevel>,
 }
 
@@ -660,10 +660,43 @@ impl<'w, 's> SelectionFilter for AnchorFilter<'w, 's> {
                     error!("No current level selected to place the anchor");
                     return None;
                 };
-                self.commands
-                    .spawn(AnchorBundle::at_transform(tf))
-                    .insert(ChildOf(level))
-                    .id()
+                // Check if the anchor is inside of a lift
+                let mut lift_anchor = None;
+                for (lift, cabin, anchor_group) in &self.lifts {
+                    if let Ok(lift_tf) = self.transforms.get(lift) {
+                        let affine = lift_tf.compute_transform().compute_affine();
+                        let p = affine.inverse().transform_point3a(tf.translation_vec3a());
+                        if cabin.contains_point(p) {
+                            // The anchor group has a different reference frame
+                            // than the lift frame, so transform the anchor into the
+                            // anchor group frame.
+                            if let Ok(group_tf) = self.transforms.get(**anchor_group) {
+                                let affine = group_tf.compute_transform().compute_affine();
+                                let p = affine.inverse().transform_point3a(tf.translation_vec3a());
+                                lift_anchor = Some(
+                                    self
+                                    .commands
+                                    .spawn((
+                                        AnchorBundle::new([p[0], p[1]].into()),
+                                        ChildOf(**anchor_group),
+                                    ))
+                                    .id()
+                                );
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if let Some(anchor) = lift_anchor {
+                    anchor
+                } else {
+                    self.commands.spawn((
+                        AnchorBundle::at_transform(tf),
+                        ChildOf(level),
+                    ))
+                        .id()
+                }
             }
         };
 

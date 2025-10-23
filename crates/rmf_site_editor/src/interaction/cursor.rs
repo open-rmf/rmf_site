@@ -202,7 +202,7 @@ impl FromWorld for Cursor {
             .insert(Preview)
             .insert(VisualCue::no_outline())
             .with_children(|parent| {
-                let e = parent
+                parent
                     .spawn((
                         Preview,
                         Pending,
@@ -211,8 +211,7 @@ impl FromWorld for Cursor {
                         MeshMaterial3d(preview_anchor_material.clone()),
                         Transform::default(),
                         Visibility::default(),
-                    ))
-                    .id();
+                    ));
             })
             .id();
 

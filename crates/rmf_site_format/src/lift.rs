@@ -259,6 +259,28 @@ impl<T: RefTrait> LiftCabin<T> {
             },
         }
     }
+
+    #[cfg(feature = "bevy")]
+    pub fn contains_point(
+        &self,
+        point_in_lift_coordinates: bevy::math::Vec3A,
+    ) -> bool {
+        let p = point_in_lift_coordinates;
+        match self {
+            Self::Rect(rect) => {
+                let aabb = rect.aabb();
+                let min = aabb.min();
+                let max = aabb.max();
+                for i in 0..2 {
+                    if p[i] < min[i] || max[i] < p[i] {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        true
+    }
 }
 
 #[derive(Clone, Debug)]

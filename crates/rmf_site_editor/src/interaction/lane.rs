@@ -35,12 +35,10 @@ pub fn add_lane_visual_cues(
 pub fn update_lane_visual_cues(
     mut lanes: Query<
         (
-            Entity,
             &Hovered,
             &Selected,
             &LaneSegments,
             &mut Transform,
-            &GlobalTransform,
         ),
         (
             With<LaneMarker>,
@@ -57,7 +55,7 @@ pub fn update_lane_visual_cues(
     site_assets: Res<SiteAssets>,
     cursor: Res<Cursor>,
 ) {
-    for (e, hovered, selected, pieces, mut tf, g_tf) in &mut lanes {
+    for (hovered, selected, pieces, mut tf) in &mut lanes {
         if hovered.is_hovered {
             set_visibility(cursor.frame, &mut visibility, false);
         }
