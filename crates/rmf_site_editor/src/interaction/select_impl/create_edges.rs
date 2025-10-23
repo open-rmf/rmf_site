@@ -82,11 +82,7 @@ impl CreateEdges {
         }
     }
 
-    pub fn initialize_preview(
-        &mut self,
-        anchor: Entity,
-        commands: &mut Commands,
-    ) {
+    pub fn initialize_preview(&mut self, anchor: Entity, commands: &mut Commands) {
         let edge = Edge::new(anchor, anchor);
         let edge = (self.spawn_edge)(edge, commands);
         self.preview_edge = Some(PreviewEdge {
@@ -409,7 +405,6 @@ fn backout(
             // Allow the parent of the edge to be reset in case this is being
             // triggerd by a level change.
             commands.entity(preview.edge).remove::<ChildOf>();
-
         } else {
             // We are selecting for the first point in the edge. If the user has
             // pressed Esc then that means they want to stop creating edges

@@ -34,7 +34,14 @@ pub fn add_lane_visual_cues(
 
 pub fn update_lane_visual_cues(
     mut lanes: Query<
-        (Entity, &Hovered, &Selected, &LaneSegments, &mut Transform, &GlobalTransform),
+        (
+            Entity,
+            &Hovered,
+            &Selected,
+            &LaneSegments,
+            &mut Transform,
+            &GlobalTransform,
+        ),
         (
             With<LaneMarker>,
             Without<AnchorVisualization>,
@@ -74,7 +81,11 @@ pub fn update_lane_visual_cues(
                 true,
             )
         } else {
-            (&site_assets.unassigned_lane_material, ZLayer::Lane.to_z(), false)
+            (
+                &site_assets.unassigned_lane_material,
+                ZLayer::Lane.to_z(),
+                false,
+            )
         };
 
         for e in pieces.outlines {

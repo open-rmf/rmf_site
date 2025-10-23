@@ -139,7 +139,10 @@ pub fn add_lane_visuals(
         // Create a "layer" entity that manages the height offset of the lane,
         // determined by its nav graph rank.
         let rank_layer = commands
-            .spawn((Transform::from_xyz(0.0, 0.0, height_for_rank(rank)), Visibility::default()))
+            .spawn((
+                Transform::from_xyz(0.0, 0.0, height_for_rank(rank)),
+                Visibility::default(),
+            ))
             .insert(ChildOf(e))
             .id();
 
@@ -232,21 +235,19 @@ pub fn add_lane_visuals(
             .id();
 
         let z = ZLayer::Lane.to_z();
-        commands
-            .entity(e)
-            .insert((
-                LaneSegments {
-                    rank_layer,
-                    start,
-                    mid,
-                    end,
-                    outlines: [start_outline, mid_outline, end_outline],
-                },
-                Transform::from_translation([0., 0., z].into()),
-                visibility,
-                Category::Lane,
-                EdgeLabels::StartEnd,
-            ));
+        commands.entity(e).insert((
+            LaneSegments {
+                rank_layer,
+                start,
+                mid,
+                end,
+                outlines: [start_outline, mid_outline, end_outline],
+            },
+            Transform::from_translation([0., 0., z].into()),
+            visibility,
+            Category::Lane,
+            EdgeLabels::StartEnd,
+        ));
     }
 }
 
@@ -439,8 +440,8 @@ pub fn update_color_for_lanes(
                 Changed<RecencyRank<NavGraphMarker>>,
                 Changed<Visibility>,
             )>,
-            With<NavGraphMarker>
-        )
+            With<NavGraphMarker>,
+        ),
     >,
     all_lanes: Query<(&AssociatedGraphs<Entity>, &LaneSegments), With<LaneMarker>>,
     graphs: GraphSelect,

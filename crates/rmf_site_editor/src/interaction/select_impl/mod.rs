@@ -20,17 +20,14 @@ pub mod replace_side;
 use replace_side::*;
 
 pub mod select_anchor;
-use rmf_site_format::{Pending, LiftCabin};
-use rmf_site_picking::{Hover, Select, Selectable, SelectionFilter, CommonNodeErrors};
+use rmf_site_format::{LiftCabin, Pending};
+use rmf_site_picking::{CommonNodeErrors, Hover, Select, Selectable, SelectionFilter};
 pub use select_anchor::*;
 
 use anyhow::Error as Anyhow;
 
 use bevy::{
-    ecs::{
-        system::SystemParam,
-        relationship::AncestorIter,
-    },
+    ecs::{relationship::AncestorIter, system::SystemParam},
     prelude::*,
 };
 use rmf_site_picking::Preview;
@@ -82,13 +79,11 @@ pub fn are_anchors_siblings(
 ) -> Result<bool, Option<Anyhow>> {
     let parent_of_a = parents.get(a).or_broken_query()?.parent();
     let parent_of_b = parents.get(b).or_broken_query()?.parent();
-    let mut are_siblings = AncestorIter::new(&parents, b).any(|e| {
-        e == parent_of_a || lifts.contains(e)
-    });
+    let mut are_siblings =
+        AncestorIter::new(&parents, b).any(|e| e == parent_of_a || lifts.contains(e));
     if !are_siblings {
-        are_siblings = AncestorIter::new(&parents, a).any(|e| {
-            e == parent_of_b || lifts.contains(e)
-        });
+        are_siblings =
+            AncestorIter::new(&parents, a).any(|e| e == parent_of_b || lifts.contains(e));
     }
 
     Ok(are_siblings)

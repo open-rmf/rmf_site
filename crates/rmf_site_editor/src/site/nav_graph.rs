@@ -82,13 +82,7 @@ impl<'w, 's> GraphSelect<'w, 's> {
                 .max_by(|(_, _, _, _, a), (_, _, _, _, b)| a.cmp(b))
                 .map(|(_, m, c, _, d)| (m.clone(), *c, *d)),
         }
-        .map(|(m, c, d)| {
-            (
-                m.0,
-                c.to_bevy(),
-                d.proportion(),
-            )
-        })
+        .map(|(m, c, d)| (m.0, c.to_bevy(), d.proportion()))
         .unwrap_or((
             self.assets.unassigned_lane_material.clone(),
             NAV_UNASSIGNED_COLOR,

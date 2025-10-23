@@ -19,11 +19,11 @@ use crate::{
     interaction::*,
     site::{ChangeDependent, Original},
 };
+use anyhow::Error as Anyhow;
 use bevy::prelude::*;
 use bevy_impulse::*;
 use rmf_site_format::{Edge, Side};
 use std::borrow::Borrow;
-use anyhow::Error as Anyhow;
 
 pub fn spawn_replace_side_service(
     helpers: &AnchorSelectionHelpers,

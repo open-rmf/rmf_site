@@ -128,12 +128,7 @@ pub(crate) fn update_picked(
             }
 
             // Now look at all possible pickables
-            if let Some(topmost) = pick_topmost(
-                interactions
-                .iter()
-                .map(|(e, _)| *e),
-                &selectable
-            ) {
+            if let Some(topmost) = pick_topmost(interactions.iter().map(|(e, _)| *e), &selectable) {
                 break 'current_picked Some(topmost);
             }
         }

@@ -159,7 +159,10 @@ impl<'w, 's> AnchorSelection<'w, 's> {
     }
 
     pub fn create_measurements(&mut self) {
-        self.create_edges::<Measurement<Entity>>(EdgeCreationContinuity::Separate, AnchorScope::Drawing)
+        self.create_edges::<Measurement<Entity>>(
+            EdgeCreationContinuity::Separate,
+            AnchorScope::Drawing,
+        )
     }
 
     pub fn create_walls(&mut self) {
@@ -174,7 +177,10 @@ impl<'w, 's> AnchorSelection<'w, 's> {
     }
 
     pub fn create_lift(&mut self) {
-        self.create_edges::<LiftProperties<Entity>>(EdgeCreationContinuity::Separate, AnchorScope::Site)
+        self.create_edges::<LiftProperties<Entity>>(
+            EdgeCreationContinuity::Separate,
+            AnchorScope::Site,
+        )
     }
 
     pub fn create_floor(&mut self) {
@@ -687,7 +693,8 @@ impl<'w, 's> AnchorFilter<'w, 's> {
             AnchorScope::General => {
                 let is_site = || self.open_sites.contains(parent);
                 let is_level = || self.levels.contains(parent);
-                let is_lift = || AncestorIter::new(&self.child_of, target).any(|e| self.lifts.contains(e));
+                let is_lift =
+                    || AncestorIter::new(&self.child_of, target).any(|e| self.lifts.contains(e));
                 if is_site() || is_level() || is_lift() {
                     Some(target)
                 } else {

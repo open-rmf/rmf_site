@@ -148,9 +148,7 @@ pub fn insert_path_with_texture<T: Bundle + From<Path<Entity>>>(
     Ok(())
 }
 
-pub fn create_path_setup(
-    In(_): In<BufferKey<CreatePath>>,
-) -> SelectionNodeResult {
+pub fn create_path_setup(In(_): In<BufferKey<CreatePath>>) -> SelectionNodeResult {
     // Do nothing. No setup is needed for paths.
     Ok(())
 }
@@ -232,7 +230,10 @@ pub fn on_select_for_create_path(
             state.path = Some(new_path_id);
 
             let mut new_path = Path(vec![cursor.level_anchor_placement]);
-            commands.queue(ChangeDependent::add(cursor.level_anchor_placement, new_path_id));
+            commands.queue(ChangeDependent::add(
+                cursor.level_anchor_placement,
+                new_path_id,
+            ));
 
             update_path(selection, state, &mut new_path, &mut commands, &cursor)?;
             (state.insert_path)(new_path, &mut commands.entity(new_path_id))?;

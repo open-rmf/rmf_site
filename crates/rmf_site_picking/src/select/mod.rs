@@ -152,12 +152,7 @@ pub enum SelectionServiceStages {
 
 #[derive(SystemParam)]
 struct InspectorFilter<'w, 's> {
-    selectables: Query<
-        'w,
-        's,
-        &'static Selectable,
-        Without<Preview>,
-    >,
+    selectables: Query<'w, 's, &'static Selectable, Without<Preview>>,
 }
 
 impl<'w, 's> SelectionFilter for InspectorFilter<'w, 's> {
