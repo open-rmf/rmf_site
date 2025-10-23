@@ -40,7 +40,10 @@ pub fn make_lift_doormat_gizmo(
         *material = MeshMaterial3d(materials.passive.clone());
         commands
             .entity(e)
-            .insert(Gizmo::new().with_materials(materials));
+            .insert((
+                Gizmo::new().with_materials(materials),
+                Selectable::new(e),
+            ));
 
         if Some(doormat.on_level) == current_level.0 {
             *visible = Visibility::Inherited;
