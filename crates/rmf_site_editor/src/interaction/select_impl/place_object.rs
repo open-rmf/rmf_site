@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    interaction::{spawn_place_object_2d_workflow, PlaceObject2d},
+    interaction::{spawn_place_object_2d_workflow, PlaceObject2d, PlaceObjectContinuity},
     site::{CurrentLevel, ModelInstance},
 };
 use bevy::{
@@ -29,7 +29,6 @@ use bevy::{
 };
 use bevy_impulse::{testing::Resource, Service};
 use rmf_site_picking::{RunSelector, SelectionNodeResult, SelectorInput};
-use tracing::warn;
 
 #[derive(Default)]
 pub struct ObjectPlacementPlugin {}
@@ -62,14 +61,14 @@ pub struct ObjectPlacement<'w, 's> {
 }
 
 impl<'w, 's> ObjectPlacement<'w, 's> {
-    pub fn place_object_2d(&mut self, object: ModelInstance<Entity>) {
-        let Some(level) = self.current_level.0 else {
-            warn!("Unble to create [object:?] outside a level");
-            return;
-        };
+    pub fn place_object_2d(
+        &mut self,
+        object: ModelInstance<Entity>,
+        on_placed: PlaceObjectContinuity,
+    ) {
         let state = self
             .commands
-            .spawn(SelectorInput(PlaceObject2d { object, level }))
+            .spawn(SelectorInput(PlaceObject2d { object, on_placed }))
             .id();
         self.send(RunSelector {
             selector: self.services.place_object_2d,
@@ -102,7 +101,7 @@ impl Command for ObjectPlaceCommand {
     fn apply(self, world: &mut World) {
         let mut system_state: SystemState<ObjectPlacement> = SystemState::new(world);
         let mut placement = system_state.get_mut(world);
-        placement.place_object_2d(self.0);
+        placement.place_object_2d(self.0, Default::default());
         system_state.apply(world);
     }
 }

@@ -198,7 +198,7 @@ impl<'w, 's> ViewGroups<'w, 's> {
                                     description: Affiliation(Some(child.clone())),
                                     ..Default::default()
                                 };
-                                events.object_placement.place_object_2d(model_instance);
+                                events.object_placement.place_object_2d(model_instance, Default::default());
                             }
                         };
                         events.selector.show_widget(*child, ui);
