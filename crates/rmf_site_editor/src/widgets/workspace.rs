@@ -16,7 +16,7 @@
 */
 
 use crate::widgets::{FileMenu, MenuDisabled, MenuEvent, MenuItem, TextMenuItem};
-use crate::{AppState, CreateNewWorkspace, WorkspaceLoader, WorkspaceSaver};
+use crate::{AppState, WorkspaceSaver};
 use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 
 #[derive(Default)]
@@ -33,19 +33,13 @@ impl Plugin for WorkspaceMenuPlugin {
 
 #[derive(Resource)]
 pub struct WorkspaceMenu {
-    new: Entity,
     save: Entity,
     save_as: Entity,
-    load: Entity,
 }
 
 impl FromWorld for WorkspaceMenu {
     fn from_world(world: &mut World) -> Self {
         let file_menu = world.resource::<FileMenu>().get();
-        let new = world
-            .spawn(MenuItem::Text(TextMenuItem::new("New").shortcut("Ctrl-N")))
-            .insert(ChildOf(file_menu))
-            .id();
         let save = world
             .spawn(MenuItem::Text(TextMenuItem::new("Save").shortcut("Ctrl-S")))
             .insert(ChildOf(file_menu))
@@ -56,22 +50,13 @@ impl FromWorld for WorkspaceMenu {
             ))
             .insert(ChildOf(file_menu))
             .id();
-        let load = world
-            .spawn(MenuItem::Text(TextMenuItem::new("Open").shortcut("Ctrl-O")))
-            .insert(ChildOf(file_menu))
-            .id();
 
         // Saving is not enabled in wasm
         if cfg!(target_arch = "wasm32") {
             world.entity_mut(save).insert(MenuDisabled);
             world.entity_mut(save_as).insert(MenuDisabled);
         }
-        Self {
-            new,
-            save,
-            save_as,
-            load,
-        }
+        Self { save, save_as }
     }
 }
 
@@ -79,18 +64,12 @@ fn handle_workspace_menu_events(
     mut menu_events: EventReader<MenuEvent>,
     workspace_menu: Res<WorkspaceMenu>,
     mut workspace_saver: WorkspaceSaver,
-    mut workspace_loader: WorkspaceLoader,
-    mut new_workspace: EventWriter<CreateNewWorkspace>,
 ) {
     for event in menu_events.read() {
-        if event.clicked() && event.source() == workspace_menu.new {
-            new_workspace.write(CreateNewWorkspace);
-        } else if event.clicked() && event.source() == workspace_menu.save {
+        if event.clicked() && event.source() == workspace_menu.save {
             workspace_saver.save_to_default_file();
         } else if event.clicked() && event.source() == workspace_menu.save_as {
             workspace_saver.save_to_dialog();
-        } else if event.clicked() && event.source() == workspace_menu.load {
-            workspace_loader.load_from_dialog();
         }
     }
 }
