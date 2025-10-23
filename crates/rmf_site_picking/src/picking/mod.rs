@@ -72,15 +72,11 @@ pub(crate) fn pick_topmost(
     selectable: &Query<&Selectable, Without<Preview>>,
 ) -> Option<Entity> {
     for topmost_entity in picks {
-        dbg!(topmost_entity);
         if let Ok(sel) = selectable.get(topmost_entity) {
-            dbg!();
             if !sel.is_selectable {
-                dbg!();
                 continue;
             }
         } else {
-            dbg!();
             continue;
         }
 
@@ -113,26 +109,17 @@ pub(crate) fn update_picked(
     }
 
     let current_picked = 'current_picked: {
-        let i: Vec<_> = pointers.iter().collect();
-        dbg!(i);
         for interactions in &pointers {
             // First only look at the visual cues that are being xrayed
             if let Some(topmost) = pick_topmost(
                 interactions
                     .iter()
                     .filter(|(e, _)| {
-                        dbg!(e);
-
-                        let f =
-
                         visual_cues
                             .get(*e)
                             .ok()
                             .filter(|cue| cue.xray.any())
                             .is_some()
-
-                        ;
-                        dbg!(f)
                     })
                     .map(|(e, _)| *e),
                 &selectable,
@@ -144,7 +131,7 @@ pub(crate) fn update_picked(
             if let Some(topmost) = pick_topmost(
                 interactions
                 .iter()
-                .map(|(e, _)| dbg!(*e)),
+                .map(|(e, _)| *e),
                 &selectable
             ) {
                 break 'current_picked Some(topmost);
@@ -153,7 +140,6 @@ pub(crate) fn update_picked(
 
         None
     };
-    dbg!(current_picked);
 
     let refresh = picked.refresh;
     if refresh {

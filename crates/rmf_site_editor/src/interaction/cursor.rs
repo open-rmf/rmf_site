@@ -215,7 +215,6 @@ impl FromWorld for Cursor {
                     Visibility::default(),
                 ))
                 .id();
-                dbg!(e);
             })
             .id();
 

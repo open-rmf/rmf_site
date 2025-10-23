@@ -22,17 +22,19 @@ use rmf_site_format::{Edge, LaneMarker};
 
 pub fn add_lane_visual_cues(
     mut commands: Commands,
-    new_lane_segments: Query<(Entity, &LaneSegments), Added<LaneSegments>>,
+    new_lane_segments: Query<(Entity, &LaneSegments), Changed<LaneSegments>>,
 ) {
     for (e, segments) in &new_lane_segments {
         commands.entity(e).insert(VisualCue::no_outline());
         commands.entity(segments.mid).insert(Selectable::new(e));
+        commands.entity(segments.start).insert(Selectable::new(e));
+        commands.entity(segments.end).insert(Selectable::new(e));
     }
 }
 
 pub fn update_lane_visual_cues(
     mut lanes: Query<
-        (&Hovered, &Selected, &LaneSegments, &mut Transform),
+        (Entity, &Hovered, &Selected, &LaneSegments, &mut Transform, &GlobalTransform),
         (
             With<LaneMarker>,
             Without<AnchorVisualization>,
@@ -48,7 +50,7 @@ pub fn update_lane_visual_cues(
     site_assets: Res<SiteAssets>,
     cursor: Res<Cursor>,
 ) {
-    for (hovered, selected, pieces, mut tf) in &mut lanes {
+    for (e, hovered, selected, pieces, mut tf, g_tf) in &mut lanes {
         if hovered.is_hovered {
             set_visibility(cursor.frame, &mut visibility, false);
         }
@@ -72,7 +74,7 @@ pub fn update_lane_visual_cues(
                 true,
             )
         } else {
-            (&site_assets.unassigned_lane_material, 0.0, false)
+            (&site_assets.unassigned_lane_material, ZLayer::Lane.to_z(), false)
         };
 
         for e in pieces.outlines {
