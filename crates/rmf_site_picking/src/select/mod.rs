@@ -169,7 +169,7 @@ impl<'w, 's> SelectionFilter for InspectorFilter<'w, 's> {
         Some(Select::new(hovered.0))
     }
 }
-pub type SelectionNodeResult<T=()> = Result<T, Option<Anyhow>>;
+pub type SelectionNodeResult<T = ()> = Result<T, Option<Anyhow>>;
 
 pub trait CommonNodeErrors {
     type Value;

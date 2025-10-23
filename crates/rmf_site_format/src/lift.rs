@@ -261,10 +261,7 @@ impl<T: RefTrait> LiftCabin<T> {
     }
 
     #[cfg(feature = "bevy")]
-    pub fn contains_point(
-        &self,
-        point_in_lift_coordinates: bevy::math::Vec3A,
-    ) -> bool {
+    pub fn contains_point(&self, point_in_lift_coordinates: bevy::math::Vec3A) -> bool {
         let p = point_in_lift_coordinates;
         match self {
             Self::Rect(rect) => {

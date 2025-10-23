@@ -90,8 +90,8 @@ pub fn build_2d_placement_workflow<State: 'static + Send + Sync>(
             .fork_clone(builder);
 
         let find_placement_node = setup_finished
-                .clone_chain(builder)
-                .then_node(find_placement);
+            .clone_chain(builder)
+            .then_node(find_placement);
 
         find_placement_node
             .output
@@ -99,15 +99,16 @@ pub fn build_2d_placement_workflow<State: 'static + Send + Sync>(
             .with_access(buffer)
             .then(placement_chosen)
             .fork_result(
-                |ok| ok
-                    .map_block(|c| match c {
+                |ok| {
+                    ok.map_block(|c| match c {
                         PlaceObjectContinuity::Continue => Ok(()),
                         PlaceObjectContinuity::Finish => Err(()),
                     })
                     .fork_result(
                         |ok| ok.connect(find_placement_node.input),
                         |err| err.connect(scope.terminate),
-                    ),
+                    )
+                },
                 |err| err.map_block(print_if_err).connect(scope.terminate),
             );
 

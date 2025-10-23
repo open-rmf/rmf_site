@@ -202,16 +202,15 @@ impl FromWorld for Cursor {
             .insert(Preview)
             .insert(VisualCue::no_outline())
             .with_children(|parent| {
-                parent
-                    .spawn((
-                        Preview,
-                        Pending,
-                        Pickable::IGNORE,
-                        Mesh3d(level_anchor_mesh),
-                        MeshMaterial3d(preview_anchor_material.clone()),
-                        Transform::default(),
-                        Visibility::default(),
-                    ));
+                parent.spawn((
+                    Preview,
+                    Pending,
+                    Pickable::IGNORE,
+                    Mesh3d(level_anchor_mesh),
+                    MeshMaterial3d(preview_anchor_material.clone()),
+                    Transform::default(),
+                    Visibility::default(),
+                ));
             })
             .id();
 

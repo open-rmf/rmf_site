@@ -25,7 +25,7 @@ use bevy_impulse::*;
 use crate::interaction::{
     set_visibility, Cursor, GizmoBlockers, HighlightAnchors, IntersectGroundPlaneParams,
 };
-use crate::site::{AnchorBundle, CurrentEditDrawing, DrawingMarker, ChildCabinAnchorGroup};
+use crate::site::{AnchorBundle, ChildCabinAnchorGroup, CurrentEditDrawing, DrawingMarker};
 use crate::workspace::CurrentWorkspace;
 use crate::{interaction::select_impl::*, site::CurrentLevel};
 use rmf_site_format::*;
@@ -594,7 +594,15 @@ pub struct AnchorFilter<'w, 's> {
     drawings: Query<'w, 's, &'static PixelsPerMeter, With<DrawingMarker>>,
     child_of: Query<'w, 's, &'static ChildOf>,
     levels: Query<'w, 's, (), With<LevelElevation>>,
-    lifts: Query<'w, 's, (Entity, &'static LiftCabin<Entity>, &'static ChildCabinAnchorGroup)>,
+    lifts: Query<
+        'w,
+        's,
+        (
+            Entity,
+            &'static LiftCabin<Entity>,
+            &'static ChildCabinAnchorGroup,
+        ),
+    >,
     current_level: Res<'w, CurrentLevel>,
 }
 
@@ -674,13 +682,12 @@ impl<'w, 's> SelectionFilter for AnchorFilter<'w, 's> {
                                 let affine = group_tf.compute_transform().compute_affine();
                                 let p = affine.inverse().transform_point3a(tf.translation_vec3a());
                                 lift_anchor = Some(
-                                    self
-                                    .commands
-                                    .spawn((
-                                        AnchorBundle::new([p[0], p[1]].into()),
-                                        ChildOf(**anchor_group),
-                                    ))
-                                    .id()
+                                    self.commands
+                                        .spawn((
+                                            AnchorBundle::new([p[0], p[1]].into()),
+                                            ChildOf(**anchor_group),
+                                        ))
+                                        .id(),
                                 );
                                 break;
                             }
@@ -691,10 +698,8 @@ impl<'w, 's> SelectionFilter for AnchorFilter<'w, 's> {
                 if let Some(anchor) = lift_anchor {
                     anchor
                 } else {
-                    self.commands.spawn((
-                        AnchorBundle::at_transform(tf),
-                        ChildOf(level),
-                    ))
+                    self.commands
+                        .spawn((AnchorBundle::at_transform(tf), ChildOf(level)))
                         .id()
                 }
             }
