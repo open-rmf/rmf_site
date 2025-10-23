@@ -333,8 +333,8 @@ pub fn on_keyboard_for_create_edges(
     mut access: BufferAccessMut<CreateEdges>,
     mut edges: Query<&'static mut Edge<Entity>>,
     cursor: Res<Cursor>,
+    mut creation_settings: ResMut<CreationSettings>,
     mut commands: Commands,
-    mut move_to: EventWriter<MoveTo>,
     transform: Query<&'static Transform>,
 ) -> SelectionNodeResult {
     if !matches!(button, KeyCode::Escape) && !matches!(button, KeyCode::ShiftLeft) {
@@ -399,10 +399,6 @@ pub fn on_keyboard_for_create_edges(
                     // We do not want to modify an existing anchor
                     return Ok(());
                 }
-                let Ok(end_anchor_tf) = transform.get(end_anchor) else {
-                    return Ok(());
-                };
-                let mut new_end_anchor_tf = end_anchor_tf.clone();
 
                 match input_type {
                     ButtonInputType::Pressed => {
@@ -413,25 +409,17 @@ pub fn on_keyboard_for_create_edges(
                         }) else {
                             return Ok(());
                         };
-                        let offset = if delta.x.abs() > delta.y.abs() {
-                            Vec3::new(0.0, delta.y, 0.0)
+                        if delta.x.abs() > delta.y.abs() {
+                            creation_settings.direction_alignment = vec![Vec2::new(0.0, -delta.y)];
                         } else {
-                            Vec3::new(delta.x, 0.0, 0.0)
-                        };
-
-                        // Transform of level_anchor_placement is relative to cursor frame
-                        new_end_anchor_tf.translation = -offset;
+                            creation_settings.direction_alignment = vec![Vec2::new(-delta.x, 0.0)];
+                        }
                     }
                     ButtonInputType::JustReleased => {
-                        // Reset level_anchor_placement pos
-                        new_end_anchor_tf.translation = Vec3::default();
+                        creation_settings.reset();
                     }
-                    ButtonInputType::JustPressed => return Ok(()),
+                    ButtonInputType::JustPressed => {}
                 }
-                move_to.write(MoveTo {
-                    entity: end_anchor,
-                    transform: new_end_anchor_tf,
-                });
             }
         }
     }
@@ -445,6 +433,7 @@ pub fn cleanup_create_edges(
     edges: Query<&'static Edge<Entity>>,
     mut commands: Commands,
     cursor: Res<Cursor>,
+    mut creation_settings: ResMut<CreationSettings>,
     mut dependents: Query<&mut Dependents>,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
@@ -462,6 +451,8 @@ pub fn cleanup_create_edges(
         // dependents from the preview anchor.
         deps.0.clear();
     }
+
+    creation_settings.reset();
 
     Ok(())
 }

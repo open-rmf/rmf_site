@@ -151,6 +151,7 @@ impl Plugin for InteractionPlugin {
             .init_resource::<GizmoState>()
             .init_resource::<CurrentEditDrawing>()
             .init_resource::<CurrentLevel>()
+            .init_resource::<CreationSettings>()
             .insert_resource(HighlightAnchors(false))
             .add_event::<MoveTo>()
             .add_event::<GizmoClicked>()
@@ -228,6 +229,7 @@ impl Plugin for InteractionPlugin {
                     update_billboard_location,
                     update_billboard_text_hover_visualisation,
                     update_billboard_hover_visualization,
+                    apply_creation_settings,
                 )
                     .run_if(in_state(InteractionState::Enable)),
             )
