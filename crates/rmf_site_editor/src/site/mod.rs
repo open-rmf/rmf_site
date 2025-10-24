@@ -87,6 +87,9 @@ pub use measurement::*;
 pub mod model;
 pub use model::*;
 
+pub mod model_property;
+pub use model_property::*;
+
 pub mod modifier;
 pub use modifier::*;
 
@@ -310,8 +313,23 @@ impl Plugin for SitePlugin {
             PropertyPlugin::<OnLevel<Entity>, Robot>::default(),
             SlotcarSdfPlugin,
             MaterialPlugin::<ExtendedMaterial<StandardMaterial, LaneArrowMaterial>>::default(),
+            InfiniteGridPlugin,
         ))
-        .add_plugins((InfiniteGridPlugin,))
+        .add_plugins((
+            RobotPropertiesPlugin::default(),
+            RobotPropertyPlugin::<Mobility, RecallMobility>::default(),
+            RobotPropertyPlugin::<Collision, RecallCollision>::default(),
+            RobotPropertyPlugin::<PowerDissipation, RecallPowerDissipation>::default(),
+            RobotPropertyPlugin::<PowerSource, RecallPowerSource>::default(),
+            EmptyRobotPropertyPlugin::<Mobility>::new(),
+            EmptyRobotPropertyPlugin::<Collision>::new(),
+            EmptyRobotPropertyPlugin::<PowerSource>::new(),
+            RobotPropertyKindPlugin::<DifferentialDrive, Mobility, RecallDifferentialDrive>::default(),
+            RobotPropertyKindPlugin::<CircleCollision, Collision, RecallCircleCollision>::default(),
+            RobotPropertyKindPlugin::<AmbientSystem, PowerDissipation, RecallAmbientSystem>::default(),
+            RobotPropertyKindPlugin::<MechanicalSystem, PowerDissipation, RecallMechanicalSystem>::default(),
+            RobotPropertyKindPlugin::<Battery, PowerSource, RecallBattery>::default(),
+        ))
         .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
         .add_issue_type(&DUPLICATED_LIFT_NAME_ISSUE_UUID, "Duplicate lift name")
         .add_issue_type(

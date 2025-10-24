@@ -16,14 +16,13 @@
 */
 
 use super::{
-    get_selected_description_entity,
-    inspect_robot_properties::{show_robot_property_widget, RobotPropertyWidgetRegistry},
+    get_selected_description_entity, inspect_robot_properties::show_robot_property_widget,
 };
 use crate::{
     site::{
         robot_properties::serialize_and_change_robot_property_kind, CircleCollision, Collision,
         Group, ModelMarker, ModelProperty, ModelPropertyQuery, Pose, RecallCollision, Robot,
-        RobotProperty,
+        RobotProperty, RobotPropertyRegistry,
     },
     widgets::{prelude::*, Inspect},
 };
@@ -36,7 +35,7 @@ use smallvec::SmallVec;
 #[derive(SystemParam)]
 pub struct InspectCollision<'w, 's> {
     commands: Commands<'w, 's>,
-    robot_property_widgets: Res<'w, RobotPropertyWidgetRegistry>,
+    robot_property_registry: Res<'w, RobotPropertyRegistry>,
     model_instances: ModelPropertyQuery<'w, 's, Robot>,
     model_descriptions:
         Query<'w, 's, &'static ModelProperty<Robot>, (With<ModelMarker>, With<Group>)>,
@@ -83,15 +82,19 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectCollision<'w, 's> {
             params.collision,
             recall_collision,
             robot,
-            &params.robot_property_widgets,
+            &params.robot_property_registry,
             description_entity,
         );
 
         // Show children widgets
-        if let Some(widget_registration) = params.robot_property_widgets.get(&Collision::label()) {
+        if let Some(property_registration) = params.robot_property_registry.get(&Collision::label())
+        {
+            let Some(property_widget) = property_registration.widget else {
+                return;
+            };
             let children_widgets: Result<SmallVec<[_; 16]>, _> = params
                 .children
-                .get(widget_registration.property_widget)
+                .get(property_widget)
                 .map(|c| c.iter().collect());
             let Ok(children_widgets) = children_widgets else {
                 return;
