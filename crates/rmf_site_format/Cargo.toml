@@ -2,7 +2,11 @@
 name = "rmf_site_format"
 version = "0.0.1"
 edition = "2021"
-authors = ["Grey <grey@openrobotics.org>"]
+authors = ["Grey <mxgrey@intrinsic.ai>"]
+description = "File format parsing for rmf_site_editor"
+license = "Apache-2.0"
+repository = "https://github.com/open-rmf/rmf_site"
+readme = "README.md"
 
 [lib]
 crate-type = ["rlib"]
