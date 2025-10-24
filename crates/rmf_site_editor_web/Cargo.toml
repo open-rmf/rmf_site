@@ -1,7 +1,11 @@
 [package]
 name = "rmf_site_editor_web"
 version = "0.0.1"
-edition = "2021"
+edition = "2024"
+description = "Web build of the rmf_site_editor"
+license = "Apache-2.0"
+repository = "https://github.com/open-rmf/rmf_site"
+readme = "README.md"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
