@@ -327,8 +327,11 @@ pub fn inspector_cursor_transform(
     ));
 }
 
-pub fn deselect_on_esc(In(code): In<KeyCode>, mut select: EventWriter<Select>) {
-    if matches!(code, KeyCode::Escape) {
+pub fn deselect_on_esc(
+    In((code, input)): In<(KeyCode, ButtonInputType)>,
+    mut select: EventWriter<Select>,
+) {
+    if matches!(code, KeyCode::Escape) && matches!(input, ButtonInputType::JustPressed) {
         select.write(Select::new(None));
     }
 }

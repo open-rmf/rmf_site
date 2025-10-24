@@ -24,6 +24,7 @@ use rmf_site_format::Pending;
 use rmf_site_picking::{Hover, Select, Selectable, SelectionFilter};
 pub use select_anchor::*;
 
+use crate::interaction::*;
 use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_picking::Preview;
 
@@ -47,4 +48,38 @@ impl<'w, 's> SelectionFilter for InspectorFilter<'w, 's> {
     fn on_click(&mut self, hovered: Hover) -> Option<Select> {
         Some(Select::new(hovered.0))
     }
+}
+
+#[derive(Default, Resource)]
+pub struct CreationSettings {
+    pub direction_alignment: Vec<Vec2>,
+}
+
+impl CreationSettings {
+    pub fn reset(&mut self) {
+        self.direction_alignment = Vec::new();
+    }
+}
+
+pub fn apply_creation_settings(
+    creation_settings: Res<CreationSettings>,
+    cursor: Res<Cursor>,
+    transform: Query<&Transform>,
+    mut move_to: EventWriter<MoveTo>,
+) {
+    let Ok(mut end_anchor_tf) = transform
+        .get(cursor.level_anchor_placement)
+        .map(|tf| tf.clone())
+    else {
+        return;
+    };
+    end_anchor_tf.translation = Vec3::default();
+    for alignment in &creation_settings.direction_alignment {
+        end_anchor_tf.translation += alignment.extend(0.0);
+    }
+
+    move_to.write(MoveTo {
+        entity: cursor.level_anchor_placement,
+        transform: end_anchor_tf,
+    });
 }

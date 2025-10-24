@@ -121,10 +121,7 @@ impl Plugin for InspectorServicePlugin {
             }),
         );
         let selection_update = app.spawn_service(selection_update);
-        let keyboard_just_pressed = app
-            .world()
-            .resource::<KeyboardServices>()
-            .keyboard_just_pressed;
+        let keyboard_pressed = app.world().resource::<KeyboardServices>().keyboard_pressed;
 
         let inspector_service = app.world_mut().spawn_workflow(|scope, builder| {
             let fork_input = scope.input.fork_clone(builder);
@@ -134,7 +131,7 @@ impl Plugin for InspectorServicePlugin {
                 .unused();
             fork_input
                 .clone_chain(builder)
-                .then_node(keyboard_just_pressed)
+                .then_node(keyboard_pressed)
                 .streams
                 .chain(builder)
                 .inner()
