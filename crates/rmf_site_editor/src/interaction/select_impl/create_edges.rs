@@ -88,10 +88,7 @@ impl CreateEdges {
         }
     }
 
-    pub fn with_finish(
-        mut self,
-        finish_edge: fn(Edge<Entity>, &mut EntityCommands),
-    ) -> Self {
+    pub fn with_finish(mut self, finish_edge: fn(Edge<Entity>, &mut EntityCommands)) -> Self {
         self.finish_edge = Some(finish_edge);
         self
     }
