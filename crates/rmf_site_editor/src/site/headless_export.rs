@@ -23,7 +23,7 @@ use crate::{
     site::{DrawingMarker, ModelLoadingState},
     Autoload, WorkspaceLoader,
 };
-use bevy_impulse::Promise;
+use crossflow::Promise;
 use rmf_site_format::NameOfSite;
 
 /// Manages a simple state machine where we:

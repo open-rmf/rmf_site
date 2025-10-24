@@ -21,7 +21,7 @@ use crate::{
 };
 use anyhow::Error as Anyhow;
 use bevy::prelude::*;
-use bevy_impulse::*;
+use crossflow::*;
 use rmf_site_format::{Edge, Side};
 use std::borrow::Borrow;
 

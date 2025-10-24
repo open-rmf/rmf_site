@@ -21,7 +21,7 @@ use crate::{
 };
 use bevy::{prelude::*, window::PrimaryWindow};
 use bevy_egui::EguiContexts;
-use bevy_impulse::*;
+use crossflow::*;
 use rmf_site_camera::resources::ProjectionMode;
 use rmf_site_picking::Selection;
 
@@ -133,6 +133,6 @@ pub fn keyboard_just_pressed_stream(
     }
 
     for key_code in keyboard_input.get_just_pressed() {
-        orders.for_each(|order| order.streams().send(StreamOf(*key_code)));
+        orders.for_each(|order| order.streams().send(*key_code));
     }
 }

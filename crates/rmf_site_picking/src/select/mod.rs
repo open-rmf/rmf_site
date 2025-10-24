@@ -18,7 +18,7 @@
 use anyhow::{Error as Anyhow, anyhow};
 use bevy_app::prelude::*;
 use bevy_ecs::system::{ScheduleSystem, SystemParam};
-use bevy_impulse::*;
+use crossflow::*;
 use std::error::Error;
 use std::fmt::Debug;
 
@@ -69,7 +69,7 @@ impl SelectionCandidate {
 pub trait SpawnSelectionServiceExt {
     fn spawn_selection_service<F: SystemParam + 'static>(
         &mut self,
-    ) -> Service<(), (), (Hover, Select)>
+    ) -> Service<(), (), SelectionStreams>
     where
         for<'w, 's> F::Item<'w, 's>: SelectionFilter;
 }
@@ -77,7 +77,7 @@ pub trait SpawnSelectionServiceExt {
 impl SpawnSelectionServiceExt for App {
     fn spawn_selection_service<F: SystemParam + 'static>(
         &mut self,
-    ) -> Service<(), (), (Hover, Select)>
+    ) -> Service<(), (), SelectionStreams>
     where
         for<'w, 's> F::Item<'w, 's>: SelectionFilter,
     {
@@ -103,13 +103,13 @@ impl SpawnSelectionServiceExt for App {
         );
 
         self.world_mut()
-            .spawn_workflow::<_, _, (Hover, Select), _>(|scope, builder| {
+            .spawn_workflow::<_, _, SelectionStreams, _>(|scope, builder| {
                 let hover = builder.create_node(hover_service);
-                builder.connect(hover.streams, scope.streams.0);
+                builder.connect(hover.streams, scope.streams.hover);
                 builder.connect(hover.output, scope.terminate);
 
                 let select = builder.create_node(select_service);
-                builder.connect(select.streams, scope.streams.1);
+                builder.connect(select.streams, scope.streams.select);
                 builder.connect(select.output, scope.terminate);
 
                 // Activate all the services at the start
@@ -136,6 +136,12 @@ impl SpawnSelectionServiceExt for App {
                 });
             })
     }
+}
+
+#[derive(StreamPack)]
+pub struct SelectionStreams {
+    hover: Hover,
+    select: Select,
 }
 
 // TODO(@mxgrey): Remove flush stages when we move to bevy 0.13 which can infer

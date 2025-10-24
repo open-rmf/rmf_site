@@ -1,11 +1,11 @@
 use std::marker::PhantomData;
 
 use bevy_ecs::system::ScheduleSystem;
-use bevy_impulse::{
-    AddContinuousServicesExt, AddServicesExt, IntoBlockingCallback, QuickContinuousServiceBuild,
-    RequestExt, RunCommandsOnWorldExt, ScheduleConfigs, Service, SpawnWorkflowExt, flush_impulses,
-};
 use bytemuck::TransparentWrapper;
+use crossflow::{
+    AddContinuousServicesExt, AddServicesExt, IntoBlockingCallback, QuickContinuousServiceBuild,
+    RequestExt, RunCommandsOnWorldExt, ScheduleConfigs, Service, SpawnWorkflowExt, flush_execution,
+};
 use std::fmt::Debug;
 
 use bevy_app::prelude::*;
@@ -69,13 +69,13 @@ where
         .add_systems(
             Update,
             (
-                (ApplyDeferred, flush_impulses())
+                (ApplyDeferred, flush_execution())
                     .chain()
                     .in_set(SelectionServiceStages::PickFlush),
-                (ApplyDeferred, flush_impulses())
+                (ApplyDeferred, flush_execution())
                     .chain()
                     .in_set(SelectionServiceStages::HoverFlush),
-                (ApplyDeferred, flush_impulses())
+                (ApplyDeferred, flush_execution())
                     .chain()
                     .in_set(SelectionServiceStages::SelectFlush),
             ),
@@ -137,7 +137,6 @@ impl Plugin for InspectorServicePlugin {
                 .then_node(keyboard_just_pressed)
                 .streams
                 .chain(builder)
-                .inner()
                 .then(deselect_on_esc.into_blocking_callback())
                 .unused();
             let selection = fork_input
@@ -145,7 +144,7 @@ impl Plugin for InspectorServicePlugin {
                 .then_node(inspector_select_service);
             selection
                 .streams
-                .1
+                .select
                 .chain(builder)
                 .then(selection_update)
                 .unused();

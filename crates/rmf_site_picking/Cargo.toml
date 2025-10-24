@@ -16,7 +16,7 @@ bevy_asset = {workspace = true}
 bevy_pbr = {workspace = true}
 bevy_math = {workspace = true}
 bevy_transform = {workspace = true}
-bevy_impulse = {workspace = true}
+crossflow = {workspace = true}
 bytemuck = {workspace = true}
 anyhow = {workspace = true}
 bitfield = {workspace = true}
