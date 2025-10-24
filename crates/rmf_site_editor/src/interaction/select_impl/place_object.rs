@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::{spawn_place_object_2d_workflow, PlaceObject2d, PlaceObjectContinuity},
-    site::{CurrentLevel, ModelInstance},
+    site::ModelInstance,
 };
 use bevy::{
     app::{App, Plugin},
@@ -57,7 +57,6 @@ impl ObjectPlacementServices {
 pub struct ObjectPlacement<'w, 's> {
     pub services: Res<'w, ObjectPlacementServices>,
     pub commands: Commands<'w, 's>,
-    current_level: Res<'w, CurrentLevel>,
 }
 
 impl<'w, 's> ObjectPlacement<'w, 's> {
