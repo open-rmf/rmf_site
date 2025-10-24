@@ -65,7 +65,7 @@ nalgebra = "0.32.5"
 anyhow = "*"
 bevy_egui = "0.34" # Ensure this matches other downstream crate's bevy_egui version (E.G: bevy-inspector-egui) before updating.
 bevy-inspector-egui = "0.31"
-bevy_impulse = { git = "https://github.com/open-rmf/bevy_impulse", branch = "release-0.4" }
+crossflow = { git = "https://github.com/open-rmf/crossflow", branch = "fix_delivery_instructions" }
 float_eq = "1.0"
 wasm-bindgen = "=0.2.100" # Remember to update the README if we change this version number
 console_error_panic_hook = "0.1.7"

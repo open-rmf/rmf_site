@@ -27,7 +27,7 @@ use bevy::{
     },
     prelude::*,
 };
-use bevy_impulse::{testing::Resource, Service};
+use crossflow::{testing::Resource, Service};
 use rmf_site_picking::{RunSelector, SelectionNodeResult, SelectorInput};
 
 #[derive(Default)]

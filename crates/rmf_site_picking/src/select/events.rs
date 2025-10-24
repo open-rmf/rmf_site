@@ -1,6 +1,6 @@
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
-use bevy_impulse::{Service, Stream};
+use crossflow::Service;
 
 use crate::SelectionCandidate;
 
@@ -16,11 +16,11 @@ pub struct RunSelector {
 }
 
 /// Used as an event to command a change in the hovered entity.
-#[derive(Default, Debug, Clone, Copy, Deref, DerefMut, Event, Stream)]
+#[derive(Default, Debug, Clone, Copy, Deref, DerefMut, Event)]
 pub struct Hover(pub Option<Entity>);
 
 /// Used as an event to command a change in the selected entity.
-#[derive(Default, Debug, Clone, Copy, Deref, DerefMut, Event, Stream)]
+#[derive(Default, Debug, Clone, Copy, Deref, DerefMut, Event)]
 pub struct Select(pub Option<SelectionCandidate>);
 
 impl Select {
@@ -34,5 +34,5 @@ impl Select {
 }
 
 /// Used as an event to command a change in the double clicked entity.
-#[derive(Debug, Clone, Copy, Deref, DerefMut, Event, Stream)]
+#[derive(Debug, Clone, Copy, Deref, DerefMut, Event)]
 pub struct DoubleClickSelect(pub Entity);

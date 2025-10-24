@@ -17,7 +17,7 @@
 
 use bevy_app::{App, Last, Plugin};
 use bevy_ecs::prelude::*;
-use bevy_impulse::*;
+use crossflow::*;
 use bevy_input::prelude::*;
 
 pub struct KeyboardServicePlugin;
@@ -47,7 +47,7 @@ fn keyboard_just_pressed_stream(
     }
 
     for key_code in keyboard_input.get_just_pressed() {
-        orders.for_each(|order| order.streams().send(StreamOf(*key_code)));
+        orders.for_each(|order| order.streams().send(*key_code));
     }
 }
 

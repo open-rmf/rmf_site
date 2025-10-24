@@ -16,7 +16,7 @@
 */
 
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_impulse::*;
+use crossflow::*;
 use rfd::AsyncFileDialog;
 use std::{future::Future, path::PathBuf};
 

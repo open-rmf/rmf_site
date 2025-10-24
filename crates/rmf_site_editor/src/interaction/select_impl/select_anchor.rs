@@ -20,7 +20,7 @@ use std::collections::HashSet;
 
 use bevy::ecs::{hierarchy::ChildOf, schedule::ScheduleConfigs, system::ScheduleSystem};
 use bevy::prelude::*;
-use bevy_impulse::*;
+use crossflow::*;
 
 use crate::interaction::{
     set_visibility, Cursor, GizmoBlockers, HighlightAnchors, IntersectGroundPlaneParams,
@@ -64,7 +64,7 @@ impl Plugin for AnchorSelectionPlugin {
 
 #[derive(Resource, Clone, Copy)]
 pub struct AnchorSelectionHelpers {
-    pub anchor_select_stream: Service<(), (), (Hover, Select)>,
+    pub anchor_select_stream: Service<(), (), SelectionStreams>,
     pub anchor_cursor_transform: Service<(), ()>,
     pub keyboard_just_pressed: Service<(), (), StreamOf<KeyCode>>,
     pub cleanup_anchor_selection: Service<(), ()>,
@@ -378,7 +378,7 @@ pub fn build_anchor_selection_workflow<State: 'static + Send + Sync>(
     handle_key_code: Service<(KeyCode, BufferKey<State>), SelectionNodeResult>,
     cleanup_state: Service<BufferKey<State>, SelectionNodeResult>,
     anchor_cursor_transform: Service<(), ()>,
-    anchor_select_stream: Service<(), (), (Hover, Select)>,
+    anchor_select_stream: Service<(), (), SelectionStreams>,
     keyboard_just_pressed: Service<(), (), StreamOf<KeyCode>>,
     cleanup_anchor_selection: Service<(), ()>,
 ) -> impl FnOnce(Scope<Option<Entity>, ()>, &mut Builder) {
@@ -420,7 +420,7 @@ pub fn build_anchor_selection_workflow<State: 'static + Send + Sync>(
             .then_node(anchor_select_stream);
         select
             .streams
-            .0
+            .hover
             .chain(builder)
             .with_access(buffer)
             .then(update_preview)
@@ -430,7 +430,7 @@ pub fn build_anchor_selection_workflow<State: 'static + Send + Sync>(
 
         select
             .streams
-            .1
+            .select
             .chain(builder)
             .map_block(|s| s.0)
             .dispose_on_none()
@@ -446,7 +446,6 @@ pub fn build_anchor_selection_workflow<State: 'static + Send + Sync>(
         keyboard
             .streams
             .chain(builder)
-            .inner()
             .with_access(buffer)
             .then(handle_key_code)
             .dispose_on_ok()

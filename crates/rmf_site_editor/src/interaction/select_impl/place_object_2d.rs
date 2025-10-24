@@ -20,7 +20,7 @@ use crate::{
     site::{ModelInstance, ModelLoader},
 };
 use bevy::prelude::*;
-use bevy_impulse::*;
+use crossflow::*;
 use rmf_site_format::Category;
 use tracing::{error, info, warn};
 
@@ -118,7 +118,6 @@ pub fn build_2d_placement_workflow<State: 'static + Send + Sync>(
         keyboard_node
             .streams
             .chain(builder)
-            .inner()
             .then(handle_key_code)
             .fork_result(
                 |ok| ok.connect(scope.terminate),

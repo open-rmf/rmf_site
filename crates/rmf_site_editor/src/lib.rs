@@ -20,7 +20,7 @@ use exit_confirmation::ExitConfirmationPlugin;
 // Bevy plugins that are public dependencies, mixing versions won't work for downstream users
 pub use bevy;
 pub use bevy_egui;
-pub use bevy_impulse;
+pub use crossflow;
 pub use bevy_rich_text3d::Text3dPlugin;
 
 pub mod keyboard;
@@ -297,7 +297,7 @@ impl Plugin for SiteEditor {
                 OccupancyPlugin,
                 WorkspacePlugin,
                 IssuePlugin,
-                bevy_impulse::ImpulsePlugin::default(),
+                crossflow::CrossflowPlugin::default(),
             ));
 
         #[cfg(not(target_arch = "wasm32"))]

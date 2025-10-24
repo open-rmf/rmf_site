@@ -20,7 +20,7 @@ use crate::{
     site::{ChangeDependent, Pending, TextureNeedsAssignment},
 };
 use bevy::prelude::*;
-use bevy_impulse::*;
+use crossflow::*;
 use rmf_site_format::Path;
 use std::borrow::Borrow;
 
