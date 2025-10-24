@@ -2407,8 +2407,9 @@ checksum = "d0a5c400df2834b80a4c3327b3aad3a4c4cd4de0629063962b03235697506a28"
 
 [[package]]
 name = "crossflow"
-version = "0.0.1"
-source = "git+https://github.com/open-rmf/crossflow?branch=fix_delivery_instructions#507816f88b58797caeca18e53e6936bc55198faa"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "66d5433e8f212882d3711c23a03b94b76e656d9e7a69c6e45aa31df5cf9fa4a2"
 dependencies = [
  "anyhow",
  "async-task",
@@ -2434,8 +2435,9 @@ dependencies = [
 
 [[package]]
 name = "crossflow_derive"
-version = "0.0.1"
-source = "git+https://github.com/open-rmf/crossflow?branch=fix_delivery_instructions#507816f88b58797caeca18e53e6936bc55198faa"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec05716345ec0ab4e0fc78d1275f3b9d8d8193b83306d7008ae667c76921fe39"
 dependencies = [
  "proc-macro2",
  "quote",
