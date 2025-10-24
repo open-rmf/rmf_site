@@ -49,6 +49,10 @@ pub fn spawn_create_edges_service(
 
 pub struct CreateEdges {
     pub spawn_edge: fn(Edge<Entity>, &mut Commands) -> Entity,
+    /// This allows the final edge to be modified in some way as it switches
+    /// from being a preview to the final thing. This is used to switch doors
+    /// from being closed to open after they are created.
+    pub finish_edge: Option<fn(Edge<Entity>, &mut EntityCommands)>,
     pub preview_edge: Option<PreviewEdge>,
     pub creation_continuity: EdgeCreationContinuity,
     pub scope: AnchorScope,
@@ -62,6 +66,7 @@ impl CreateEdges {
     ) -> Self {
         Self {
             spawn_edge: create_edge::<T>,
+            finish_edge: None,
             preview_edge: None,
             creation_continuity: continuity,
             scope,
@@ -75,11 +80,20 @@ impl CreateEdges {
     ) -> Self {
         Self {
             spawn_edge: create_edge_with_texture::<T>,
+            finish_edge: None,
             preview_edge: None,
             creation_continuity: continuity,
             scope,
             level_change_continuity: Default::default(),
         }
+    }
+
+    pub fn with_finish(
+        mut self,
+        finish_edge: fn(Edge<Entity>, &mut EntityCommands),
+    ) -> Self {
+        self.finish_edge = Some(finish_edge);
+        self
     }
 
     pub fn initialize_preview(&mut self, anchor: Entity, commands: &mut Commands) {
@@ -305,10 +319,12 @@ pub fn on_select_for_create_edges(
                 }
                 *edge.right_mut() = anchor;
                 commands.queue(ChangeDependent::add(anchor, preview.edge));
-                commands
-                    .get_entity(preview.edge)
-                    .or_broken_query()?
-                    .remove::<Pending>();
+                let mut entity_mut = commands.get_entity(preview.edge).or_broken_query()?;
+                entity_mut.remove::<Pending>();
+
+                if let Some(finish_edge) = state.finish_edge {
+                    (finish_edge)(*edge, &mut entity_mut);
+                }
 
                 match state.creation_continuity {
                     EdgeCreationContinuity::Single => {

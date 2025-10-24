@@ -96,6 +96,36 @@ impl DoorType {
             Self::Model(_) => "Model",
         }
     }
+
+    pub fn set_open(&mut self) {
+        self.set_positions(1.0);
+    }
+
+    pub fn set_closed(&mut self) {
+        self.set_positions(0.0);
+    }
+
+    pub fn set_positions(&mut self, position: f32) {
+        match self {
+            Self::SingleSliding(door) => {
+                door.position = position;
+            }
+            Self::SingleSwing(door) => {
+                door.position = position;
+            }
+            Self::DoubleSliding(door) => {
+                door.left_position = position;
+                door.right_position = position;
+            }
+            Self::DoubleSwing(door) => {
+                door.left_position = position;
+                door.right_position = position;
+            }
+            Self::Model(_) => {
+                // Unsupported for now
+            }
+        }
+    }
 }
 
 impl Default for DoorType {

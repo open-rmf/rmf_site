@@ -173,7 +173,15 @@ impl<'w, 's> AnchorSelection<'w, 's> {
     }
 
     pub fn create_door(&mut self) {
-        self.create_edges::<Door<Entity>>(EdgeCreationContinuity::Separate, AnchorScope::General)
+        self.create_edges_custom(
+            CreateEdges::new::<Door<Entity>>(EdgeCreationContinuity::Separate, AnchorScope::General)
+            .with_finish(|edge, entity_mut| {
+                let mut door: Door<Entity> = edge.into();
+                door.kind.set_open();
+                entity_mut.insert(door);
+            })
+        );
+
     }
 
     pub fn create_lift(&mut self) {
@@ -210,15 +218,7 @@ impl<'w, 's> AnchorSelection<'w, 's> {
         continuity: EdgeCreationContinuity,
         scope: AnchorScope,
     ) {
-        let state = self
-            .commands
-            .spawn(SelectorInput(CreateEdges::new::<T>(continuity, scope)))
-            .id();
-
-        self.send(RunSelector {
-            selector: self.services.create_edges,
-            input: Some(state),
-        });
+        self.create_edges_custom(CreateEdges::new::<T>(continuity, scope))
     }
 
     pub fn create_edges_with_texture<T: Bundle + From<Edge<Entity>>>(
@@ -226,13 +226,14 @@ impl<'w, 's> AnchorSelection<'w, 's> {
         continuity: EdgeCreationContinuity,
         scope: AnchorScope,
     ) {
-        let state = self
-            .commands
-            .spawn(SelectorInput(CreateEdges::new_with_texture::<T>(
-                continuity, scope,
-            )))
-            .id();
+        self.create_edges_custom(CreateEdges::new_with_texture::<T>(continuity, scope))
+    }
 
+    pub fn create_edges_custom(
+        &mut self,
+        creation: CreateEdges,
+    ) {
+        let state = self.commands.spawn(SelectorInput(creation)).id();
         self.send(RunSelector {
             selector: self.services.create_edges,
             input: Some(state),
