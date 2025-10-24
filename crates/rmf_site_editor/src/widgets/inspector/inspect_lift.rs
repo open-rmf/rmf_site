@@ -20,8 +20,8 @@ use crate::{
         CabinDoorId, Change, CurrentLevel, LevelElevation, NameInSite, ToggleLiftDoorAvailability,
     },
     widgets::{
-        inspector::InspectOptionF32, prelude::*, Inspect, InspectionPlugin, LevelDisplay,
-        SelectorWidget,
+        Inspect, InspectionPlugin, LevelDisplay, SelectorWidget, inspector::InspectOptionF32,
+        prelude::*,
     },
 };
 use bevy::{ecs::system::SystemParam, prelude::*};

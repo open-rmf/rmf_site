@@ -15,7 +15,7 @@
  *
 */
 
-use crate::site::{assets::old_default_material, DisplayColor};
+use crate::site::{DisplayColor, assets::old_default_material};
 use bevy::prelude::*;
 
 pub fn add_material_for_display_colors(

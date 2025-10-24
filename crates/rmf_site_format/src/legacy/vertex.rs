@@ -1,7 +1,7 @@
 use super::rbmf::*;
 use crate::{
-    is_default, legacy::model::Model, AssociatedGraphs, Location, LocationTag, LocationTags,
-    NameInSite,
+    AssociatedGraphs, Location, LocationTag, LocationTags, NameInSite, is_default,
+    legacy::model::Model,
 };
 use glam::DVec2;
 use serde::{Deserialize, Serialize};

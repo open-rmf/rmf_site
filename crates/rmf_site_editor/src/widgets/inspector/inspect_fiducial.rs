@@ -17,7 +17,7 @@
 
 use crate::{
     site::{Affiliation, Change, FiducialGroup, FiducialMarker, FiducialUsage, Group, NameInSite},
-    widgets::{prelude::*, Icons, Inspect, InspectionPlugin},
+    widgets::{Icons, Inspect, InspectionPlugin, prelude::*},
 };
 use bevy::{
     ecs::{hierarchy::ChildOf, system::SystemParam},

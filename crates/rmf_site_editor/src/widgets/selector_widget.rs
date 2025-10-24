@@ -17,7 +17,7 @@
 
 use crate::{
     site::SiteID,
-    widgets::{prelude::*, Icons},
+    widgets::{Icons, prelude::*},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Button, Ui};

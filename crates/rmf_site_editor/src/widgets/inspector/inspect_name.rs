@@ -17,7 +17,7 @@
 
 use crate::{
     site::Change,
-    widgets::{prelude::*, Inspect},
+    widgets::{Inspect, prelude::*},
 };
 use bevy::prelude::*;
 use bevy_egui::egui::Ui;

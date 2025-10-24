@@ -16,12 +16,12 @@
 */
 
 use crate::{
+    CurrentWorkspace,
     layers::ZLayer,
     site::{
-        get_current_workspace_path, Anchor, DefaultFile, FiducialMarker, GlobalDrawingVisibility,
-        LayerVisibility, MeasurementMarker, MeasurementSegment, RecencyRank,
+        Anchor, DefaultFile, FiducialMarker, GlobalDrawingVisibility, LayerVisibility,
+        MeasurementMarker, MeasurementSegment, RecencyRank, get_current_workspace_path,
     },
-    CurrentWorkspace,
 };
 use bevy::{asset::LoadState, ecs::hierarchy::ChildOf, math::Affine3A, prelude::*};
 use rmf_site_format::{AssetSource, Category, DrawingProperties, PixelsPerMeter, Pose};

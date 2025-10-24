@@ -16,10 +16,10 @@
 */
 
 use crate::{
+    Icons, WorkspaceMarker,
     inspector::SearchResult,
     site::{Category, Change},
-    widgets::{prelude::*, Inspect, InspectionPlugin, WidgetSystem},
-    Icons, WorkspaceMarker,
+    widgets::{Inspect, InspectionPlugin, WidgetSystem, prelude::*},
 };
 use bevy::{
     ecs::{hierarchy::ChildOf, system::SystemParam},

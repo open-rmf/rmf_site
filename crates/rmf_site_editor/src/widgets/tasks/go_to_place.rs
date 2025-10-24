@@ -17,7 +17,7 @@
 use super::{EditTask, TaskWidget};
 use crate::{
     mapf_rse::DebugGoal,
-    site::{update_task_kind_component, LocationTags, NameInSite, Task, TaskKind, TaskKinds},
+    site::{LocationTags, NameInSite, Task, TaskKind, TaskKinds, update_task_kind_component},
     widgets::prelude::*,
 };
 use bevy::{
@@ -82,7 +82,7 @@ impl<'w, 's> WidgetSystem<Tile> for ViewGoToPlace<'w, 's> {
             || !params
                 .locations
                 .iter()
-                .any(|l| l.1 .0 == go_to_place.location)
+                .any(|l| l.1.0 == go_to_place.location)
         {
             "Select Location".to_string()
         } else {

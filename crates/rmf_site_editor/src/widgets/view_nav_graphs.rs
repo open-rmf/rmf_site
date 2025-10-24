@@ -16,16 +16,16 @@
 */
 
 use crate::{
+    AppState, ChangeRank, CurrentWorkspace, WorkspaceLoader, WorkspaceSaver,
     recency::RecencyRanking,
     site::{
-        Change, Delete, DisplayColor, NameInSite, NavGraph, NavGraphMarker,
-        DEFAULT_NAV_GRAPH_COLORS,
+        Change, DEFAULT_NAV_GRAPH_COLORS, Delete, DisplayColor, NameInSite, NavGraph,
+        NavGraphMarker,
     },
     widgets::{
-        inspector::color_edit, prelude::*, FileMenu, Icons, MenuEvent, MenuItem, MoveLayerButton,
-        SelectorWidget, TextMenuItem,
+        FileMenu, Icons, MenuEvent, MenuItem, MoveLayerButton, SelectorWidget, TextMenuItem,
+        inspector::color_edit, prelude::*,
     },
-    AppState, ChangeRank, CurrentWorkspace, WorkspaceLoader, WorkspaceSaver,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, ImageButton, TextEdit, Ui, Widget};

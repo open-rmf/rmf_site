@@ -22,7 +22,7 @@ use crate::{
 };
 use bevy::{
     ecs::{hierarchy::ChildOf, relationship::AncestorIter},
-    math::{swizzles::*, Affine3A, Mat3A, Vec2, Vec3A},
+    math::{Affine3A, Mat3A, Vec2, Vec3A, swizzles::*},
     prelude::*,
     render::{
         mesh::{Indices, PrimitiveTopology, VertexAttributeValues},

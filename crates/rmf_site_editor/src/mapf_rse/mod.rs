@@ -23,20 +23,19 @@ use std::{
 };
 
 use crate::{
+    CurrentWorkspace,
     color_picker::ColorPicker,
     layers::ZLayer,
     occupancy::{CalculateGridRequest, Cell, Grid, OccupancyVisualMarker},
     site::{
-        line_stroke_transform, Affiliation, Change, CircleCollision, CurrentLevel,
-        DifferentialDrive, GoToPlace, Group, LocationTags, ModelMarker, Point, Pose, Robot,
-        SiteAssets,
+        Affiliation, Change, CircleCollision, CurrentLevel, DifferentialDrive, GoToPlace, Group,
+        LocationTags, ModelMarker, Point, Pose, Robot, SiteAssets, line_stroke_transform,
     },
-    CurrentWorkspace,
 };
 use mapf::negotiation::*;
 use rmf_site_format::{NameOfSite, Original};
 
-use mapf::motion::{se2::WaypointSE2, TimeCmp};
+use mapf::motion::{TimeCmp, se2::WaypointSE2};
 use mapf::negotiation::{Agent, Obstacle, Scenario as MapfScenario};
 
 pub mod debug_panel;
@@ -84,7 +83,7 @@ pub struct NegotiationRequest;
 #[derive(Event)]
 pub struct SetAllPathVisibleRequest;
 
-use crossbeam_channel::{unbounded, Receiver, Sender};
+use crossbeam_channel::{Receiver, Sender, unbounded};
 
 pub struct PlanningCompleted {
     result: Result<

@@ -24,7 +24,7 @@ use bevy::{
     },
     prelude::*,
 };
-use rmf_site_camera::{active_camera_maybe, ActiveCameraQuery};
+use rmf_site_camera::{ActiveCameraQuery, active_camera_maybe};
 use rmf_site_format::Pose;
 
 #[derive(Debug, Clone, Copy)]

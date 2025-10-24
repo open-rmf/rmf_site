@@ -17,7 +17,7 @@
 
 use crate::{
     site::{Affiliation, Change, CurrentScenario, Modifier, ScenarioModifiers, UpdateModifier},
-    widgets::{inspector::InspectAngle, prelude::*, Inspect},
+    widgets::{Inspect, inspector::InspectAngle, prelude::*},
 };
 use bevy::{math::Quat, prelude::*};
 use bevy_egui::egui::{ComboBox, DragValue, Grid, Ui};

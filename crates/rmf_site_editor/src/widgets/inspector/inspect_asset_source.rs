@@ -16,9 +16,9 @@
 */
 
 use crate::{
+    CurrentWorkspace,
     site::{Change, DefaultFile},
     widgets::prelude::*,
-    CurrentWorkspace,
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{ComboBox, TextEdit, Ui};

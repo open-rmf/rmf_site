@@ -20,9 +20,9 @@ use crossflow::*;
 use rfd::AsyncFileDialog;
 use std::{future::Future, path::PathBuf};
 
+use crate::AppState;
 use crate::interaction::InteractionState;
 use crate::site::{DefaultFile, ImportNavGraphs, LoadSite, LoadSiteResult, SaveSite};
-use crate::AppState;
 use rmf_site_format::{NameOfSite, Site};
 
 /// Used as an event to command that a new workspace should be made the current one

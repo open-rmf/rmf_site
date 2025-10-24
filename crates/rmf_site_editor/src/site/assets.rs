@@ -18,7 +18,7 @@
 use crate::{layers::ZLayer, site::*};
 use bevy::{
     asset::embedded_asset,
-    math::{primitives, Affine3A},
+    math::{Affine3A, primitives},
     pbr::MaterialExtension,
     prelude::*,
     render::render_resource::{AsBindGroup, ShaderRef, ShaderType},

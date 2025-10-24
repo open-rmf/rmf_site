@@ -16,7 +16,7 @@
 */
 use super::{EditTask, TaskWidget};
 use crate::{
-    site::{update_task_kind_component, Task, TaskKind, TaskKinds},
+    site::{Task, TaskKind, TaskKinds, update_task_kind_component},
     widgets::prelude::*,
 };
 use bevy::{

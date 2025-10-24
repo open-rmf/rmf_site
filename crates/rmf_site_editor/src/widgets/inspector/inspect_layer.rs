@@ -16,12 +16,12 @@
 */
 
 use crate::{
+    ChangeRank,
     site::{
         BeginEditDrawing, Change, DrawingMarker, FloorMarker, LayerVisibility,
         PreferredSemiTransparency, VisibilityCycle,
     },
-    widgets::{inspector::Inspect, prelude::*, Icons, MoveLayer, SelectorWidget},
-    ChangeRank,
+    widgets::{Icons, MoveLayer, SelectorWidget, inspector::Inspect, prelude::*},
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{DragValue, ImageButton, Ui};

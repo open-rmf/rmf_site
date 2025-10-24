@@ -15,12 +15,12 @@
  *
 */
 
-use bevy::log::tracing::{field::Field, Level};
+use bevy::log::tracing::{Level, field::Field};
 use bevy::prelude::*;
-use crossbeam_channel::{unbounded, Receiver, SendError, Sender};
+use crossbeam_channel::{Receiver, SendError, Sender, unbounded};
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Write};
-use tracing_subscriber::{field::Visit, prelude::*, EnvFilter, Layer};
+use tracing_subscriber::{EnvFilter, Layer, field::Visit, prelude::*};
 
 #[derive(Debug, Clone, Copy, Eq, Hash, PartialEq)]
 pub enum LogCategory {

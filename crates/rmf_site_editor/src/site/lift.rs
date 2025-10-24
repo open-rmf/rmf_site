@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{layers::ZLayer, site::*, CurrentWorkspace, Issue, ValidateWorkspace};
+use crate::{CurrentWorkspace, Issue, ValidateWorkspace, layers::ZLayer, site::*};
 use bevy::{
     ecs::{hierarchy::ChildOf, relationship::AncestorIter},
     prelude::*,
@@ -669,11 +669,7 @@ fn remove_door(
             }
         }
 
-        if remove_anchors {
-            Some(*anchors)
-        } else {
-            None
-        }
+        if remove_anchors { Some(*anchors) } else { None }
     } else {
         None
     };

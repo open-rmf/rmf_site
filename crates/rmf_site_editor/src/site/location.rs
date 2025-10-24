@@ -310,7 +310,9 @@ pub fn update_location_for_changed_location_tags(
                     continue;
                 }
 
-                error!("Invalid billboard entity [{billboard_id:?}]. Overriding with a new billboard entity.");
+                error!(
+                    "Invalid billboard entity [{billboard_id:?}]. Overriding with a new billboard entity."
+                );
             }
 
             // There is no existing billboard for this tag, hence spawn new billboard
@@ -367,7 +369,9 @@ pub fn update_location_for_changed_location_tags(
                     marker.caption_text = Some(mutex_group_text.clone());
                     make_new_billboard = false;
                 } else {
-                    error!("Invalid billboard entity [{existing_billboard_id:?}]. Overriding with a new billboard entity.");
+                    error!(
+                        "Invalid billboard entity [{existing_billboard_id:?}]. Overriding with a new billboard entity."
+                    );
                 }
             }
 

@@ -664,7 +664,7 @@ impl<T: RefTrait> LiftCabinDoorPlacement<T> {
 impl LiftCabinDoorPlacement<Entity> {
     pub fn to_u32(&self, doors: &QueryLiftDoor) -> LiftCabinDoorPlacement<u32> {
         LiftCabinDoorPlacement {
-            door: doors.get(self.door).unwrap().0 .0,
+            door: doors.get(self.door).unwrap().0.0,
             width: self.width,
             thickness: self.thickness,
             shifted: self.shifted,

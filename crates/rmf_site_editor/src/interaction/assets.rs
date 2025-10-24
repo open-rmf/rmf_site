@@ -18,7 +18,7 @@
 use crate::interaction::*;
 use bevy::color::palettes::css as Colors;
 use bevy::ecs::hierarchy::ChildOf;
-use bevy::{math::primitives, math::Affine3A, prelude::*};
+use bevy::{math::Affine3A, math::primitives, prelude::*};
 use rmf_site_mesh::*;
 
 #[derive(Clone, Debug, Resource)]

@@ -16,13 +16,13 @@
 */
 
 use crate::*;
+use serde::{Deserialize, Serialize};
+use std::fmt;
 #[cfg(feature = "bevy")]
 use {
     bevy::prelude::{Component, Reflect},
-    serde::de::DeserializeOwned
+    serde::de::DeserializeOwned,
 };
-use serde::{Deserialize, Serialize};
-use std::fmt;
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]

@@ -15,13 +15,13 @@
  *
 */
 use crate::{
-    site::{
-        count_scenarios_with_inclusion, Affiliation, Category, Change, CurrentScenario, Delete,
-        DispatchTaskRequest, GetModifier, Group, Inclusion, Modifier, NameInSite, Pending, Robot,
-        RobotTaskRequest, ScenarioModifiers, SiteUpdateSet, Task, TaskKinds, TaskParams,
-        UpdateModifier,
-    },
     AppState, CurrentWorkspace, Icons,
+    site::{
+        Affiliation, Category, Change, CurrentScenario, Delete, DispatchTaskRequest, GetModifier,
+        Group, Inclusion, Modifier, NameInSite, Pending, Robot, RobotTaskRequest,
+        ScenarioModifiers, SiteUpdateSet, Task, TaskKinds, TaskParams, UpdateModifier,
+        count_scenarios_with_inclusion,
+    },
 };
 use bevy::{
     ecs::{

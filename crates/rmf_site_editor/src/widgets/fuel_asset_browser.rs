@@ -16,13 +16,13 @@
 */
 
 use crate::{
+    AppState, CurrentWorkspace,
     interaction::{ModelPreviewCamera, ObjectPlacement},
     site::{
         Affiliation, AssetSource, Category, FuelClient, ModelDescriptionBundle, ModelInstance,
         ModelLoader, ModelProperty, NameInSite, SetFuelApiKey, UpdateFuelCache,
     },
-    widgets::{prelude::*, PendingModelDescription},
-    AppState, CurrentWorkspace,
+    widgets::{PendingModelDescription, prelude::*},
 };
 use bevy::{
     ecs::{hierarchy::ChildOf, system::SystemParam},

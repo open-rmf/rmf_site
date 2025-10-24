@@ -16,7 +16,7 @@
 */
 
 use super::*;
-use crate::{site::Change, CurrentWorkspace};
+use crate::{CurrentWorkspace, site::Change};
 use mapf::motion::Motion;
 use rmf_site_format::NameOfSite;
 

@@ -542,7 +542,7 @@ impl Site {
                     added = true;
                 }
                 // Non static models are included separately and are not part of the static world
-                else if !model_description_bundle.is_static.0 .0 {
+                else if !model_description_bundle.is_static.0.0 {
                     let mut model_plugins: Vec<SdfPlugin> = Vec::new();
                     let mut slotcar_definition = None;
                     for (label, export_data) in parented_model_instance.bundle.export_data.0.iter()
@@ -594,7 +594,7 @@ impl Site {
                     } else {
                         world.model.push(SdfModel {
                             name: parented_model_instance.bundle.name.0.clone(),
-                            r#static: Some(model_description_bundle.is_static.0 .0),
+                            r#static: Some(model_description_bundle.is_static.0.0),
                             pose: Some(parented_model_instance.bundle.pose.to_sdf()),
                             link: vec![SdfLink {
                                 name: "link".into(),

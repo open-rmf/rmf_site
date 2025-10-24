@@ -16,9 +16,9 @@
 */
 
 use crate::{
-    interaction::{gizmo::Gizmo, IntersectGroundPlaneParams, *},
-    site::{Anchor, Category, Delete, Dependents, SiteAssets, Subordinate},
     DebugMode,
+    interaction::{IntersectGroundPlaneParams, gizmo::Gizmo, *},
+    site::{Anchor, Category, Delete, Dependents, SiteAssets, Subordinate},
 };
 use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 use rmf_site_picking::{Hovered, Selectable, Selected};
@@ -149,11 +149,7 @@ pub fn update_anchor_proximity_xray(
             // We make the xray effect a little "sticky" so that there isn't an
             // ugly flicker for anchors that are right at the edge of the
             // proximity range.
-            if cue.xray.any() {
-                1.0
-            } else {
-                0.2
-            }
+            if cue.xray.any() { 1.0 } else { 0.2 }
         };
 
         let xray = 'xray: {

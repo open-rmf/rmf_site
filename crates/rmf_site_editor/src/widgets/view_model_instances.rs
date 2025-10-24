@@ -16,12 +16,12 @@
 */
 
 use crate::{
-    site::{
-        count_scenarios_with_inclusion, Affiliation, CurrentScenario, Delete, GetModifier, Group,
-        Inclusion, Members, ModelMarker, Modifier, NameInSite, ScenarioModifiers, UpdateModifier,
-    },
-    widgets::{prelude::*, SelectorWidget},
     Icons,
+    site::{
+        Affiliation, CurrentScenario, Delete, GetModifier, Group, Inclusion, Members, ModelMarker,
+        Modifier, NameInSite, ScenarioModifiers, UpdateModifier, count_scenarios_with_inclusion,
+    },
+    widgets::{SelectorWidget, prelude::*},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, ImageButton, ScrollArea, Ui};

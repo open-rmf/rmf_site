@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{recency::RecencyRanking, site::*, WorkspaceMarker};
+use crate::{WorkspaceMarker, recency::RecencyRanking, site::*};
 use bevy::{
     ecs::{
         hierarchy::ChildOf,
@@ -23,7 +23,7 @@ use bevy::{
     },
     prelude::*,
 };
-use rmf_site_format::legacy::{building_map::BuildingMap, PortingError};
+use rmf_site_format::legacy::{PortingError, building_map::BuildingMap};
 use smallvec::SmallVec;
 use std::{
     collections::{HashMap, HashSet},

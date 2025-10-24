@@ -23,7 +23,7 @@ use crate::{
         RecallPowerDissipation, RecallPropertyKind, Robot, RobotProperty, RobotPropertyKind,
         RobotPropertyRegistry,
     },
-    widgets::{prelude::*, Inspect},
+    widgets::{Inspect, prelude::*},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{DragValue, Grid, Ui};

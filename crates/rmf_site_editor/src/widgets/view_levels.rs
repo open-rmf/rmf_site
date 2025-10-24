@@ -16,12 +16,12 @@
 */
 
 use crate::{
+    AppState, CurrentWorkspace, RecencyRanking,
     site::{
         Category, Change, CurrentLevel, Delete, DrawingMarker, FloorMarker, LevelElevation,
         LevelProperties, NameInSite,
     },
-    widgets::{prelude::*, Icons},
-    AppState, CurrentWorkspace, RecencyRanking,
+    widgets::{Icons, prelude::*},
 };
 use bevy::{
     ecs::{hierarchy::ChildOf, relationship::AncestorIter, system::SystemParam},

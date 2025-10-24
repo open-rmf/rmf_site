@@ -192,7 +192,9 @@ impl NavGraph {
                     ) {
                         (Some(v0), Some(v1)) => (*v0, *v1),
                         _ => {
-                            error!("nav graph export: Lane {lane_id} is using a site anchor. This is not supported, the lane will be skipped.");
+                            error!(
+                                "nav graph export: Lane {lane_id} is using a site anchor. This is not supported, the lane will be skipped."
+                            );
                             continue;
                         }
                     };

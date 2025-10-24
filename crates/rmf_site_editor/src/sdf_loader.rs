@@ -15,7 +15,7 @@
  *
 */
 
-use bevy::asset::{io::Reader, AssetLoader, LoadContext};
+use bevy::asset::{AssetLoader, LoadContext, io::Reader};
 use bevy::ecs::hierarchy::ChildOf;
 use bevy::prelude::*;
 

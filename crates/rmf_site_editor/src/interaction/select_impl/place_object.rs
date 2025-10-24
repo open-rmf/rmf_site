@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    interaction::{spawn_place_object_2d_workflow, PlaceObject2d, PlaceObjectContinuity},
+    interaction::{PlaceObject2d, PlaceObjectContinuity, spawn_place_object_2d_workflow},
     site::ModelInstance,
 };
 use bevy::{
@@ -27,7 +27,7 @@ use bevy::{
     },
     prelude::*,
 };
-use crossflow::{testing::Resource, Service};
+use crossflow::{Service, testing::Resource};
 use rmf_site_picking::{RunSelector, SelectionNodeResult, SelectorInput};
 
 #[derive(Default)]

@@ -16,8 +16,8 @@
 */
 
 use crate::{
-    site::{AlignSiteDrawings, Delete},
     CreateNewWorkspace, CurrentWorkspace, DebugMode, WorkspaceLoader, WorkspaceSaver,
+    site::{AlignSiteDrawings, Delete},
 };
 use bevy::{prelude::*, window::PrimaryWindow};
 use bevy_egui::EguiContexts;

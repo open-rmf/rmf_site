@@ -17,7 +17,7 @@
 
 use crate::{
     site::{Change, Distance},
-    widgets::{prelude::*, Inspect, InspectOptionF32},
+    widgets::{Inspect, InspectOptionF32, prelude::*},
 };
 use bevy::prelude::*;
 use rmf_site_egui::WidgetSystem;

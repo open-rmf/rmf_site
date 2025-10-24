@@ -16,9 +16,9 @@
 */
 
 use crate::{
-    site::{Affiliation, Change, DefaultFile, Group, Members, ModelMarker, NameInSite, Texture},
-    widgets::{inspector::InspectTexture, prelude::*, Inspect, SelectorWidget},
     CurrentWorkspace,
+    site::{Affiliation, Change, DefaultFile, Group, Members, ModelMarker, NameInSite, Texture},
+    widgets::{Inspect, SelectorWidget, inspector::InspectTexture, prelude::*},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, RichText, Ui};

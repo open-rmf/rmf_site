@@ -16,9 +16,9 @@
 */
 
 use crate::{
-    site::{Change, FilteredIssueKinds, FilteredIssues, IssueKey},
-    widgets::{prelude::*, SelectorWidget},
     CurrentWorkspace, Icons, Issue, IssueDictionary, ValidateWorkspace,
+    site::{Change, FilteredIssueKinds, FilteredIssues, IssueKey},
+    widgets::{SelectorWidget, prelude::*},
 };
 use bevy::{
     ecs::{hierarchy::ChildOf, system::SystemParam},
