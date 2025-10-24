@@ -44,7 +44,7 @@ urdf-rs = { version = "0.7.3"}
 once_cell = "1"
 pathdiff = "*"
 bevy_mod_outline = "0.10.1"
-bevy_gltf_export = { git = "https://github.com/luca-della-vedova/bevy_gltf_export", rev = "098fc7c" }
+bevy_gltf_export = "0.1.1"
 bevy_stl = "0.16"
 bevy_obj = "0.16"
 smallvec = "*"
