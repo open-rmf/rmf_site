@@ -27,8 +27,6 @@ anyhow = {workspace = true}
 bitfield = {workspace = true}
 smallvec = {workspace = true}
 rmf_site_camera = {workspace = true}
-rmf_site_mesh = {workspace = true}
-rmf_site_animate = {workspace = true}
 bevy_egui = {workspace = true}
 web-time = {workspace = true}
 
