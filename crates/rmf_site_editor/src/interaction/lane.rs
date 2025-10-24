@@ -22,11 +22,13 @@ use rmf_site_format::{Edge, LaneMarker};
 
 pub fn add_lane_visual_cues(
     mut commands: Commands,
-    new_lane_segments: Query<(Entity, &LaneSegments), Added<LaneSegments>>,
+    new_lane_segments: Query<(Entity, &LaneSegments), Changed<LaneSegments>>,
 ) {
     for (e, segments) in &new_lane_segments {
         commands.entity(e).insert(VisualCue::no_outline());
         commands.entity(segments.mid).insert(Selectable::new(e));
+        commands.entity(segments.start).insert(Selectable::new(e));
+        commands.entity(segments.end).insert(Selectable::new(e));
     }
 }
 
@@ -72,7 +74,11 @@ pub fn update_lane_visual_cues(
                 true,
             )
         } else {
-            (&site_assets.unassigned_lane_material, 0.0, false)
+            (
+                &site_assets.unassigned_lane_material,
+                ZLayer::Lane.to_z(),
+                false,
+            )
         };
 
         for e in pieces.outlines {

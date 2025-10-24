@@ -152,29 +152,60 @@ pub fn retrieve_robot_property_kind<
     value: Value,
     recall_kind: Option<&RecallKind>,
 ) -> Result<Kind, RobotPropertyError> {
-    if let Some(property) = value.as_object() {
-        if property
+    let kind_label = Kind::label();
+    if let Some((property, config)) = value
+        .as_object()
+        .and_then(|val_obj| Some(val_obj).zip(val_obj.get("config")))
+    {
+        let opt_kind_config = if property
             .get("kind")
             .and_then(|kind| kind.as_str())
-            .is_some_and(|label| label == Kind::label().as_str())
+            .is_some_and(|label| label == &kind_label)
         {
-            let kind = match property
-                .get("config")
-                .and_then(|config| deserialize_robot_property_kind::<Kind>(config.clone()).ok())
-            {
-                Some(property_kind) => {
+            // The RobotPropertyKind was specified, use config directly
+            Some(config.clone())
+        } else if let Some(kind_config) = config.as_object().and_then(|m| m.get(&kind_label)) {
+            // No single RobotPropertyKind was specified, but it is found as one of multiple
+            // supported by this RobotProperty.
+            Some(kind_config.clone())
+        } else {
+            // No RobotPropertyKind found in the config
+            None
+        };
+
+        if let Some(kind_config) = opt_kind_config {
+            let kind = match deserialize_robot_property_kind::<Kind>(kind_config) {
+                Ok(property_kind) => {
                     if let Some(recall) = recall_kind.filter(|_| property_kind == Kind::default()) {
                         recall.assume()
                     } else {
                         property_kind
                     }
                 }
-                None => Kind::default(),
+                Err(_) => Kind::default(),
             };
             return Ok(kind);
         }
     }
     Err(RobotPropertyError::PropertyKindNotFound(Kind::label()))
+}
+
+/// Common RobotPropertyKind used to indicate that this RobotProperty is
+/// intentionally left empty. This helps to prevent overwriting or unwanted
+/// insertion of RobotPropertyKinds.
+#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
+#[cfg(feature = "bevy")]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
+pub struct EmptyRobotProperty<T: RobotProperty> {
+    _ignore: std::marker::PhantomData<T>,
+}
+
+#[cfg(feature = "bevy")]
+impl<T: RobotProperty> RobotPropertyKind for EmptyRobotProperty<T> {
+    fn label() -> String {
+        format!("Empty {}", T::label())
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
