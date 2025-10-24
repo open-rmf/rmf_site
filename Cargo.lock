@@ -5762,6 +5762,7 @@ dependencies = [
  "serde_yaml",
  "testdir",
  "thiserror 2.0.12",
+ "tracing",
  "urdf-rs",
  "uuid",
 ]

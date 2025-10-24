@@ -13,6 +13,7 @@ serde_yaml = {workspace = true}
 serde_json = {workspace = true}
 ron = {workspace = true}
 thiserror = {workspace = true}
+tracing = { workspace = true }
 glam = { workspace = true, features = ["serde"] }
 uuid = { workspace = true, features = ["v4", "serde"] }
 # add features=["bevy"] to a dependent Cargo.toml to get the bevy-related features

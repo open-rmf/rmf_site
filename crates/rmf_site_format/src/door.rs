@@ -139,6 +139,7 @@ impl Default for DoorType {
 pub struct SingleSlidingDoor {
     /// Which side the door slides towards
     pub towards: Side,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub position: f32,
 }
 
@@ -162,7 +163,9 @@ impl From<SingleSlidingDoor> for DoorType {
 pub struct DoubleSlidingDoor {
     /// Length of the left door divided by the length of the right door
     pub left_right_ratio: f32,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub left_position: f32,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub right_position: f32,
 }
 
@@ -200,6 +203,7 @@ pub struct SingleSwingDoor {
     pub pivot_on: Side,
     /// How does the door swing
     pub swing: Swing,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub position: f32,
 }
 
@@ -226,7 +230,9 @@ pub struct DoubleSwingDoor {
     pub swing: Swing,
     /// Length of the left door divided by the length of the right door
     pub left_right_ratio: f32,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub left_position: f32,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub right_position: f32,
 }
 

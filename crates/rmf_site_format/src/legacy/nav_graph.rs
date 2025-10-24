@@ -1,7 +1,8 @@
 use crate::*;
 use glam::Affine2;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
+use tracing::error;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct NavGraph {
@@ -71,14 +72,14 @@ impl NavGraph {
                 for lift in site.lifts.values() {
                     let lift_name = &lift.properties.name.0;
                     let Some(center) = lift.properties.center(site) else {
-                        eprintln!(
-                            "ERROR: Skipping lift {lift_name} due to broken anchor reference"
+                        error!(
+                            "nav graph export: Skipping lift {lift_name} due to broken anchor reference"
                         );
                         continue;
                     };
                     let Rotation::Yaw(yaw) = center.rot else {
-                        eprintln!(
-                            "ERROR: Skipping lift {lift_name} due to rotation not being pure yaw"
+                        error!(
+                            "nav graph export: Skipping lift {lift_name} due to rotation not being pure yaw"
                         );
                         continue;
                     };
@@ -116,8 +117,11 @@ impl NavGraph {
                         let anchor = Anchor::Translate2D([trans[0], trans[1]]);
 
                         anchor_to_vertex.insert(*id, vertices.len());
-                        let mut vertex =
-                            NavVertex::from_anchor(&anchor, location_at_anchor.get(id));
+                        let mut vertex = NavVertex::from_anchor(
+                            &anchor,
+                            location_at_anchor.get(id),
+                            &site.navigation.guided.mutex_groups,
+                        );
                         vertex.2.lift = Some(lift_name.clone());
                         vertices.push(vertex);
                     }
@@ -133,7 +137,11 @@ impl NavGraph {
                     }
 
                     anchor_to_vertex.insert(*id, vertices.len());
-                    vertices.push(NavVertex::from_anchor(anchor, location_at_anchor.get(id)));
+                    vertices.push(NavVertex::from_anchor(
+                        anchor,
+                        location_at_anchor.get(id),
+                        &site.navigation.guided.mutex_groups,
+                    ));
                 }
 
                 let mut level_doors = HashMap::new();
@@ -148,8 +156,8 @@ impl NavGraph {
                             v1.translation_for_category(Category::Door),
                         ),
                         _ => {
-                            eprintln!(
-                                "ERROR: Skipping door {door_name} due to broken anchor reference"
+                            error!(
+                                "nav graph export: Skipping door {door_name} due to broken anchor reference"
                             );
                             continue;
                         }
@@ -165,6 +173,16 @@ impl NavGraph {
 
                 let mut lanes = Vec::new();
                 for lane_id in &lanes_to_include {
+                    let get_mutex = |affiliation: Affiliation<u32>| -> Option<String> {
+                        let Some(group_id) = affiliation.0 else {
+                            return None;
+                        };
+                        site.navigation
+                            .guided
+                            .mutex_groups
+                            .get(&group_id)
+                            .map(|group| group.name.0.clone())
+                    };
                     let Some(lane) = site.navigation.guided.lanes.get(lane_id) else {
                         continue;
                     };
@@ -174,7 +192,7 @@ impl NavGraph {
                     ) {
                         (Some(v0), Some(v1)) => (*v0, *v1),
                         _ => {
-                            eprintln!("ERROR: Lane {lane_id} is using a site anchor. This is not supported, the lane will be skipped.");
+                            error!("nav graph export: Lane {lane_id} is using a site anchor. This is not supported, the lane will be skipped.");
                             continue;
                         }
                     };
@@ -188,7 +206,11 @@ impl NavGraph {
                         }
                     }
 
-                    let props = NavLaneProperties::from_motion(&lane.forward, door_name.cloned());
+                    let props = NavLaneProperties::from_motion(
+                        &lane.forward,
+                        door_name.cloned(),
+                        get_mutex(lane.mutex),
+                    );
                     lanes.push(NavLane(v0, v1, props.clone()));
                     match &lane.reverse {
                         ReverseLane::Same => {
@@ -198,7 +220,11 @@ impl NavGraph {
                             lanes.push(NavLane(
                                 v1,
                                 v0,
-                                NavLaneProperties::from_motion(motion, door_name.cloned()),
+                                NavLaneProperties::from_motion(
+                                    motion,
+                                    door_name.cloned(),
+                                    get_mutex(lane.mutex),
+                                ),
                             ));
                         }
                         ReverseLane::Disable => {
@@ -247,20 +273,19 @@ pub struct NavLaneProperties {
     pub door_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub orientation_constraint: Option<String>,
-    // TODO(luca): Add other lane properties
-    // demo_mock_floor_name
-    // mutex
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mutex: Option<String>,
 }
 
 impl NavLaneProperties {
-    fn from_motion(motion: &Motion, door_name: Option<String>) -> Self {
+    fn from_motion(motion: &Motion, door_name: Option<String>, mutex: Option<String>) -> Self {
         let orientation_constraint = match &motion.orientation_constraint {
             OrientationConstraint::None => None,
             OrientationConstraint::Forwards => Some("forward".to_owned()),
             OrientationConstraint::Backwards => Some("backward".to_owned()),
             OrientationConstraint::RelativeYaw(_) | OrientationConstraint::AbsoluteYaw(_) => {
-                eprintln!(
-                    "Skipping orientation constraint [{:?}] because of incompatibility",
+                error!(
+                    "nav graph export: Skipping orientation constraint [{:?}] because of incompatibility",
                     motion.orientation_constraint
                 );
                 None
@@ -271,6 +296,7 @@ impl NavLaneProperties {
             dock_name: motion.dock.as_ref().map(|d| d.name.clone()),
             orientation_constraint,
             door_name,
+            mutex,
         }
     }
 }
@@ -279,15 +305,22 @@ impl NavLaneProperties {
 pub struct NavVertex(pub f32, pub f32, pub NavVertexProperties);
 
 impl NavVertex {
-    fn from_anchor(anchor: &Anchor, location: Option<&Location<u32>>) -> Self {
+    fn from_anchor(
+        anchor: &Anchor,
+        location: Option<&Location<u32>>,
+        mutex_groups: &BTreeMap<u32, MutexGroup>,
+    ) -> Self {
         let p = anchor.translation_for_category(Category::General);
-        Self(p[0], p[1], NavVertexProperties::from_location(location))
+        Self(
+            p[0],
+            p[1],
+            NavVertexProperties::from_location(location, mutex_groups),
+        )
     }
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct NavVertexProperties {
-    // TODO(luca) serialize lift and merge_radius, they are currently skipped
     #[serde(skip_serializing_if = "Option::is_none")]
     pub lift: Option<String>,
     #[serde(skip_serializing_if = "is_false")]
@@ -296,13 +329,19 @@ pub struct NavVertexProperties {
     pub is_holding_point: bool,
     #[serde(skip_serializing_if = "is_false")]
     pub is_parking_spot: bool,
+    // TODO(luca) serialize merge_radius, it is currently skipped
     #[serde(skip_serializing_if = "Option::is_none")]
     pub merge_radius: Option<f32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mutex: Option<String>,
     pub name: String,
 }
 
 impl NavVertexProperties {
-    fn from_location(location: Option<&Location<u32>>) -> Self {
+    fn from_location(
+        location: Option<&Location<u32>>,
+        mutex_groups: &BTreeMap<u32, MutexGroup>,
+    ) -> Self {
         let mut props = Self::default();
         let location = match location {
             Some(l) => l,
@@ -322,6 +361,22 @@ impl NavVertexProperties {
             .iter()
             .find(|t| t.is_parking_spot())
             .is_some();
+
+        if let Some(mutex) = location.mutex.0 {
+            props.mutex = Some(
+                mutex_groups
+                    .get(&mutex)
+                    .map(|m| m.name.0.clone())
+                    .unwrap_or_else(|| {
+                        error!(
+                        "nav graph export: Unable to find mutex group #{} name for location [{}]",
+                        mutex,
+                        props.name,
+                    );
+                        String::new()
+                    }),
+            );
+        }
 
         props
     }
