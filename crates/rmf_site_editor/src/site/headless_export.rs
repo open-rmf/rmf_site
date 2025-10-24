@@ -16,11 +16,12 @@
 */
 
 use bevy::prelude::*;
+use bevy_rich_text3d::Text3d;
 
 use crate::WorkspaceSaver;
 
 use crate::{
-    site::{DrawingMarker, ModelLoadingState},
+    site::{ModelLoadingState, GlobalFloorVisibility, DoorType, LayerVisibility},
     Autoload, WorkspaceLoader,
 };
 use crossflow::Promise;
@@ -65,15 +66,17 @@ impl HeadlessExportState {
 }
 
 pub fn headless_export(
-    mut commands: Commands,
     mut workspace_saver: WorkspaceSaver,
     mut exit: EventWriter<bevy::app::AppExit>,
     missing_models: Query<(), With<ModelLoadingState>>,
     mut export_state: ResMut<HeadlessExportState>,
     sites: Query<(Entity, &NameOfSite)>,
-    drawings: Query<Entity, With<DrawingMarker>>,
     autoload: Option<ResMut<Autoload>>,
     mut workspace_loader: WorkspaceLoader,
+    mut floor_visibilities: Query<&mut GlobalFloorVisibility>,
+    mut doors: Query<&mut DoorType>,
+    texts: Query<Entity, With<Text3d>>,
+    mut commands: Commands,
 ) {
     let Some(mut autoload) = autoload else {
         error!("Cannot perform a headless export since Autoload was not used");
@@ -96,21 +99,38 @@ pub fn headless_export(
         return;
     }
 
+    for mut vis in &mut floor_visibilities {
+        // Make all floors opaque during headless export
+        vis.general = LayerVisibility::Opaque;
+        vis.without_drawings = LayerVisibility::Opaque;
+    }
+
+    for mut door in &mut doors {
+        // Set all doors to closed during headless export so that their joints
+        // are aligned correctly.
+        door.set_closed();
+    }
+
+    for text in &texts {
+        // Remove visual cue text from objects before exporting
+        commands.entity(text).despawn();
+    }
+
     export_state.iterations += 1;
     if export_state.iterations < 5 {
+        // Do at least five iterations before exporting to give all systems a
+        // chance to run and settle.
+        //
+        // We should consider designing a more rigorous event-driven system instead
+        // of relying on the regular schedule.
         return;
     }
     if sites.is_empty() {
         error!("No site is loaded so we cannot export anything");
         exit.write(bevy::app::AppExit::error());
     }
-    if !missing_models.is_empty() {
-        // Despawn all drawings, otherwise floors will become transparent.
-        for e in drawings.iter() {
-            commands.entity(e).despawn();
-        }
-        // TODO(luca) implement a timeout logic?
-    } else {
+
+    if missing_models.is_empty() {
         if !export_state.world_loaded {
             export_state.iterations = 0;
             export_state.world_loaded = true;
