@@ -72,7 +72,7 @@ pub struct ExportWith(pub HashMap<String, serde_json::Value>);
 /// Stores additional model instance export data when generating Sdf
 #[derive(Debug, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
-pub struct ExportData(pub HashMap<String, sdformat_rs::XmlElement>);
+pub struct ExportData(pub HashMap<String, sdformat::XmlElement>);
 
 /// Bundle with all required components for a valid model description
 #[derive(Serialize, Deserialize, Debug, Clone)]

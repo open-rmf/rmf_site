@@ -20,7 +20,7 @@ use crate::{
 };
 use glam::Vec3;
 use once_cell::sync::Lazy;
-use sdformat_rs::*;
+use sdformat::*;
 use std::collections::BTreeMap;
 use thiserror::Error;
 
@@ -970,7 +970,7 @@ impl Site {
 #[cfg(test)]
 mod tests {
     use crate::legacy::building_map::BuildingMap;
-    use sdformat_rs::yaserde;
+    use sdformat::yaserde;
     use testdir::testdir;
 
     #[test]

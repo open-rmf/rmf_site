@@ -28,4 +28,4 @@ bytemuck = {workspace = true}
 
 [dev-dependencies]
 bevy = {workspace = true, features = ["dynamic_linking"]}
-bevy-inspector-egui = "*"
+bevy-inspector-egui = "0.31"

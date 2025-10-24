@@ -34,7 +34,7 @@ use thiserror::Error as ThisError;
 
 use crate::{exit_confirmation::SiteChanged, recency::RecencyRanking, site::*, ExportFormat};
 use rmf_site_format::*;
-use sdformat_rs::yaserde;
+use sdformat::yaserde;
 
 #[derive(Event)]
 pub struct SaveSite {
@@ -1467,10 +1467,10 @@ fn generate_model_instances(
     for (entity, (id, name, pose, level_id, description_id, description_export)) in
         model_instances_data.iter()
     {
-        let mut export_data = HashMap::<String, sdformat_rs::XmlElement>::new();
+        let mut export_data = HashMap::<String, sdformat::XmlElement>::new();
         for (label, value) in description_export.iter() {
             if let Some(data) = world
-                .resource_scope::<ExportHandlers, Option<sdformat_rs::XmlElement>>(
+                .resource_scope::<ExportHandlers, Option<sdformat::XmlElement>>(
                     move |world, mut export_handlers| {
                         if let Some(export_handler) = export_handlers.get_mut(label) {
                             export_handler.export(*entity, value.clone(), world)

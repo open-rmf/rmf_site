@@ -33,16 +33,16 @@ use rmf_site_format::{
 };
 
 #[derive(Deref, DerefMut)]
-pub struct ExportHandler(pub SystemId<In<(Entity, serde_json::Value)>, sdformat_rs::XmlElement>);
+pub struct ExportHandler(pub SystemId<In<(Entity, serde_json::Value)>, sdformat::XmlElement>);
 
 impl ExportHandler {
-    pub fn new<M, S: IntoSystem<In<(Entity, serde_json::Value)>, sdformat_rs::XmlElement, M>>(
+    pub fn new<M, S: IntoSystem<In<(Entity, serde_json::Value)>, sdformat::XmlElement, M>>(
         system: S,
         world: &mut World,
     ) -> Self {
         let mut system = Box::new(IntoSystem::into_system(system));
         system.initialize(world);
-        let system_id: SystemId<In<(Entity, serde_json::Value)>, sdformat_rs::XmlElement> =
+        let system_id: SystemId<In<(Entity, serde_json::Value)>, sdformat::XmlElement> =
             world.register_boxed_system(system);
 
         Self(system_id)
@@ -53,7 +53,7 @@ impl ExportHandler {
         entity: Entity,
         value: serde_json::Value,
         world: &mut World,
-    ) -> Option<sdformat_rs::XmlElement> {
+    ) -> Option<sdformat::XmlElement> {
         world.run_system_with(self.0, (entity, value)).ok()
     }
 }

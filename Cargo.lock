@@ -3515,7 +3515,8 @@ dependencies = [
 [[package]]
 name = "gz-fuel"
 version = "0.1.0"
-source = "git+https://github.com/open-rmf/gz-fuel-rs?branch=main#cbdb4b587834ac9af78d0018c6dcd9ab3efd3cb2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d0f580aff210e09eacbe45ae092717683b8814823183ba90a49061aaa25daea0"
 dependencies = [
  "crossbeam-channel",
  "dirs 6.0.0",
@@ -4151,8 +4152,9 @@ dependencies = [
 
 [[package]]
 name = "mapf"
-version = "0.2.0"
-source = "git+https://github.com/open-rmf/mapf?rev=fd84e58#fd84e58a6e033e81915463372b2ab33625423666"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e435e5407fcf48c33eff35ae92f8671839eaf3808fb1a9600988435275e409f2"
 dependencies = [
  "anyhow",
  "arrayvec",
@@ -4162,15 +4164,13 @@ dependencies = [
  "float-ord",
  "nalgebra 0.31.4",
  "num",
- "num-complex",
  "paste 0.1.18",
  "serde",
- "serde_yaml",
- "simba 0.8.1",
+ "serde_yaml 0.9.34+deprecated",
  "slotmap",
  "smallvec",
  "sorted-vec",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "time-point",
 ]
 
@@ -5655,7 +5655,7 @@ dependencies = [
  "futures-lite 1.13.0",
  "geo",
  "gz-fuel",
- "itertools 0.14.0",
+ "itertools 0.11.0",
  "mapf",
  "nalgebra 0.32.6",
  "pathdiff",
@@ -5666,14 +5666,14 @@ dependencies = [
  "rmf_site_format",
  "rmf_site_mesh",
  "rmf_site_picking",
- "sdformat_rs",
+ "sdformat",
  "serde",
  "serde_json",
- "serde_yaml",
+ "serde_yaml 0.8.26",
  "smallvec",
  "strum",
  "testdir",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "thread_local",
  "tracing",
  "tracing-subscriber",
@@ -5716,12 +5716,12 @@ dependencies = [
  "once_cell",
  "pathdiff",
  "ron 0.10.1",
- "sdformat_rs",
+ "sdformat",
  "serde",
  "serde_json",
- "serde_yaml",
+ "serde_yaml 0.8.26",
  "testdir",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "tracing",
  "urdf-rs",
  "uuid",
@@ -6001,9 +6001,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "sdformat_rs"
+name = "sdformat"
 version = "0.1.0"
-source = "git+https://github.com/open-rmf/sdf_rust_experimental?rev=514949e#514949e5cf8d44db3a817294190bc65b75b5d2fe"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2e959bb7ad79cc7bb46da5b9959e2823a8e8cba861cf18fa650a0f4c55388561"
 dependencies = [
  "convert_case",
  "nalgebra 0.32.6",
@@ -6096,6 +6097,19 @@ dependencies = [
  "ryu",
  "serde",
  "yaml-rust",
+]
+
+[[package]]
+name = "serde_yaml"
+version = "0.9.34+deprecated"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a8b1a1a2ebf674015cc02edccce75287f1a0130d394307b36743c2f5d504b47"
+dependencies = [
+ "indexmap 2.10.0",
+ "itoa",
+ "ryu",
+ "serde",
+ "unsafe-libyaml",
 ]
 
 [[package]]
@@ -6837,6 +6851,12 @@ name = "unicode-xid"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
+
+[[package]]
+name = "unsafe-libyaml"
+version = "0.2.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "673aac59facbab8a9007c7f6108d11f63b603f7cabff99fabf650fea5c32b861"
 
 [[package]]
 name = "untrusted"

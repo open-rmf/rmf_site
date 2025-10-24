@@ -46,7 +46,7 @@ tracing-subscriber = {workspace = true}
 rfd = {workspace = true}
 urdf-rs = {workspace = true}
 utm = {workspace = true}
-sdformat_rs = {workspace = true}
+sdformat = {workspace = true}
 gz-fuel = {workspace = true}
 pathdiff = {workspace = true}
 ehttp = { workspace = true, features = ["native-async"] }
@@ -58,7 +58,7 @@ bevy_infinite_grid = {workspace = true}
 bevy_rich_text3d = {workspace = true}
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 clap = { workspace = true, features = ["color", "derive", "help", "usage", "suggestions"] }
-bevy_egui = {workspace = true}
+bevy_egui = { workspace = true, default-features = true }
 crossflow = { workspace = true}
 web-time = {workspace = true}
 

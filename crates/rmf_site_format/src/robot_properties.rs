@@ -21,7 +21,7 @@ use bevy::{
     ecs::component::Mutable,
     prelude::{Component, *},
 };
-use sdformat_rs::{ElementData, ElementMap};
+use sdformat::{ElementData, ElementMap};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{Map, Value};
 use thiserror::Error;
@@ -303,7 +303,7 @@ impl From<&ElementMap> for DifferentialDrive {
                     false
                 } else {
                     warn!(
-                        "Found invalid slotcar reversibility data {:?}, 
+                        "Found invalid slotcar reversibility data {:?},
                                         setting DifferentialDrive reversibility to false.",
                         reversible_str
                     );
