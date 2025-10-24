@@ -271,7 +271,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "55f533f8e0af236ffe5eb979b99381df3258853f00ba2e44b6e1955292c75227"
 dependencies = [
  "clipboard-win",
- "image 0.25.6",
+ "image",
  "log",
  "objc2 0.6.1",
  "objc2-app-kit 0.3.1",
@@ -553,7 +553,7 @@ dependencies = [
  "disqualified",
  "egui",
  "fuzzy-matcher",
- "image 0.25.6",
+ "image",
  "smallvec",
  "uuid",
  "winit",
@@ -860,7 +860,7 @@ dependencies = [
  "crossbeam-channel",
  "egui",
  "encase",
- "image 0.25.6",
+ "image",
  "js-sys",
  "thread_local",
  "wasm-bindgen",
@@ -972,8 +972,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_gltf_export"
-version = "0.1.0"
-source = "git+https://github.com/luca-della-vedova/bevy_gltf_export?rev=098fc7c#098fc7c64e40bffb796ae6945177e7f708a20cc9"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "603584eb2bb0b7ff7e97800c26524ebf22b1a1a525fafebadd982d42cecfe70b"
 dependencies = [
  "bevy_asset",
  "bevy_color",
@@ -983,10 +984,10 @@ dependencies = [
  "bevy_transform",
  "gltf",
  "gltf-json",
- "image 0.24.9",
+ "image",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -1007,7 +1008,7 @@ dependencies = [
  "futures-lite 2.6.0",
  "guillotiere",
  "half",
- "image 0.25.6",
+ "image",
  "ktx2",
  "rectangle-pack",
  "ruzstd",
@@ -1407,7 +1408,7 @@ dependencies = [
  "encase",
  "fixedbitset",
  "futures-lite 2.6.0",
- "image 0.25.6",
+ "image",
  "indexmap 2.10.0",
  "js-sys",
  "ktx2",
@@ -3746,24 +3747,6 @@ dependencies = [
 
 [[package]]
 name = "image"
-version = "0.24.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5690139d2f55868e080017335e4b94cb7414274c74f1669c84fb5feba2c9f69d"
-dependencies = [
- "bytemuck",
- "byteorder",
- "color_quant",
- "exr",
- "gif",
- "jpeg-decoder",
- "num-traits",
- "png",
- "qoi",
- "tiff",
-]
-
-[[package]]
-name = "image"
 version = "0.25.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "db35664ce6b9810857a38a906215e75a9c879f0696556a39f59c62829710251a"
@@ -3989,9 +3972,6 @@ name = "jpeg-decoder"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "00810f1d8b74be64b13dbf3db89ac67740615d6c891f0e7b6179326533011a07"
-dependencies = [
- "rayon",
-]
 
 [[package]]
 name = "js-sys"
