@@ -38,8 +38,8 @@ use bevy::{
     render::{mesh::VertexAttributeValues, view::RenderLayers},
     scene::SceneInstance,
 };
-use crossflow::prelude::{*, DeliveryLabel};
 use bevy_mod_outline::{GenerateOutlineNormalsSettings, OutlineMeshExt};
+use crossflow::prelude::{DeliveryLabel, *};
 use rmf_site_camera::MODEL_PREVIEW_LAYER;
 use rmf_site_format::{
     Affiliation, AssetSource, Group, Inclusion, IssueKey, ModelInstance, ModelMarker,

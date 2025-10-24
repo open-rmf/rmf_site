@@ -1,7 +1,7 @@
 use bevy_derive::{Deref, DerefMut};
 pub use bevy_ecs::prelude::*;
-use crossflow::Service;
 use bytemuck::TransparentWrapper;
+use crossflow::Service;
 
 use crate::*;
 use web_time::Instant;

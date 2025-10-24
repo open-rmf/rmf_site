@@ -17,8 +17,8 @@
 
 use bevy_app::{App, Last, Plugin};
 use bevy_ecs::prelude::*;
-use crossflow::*;
 use bevy_input::prelude::*;
+use crossflow::*;
 
 pub struct KeyboardServicePlugin;
 
