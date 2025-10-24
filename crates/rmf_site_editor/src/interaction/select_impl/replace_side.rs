@@ -19,6 +19,7 @@ use crate::{
     interaction::*,
     site::{ChangeDependent, Original},
 };
+use anyhow::Error as Anyhow;
 use bevy::prelude::*;
 use bevy_impulse::*;
 use rmf_site_format::{Edge, Side};
@@ -61,6 +62,8 @@ pub struct ReplaceSide {
     /// cleanup will revert the edge to its original state. If true, the cleanup
     /// will not need to do anything.
     pub replaced: bool,
+    /// Whether or not the replaced side must be on a consistent level with the original.
+    pub level_consistency: bool,
 }
 
 impl ReplaceSide {
@@ -71,6 +74,7 @@ impl ReplaceSide {
             scope,
             original: None,
             replaced: false,
+            level_consistency: true,
         }
     }
 
@@ -78,9 +82,20 @@ impl ReplaceSide {
         &mut self,
         chosen: Entity,
         edges: &mut Query<&mut Edge<Entity>>,
+        parents: &Query<&ChildOf>,
+        lifts: &Query<(), With<LiftCabin<Entity>>>,
+        cursor_anchor: Entity,
         commands: &mut Commands,
-    ) -> SelectionNodeResult {
+    ) -> Result<bool, Option<Anyhow>> {
         let original = self.original.or_broken_buffer()?;
+        if self.level_consistency && chosen != cursor_anchor {
+            let a = original.array()[self.side.index()];
+            if !are_anchors_siblings(a, chosen, &parents, &lifts)? {
+                warn!("Unable to use selected anchor because it is on an incompatible level");
+                return Ok(false);
+            }
+        }
+
         let mut edge_mut = edges.get_mut(self.edge).or_broken_query()?;
 
         for a in edge_mut.array() {
@@ -106,7 +121,7 @@ impl ReplaceSide {
             commands.queue(ChangeDependent::add(a, self.edge));
         }
 
-        Ok(())
+        Ok(true)
     }
 }
 
@@ -119,7 +134,9 @@ impl Borrow<AnchorScope> for ReplaceSide {
 pub fn replace_side_setup(
     In(key): In<BufferKey<ReplaceSide>>,
     mut access: BufferAccessMut<ReplaceSide>,
-    mut edges: Query<&'static mut Edge<Entity>>,
+    mut edges: Query<&mut Edge<Entity>>,
+    parents: Query<&ChildOf>,
+    lifts: Query<(), With<LiftCabin<Entity>>>,
     cursor: Res<Cursor>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
@@ -130,7 +147,14 @@ pub fn replace_side_setup(
     let original_edge: Edge<Entity> = *edge_ref;
     state.original = Some(original_edge);
     commands.entity(state.edge).insert(Original(original_edge));
-    state.set_chosen(cursor.level_anchor_placement, &mut edges, &mut commands)?;
+    state.set_chosen(
+        cursor.level_anchor_placement,
+        &mut edges,
+        &parents,
+        &lifts,
+        cursor.level_anchor_placement,
+        &mut commands,
+    )?;
 
     Ok(())
 }
@@ -141,6 +165,8 @@ pub fn on_hover_for_replace_side(
     mut cursor: ResMut<Cursor>,
     mut visibility: Query<&mut Visibility>,
     mut edges: Query<&mut Edge<Entity>>,
+    parents: Query<&ChildOf>,
+    lifts: Query<(), With<LiftCabin<Entity>>>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
@@ -157,27 +183,52 @@ pub fn on_hover_for_replace_side(
         }
     };
 
-    state.set_chosen(chosen, &mut edges, &mut commands)
+    state.set_chosen(
+        chosen,
+        &mut edges,
+        &parents,
+        &lifts,
+        cursor.level_anchor_placement,
+        &mut commands,
+    )?;
+
+    Ok(())
 }
 
 pub fn on_select_for_replace_side(
     In((selection, key)): In<(SelectionCandidate, BufferKey<ReplaceSide>)>,
     mut access: BufferAccessMut<ReplaceSide>,
     mut edges: Query<&mut Edge<Entity>>,
+    parents: Query<&ChildOf>,
+    lifts: Query<(), With<LiftCabin<Entity>>>,
+    cursor: Res<Cursor>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.newest_mut().or_broken_state()?;
-    state.set_chosen(selection.candidate, &mut edges, &mut commands)?;
-    state.replaced = true;
-    // Since the selection has been made, we should exit the workflow now
-    Err(None)
+    if state.set_chosen(
+        selection.candidate,
+        &mut edges,
+        &parents,
+        &lifts,
+        cursor.level_anchor_placement,
+        &mut commands,
+    )? {
+        state.replaced = true;
+        // Since the selection has been made, we should exit the workflow now
+        return Err(None);
+    }
+
+    Ok(())
 }
 
 pub fn cleanup_replace_side(
     In(key): In<BufferKey<ReplaceSide>>,
     mut access: BufferAccessMut<ReplaceSide>,
     mut edges: Query<&'static mut Edge<Entity>>,
+    parents: Query<&ChildOf>,
+    lifts: Query<(), With<LiftCabin<Entity>>>,
+    cursor: Res<Cursor>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
@@ -199,7 +250,14 @@ pub fn cleanup_replace_side(
     };
 
     let revert = original.array()[state.side.index()];
-    state.set_chosen(revert, &mut edges, &mut commands)?;
+    state.set_chosen(
+        revert,
+        &mut edges,
+        &parents,
+        &lifts,
+        cursor.level_anchor_placement,
+        &mut commands,
+    )?;
 
     Ok(())
 }

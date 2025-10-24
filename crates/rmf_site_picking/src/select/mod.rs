@@ -152,15 +152,7 @@ pub enum SelectionServiceStages {
 
 #[derive(SystemParam)]
 struct InspectorFilter<'w, 's> {
-    selectables: Query<
-        'w,
-        's,
-        &'static Selectable,
-        (
-            Without<Preview>,
-            // Without<Pending>
-        ),
-    >,
+    selectables: Query<'w, 's, &'static Selectable, Without<Preview>>,
 }
 
 impl<'w, 's> SelectionFilter for InspectorFilter<'w, 's> {
@@ -177,7 +169,7 @@ impl<'w, 's> SelectionFilter for InspectorFilter<'w, 's> {
         Some(Select::new(hovered.0))
     }
 }
-pub type SelectionNodeResult = Result<(), Option<Anyhow>>;
+pub type SelectionNodeResult<T = ()> = Result<T, Option<Anyhow>>;
 
 pub trait CommonNodeErrors {
     type Value;

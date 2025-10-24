@@ -1,4 +1,5 @@
 use bevy_app::prelude::*;
+use bevy_picking::PickSet;
 use rmf_site_camera::plugins::BlockerRegistryPlugin;
 
 use crate::*;
@@ -14,7 +15,7 @@ impl Plugin for PickingRMFPlugin {
             .add_plugins(BlockerRegistryPlugin::<PickingBlockers>::default())
             .add_plugins(PickBlockerRegistration::<UiFocused>::default())
             .add_plugins(PickBlockerRegistration::<IteractionMaskHovered>::default())
-            .add_systems(First, update_picked)
+            .add_systems(PreUpdate, update_picked.after(PickSet::Last))
             .add_systems(PreUpdate, check_ui_focus);
     }
 }

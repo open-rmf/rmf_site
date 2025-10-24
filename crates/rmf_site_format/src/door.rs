@@ -96,6 +96,36 @@ impl DoorType {
             Self::Model(_) => "Model",
         }
     }
+
+    pub fn set_open(&mut self) {
+        self.set_positions(1.0);
+    }
+
+    pub fn set_closed(&mut self) {
+        self.set_positions(0.0);
+    }
+
+    pub fn set_positions(&mut self, position: f32) {
+        match self {
+            Self::SingleSliding(door) => {
+                door.position = position;
+            }
+            Self::SingleSwing(door) => {
+                door.position = position;
+            }
+            Self::DoubleSliding(door) => {
+                door.left_position = position;
+                door.right_position = position;
+            }
+            Self::DoubleSwing(door) => {
+                door.left_position = position;
+                door.right_position = position;
+            }
+            Self::Model(_) => {
+                // Unsupported for now
+            }
+        }
+    }
 }
 
 impl Default for DoorType {
@@ -430,10 +460,17 @@ impl<T: RefTrait> Door<T> {
 
 impl<T: RefTrait> From<Edge<T>> for Door<T> {
     fn from(edge: Edge<T>) -> Self {
+        // When converting an edge into a door, initialize it as closed instead of open.
+        // This is more intuitive for users who are creating a door.
+        let kind = SingleSlidingDoor {
+            position: 0.0,
+            ..Default::default()
+        };
+
         Door {
             anchors: edge,
             name: NameInSite("<Unnamed>".to_string()),
-            kind: SingleSlidingDoor::default().into(),
+            kind: kind.into(),
             marker: Default::default(),
         }
     }
