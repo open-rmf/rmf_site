@@ -17,8 +17,11 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Component, Reflect};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use {
+    bevy::prelude::{Component, Reflect},
+    serde::de::DeserializeOwned
+};
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
