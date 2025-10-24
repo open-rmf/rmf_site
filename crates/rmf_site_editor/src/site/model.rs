@@ -173,7 +173,7 @@ fn load_asset_source(
                     return Err(ModelLoadingErrorKind::InvalidAssetSource(err.to_string()));
                 }
             };
-            asset_server
+            let handle = asset_server
                 .load_untyped_async(&asset_path)
                 .await
                 .map_err(|err| {
@@ -187,7 +187,15 @@ fn load_asset_source(
                         error!("Failed attempt to load asset with [{asset_path}]: {err}");
                     }
                     ModelLoadingErrorKind::AssetServerError(err.to_string())
+                })?;
+            asset_server
+                .wait_for_asset_untyped(&handle)
+                .await
+                .map_err(|err| {
+                    error!("Failed attempt to load asset with [{asset_path}]: {err}");
+                    ModelLoadingErrorKind::AssetServerError(err.to_string())
                 })
+                .map(|_| handle)
         }
     }
 }
