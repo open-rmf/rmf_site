@@ -8,10 +8,6 @@ license = "Apache-2.0"
 repository = "https://github.com/open-rmf/rmf_site"
 readme = "../../README.md"
 
-include = [
-    "../../assets/demo_maps/office.building.yaml"
-]
-
 [lib]
 crate-type = ["cdylib", "rlib"]
 name = "librmf_site_editor"
