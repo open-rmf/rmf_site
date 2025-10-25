@@ -30,11 +30,9 @@ jobs:
         cargo test
 
     - name: Test rmf_site_editor
-      # As of 1.90 we need to use nightly for the rmf_site_editor tests to pass
       run: |
-        cd crates/rmf_site_editor
         rustc -Vv
         cargo -V
-        cargo build
+        cargo test
       shell: cmd
 
