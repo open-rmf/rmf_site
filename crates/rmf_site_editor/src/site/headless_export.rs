@@ -99,8 +99,8 @@ pub fn headless_export(
         return;
     }
 
-    let is_for_simulation = export_state.sdf_target_path.is_some()
-        && export_state.save_target_path.is_none();
+    let is_for_simulation =
+        export_state.sdf_target_path.is_some() && export_state.save_target_path.is_none();
 
     if is_for_simulation {
         for mut vis in &mut floor_visibilities {

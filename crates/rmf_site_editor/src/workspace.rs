@@ -276,10 +276,7 @@ impl FromWorld for SiteLoadingServices {
         let loading_filters = vec![
             FileDialogFilter {
                 name: "Site or Building".into(),
-                extensions: vec![
-                    "site.json".into(),
-                    "building.yaml".into(),
-                ],
+                extensions: vec!["site.json".into(), "building.yaml".into()],
             },
             FileDialogFilter {
                 name: "Structured file".into(),
