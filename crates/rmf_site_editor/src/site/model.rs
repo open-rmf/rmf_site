@@ -39,7 +39,7 @@ use bevy::{
     scene::SceneInstance,
 };
 use bevy_mod_outline::{GenerateOutlineNormalsSettings, OutlineMeshExt};
-use crossflow::prelude::{DeliveryLabel, *};
+use crossflow::prelude::*;
 use rmf_site_camera::MODEL_PREVIEW_LAYER;
 use rmf_site_format::{
     Affiliation, AssetSource, Group, Inclusion, IssueKey, ModelInstance, ModelMarker,
@@ -66,7 +66,7 @@ pub struct PendingModel;
 /// For a given `AssetSource`, return all the sources that we should try loading.
 pub fn get_all_for_source(source: &AssetSource) -> Vec<AssetSource> {
     match source {
-        AssetSource::Search(ref name) => {
+        AssetSource::Search(name) => {
             let split: SmallVec<[&str; 8]> = name.split('/').collect();
             let model_name = split.last().unwrap();
             let mut paths = common_model_directory_layouts(&name, model_name);
@@ -157,7 +157,7 @@ fn load_asset_source(
     asset_server: Res<AssetServer>,
     current_workspace: Option<Res<CurrentWorkspace>>,
     site_files: Query<&DefaultFile>,
-) -> impl Future<Output = Result<UntypedHandle, ModelLoadingErrorKind>> {
+) -> impl Future<Output = Result<UntypedHandle, ModelLoadingErrorKind>> + use<> {
     let asset_server = asset_server.clone();
     let base_path = current_workspace.and_then(|w| get_current_workspace_path(w, site_files));
 
@@ -315,7 +315,7 @@ fn handle_model_loading(
         request, channel, ..
     }): AsyncServiceInput<ModelLoadingRequest>,
     model_services: Res<ModelLoadingServices>,
-) -> impl Future<Output = Result<ModelLoadingRequest, ModelLoadingError>> {
+) -> impl Future<Output = Result<ModelLoadingRequest, ModelLoadingError>> + use<> {
     let check_scene_is_spawned = model_services.check_scene_is_spawned.clone();
     async move {
         let sources = get_all_for_source(&request.source);
@@ -402,9 +402,9 @@ fn handle_model_loading_errors(
     mut scene_spawner: ResMut<SceneSpawner>,
     mut delete: EventWriter<Delete>,
 ) -> ModelLoadingResult {
-    let parent = match result {
-        Ok(ref success) => success.request.parent,
-        Err(ref err) => {
+    let parent = match &result {
+        Ok(success) => success.request.parent,
+        Err(err) => {
             let parent = err.request.parent;
             // There was an actual error, cleanup the scene
             if let Ok(scene) = model_scenes.get(parent) {
@@ -560,7 +560,7 @@ fn load_model_dependencies(
     children_q: Query<&Children>,
     models: Query<&AssetSource, With<ModelMarker>>,
     model_loading: Res<ModelLoadingServices>,
-) -> impl Future<Output = Result<ModelLoadingRequest, ModelLoadingError>> {
+) -> impl Future<Output = Result<ModelLoadingRequest, ModelLoadingError>> + use<> {
     let models = DescendantIter::new(&children_q, request.parent)
         .filter_map(|c| models.get(c).ok().map(|source| (c, source.clone())))
         .collect::<Vec<_>>();

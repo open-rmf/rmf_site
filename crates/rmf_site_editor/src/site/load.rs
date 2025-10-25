@@ -85,9 +85,6 @@ impl LoadSite {
                 }
             } else if filename.ends_with(".json") {
                 Site::from_bytes_json(data)?
-            } else if filename.ends_with(".ron") {
-                Site::from_bytes_ron(data)
-                    .map_err(|err| LoadSiteError::RonParsingError(Box::new(err)))?
             } else {
                 return Err(LoadSiteError::UnrecognizedFileType(path.clone()));
             };
@@ -111,9 +108,6 @@ impl LoadSite {
                             .to_site()
                             .map_err(|_| LoadSiteError::UnknownDataFormat)
                     })
-            })
-            .or_else(|_| {
-                Site::from_bytes_ron(data).map_err(|_| LoadSiteError::UnknownDataFormat)
             })?;
 
         Ok(Self {
@@ -142,7 +136,7 @@ pub enum LoadSiteError {
     #[error("Unrecognized file type: {0}")]
     UnrecognizedFileType(PathBuf),
     #[error(
-        "Cannot determine data format for raw data. It could not be parsed as .building.yaml, .site.json, or .site.ron"
+        "Cannot determine data format for raw data. It could not be parsed as .building.yaml or .site.json"
     )]
     UnknownDataFormat,
 }

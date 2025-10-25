@@ -26,7 +26,7 @@ use bevy::{
 use bevy_rich_text3d::TextAtlas;
 use rmf_site_mesh::*;
 
-const LANE_SHADER_PATH: &str = "embedded://librmf_site_editor/site/shaders/lane_arrow_shader.wgsl";
+const LANE_SHADER_PATH: &str = "embedded://rmf_site_editor/site/shaders/lane_arrow_shader.wgsl";
 
 pub const SELECT_COLOR: Color = Color::srgb(1., 0.3, 1.);
 pub const HOVER_COLOR: Color = Color::srgb(0.3, 1., 1.);
@@ -180,21 +180,21 @@ impl FromWorld for SiteAssets {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.get_resource::<AssetServer>().unwrap();
         let base_billboard_texture =
-            asset_server.load("embedded://librmf_site_editor/site/textures/base.png");
+            asset_server.load("embedded://rmf_site_editor/site/textures/base.png");
         let charger_texture =
-            asset_server.load("embedded://librmf_site_editor/site/textures/charging.png");
+            asset_server.load("embedded://rmf_site_editor/site/textures/charging.png");
         let holding_point_texture =
-            asset_server.load("embedded://librmf_site_editor/site/textures/holding.png");
+            asset_server.load("embedded://rmf_site_editor/site/textures/holding.png");
         let parking_texture =
-            asset_server.load("embedded://librmf_site_editor/site/textures/parking.png");
+            asset_server.load("embedded://rmf_site_editor/site/textures/parking.png");
         let lockpad_texture =
-            asset_server.load("embedded://librmf_site_editor/site/textures/lockpad.png");
+            asset_server.load("embedded://rmf_site_editor/site/textures/lockpad.png");
         let empty_billboard_texture =
-            asset_server.load("embedded://librmf_site_editor/site/textures/empty.png");
+            asset_server.load("embedded://rmf_site_editor/site/textures/empty.png");
         let door_cue_texture =
-            asset_server.load("embedded://librmf_site_editor/site/textures/door_cue.png");
-        let door_cue_highlighted_texture = asset_server
-            .load("embedded://librmf_site_editor/site/textures/door_cue_highlighted.png");
+            asset_server.load("embedded://rmf_site_editor/site/textures/door_cue.png");
+        let door_cue_highlighted_texture =
+            asset_server.load("embedded://rmf_site_editor/site/textures/door_cue_highlighted.png");
 
         let mut materials = world
             .get_resource_mut::<Assets<StandardMaterial>>()

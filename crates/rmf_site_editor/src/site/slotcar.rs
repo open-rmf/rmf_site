@@ -22,7 +22,7 @@ use crate::site::{
 };
 use bevy::{ecs::relationship::AncestorIter, prelude::*};
 use rmf_site_format::robot_properties::*;
-use sdformat_rs::{ElementData, ElementMap, XmlElement};
+use sdformat::{ElementData, ElementMap, XmlElement};
 use serde_json::{Map, Value};
 
 pub struct SlotcarSdfPlugin;
@@ -403,7 +403,7 @@ impl SlotcarParams {
     }
 }
 
-fn slotcar_export_handler(In(input): In<(Entity, Value)>) -> sdformat_rs::XmlElement {
+fn slotcar_export_handler(In(input): In<(Entity, Value)>) -> sdformat::XmlElement {
     let (_, slotcar_config) = input;
     let mut slotcar_params = SlotcarParams::default();
 

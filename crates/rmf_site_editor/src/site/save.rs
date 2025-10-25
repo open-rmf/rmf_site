@@ -34,7 +34,7 @@ use thiserror::Error as ThisError;
 
 use crate::{exit_confirmation::SiteChanged, recency::RecencyRanking, site::*, ExportFormat};
 use rmf_site_format::*;
-use sdformat_rs::yaserde;
+use sdformat::yaserde;
 
 #[derive(Event)]
 pub struct SaveSite {
@@ -1467,10 +1467,10 @@ fn generate_model_instances(
     for (entity, (id, name, pose, level_id, description_id, description_export)) in
         model_instances_data.iter()
     {
-        let mut export_data = HashMap::<String, sdformat_rs::XmlElement>::new();
+        let mut export_data = HashMap::<String, sdformat::XmlElement>::new();
         for (label, value) in description_export.iter() {
             if let Some(data) = world
-                .resource_scope::<ExportHandlers, Option<sdformat_rs::XmlElement>>(
+                .resource_scope::<ExportHandlers, Option<sdformat::XmlElement>>(
                     move |world, mut export_handlers| {
                         if let Some(export_handler) = export_handlers.get_mut(label) {
                             export_handler.export(*entity, value.clone(), world)
@@ -1775,12 +1775,11 @@ pub fn save_site(world: &mut World) {
                 if path_str.ends_with(".building.yaml") {
                     warn!("Detected old file format, converting to new format");
                     new_path = path_str.replace(".building.yaml", ".site.json").into();
-                } else if path_str.ends_with(".site.ron") {
-                    // Noop, we allow .site.ron to remain as-is
                 } else if !path_str.ends_with(".site.json") {
                     info!("Appending .site.json to {}", new_path.display());
                     new_path = new_path.with_extension("site.json");
                 }
+
                 info!("Saving to {}", new_path.display());
                 let f = match std::fs::File::create(new_path.clone()) {
                     Ok(f) => f,
@@ -1801,31 +1800,16 @@ pub fn save_site(world: &mut World) {
                     }
                 };
 
-                if new_path.extension().is_some_and(|e| e == "json") {
-                    match site.to_writer_json(f) {
-                        Ok(()) => {
-                            info!("Save successful");
-                        }
-                        Err(err) => {
-                            if let Some(old_default_path) = old_default_path {
-                                world.entity_mut(save_event.site).insert(old_default_path);
-                            }
-                            error!("Save failed: {err}");
-                            continue;
-                        }
+                match site.to_writer_json(f) {
+                    Ok(()) => {
+                        info!("Save successful");
                     }
-                } else {
-                    match site.to_writer_ron(f) {
-                        Ok(()) => {
-                            info!("Save successful");
+                    Err(err) => {
+                        if let Some(old_default_path) = old_default_path {
+                            world.entity_mut(save_event.site).insert(old_default_path);
                         }
-                        Err(err) => {
-                            if let Some(old_default_path) = old_default_path {
-                                world.entity_mut(save_event.site).insert(old_default_path);
-                            }
-                            error!("Save failed: {err}");
-                            continue;
-                        }
+                        error!("Save failed: {err}");
+                        continue;
                     }
                 }
 

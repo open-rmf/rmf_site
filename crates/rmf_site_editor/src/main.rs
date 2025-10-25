@@ -1,3 +1,3 @@
 fn main() {
-    librmf_site_editor::run(std::env::args().collect());
+    rmf_site_editor::run(std::env::args().collect());
 }

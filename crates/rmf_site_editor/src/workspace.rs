@@ -276,11 +276,7 @@ impl FromWorld for SiteLoadingServices {
         let loading_filters = vec![
             FileDialogFilter {
                 name: "Site or Building".into(),
-                extensions: vec![
-                    "site.ron".into(),
-                    "site.json".into(),
-                    "building.yaml".into(),
-                ],
+                extensions: vec!["site.json".into(), "building.yaml".into()],
             },
             FileDialogFilter {
                 name: "Structured file".into(),
@@ -543,7 +539,7 @@ impl FromWorld for WorkspaceSavingServices {
         let saving_filters = vec![
             FileDialogFilter {
                 name: "Site".into(),
-                extensions: vec!["site.json".into(), "site.ron".into()],
+                extensions: vec!["site.json".into()],
             },
             FileDialogFilter {
                 name: "All Files".into(),

@@ -122,7 +122,7 @@ pub fn detect_new_geographic_component(
             return;
         };
 
-        let MenuItem::CheckBox(_, ref mut value) = checkbox.as_mut() else {
+        let MenuItem::CheckBox(_, value) = checkbox.as_mut() else {
             return;
         };
 
@@ -138,7 +138,7 @@ pub fn detect_new_geographic_component(
             return;
         };
 
-        let MenuItem::CheckBox(_, ref mut value) = checkbox.as_mut() else {
+        let MenuItem::CheckBox(_, value) = checkbox.as_mut() else {
             return;
         };
 
@@ -162,7 +162,7 @@ pub fn handle_visibility_change(
         return;
     };
 
-    let Some(ref mut comp) = comp.0 else {
+    let Some(comp) = &mut comp.0 else {
         return;
     };
 

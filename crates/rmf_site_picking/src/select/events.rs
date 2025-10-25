@@ -9,9 +9,11 @@ pub struct RunSelector {
     /// The select workflow will run this service until it terminates and then
     /// revert back to the inspector selector.
     pub selector: Service<Option<Entity>, ()>,
-    /// If there is input for the selector, it will be stored in a [`SelectorInput`]
+    /// If there is input for the selector, it will be stored in a [`SelectorInput`][1]
     /// component in this entity. The entity will be despawned as soon as the
     /// input is extracted.
+    ///
+    /// [1]: crate::select::components::SelectorInput
     pub input: Option<Entity>,
 }
 
