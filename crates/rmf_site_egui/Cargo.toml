@@ -1,6 +1,6 @@
 [package]
 name = "rmf_site_egui"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2024"
 authors = ["Grey <mxgrey@intrinsic.ai>"]
 description = "Barebones bevy_egui widgets for the rmf_site_editor"

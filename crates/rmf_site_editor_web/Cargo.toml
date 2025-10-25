@@ -1,6 +1,6 @@
 [package]
 name = "rmf_site_editor_web"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2024"
 description = "Web build of the rmf_site_editor"
 license = "Apache-2.0"

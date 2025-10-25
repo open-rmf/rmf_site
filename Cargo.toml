@@ -24,14 +24,14 @@ opt-level = 3
 serde = { version = "1.0" }
 strum = { version = "0.26", features = ["derive"] }
 
-rmf_site_picking = { path = "crates/rmf_site_picking", version = "0.0.1"}
-rmf_site_format = { path = "crates/rmf_site_format", version = "0.0.1" }
-rmf_site_editor = { path = "crates/rmf_site_editor", version = "0.0.1"}
-rmf_site_editor_web = { path = "crates/rmf_site_editor_web", version = "0.0.1"}
-rmf_site_animate = {path = "crates/rmf_site_animate", version = "0.0.1"}
-rmf_site_camera = {path = "crates/rmf_site_camera", version = "0.0.1"}
-rmf_site_mesh = {path = "crates/rmf_site_mesh", version = "0.0.1"}
-rmf_site_egui = {path = "crates/rmf_site_egui", version = "0.0.1"}
+rmf_site_picking = { path = "crates/rmf_site_picking", version = "0.0.2"}
+rmf_site_format = { path = "crates/rmf_site_format", version = "0.0.2" }
+rmf_site_editor = { path = "crates/rmf_site_editor", version = "0.0.2"}
+rmf_site_editor_web = { path = "crates/rmf_site_editor_web", version = "0.0.2"}
+rmf_site_animate = {path = "crates/rmf_site_animate", version = "0.0.2"}
+rmf_site_camera = {path = "crates/rmf_site_camera", version = "0.0.2"}
+rmf_site_mesh = {path = "crates/rmf_site_mesh", version = "0.0.2"}
+rmf_site_egui = {path = "crates/rmf_site_egui", version = "0.0.2"}
 mapf = "0.3"
 serde_yaml = "0.8.23"
 serde_json = "1.0"

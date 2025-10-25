@@ -5615,7 +5615,7 @@ dependencies = [
 
 [[package]]
 name = "rmf_site_animate"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "bevy",
  "bevy-inspector-egui",
@@ -5631,7 +5631,7 @@ dependencies = [
 
 [[package]]
 name = "rmf_site_camera"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "anyhow",
  "bevy",
@@ -5660,7 +5660,7 @@ dependencies = [
 
 [[package]]
 name = "rmf_site_editor"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "anyhow",
  "bevy",
@@ -5712,7 +5712,7 @@ dependencies = [
 
 [[package]]
 name = "rmf_site_editor_web"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "console_error_panic_hook",
  "getrandom 0.3.4",
@@ -5722,7 +5722,7 @@ dependencies = [
 
 [[package]]
 name = "rmf_site_egui"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "bevy",
  "bevy-inspector-egui",
@@ -5735,7 +5735,7 @@ dependencies = [
 
 [[package]]
 name = "rmf_site_format"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "bevy",
  "float_eq",
@@ -5755,7 +5755,7 @@ dependencies = [
 
 [[package]]
 name = "rmf_site_mesh"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "bevy",
  "bevy-inspector-egui",
@@ -5771,7 +5771,7 @@ dependencies = [
 
 [[package]]
 name = "rmf_site_picking"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "anyhow",
  "bevy",

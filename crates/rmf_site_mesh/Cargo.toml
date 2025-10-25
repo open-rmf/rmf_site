@@ -1,6 +1,6 @@
 [package]
 name = "rmf_site_mesh"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2024"
 authors = ["Grey <mxgrey@intrinsic.ai>"]
 description = "Mesh building utilties for rmf_site_editor"

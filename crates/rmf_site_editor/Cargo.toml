@@ -1,6 +1,6 @@
 [package]
 name = "rmf_site_editor"
-version = "0.0.1"
+version = "0.0.2"
 # We need to keep this on edition 2021 because of a strange linking issue:
 # https://github.com/rust-lang/cargo/issues/8531#issuecomment-3446171638
 edition = "2021"
