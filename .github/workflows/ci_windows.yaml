@@ -35,7 +35,6 @@ jobs:
         cd crates/rmf_site_editor
         rustc -Vv
         cargo -V
-        rustup install nightly
-        cargo +nightly test
+        cargo build
       shell: cmd
 

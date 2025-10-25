@@ -9,8 +9,7 @@ repository = "https://github.com/open-rmf/rmf_site"
 readme = "../../README.md"
 
 [lib]
-crate-type = ["cdylib", "rlib"]
-name = "librmf_site_editor"
+name = "rmf_site_editor"
 
 [[bin]]
 path = "src/main.rs"

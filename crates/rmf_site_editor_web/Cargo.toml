@@ -9,7 +9,7 @@ readme = "README.md"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
-name = "librmf_site_editor_web"
+name = "rmf_site_editor_web"
 
 [dependencies]
 wasm-bindgen = {workspace = true} # Remember to update the README if we change this version number
