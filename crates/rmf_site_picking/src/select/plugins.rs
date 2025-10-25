@@ -58,6 +58,7 @@ where
         .add_plugins(PickingRMFPlugin)
         .init_resource::<SelectionBlockers>()
         .init_resource::<Selection>()
+        .init_resource::<MultiSelection>()
         .init_resource::<Hovering>()
         .add_event::<DoubleClickSelect>()
         .add_event::<Select>()

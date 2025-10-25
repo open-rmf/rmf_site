@@ -1,6 +1,7 @@
 use bevy_derive::{Deref, DerefMut};
 pub use bevy_ecs::prelude::*;
 use bytemuck::TransparentWrapper;
+use std::collections::HashSet;
 use crossflow::Service;
 
 use crate::*;
@@ -9,6 +10,10 @@ use web_time::Instant;
 /// Used as a resource to keep track of which entity is currently selected.
 #[derive(Default, Debug, Clone, Copy, Deref, DerefMut, Resource)]
 pub struct Selection(pub Option<Entity>);
+
+/// Used as a resource to keep track of selecting multiple entities
+#[derive(Default, Debug, Clone, Deref, DerefMut, Resource)]
+pub struct MultiSelection(pub HashSet<Entity>);
 
 /// Used as a resource to keep track of which entity is currently hovered.
 #[derive(Default, Debug, Clone, Copy, Deref, DerefMut, Resource)]

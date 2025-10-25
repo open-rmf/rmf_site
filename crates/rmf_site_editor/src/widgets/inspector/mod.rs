@@ -110,7 +110,7 @@ pub use inspect_texture::*;
 
 pub mod inspect_value;
 pub use inspect_value::*;
-use rmf_site_picking::Selection;
+use rmf_site_picking::{MultiSelection, Selection};
 
 use crate::site::{Category, SiteID};
 use bevy::{
@@ -348,6 +348,14 @@ impl<'w, 's> WidgetSystem<Tile> for Inspector<'w, 's> {
                 let Some(selection) = world.get_resource::<Selection>() else {
                     ui.label("ERROR: Selection resource is not available");
                     return;
+                };
+
+                if let Some(multi_selection) = world.get_resource::<MultiSelection>() {
+                    // If multiple entities are selected, we skip showing the Inspect plugin.
+                    if multi_selection.0.len() > 1 {
+                        ui.label("Using multi-selection of entities. Disabling Inspector widget.");
+                        return;
+                    }
                 };
 
                 let Some(mut selection) = selection.0 else {

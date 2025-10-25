@@ -44,20 +44,35 @@ pub fn selection_update(
     }): BlockingServiceInput<Select>,
     mut selected: Query<&mut Selected>,
     mut selection: ResMut<Selection>,
+    mut multi_selection: ResMut<MultiSelection>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
     if selection.0 != new_selection.map(|s| s.candidate) {
         if let Some(previous_selection) = selection.0 {
-            if let Ok(mut selected) = selected.get_mut(previous_selection) {
-                selected.is_selected = false;
+            if !keyboard_input.pressed(KeyCode::ShiftLeft) {
+                if let Ok(mut selected) = selected.get_mut(previous_selection) {
+                    selected.is_selected = false;
+                }
             }
         }
 
         if let Some(new_selection) = new_selection {
+            if !keyboard_input.pressed(KeyCode::ShiftLeft) {
+                multi_selection.0.iter().for_each(|e| {
+                    if let Ok(mut selected) = selected.get_mut(*e) {
+                        selected.is_selected = false;
+                    }
+                });
+                multi_selection.0.clear();
+            }
+
             if let Ok(mut selected) = selected.get_mut(new_selection.candidate) {
                 selected.is_selected = true;
             }
+            multi_selection.0.insert(new_selection.candidate);
         }
 
+        // Assign new selection
         selection.0 = new_selection.map(|s| s.candidate);
     }
 }
