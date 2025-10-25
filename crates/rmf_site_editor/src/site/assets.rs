@@ -193,8 +193,8 @@ impl FromWorld for SiteAssets {
             asset_server.load("embedded://rmf_site_editor/site/textures/empty.png");
         let door_cue_texture =
             asset_server.load("embedded://rmf_site_editor/site/textures/door_cue.png");
-        let door_cue_highlighted_texture = asset_server
-            .load("embedded://rmf_site_editor/site/textures/door_cue_highlighted.png");
+        let door_cue_highlighted_texture =
+            asset_server.load("embedded://rmf_site_editor/site/textures/door_cue_highlighted.png");
 
         let mut materials = world
             .get_resource_mut::<Assets<StandardMaterial>>()
