@@ -18,7 +18,7 @@
 use crate::CurrentWorkspace;
 use bevy::ecs::hierarchy::ChildOf;
 use bevy::prelude::*;
-use rmf_site_camera::{ActiveCameraQuery, active_camera_maybe, resources::CameraConfig};
+use rmf_site_camera::{active_camera_maybe, resources::CameraConfig, ActiveCameraQuery};
 use rmf_site_format::{
     LevelElevation, LevelProperties, NameInSite, NameOfSite, Pose, ScenarioModifiers,
     UserCameraPoseMarker,

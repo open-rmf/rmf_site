@@ -17,12 +17,12 @@
 
 use super::get_selected_description_entity;
 use crate::{
-    CurrentWorkspace,
     site::{
         AssetSource, Change, DefaultFile, Group, ModelLoader, ModelMarker, ModelProperty,
         ModelPropertyQuery, RecallAssetSource, Scale,
     },
-    widgets::{Inspect, InspectAssetSourceComponent, InspectScaleComponent, prelude::*},
+    widgets::{prelude::*, Inspect, InspectAssetSourceComponent, InspectScaleComponent},
+    CurrentWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_egui::*;

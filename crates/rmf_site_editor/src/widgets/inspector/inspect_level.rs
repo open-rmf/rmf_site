@@ -19,7 +19,7 @@ use crate::{
     site::{
         CurrentScenario, GetModifier, LevelElevation, Modifier, NameInSite, OnLevel, UpdateModifier,
     },
-    widgets::{Inspect, prelude::*},
+    widgets::{prelude::*, Inspect},
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{ComboBox, Ui};

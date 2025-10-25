@@ -19,9 +19,9 @@ use crate::{
     interaction::MoveTo,
     site::{Anchor, Category, Dependents, Subordinate},
     widgets::{
-        Icons, SelectorWidget,
         inspector::{Inspect, InspectPoseComponent},
         prelude::*,
+        Icons, SelectorWidget,
     },
 };
 use bevy::{ecs::system::SystemParam, prelude::*};

@@ -16,14 +16,14 @@
 */
 
 use crate::site::{
-    ExtensionSettings,
     load::{LoadingArgs, LoadingResult, LoadingSystem},
     save::{SavingArgs, SavingResult, SavingSystem},
+    ExtensionSettings,
 };
 use bevy::{ecs::system::IntoSystem, prelude::*};
 
 use std::{
-    collections::{HashMap, hash_map::Entry},
+    collections::{hash_map::Entry, HashMap},
     error::Error,
     sync::Arc,
 };

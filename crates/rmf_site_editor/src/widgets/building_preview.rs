@@ -16,9 +16,9 @@
 */
 
 use crate::{
-    AppState, CurrentWorkspace, Icons,
     site::{AlignSiteDrawings, FinishEditDrawing},
     widgets::prelude::*,
+    AppState, CurrentWorkspace, Icons,
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{Button, Ui};

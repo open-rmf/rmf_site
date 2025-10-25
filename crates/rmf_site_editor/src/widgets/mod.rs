@@ -45,7 +45,7 @@
 
 use crate::AppState;
 use bevy::{ecs::system::SystemState, prelude::*};
-use bevy_egui::{EguiContexts, egui};
+use bevy_egui::{egui, EguiContexts};
 
 pub mod building_preview;
 use building_preview::*;

@@ -16,13 +16,13 @@
 */
 
 use crate::{
-    AppState, CurrentWorkspace, Icons,
     interaction::ObjectPlacement,
     site::{
         Affiliation, Change, Delete, FiducialMarker, Group, MergeGroups, ModelInstance,
         ModelMarker, MutexMarker, NameInSite, SiteID, Texture,
     },
-    widgets::{SelectorWidget, prelude::*},
+    widgets::{prelude::*, SelectorWidget},
+    AppState, CurrentWorkspace, Icons,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Button, CollapsingHeader, TextEdit, Ui, Widget};

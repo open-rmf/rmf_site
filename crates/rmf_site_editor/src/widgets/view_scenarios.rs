@@ -16,12 +16,12 @@
 */
 
 use crate::{
-    CurrentWorkspace, Icons,
     site::{
         Affiliation, Change, ChangeCurrentScenario, ChangeDefaultScenario, CreateScenario,
         CurrentScenario, DefaultScenario, NameInSite, RemoveScenario, ScenarioModifiers,
     },
     widgets::prelude::*,
+    CurrentWorkspace, Icons,
 };
 use bevy::{
     ecs::{hierarchy::ChildOf, system::SystemParam},

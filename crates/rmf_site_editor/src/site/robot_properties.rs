@@ -16,8 +16,8 @@
 */
 
 use crate::site::{
-    Change, Group, ModelMarker, ModelProperty, ModelPropertyData, NameInSite, Recall, RecallPlugin,
-    Robot, update_model_instances,
+    update_model_instances, Change, Group, ModelMarker, ModelProperty, ModelPropertyData,
+    NameInSite, Recall, RecallPlugin, Robot,
 };
 use bevy::{ecs::component::Mutable, prelude::*};
 use rmf_site_format::robot_properties::*;

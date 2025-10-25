@@ -18,9 +18,9 @@
 use crate::{
     site::Change,
     widgets::{
-        Inspect,
         inspector::{InspectAngle, InspectSide},
         prelude::*,
+        Inspect,
     },
 };
 use bevy::prelude::*;

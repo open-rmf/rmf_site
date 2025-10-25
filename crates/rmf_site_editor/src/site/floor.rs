@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{RecencyRanking, layers::ZLayer, site::*};
+use crate::{layers::ZLayer, site::*, RecencyRanking};
 use bevy::{
     ecs::hierarchy::ChildOf,
     math::Affine3A,
@@ -23,8 +23,8 @@ use bevy::{
     render::{mesh::PrimitiveTopology, render_asset::RenderAssetUsages},
 };
 use geo::{
-    BooleanOps, CoordsIter, TriangulateSpade,
     geometry::{LineString, MultiPolygon, Polygon},
+    BooleanOps, CoordsIter, TriangulateSpade,
 };
 use rmf_site_format::{FloorMarker, Path, Texture};
 use rmf_site_mesh::*;

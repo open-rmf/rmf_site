@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{CurrentWorkspace, interaction::MoveTo, site::*, widgets::inspector::*};
+use crate::{interaction::MoveTo, site::*, widgets::inspector::*, CurrentWorkspace};
 use bevy::prelude::*;
 use bevy_egui::egui::DragValue;
 use rmf_site_egui::*;

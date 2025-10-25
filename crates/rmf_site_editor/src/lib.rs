@@ -68,10 +68,10 @@ use mapf_rse::NegotiationPlugin;
 
 pub mod osm_slippy_map;
 use bevy::render::{
-    RenderApp, RenderPlugin,
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     render_resource::{AddressMode, SamplerDescriptor},
     settings::{WgpuFeatures, WgpuSettings},
+    RenderApp, RenderPlugin,
 };
 pub use osm_slippy_map::*;
 

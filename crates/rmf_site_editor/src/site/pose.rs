@@ -16,11 +16,11 @@
 */
 
 use crate::{
-    Issue, ValidateWorkspace,
     site::{
         Affiliation, GetModifier, Group, IssueKey, ModelMarker, Modifier, NameInSite,
         ScenarioModifiers, StandardProperty,
     },
+    Issue, ValidateWorkspace,
 };
 use bevy::prelude::*;
 use rmf_site_format::Pose;

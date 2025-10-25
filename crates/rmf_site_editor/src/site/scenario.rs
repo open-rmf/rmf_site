@@ -16,12 +16,12 @@
 */
 
 use crate::{
-    CurrentWorkspace, Issue, ValidateWorkspace,
     site::{
-        Affiliation, CurrentScenario, Delete, Dependents, Element, GetModifier, Group, Inclusion,
-        InstanceMarker, IssueKey, ModelMarker, Modifier, NameInSite, PendingModel, ScenarioBundle,
-        ScenarioModifiers, UseModifier, count_scenarios_with_inclusion,
+        count_scenarios_with_inclusion, Affiliation, CurrentScenario, Delete, Dependents, Element,
+        GetModifier, Group, Inclusion, InstanceMarker, IssueKey, ModelMarker, Modifier, NameInSite,
+        PendingModel, ScenarioBundle, ScenarioModifiers, UseModifier,
     },
+    CurrentWorkspace, Issue, ValidateWorkspace,
 };
 use bevy::ecs::hierarchy::ChildOf;
 use bevy::prelude::*;

@@ -18,7 +18,7 @@
 use crate::{
     interaction::SpawnPreview,
     site::PreviewableMarker,
-    widgets::{Inspect, prelude::*},
+    widgets::{prelude::*, Inspect},
 };
 use bevy::prelude::*;
 use rmf_site_egui::WidgetSystem;

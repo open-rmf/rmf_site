@@ -17,7 +17,7 @@
 
 use crate::{
     site::Change,
-    widgets::{Inspect, prelude::*},
+    widgets::{prelude::*, Inspect},
 };
 use bevy::prelude::*;
 use rmf_site_egui::WidgetSystem;

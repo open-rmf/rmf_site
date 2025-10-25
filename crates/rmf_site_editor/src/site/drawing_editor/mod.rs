@@ -24,9 +24,9 @@ use rmf_site_picking::Selection;
 
 use crate::AppState;
 use crate::{
-    CurrentWorkspace, WorkspaceMarker,
     interaction::SuppressHighlight,
     site::{DrawingMarker, Edge, MeasurementMarker, NameOfSite, Pending, PreventDeletion},
+    CurrentWorkspace, WorkspaceMarker,
 };
 
 #[derive(Clone, Copy, Event)]

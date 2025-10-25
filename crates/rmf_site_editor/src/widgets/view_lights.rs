@@ -16,16 +16,16 @@
 */
 
 use crate::{
-    AppState,
     site::{
         Angle, Category, ExportLights, Light, LightKind, PhysicalLightToggle, Pose, Recall,
         RecallLightKind, Rotation, SiteID,
     },
     widgets::{
-        SelectorWidget,
         inspector::{InspectLightKind, InspectPoseComponent},
         prelude::*,
+        SelectorWidget,
     },
+    AppState,
 };
 use bevy::{
     ecs::system::SystemParam,

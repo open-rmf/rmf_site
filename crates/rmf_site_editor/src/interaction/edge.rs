@@ -76,12 +76,8 @@ pub fn update_edge_visual_cues(
             cue.supporters = None;
         }
 
-        if let Ok(
-            [
-                (mut hovered_a0, mut selected_a0),
-                (mut hover_a1, mut selected_a1),
-            ],
-        ) = anchors.get_many_mut([a0, a1])
+        if let Ok([(mut hovered_a0, mut selected_a0), (mut hover_a1, mut selected_a1)]) =
+            anchors.get_many_mut([a0, a1])
         {
             if hovered.cue() {
                 hovered_a0.support_hovering.insert(e);

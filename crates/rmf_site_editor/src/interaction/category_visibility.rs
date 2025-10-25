@@ -62,8 +62,7 @@ impl<T: Component + Clone + Debug> Plugin for CategoryVisibilityPlugin<T> {
             // TODO(luca) Check that this is at the right stage
             .add_systems(
                 Update,
-                set_category_visibility::<T>
-                .run_if(in_state(InteractionState::Enable)),
+                set_category_visibility::<T>.run_if(in_state(InteractionState::Enable)),
             );
     }
 }

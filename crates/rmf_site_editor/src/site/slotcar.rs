@@ -99,7 +99,7 @@ fn insert_slotcar_components(
             }
 
             // Only insert Mobility if robot is not static
-            if !opt_desc_is_static.is_some_and(|is_static| is_static.0.0) {
+            if !opt_desc_is_static.is_some_and(|is_static| is_static.0 .0) {
                 if let Ok(mobility_value) = serialize_robot_property_from_kind::<
                     Mobility,
                     DifferentialDrive,

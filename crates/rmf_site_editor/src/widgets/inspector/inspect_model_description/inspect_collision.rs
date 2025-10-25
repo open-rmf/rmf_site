@@ -20,11 +20,11 @@ use super::{
 };
 use crate::{
     site::{
-        CircleCollision, Collision, Group, ModelMarker, ModelProperty, ModelPropertyQuery, Pose,
-        RecallCollision, Robot, RobotProperty, RobotPropertyRegistry,
-        robot_properties::serialize_and_change_robot_property_kind,
+        robot_properties::serialize_and_change_robot_property_kind, CircleCollision, Collision,
+        Group, ModelMarker, ModelProperty, ModelPropertyQuery, Pose, RecallCollision, Robot,
+        RobotProperty, RobotPropertyRegistry,
     },
-    widgets::{Inspect, prelude::*},
+    widgets::{prelude::*, Inspect},
 };
 use bevy::color::palettes::css as Colors;
 use bevy::{ecs::system::SystemParam, prelude::*};

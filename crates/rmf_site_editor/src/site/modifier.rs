@@ -16,8 +16,8 @@
 */
 
 use crate::{
-    Issue, ValidateWorkspace,
     site::{Affiliation, IssueKey, NameInSite, Property, ScenarioModifiers},
+    Issue, ValidateWorkspace,
 };
 use bevy::{
     ecs::{component::Mutable, system::SystemParam},

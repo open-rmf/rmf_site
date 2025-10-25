@@ -16,7 +16,6 @@
 */
 
 use crate::{
-    AppState, CurrentWorkspace,
     interaction::{AnchorSelection, ObjectPlacement},
     site::{
         Affiliation, AssetSource, Category, DefaultFile, DrawingBundle, DrawingProperties, Group,
@@ -24,6 +23,7 @@ use crate::{
         NameInSite, Recall, RecallAssetSource, Scale,
     },
     widgets::{AssetGalleryStatus, Icons, InspectAssetSourceComponent, InspectScaleComponent},
+    AppState, CurrentWorkspace,
 };
 
 use bevy::ecs::{

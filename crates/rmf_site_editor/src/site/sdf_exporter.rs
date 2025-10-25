@@ -20,7 +20,7 @@ use bevy::ecs::{
     system::{SystemId, SystemState},
 };
 use bevy::prelude::*;
-use bevy_gltf_export::{CompressGltfOptions, MeshData, export_meshes};
+use bevy_gltf_export::{export_meshes, CompressGltfOptions, MeshData};
 
 use std::{collections::HashMap, path::Path};
 

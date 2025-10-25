@@ -16,16 +16,17 @@
 */
 
 use crate::{
-    CurrentWorkspace, Issue, ValidateWorkspace,
     interaction::DragPlaneBundle,
     site::{
-        Change, CircleCollision, Collision, CurrentScenario, DefaultFile, Delete, Mobility,
-        RobotProperty, RobotPropertyKind, SiteAssets, UpdateModifier, get_current_workspace_path,
+        get_current_workspace_path, Change, CircleCollision, Collision, CurrentScenario,
+        DefaultFile, Delete, Mobility, RobotProperty, RobotPropertyKind, SiteAssets,
+        UpdateModifier,
     },
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
+    CurrentWorkspace, Issue, ValidateWorkspace,
 };
 use bevy::{
-    asset::{AssetLoadError, io::AssetReaderError},
+    asset::{io::AssetReaderError, AssetLoadError},
     ecs::{
         hierarchy::ChildOf,
         relationship::DescendantIter,

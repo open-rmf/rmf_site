@@ -18,7 +18,7 @@
 use crate::site::*;
 use bevy::{ecs::query::QueryEntityError, prelude::*};
 use bevy_mod_outline::GenerateOutlineNormalsError;
-use rmf_site_format::{DEFAULT_LEVEL_HEIGHT, Edge, WallMarker};
+use rmf_site_format::{Edge, WallMarker, DEFAULT_LEVEL_HEIGHT};
 use rmf_site_mesh::*;
 use rmf_site_picking::Selectable;
 use thiserror::Error;

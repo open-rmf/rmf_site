@@ -20,11 +20,11 @@ use super::{
 };
 use crate::{
     site::{
-        Battery, Group, ModelMarker, ModelProperty, ModelPropertyQuery, PowerSource,
-        RecallPowerSource, Robot, RobotProperty, RobotPropertyRegistry,
-        robot_properties::serialize_and_change_robot_property_kind,
+        robot_properties::serialize_and_change_robot_property_kind, Battery, Group, ModelMarker,
+        ModelProperty, ModelPropertyQuery, PowerSource, RecallPowerSource, Robot, RobotProperty,
+        RobotPropertyRegistry,
     },
-    widgets::{Inspect, prelude::*},
+    widgets::{prelude::*, Inspect},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{DragValue, Grid, Ui};

@@ -20,7 +20,7 @@ use crate::{
         AssociatedGraphs, Change, ConsiderAssociatedGraph, NameInSite, NavGraphMarker,
         RecallAssociatedGraphs,
     },
-    widgets::{Icons, Inspect, prelude::*},
+    widgets::{prelude::*, Icons, Inspect},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{ComboBox, ImageButton, Ui};

@@ -21,12 +21,12 @@ use crate::{
 };
 use bevy::{
     ecs::system::SystemParam,
-    picking::{Pickable, backend::ray::RayMap},
+    picking::{backend::ray::RayMap, Pickable},
     prelude::*,
 };
 
 use rmf_site_animate::{Bobbing, Spinning};
-use rmf_site_camera::{ActiveCameraQuery, active_camera_maybe};
+use rmf_site_camera::{active_camera_maybe, ActiveCameraQuery};
 use rmf_site_format::{FloorMarker, ModelInstance, WallMarker};
 use std::collections::HashSet;
 

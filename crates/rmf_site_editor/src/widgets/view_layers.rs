@@ -16,14 +16,14 @@
 */
 
 use crate::{
-    AppState,
     recency::RecencyRanking,
     site::*,
     widgets::{
-        Icons, MoveLayer,
         inspector::{InspectLayer, InspectLayerInput},
         prelude::*,
+        Icons, MoveLayer,
     },
+    AppState,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Button, CollapsingHeader, DragValue, ScrollArea, Ui};

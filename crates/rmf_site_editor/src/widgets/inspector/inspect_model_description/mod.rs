@@ -30,12 +30,12 @@ use smallvec::SmallVec;
 use std::fmt::Debug;
 
 use crate::{
-    MainInspector,
     site::{
-        Affiliation, AssetSource, Change, Group, ModelLoader, ModelMarker, ModelProperty,
-        ModelPropertyQuery, NameInSite, model_property::*, update_model_instances,
+        model_property::*, update_model_instances, Affiliation, AssetSource, Change, Group,
+        ModelLoader, ModelMarker, ModelProperty, ModelPropertyQuery, NameInSite,
     },
-    widgets::{Inspect, prelude::*},
+    widgets::{prelude::*, Inspect},
+    MainInspector,
 };
 
 pub mod inspect_collision;

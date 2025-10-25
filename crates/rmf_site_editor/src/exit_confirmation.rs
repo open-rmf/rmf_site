@@ -1,8 +1,8 @@
-use crate::{AppState, widgets::RenderUiSet};
+use crate::{widgets::RenderUiSet, AppState};
 use bevy::app::AppExit;
 use bevy::prelude::*;
 use bevy::window::WindowCloseRequested;
-use bevy_egui::{EguiContexts, egui};
+use bevy_egui::{egui, EguiContexts};
 
 #[derive(Resource, Default)]
 pub struct SiteChanged(pub bool);

@@ -17,7 +17,7 @@
 use crate::{interaction::*, site::*};
 use bevy::prelude::*;
 use rmf_site_camera::*;
-use rmf_site_egui::{InspectFor, canvas_tooltips::CanvasTooltips};
+use rmf_site_egui::{canvas_tooltips::CanvasTooltips, InspectFor};
 use std::borrow::Cow;
 
 pub fn add_billboard_visual_cues(

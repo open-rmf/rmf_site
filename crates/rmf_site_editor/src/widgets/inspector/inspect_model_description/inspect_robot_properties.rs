@@ -17,12 +17,12 @@
 
 use super::*;
 use crate::{
-    AppState, Issue, ValidateWorkspace,
     site::{
         Change, Group, IssueKey, ModelMarker, ModelProperty, ModelPropertyQuery, NameInSite, Robot,
         RobotPropertyRegistry, SiteUpdateSet,
     },
     widgets::Inspect,
+    AppState, Issue, ValidateWorkspace,
 };
 use bevy::ecs::{hierarchy::ChildOf, system::SystemParam};
 use bevy_egui::egui::{ComboBox, Ui};

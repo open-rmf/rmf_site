@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{Issue, ValidateWorkspace, site::*};
+use crate::{site::*, Issue, ValidateWorkspace};
 use bevy::{
     ecs::{hierarchy::ChildOf, relationship::AncestorIter, system::Command},
     prelude::*,

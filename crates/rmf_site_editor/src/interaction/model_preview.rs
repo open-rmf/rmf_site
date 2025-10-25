@@ -28,7 +28,7 @@ use bevy::{
         view::RenderLayers,
     },
 };
-use bevy_egui::{EguiContexts, egui::TextureId};
+use bevy_egui::{egui::TextureId, EguiContexts};
 use rmf_site_camera::*;
 use rmf_site_format::Model;
 #[derive(Resource)]
