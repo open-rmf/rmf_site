@@ -69,8 +69,8 @@ impl PropertiesPanel {
 }
 
 /// This plugin builds a properties panel for the editor. It is usually recommended
-/// to use [`StandardPropertiesPanelPlugin`] unless you need very specific
-/// customization of the properties panel.
+/// to use `rmf_site_editor::widgets::StandardPropertiesPanelPlugin` unless you need
+/// very specific customization of the properties panel.
 pub struct PropertiesPanelPlugin {
     side: PanelSide,
 }

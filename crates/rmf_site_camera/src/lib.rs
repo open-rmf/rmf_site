@@ -187,7 +187,7 @@ pub fn active_camera_maybe(active_cam: &ActiveCameraQuery) -> Result<Entity, Que
 #[derive(Reflect, Hash, Clone, PartialEq, Eq, Debug)]
 #[reflect(Clone)]
 pub struct TypeInfo {
-    /// set to `#[reflect(ignore)]` until https://github.com/jakobhellermann/bevy-inspector-egui/issues/267
+    /// set to `#[reflect(ignore)]` until <https://github.com/jakobhellermann/bevy-inspector-egui/issues/267>
     /// is resolved
     ///
     /// set to `Option` so `#[reflect(ignore)]` stops complaining about no [`TypeId`] [`Default`] impl.

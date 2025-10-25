@@ -863,7 +863,8 @@
               }
             }
           },
-          "inclusion": "Included"
+          "inclusion": "Included",
+          "on_level": 1
         },
         "62": {
           "pose": {
@@ -886,7 +887,8 @@
               ]
             }
           },
-          "inclusion": "Included"
+          "inclusion": "Included",
+          "on_level": 22
         },
         "63": {
           "pose": {
@@ -901,7 +903,8 @@
               }
             }
           },
-          "inclusion": "Included"
+          "inclusion": "Included",
+          "on_level": 22
         },
         "122": {
           "pose": {

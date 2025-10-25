@@ -17,9 +17,9 @@ type SelectionService = Service<(), ()>;
 
 /// Plugin for default selection behaviour within rmf_site.
 ///
-/// [`T`] is the default service for selection behaviour within this plugin.
+/// `T` is the default service for selection behaviour within this plugin.
 ///
-/// !!! Ensure [`T`]'s assocaited plugin is initialized before this one or this plugin will crash !!!
+/// !!! Ensure `T`'s assocaited plugin is initialized before this one or this plugin will crash !!!
 pub struct SelectionPlugin<T>
 where
     T: Debug + Send + Sync + Resource + TransparentWrapper<SelectionService> + 'static,

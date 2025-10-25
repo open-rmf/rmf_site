@@ -156,7 +156,7 @@ pub use wall::*;
 
 use crate::recency::{RecencyRank, RecencyRankingPlugin};
 use crate::{AppState, RegisterIssueType};
-pub use rmf_site_format::{DirectionalLight, PointLight, SpotLight, Style, *};
+pub use rmf_site_format::{DirectionalLight, PointLight, SpotLight, *};
 
 use rmf_site_picking::SelectionServiceStages;
 

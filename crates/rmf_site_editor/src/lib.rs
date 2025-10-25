@@ -86,10 +86,10 @@ impl FromWorld for DebugMode {
 
 #[cfg_attr(not(target_arch = "wasm32"), derive(Parser))]
 pub struct CommandLineArgs {
-    /// Filename of a Site (.site.ron / .site.json) or Building (.building.yaml) file to load.
+    /// Filename of a Site (.site.json) or Building (.building.yaml) file to load.
     /// Exclude this argument to get the main menu.
     pub filename: Option<String>,
-    /// Name of a Site (.site.json or .site.ron) file to import on top of the base FILENAME.
+    /// Name of a Site (.site.json) file to import on top of the base FILENAME.
     #[cfg_attr(not(target_arch = "wasm32"), arg(short, long))]
     pub import: Option<String>,
     /// Run in headless mode and export the loaded site to the requested path.

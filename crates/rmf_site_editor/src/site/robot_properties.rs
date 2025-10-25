@@ -182,7 +182,7 @@ impl<T: RobotProperty> Plugin for EmptyRobotPropertyPlugin<T> {
 // RobotProperty when multi-event observers become available (see
 // https://github.com/bevyengine/bevy/issues/14649)
 
-/// Monitors newly added ModelProperty<Robot> and inserts the relevant
+/// Monitors newly added `ModelProperty<Robot>` and inserts the relevant
 /// RobotProperty components accordingly
 pub fn on_add_robot_property<T: RobotProperty>(
     trigger: Trigger<OnAdd, ModelProperty<Robot>>,
@@ -228,7 +228,7 @@ pub fn on_add_robot_property<T: RobotProperty>(
     });
 }
 
-/// Monitors changes in a description's ModelProperty<Robot> and inserts the
+/// Monitors changes in a description's `ModelProperty<Robot>` and inserts the
 /// updated RobotProperty components accordingly
 pub fn on_change_robot_property<T: RobotProperty>(
     trigger: Trigger<Change<ModelProperty<Robot>>>,
@@ -261,7 +261,7 @@ pub fn on_change_robot_property<T: RobotProperty>(
     });
 }
 
-/// Monitors removals of a description's ModelProperty<Robot> and inserts the
+/// Monitors removals of a description's `ModelProperty<Robot>` and inserts the
 /// updated RobotProperty components accordingly
 pub fn on_remove_robot_property<T: RobotProperty>(
     trigger: Trigger<OnRemove, ModelProperty<Robot>>,
@@ -336,7 +336,7 @@ pub fn on_empty_robot_property<T: RobotProperty>(
     }
 }
 
-/// This system updates ModelProperty<Robot> based on updates to the RobotProperty components
+/// This system updates `ModelProperty<Robot>` based on updates to the RobotProperty components
 pub fn serialize_and_change_robot_property<Property: RobotProperty>(
     commands: &mut Commands,
     property: Property,
@@ -352,7 +352,7 @@ pub fn serialize_and_change_robot_property<Property: RobotProperty>(
     }
 }
 
-/// This system updates ModelProperty<Robot> based on updates to the RobotProperty and
+/// This system updates `ModelProperty<Robot>` based on updates to the RobotProperty and
 /// RobotPropertyKind components
 pub fn serialize_and_change_robot_property_kind<
     Property: RobotProperty,

@@ -608,7 +608,7 @@ dependencies = [
  "downcast-rs 2.0.2",
  "either",
  "petgraph",
- "ron 0.8.1",
+ "ron",
  "serde",
  "smallvec",
  "thiserror 2.0.17",
@@ -669,7 +669,7 @@ dependencies = [
  "futures-lite 2.6.1",
  "js-sys",
  "parking_lot",
- "ron 0.8.1",
+ "ron",
  "serde",
  "stackfuture",
  "thiserror 2.0.17",
@@ -2009,9 +2009,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.41"
+version = "1.2.43"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac9fe6cdbb24b6ade63616c0a0688e45bb56732262c158df3c0c4bea4ca47cb7"
+checksum = "739eb0f94557554b3ca9a86d2d37bebd49c5e6d0c1d2bda35ba5bdac830befc2"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -5742,7 +5742,6 @@ dependencies = [
  "glam",
  "once_cell",
  "pathdiff",
- "ron 0.10.1",
  "sdformat",
  "serde",
  "serde_json",
@@ -5824,19 +5823,6 @@ dependencies = [
  "bitflags 2.10.0",
  "serde",
  "serde_derive",
-]
-
-[[package]]
-name = "ron"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "beceb6f7bf81c73e73aeef6dd1356d9a1b2b4909e1f0fc3e59b034f9572d7b7f"
-dependencies = [
- "base64 0.22.1",
- "bitflags 2.10.0",
- "serde",
- "serde_derive",
- "unicode-ident",
 ]
 
 [[package]]

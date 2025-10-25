@@ -99,21 +99,26 @@ pub fn headless_export(
         return;
     }
 
-    for mut vis in &mut floor_visibilities {
-        // Make all floors opaque during headless export
-        vis.general = LayerVisibility::Opaque;
-        vis.without_drawings = LayerVisibility::Opaque;
-    }
+    let is_for_simulation = export_state.sdf_target_path.is_some()
+        && export_state.save_target_path.is_none();
 
-    for mut door in &mut doors {
-        // Set all doors to closed during headless export so that their joints
-        // are aligned correctly.
-        door.set_closed();
-    }
+    if is_for_simulation {
+        for mut vis in &mut floor_visibilities {
+            // Make all floors opaque during headless export
+            vis.general = LayerVisibility::Opaque;
+            vis.without_drawings = LayerVisibility::Opaque;
+        }
 
-    for text in &texts {
-        // Remove visual cue text from objects before exporting
-        commands.entity(text).despawn();
+        for mut door in &mut doors {
+            // Set all doors to closed during headless export so that their joints
+            // are aligned correctly.
+            door.set_closed();
+        }
+
+        for text in &texts {
+            // Remove visual cue text from objects before exporting
+            commands.entity(text).despawn();
+        }
     }
 
     export_state.iterations += 1;
