@@ -371,6 +371,7 @@ pub fn update_changed_lane(
         } else {
             Visibility::Hidden
         };
+
         if *visibility != new_visibility {
             *visibility = new_visibility;
         }
@@ -559,6 +560,7 @@ pub fn update_visibility_for_lanes(
             } else {
                 Visibility::Hidden
             };
+
             if *visibility != new_visibility {
                 *visibility = new_visibility;
             }
@@ -578,6 +580,7 @@ pub fn update_visibility_for_lanes(
                 } else {
                     Visibility::Hidden
                 };
+
                 if *visibility != new_visibility {
                     *visibility = new_visibility;
                 }

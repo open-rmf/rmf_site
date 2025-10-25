@@ -441,7 +441,9 @@ impl Plugin for SitePlugin {
                 add_unused_fiducial_tracker,
                 update_fiducial_usage_tracker,
                 update_color_for_lanes.after(update_material_for_display_color),
-                update_visibility_for_lanes.after(remove_association_for_deleted_graphs),
+                update_visibility_for_lanes
+                    .after(remove_association_for_deleted_graphs)
+                    .after(add_lane_visuals),
                 update_visibility_for_locations.after(remove_association_for_deleted_graphs),
                 update_changed_location,
                 update_location_for_moved_anchors,
