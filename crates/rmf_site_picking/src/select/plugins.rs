@@ -158,5 +158,9 @@ impl Plugin for InspectorServicePlugin {
         });
         app.world_mut()
             .insert_resource(InspectorService(inspector_service));
+        app.world_mut().insert_resource(InspectionSettings {
+            multi_select: false,
+        });
+        app.add_systems(Update, multi_select_on_shift);
     }
 }
