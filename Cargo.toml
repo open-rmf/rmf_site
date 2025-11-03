@@ -26,7 +26,7 @@ strum = { version = "0.26", features = ["derive"] }
 
 rmf_site_picking = { path = "crates/rmf_site_picking", version = "0.0.2"}
 rmf_site_format = { path = "crates/rmf_site_format", version = "0.0.2" }
-rmf_site_editor = { path = "crates/rmf_site_editor", version = "0.0.2"}
+rmf_site_editor = { path = "crates/rmf_site_editor", version = "0.0.3"}
 rmf_site_editor_web = { path = "crates/rmf_site_editor_web", version = "0.0.2"}
 rmf_site_animate = {path = "crates/rmf_site_animate", version = "0.0.2"}
 rmf_site_camera = {path = "crates/rmf_site_camera", version = "0.0.2"}
