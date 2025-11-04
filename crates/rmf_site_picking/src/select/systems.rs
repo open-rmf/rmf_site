@@ -217,7 +217,7 @@ pub fn hover_service<Filter: SystemParam + 'static>(
 }
 
 /// A continuous service that filters [`Select`] events and issues out a
-/// [`Hover`] stream.
+/// [`Select`] stream.
 ///
 /// This complements [`hover_service`] and [`hover_picking`]
 /// and is the final piece of the [`SelectionService`] workflow.
