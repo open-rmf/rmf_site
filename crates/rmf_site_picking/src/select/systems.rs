@@ -45,31 +45,39 @@ pub fn selection_update(
         },
         ..
     }): BlockingServiceInput<Select>,
-    mut selected: Query<&mut Selected>,
+    mut query_selected: Query<&mut Selected>,
     mut selection: ResMut<Selection>,
 ) {
     if let Some(selection_candidate) = selection_candidate.map(|s| s.candidate) {
-        if !selection.selected.contains(&selection_candidate) {
-            if multi_select {
-                if let Ok(mut selected) = selected.get_mut(selection_candidate) {
-                    selected.is_selected = true;
-                    selection.selected.insert(selection_candidate);
-                }
-            } else {
-                // Only one entity can be selected.
-                // Un-select all previous selections and add entity to current selection.
-                selection.selected.iter().for_each(|previous_selection| {
-                    if let Ok(mut selected) = selected.get_mut(*previous_selection) {
-                        selected.is_selected = false;
-                    }
-                });
-                selection.selected.clear();
-
-                if let Ok(mut selected) = selected.get_mut(selection_candidate) {
-                    selected.is_selected = true;
-                }
+        if multi_select {
+            let Ok(mut selected) = query_selected.get_mut(selection_candidate) else {
+                return;
+            };
+            // If selection candidate is not in current selections, add to current selections.
+            // Else, deselect selection candidate by removing it from current selections.
+            if !selection.selected.contains(&selection_candidate) {
+                selected.is_selected = true;
                 selection.selected.insert(selection_candidate);
+            } else {
+                selected.is_selected = false;
+                selection.selected.remove(&selection_candidate);
             }
+        } else {
+            // Only one entity can be selected, so current selections are cleared and
+            // a single selection candidate is added to the current selection.
+            selection.selected.iter().for_each(|previous_selection| {
+                if let Ok(mut selected) = query_selected.get_mut(*previous_selection) {
+                    selected.is_selected = false;
+                }
+            });
+            selection.selected.clear();
+
+            let Ok(mut selected) = query_selected.get_mut(selection_candidate) else {
+                return;
+            };
+
+            selected.is_selected = true;
+            selection.selected.insert(selection_candidate);
         }
     }
 }
