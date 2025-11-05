@@ -53,6 +53,7 @@ pub fn selection_update(
             let Ok(mut selected) = query_selected.get_mut(selection_candidate) else {
                 return;
             };
+
             // If selection candidate is not in current selections, add to current selections.
             // Else, deselect selection candidate by removing it from current selections.
             if !selection.selected.contains(&selection_candidate) {
@@ -75,7 +76,6 @@ pub fn selection_update(
             let Ok(mut selected) = query_selected.get_mut(selection_candidate) else {
                 return;
             };
-
             selected.is_selected = true;
             selection.selected.insert(selection_candidate);
         }
