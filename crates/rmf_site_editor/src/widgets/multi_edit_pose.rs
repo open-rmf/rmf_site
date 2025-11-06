@@ -1,11 +1,11 @@
 use crate::{
     site::Change,
-    widgets::{inspector::InspectPoseComponent, prelude::*},
+    widgets::{prelude::*, InspectPoseComponent},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::Ui;
 use rmf_site_egui::WidgetSystem;
-use rmf_site_format::Pose;
+use rmf_site_format::{Angle, Pose};
 
 #[derive(SystemParam)]
 pub struct MultiEditPoseWidget<'w, 's> {
@@ -22,7 +22,7 @@ impl<'w, 's> WidgetSystem<Vec<Entity>, ()> for MultiEditPoseWidget<'w, 's> {
 
 impl<'w, 's> MultiEditPoseWidget<'w, 's> {
     pub fn show_widget(&mut self, instances: Vec<Entity>, ui: &mut Ui) {
-        ui.label("Modify multi-selection poses");
+        ui.label("Modify poses");
 
         // Calculate centroid of selected instances
         let mut centroid = Pose::default();
@@ -38,14 +38,16 @@ impl<'w, 's> MultiEditPoseWidget<'w, 's> {
         centroid.trans[0] /= instances.len() as f32;
         centroid.trans[1] /= instances.len() as f32;
         centroid.trans[2] /= instances.len() as f32;
+        // Use the orientation of the first instance for the centroid pose
+        if let Ok(pose) = self.poses.get(instances[0]) {
+            centroid.rot = pose.rot;
+        }
 
         if let Some(new_centroid) = InspectPoseComponent::new(&centroid).show(ui) {
             let mut trans_offset: [f32; 3] = [0.0; 3];
             trans_offset[0] = new_centroid.trans[0] - centroid.trans[0];
             trans_offset[1] = new_centroid.trans[1] - centroid.trans[1];
             trans_offset[2] = new_centroid.trans[2] - centroid.trans[2];
-            let yaw_offset = new_centroid.rot.yaw() - centroid.rot.yaw();
-            info!("Yaw Offset: {:?}", yaw_offset);
 
             // trigger change of pose to all selected instances
             for instance in instances {
@@ -55,6 +57,12 @@ impl<'w, 's> MultiEditPoseWidget<'w, 's> {
                     new_pose.trans[1] += trans_offset[1];
                     new_pose.trans[2] += trans_offset[2];
 
+                    let yaw_offset =
+                        match new_centroid.rot.yaw().degrees() + new_pose.rot.yaw().degrees() {
+                            deg if deg < -360.0 => new_centroid.rot.yaw() + Angle::Deg(360.0),
+                            deg if deg > 360.0 => new_centroid.rot.yaw() - Angle::Deg(360.0),
+                            _ => new_centroid.rot.yaw(),
+                        };
                     new_pose.rot.apply_yaw(yaw_offset);
 
                     self.commands.trigger(Change::new(new_pose, instance));
