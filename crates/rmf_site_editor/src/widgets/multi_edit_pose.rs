@@ -48,6 +48,7 @@ impl<'w, 's> MultiEditPoseWidget<'w, 's> {
             trans_offset[0] = new_centroid.trans[0] - centroid.trans[0];
             trans_offset[1] = new_centroid.trans[1] - centroid.trans[1];
             trans_offset[2] = new_centroid.trans[2] - centroid.trans[2];
+            let rot_offset = new_centroid.rot.yaw().degrees() - centroid.rot.yaw().degrees();
 
             // trigger change of pose to all selected instances
             for instance in instances {
@@ -57,12 +58,11 @@ impl<'w, 's> MultiEditPoseWidget<'w, 's> {
                     new_pose.trans[1] += trans_offset[1];
                     new_pose.trans[2] += trans_offset[2];
 
-                    let yaw_offset =
-                        match new_centroid.rot.yaw().degrees() + new_pose.rot.yaw().degrees() {
-                            deg if deg < -360.0 => new_centroid.rot.yaw() + Angle::Deg(360.0),
-                            deg if deg > 360.0 => new_centroid.rot.yaw() - Angle::Deg(360.0),
-                            _ => new_centroid.rot.yaw(),
-                        };
+                    let yaw_offset = match rot_offset + new_pose.rot.yaw().degrees() {
+                        deg if deg < -360.0 => Angle::Deg(rot_offset + 360.0),
+                        deg if deg > 360.0 => Angle::Deg(rot_offset - 360.0),
+                        _ => Angle::Deg(rot_offset),
+                    };
                     new_pose.rot.apply_yaw(yaw_offset);
 
                     self.commands.trigger(Change::new(new_pose, instance));
