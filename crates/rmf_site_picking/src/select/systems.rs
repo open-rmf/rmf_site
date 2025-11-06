@@ -79,6 +79,13 @@ pub fn selection_update(
             selected.is_selected = true;
             selection.selected.insert(selection_candidate);
         }
+    } else {
+        selection.selected.iter().for_each(|previous_selection| {
+            if let Ok(mut selected) = query_selected.get_mut(*previous_selection) {
+                selected.is_selected = false;
+            }
+        });
+        selection.selected.clear();
     }
 }
 
