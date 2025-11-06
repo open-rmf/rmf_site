@@ -369,7 +369,6 @@ impl<'w, 's> WidgetSystem<Tile> for Inspector<'w, 's> {
                 let mut selection_properties: Vec<InspectionProperties> = Vec::new();
 
                 for e in selection.selected.iter() {
-                    // for e in selection_entities.iter() {
                     let selection = match inspect_for_query.get(*e) {
                         Ok(inspect_for) => inspect_for.entity,
                         Err(_) => *e,
@@ -388,7 +387,6 @@ impl<'w, 's> WidgetSystem<Tile> for Inspector<'w, 's> {
                             ("<Unknown Type>".to_string(), None)
                         };
 
-                    // id refers to
                     let children: Result<SmallVec<[_; 16]>, _> = params
                         .children
                         .get(id)
@@ -431,6 +429,8 @@ impl<'w, 's> WidgetSystem<Tile> for Inspector<'w, 's> {
                                 let _ = world.try_show_in(child, inspect, ui);
                             }
                         });
+
+                        ui.separator();
                     });
                 }
             });

@@ -100,6 +100,9 @@ use view_model_instances::*;
 pub mod view_multi_selection;
 use view_multi_selection::*;
 
+pub mod multi_edit_pose;
+use multi_edit_pose::*;
+
 pub mod view_scenarios;
 use view_scenarios::*;
 

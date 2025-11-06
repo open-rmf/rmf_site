@@ -16,11 +16,8 @@
 */
 
 use crate::{
-    site::{
-        count_scenarios_with_inclusion, Affiliation, CurrentScenario, Delete, GetModifier, Group,
-        Inclusion, Members, ModelMarker, Modifier, NameInSite, ScenarioModifiers, UpdateModifier,
-    },
-    widgets::prelude::*,
+    site::{Delete, NameInSite},
+    widgets::{prelude::*, MultiEditPoseWidget},
     Icons,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -43,45 +40,22 @@ impl Plugin for ViewMultiSelectionPlugin {
 
 #[derive(SystemParam)]
 pub struct ViewMultiSelection<'w, 's> {
-    // commands: Commands<'w, 's>,
-    // scenarios: Query<
-    //     'w,
-    //     's,
-    //     (
-    //         Entity,
-    //         &'static ScenarioModifiers<Entity>,
-    //         &'static Affiliation<Entity>,
-    //     ),
-    // >,
-    // current_scenario: ResMut<'w, CurrentScenario>,
-    // get_modifier: GetModifier<'w, 's, Modifier<Inclusion>>,
     icons: Res<'w, Icons>,
-    // members: Query<'w, 's, &'static Members>,
-    // model_descriptions: Query<
-    //     'w,
-    //     's,
-    //     (Entity, &'static NameInSite, Option<&'static SiteID>),
-    //     (With<ModelMarker>, With<Group>),
-    // >,
-    model_instances: Query<
-        'w,
-        's,
-        (
-            Entity,
-            &'static NameInSite,
-            &'static SiteID,
-            &'static Affiliation<Entity>,
-        ),
-        With<InstanceMarker>,
-    >,
+    model_instances:
+        Query<'w, 's, (Entity, &'static NameInSite, &'static SiteID), With<InstanceMarker>>,
     selection: Res<'w, Selection>,
     delete: EventWriter<'w, Delete>,
     select: EventWriter<'w, Select>,
+    multi_edit_pose_widget: MultiEditPoseWidget<'w, 's>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for ViewMultiSelection<'w, 's> {
     fn show(_: Tile, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) -> () {
         let mut params = state.get_mut(world);
+        if params.selection.selected.len() < 2 {
+            return;
+        }
+
         CollapsingHeader::new("ViewMultiSelection")
             .default_open(true)
             .show(ui, |ui| {
@@ -94,7 +68,6 @@ impl<'w, 's> ViewMultiSelection<'w, 's> {
     pub fn show_widget(&mut self, ui: &mut Ui) {
         ScrollArea::vertical()
             .max_height(INSTANCES_VIEWER_HEIGHT)
-            // .auto_shrink([false, false])
             .show(ui, |ui| {
                 if self.selection.selected.is_empty() {
                     ui.label("Nothing selected or multiple models selected!");
@@ -102,8 +75,8 @@ impl<'w, 's> ViewMultiSelection<'w, 's> {
                 }
 
                 for instance in self.selection.selected.iter() {
-                    let Ok((instance_entity, instance_name, site_id, affiliation)) =
-                        self.model_instances.get_mut(*instance)
+                    let Ok((instance_entity, instance_name, site_id)) =
+                        self.model_instances.get(*instance)
                     else {
                         continue;
                     };
@@ -115,7 +88,7 @@ impl<'w, 's> ViewMultiSelection<'w, 's> {
                                 self.icons.deselect.egui(),
                                 format!("#{}", site_id.0),
                             ))
-                            .on_hover_text("Deselect instance from current selection")
+                            .on_hover_text("Deselect instance from current selections")
                             .clicked()
                         {
                             self.select.write(Select::new(Some(instance_entity), true));
@@ -134,7 +107,13 @@ impl<'w, 's> ViewMultiSelection<'w, 's> {
                     });
                 }
 
-                // TODO: add widget for shared characteristics of multiple model instances
+                let selected_instances: Vec<Entity> =
+                    self.selection.selected.iter().cloned().collect();
+
+                ui.separator();
+
+                self.multi_edit_pose_widget
+                    .show_widget(selected_instances, ui);
             });
     }
 }
