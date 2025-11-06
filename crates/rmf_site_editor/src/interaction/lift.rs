@@ -57,7 +57,7 @@ pub fn handle_lift_doormat_clicks(
     for click in clicks.read() {
         if let Ok(doormat) = doormats.get(click.0) {
             toggle.write(doormat.toggle_availability());
-            select.write(Select::new(Some(doormat.for_lift)));
+            select.write(Select::new(Some(doormat.for_lift), false));
         }
     }
 }

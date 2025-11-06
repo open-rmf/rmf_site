@@ -325,6 +325,14 @@ pub struct Inspector<'w, 's> {
     children: Query<'w, 's, &'static Children>,
     heading: Query<'w, 's, (Option<&'static Category>, Option<&'static SiteID>)>,
     inspect_for_query: Query<'w, 's, &'static InspectFor>,
+    selection: Res<'w, Selection>,
+}
+
+struct InspectionProperties {
+    selection: Entity,
+    label: String,
+    site_id: Option<SiteID>,
+    children: SmallVec<[Entity; 16]>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for Inspector<'w, 's> {
@@ -350,53 +358,81 @@ impl<'w, 's> WidgetSystem<Tile> for Inspector<'w, 's> {
                     return;
                 };
 
-                let Some(mut selection) = selection.0 else {
-                    ui.label("Nothing selected");
+                if selection.selected.is_empty() {
+                    ui.label("Nothing selected or multiple models selected!");
                     return;
-                };
-
-                let inspect_for_query = state.get_mut(world).inspect_for_query;
-
-                if let Ok(inspect_for) = inspect_for_query.get(selection) {
-                    selection = inspect_for.entity;
                 }
 
                 let params = state.get(world);
+                let inspect_for_query = params.inspect_for_query;
 
-                let (label, site_id) =
-                    if let Ok((category, site_id)) = params.heading.get(selection) {
-                        (
-                            category.map(|x| x.label()).unwrap_or("<Unknown Type>"),
-                            site_id,
-                        )
-                    } else {
-                        ("<Unknown Type>", None)
+                let mut selection_properties: Vec<InspectionProperties> = Vec::new();
+
+                for e in selection.selected.iter() {
+                    let selection = match inspect_for_query.get(*e) {
+                        Ok(inspect_for) => inspect_for.entity,
+                        Err(_) => *e,
                     };
 
-                if let Some(site_id) = site_id {
-                    ui.heading(format!("{} #{}", label, site_id.0));
-                } else {
-                    ui.heading(format!("{} (unsaved)", label));
+                    let (label, site_id) =
+                        if let Ok((category, site_id)) = params.heading.get(selection) {
+                            (
+                                category
+                                    .map(|x| x.label())
+                                    .unwrap_or("<Unknown Type>")
+                                    .to_string(),
+                                site_id,
+                            )
+                        } else {
+                            ("<Unknown Type>".to_string(), None)
+                        };
+
+                    let children: Result<SmallVec<[_; 16]>, _> = params
+                        .children
+                        .get(id)
+                        .map(|children| children.iter().collect());
+
+                    let Ok(children) = children else {
+                        continue;
+                    };
+
+                    selection_properties.push(InspectionProperties {
+                        selection,
+                        label,
+                        site_id: site_id.clone().copied(),
+                        children,
+                    });
                 }
 
-                let children: Result<SmallVec<[_; 16]>, _> = params
-                    .children
-                    .get(id)
-                    .map(|children| children.iter().collect());
-                let Ok(children) = children else {
-                    return;
-                };
+                for InspectionProperties {
+                    selection,
+                    label,
+                    site_id,
+                    children,
+                } in selection_properties
+                {
+                    //todo(@johntgz) Find a better way to deal with egui id conflicts
+                    ui.push_id(selection, |ui| {
+                        if let Some(site_id) = site_id {
+                            ui.heading(format!("{} #{}", label, site_id.0));
+                        } else {
+                            ui.heading(format!("{} (unsaved)", label));
+                        }
 
-                panel.align(ui, |ui| {
-                    for child in children {
-                        let inspect = Inspect {
-                            selection,
-                            inspection: child,
-                            panel,
-                        };
-                        let _ = world.try_show_in(child, inspect, ui);
-                    }
-                });
+                        panel.align(ui, |ui| {
+                            for child in children {
+                                let inspect = Inspect {
+                                    selection,
+                                    inspection: child,
+                                    panel,
+                                };
+                                let _ = world.try_show_in(child, inspect, ui);
+                            }
+                        });
+
+                        ui.separator();
+                    });
+                }
             });
     }
 }

@@ -8,6 +8,7 @@
 * [`search.png`](https://thenounproject.com/icon/search-3743008/)
 * [`merge.png`](https://thenounproject.com/icon/merge-3402180/)
 * [`hide.png`](https://thenounproject.com/icon/hide-eye-796162/)
+* [`deselect.png`](https://thenounproject.com/icon/delete-2261639/)
 * `trash.png`: @mxgrey
 * `selected.png`: @mxgrey
 * `alignment.png`: @mxgrey
