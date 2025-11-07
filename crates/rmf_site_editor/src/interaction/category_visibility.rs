@@ -43,6 +43,7 @@ impl<T: Component + Clone + Debug> From<bool> for SetCategoryVisibility<T> {
 
 pub struct CategoryVisibilityPlugin<T: Component + Clone + Debug> {
     visible: bool,
+    initialize: bool,
     _ignore: std::marker::PhantomData<T>,
 }
 
@@ -50,8 +51,18 @@ impl<T: Component + Clone + Debug> CategoryVisibilityPlugin<T> {
     pub fn visible(visible: bool) -> Self {
         Self {
             visible,
+            initialize: false,
             _ignore: Default::default(),
         }
+    }
+
+    /// When a new entity of this category is created, initialize its visibility
+    /// based purely on the current visibility of its category.
+    ///
+    /// This is used to prevent new collision meshes from being visible.
+    pub fn with_initialization(mut self) -> Self {
+        self.initialize = true;
+        self
     }
 }
 
@@ -62,12 +73,12 @@ impl<T: Component + Clone + Debug> Plugin for CategoryVisibilityPlugin<T> {
             // TODO(luca) Check that this is at the right stage
             .add_systems(
                 Update,
-                (
-                    set_category_visibility::<T>,
-                    set_category_visibility_for_new_entity::<T>,
-                )
-                    .run_if(in_state(InteractionState::Enable)),
+                set_category_visibility::<T>.run_if(in_state(InteractionState::Enable)),
             );
+
+        if self.initialize {
+            app.add_systems(Update, initialize_visibility_for_category::<T>);
+        }
     }
 }
 
@@ -90,10 +101,10 @@ fn set_category_visibility<T: Component + Clone + Debug>(
     }
 }
 
-fn set_category_visibility_for_new_entity<T: Component + Clone + Debug>(
+fn initialize_visibility_for_category<T: Component + Clone + Debug>(
     mut commands: Commands,
     category_visibility: Res<CategoryVisibility<T>>,
-    mut visibilities: Query<(Entity, Option<&mut Visibility>), Added<T>>,
+    mut visibilities: Query<(Entity, Option<&mut Visibility>), With<T>>,
 ) {
     for (e, vis) in &mut visibilities {
         let visibility = if category_visibility.0 {

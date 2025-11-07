@@ -20,12 +20,12 @@ use std::collections::HashSet;
 
 use bevy::ecs::{hierarchy::ChildOf, schedule::ScheduleConfigs, system::ScheduleSystem};
 use bevy::prelude::*;
-use bevy_impulse::*;
+use crossflow::*;
 
 use crate::interaction::{
     set_visibility, Cursor, GizmoBlockers, HighlightAnchors, IntersectGroundPlaneParams,
 };
-use crate::site::{AnchorBundle, CurrentEditDrawing, DrawingMarker};
+use crate::site::{AnchorBundle, ChildCabinAnchorGroup, CurrentEditDrawing, DrawingMarker};
 use crate::workspace::CurrentWorkspace;
 use crate::{interaction::select_impl::*, site::CurrentLevel};
 use rmf_site_format::*;
@@ -64,7 +64,7 @@ impl Plugin for AnchorSelectionPlugin {
 
 #[derive(Resource, Clone, Copy)]
 pub struct AnchorSelectionHelpers {
-    pub anchor_select_stream: Service<(), (), (Hover, Select)>,
+    pub anchor_select_stream: Service<(), (), SelectionStreams>,
     pub anchor_cursor_transform: Service<(), ()>,
     pub keyboard_pressed: Service<(), (), StreamOf<(KeyCode, ButtonInputType)>>,
     pub cleanup_anchor_selection: Service<(), ()>,
@@ -155,31 +155,47 @@ pub struct AnchorSelection<'w, 's> {
 
 impl<'w, 's> AnchorSelection<'w, 's> {
     pub fn create_lanes(&mut self) {
-        self.create_edges::<Lane<Entity>>(EdgeContinuity::Continuous, AnchorScope::General);
+        self.create_edges::<Lane<Entity>>(EdgeCreationContinuity::Continuous, AnchorScope::General);
     }
 
     pub fn create_measurements(&mut self) {
-        self.create_edges::<Measurement<Entity>>(EdgeContinuity::Separate, AnchorScope::Drawing)
+        self.create_edges::<Measurement<Entity>>(
+            EdgeCreationContinuity::Separate,
+            AnchorScope::Drawing,
+        )
     }
 
     pub fn create_walls(&mut self) {
         self.create_edges_with_texture::<Wall<Entity>>(
-            EdgeContinuity::Continuous,
+            EdgeCreationContinuity::Continuous,
             AnchorScope::General,
         );
     }
 
     pub fn create_door(&mut self) {
-        self.create_edges::<Door<Entity>>(EdgeContinuity::Single, AnchorScope::General)
+        self.create_edges_custom(
+            CreateEdges::new::<Door<Entity>>(
+                EdgeCreationContinuity::Separate,
+                AnchorScope::General,
+            )
+            .with_finish(|edge, entity_mut| {
+                let mut door: Door<Entity> = edge.into();
+                door.kind.set_open();
+                entity_mut.insert(door);
+            }),
+        );
     }
 
     pub fn create_lift(&mut self) {
-        self.create_edges::<LiftProperties<Entity>>(EdgeContinuity::Single, AnchorScope::Site)
+        self.create_edges::<LiftProperties<Entity>>(
+            EdgeCreationContinuity::Separate,
+            AnchorScope::Site,
+        )
     }
 
     pub fn create_floor(&mut self) {
-        self.create_path::<Floor<Entity>>(
-            create_path_with_texture::<Floor<Entity>>,
+        self.create_path(
+            insert_path_with_texture::<Floor<Entity>>,
             3,
             false,
             true,
@@ -188,45 +204,35 @@ impl<'w, 's> AnchorSelection<'w, 's> {
     }
 
     pub fn create_location(&mut self) {
-        self.create_point::<Location<Entity>>(false, AnchorScope::General);
+        self.create_point::<Location<Entity>>(true, AnchorScope::General);
     }
 
     pub fn create_site_fiducial(&mut self) {
-        self.create_point::<Fiducial<Entity>>(false, AnchorScope::Site);
+        self.create_point::<Fiducial<Entity>>(true, AnchorScope::Site);
     }
 
     pub fn create_drawing_fiducial(&mut self) {
-        self.create_point::<Fiducial<Entity>>(false, AnchorScope::Drawing);
+        self.create_point::<Fiducial<Entity>>(true, AnchorScope::Drawing);
     }
 
     pub fn create_edges<T: Bundle + From<Edge<Entity>>>(
         &mut self,
-        continuity: EdgeContinuity,
+        continuity: EdgeCreationContinuity,
         scope: AnchorScope,
     ) {
-        let state = self
-            .commands
-            .spawn(SelectorInput(CreateEdges::new::<T>(continuity, scope)))
-            .id();
-
-        self.send(RunSelector {
-            selector: self.services.create_edges,
-            input: Some(state),
-        });
+        self.create_edges_custom(CreateEdges::new::<T>(continuity, scope))
     }
 
     pub fn create_edges_with_texture<T: Bundle + From<Edge<Entity>>>(
         &mut self,
-        continuity: EdgeContinuity,
+        continuity: EdgeCreationContinuity,
         scope: AnchorScope,
     ) {
-        let state = self
-            .commands
-            .spawn(SelectorInput(CreateEdges::new_with_texture::<T>(
-                continuity, scope,
-            )))
-            .id();
+        self.create_edges_custom(CreateEdges::new_with_texture::<T>(continuity, scope))
+    }
 
+    pub fn create_edges_custom(&mut self, creation: CreateEdges) {
+        let state = self.commands.spawn(SelectorInput(creation)).id();
         self.send(RunSelector {
             selector: self.services.create_edges,
             input: Some(state),
@@ -253,9 +259,9 @@ impl<'w, 's> AnchorSelection<'w, 's> {
         true
     }
 
-    pub fn create_path<T: Bundle + From<Path<Entity>>>(
+    pub fn create_path(
         &mut self,
-        spawn_path: fn(Path<Entity>, &mut Commands) -> Entity,
+        insert_path: fn(Path<Entity>, &mut EntityCommands) -> SelectionNodeResult,
         minimum_points: usize,
         allow_inner_loops: bool,
         implied_complete_loop: bool,
@@ -264,7 +270,7 @@ impl<'w, 's> AnchorSelection<'w, 's> {
         let state = self
             .commands
             .spawn(SelectorInput(CreatePath::new(
-                spawn_path,
+                insert_path,
                 minimum_points,
                 allow_inner_loops,
                 implied_complete_loop,
@@ -372,7 +378,7 @@ pub fn build_anchor_selection_workflow<State: 'static + Send + Sync>(
     handle_key_code: Service<((KeyCode, ButtonInputType), BufferKey<State>), SelectionNodeResult>,
     cleanup_state: Service<BufferKey<State>, SelectionNodeResult>,
     anchor_cursor_transform: Service<(), ()>,
-    anchor_select_stream: Service<(), (), (Hover, Select)>,
+    anchor_select_stream: Service<(), (), SelectionStreams>,
     keyboard_pressed: Service<(), (), StreamOf<(KeyCode, ButtonInputType)>>,
     cleanup_anchor_selection: Service<(), ()>,
 ) -> impl FnOnce(Scope<Option<Entity>, ()>, &mut Builder) {
@@ -414,7 +420,7 @@ pub fn build_anchor_selection_workflow<State: 'static + Send + Sync>(
             .then_node(anchor_select_stream);
         select
             .streams
-            .0
+            .hover
             .chain(builder)
             .with_access(buffer)
             .then(update_preview)
@@ -424,7 +430,7 @@ pub fn build_anchor_selection_workflow<State: 'static + Send + Sync>(
 
         select
             .streams
-            .1
+            .select
             .chain(builder)
             .map_block(|s| s.0)
             .dispose_on_none()
@@ -440,7 +446,6 @@ pub fn build_anchor_selection_workflow<State: 'static + Send + Sync>(
         keyboard
             .streams
             .chain(builder)
-            .inner()
             .with_access(buffer)
             .then(handle_key_code)
             .dispose_on_ok()
@@ -588,6 +593,15 @@ pub struct AnchorFilter<'w, 's> {
     drawings: Query<'w, 's, &'static PixelsPerMeter, With<DrawingMarker>>,
     child_of: Query<'w, 's, &'static ChildOf>,
     levels: Query<'w, 's, (), With<LevelElevation>>,
+    lifts: Query<
+        'w,
+        's,
+        (
+            Entity,
+            &'static LiftCabin<Entity>,
+            &'static ChildCabinAnchorGroup,
+        ),
+    >,
     current_level: Res<'w, CurrentLevel>,
 }
 
@@ -657,10 +671,40 @@ impl<'w, 's> SelectionFilter for AnchorFilter<'w, 's> {
                     error!("No current level selected to place the anchor");
                     return None;
                 };
-                self.commands
-                    .spawn(AnchorBundle::at_transform(tf))
-                    .insert(ChildOf(level))
-                    .id()
+                // Check if the anchor is inside of a lift
+                let mut lift_anchor = None;
+                for (lift, cabin, anchor_group) in &self.lifts {
+                    if let Ok(lift_tf) = self.transforms.get(lift) {
+                        let affine = lift_tf.compute_transform().compute_affine();
+                        let p = affine.inverse().transform_point3a(tf.translation_vec3a());
+                        if cabin.contains_point(p) {
+                            // The anchor group has a different reference frame
+                            // than the lift frame, so transform the anchor into the
+                            // anchor group frame.
+                            if let Ok(group_tf) = self.transforms.get(**anchor_group) {
+                                let affine = group_tf.compute_transform().compute_affine();
+                                let p = affine.inverse().transform_point3a(tf.translation_vec3a());
+                                lift_anchor = Some(
+                                    self.commands
+                                        .spawn((
+                                            AnchorBundle::new([p[0], p[1]].into()),
+                                            ChildOf(**anchor_group),
+                                        ))
+                                        .id(),
+                                );
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if let Some(anchor) = lift_anchor {
+                    anchor
+                } else {
+                    self.commands
+                        .spawn((AnchorBundle::at_transform(tf), ChildOf(level)))
+                        .id()
+                }
             }
         };
 
@@ -688,9 +732,11 @@ impl<'w, 's> AnchorFilter<'w, 's> {
 
         match &*self.anchor_scope {
             AnchorScope::General => {
-                let is_site = self.open_sites.contains(parent);
-                let is_level = self.levels.contains(parent);
-                if is_site || is_level {
+                let is_site = || self.open_sites.contains(parent);
+                let is_level = || self.levels.contains(parent);
+                let is_lift =
+                    || AncestorIter::new(&self.child_of, target).any(|e| self.lifts.contains(e));
+                if is_site() || is_level() || is_lift() {
                     Some(target)
                 } else {
                     None

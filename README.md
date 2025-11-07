@@ -16,6 +16,14 @@ Rust and Bevy allow The RMF Site Editor to target both desktop (Windows/Linux/Ma
 
 [Click here to use the web build in your browser](https://open-rmf.github.io/rmf_site/).
 
+# Project Integration
+
+To use the Site Editor in an Open-RMF project to configure a simulation or deployment,
+follow the instructions at [`rmf_site_ros2`](https://github.com/open-rmf/rmf_site_ros2).
+There you will find `rmf_site_cmake` which you can use to generate simulations and
+navigation graphs from a Site Editor project, and `rmf_site_demos` which shows how to
+set up a cmake project to build and launch your sites.
+
 # Helpful Links
 
  * [Bevy Engine](https://bevyengine.org/)

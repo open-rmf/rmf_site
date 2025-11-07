@@ -26,7 +26,11 @@ pub fn line_stroke_transform(p_start: &Vec3, p_end: &Vec3, width: f32) -> Transf
     let length = dp.length();
 
     let yaw = dp.y.atan2(dp.x);
-    let tilt = dp.z.atan2(dp.x.abs());
+    // TODO(@mxgrey): tilt does not seem to be working as intended. Lanes that
+    // connect from floor into lift is sinking into the floor side. Investigate
+    // this further to fix the tilt calculation.
+    // let tilt = dp.z.atan2(dp.x.abs());
+    let tilt = 0.0;
     let center = (*p_start + *p_end) / 2.0;
     Transform {
         translation: Vec3::new(center.x, center.y, center.z),

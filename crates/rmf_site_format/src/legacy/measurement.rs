@@ -1,4 +1,4 @@
-use super::{rbmf::*, PortingError, Result};
+use super::{PortingError, Result, rbmf::*};
 use crate::{Distance, Measurement as SiteMeasurement};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

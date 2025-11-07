@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use librmf_site_editor::SiteEditor;
+use rmf_site_editor::SiteEditor;
 use rmf_site_egui::*;
 
 #[derive(Debug, Default)]

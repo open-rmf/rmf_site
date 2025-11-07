@@ -568,7 +568,9 @@ impl<'w, 's> WidgetSystem<Tile> for ModelCreation<'w, 's> {
                                 description: Affiliation(Some(description)),
                                 ..Default::default()
                             };
-                            params.object_placement.place_object_2d(instance);
+                            params
+                                .object_placement
+                                .place_object_2d(instance, Default::default());
                         }
 
                         ui.close_menu();

@@ -20,7 +20,7 @@ use crate::{
     site::{ChangeDependent, Dependents, Pending, TextureNeedsAssignment},
 };
 use bevy::prelude::*;
-use bevy_impulse::*;
+use crossflow::*;
 use rmf_site_format::{Edge, Side};
 use std::borrow::Borrow;
 
@@ -49,34 +49,48 @@ pub fn spawn_create_edges_service(
 
 pub struct CreateEdges {
     pub spawn_edge: fn(Edge<Entity>, &mut Commands) -> Entity,
+    /// This allows the final edge to be modified in some way as it switches
+    /// from being a preview to the final thing. This is used to switch doors
+    /// from being closed to open after they are created.
+    pub finish_edge: Option<fn(Edge<Entity>, &mut EntityCommands)>,
     pub preview_edge: Option<PreviewEdge>,
-    pub continuity: EdgeContinuity,
+    pub creation_continuity: EdgeCreationContinuity,
     pub scope: AnchorScope,
+    pub level_change_continuity: LevelChangeContinuity,
 }
 
 impl CreateEdges {
     pub fn new<T: Bundle + From<Edge<Entity>>>(
-        continuity: EdgeContinuity,
+        continuity: EdgeCreationContinuity,
         scope: AnchorScope,
     ) -> Self {
         Self {
             spawn_edge: create_edge::<T>,
+            finish_edge: None,
             preview_edge: None,
-            continuity,
+            creation_continuity: continuity,
             scope,
+            level_change_continuity: Default::default(),
         }
     }
 
     pub fn new_with_texture<T: Bundle + From<Edge<Entity>>>(
-        continuity: EdgeContinuity,
+        continuity: EdgeCreationContinuity,
         scope: AnchorScope,
     ) -> Self {
         Self {
             spawn_edge: create_edge_with_texture::<T>,
+            finish_edge: None,
             preview_edge: None,
-            continuity,
+            creation_continuity: continuity,
             scope,
+            level_change_continuity: Default::default(),
         }
+    }
+
+    pub fn with_finish(mut self, finish_edge: fn(Edge<Entity>, &mut EntityCommands)) -> Self {
+        self.finish_edge = Some(finish_edge);
+        self
     }
 
     pub fn initialize_preview(&mut self, anchor: Entity, commands: &mut Commands) {
@@ -152,7 +166,8 @@ impl PreviewEdge {
     }
 }
 
-pub enum EdgeContinuity {
+#[derive(Debug, Clone, Copy)]
+pub enum EdgeCreationContinuity {
     /// Create just a single edge
     Single,
     /// Create a sequence of separate edges
@@ -237,10 +252,31 @@ pub fn on_select_for_create_edges(
     mut access: BufferAccessMut<CreateEdges>,
     mut edges: Query<&mut Edge<Entity>>,
     mut commands: Commands,
+    parents: Query<&ChildOf>,
+    lifts: Query<(), With<LiftCabin<Entity>>>,
     cursor: Res<Cursor>,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.newest_mut().or_broken_state()?;
+
+    // Check if there is a break in level continuity for the new anchor
+    match state.level_change_continuity {
+        LevelChangeContinuity::Separate => {
+            if let Some(preview) = &mut state.preview_edge {
+                let edge = edges.get(preview.edge).or_broken_query()?;
+                if preview.side == Side::end() {
+                    // Check if the current level matches the level of the previously placed anchor
+                    if !are_anchors_siblings(edge.start(), selection.candidate, &parents, &lifts)? {
+                        // Perform the backout before assigning the candidate anchor
+                        let _ = backout(state, &mut edges, &cursor, &mut commands);
+                    }
+                }
+            }
+        }
+        LevelChangeContinuity::Continuous => {
+            // Do nothing
+        }
+    }
 
     let anchor = selection.candidate;
     if let Some(preview) = &mut state.preview_edge {
@@ -280,24 +316,26 @@ pub fn on_select_for_create_edges(
                 }
                 *edge.right_mut() = anchor;
                 commands.queue(ChangeDependent::add(anchor, preview.edge));
-                commands
-                    .get_entity(preview.edge)
-                    .or_broken_query()?
-                    .remove::<Pending>();
+                let mut entity_mut = commands.get_entity(preview.edge).or_broken_query()?;
+                entity_mut.remove::<Pending>();
 
-                match state.continuity {
-                    EdgeContinuity::Single => {
+                if let Some(finish_edge) = state.finish_edge {
+                    (finish_edge)(*edge, &mut entity_mut);
+                }
+
+                match state.creation_continuity {
+                    EdgeCreationContinuity::Single => {
                         state.preview_edge = None;
                         // This simply means we are terminating the workflow now
                         // because we have finished drawing the single edge
                         return Err(None);
                     }
-                    EdgeContinuity::Separate => {
+                    EdgeCreationContinuity::Separate => {
                         // Start drawing a new edge from a blank slate with the
                         // next selection
                         state.initialize_preview(cursor.level_anchor_placement, &mut commands);
                     }
-                    EdgeContinuity::Continuous => {
+                    EdgeCreationContinuity::Continuous => {
                         // Start drawing a new edge, picking up from the end
                         // point of the previous edge
                         let edge = Edge::new(anchor, cursor.level_anchor_placement);
@@ -331,7 +369,7 @@ pub fn on_select_for_create_edges(
 pub fn on_keyboard_for_create_edges(
     In(((button, input_type), key)): In<((KeyCode, ButtonInputType), BufferKey<CreateEdges>)>,
     mut access: BufferAccessMut<CreateEdges>,
-    mut edges: Query<&'static mut Edge<Entity>>,
+    mut edges: Query<&mut Edge<Entity>>,
     cursor: Res<Cursor>,
     mut creation_settings: ResMut<CreationSettings>,
     mut commands: Commands,
@@ -347,79 +385,111 @@ pub fn on_keyboard_for_create_edges(
     let state = access.newest_mut().or_broken_state()?;
 
     if matches!(button, KeyCode::Escape) {
-        if !matches!(input_type, ButtonInputType::JustPressed) {
-            return Ok(());
-        }
-        if let Some(preview) = &mut state.preview_edge {
-            if preview.side == Side::end() {
-                // We currently have an active preview edge and are selecting for
-                // the second point in the edge. Esc means we should back out of the
-                // current edge without exiting the edge creation workflow so the
-                // user can choose a different start point.
-                let mut edge = edges.get_mut(preview.edge).or_broken_query()?;
-                for anchor in edge.array() {
-                    commands.queue(ChangeDependent::remove(anchor, preview.edge));
-                }
-                if preview.provisional_start {
-                    commands
-                        .get_entity(edge.start())
-                        .or_broken_query()?
-                        .despawn();
-                }
+        return backout(state, &mut edges, &cursor, &mut commands);
+    }
+    if matches!(button, KeyCode::ShiftLeft) {
+        return align(
+            state,
+            &mut edges,
+            &cursor,
+            &mut creation_settings,
+            &input_type,
+            &transform,
+        );
+    }
 
-                *edge.left_mut() = cursor.level_anchor_placement;
-                *edge.right_mut() = cursor.level_anchor_placement;
-                preview.side = Side::start();
-                preview.provisional_start = false;
-                commands.queue(ChangeDependent::add(
-                    cursor.level_anchor_placement,
-                    preview.edge,
-                ));
-            } else {
-                // We are selecting for the first point in the edge. If the user has
-                // pressed Esc then that means they want to stop creating edges
-                // altogether. Return Err(None) to indicate that the workflow should
-                // exit cleaning.
-                return Err(None);
+    Ok(())
+}
+
+fn backout(
+    state: &mut CreateEdges,
+    edges: &mut Query<&mut Edge<Entity>>,
+    cursor: &Res<Cursor>,
+    commands: &mut Commands,
+) -> SelectionNodeResult {
+    if let Some(preview) = &mut state.preview_edge {
+        if preview.side == Side::end() {
+            // We currently have an active preview edge and are selecting for
+            // the second point in the edge. Esc means we should back out of the
+            // current edge without exiting the edge creation workflow so the
+            // user can choose a different start point.
+            let mut edge = edges.get_mut(preview.edge).or_broken_query()?;
+            for anchor in edge.array() {
+                commands.queue(ChangeDependent::remove(anchor, preview.edge));
             }
+            if preview.provisional_start {
+                commands
+                    .get_entity(edge.start())
+                    .or_broken_query()?
+                    .despawn();
+            }
+
+            *edge.left_mut() = cursor.level_anchor_placement;
+            *edge.right_mut() = cursor.level_anchor_placement;
+            preview.side = Side::start();
+            preview.provisional_start = false;
+            commands.queue(ChangeDependent::add(
+                cursor.level_anchor_placement,
+                preview.edge,
+            ));
+            // Allow the parent of the edge to be reset in case this is being
+            // triggerd by a level change.
+            commands.entity(preview.edge).remove::<ChildOf>();
         } else {
-            // We currently have no preview active at all. If the user hits Esc then
-            // they want to exit the workflow altogether.
+            // We are selecting for the first point in the edge. If the user has
+            // pressed Esc then that means they want to stop creating edges
+            // altogether. Return Err(None) to indicate that the workflow should
+            // exit cleaning.
             return Err(None);
         }
-    } else if matches!(button, KeyCode::ShiftLeft) {
-        if let Some(preview) = &mut state.preview_edge {
-            if preview.side == Side::end() {
-                // We currently have an active preview edge and are selecting for
-                // the second point in the edge. Shift means we want the current lane
-                // to align with either the X- or Y- axis.
-                let edge = edges.get(preview.edge).or_broken_query()?;
-                let end_anchor = edge.right();
-                if !cursor.is_placement_anchor(end_anchor) {
-                    // We do not want to modify an existing anchor
-                    return Ok(());
-                }
+    } else {
+        // We currently have no preview active at all. If the user hits Esc then
+        // they want to exit the workflow altogether.
+        return Err(None);
+    }
 
-                match input_type {
-                    ButtonInputType::Pressed => {
-                        let Ok(delta) = transform.get(edge.left()).and_then(|tf| {
-                            transform
-                                .get(cursor.frame)
-                                .map(|c_tf| c_tf.translation - tf.translation)
-                        }) else {
-                            return Ok(());
-                        };
-                        if delta.x.abs() > delta.y.abs() {
-                            creation_settings.direction_alignment = vec![Vec2::new(0.0, -delta.y)];
-                        } else {
-                            creation_settings.direction_alignment = vec![Vec2::new(-delta.x, 0.0)];
-                        }
+    Ok(())
+}
+
+fn align(
+    state: &mut CreateEdges,
+    edges: &mut Query<&mut Edge<Entity>>,
+    cursor: &Res<Cursor>,
+    creation_settings: &mut ResMut<CreationSettings>,
+    input_type: &ButtonInputType,
+    transform: &Query<&Transform>,
+) -> SelectionNodeResult {
+    if let Some(preview) = &mut state.preview_edge {
+        if preview.side == Side::end() {
+            // We currently have an active preview edge and are selecting for
+            // the second point in the edge. Shift means we want the current lane
+            // to align with either the X- or Y- axis.
+            let edge = edges.get(preview.edge).or_broken_query()?;
+            let end_anchor = edge.right();
+            if !cursor.is_placement_anchor(end_anchor) {
+                // We do not want to modify an existing anchor
+                return Ok(());
+            }
+
+            match input_type {
+                ButtonInputType::Pressed => {
+                    let Ok(delta) = transform.get(edge.left()).and_then(|tf| {
+                        transform
+                            .get(cursor.frame)
+                            .map(|c_tf| c_tf.translation - tf.translation)
+                    }) else {
+                        return Ok(());
+                    };
+                    if delta.x.abs() > delta.y.abs() {
+                        creation_settings.direction_alignment = vec![Vec2::new(0.0, -delta.y)];
+                    } else {
+                        creation_settings.direction_alignment = vec![Vec2::new(-delta.x, 0.0)];
                     }
-                    ButtonInputType::JustReleased => {
-                        creation_settings.reset();
-                    }
-                    ButtonInputType::JustPressed => {}
                 }
+                ButtonInputType::JustReleased => {
+                    creation_settings.reset();
+                }
+                ButtonInputType::JustPressed => {}
             }
         }
     }
