@@ -42,10 +42,7 @@ pub fn spawn_place_object_2d_workflow(app: &mut App) -> ObjectPlacementServices 
     let on_key_code_2d = app.spawn_service(on_keyboard_for_place_object_2d.into_blocking_service());
     let cleanup = app.spawn_service(place_object_2d_cleanup.into_blocking_service());
 
-    let keyboard_just_pressed = app
-        .world()
-        .resource::<KeyboardServices>()
-        .keyboard_just_pressed;
+    let keyboard_pressed = app.world().resource::<KeyboardServices>().keyboard_pressed;
 
     let place_object_2d = app
         .world_mut()
@@ -55,7 +52,7 @@ pub fn spawn_place_object_2d_workflow(app: &mut App) -> ObjectPlacementServices 
             placement_chosen,
             on_key_code_2d,
             cleanup,
-            keyboard_just_pressed,
+            keyboard_pressed,
         ));
 
     ObjectPlacementServices {
@@ -69,9 +66,9 @@ pub fn build_2d_placement_workflow<State: 'static + Send + Sync>(
     setup: Service<BufferKey<State>, SelectionNodeResult>,
     find_placement: Service<(), Transform>,
     placement_chosen: Service<(Transform, BufferKey<State>), PlaceObjectResult>,
-    handle_key_code: Service<KeyCode, SelectionNodeResult>,
+    handle_key_code: Service<(KeyCode, ButtonInputType), SelectionNodeResult>,
     cleanup: Service<BufferKey<State>, ()>,
-    keyboard_just_pressed: Service<(), (), StreamOf<KeyCode>>,
+    keyboard_pressed: Service<(), (), StreamOf<(KeyCode, ButtonInputType)>>,
 ) -> impl FnOnce(Scope<Option<Entity>, ()>, &mut Builder) {
     move |scope, builder| {
         let buffer = builder.create_buffer::<State>(BufferSettings::keep_last(1));
@@ -114,7 +111,7 @@ pub fn build_2d_placement_workflow<State: 'static + Send + Sync>(
 
         let keyboard_node = setup_finished
             .clone_chain(builder)
-            .then_node(keyboard_just_pressed);
+            .then_node(keyboard_pressed);
         keyboard_node
             .streams
             .chain(builder)
@@ -218,8 +215,10 @@ pub fn place_object_2d_find_placement(
     }
 }
 
-pub fn on_keyboard_for_place_object_2d(In(key): In<KeyCode>) -> SelectionNodeResult {
-    if matches!(key, KeyCode::Escape) {
+pub fn on_keyboard_for_place_object_2d(
+    In((key, input)): In<(KeyCode, ButtonInputType)>,
+) -> SelectionNodeResult {
+    if matches!(key, KeyCode::Escape) && matches!(input, ButtonInputType::JustPressed) {
         // Simply end the workflow if the escape key was pressed
         info!("Exiting 2D object placement");
         return Err(None);

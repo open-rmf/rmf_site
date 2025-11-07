@@ -151,6 +151,7 @@ impl Plugin for InteractionPlugin {
             .init_resource::<GizmoState>()
             .init_resource::<CurrentEditDrawing>()
             .init_resource::<CurrentLevel>()
+            .init_resource::<CreationSettings>()
             .insert_resource(HighlightAnchors(false))
             .add_event::<MoveTo>()
             .add_event::<GizmoClicked>()
@@ -263,7 +264,11 @@ impl Plugin for InteractionPlugin {
             .add_systems(OnExit(InteractionState::Enable), hide_cursor)
             .add_systems(
                 PostUpdate,
-                (move_anchor.before(update_anchor_transforms), move_pose)
+                (
+                    move_anchor.before(update_anchor_transforms),
+                    move_pose,
+                    apply_creation_settings.after(select_anchor_cursor_transform),
+                )
                     .run_if(in_state(InteractionState::Enable)),
             );
         }

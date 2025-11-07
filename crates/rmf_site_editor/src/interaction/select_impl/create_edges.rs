@@ -367,21 +367,38 @@ pub fn on_select_for_create_edges(
 }
 
 pub fn on_keyboard_for_create_edges(
-    In((button, key)): In<(KeyCode, BufferKey<CreateEdges>)>,
+    In(((button, input_type), key)): In<((KeyCode, ButtonInputType), BufferKey<CreateEdges>)>,
     mut access: BufferAccessMut<CreateEdges>,
     mut edges: Query<&mut Edge<Entity>>,
     cursor: Res<Cursor>,
+    mut creation_settings: ResMut<CreationSettings>,
     mut commands: Commands,
+    transform: Query<&'static Transform>,
 ) -> SelectionNodeResult {
-    if !matches!(button, KeyCode::Escape) {
-        // The button was not the escape key, so there's nothing for us to do
+    if !matches!(button, KeyCode::Escape) && !matches!(button, KeyCode::ShiftLeft) {
+        // The button was not the escape or shift key, so there's nothing for us to do
         // here.
         return Ok(());
     }
 
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.newest_mut().or_broken_state()?;
-    backout(state, &mut edges, &cursor, &mut commands)
+
+    if matches!(button, KeyCode::Escape) {
+        return backout(state, &mut edges, &cursor, &mut commands);
+    }
+    if matches!(button, KeyCode::ShiftLeft) {
+        return align(
+            state,
+            &mut edges,
+            &cursor,
+            &mut creation_settings,
+            &input_type,
+            &transform,
+        );
+    }
+
+    Ok(())
 }
 
 fn backout(
@@ -434,12 +451,59 @@ fn backout(
     Ok(())
 }
 
+fn align(
+    state: &mut CreateEdges,
+    edges: &mut Query<&mut Edge<Entity>>,
+    cursor: &Res<Cursor>,
+    creation_settings: &mut ResMut<CreationSettings>,
+    input_type: &ButtonInputType,
+    transform: &Query<&Transform>,
+) -> SelectionNodeResult {
+    if let Some(preview) = &mut state.preview_edge {
+        if preview.side == Side::end() {
+            // We currently have an active preview edge and are selecting for
+            // the second point in the edge. Shift means we want the current lane
+            // to align with either the X- or Y- axis.
+            let edge = edges.get(preview.edge).or_broken_query()?;
+            let end_anchor = edge.right();
+            if !cursor.is_placement_anchor(end_anchor) {
+                // We do not want to modify an existing anchor
+                return Ok(());
+            }
+
+            match input_type {
+                ButtonInputType::Pressed => {
+                    let Ok(delta) = transform.get(edge.left()).and_then(|tf| {
+                        transform
+                            .get(cursor.frame)
+                            .map(|c_tf| c_tf.translation - tf.translation)
+                    }) else {
+                        return Ok(());
+                    };
+                    if delta.x.abs() > delta.y.abs() {
+                        creation_settings.direction_alignment = vec![Vec2::new(0.0, -delta.y)];
+                    } else {
+                        creation_settings.direction_alignment = vec![Vec2::new(-delta.x, 0.0)];
+                    }
+                }
+                ButtonInputType::JustReleased => {
+                    creation_settings.reset();
+                }
+                ButtonInputType::JustPressed => {}
+            }
+        }
+    }
+
+    Ok(())
+}
+
 pub fn cleanup_create_edges(
     In(key): In<BufferKey<CreateEdges>>,
     mut access: BufferAccessMut<CreateEdges>,
     edges: Query<&'static Edge<Entity>>,
     mut commands: Commands,
     cursor: Res<Cursor>,
+    mut creation_settings: ResMut<CreationSettings>,
     mut dependents: Query<&mut Dependents>,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
@@ -457,6 +521,8 @@ pub fn cleanup_create_edges(
         // dependents from the preview anchor.
         deps.0.clear();
     }
+
+    creation_settings.reset();
 
     Ok(())
 }

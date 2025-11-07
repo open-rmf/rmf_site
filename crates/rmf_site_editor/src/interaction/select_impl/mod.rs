@@ -26,6 +26,7 @@ pub use select_anchor::*;
 
 use anyhow::Error as Anyhow;
 
+use crate::interaction::*;
 use bevy::{
     ecs::{relationship::AncestorIter, system::SystemParam},
     prelude::*,
@@ -87,4 +88,28 @@ pub fn are_anchors_siblings(
     }
 
     Ok(are_siblings)
+}
+
+#[derive(Default, Resource)]
+pub struct CreationSettings {
+    pub direction_alignment: Vec<Vec2>,
+}
+
+impl CreationSettings {
+    pub fn reset(&mut self) {
+        self.direction_alignment = Vec::new();
+    }
+}
+
+pub fn apply_creation_settings(
+    creation_settings: Res<CreationSettings>,
+    cursor: Res<Cursor>,
+    mut transform: Query<&mut Transform>,
+) {
+    let Ok(mut frame_tf) = transform.get_mut(cursor.frame) else {
+        return;
+    };
+    for alignment in &creation_settings.direction_alignment {
+        frame_tf.translation += alignment.extend(0.0);
+    }
 }
