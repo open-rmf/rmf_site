@@ -230,7 +230,6 @@ impl Plugin for InteractionPlugin {
                     update_billboard_location,
                     update_billboard_text_hover_visualisation,
                     update_billboard_hover_visualization,
-                    apply_creation_settings,
                 )
                     .run_if(in_state(InteractionState::Enable)),
             )
@@ -265,7 +264,11 @@ impl Plugin for InteractionPlugin {
             .add_systems(OnExit(InteractionState::Enable), hide_cursor)
             .add_systems(
                 PostUpdate,
-                (move_anchor.before(update_anchor_transforms), move_pose)
+                (
+                    move_anchor.before(update_anchor_transforms),
+                    move_pose,
+                    apply_creation_settings.after(select_anchor_cursor_transform),
+                )
                     .run_if(in_state(InteractionState::Enable)),
             );
         }

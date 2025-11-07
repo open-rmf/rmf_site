@@ -104,22 +104,12 @@ impl CreationSettings {
 pub fn apply_creation_settings(
     creation_settings: Res<CreationSettings>,
     cursor: Res<Cursor>,
-    transform: Query<&Transform>,
-    mut move_to: EventWriter<MoveTo>,
+    mut transform: Query<&mut Transform>,
 ) {
-    let Ok(mut end_anchor_tf) = transform
-        .get(cursor.level_anchor_placement)
-        .map(|tf| tf.clone())
-    else {
+    let Ok(mut frame_tf) = transform.get_mut(cursor.frame) else {
         return;
     };
-    end_anchor_tf.translation = Vec3::default();
     for alignment in &creation_settings.direction_alignment {
-        end_anchor_tf.translation += alignment.extend(0.0);
+        frame_tf.translation += alignment.extend(0.0);
     }
-
-    move_to.write(MoveTo {
-        entity: cursor.level_anchor_placement,
-        transform: end_anchor_tf,
-    });
 }
