@@ -429,7 +429,7 @@ fn handle_completed_negotiation(
             {
                 max_duration_s
             } else {
-                error!("Solution proposals are empty, setting longest plan duration to 0s!");
+                error!("No solution proposals, setting longest plan duration to 0s!");
                 0.0
             };
 
