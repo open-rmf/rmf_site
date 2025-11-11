@@ -31,7 +31,7 @@ pub fn spawn_replace_side_service(
 ) -> Service<Option<Entity>, ()> {
     let anchor_setup =
         app.spawn_service(anchor_selection_setup::<ReplaceSide>.into_blocking_service());
-    let state_setup = app.spawn_service(replace_side_setup.into_blocking_service());
+    let state_setup = app.spawn_service(replace_side_setup);
     let update_preview = app.spawn_service(on_hover_for_replace_side.into_blocking_service());
     let update_current = app.spawn_service(on_select_for_replace_side.into_blocking_service());
     let handle_key_code = app.spawn_service(exit_on_esc::<ReplaceSide>.into_blocking_service());
@@ -41,7 +41,7 @@ pub fn spawn_replace_side_service(
         anchor_setup,
         state_setup,
         update_preview,
-        update_current,
+        update_current.optional_stream_cast(),
         handle_key_code,
         cleanup_state,
         app.world_mut(),
@@ -131,8 +131,10 @@ impl Borrow<AnchorScope> for ReplaceSide {
     }
 }
 
+type SetupService = BlockingServiceInput<BufferKey<ReplaceSide>, StreamOf<SelectionAlignmentBasis>>;
+
 pub fn replace_side_setup(
-    In(key): In<BufferKey<ReplaceSide>>,
+    In(BlockingService { request: key, streams, .. }): SetupService,
     mut access: BufferAccessMut<ReplaceSide>,
     mut edges: Query<&mut Edge<Entity>>,
     parents: Query<&ChildOf>,
@@ -155,6 +157,9 @@ pub fn replace_side_setup(
         cursor.level_anchor_placement,
         &mut commands,
     )?;
+
+    // Set the anchor on the opposite side of the edge as the alignment basis.
+    streams.send(SelectionAlignmentBasis::new(original_edge.array()[state.side.opposite().index()]));
 
     Ok(())
 }

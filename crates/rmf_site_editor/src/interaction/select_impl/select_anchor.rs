@@ -23,7 +23,7 @@ use bevy::prelude::*;
 use crossflow::*;
 
 use crate::interaction::{
-    set_visibility, Cursor, GizmoBlockers, HighlightAnchors, IntersectGroundPlaneParams,
+    set_visibility, Cursor, GizmoBlockers, HighlightAnchors,
 };
 use crate::site::{AnchorBundle, ChildCabinAnchorGroup, CurrentEditDrawing, DrawingMarker};
 use crate::workspace::CurrentWorkspace;
@@ -56,16 +56,18 @@ impl Plugin for AnchorSelectionPlugin {
         let helpers = AnchorSelectionHelpers::from_app(app);
         let services = AnchorSelectionServices::from_app(&helpers, app);
         app.init_resource::<HiddenSelectAnchorEntities>()
+            .init_resource::<CreationSettings>()
             .insert_resource(AnchorScope::General)
             .insert_resource(helpers)
-            .insert_resource(services);
+            .insert_resource(services)
+            .add_systems(PreUpdate, update_selection_settings_for_keyboard);
     }
 }
 
 #[derive(Resource, Clone, Copy)]
 pub struct AnchorSelectionHelpers {
     pub anchor_select_stream: Service<(), (), SelectionStreams>,
-    pub anchor_cursor_transform: Service<(), ()>,
+    pub anchor_cursor_transform: CursorTransformService,
     pub keyboard_just_pressed: Service<(), (), StreamOf<KeyCode>>,
     pub cleanup_anchor_selection: Service<(), ()>,
 }
@@ -99,9 +101,9 @@ impl AnchorSelectionHelpers {
     pub fn spawn_anchor_selection_workflow<State: 'static + Send + Sync>(
         &self,
         anchor_setup: Service<BufferKey<State>, SelectionNodeResult>,
-        state_setup: Service<BufferKey<State>, SelectionNodeResult>,
+        state_setup: Service<BufferKey<State>, SelectionNodeResult, StreamOf<SelectionAlignmentBasis>>,
         update_preview: Service<(Hover, BufferKey<State>), SelectionNodeResult>,
-        update_current: Service<(SelectionCandidate, BufferKey<State>), SelectionNodeResult>,
+        update_current: Service<(SelectionCandidate, BufferKey<State>), SelectionNodeResult, StreamOf<SelectionAlignmentBasis>>,
         handle_key_code: Service<(KeyCode, BufferKey<State>), SelectionNodeResult>,
         cleanup_state: Service<BufferKey<State>, SelectionNodeResult>,
         world: &mut World,
@@ -372,18 +374,19 @@ pub struct HiddenSelectAnchorEntities {
 ///   service for this is provided by [`AnchorSelectionHelpers`].
 pub fn build_anchor_selection_workflow<State: 'static + Send + Sync>(
     anchor_setup: Service<BufferKey<State>, SelectionNodeResult>,
-    state_setup: Service<BufferKey<State>, SelectionNodeResult>,
+    state_setup: Service<BufferKey<State>, SelectionNodeResult, StreamOf<SelectionAlignmentBasis>>,
     update_preview: Service<(Hover, BufferKey<State>), SelectionNodeResult>,
-    update_current: Service<(SelectionCandidate, BufferKey<State>), SelectionNodeResult>,
+    update_current: Service<(SelectionCandidate, BufferKey<State>), SelectionNodeResult, StreamOf<SelectionAlignmentBasis>>,
     handle_key_code: Service<(KeyCode, BufferKey<State>), SelectionNodeResult>,
     cleanup_state: Service<BufferKey<State>, SelectionNodeResult>,
-    anchor_cursor_transform: Service<(), ()>,
+    anchor_cursor_transform: CursorTransformService,
     anchor_select_stream: Service<(), (), SelectionStreams>,
     keyboard_just_pressed: Service<(), (), StreamOf<KeyCode>>,
     cleanup_anchor_selection: Service<(), ()>,
 ) -> impl FnOnce(Scope<Option<Entity>, ()>, &mut Builder) {
     move |scope, builder| {
         let buffer = builder.create_buffer::<State>(BufferSettings::keep_last(1));
+        let alignment = builder.create_buffer::<SelectionAlignmentBasis>(BufferSettings::keep_last(1));
 
         let setup_node = builder.create_buffer_access(buffer);
         scope
@@ -397,7 +400,7 @@ pub fn build_anchor_selection_workflow<State: 'static + Send + Sync>(
                 |none: Chain<_>| none.connect(setup_node.input),
             );
 
-        let begin_input_services = setup_node
+        let state_setup_node = setup_node
             .output
             .chain(builder)
             .map_block(|(_, key)| key)
@@ -405,13 +408,20 @@ pub fn build_anchor_selection_workflow<State: 'static + Send + Sync>(
             .branch_for_err(|err| err.map_block(print_if_err).connect(scope.terminate))
             .with_access(buffer)
             .map_block(|(_, key)| key)
-            .then(state_setup)
+            .then_node(state_setup);
+
+        builder.connect(state_setup_node.streams, alignment.input_slot());
+
+        let begin_input_services = builder
+            .chain(state_setup_node.output)
             .branch_for_err(|err| err.map_block(print_if_err).connect(scope.terminate))
             .output()
             .fork_clone(builder);
 
         begin_input_services
             .clone_chain(builder)
+            .with_access(alignment)
+            .map_block(|(_, buffer)| buffer)
             .then(anchor_cursor_transform)
             .unused();
 
@@ -428,14 +438,19 @@ pub fn build_anchor_selection_workflow<State: 'static + Send + Sync>(
             .map_block(print_if_err)
             .connect(scope.terminate);
 
-        select
+        let update_current_node = select
             .streams
             .select
             .chain(builder)
             .map_block(|s| s.0)
             .dispose_on_none()
             .with_access(buffer)
-            .then(update_current)
+            .then_node(update_current);
+
+        builder.connect(update_current_node.streams, alignment.input_slot());
+
+        builder
+            .chain(update_current_node.output)
             .dispose_on_ok()
             .map_block(print_if_err)
             .connect(scope.terminate);
@@ -788,37 +803,4 @@ pub fn exit_on_esc<T>(In((button, _)): In<(KeyCode, BufferKey<T>)>) -> Selection
     }
 
     Ok(())
-}
-
-/// Update the virtual cursor transform while in select anchor mode
-pub fn select_anchor_cursor_transform(
-    In(ContinuousService { key }): ContinuousServiceInput<(), ()>,
-    orders: ContinuousQuery<(), ()>,
-    cursor: Res<Cursor>,
-    mut transforms: Query<&mut Transform>,
-    intersect_ground_params: IntersectGroundPlaneParams,
-) {
-    let Some(orders) = orders.view(&key) else {
-        return;
-    };
-
-    if orders.is_empty() {
-        return;
-    }
-
-    let intersection = match intersect_ground_params.ground_plane_intersection() {
-        Some(intersection) => intersection,
-        None => {
-            return;
-        }
-    };
-
-    let mut transform = match transforms.get_mut(cursor.frame) {
-        Ok(transform) => transform,
-        Err(_) => {
-            return;
-        }
-    };
-
-    *transform = Transform::from_translation(intersection.translation);
 }

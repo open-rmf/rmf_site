@@ -1,3 +1,20 @@
+/*
+ * Copyright (C) 2024 Open Source Robotics Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+*/
+
 pub mod create_edges;
 use create_edges::*;
 
@@ -20,9 +37,13 @@ pub mod replace_side;
 use replace_side::*;
 
 pub mod select_anchor;
+pub use select_anchor::*;
+
+pub mod selection_alignment;
+pub use selection_alignment::*;
+
 use rmf_site_format::{LiftCabin, Pending};
 use rmf_site_picking::{CommonNodeErrors, Hover, Select, Selectable, SelectionFilter};
-pub use select_anchor::*;
 
 use anyhow::Error as Anyhow;
 
@@ -87,4 +108,39 @@ pub fn are_anchors_siblings(
     }
 
     Ok(are_siblings)
+}
+
+/// Settings that affect the behavior of how objects get created.
+#[derive(Resource)]
+pub struct CreationSettings {
+    /// Should we be trying to align
+    pub alignment_on: bool,
+    /// Objects further than this from the cursor will not be considered when
+    /// calculating alignment.
+    pub alignment_window: Option<f32>,
+    /// When calculating alignment, the cursor will be able to move within this
+    /// radius (in-world meters) without triggering an update of the cache.
+    pub alignment_cache_deadzone: f32,
+}
+
+impl Default for CreationSettings {
+    fn default() -> Self {
+        Self {
+            alignment_on: false,
+            alignment_window: Some(5.0),
+            alignment_cache_deadzone: 1.0,
+        }
+    }
+}
+
+pub fn update_selection_settings_for_keyboard(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut creation_settings: ResMut<CreationSettings>,
+) {
+    let alignment_on = keyboard_input.pressed(KeyCode::ShiftLeft);
+
+    // Check the value before mutating the resource so we get cleaner change tracking
+    if creation_settings.alignment_on != alignment_on {
+        creation_settings.alignment_on = alignment_on;
+    }
 }
