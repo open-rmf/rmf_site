@@ -15,19 +15,15 @@
  *
 */
 
-use bevy::{
-    ecs::relationship::AncestorIter,
-    prelude::*,
-};
+use bevy::{ecs::relationship::AncestorIter, prelude::*};
 use crossflow::prelude::{
-    BufferAccess, BufferKey, ContinuousService, ContinuousServiceInput,
-    ContinuousQuery, Service,
+    BufferAccess, BufferKey, ContinuousQuery, ContinuousService, ContinuousServiceInput, Service,
 };
 
 use super::CreationSettings;
 
 use crate::{
-    interaction::{Cursor, IntersectGroundPlaneParams, Hovered, Preview},
+    interaction::{Cursor, Hovered, IntersectGroundPlaneParams, Preview},
     site::{Anchor, Category, CurrentLevel, Edge, LiftCabin, Pending},
 };
 
@@ -58,7 +54,9 @@ pub struct SelectionAlignmentBasis {
 impl SelectionAlignmentBasis {
     /// Set a new base anchor for alignment
     pub fn new(base_anchor: Entity) -> Self {
-        Self { base_anchor: Some(base_anchor) }
+        Self {
+            base_anchor: Some(base_anchor),
+        }
     }
 
     /// Set the basis to none, which means we are aligning a single anchor, not
@@ -124,9 +122,7 @@ pub fn select_anchor_cursor_transform(
                 .map(|s| s.base_anchor)
                 .flatten();
 
-            let base_anchor = base_anchor_id
-                .map(|e| anchors.get(e).ok())
-                .flatten();
+            let base_anchor = base_anchor_id.map(|e| anchors.get(e).ok()).flatten();
 
             // TODO(@mxgrey): Test whether the caching makes a significant
             // difference on performance at various site sizes. Also consider
@@ -137,11 +133,16 @@ pub fn select_anchor_cursor_transform(
                 *cache = None;
             }
 
-            if cache.as_ref().is_some_and(|c| c.last_base_anchor != base_anchor_id) {
+            if cache
+                .as_ref()
+                .is_some_and(|c| c.last_base_anchor != base_anchor_id)
+            {
                 *cache = None;
             }
 
-            if cache.as_ref().is_some_and(|c| (c.center - x).length_squared() > settings.alignment_cache_deadzone) {
+            if cache.as_ref().is_some_and(|c| {
+                (c.center - x).length_squared() > settings.alignment_cache_deadzone
+            }) {
                 *cache = None;
             }
 
@@ -155,13 +156,9 @@ pub fn select_anchor_cursor_transform(
                 return false;
             };
 
-            let is_on_level = |e| {
-                AncestorIter::new(&parents, e).any(|p| p == level)
-            };
+            let is_on_level = |e| AncestorIter::new(&parents, e).any(|p| p == level);
 
-            let is_lift_anchor = |e| {
-                AncestorIter::new(&parents, e).any(|p| lifts.contains(p))
-            };
+            let is_lift_anchor = |e| AncestorIter::new(&parents, e).any(|p| lifts.contains(p));
 
             // If the cache is not set, create it now
             let cache = cache.get_or_insert_with(|| {
@@ -169,17 +166,19 @@ pub fn select_anchor_cursor_transform(
                 for (edge_id, edge) in &edges {
                     let mut on_level = true;
                     for e in edge.array() {
-                        on_level &=
-                            is_site_anchor(e)
-                            || is_on_level(e)
-                            || is_lift_anchor(e);
+                        on_level &= is_site_anchor(e) || is_on_level(e) || is_lift_anchor(e);
                     }
 
                     if on_level {
-                        if let (Ok(a0), Ok(a1)) = (anchors.get(edge.start()), anchors.get(edge.end())) {
+                        if let (Ok(a0), Ok(a1)) =
+                            (anchors.get(edge.start()), anchors.get(edge.end()))
+                        {
                             let p0: Vec2 = a0.translation_for_category(Category::General).into();
                             let p1: Vec2 = a1.translation_for_category(Category::General).into();
-                            if settings.alignment_window.is_none_or(|d| distance_to_line_segment(x, p0, p1) < d) {
+                            if settings
+                                .alignment_window
+                                .is_none_or(|d| distance_to_line_segment(x, p0, p1) < d)
+                            {
                                 if let Some(dir) = (p1 - p0).try_normalize() {
                                     lines.push(Line {
                                         element: Some(edge_id),
@@ -195,7 +194,9 @@ pub fn select_anchor_cursor_transform(
                 if let Some(base_anchor) = base_anchor {
                     // Always include the plain x and y axis directions if we
                     // have a base anchor.
-                    let p0: Vec2 = base_anchor.translation_for_category(Category::General).into();
+                    let p0: Vec2 = base_anchor
+                        .translation_for_category(Category::General)
+                        .into();
                     lines.push(Line::x_axis(p0));
                     lines.push(Line::y_axis(p0));
                 }
@@ -316,46 +317,45 @@ impl LineChoice {
     }
 }
 
-fn align_edge(
-    x: Vec2,
-    base_anchor: &Anchor,
-    lines: &Vec<Line>,
-) -> LineChoice {
-    let p0: Vec2 = base_anchor.translation_for_category(Category::General).into();
+fn align_edge(x: Vec2, base_anchor: &Anchor, lines: &Vec<Line>) -> LineChoice {
+    let p0: Vec2 = base_anchor
+        .translation_for_category(Category::General)
+        .into();
 
     let mut best: Option<LineChoice> = None;
     for line in lines {
-        let x_prime = p0 + (x-p0).dot(line.dir)*line.dir;
+        let x_prime = p0 + (x - p0).dot(line.dir) * line.dir;
         let cost = (x - x_prime).length_squared();
         let element = line.element;
-        let choice = LineChoice { cost, x_prime, element };
+        let choice = LineChoice {
+            cost,
+            x_prime,
+            element,
+        };
         choice.evaluate(&mut best);
     }
 
     best.unwrap_or(LineChoice::fallback(x))
 }
 
-fn align_point(
-    x: Vec2,
-    lines: &Vec<Line>,
-) -> LineChoice {
+fn align_point(x: Vec2, lines: &Vec<Line>) -> LineChoice {
     let mut best: Option<LineChoice> = None;
     for line in lines {
-        let x_prime = line.p0 + (x-line.p0).dot(line.dir)*line.dir;
+        let x_prime = line.p0 + (x - line.p0).dot(line.dir) * line.dir;
         let cost = (x - x_prime).length_squared();
         let element = line.element;
-        let choice = LineChoice { cost, x_prime, element };
+        let choice = LineChoice {
+            cost,
+            x_prime,
+            element,
+        };
         choice.evaluate(&mut best);
     }
 
     best.unwrap_or(LineChoice::fallback(x))
 }
 
-fn distance_to_line_segment(
-    x: Vec2,
-    p0: Vec2,
-    p1: Vec2,
-) -> f32 {
+fn distance_to_line_segment(x: Vec2, p0: Vec2, p1: Vec2) -> f32 {
     let Some(dir) = (p1 - p0).try_normalize() else {
         // This will get filtered out later
         return 0.0;
@@ -370,7 +370,7 @@ fn distance_to_line_segment(
         return (x - p1).length();
     } else {
         // The point is in between both endpoints of the line segment
-        let x_proj = p0 + s*dir;
+        let x_proj = p0 + s * dir;
         return (x - x_proj).length();
     }
 }

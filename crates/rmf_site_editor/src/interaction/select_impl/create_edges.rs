@@ -253,7 +253,11 @@ type OnSelectService = BlockingServiceInput<
 >;
 
 pub fn on_select_for_create_edges(
-    In(BlockingService { request: (selection, key), streams, .. }): OnSelectService,
+    In(BlockingService {
+        request: (selection, key),
+        streams,
+        ..
+    }): OnSelectService,
     mut access: BufferAccessMut<CreateEdges>,
     mut edges: Query<&mut Edge<Entity>>,
     mut commands: Commands,

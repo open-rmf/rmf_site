@@ -186,7 +186,11 @@ type OnSelectService = BlockingServiceInput<
 >;
 
 pub fn on_select_for_create_path(
-    In(BlockingService { request: (selection, key), streams, .. }): OnSelectService,
+    In(BlockingService {
+        request: (selection, key),
+        streams,
+        ..
+    }): OnSelectService,
     mut access: BufferAccessMut<CreatePath>,
     mut paths: Query<&mut Path<Entity>>,
     parents: Query<&ChildOf>,
@@ -227,7 +231,14 @@ pub fn on_select_for_create_path(
     match state.path {
         Some(path) => {
             let mut path_mut = paths.get_mut(path).or_broken_query()?;
-            update_path(selection, state, &mut *path_mut, &mut commands, &cursor, &streams)?;
+            update_path(
+                selection,
+                state,
+                &mut *path_mut,
+                &mut commands,
+                &cursor,
+                &streams,
+            )?;
         }
         None => {
             // We need to do this in a convoluted way because to update the path
@@ -243,7 +254,14 @@ pub fn on_select_for_create_path(
                 new_path_id,
             ));
 
-            update_path(selection, state, &mut new_path, &mut commands, &cursor, &streams)?;
+            update_path(
+                selection,
+                state,
+                &mut new_path,
+                &mut commands,
+                &cursor,
+                &streams,
+            )?;
             (state.insert_path)(new_path, &mut commands.entity(new_path_id))?;
         }
     }

@@ -134,7 +134,11 @@ impl Borrow<AnchorScope> for ReplaceSide {
 type SetupService = BlockingServiceInput<BufferKey<ReplaceSide>, StreamOf<SelectionAlignmentBasis>>;
 
 pub fn replace_side_setup(
-    In(BlockingService { request: key, streams, .. }): SetupService,
+    In(BlockingService {
+        request: key,
+        streams,
+        ..
+    }): SetupService,
     mut access: BufferAccessMut<ReplaceSide>,
     mut edges: Query<&mut Edge<Entity>>,
     parents: Query<&ChildOf>,
@@ -159,7 +163,9 @@ pub fn replace_side_setup(
     )?;
 
     // Set the anchor on the opposite side of the edge as the alignment basis.
-    streams.send(SelectionAlignmentBasis::new(original_edge.array()[state.side.opposite().index()]));
+    streams.send(SelectionAlignmentBasis::new(
+        original_edge.array()[state.side.opposite().index()],
+    ));
 
     Ok(())
 }

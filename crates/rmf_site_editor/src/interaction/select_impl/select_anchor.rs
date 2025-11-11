@@ -22,9 +22,7 @@ use bevy::ecs::{hierarchy::ChildOf, schedule::ScheduleConfigs, system::ScheduleS
 use bevy::prelude::*;
 use crossflow::*;
 
-use crate::interaction::{
-    set_visibility, Cursor, GizmoBlockers, HighlightAnchors,
-};
+use crate::interaction::{set_visibility, Cursor, GizmoBlockers, HighlightAnchors};
 use crate::site::{AnchorBundle, ChildCabinAnchorGroup, CurrentEditDrawing, DrawingMarker};
 use crate::workspace::CurrentWorkspace;
 use crate::{interaction::select_impl::*, site::CurrentLevel};
@@ -101,9 +99,17 @@ impl AnchorSelectionHelpers {
     pub fn spawn_anchor_selection_workflow<State: 'static + Send + Sync>(
         &self,
         anchor_setup: Service<BufferKey<State>, SelectionNodeResult>,
-        state_setup: Service<BufferKey<State>, SelectionNodeResult, StreamOf<SelectionAlignmentBasis>>,
+        state_setup: Service<
+            BufferKey<State>,
+            SelectionNodeResult,
+            StreamOf<SelectionAlignmentBasis>,
+        >,
         update_preview: Service<(Hover, BufferKey<State>), SelectionNodeResult>,
-        update_current: Service<(SelectionCandidate, BufferKey<State>), SelectionNodeResult, StreamOf<SelectionAlignmentBasis>>,
+        update_current: Service<
+            (SelectionCandidate, BufferKey<State>),
+            SelectionNodeResult,
+            StreamOf<SelectionAlignmentBasis>,
+        >,
         handle_key_code: Service<(KeyCode, BufferKey<State>), SelectionNodeResult>,
         cleanup_state: Service<BufferKey<State>, SelectionNodeResult>,
         world: &mut World,
@@ -376,7 +382,11 @@ pub fn build_anchor_selection_workflow<State: 'static + Send + Sync>(
     anchor_setup: Service<BufferKey<State>, SelectionNodeResult>,
     state_setup: Service<BufferKey<State>, SelectionNodeResult, StreamOf<SelectionAlignmentBasis>>,
     update_preview: Service<(Hover, BufferKey<State>), SelectionNodeResult>,
-    update_current: Service<(SelectionCandidate, BufferKey<State>), SelectionNodeResult, StreamOf<SelectionAlignmentBasis>>,
+    update_current: Service<
+        (SelectionCandidate, BufferKey<State>),
+        SelectionNodeResult,
+        StreamOf<SelectionAlignmentBasis>,
+    >,
     handle_key_code: Service<(KeyCode, BufferKey<State>), SelectionNodeResult>,
     cleanup_state: Service<BufferKey<State>, SelectionNodeResult>,
     anchor_cursor_transform: CursorTransformService,
@@ -386,7 +396,8 @@ pub fn build_anchor_selection_workflow<State: 'static + Send + Sync>(
 ) -> impl FnOnce(Scope<Option<Entity>, ()>, &mut Builder) {
     move |scope, builder| {
         let buffer = builder.create_buffer::<State>(BufferSettings::keep_last(1));
-        let alignment = builder.create_buffer::<SelectionAlignmentBasis>(BufferSettings::keep_last(1));
+        let alignment =
+            builder.create_buffer::<SelectionAlignmentBasis>(BufferSettings::keep_last(1));
 
         let setup_node = builder.create_buffer_access(buffer);
         scope
