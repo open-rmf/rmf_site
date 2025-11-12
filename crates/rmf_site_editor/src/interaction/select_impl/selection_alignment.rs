@@ -305,7 +305,11 @@ struct LineChoice {
 
 impl LineChoice {
     fn new(cost: f32, x_prime: Vec2, element: Option<Entity>) -> Self {
-        Self { cost, x_prime, element }
+        Self {
+            cost,
+            x_prime,
+            element,
+        }
     }
 
     fn fallback(x_prime: Vec2) -> Self {
@@ -327,26 +331,25 @@ impl LineChoice {
     }
 }
 
-fn align_edge(x: Vec2, base_anchor: &Anchor, lines: &Vec<Line>, previous: Option<Entity>) -> LineChoice {
+fn align_edge(
+    x: Vec2,
+    base_anchor: &Anchor,
+    lines: &Vec<Line>,
+    previous: Option<Entity>,
+) -> LineChoice {
     let p0: Vec2 = base_anchor
         .translation_for_category(Category::General)
         .into();
 
-    align_with(
-        x,
-        lines,
-        previous,
-        |line| p0 + (x - p0).dot(line.dir) * line.dir,
-    )
+    align_with(x, lines, previous, |line| {
+        p0 + (x - p0).dot(line.dir) * line.dir
+    })
 }
 
 fn align_point(x: Vec2, lines: &Vec<Line>, previous: Option<Entity>) -> LineChoice {
-    align_with(
-        x,
-        lines,
-        previous,
-        |line| line.p0 + (x - line.p0).dot(line.dir) * line.dir,
-    )
+    align_with(x, lines, previous, |line| {
+        line.p0 + (x - line.p0).dot(line.dir) * line.dir
+    })
 }
 
 fn align_with(
@@ -368,7 +371,7 @@ fn align_with(
 
             // We divide the cost by 2 to create some stickiness. Other lines
             // need be twice as favorable before we will switch over to them.
-            delta/2.0
+            delta / 2.0
         } else {
             let distance = distance_to_line_segment(x, line.p0, line.p1);
 

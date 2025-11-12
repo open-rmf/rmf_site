@@ -15,15 +15,15 @@
  *
 */
 
-use bevy::prelude::*;
-use bevy_infinite_grid::InfiniteGridSettings;
 use crate::{
     interaction::{Hovered, Selected},
     site::{
-        HOVER_COLOR, HOVER_SELECT_COLOR, SELECT_COLOR, STANDARD_GRID_LINE_COLOR,
-        as_minor_line_color,
+        as_minor_line_color, HOVER_COLOR, HOVER_SELECT_COLOR, SELECT_COLOR,
+        STANDARD_GRID_LINE_COLOR,
     },
 };
+use bevy::prelude::*;
+use bevy_infinite_grid::InfiniteGridSettings;
 
 pub fn update_infinite_grid_cues(
     mut changed_grid: Query<

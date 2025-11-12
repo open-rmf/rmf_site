@@ -15,8 +15,8 @@
  *
 */
 
+use bevy::prelude::{ChildOf, Color, Commands, Deref, Entity, Quat, Resource, Transform, Vec3};
 use bevy_infinite_grid::{InfiniteGridBundle, InfiniteGridSettings};
-use bevy::prelude::{Color, Vec3, Quat, Transform, Commands, Entity, ChildOf, Resource, Deref};
 
 use rmf_site_picking::{Hovered, Selected};
 
@@ -27,33 +27,34 @@ pub const STANDARD_GRID_LINE_COLOR: Color = Color::srgb(0.4, 0.4, 0.4);
 pub fn as_minor_line_color(major_color: Color) -> Color {
     let major = major_color.to_srgba();
     Color::srgba(
-        major.red/2.0,
-        major.green/2.0,
-        major.blue/2.0,
-        major.alpha
+        major.red / 2.0,
+        major.green / 2.0,
+        major.blue / 2.0,
+        major.alpha,
     )
 }
 
 pub fn spawn_standard_infinite_grid(commands: &mut Commands, site: Entity) {
-    let grid = commands.spawn((
-        InfiniteGridBundle {
-            transform: Transform {
-                translation: Vec3::new(0., 0., -0.01),
-                rotation: Quat::from_rotation_x(90_f32.to_radians()),
-                scale: Vec3::splat(1.0),
-            },
-            settings: InfiniteGridSettings {
-                minor_line_color: as_minor_line_color(STANDARD_GRID_LINE_COLOR),
-                major_line_color: STANDARD_GRID_LINE_COLOR,
+    let grid = commands
+        .spawn((
+            InfiniteGridBundle {
+                transform: Transform {
+                    translation: Vec3::new(0., 0., -0.01),
+                    rotation: Quat::from_rotation_x(90_f32.to_radians()),
+                    scale: Vec3::splat(1.0),
+                },
+                settings: InfiniteGridSettings {
+                    minor_line_color: as_minor_line_color(STANDARD_GRID_LINE_COLOR),
+                    major_line_color: STANDARD_GRID_LINE_COLOR,
+                    ..Default::default()
+                },
                 ..Default::default()
             },
-            ..Default::default()
-        },
-        ChildOf(site),
-        Hovered::default(),
-        Selected::default(),
-    ))
-    .id();
+            ChildOf(site),
+            Hovered::default(),
+            Selected::default(),
+        ))
+        .id();
 
     commands.insert_resource(ReferenceGrid(grid));
 }
