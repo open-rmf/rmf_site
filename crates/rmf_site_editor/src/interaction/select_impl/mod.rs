@@ -127,7 +127,7 @@ impl Default for CreationSettings {
     fn default() -> Self {
         Self {
             alignment_on: false,
-            alignment_window: Some(5.0),
+            alignment_window: Some(10.0),
             alignment_cache_deadzone: 1.0,
         }
     }

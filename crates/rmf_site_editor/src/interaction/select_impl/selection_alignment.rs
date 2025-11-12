@@ -24,7 +24,7 @@ use super::CreationSettings;
 
 use crate::{
     interaction::{Cursor, Hovered, IntersectGroundPlaneParams, Preview},
-    site::{Anchor, Category, CurrentLevel, Edge, LiftCabin, Pending},
+    site::{Anchor, Category, CurrentLevel, Edge, LiftCabin, Pending, ReferenceGrid},
 };
 
 /// The alignment system needs some context about what is being created so it
@@ -83,11 +83,12 @@ pub fn select_anchor_cursor_transform(
     lifts: Query<(), With<LiftCabin<Entity>>>,
     current_level: Res<CurrentLevel>,
     mut hovered: Query<&mut Hovered>,
-    mut support_hovered: Local<Option<Entity>>,
+    mut previous_aligned: Local<Option<Entity>>,
     mut cache: Local<Option<AlignmentCache>>,
+    grid: Option<Res<ReferenceGrid>>,
 ) {
     let Some(orders) = orders.view(&key) else {
-        if let Some(previous) = support_hovered.take() {
+        if let Some(previous) = previous_aligned.take() {
             if let Ok(mut hovered) = hovered.get_mut(previous) {
                 hovered.support_hovering.remove(&key.provider());
             }
@@ -98,7 +99,7 @@ pub fn select_anchor_cursor_transform(
 
     let Some(order) = orders.iter().next() else {
         *cache = None;
-        if let Some(previous) = support_hovered.take() {
+        if let Some(previous) = previous_aligned.take() {
             if let Ok(mut hovered) = hovered.get_mut(previous) {
                 hovered.support_hovering.remove(&key.provider());
             }
@@ -183,6 +184,7 @@ pub fn select_anchor_cursor_transform(
                                     lines.push(Line {
                                         element: Some(edge_id),
                                         p0,
+                                        p1,
                                         dir,
                                     });
                                 }
@@ -197,8 +199,9 @@ pub fn select_anchor_cursor_transform(
                     let p0: Vec2 = base_anchor
                         .translation_for_category(Category::General)
                         .into();
-                    lines.push(Line::x_axis(p0));
-                    lines.push(Line::y_axis(p0));
+                    let grid = grid.map(|g| **g);
+                    lines.push(Line::x_axis(p0, grid));
+                    lines.push(Line::y_axis(p0, grid));
                 }
 
                 AlignmentCache {
@@ -213,14 +216,14 @@ pub fn select_anchor_cursor_transform(
             // meaning we are aligning a single point.
             let choice = if let Some(base_anchor) = base_anchor {
                 // We are aligning an edge
-                align_edge(x, base_anchor, &cache.lines)
+                align_edge(x, base_anchor, &cache.lines, *previous_aligned)
             } else {
                 // We are aligning a single point
-                align_point(x, &cache.lines)
+                align_point(x, &cache.lines, *previous_aligned)
             };
 
-            if *support_hovered != choice.element {
-                if let Some(previous) = support_hovered.take() {
+            if *previous_aligned != choice.element {
+                if let Some(previous) = previous_aligned.take() {
                     if let Ok(mut hovered) = hovered.get_mut(previous) {
                         hovered.support_hovering.remove(&key.provider());
                     }
@@ -229,7 +232,7 @@ pub fn select_anchor_cursor_transform(
                 if let Some(chosen) = choice.element {
                     if let Ok(mut hovered) = hovered.get_mut(chosen) {
                         hovered.support_hovering.insert(key.provider());
-                        *support_hovered = Some(chosen);
+                        *previous_aligned = Some(chosen);
                     }
                 }
             }
@@ -240,7 +243,7 @@ pub fn select_anchor_cursor_transform(
         }
     } else {
         *cache = None;
-        if let Some(previous) = support_hovered.take() {
+        if let Some(previous) = previous_aligned.take() {
             if let Ok(mut hovered) = hovered.get_mut(previous) {
                 hovered.support_hovering.remove(&key.provider());
             }
@@ -269,22 +272,25 @@ pub struct AlignmentCache {
 pub struct Line {
     element: Option<Entity>,
     p0: Vec2,
+    p1: Vec2,
     dir: Vec2,
 }
 
 impl Line {
-    fn x_axis(p0: Vec2) -> Self {
+    fn x_axis(p0: Vec2, grid: Option<Entity>) -> Self {
         Self {
-            element: None,
-            p0,
+            element: grid,
+            p0: p0 - 100.0 * Vec2::X,
+            p1: p0 + 100.0 * Vec2::X,
             dir: Vec2::X,
         }
     }
 
-    fn y_axis(p0: Vec2) -> Self {
+    fn y_axis(p0: Vec2, grid: Option<Entity>) -> Self {
         Self {
-            element: None,
-            p0,
+            element: grid,
+            p0: p0 - 100.0 * Vec2::Y,
+            p1: p0 + 100.0 * Vec2::Y,
             dir: Vec2::Y,
         }
     }
@@ -298,6 +304,10 @@ struct LineChoice {
 }
 
 impl LineChoice {
+    fn new(cost: f32, x_prime: Vec2, element: Option<Entity>) -> Self {
+        Self { cost, x_prime, element }
+    }
+
     fn fallback(x_prime: Vec2) -> Self {
         Self {
             x_prime,
@@ -317,39 +327,67 @@ impl LineChoice {
     }
 }
 
-fn align_edge(x: Vec2, base_anchor: &Anchor, lines: &Vec<Line>) -> LineChoice {
+fn align_edge(x: Vec2, base_anchor: &Anchor, lines: &Vec<Line>, previous: Option<Entity>) -> LineChoice {
     let p0: Vec2 = base_anchor
         .translation_for_category(Category::General)
         .into();
 
-    let mut best: Option<LineChoice> = None;
-    for line in lines {
-        let x_prime = p0 + (x - p0).dot(line.dir) * line.dir;
-        let cost = (x - x_prime).length_squared();
-        let element = line.element;
-        let choice = LineChoice {
-            cost,
-            x_prime,
-            element,
-        };
-        choice.evaluate(&mut best);
-    }
-
-    best.unwrap_or(LineChoice::fallback(x))
+    align_with(
+        x,
+        lines,
+        previous,
+        |line| p0 + (x - p0).dot(line.dir) * line.dir,
+    )
 }
 
-fn align_point(x: Vec2, lines: &Vec<Line>) -> LineChoice {
+fn align_point(x: Vec2, lines: &Vec<Line>, previous: Option<Entity>) -> LineChoice {
+    align_with(
+        x,
+        lines,
+        previous,
+        |line| line.p0 + (x - line.p0).dot(line.dir) * line.dir,
+    )
+}
+
+fn align_with(
+    x: Vec2,
+    lines: &Vec<Line>,
+    previous: Option<Entity>,
+    mut f: impl FnMut(&Line) -> Vec2,
+) -> LineChoice {
     let mut best: Option<LineChoice> = None;
     for line in lines {
-        let x_prime = line.p0 + (x - line.p0).dot(line.dir) * line.dir;
-        let cost = (x - x_prime).length_squared();
-        let element = line.element;
-        let choice = LineChoice {
-            cost,
-            x_prime,
-            element,
+        let x_prime = f(line);
+        let delta = (x - x_prime).length_squared();
+        let cost = if previous.is_some_and(|p| line.element.is_some_and(|e| e == p)) {
+            // Bias in favor of the last element selected for alignment.
+
+            // We do not factor distance to the element into this calculation at
+            // all because we want the previous element to remain preferred no
+            // matter how far the cursor moves from it.
+
+            // We divide the cost by 2 to create some stickiness. Other lines
+            // need be twice as favorable before we will switch over to them.
+            delta/2.0
+        } else {
+            let distance = distance_to_line_segment(x, line.p0, line.p1);
+
+            // Adding the 0.01 to delta creates a deadzone that gives and
+            // advantage to the previously selected line. The cursor needs to
+            // deviate at least 1cm from being aligned with the previously
+            // selected line before there is any possibility that we will switch
+            // to a different line.
+
+            // Multiplying by sqrt(distance) allows us to favor lines that are
+            // closer to the cursor, but without being overly biased to nearby
+            // lines. Adding 1.0 to distance means this factor will always be
+            // >= 1.0, so the distance will never bias the cost downwards.
+            // Otherwise sufficiently close lines will become preferable over
+            // the previously selected line.
+            (delta + 0.01) * f32::sqrt(distance + 1.0)
         };
-        choice.evaluate(&mut best);
+
+        LineChoice::new(cost, x_prime, line.element).evaluate(&mut best);
     }
 
     best.unwrap_or(LineChoice::fallback(x))
