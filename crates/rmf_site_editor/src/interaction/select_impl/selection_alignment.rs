@@ -120,10 +120,11 @@ pub fn select_anchor_cursor_transform(
     let position = if settings.alignment_on {
         if let Some(level) = **current_level {
             let get_parent_transform = |e| {
-                parents.get(e).ok().map(
-                    |c| global_transforms.get(c.parent()).ok()
-                )
-                .flatten()
+                parents
+                    .get(e)
+                    .ok()
+                    .map(|c| global_transforms.get(c.parent()).ok())
+                    .flatten()
             };
 
             let base_anchor_id = basis
@@ -192,8 +193,7 @@ pub fn select_anchor_cursor_transform(
                     let tf1 = get_parent_transform(edge.end());
 
                     if on_level {
-                        if let (Ok(a0), Ok(a1), Some(tf0), Some(tf1)) = (a0, a1, tf0, tf1)
-                        {
+                        if let (Ok(a0), Ok(a1), Some(tf0), Some(tf1)) = (a0, a1, tf0, tf1) {
                             let p0: Vec2 = a0.translation_for_category(Category::General).into();
                             let p0 = tf0.transform_point(p0.extend(0.0)).truncate();
 
