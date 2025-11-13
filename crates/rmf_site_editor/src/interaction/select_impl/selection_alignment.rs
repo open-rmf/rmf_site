@@ -79,6 +79,7 @@ pub fn select_anchor_cursor_transform(
     settings: Res<CreationSettings>,
     edges: Query<(Entity, &Edge<Entity>), (Without<Preview>, Without<Pending>)>,
     anchors: Query<&Anchor>,
+    global_transforms: Query<&GlobalTransform>,
     parents: Query<&ChildOf>,
     lifts: Query<(), With<LiftCabin<Entity>>>,
     current_level: Res<CurrentLevel>,
@@ -118,12 +119,20 @@ pub fn select_anchor_cursor_transform(
     let x = intersection.translation.truncate();
     let position = if settings.alignment_on {
         if let Some(level) = **current_level {
+            let get_parent_transform = |e| {
+                parents.get(e).ok().map(
+                    |c| global_transforms.get(c.parent()).ok()
+                )
+                .flatten()
+            };
+
             let base_anchor_id = basis
                 .get_newest(order.request())
                 .map(|s| s.base_anchor)
                 .flatten();
 
             let base_anchor = base_anchor_id.map(|e| anchors.get(e).ok()).flatten();
+            let base_anchor_tf = base_anchor_id.map(|e| get_parent_transform(e)).flatten();
 
             // TODO(@mxgrey): Test whether the caching makes a significant
             // difference on performance at various site sizes. Also consider
@@ -131,6 +140,11 @@ pub fn select_anchor_cursor_transform(
             if cache.as_ref().is_some_and(|c| c.last_order != order.id()) {
                 // Reset the cache because we're handling a new order, so there could
                 // be new items to align with.
+                *cache = None;
+            }
+
+            if cache.as_ref().is_some_and(|c| c.last_level != level) {
+                // Reset the cache because the current level has changed
                 *cache = None;
             }
 
@@ -157,6 +171,8 @@ pub fn select_anchor_cursor_transform(
                 return false;
             };
 
+            // Note: Anchor drawings are nested as descendants of the level, so
+            // we need to iterate upwards to look for the parent.
             let is_on_level = |e| AncestorIter::new(&parents, e).any(|p| p == level);
 
             let is_lift_anchor = |e| AncestorIter::new(&parents, e).any(|p| lifts.contains(p));
@@ -170,12 +186,20 @@ pub fn select_anchor_cursor_transform(
                         on_level &= is_site_anchor(e) || is_on_level(e) || is_lift_anchor(e);
                     }
 
+                    let a0 = anchors.get(edge.start());
+                    let a1 = anchors.get(edge.end());
+                    let tf0 = get_parent_transform(edge.start());
+                    let tf1 = get_parent_transform(edge.end());
+
                     if on_level {
-                        if let (Ok(a0), Ok(a1)) =
-                            (anchors.get(edge.start()), anchors.get(edge.end()))
+                        if let (Ok(a0), Ok(a1), Some(tf0), Some(tf1)) = (a0, a1, tf0, tf1)
                         {
                             let p0: Vec2 = a0.translation_for_category(Category::General).into();
+                            let p0 = tf0.transform_point(p0.extend(0.0)).truncate();
+
                             let p1: Vec2 = a1.translation_for_category(Category::General).into();
+                            let p1 = tf1.transform_point(p1.extend(0.0)).truncate();
+
                             if settings
                                 .alignment_window
                                 .is_none_or(|d| distance_to_line_segment(x, p0, p1) < d)
@@ -193,12 +217,14 @@ pub fn select_anchor_cursor_transform(
                     }
                 }
 
-                if let Some(base_anchor) = base_anchor {
+                if let (Some(base_anchor), Some(tf)) = (base_anchor, base_anchor_tf) {
                     // Always include the plain x and y axis directions if we
                     // have a base anchor.
                     let p0: Vec2 = base_anchor
                         .translation_for_category(Category::General)
                         .into();
+                    let p0 = tf.transform_point(p0.extend(0.0)).truncate();
+
                     let grid = grid.map(|g| **g);
                     lines.push(Line::x_axis(p0, grid));
                     lines.push(Line::y_axis(p0, grid));
@@ -206,6 +232,7 @@ pub fn select_anchor_cursor_transform(
 
                 AlignmentCache {
                     last_order: order.id(),
+                    last_level: level,
                     last_base_anchor: base_anchor_id,
                     center: x,
                     lines,
@@ -264,6 +291,7 @@ pub fn select_anchor_cursor_transform(
 
 pub struct AlignmentCache {
     last_order: Entity,
+    last_level: Entity,
     last_base_anchor: Option<Entity>,
     center: Vec2,
     lines: Vec<Line>,
