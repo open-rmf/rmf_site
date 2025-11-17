@@ -23,7 +23,6 @@ use bevy::{
     },
     prelude::*,
 };
-use bevy_impulse::RunCommandsOnWorldExt;
 use rmf_site_picking::Preview;
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
