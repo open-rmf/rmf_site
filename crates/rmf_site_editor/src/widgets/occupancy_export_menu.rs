@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Open Source Robotics Foundation
+ * Copyright (C) 2025 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ impl FromWorld for OccupancyExportMenu {
         let file_header = world.resource::<FileMenu>().get();
         let export_sdf = world
             .spawn((
-                MenuItem::Text(TextMenuItem::new("Export Occupancy").shortcut("Ctrl-E")),
+                MenuItem::Text(TextMenuItem::new("Export Occupancy")),
                 ChildOf(file_header),
             ))
             .id();
