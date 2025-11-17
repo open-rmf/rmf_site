@@ -145,6 +145,7 @@ impl Plugin for StandardPropertiesPanelPlugin {
             ViewGroupsPlugin::default(),
             ViewLightsPlugin::default(),
             BuildingPreviewPlugin::default(),
+            OccupancyExportMenuPlugin::default(),
         ));
     }
 }

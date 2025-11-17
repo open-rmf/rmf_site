@@ -15,8 +15,15 @@
  *
 */
 
-use crate::{AppState, WorkspaceSaver};
+use crate::{
+    occupancy::{CalculateGrid, ExportGridRequest},
+    AppState, WorkspaceSaver,
+};
 use bevy::{ecs::hierarchy::ChildOf, prelude::*};
+use bevy_egui::{
+    egui::{self, DragValue},
+    EguiContexts,
+};
 use rmf_site_egui::*;
 
 /// Keeps track of which entity is associated to the export sdf button.
@@ -45,16 +52,49 @@ impl FromWorld for OccupancyExportMenu {
     }
 }
 
-fn handle_export_sdf_menu_events(
+struct ExportOccupancyConfig {
+    visible: bool,
+    occupancy_request_cell_size: f32,
+}
+
+impl Default for ExportOccupancyConfig {
+    fn default() -> Self {
+        Self {
+            visible: false,
+            occupancy_request_cell_size: 0.1,
+        }
+    }
+}
+
+fn handle_export_occupancy_menu_events(
     mut menu_events: EventReader<MenuEvent>,
+    mut export_event: EventWriter<ExportGridRequest>,
     occupancy_menu: Res<OccupancyExportMenu>,
-    mut workspace_saver: WorkspaceSaver,
+    mut egui_context: EguiContexts,
+    mut configuration: Local<ExportOccupancyConfig>,
 ) {
     for event in menu_events.read() {
         if event.clicked() && event.source() == occupancy_menu.get() {
-            workspace_saver.export_occupancy_to_dialog();
+            //workspace_saver.export_occupancy_to_dialog();
+            configuration.visible = true;
         }
     }
+
+    if !configuration.visible {
+        return;
+    }
+
+    egui::Window::new("Occupancy Export Options").show(egui_context.ctx_mut(), |ui| {
+        ui.horizontal(|ui| {
+            ui.label("Cell Size:");
+            ui.add(DragValue::new(
+                &mut configuration.occupancy_request_cell_size,
+            ));
+        });
+        if ui.button("Export").clicked() {
+            export_event.write(ExportGridRequest(configuration.occupancy_request_cell_size));
+        }
+    });
 }
 
 #[derive(Default)]
@@ -64,7 +104,7 @@ impl Plugin for OccupancyExportMenuPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<OccupancyExportMenu>().add_systems(
             Update,
-            handle_export_sdf_menu_events.run_if(AppState::in_displaying_mode()),
+            handle_export_occupancy_menu_events.run_if(AppState::in_displaying_mode()),
         );
     }
 }

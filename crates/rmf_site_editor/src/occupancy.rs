@@ -19,6 +19,7 @@ use crate::{
     layers::ZLayer,
     mapf_rse::{MAPFDebugDisplay, NegotiationRequest},
     site::{Category, LevelElevation, NameOfSite, SiteAssets},
+    workspace::WorkspaceSaver,
 };
 use bevy::{
     ecs::{hierarchy::ChildOf, relationship::AncestorIter},
@@ -41,9 +42,10 @@ impl Plugin for OccupancyPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<CalculateGridRequest>()
             .add_event::<NegotiationRequest>()
+            .add_event::<ExportGridRequest>()
             .init_resource::<MAPFDebugDisplay>()
             .init_resource::<OccupancyInfo>()
-            .add_systems(Update, handle_calculate_grid_request);
+            .add_systems(Update, (handle_mapf_request, handle_export_request));
     }
 }
 
@@ -163,6 +165,9 @@ impl GridRange {
 }
 
 #[derive(Event)]
+pub struct ExportGridRequest(pub f32);
+
+#[derive(Event)]
 pub struct CalculateGridRequest;
 
 pub struct CalculateGrid {
@@ -174,8 +179,6 @@ pub struct CalculateGrid {
     pub floor: f32,
     /// Ignore meshes above this height
     pub ceiling: f32,
-    /// Trigger save event
-    pub trigger_save: bool,
 }
 
 impl Default for CalculateGrid {
@@ -185,7 +188,6 @@ impl Default for CalculateGrid {
             ignore: HashSet::default(),
             floor: 0.01,
             ceiling: 1.5,
-            trigger_save: false,
         }
     }
 }
@@ -196,7 +198,50 @@ enum Group {
     None,
 }
 
-fn handle_calculate_grid_request(
+fn handle_export_request(
+    mut request: EventReader<ExportGridRequest>,
+    //occupancy_info: Res<OccupancyInfo>,
+    robots: Query<Entity, With<Robot>>,
+    mut commands: Commands,
+    bodies: Query<(Entity, &Mesh3d, &Aabb, &GlobalTransform)>,
+    meta: Query<(
+        Option<&ChildOf>,
+        Option<&Category>,
+        Option<&ComputedVisualCue>,
+    )>,
+    child_of: Query<&ChildOf>,
+    levels: Query<Entity, With<LevelElevation>>,
+    sites: Query<(), With<NameOfSite>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    assets: Res<SiteAssets>,
+    grids: Query<Entity, With<Grid>>,
+    display_mapf_debug: Res<MAPFDebugDisplay>,
+    mut workspace_saver: WorkspaceSaver,
+) {
+    if let Some(export_req) = request.read().last() {
+        let grid = CalculateGrid {
+            cell_size: export_req.0,
+            ignore: robots.iter().collect(),
+            ..default()
+        };
+        calculate_grid(
+            &grid,
+            &mut commands,
+            &bodies,
+            &meta,
+            &child_of,
+            &levels,
+            &sites,
+            &mut meshes,
+            &assets,
+            &grids,
+            &display_mapf_debug,
+        );
+        workspace_saver.export_occupancy_to_dialog();
+    }
+}
+
+fn handle_mapf_request(
     mut request: EventReader<CalculateGridRequest>,
     occupancy_info: Res<OccupancyInfo>,
     robots: Query<Entity, With<Robot>>,
