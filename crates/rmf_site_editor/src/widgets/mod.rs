@@ -145,7 +145,6 @@ impl Plugin for StandardPropertiesPanelPlugin {
             ViewGroupsPlugin::default(),
             ViewLightsPlugin::default(),
             BuildingPreviewPlugin::default(),
-            OccupancyExportMenuPlugin::default(),
         ));
     }
 }
@@ -172,6 +171,8 @@ impl Plugin for StandardUiPlugin {
                 SdfExportMenuPlugin::default(),
                 #[cfg(not(target_arch = "wasm32"))]
                 NavGraphIoPlugin::default(),
+                #[cfg(not(target_arch = "wasm32"))]
+                OccupancyExportMenuPlugin::default(),
             ))
             .add_systems(Startup, init_ui_style)
             .add_systems(

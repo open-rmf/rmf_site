@@ -75,7 +75,6 @@ fn handle_export_occupancy_menu_events(
 ) {
     for event in menu_events.read() {
         if event.clicked() && event.source() == occupancy_menu.get() {
-            //workspace_saver.export_occupancy_to_dialog();
             configuration.visible = true;
         }
     }
@@ -92,6 +91,7 @@ fn handle_export_occupancy_menu_events(
             ));
         });
         if ui.button("Export").clicked() {
+            configuration.visible = false;
             export_event.write(ExportGridRequest(configuration.occupancy_request_cell_size));
         }
     });
