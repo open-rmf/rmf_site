@@ -1,5 +1,5 @@
-use super::{rbmf::*, PortingError, Result};
-use crate::{Affiliation, AssetSource, Texture, Wall as SiteWall, DEFAULT_LEVEL_HEIGHT};
+use super::{PortingError, Result, rbmf::*};
+use crate::{Affiliation, AssetSource, DEFAULT_LEVEL_HEIGHT, Texture, Wall as SiteWall};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, HashMap},

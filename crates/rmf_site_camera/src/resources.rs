@@ -102,7 +102,7 @@ pub enum ProjectionMode {
     Orthographic,
 }
 
-/// Block status for a given [`Registry`]. Managed by [`set_block_status`]
+/// Block status for a given `Registry`.
 #[derive(Resource, TransparentWrapper, Default)]
 #[transparent(bool)]
 #[repr(transparent)]

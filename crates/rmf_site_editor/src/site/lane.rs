@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{layers, site::*};
+use crate::{layers::ZLayer, site::*};
 use crate::{CurrentWorkspace, Issue, ValidateWorkspace};
 use bevy::ecs::{hierarchy::ChildOf, relationship::AncestorIter};
 use bevy::pbr::ExtendedMaterial;
@@ -24,13 +24,17 @@ use rmf_site_format::{Edge, LaneMarker};
 use std::collections::{BTreeSet, HashMap};
 use uuid::Uuid;
 
+use bevy::picking::Pickable;
+
 // TODO(MXG): Make this configurable, perhaps even a field in the Lane data
 // so users can customize the lane width per lane.
 pub const LANE_WIDTH: f32 = 0.5;
+pub const DEFAULT_LANE_ARROW_SPEED: f32 = 0.5;
 
 #[derive(Component, Debug, Clone, Copy)]
 pub struct LaneSegments {
-    pub layer: Entity,
+    /// Offset the lane height based on nav graph rank
+    pub rank_layer: Entity,
     pub start: Entity,
     pub mid: Entity,
     pub end: Entity,
@@ -111,7 +115,7 @@ pub fn add_lane_visuals(
             }
         }
 
-        let (lane_material, lane_color, height) = graphs.display_style(associated_graphs);
+        let (lane_material, lane_color, rank) = graphs.display_style(associated_graphs);
         let visibility = if should_display_lane(
             edge,
             associated_graphs,
@@ -132,10 +136,13 @@ pub fn add_lane_visuals(
             .point_in_parent_frame_of(edge.end(), Category::Lane, e)
             .unwrap();
 
-        // Create a "layer" entity that manages the height of the lane,
-        // determined by the DisplayHeight of the graph.
-        let layer = commands
-            .spawn((Transform::from_xyz(0.0, 0.0, height), Visibility::default()))
+        // Create a "layer" entity that manages the height offset of the lane,
+        // determined by its nav graph rank.
+        let rank_layer = commands
+            .spawn((
+                Transform::from_xyz(0.0, 0.0, height_for_rank(rank)),
+                Visibility::default(),
+            ))
             .insert(ChildOf(e))
             .id();
 
@@ -146,8 +153,8 @@ pub fn add_lane_visuals(
                     MeshMaterial3d(lane_material.clone()),
                     lane_tf,
                     Visibility::default(),
+                    ChildOf(rank_layer),
                 ))
-                .insert(ChildOf(layer))
                 .id();
 
             let outline = commands
@@ -156,8 +163,9 @@ pub fn add_lane_visuals(
                     MeshMaterial3d::<StandardMaterial>::default(),
                     Transform::from_translation(-0.000_5 * Vec3::Z),
                     Visibility::Hidden,
+                    ChildOf(mesh),
+                    Pickable::IGNORE,
                 ))
-                .insert(ChildOf(mesh))
                 .id();
 
             (mesh, outline)
@@ -176,14 +184,15 @@ pub fn add_lane_visuals(
         );
 
         let is_bidirectional = *reverse != ReverseLane::Disable;
-        let forward_speed_limit = motion.speed_limit.unwrap_or(1.0);
+        let forward_speed_limit = motion.speed_limit.unwrap_or(DEFAULT_LANE_ARROW_SPEED);
         let backward_speed_limit = match reverse {
             ReverseLane::Same => forward_speed_limit,
             _ => recall
-                .map(|rec: &RecallMotion| rec.speed_limit.unwrap_or(1.0))
-                .unwrap_or(1.0),
+                .map(|rec: &RecallMotion| rec.speed_limit.unwrap_or(DEFAULT_LANE_ARROW_SPEED))
+                .unwrap_or(DEFAULT_LANE_ARROW_SPEED),
         };
 
+        let lane_color = lane_color.to_linear();
         let mid = commands
             .spawn((
                 Mesh3d(assets.lane_mid_mesh.clone()),
@@ -193,20 +202,25 @@ pub fn add_lane_visuals(
                         ..default()
                     },
                     extension: assets::LaneArrowMaterial {
-                        single_arrow_color: lane_color.into(),
-                        double_arrow_color: lane_color.into(),
-                        background_color: lane_color.into(),
-                        number_of_arrows: (start_anchor - end_anchor).length() / LANE_WIDTH,
-                        forward_speed: forward_speed_limit,
-                        backward_speed: backward_speed_limit,
-                        bidirectional: is_bidirectional as u32,
-                        is_active: false as u32,
+                        single_arrow_color: forward_arrow_color(lane_color),
+                        double_arrow_color: backward_arrow_color(lane_color),
+                        background_color: lane_color,
+                        number_of_arrows: BigF32::new(
+                            (start_anchor - end_anchor).length() / LANE_WIDTH,
+                        ),
+                        speeds: LaneShaderSpeeds {
+                            forward: forward_speed_limit,
+                            backward: backward_speed_limit,
+                            ..Default::default()
+                        },
+                        bidirectional: BigU32::new(is_bidirectional as u32),
+                        interacting: BigU32::new(false as u32),
                     },
                 })),
                 line_stroke_transform(&start_anchor, &end_anchor, LANE_WIDTH),
                 Visibility::default(),
             ))
-            .insert(ChildOf(layer))
+            .insert(ChildOf(rank_layer))
             .id();
 
         let mid_outline: Entity = commands
@@ -215,26 +229,30 @@ pub fn add_lane_visuals(
                 MeshMaterial3d::<StandardMaterial>::default(),
                 Transform::from_translation(-0.000_5 * Vec3::Z),
                 Visibility::Hidden,
+                ChildOf(mid),
+                Pickable::IGNORE,
             ))
-            .insert(ChildOf(mid))
             .id();
 
-        commands
-            .entity(e)
-            .insert(LaneSegments {
-                layer,
+        let z = ZLayer::Lane.to_z();
+        commands.entity(e).insert((
+            LaneSegments {
+                rank_layer,
                 start,
                 mid,
                 end,
                 outlines: [start_outline, mid_outline, end_outline],
-            })
-            .insert((
-                Transform::from_translation([0., 0., layers::ZLayer::Lane.to_z()].into()),
-                visibility,
-            ))
-            .insert(Category::Lane)
-            .insert(EdgeLabels::StartEnd);
+            },
+            Transform::from_translation([0., 0., z].into()),
+            visibility,
+            Category::Lane,
+            EdgeLabels::StartEnd,
+        ));
     }
+}
+
+fn height_for_rank(rank: f32) -> f32 {
+    rank * (ZLayer::Doormat.to_z() - ZLayer::Lane.to_z())
 }
 
 fn update_lane_visuals(
@@ -261,7 +279,7 @@ fn update_lane_visuals(
 
         if let Ok(mat) = lane_materials.get(segments.mid) {
             if let Some(lane_mat) = extended_materials.get_mut(&mat.0) {
-                lane_mat.extension.number_of_arrows =
+                *lane_mat.extension.number_of_arrows =
                     (start_anchor - end_anchor).length() / LANE_WIDTH;
             }
         }
@@ -294,17 +312,17 @@ pub fn update_lane_motion_visuals(
         if let Some(mat) = lane_materials.get_mut(segments.mid).ok() {
             if let Some(lane_mat) = extended_materials.get_mut(&mat.0) {
                 let is_bidirectional = *reverse != ReverseLane::Disable;
-                let forward_speed_limit = motion.speed_limit.unwrap_or(1.0);
+                let forward_speed_limit = motion.speed_limit.unwrap_or(DEFAULT_LANE_ARROW_SPEED);
                 let backward_speed_limit = match reverse {
                     ReverseLane::Same => forward_speed_limit,
                     _ => recall
                         .and_then(|rec| rec.previous.speed_limit)
-                        .unwrap_or(1.0),
+                        .unwrap_or(DEFAULT_LANE_ARROW_SPEED),
                 };
 
-                lane_mat.extension.forward_speed = forward_speed_limit;
-                lane_mat.extension.backward_speed = backward_speed_limit;
-                lane_mat.extension.bidirectional = is_bidirectional as u32;
+                lane_mat.extension.speeds.forward = forward_speed_limit;
+                lane_mat.extension.speeds.backward = backward_speed_limit;
+                *lane_mat.extension.bidirectional = is_bidirectional as u32;
             }
         }
     }
@@ -353,6 +371,7 @@ pub fn update_changed_lane(
         } else {
             Visibility::Hidden
         };
+
         if *visibility != new_visibility {
             *visibility = new_visibility;
         }
@@ -414,7 +433,17 @@ pub fn update_color_for_lanes(
         (&AssociatedGraphs<Entity>, &LaneSegments),
         (With<LaneMarker>, Changed<AssociatedGraphs<Entity>>),
     >,
-    any_graphs_changed: Query<(), (Changed<DisplayColor>, With<NavGraphMarker>)>,
+    any_graphs_changed: Query<
+        (),
+        (
+            Or<(
+                Changed<DisplayColor>,
+                Changed<RecencyRank<NavGraphMarker>>,
+                Changed<Visibility>,
+            )>,
+            With<NavGraphMarker>,
+        ),
+    >,
     all_lanes: Query<(&AssociatedGraphs<Entity>, &LaneSegments), With<LaneMarker>>,
     graphs: GraphSelect,
     lane_materials: Query<&MeshMaterial3d<ExtendedMaterial<StandardMaterial, LaneArrowMaterial>>>,
@@ -458,25 +487,31 @@ fn impl_update_color_for_lane(
 
     if let Ok(ext_mat) = lane_materials.get(segments.mid) {
         if let Some(lane_mat) = extended_materials.get_mut(&ext_mat.0) {
-            lane_mat.extension.background_color = new_color.into();
-
-            let dark_color_diff = 0.1;
-            let light_color_diff = 0.5;
-
-            lane_mat.extension.single_arrow_color = Color::srgb(
-                (new_color.red - dark_color_diff).clamp(0.0, 1.0),
-                (new_color.green - dark_color_diff).clamp(0.0, 1.0),
-                (new_color.blue - dark_color_diff).clamp(0.0, 1.0),
-            )
-            .into();
-            lane_mat.extension.double_arrow_color = Color::srgb(
-                (new_color.red + light_color_diff).clamp(0.0, 1.0),
-                (new_color.green + light_color_diff).clamp(0.0, 1.0),
-                (new_color.blue + light_color_diff).clamp(0.0, 1.0),
-            )
-            .into();
+            lane_mat.extension.background_color = new_color;
+            lane_mat.extension.single_arrow_color = forward_arrow_color(new_color);
+            lane_mat.extension.double_arrow_color = backward_arrow_color(new_color);
         }
     }
+}
+
+fn forward_arrow_color(lane_color: LinearRgba) -> LinearRgba {
+    let dark_color_diff = 0.1;
+    Color::srgb(
+        (lane_color.red - dark_color_diff).clamp(0.0, 1.0),
+        (lane_color.green - dark_color_diff).clamp(0.0, 1.0),
+        (lane_color.blue - dark_color_diff).clamp(0.0, 1.0),
+    )
+    .into()
+}
+
+fn backward_arrow_color(lane_color: LinearRgba) -> LinearRgba {
+    let light_color_diff = 0.5;
+    Color::srgb(
+        (lane_color.red + light_color_diff).clamp(0.0, 1.0),
+        (lane_color.green + light_color_diff).clamp(0.0, 1.0),
+        (lane_color.blue + light_color_diff).clamp(0.0, 1.0),
+    )
+    .into()
 }
 
 // TODO(MXG): Generalize this to all edges
@@ -525,6 +560,7 @@ pub fn update_visibility_for_lanes(
             } else {
                 Visibility::Hidden
             };
+
             if *visibility != new_visibility {
                 *visibility = new_visibility;
             }
@@ -544,6 +580,7 @@ pub fn update_visibility_for_lanes(
                 } else {
                     Visibility::Hidden
                 };
+
                 if *visibility != new_visibility {
                     *visibility = new_visibility;
                 }
@@ -553,28 +590,28 @@ pub fn update_visibility_for_lanes(
 
     if graph_change {
         for (_, associated_graphs, segments, _) in &lanes {
-            let (mat, _, height) = graphs.display_style(associated_graphs);
+            let (mat, _, rank) = graphs.display_style(associated_graphs);
             for e in segments.iter() {
                 if let Ok(mut m) = materials.get_mut(e) {
                     *m = MeshMaterial3d(mat.clone());
                 }
             }
 
-            if let Ok(mut tf) = transforms.get_mut(segments.layer) {
-                tf.translation.z = height;
+            if let Ok(mut tf) = transforms.get_mut(segments.rank_layer) {
+                tf.translation.z = height_for_rank(rank);
             }
         }
     } else {
         for (_, associated_graphs, segments) in &lanes_with_changed_association {
-            let (mat, _, height) = graphs.display_style(associated_graphs);
+            let (mat, _, rank) = graphs.display_style(associated_graphs);
             for e in segments.iter() {
                 if let Ok(mut m) = materials.get_mut(e) {
                     *m = MeshMaterial3d(mat.clone());
                 }
             }
 
-            if let Ok(mut tf) = transforms.get_mut(segments.layer) {
-                tf.translation.z = height;
+            if let Ok(mut tf) = transforms.get_mut(segments.rank_layer) {
+                tf.translation.z = height_for_rank(rank);
             }
         }
     }

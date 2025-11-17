@@ -20,19 +20,19 @@ use bevy::{
         component::{ComponentId, ComponentInfo},
         hierarchy::ChildOf,
         query::QueryData,
-        system::{EntityCommands, SystemParam},
+        system::SystemParam,
     },
     prelude::*,
 };
 use bevy_egui::egui::{CollapsingHeader, ComboBox, RichText, Ui};
 use rmf_site_egui::*;
 use smallvec::SmallVec;
-use std::{collections::HashMap, fmt::Debug};
+use std::fmt::Debug;
 
 use crate::{
     site::{
-        update_model_instances, Affiliation, AssetSource, Change, Group, IsStatic, ModelLoader,
-        ModelMarker, ModelProperty, ModelPropertyQuery, NameInSite, Scale,
+        model_property::*, update_model_instances, Affiliation, AssetSource, Change, Group,
+        ModelLoader, ModelMarker, ModelProperty, ModelPropertyQuery, NameInSite,
     },
     widgets::{prelude::*, Inspect},
     MainInspector,
@@ -86,75 +86,6 @@ impl ModelDescriptionInspector {
     }
 }
 
-/// Function that inserts a default property into an entity
-type InsertModelPropertyFn = fn(EntityCommands);
-
-fn get_insert_model_property_fn<T: Component + Default>() -> InsertModelPropertyFn {
-    |mut e_commands| {
-        e_commands.insert(T::default());
-    }
-}
-
-/// Function that removes a property, if it exists, from an entity
-type RemoveModelPropertyFn = fn(EntityCommands);
-
-fn get_remove_model_property_fn<T: Component + Default>() -> RemoveModelPropertyFn {
-    |mut e_commands| {
-        e_commands.remove::<T>();
-    }
-}
-
-/// This resource keeps track of all the properties that can be configured for a model description.
-#[derive(Resource)]
-pub struct ModelPropertyData {
-    pub required: HashMap<ComponentId, (String, InsertModelPropertyFn, RemoveModelPropertyFn)>,
-    pub optional: HashMap<ComponentId, (String, InsertModelPropertyFn, RemoveModelPropertyFn)>,
-}
-
-impl FromWorld for ModelPropertyData {
-    fn from_world(world: &mut World) -> Self {
-        let mut required = HashMap::new();
-        world.register_component::<ModelProperty<AssetSource>>();
-        required.insert(
-            world
-                .components()
-                .component_id::<ModelProperty<AssetSource>>()
-                .unwrap(),
-            (
-                "Asset Source".to_string(),
-                get_insert_model_property_fn::<ModelProperty<AssetSource>>(),
-                get_remove_model_property_fn::<ModelProperty<AssetSource>>(),
-            ),
-        );
-        world.register_component::<ModelProperty<Scale>>();
-        required.insert(
-            world
-                .components()
-                .component_id::<ModelProperty<Scale>>()
-                .unwrap(),
-            (
-                "Scale".to_string(),
-                get_insert_model_property_fn::<ModelProperty<Scale>>(),
-                get_remove_model_property_fn::<ModelProperty<Scale>>(),
-            ),
-        );
-        world.register_component::<ModelProperty<IsStatic>>();
-        required.insert(
-            world
-                .components()
-                .component_id::<ModelProperty<IsStatic>>()
-                .unwrap(),
-            (
-                "Is Static".to_string(),
-                get_insert_model_property_fn::<IsStatic>(),
-                get_remove_model_property_fn::<IsStatic>(),
-            ),
-        );
-        let optional = HashMap::new();
-        Self { required, optional }
-    }
-}
-
 /// Implement this plugin to add a new configurable property of type T to the model description inspector.
 pub struct InspectModelPropertyPlugin<W, T>
 where
@@ -195,7 +126,7 @@ where
             .required
             .contains_key(&component_id)
         {
-            app.add_systems(PreUpdate, update_model_instances::<T>);
+            app.add_systems(PostUpdate, update_model_instances::<T>);
 
             app.world_mut()
                 .resource_mut::<ModelPropertyData>()
@@ -368,6 +299,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelDescription<'w, 's> {
 /// and change its description
 #[derive(SystemParam)]
 pub struct InspectSelectedModelDescription<'w, 's> {
+    commands: Commands<'w, 's>,
     model_instances: ModelPropertyQuery<'w, 's, NameInSite>,
     model_descriptions: Query<
         'w,
@@ -380,7 +312,6 @@ pub struct InspectSelectedModelDescription<'w, 's> {
         (With<ModelMarker>, With<Group>),
     >,
     model_loader: ModelLoader<'w, 's>,
-    change_affiliation: EventWriter<'w, Change<Affiliation<Entity>>>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectSelectedModelDescription<'w, 's> {
@@ -423,8 +354,8 @@ impl<'w, 's> InspectSelectedModelDescription<'w, 's> {
                 });
         });
         if new_description_entity != current_description_entity {
-            self.change_affiliation
-                .write(Change::new(Affiliation(Some(new_description_entity)), id));
+            self.commands
+                .trigger(Change::new(Affiliation(Some(new_description_entity)), id));
             let (_, _, new_source) = self.model_descriptions.get(new_description_entity).unwrap();
             self.model_loader
                 .update_asset_source(id, new_source.0.clone());

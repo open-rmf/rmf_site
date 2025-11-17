@@ -1,10 +1,10 @@
 use bevy_derive::{Deref, DerefMut};
 pub use bevy_ecs::prelude::*;
-use bevy_impulse::Service;
 use bytemuck::TransparentWrapper;
+use crossflow::Service;
 
 use crate::*;
-use std::time::Instant;
+use web_time::Instant;
 
 /// Used as a resource to keep track of which entity is currently selected.
 #[derive(Default, Debug, Clone, Copy, Deref, DerefMut, Resource)]
@@ -55,7 +55,7 @@ impl Default for SelectionBlockers {
 pub struct InspectorServiceConfigs {
     /// Workflow that outputs hover and select streams that are compatible with
     /// a general inspector. This service never terminates.
-    pub inspector_select_service: Service<(), (), (Hover, Select)>,
+    pub inspector_select_service: Service<(), (), SelectionStreams>,
     pub inspector_cursor_transform: Service<(), ()>,
     pub selection_update: Service<Select, ()>,
 }

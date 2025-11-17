@@ -11,20 +11,45 @@ env:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
     - name: deps
       run: |
         sudo apt-get update
         sudo apt-get install libasound2-dev libudev-dev libgtk-3-dev
     - uses: actions/checkout@v3
-    - name: Build rmf_site_format
+    - name: Test rmf_site_format
       run: |
         cd crates/rmf_site_format
-        cargo build
-    - name: Build rmf_site_editor
-      run: cargo build --all-targets
-    - name: Run tests
-      run: cargo test
+        cargo test
+    - name: Test rmf_site_editor
+      run: |
+        cd crates/rmf_site_editor
+        cargo test
+
+  build_with_colcon:
+    runs-on: ubuntu-latest
+    container:
+      image: osrf/ros:jazzy-desktop-noble
+    steps:
+    - name: deps
+      run: |
+        sudo apt-get update -y
+        sudo apt-get install -y libasound2-dev libudev-dev libgtk-3-dev git libclang-dev python3-pip python3-vcstool
+        pip install git+https://github.com/colcon/colcon-cargo.git --break-system-packages
+        pip install git+https://github.com/colcon/colcon-ros-cargo.git --break-system-packages
+    - name: Set up workspace
+      run: |
+        mkdir -p site_ws/src
+    - uses: actions/checkout@v4
+      with:
+        path: site_ws/src/rmf_site
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      # TODO(@xiyuoh) Revisit when colcon-cargo supports shared target directory
+    - name: Build rmf_site_format with colcon
+      shell: bash
+      run: |
+        cd site_ws
+        source /opt/ros/jazzy/setup.bash
+        colcon build --packages-select rmf_site_format

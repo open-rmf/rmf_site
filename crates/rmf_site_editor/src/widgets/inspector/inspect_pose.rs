@@ -28,7 +28,6 @@ use rmf_site_format::{Pose, Rotation};
 pub struct InspectPose<'w, 's> {
     commands: Commands<'w, 's>,
     poses: Query<'w, 's, &'static Pose>,
-    change_pose: EventWriter<'w, Change<Pose>>,
     current_scenario: Res<'w, CurrentScenario>,
     pose_modifiers: Query<'w, 's, (&'static Modifier<Pose>, &'static Affiliation<Entity>)>,
     scenarios: Query<
@@ -54,7 +53,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPose<'w, 's> {
             return;
         };
         if let Some(new_pose) = InspectPoseComponent::new(pose).show(ui) {
-            params.change_pose.write(Change::new(new_pose, selection));
+            params.commands.trigger(Change::new(new_pose, selection));
         }
 
         // Reset model instance pose to parent scenario pose (if any)

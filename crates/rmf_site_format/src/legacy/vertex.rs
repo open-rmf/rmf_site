@@ -1,7 +1,7 @@
 use super::rbmf::*;
 use crate::{
-    is_default, legacy::model::Model, AssociatedGraphs, Location, LocationTag, LocationTags,
-    NameInSite,
+    AssociatedGraphs, Location, LocationTag, LocationTags, NameInSite, is_default,
+    legacy::model::Model,
 };
 use glam::DVec2;
 use serde::{Deserialize, Serialize};
@@ -24,6 +24,8 @@ pub struct VertexProperties {
     pub pickup_dispenser: RbmfString,
     #[serde(default, skip_serializing_if = "is_default")]
     pub dock_name: RbmfString,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub mutex: Option<RbmfString>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub lift_cabin: RbmfString,
 }
@@ -63,13 +65,15 @@ impl Vertex {
             Some(self.3.clone())
         };
 
-        if tags.is_empty() && name.is_none() {
+        let has_mutex_group = self.4.mutex.as_ref().is_some_and(|n| !n.is_empty());
+        if tags.is_empty() && name.is_none() && !has_mutex_group {
             return None;
         } else {
             return Some(Location {
                 anchor: anchor.into(),
                 tags: LocationTags(tags),
                 name: NameInSite(name.unwrap_or_default()),
+                mutex: Default::default(),
                 graphs: AssociatedGraphs::All,
             });
         }

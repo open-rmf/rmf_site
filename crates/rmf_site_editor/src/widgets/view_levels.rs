@@ -50,8 +50,6 @@ pub struct ViewLevels<'w, 's> {
     display_levels: ResMut<'w, LevelDisplay>,
     current_level: ResMut<'w, CurrentLevel>,
     current_workspace: ResMut<'w, CurrentWorkspace>,
-    change_name: EventWriter<'w, Change<NameInSite>>,
-    change_level_elevation: EventWriter<'w, Change<LevelElevation>>,
     delete: EventWriter<'w, Delete>,
     commands: Commands<'w, 's>,
     app_state: Res<'w, State<AppState>>,
@@ -195,13 +193,13 @@ impl<'w, 's> ViewLevels<'w, 's> {
                 });
 
                 if shown_name != name.0 {
-                    self.change_name
-                        .write(Change::new(NameInSite(shown_name), e));
+                    self.commands
+                        .trigger(Change::new(NameInSite(shown_name), e));
                 }
 
                 if shown_elevation != elevation.0 {
-                    self.change_level_elevation
-                        .write(Change::new(LevelElevation(shown_elevation), e));
+                    self.commands
+                        .trigger(Change::new(LevelElevation(shown_elevation), e));
                 }
             }
         }

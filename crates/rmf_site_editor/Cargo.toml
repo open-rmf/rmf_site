@@ -1,11 +1,17 @@
 [package]
 name = "rmf_site_editor"
-version = "0.0.1"
+version = "0.0.3"
+# We need to keep this on edition 2021 because of a strange linking issue:
+# https://github.com/rust-lang/cargo/issues/8531#issuecomment-3446171638
 edition = "2021"
+authors = ["Grey <mxgrey@intrinsic.ai>"]
+description = "File format parsing for rmf_site_editor"
+license = "Apache-2.0"
+repository = "https://github.com/open-rmf/rmf_site"
+readme = "../../README.md"
 
 [lib]
-crate-type = ["cdylib", "rlib"]
-name = "librmf_site_editor"
+name = "rmf_site_editor"
 
 [[bin]]
 path = "src/main.rs"
@@ -46,7 +52,7 @@ tracing-subscriber = {workspace = true}
 rfd = {workspace = true}
 urdf-rs = {workspace = true}
 utm = {workspace = true}
-sdformat_rs = {workspace = true}
+sdformat = {workspace = true}
 gz-fuel = {workspace = true}
 pathdiff = {workspace = true}
 ehttp = { workspace = true, features = ["native-async"] }
@@ -59,12 +65,14 @@ bevy_infinite_grid = {workspace = true}
 bevy_rich_text3d = {workspace = true}
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 clap = { workspace = true, features = ["color", "derive", "help", "usage", "suggestions"] }
-bevy_egui = {workspace = true}
-bevy_impulse = { workspace = true}
+bevy_egui = { workspace = true, default-features = true }
+crossflow = { workspace = true}
+web-time = {workspace = true}
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 bevy_egui = { workspace = true, default-features = false, features = ["open_url", "default_fonts", "render"] }
-bevy_impulse = { workspace = true, features = ["single_threaded_async"]}
+crossflow = { workspace = true, features = ["single_threaded_async"]}
+web-time = {workspace = true}
 
 [dev-dependencies]
 file_diff = {workspace = true}

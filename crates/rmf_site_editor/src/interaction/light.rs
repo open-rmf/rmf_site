@@ -107,7 +107,7 @@ pub fn add_physical_light_visual_cues(
             })
             .id();
 
-        let spot_visibility = if kind.is_point() {
+        let spot_visibility = if kind.is_spot() {
             Visibility::Inherited
         } else {
             Visibility::Hidden
@@ -133,7 +133,7 @@ pub fn add_physical_light_visual_cues(
             })
             .id();
 
-        let directional_visibility = if kind.is_point() {
+        let directional_visibility = if kind.is_directional() {
             Visibility::Inherited
         } else {
             Visibility::Hidden

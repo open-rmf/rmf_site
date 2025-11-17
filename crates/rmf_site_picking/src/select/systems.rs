@@ -2,14 +2,14 @@ use bevy_ecs::{
     prelude::*,
     system::{StaticSystemParam, SystemParam},
 };
-use bevy_impulse::*;
 use bevy_input::prelude::*;
 use bevy_math::prelude::*;
 use bevy_picking::pointer::{PointerId, PointerInteraction};
 use bevy_transform::components::Transform;
+use crossflow::*;
 use rmf_site_camera::*;
-use std::time::Instant;
 use tracing::warn;
+use web_time::Instant;
 
 use crate::*;
 
@@ -18,8 +18,12 @@ const DOUBLE_CLICK_DURATION_MILLISECONDS: u128 = 500;
 pub fn process_new_selector(
     In(key): In<BufferKey<RunSelector>>,
     mut access: BufferAccessMut<RunSelector>,
+    mut gate: BufferGateAccessMut,
 ) -> Option<RunSelector> {
     let Ok(mut buffer) = access.get_mut(&key) else {
+        return None;
+    };
+    let Ok(mut gate) = gate.get_mut(key) else {
         return None;
     };
 
@@ -27,7 +31,7 @@ pub fn process_new_selector(
     if output.is_some() {
         // We should lock the gate while the trim is going on so we can't have
         // multiple new selectors trying to start at the same time
-        buffer.close_gate();
+        gate.close_gate();
     }
 
     output
@@ -140,8 +144,8 @@ pub fn make_selectable_entities_pickable(
 /// - [`inspector_hover_picking`]
 /// - [`inspector_select_service`]
 pub fn hover_service<Filter: SystemParam + 'static>(
-    In(ContinuousService { key }): ContinuousServiceInput<(), (), Hover>,
-    mut orders: ContinuousQuery<(), (), Hover>,
+    In(ContinuousService { key }): ContinuousServiceInput<(), (), StreamOf<Hover>>,
+    mut orders: ContinuousQuery<(), (), StreamOf<Hover>>,
     mut hovered: Query<&mut Hovered>,
     mut hovering: ResMut<Hovering>,
     mut hover: EventReader<Hover>,
@@ -206,8 +210,8 @@ pub fn hover_service<Filter: SystemParam + 'static>(
 /// This complements [`hover_service`] and [`hover_picking`]
 /// and is the final piece of the [`SelectionService`] workflow.
 pub fn select_service<Filter: SystemParam + 'static>(
-    In(ContinuousService { key }): ContinuousServiceInput<(), (), Select>,
-    mut orders: ContinuousQuery<(), (), Select>,
+    In(ContinuousService { key }): ContinuousServiceInput<(), (), StreamOf<Select>>,
+    mut orders: ContinuousQuery<(), (), StreamOf<Select>>,
     mut select: EventReader<Select>,
     filter: StaticSystemParam<Filter>,
     mut commands: Commands,
@@ -389,7 +393,6 @@ pub(crate) fn build_selection_workflow(
         new_selector_node
             .streams
             .chain(builder)
-            .inner()
             .connect(run_service_buffer.input_slot());
 
         let open_gate = builder.create_gate_open(run_service_buffer);
@@ -414,7 +417,7 @@ pub(crate) fn build_selection_workflow(
         open_gate
             .output
             .chain(builder)
-            .map_block(|r: RunSelector| (r.input, r.selector))
+            .map_block(|r: RunSelector| (r.input, r.selector.into()))
             .then_injection()
             .trigger()
             .connect(inspector.input);

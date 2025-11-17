@@ -19,7 +19,7 @@ use crate::{
     interaction::ObjectPlacement,
     site::{
         Affiliation, Change, Delete, FiducialMarker, Group, MergeGroups, ModelInstance,
-        ModelMarker, NameInSite, SiteID, Texture,
+        ModelMarker, MutexMarker, NameInSite, SiteID, Texture,
     },
     widgets::{prelude::*, SelectorWidget},
     AppState, CurrentWorkspace, Icons,
@@ -57,6 +57,12 @@ pub struct ViewGroups<'w, 's> {
         (&'static NameInSite, Option<&'static SiteID>),
         (With<ModelMarker>, With<Group>),
     >,
+    mutexes: Query<
+        'w,
+        's,
+        (&'static NameInSite, Option<&'static SiteID>),
+        (With<MutexMarker>, With<Group>),
+    >,
     icons: Res<'w, Icons>,
     group_view_modes: ResMut<'w, GroupViewModes>,
     app_state: Res<'w, State<AppState>>,
@@ -69,7 +75,6 @@ pub struct ViewGroupsEvents<'w, 's> {
     selector: SelectorWidget<'w, 's>,
     merge_groups: EventWriter<'w, MergeGroups>,
     delete: EventWriter<'w, Delete>,
-    name: EventWriter<'w, Change<NameInSite>>,
     commands: Commands<'w, 's>,
     object_placement: ObjectPlacement<'w, 's>,
 }
@@ -125,6 +130,16 @@ impl<'w, 's> ViewGroups<'w, 's> {
                 children,
                 &self.fiducials,
                 &mut modes.fiducials,
+                &self.icons,
+                &mut self.events,
+                ui,
+            );
+        });
+        CollapsingHeader::new("Mutexes").show(ui, |ui| {
+            Self::show_groups(
+                children,
+                &self.mutexes,
+                &mut modes.mutexes,
                 &self.icons,
                 &mut self.events,
                 ui,
@@ -199,7 +214,9 @@ impl<'w, 's> ViewGroups<'w, 's> {
                                     description: Affiliation(Some(child.clone())),
                                     ..Default::default()
                                 };
-                                events.object_placement.place_object_2d(model_instance);
+                                events
+                                    .object_placement
+                                    .place_object_2d(model_instance, Default::default());
                             }
                         };
                         events.selector.show_widget(*child, ui);
@@ -258,7 +275,9 @@ impl<'w, 's> ViewGroups<'w, 's> {
                     .ui(ui)
                     .changed()
                 {
-                    events.name.write(Change::new(NameInSite(new_name), *child));
+                    events
+                        .commands
+                        .trigger(Change::new(NameInSite(new_name), *child));
                 }
             });
         }
@@ -280,6 +299,7 @@ pub struct GroupViewModes {
     textures: GroupViewMode,
     fiducials: GroupViewMode,
     model_descriptions: GroupViewMode,
+    mutexes: GroupViewMode,
 }
 
 impl GroupViewModes {

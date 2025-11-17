@@ -26,8 +26,6 @@ use std::{
 };
 use uuid::Uuid;
 
-pub use ron::ser::PrettyConfig as Style;
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct SiteProperties<T: RefTrait> {
@@ -39,6 +37,8 @@ pub struct SiteProperties<T: RefTrait> {
     pub filtered_issues: FilteredIssues<T>,
     #[serde(default, skip_serializing_if = "FilteredIssueKinds::is_empty")]
     pub filtered_issue_kinds: FilteredIssueKinds,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub extension_settings: SiteExtensionSettings,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -91,6 +91,7 @@ impl<T: RefTrait> Default for SiteProperties<T> {
             geographic_offset: GeographicComponent::default(),
             filtered_issues: FilteredIssues::default(),
             filtered_issue_kinds: FilteredIssueKinds::default(),
+            extension_settings: Default::default(),
         }
     }
 }
@@ -102,6 +103,7 @@ impl<T: RefTrait> SiteProperties<T> {
             geographic_offset: self.geographic_offset.clone(),
             filtered_issues: self.filtered_issues.convert(id_map)?,
             filtered_issue_kinds: self.filtered_issue_kinds.clone(),
+            extension_settings: self.extension_settings.clone(),
         })
     }
 }
@@ -151,6 +153,10 @@ pub struct Site {
     /// Tasks available in this site
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub tasks: BTreeMap<u32, Task>,
+    /// Hook for downstream extensions to put their own serialized data into
+    /// the site file.
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub extensions: Extensions,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -158,59 +164,13 @@ pub struct Site {
 #[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
 pub struct NameOfSite(pub String);
 
-fn default_style_config() -> Style {
-    Style::new()
-        .depth_limit(4)
-        .new_line("\n".to_string())
-        .indentor("  ".to_string())
-        .struct_names(false)
-}
-
 impl Site {
-    pub fn to_writer_ron<W: io::Write>(&self, mut writer: W) -> ron::Result<()> {
-        let mut contents = String::new();
-        ron::ser::to_writer_pretty(&mut contents, self, default_style_config())?;
-        writer
-            .write_all(contents.as_bytes())
-            .map_err(ron::Error::from)
-    }
-
-    pub fn to_writer_custom_ron<W: io::Write>(
-        &self,
-        mut writer: W,
-        style: Style,
-    ) -> ron::Result<()> {
-        let mut contents = String::new();
-        ron::ser::to_writer_pretty(&mut contents, self, style)?;
-        writer
-            .write_all(contents.as_bytes())
-            .map_err(ron::Error::from)
-    }
-
-    pub fn to_string_ron(&self) -> ron::Result<String> {
-        ron::ser::to_string_pretty(self, default_style_config())
-    }
-
-    pub fn to_string_custom_ron(&self, style: Style) -> ron::Result<String> {
-        ron::ser::to_string_pretty(self, style)
-    }
-
     pub fn to_writer_json<W: io::Write>(&self, writer: W) -> serde_json::Result<()> {
         serde_json::to_writer_pretty(writer, self)
     }
 
     pub fn from_bytes_json(s: &[u8]) -> serde_json::Result<Self> {
         serde_json::from_slice(s)
-    }
-
-    pub fn from_reader_ron<R: io::Read>(reader: R) -> ron::error::SpannedResult<Self> {
-        // TODO(MXG): Validate the parsed data, e.g. make sure anchor pairs
-        // belong to the same level.
-        ron::de::from_reader(reader)
-    }
-
-    pub fn from_str_ron<'a>(s: &'a str) -> ron::error::SpannedResult<Self> {
-        ron::de::from_str(s)
     }
 
     pub fn to_bytes_json(&self) -> serde_json::Result<Vec<u8>> {
@@ -227,10 +187,6 @@ impl Site {
 
     pub fn to_string_json_pretty(&self) -> serde_json::Result<String> {
         serde_json::to_string_pretty(self)
-    }
-
-    pub fn from_bytes_ron<'a>(s: &'a [u8]) -> ron::error::SpannedResult<Self> {
-        ron::de::from_bytes(s)
     }
 
     /// Returns an anchor and its level (if it's a level anchor), given the id
@@ -282,15 +238,6 @@ impl RefTrait for Entity {}
 mod tests {
     use super::*;
     use crate::legacy::building_map::BuildingMap;
-
-    #[test]
-    fn ron_roundtrip() {
-        let data = std::fs::read("../../assets/demo_maps/office.building.yaml").unwrap();
-        let map = BuildingMap::from_bytes(&data).unwrap();
-        let site_string = map.to_site().unwrap().to_string_ron().unwrap();
-        println!("{site_string}");
-        Site::from_str_ron(&site_string).unwrap();
-    }
 
     #[test]
     fn json_roundtrip() {

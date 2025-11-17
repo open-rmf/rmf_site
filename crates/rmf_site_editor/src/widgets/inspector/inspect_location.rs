@@ -26,10 +26,10 @@ use smallvec::SmallVec;
 
 #[derive(SystemParam)]
 pub struct InspectLocation<'w, 's> {
+    commands: Commands<'w, 's>,
     location_tags: Query<'w, 's, (&'static LocationTags, &'static RecallLocationTags)>,
     icons: Res<'w, Icons>,
     consider_tag: EventWriter<'w, ConsiderLocationTag>,
-    change_tags: EventWriter<'w, Change<LocationTags>>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectLocation<'w, 's> {
@@ -116,6 +116,7 @@ impl<'w, 's> InspectLocation<'w, 's> {
 
         if deleted_tag.is_some() || added_tag.is_some() {
             let mut new_tags = tags.clone();
+
             if let Some(i) = deleted_tag {
                 new_tags.remove(i);
             }
@@ -124,7 +125,7 @@ impl<'w, 's> InspectLocation<'w, 's> {
                 new_tags.push(new_tag);
             }
 
-            self.change_tags.write(Change::new(new_tags, id));
+            self.commands.trigger(Change::new(new_tags, id));
         }
     }
 }

@@ -81,6 +81,9 @@ pub use inspect_model_description::*;
 pub mod inspect_motion;
 pub use inspect_motion::*;
 
+pub mod inspect_mutex;
+pub use inspect_mutex::*;
+
 pub mod inspect_name;
 pub use inspect_name::*;
 
@@ -127,7 +130,7 @@ use smallvec::SmallVec;
 ///
 /// ```no_run
 /// use bevy::prelude::{App, Query, Entity, Res};
-/// use librmf_site_editor::{SiteEditor, site::NameInSite, widgets::prelude::*};
+/// use rmf_site_editor::{SiteEditor, site::NameInSite, widgets::prelude::*};
 /// use rmf_site_egui::*;
 ///
 /// #[derive(SystemParam)]
@@ -196,6 +199,7 @@ impl Plugin for StandardInspectorPlugin {
                 // Reached the tuple limit
             ))
             .add_plugins((
+                InspectMutexPlugin::default(),
                 InspectionPlugin::<InspectPose>::new(),
                 InspectionPlugin::<InspectScale>::new(),
                 InspectionPlugin::<InspectLight>::new(),
@@ -209,38 +213,43 @@ impl Plugin for StandardInspectorPlugin {
                 InspectModelDescriptionPlugin::default(),
                 InspectLiftPlugin::default(),
             ))
-            .add_plugins((
-                // Required model properties
-                InspectModelPropertyPlugin::<InspectModelScale, Scale>::new("Scale".to_string()),
-                InspectModelPropertyPlugin::<InspectModelAssetSource, AssetSource>::new(
-                    "Asset Source".to_string(),
+            .add_plugins(
+                (
+                    // Required model properties
+                    InspectModelPropertyPlugin::<InspectModelScale, Scale>::new(
+                        "Scale".to_string(),
+                    ),
+                    InspectModelPropertyPlugin::<InspectModelAssetSource, AssetSource>::new(
+                        "Asset Source".to_string(),
+                    ),
+                    InspectRobotPropertiesPlugin::default(),
+                    InspectRobotPropertyPlugin::<InspectMobility, Mobility>::new(),
+                    InspectRobotPropertyPlugin::<InspectCollision, Collision>::new(),
+                    InspectRobotPropertyPlugin::<InspectPowerSource, PowerSource>::new(),
+                    InspectRobotPropertyPlugin::<InspectPowerDissipation, PowerDissipation>::new(),
+                    InspectRobotPropertyKindPlugin::<
+                        InspectDifferentialDrive,
+                        DifferentialDrive,
+                        Mobility,
+                    >::new(),
+                    InspectRobotPropertyKindPlugin::<
+                        InspectCircleCollision,
+                        CircleCollision,
+                        Collision,
+                    >::new(),
+                    InspectRobotPropertyKindPlugin::<InspectBattery, Battery, PowerSource>::new(),
+                    InspectRobotPropertyKindPlugin::<
+                        InspectAmbientSystem,
+                        AmbientSystem,
+                        PowerDissipation,
+                    >::new(),
+                    InspectRobotPropertyKindPlugin::<
+                        InspectMechanicalSystem,
+                        MechanicalSystem,
+                        PowerDissipation,
+                    >::new(),
                 ),
-                InspectRobotPropertiesPlugin::default(),
-                InspectRobotPropertyPlugin::<InspectMobility, Mobility, RecallMobility>::new(),
-                InspectRobotPropertyPlugin::<InspectCollision, Collision, RecallCollision>::new(),
-                InspectRobotPropertyPlugin::<InspectPowerSource, PowerSource, RecallPowerSource>::new(),
-                InspectRobotPropertyPlugin::<InspectPowerDissipation, PowerDissipation, RecallPowerDissipation>::new(),
-                InspectRobotPropertyKindPlugin::<
-                    InspectDifferentialDrive,
-                    DifferentialDrive,
-                    Mobility,
-                    RecallDifferentialDrive,
-                >::new(),
-                InspectRobotPropertyKindPlugin::<
-                    InspectCircleCollision,
-                    CircleCollision,
-                    Collision,
-                    RecallCircleCollision,
-                >::new(),
-                InspectRobotPropertyKindPlugin::<
-                    InspectBattery,
-                    Battery,
-                    PowerSource,
-                    RecallBattery,
-                >::new(),
-                InspectAmbientSystemPlugin::default(),
-                InspectMechanicalSystemPlugin::default(),
-            ));
+            );
     }
 }
 

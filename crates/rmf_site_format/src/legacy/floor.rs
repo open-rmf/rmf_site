@@ -1,4 +1,4 @@
-use super::{rbmf::*, PortingError, Result};
+use super::{PortingError, Result, rbmf::*};
 use crate::{
     Affiliation, Angle, AssetSource, Floor as SiteFloor, FloorMarker, Path,
     PreferredSemiTransparency, Texture,

@@ -15,6 +15,7 @@
  *
 */
 
+use crate::site::load::load_site;
 use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 use rmf_site_format::SiteID;
 use std::{
@@ -193,7 +194,7 @@ impl<T: Component> Plugin for RecencyRankingPlugin<T> {
         app.add_event::<ChangeRank<T>>().add_systems(
             Update,
             (
-                update_recency_rankings::<T>,
+                update_recency_rankings::<T>.after(load_site),
                 update_recency_ranks::<T>.after(update_recency_rankings::<T>),
             ),
         );

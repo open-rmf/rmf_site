@@ -21,15 +21,13 @@ use bevy::{
     reflect::Reflect,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::{borrow::Cow, collections::BTreeMap};
 
 /// The Category component is added to site entities so they can easily express
 /// what kind of thing they are, e.g. Anchor, Lane, Model, etc. This should be
 /// set by the respective site system that decorates its entities with
 /// components, e.g. add_door_visuals, add_lane_visuals, etc.
-#[derive(
-    Serialize, Deserialize, Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash,
-)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "bevy", derive(Component, Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
 pub enum Category {
@@ -60,12 +58,14 @@ pub enum Category {
     Workcell,
     GeoReference,
     NavigationGraph,
+    MutexGroup,
     Task,
     Visual,
+    Custom(Cow<'static, str>),
 }
 
 impl Category {
-    pub fn label(&self) -> &'static str {
+    pub fn label(&self) -> &str {
         match self {
             Self::General => "General",
             Self::Site => "Site",
@@ -93,8 +93,10 @@ impl Category {
             Self::Workcell => "Workcell",
             Self::GeoReference => "Georeference",
             Self::NavigationGraph => "Navigation Graph",
+            Self::MutexGroup => "Mutex Group",
             Self::Task => "Task",
             Self::Visual => "Visual",
+            Self::Custom(label) => label,
         }
     }
 

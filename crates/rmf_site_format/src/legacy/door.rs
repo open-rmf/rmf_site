@@ -1,4 +1,4 @@
-use super::{rbmf::*, PortingError, Result};
+use super::{PortingError, Result, rbmf::*};
 use crate::{
     Angle, Door as SiteDoor, DoubleSlidingDoor, DoubleSwingDoor, NameInSite, Side,
     SingleSlidingDoor, SingleSwingDoor, Swing,

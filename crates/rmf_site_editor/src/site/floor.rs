@@ -191,10 +191,10 @@ fn make_floor_mesh(
 }
 
 fn floor_height(rank: Option<&RecencyRank<FloorMarker>>) -> f32 {
-    let floor_layer_start = ZLayer::Floor.to_z();
-    let lane_layer_start = ZLayer::Lane.to_z();
-    rank.map(|r| r.proportion() * (lane_layer_start - floor_layer_start) + floor_layer_start)
-        .unwrap_or(floor_layer_start)
+    rank.map(|r| {
+        r.proportion() * ZLayer::get_z_offset(ZLayer::Floor, ZLayer::Lane) + ZLayer::Floor.to_z()
+    })
+    .unwrap_or(ZLayer::Floor.to_z())
 }
 
 #[inline]

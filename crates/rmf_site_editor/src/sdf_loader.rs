@@ -21,7 +21,7 @@ use bevy::prelude::*;
 
 use thiserror::Error;
 
-use sdformat_rs::{SdfGeometry, SdfPose, Vector3d};
+use sdformat::{SdfGeometry, SdfPose, Vector3d};
 
 use crate::site::{
     AmbientSystem, Battery, CollisionMeshMarker, DifferentialDrive, MechanicalSystem,
@@ -148,6 +148,12 @@ fn compute_model_source<'a, 'b>(
                     )));
                 }
             }
+            AssetSource::Memory(_) => {
+                // TODO(@xiyuoh)
+                return Err(SdfError::UnsupportedAssetSource(format!(
+                    "In-memory meshes not supported for now"
+                )));
+            }
         }
         Ok(asset_source)
     } else {
@@ -269,7 +275,7 @@ fn load_model<'a, 'b>(
     load_context: &'a mut LoadContext<'b>,
 ) -> Result<bevy::scene::Scene, SdfError> {
     let sdf_str = std::str::from_utf8(&bytes)?;
-    let root = sdformat_rs::from_str::<sdformat_rs::SdfRoot>(sdf_str);
+    let root = sdformat::from_str::<sdformat::SdfRoot>(sdf_str);
     match root {
         Ok(root) => {
             if let Some(model) = root.model {
