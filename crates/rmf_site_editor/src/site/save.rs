@@ -1790,8 +1790,7 @@ pub fn export_grid(world: &mut World, path: &PathBuf) {
         path.push(format!("occupancy.{}.png", name.0));
         if let Err(err_str) = img.save(path) {
             error!("Could not save image: {:?}", err_str);
-        }
-        else {
+        } else {
             num_grids_saved += 1;
         }
     }

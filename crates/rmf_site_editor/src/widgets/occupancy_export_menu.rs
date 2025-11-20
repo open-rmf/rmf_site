@@ -16,7 +16,8 @@
 */
 
 use crate::{
-    AppState, WorkspaceSaver, occupancy::{CalculateGrid, ExportGridRequest, OccupancyInfo}
+    occupancy::{CalculateGrid, ExportGridRequest, OccupancyInfo},
+    AppState, WorkspaceSaver,
 };
 use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 use bevy_egui::{
@@ -77,9 +78,7 @@ fn handle_export_occupancy_menu_events(
     egui::Window::new("Occupancy Export Options").show(egui_context.ctx_mut(), |ui| {
         ui.horizontal(|ui| {
             ui.label("Cell Size:");
-            ui.add(DragValue::new(
-                &mut occupancy_info.cell_size,
-            ));
+            ui.add(DragValue::new(&mut occupancy_info.cell_size));
         });
         if ui.button("Export").clicked() {
             configuration.visible = false;
