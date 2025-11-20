@@ -16,8 +16,7 @@
 */
 
 use crate::{
-    occupancy::{CalculateGrid, ExportGridRequest},
-    AppState, WorkspaceSaver,
+    AppState, WorkspaceSaver, occupancy::{CalculateGrid, ExportGridRequest, OccupancyInfo}
 };
 use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 use bevy_egui::{
@@ -52,24 +51,16 @@ impl FromWorld for OccupancyExportMenu {
     }
 }
 
+#[derive(Default)]
 struct ExportOccupancyConfig {
     visible: bool,
-    occupancy_request_cell_size: f32,
-}
-
-impl Default for ExportOccupancyConfig {
-    fn default() -> Self {
-        Self {
-            visible: false,
-            occupancy_request_cell_size: 0.1,
-        }
-    }
 }
 
 fn handle_export_occupancy_menu_events(
     mut menu_events: EventReader<MenuEvent>,
     mut export_event: EventWriter<ExportGridRequest>,
     occupancy_menu: Res<OccupancyExportMenu>,
+    mut occupancy_info: ResMut<OccupancyInfo>,
     mut egui_context: EguiContexts,
     mut configuration: Local<ExportOccupancyConfig>,
 ) {
@@ -87,12 +78,12 @@ fn handle_export_occupancy_menu_events(
         ui.horizontal(|ui| {
             ui.label("Cell Size:");
             ui.add(DragValue::new(
-                &mut configuration.occupancy_request_cell_size,
+                &mut occupancy_info.cell_size,
             ));
         });
         if ui.button("Export").clicked() {
             configuration.visible = false;
-            export_event.write(ExportGridRequest(configuration.occupancy_request_cell_size));
+            export_event.write(ExportGridRequest);
         }
     });
 }

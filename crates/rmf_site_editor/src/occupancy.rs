@@ -165,7 +165,7 @@ impl GridRange {
 }
 
 #[derive(Event)]
-pub struct ExportGridRequest(pub f32);
+pub struct ExportGridRequest;
 
 #[derive(Event)]
 pub struct CalculateGridRequest;
@@ -200,7 +200,7 @@ enum Group {
 
 fn handle_export_request(
     mut request: EventReader<ExportGridRequest>,
-    //occupancy_info: Res<OccupancyInfo>,
+    occupancy_info: Res<OccupancyInfo>,
     robots: Query<Entity, With<Robot>>,
     mut commands: Commands,
     bodies: Query<(Entity, &Mesh3d, &Aabb, &GlobalTransform)>,
@@ -220,7 +220,7 @@ fn handle_export_request(
 ) {
     if let Some(export_req) = request.read().last() {
         let grid = CalculateGrid {
-            cell_size: export_req.0,
+            cell_size: occupancy_info.cell_size,
             ignore: robots.iter().collect(),
             ..default()
         };

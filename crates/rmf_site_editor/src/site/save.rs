@@ -1765,7 +1765,7 @@ pub fn export_grid(world: &mut World, path: &PathBuf) {
     let mut system_state: SystemState<(Query<(&Grid, &ChildOf)>, Query<&NameInSite>)> =
         SystemState::new(world);
     let (grids, names) = system_state.get(&world);
-    let mut i = 0;
+    let mut num_grids_saved = 0;
     for (grid, parent) in grids {
         let mut img = image::RgbImage::new(
             (grid.range.width() + 1) as u32,
@@ -1788,10 +1788,14 @@ pub fn export_grid(world: &mut World, path: &PathBuf) {
 
         let mut path = path.clone();
         path.push(format!("occupancy.{}.png", name.0));
-        img.save(path).unwrap();
-        i += 1;
+        if let Err(err_str) = img.save(path) {
+            error!("Could not save image: {:?}", err_str);
+        }
+        else {
+            num_grids_saved += 1;
+        }
     }
-    info!("Successfully exported {} occupancy grids", i);
+    info!("Successfully exported {} occupancy grids", num_grids_saved);
 }
 
 pub fn save_site(world: &mut World) {

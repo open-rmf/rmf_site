@@ -23,7 +23,7 @@ opt-level = 3
 [workspace.dependencies]
 serde = { version = "1.0" }
 strum = { version = "0.26", features = ["derive"] }
-image = "0.24"
+image = { version = "0.25", default-features = false, features = ["png"] } # Keep in sync with bevy image version
 rmf_site_picking = { path = "crates/rmf_site_picking", version = "0.0.2"}
 rmf_site_format = { path = "crates/rmf_site_format", version = "0.0.2" }
 rmf_site_editor = { path = "crates/rmf_site_editor", version = "0.0.3"}
