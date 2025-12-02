@@ -852,7 +852,6 @@ pub fn load_site(
         }
 
         if cmd.focus {
-            let mut loading_params = loading_params_state.get_mut(world);
             world.trigger(ChangeCurrentSite {
                 site,
                 level: None,
