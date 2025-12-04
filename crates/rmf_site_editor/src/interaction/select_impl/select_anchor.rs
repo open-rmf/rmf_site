@@ -432,7 +432,7 @@ pub fn build_anchor_selection_workflow<State: 'static + Send + Sync>(
             .streams
             .select
             .chain(builder)
-            .map_block(|s| s.0)
+            .map_block(|s| s.selection_candidate)
             .dispose_on_none()
             .with_access(buffer)
             .then(update_current)
@@ -618,7 +618,7 @@ impl<'w, 's> SelectionFilter for AnchorFilter<'w, 's> {
 
     fn on_click(&mut self, hovered: Hover) -> Option<Select> {
         if let Some(candidate) = hovered.0.and_then(|e| self.filter_target(e)) {
-            return Some(Select::new(Some(candidate)));
+            return Some(Select::new(Some(candidate), false));
         }
 
         // There was no anchor currently hovered which means we need to create
@@ -704,7 +704,7 @@ impl<'w, 's> SelectionFilter for AnchorFilter<'w, 's> {
             }
         };
 
-        Some(Select::provisional(new_anchor))
+        Some(Select::provisional(new_anchor, false))
     }
 }
 

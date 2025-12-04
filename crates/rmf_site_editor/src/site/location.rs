@@ -196,7 +196,7 @@ pub fn update_location_for_changed_location_tags(
         &mut locations
     {
         let mut billboard_meshes = previous_billboard_meshes.copied().unwrap_or_default();
-        select.write(Select::new(Some(e)));
+        select.write(Select::new(Some(e), false));
 
         let only_workcell_tags = !tags.iter().any(|t| !t.is_workcell());
         let no_billboards = only_workcell_tags && mutex_group.0.is_none();

@@ -224,7 +224,7 @@ impl<'w, 's> ViewLayers<'w, 's> {
         ui.vertical(|ui| {
             ScrollArea::vertical().show(ui, |ui| {
                 for id in ranking.iter().rev().copied() {
-                    if selection.0.is_some_and(|s| s == id) {
+                    if selection.get_single().is_some_and(|s| s == id) {
                         layer_selected = Some(id);
                     }
                     ui.horizontal(|ui| {

@@ -164,7 +164,9 @@ impl<'w, 's> ViewLights<'w, 's> {
                 })
                 .insert(Category::Light)
                 .id();
-            self.selector.select.write(Select::new(Some(new_light)));
+            self.selector
+                .select
+                .write(Select::new(Some(new_light), false));
         }
 
         ui.separator();

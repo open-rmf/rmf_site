@@ -97,6 +97,12 @@ use view_levels::*;
 pub mod view_model_instances;
 use view_model_instances::*;
 
+pub mod view_multi_selection;
+use view_multi_selection::*;
+
+pub mod multi_edit_pose;
+use multi_edit_pose::*;
+
 pub mod view_scenarios;
 use view_scenarios::*;
 
@@ -135,6 +141,7 @@ impl Plugin for StandardPropertiesPanelPlugin {
             ViewLevelsPlugin::default(),
             ViewScenariosPlugin::default(),
             ViewModelInstancesPlugin::default(),
+            ViewMultiSelectionPlugin::default(),
             ViewNavGraphsPlugin::default(),
             ViewLayersPlugin::default(),
             StandardTasksPlugin::default(),
