@@ -123,7 +123,7 @@ pub fn check_selected_is_included(
     selection: Res<Selection>,
     inclusion: Query<&Inclusion>,
 ) {
-    if selection.0.is_some_and(|e| {
+    if selection.get_single().is_some_and(|e| {
         inclusion.get(e).is_ok_and(|v| match v {
             Inclusion::Hidden => true,
             _ => false,

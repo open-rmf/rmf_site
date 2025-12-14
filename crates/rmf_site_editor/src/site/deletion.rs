@@ -309,8 +309,8 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
             }
         }
 
-        if **params.selection == Some(e) {
-            params.select.write(Select(None));
+        if params.selection.get_single() == Some(e) {
+            params.select.write(Select::new(None));
         }
     }
 
@@ -422,8 +422,8 @@ fn perform_deletions(all_to_delete: HashSet<Entity>, params: &mut DeletionParams
             }
         }
 
-        if **params.selection == Some(e) {
-            params.select.write(Select(None));
+        if params.selection.get_single() == Some(e) {
+            params.select.write(Select::new(None));
         }
 
         if **params.current_level == Some(e) {

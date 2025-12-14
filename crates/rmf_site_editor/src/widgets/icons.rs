@@ -33,7 +33,7 @@ impl Plugin for IconsPlugin {
 struct IconBuilder(Handle<Image>);
 impl IconBuilder {
     pub fn new(name: &str, asset_server: &AssetServer) -> Self {
-        Self(asset_server.load("embedded://librmf_site_editor/".to_owned() + name))
+        Self(asset_server.load("embedded://rmf_site_editor/".to_owned() + name))
     }
 
     pub fn build(self, egui_context: &mut EguiContexts) -> Icon {
@@ -86,6 +86,7 @@ pub struct Icons {
     pub hide: Icon,
     pub show: Icon,
     pub home: Icon,
+    pub deselect: Icon,
 }
 
 impl FromWorld for Icons {
@@ -115,6 +116,7 @@ impl FromWorld for Icons {
         let hide = IconBuilder::new("widgets/icons/hide.png", &asset_server);
         let show = IconBuilder::new("widgets/icons/show.png", &asset_server);
         let home = IconBuilder::new("widgets/icons/home.png", &asset_server);
+        let deselect = IconBuilder::new("widgets/icons/deselect.png", &asset_server);
 
         // Note: Building the icons is a two-stage process because we cannot
         // get the mutable EguiContext resource at the same time as the
@@ -146,6 +148,7 @@ impl FromWorld for Icons {
             hide: hide.build(&mut egui_context),
             show: show.build(&mut egui_context),
             home: home.build(&mut egui_context),
+            deselect: deselect.build(&mut egui_context),
         }
     }
 }
@@ -182,6 +185,7 @@ fn add_widgets_icons(app: &mut App) {
     embedded_asset!(app, "src/", "icons/alignment.png");
     embedded_asset!(app, "src/", "icons/alpha.png");
     embedded_asset!(app, "src/", "icons/confirm.png");
+    embedded_asset!(app, "src/", "icons/deselect.png");
     embedded_asset!(app, "src/", "icons/down.png");
     embedded_asset!(app, "src/", "icons/edit.png");
     embedded_asset!(app, "src/", "icons/empty.png");

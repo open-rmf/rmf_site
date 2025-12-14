@@ -1,7 +1,12 @@
 [package]
 name = "rmf_site_mesh"
-version = "0.1.0"
+version = "0.0.2"
 edition = "2024"
+authors = ["Grey <mxgrey@intrinsic.ai>"]
+description = "Mesh building utilties for rmf_site_editor"
+license = "Apache-2.0"
+repository = "https://github.com/open-rmf/rmf_site"
+readme = "README.md"
 
 [dependencies]
 bevy_ecs = {workspace = true}

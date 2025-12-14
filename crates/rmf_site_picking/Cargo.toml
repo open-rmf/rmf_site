@@ -1,7 +1,12 @@
 [package]
 name = "rmf_site_picking"
-version = "0.1.0"
+version = "0.0.2"
 edition = "2024"
+authors = ["Grey <mxgrey@intrinsic.ai>"]
+description = "Picking utilities and workflows for rmf_site_editor"
+license = "Apache-2.0"
+repository = "https://github.com/open-rmf/rmf_site"
+readme = "README.md"
 
 [dependencies]
 bevy_ecs = {workspace = true}
@@ -16,14 +21,12 @@ bevy_asset = {workspace = true}
 bevy_pbr = {workspace = true}
 bevy_math = {workspace = true}
 bevy_transform = {workspace = true}
-bevy_impulse = {workspace = true}
+crossflow = {workspace = true}
 bytemuck = {workspace = true}
 anyhow = {workspace = true}
 bitfield = {workspace = true}
 smallvec = {workspace = true}
 rmf_site_camera = {workspace = true}
-rmf_site_mesh = {workspace = true}
-rmf_site_animate = {workspace = true}
 bevy_egui = {workspace = true}
 web-time = {workspace = true}
 

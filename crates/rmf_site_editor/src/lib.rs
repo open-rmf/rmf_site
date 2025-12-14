@@ -20,8 +20,8 @@ use exit_confirmation::ExitConfirmationPlugin;
 // Bevy plugins that are public dependencies, mixing versions won't work for downstream users
 pub use bevy;
 pub use bevy_egui;
-pub use bevy_impulse;
 pub use bevy_rich_text3d::Text3dPlugin;
+pub use crossflow;
 
 pub mod keyboard;
 use keyboard::*;
@@ -86,10 +86,10 @@ impl FromWorld for DebugMode {
 
 #[cfg_attr(not(target_arch = "wasm32"), derive(Parser))]
 pub struct CommandLineArgs {
-    /// Filename of a Site (.site.ron / .site.json) or Building (.building.yaml) file to load.
+    /// Filename of a Site (.site.json) or Building (.building.yaml) file to load.
     /// Exclude this argument to get the main menu.
     pub filename: Option<String>,
-    /// Name of a Site (.site.json or .site.ron) file to import on top of the base FILENAME.
+    /// Name of a Site (.site.json) file to import on top of the base FILENAME.
     #[cfg_attr(not(target_arch = "wasm32"), arg(short, long))]
     pub import: Option<String>,
     /// Run in headless mode and export the loaded site to the requested path.
@@ -297,7 +297,7 @@ impl Plugin for SiteEditor {
                 OccupancyPlugin,
                 WorkspacePlugin,
                 IssuePlugin,
-                bevy_impulse::ImpulsePlugin::default(),
+                crossflow::CrossflowPlugin::default(),
             ));
 
         #[cfg(not(target_arch = "wasm32"))]

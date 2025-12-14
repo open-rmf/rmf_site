@@ -230,10 +230,10 @@ fn make_drawing_default_selected(
     current: Res<CurrentEditDrawing>,
 ) {
     if selection.is_changed() {
-        if selection.0.is_none() {
+        if selection.get_single().is_none() {
             if let Some(c) = current.target() {
                 let drawing_entity = c.drawing;
-                selection.0 = Some(drawing_entity);
+                selection.selected.insert(drawing_entity);
             } else {
                 error!("No drawing while spawning drawing anchor");
             };

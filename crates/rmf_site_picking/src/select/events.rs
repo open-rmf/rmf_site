@@ -1,6 +1,6 @@
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
-use bevy_impulse::{Service, Stream};
+use crossflow::Service;
 
 use crate::SelectionCandidate;
 
@@ -9,30 +9,47 @@ pub struct RunSelector {
     /// The select workflow will run this service until it terminates and then
     /// revert back to the inspector selector.
     pub selector: Service<Option<Entity>, ()>,
-    /// If there is input for the selector, it will be stored in a [`SelectorInput`]
+    /// If there is input for the selector, it will be stored in a [`SelectorInput`][1]
     /// component in this entity. The entity will be despawned as soon as the
     /// input is extracted.
+    ///
+    /// [1]: crate::select::components::SelectorInput
     pub input: Option<Entity>,
 }
 
 /// Used as an event to command a change in the hovered entity.
-#[derive(Default, Debug, Clone, Copy, Deref, DerefMut, Event, Stream)]
+#[derive(Default, Debug, Clone, Copy, Deref, DerefMut, Event)]
 pub struct Hover(pub Option<Entity>);
 
 /// Used as an event to command a change in the selected entity.
-#[derive(Default, Debug, Clone, Copy, Deref, DerefMut, Event, Stream)]
-pub struct Select(pub Option<SelectionCandidate>);
+#[derive(Default, Debug, Clone, Copy, Deref, DerefMut, Event)]
+pub struct Select {
+    #[deref]
+    pub candidate: Option<SelectionCandidate>,
+    pub multi_select: bool,
+}
 
 impl Select {
     pub fn new(candidate: Option<Entity>) -> Select {
-        Select(candidate.map(|c| SelectionCandidate::new(c)))
+        Select {
+            candidate: candidate.map(|c| SelectionCandidate::new(c)),
+            multi_select: false,
+        }
+    }
+
+    pub fn multi_select(mut self, on: bool) -> Self {
+        self.multi_select = on;
+        self
     }
 
     pub fn provisional(candidate: Entity) -> Select {
-        Select(Some(SelectionCandidate::provisional(candidate)))
+        Select {
+            candidate: Some(SelectionCandidate::provisional(candidate)),
+            multi_select: false,
+        }
     }
 }
 
 /// Used as an event to command a change in the double clicked entity.
-#[derive(Debug, Clone, Copy, Deref, DerefMut, Event, Stream)]
+#[derive(Debug, Clone, Copy, Deref, DerefMut, Event)]
 pub struct DoubleClickSelect(pub Entity);

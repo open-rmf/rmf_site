@@ -116,6 +116,7 @@ impl<'w, 's> InspectLocation<'w, 's> {
 
         if deleted_tag.is_some() || added_tag.is_some() {
             let mut new_tags = tags.clone();
+
             if let Some(i) = deleted_tag {
                 new_tags.remove(i);
             }

@@ -1,4 +1,4 @@
-use librmf_site_editor::run;
+use rmf_site_editor::run;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]

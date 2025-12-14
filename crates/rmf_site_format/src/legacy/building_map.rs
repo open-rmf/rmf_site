@@ -1,20 +1,21 @@
 use super::{
-    floor::FloorParameters, level::Level, lift::Lift, wall::WallProperties, PortingError, Result,
+    PortingError, Result, floor::FloorParameters, level::Level, lift::Lift, wall::WallProperties,
 };
 use crate::{
-    alignment::align_legacy_building, legacy::model::Model, Affiliation, Anchor, Angle,
-    AssetSource, AssociatedGraphs, Category, DisplayColor, Dock as SiteDock,
-    Drawing as SiteDrawing, DrawingProperties, Fiducial as SiteFiducial, FiducialGroup,
-    FiducialMarker, Guided, Inclusion, InstanceModifier, Lane as SiteLane, LaneMarker,
-    Level as SiteLevel, LevelElevation, LevelProperties as SiteLevelProperties,
-    ModelDescriptionBundle, ModelInstance, Motion, NameInSite, NameOfSite, NavGraph, Navigation,
-    OrientationConstraint, Parented, PixelsPerMeter, Pose, PreferredSemiTransparency,
-    RankingsInLevel, ReverseLane, Robot, Rotation, Scenario, Site, SiteProperties, Task,
-    Texture as SiteTexture, TextureGroup, UserCameraPose, DEFAULT_NAV_GRAPH_COLORS,
+    Affiliation, Anchor, Angle, AssetSource, AssociatedGraphs, Category, DEFAULT_NAV_GRAPH_COLORS,
+    DisplayColor, Dock as SiteDock, Drawing as SiteDrawing, DrawingProperties,
+    Fiducial as SiteFiducial, FiducialGroup, FiducialMarker, Guided, Inclusion, InstanceModifier,
+    Lane as SiteLane, LaneMarker, Level as SiteLevel, LevelElevation,
+    LevelProperties as SiteLevelProperties, ModelDescriptionBundle, ModelInstance, Motion,
+    MutexGroup, NameInSite, NameOfSite, NavGraph, Navigation, OrientationConstraint, Parented,
+    PixelsPerMeter, Pose, PreferredSemiTransparency, RankingsInLevel, ReverseLane, Robot, Rotation,
+    Scenario, Site, SiteProperties, Task, Texture as SiteTexture, TextureGroup, UserCameraPose,
+    alignment::align_legacy_building, legacy::model::Model,
 };
 use glam::{DAffine2, DMat3, DQuat, DVec2, DVec3, EulerRot};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::ops::RangeFrom;
 use std::path::Path;
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -193,6 +194,7 @@ impl BuildingMap {
         let mut level_name_to_id = BTreeMap::new();
         let mut lanes = BTreeMap::<u32, SiteLane<u32>>::new();
         let mut locations = BTreeMap::new();
+        let mut mutex_groups: BTreeMap<u32, MutexGroup> = BTreeMap::new();
         let mut textures: BTreeMap<u32, SiteTexture> = BTreeMap::new();
         let mut floor_texture_map: HashMap<FloorParameters, u32> = HashMap::new();
         let mut wall_texture_map: HashMap<WallProperties, u32> = HashMap::new();
@@ -211,6 +213,27 @@ impl BuildingMap {
         let tasks: BTreeMap<u32, Task> = BTreeMap::new(); // Tasks not supported in legacy
         let default_scenario_id = site_id.next().unwrap();
         scenarios.insert(default_scenario_id, Scenario::default());
+
+        let get_mutex_affiliation = |name: &str,
+                                     mutex_groups: &mut BTreeMap<u32, MutexGroup>,
+                                     site_id: &mut RangeFrom<u32>|
+         -> Affiliation<u32> {
+            if name.is_empty() {
+                return Affiliation(None);
+            }
+            let group_id = if let Some((group_id, _)) =
+                mutex_groups.iter().find(|(_, group)| group.name.0 == *name)
+            {
+                // The group already exists
+                *group_id
+            } else {
+                // The group does not exist yet, so let's create it
+                let group_id = site_id.next().unwrap();
+                mutex_groups.insert(group_id, MutexGroup::new(NameInSite(name.into())));
+                group_id
+            };
+            Affiliation(Some(group_id))
+        };
 
         for (level_name, level) in &self.levels {
             let level_id = site_id.next().unwrap();
@@ -248,8 +271,17 @@ impl BuildingMap {
                 };
 
                 vertex_to_anchor_id.insert(i, anchor_id);
-                if let Some(location) = v.make_location(anchor_id) {
+                if let Some(mut location) = v.make_location(anchor_id) {
                     let id = site_id.next().unwrap();
+                    if let Some(mutex_group) = &v.4.mutex {
+                        if !mutex_group.1.is_empty() {
+                            location.mutex = get_mutex_affiliation(
+                                &mutex_group.1,
+                                &mut mutex_groups,
+                                &mut site_id,
+                            );
+                        }
+                    }
                     if let Some(robot_data) = v.spawn_robot(id.clone()) {
                         legacy_robots.push(robot_data);
                     }
@@ -646,19 +678,21 @@ impl BuildingMap {
                         OrientationConstraint::None
                     },
                     speed_limit: None,
-                    dock: left_dock,
+                    dock: right_dock,
                 };
 
                 let reverse = if !lane.2.bidirectional.1 {
                     ReverseLane::Disable
-                } else if right_dock != motion.dock {
+                } else if left_dock != motion.dock {
                     ReverseLane::Different(Motion {
-                        dock: right_dock,
+                        dock: left_dock,
                         ..motion.clone()
                     })
                 } else {
                     ReverseLane::Same
                 };
+
+                let mutex = get_mutex_affiliation(&lane.2.mutex.1, &mut mutex_groups, &mut site_id);
 
                 let graph_id = building_id_to_nav_graph_id
                     .entry(lane.2.graph_idx.1)
@@ -668,6 +702,7 @@ impl BuildingMap {
                     anchors: [left, right].into(),
                     forward: motion,
                     reverse,
+                    mutex,
                     graphs: AssociatedGraphs::Only([*graph_id].into()),
                     marker: LaneMarker,
                 };
@@ -767,6 +802,7 @@ impl BuildingMap {
                     ranking: Vec::new(),
                     lanes,
                     locations,
+                    mutex_groups,
                 },
             },
             scenarios,

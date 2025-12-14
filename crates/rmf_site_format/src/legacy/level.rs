@@ -1,5 +1,5 @@
 use super::{
-    super::alignment::Alignment, super::Light, door::Door, fiducial::Fiducial, floor::Floor,
+    super::Light, super::alignment::Alignment, door::Door, fiducial::Fiducial, floor::Floor,
     lane::Lane, measurement::Measurement, model::Model, physical_camera::PhysicalCamera,
     vertex::Vertex, wall::Wall,
 };

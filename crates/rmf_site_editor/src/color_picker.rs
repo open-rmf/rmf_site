@@ -26,7 +26,10 @@ impl ColorPicker {
             }
             color
         } else {
-            error!("ColorPicker::get_color - unable to acquire mutex for index, using default rgb of {:?}", DEFAULT_COLORS[0]);
+            error!(
+                "ColorPicker::get_color - unable to acquire mutex for index, using default rgb of {:?}",
+                DEFAULT_COLORS[0]
+            );
             DEFAULT_COLORS[0]
         };
         return color;

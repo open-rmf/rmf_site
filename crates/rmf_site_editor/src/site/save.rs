@@ -34,7 +34,7 @@ use thiserror::Error as ThisError;
 
 use crate::{exit_confirmation::SiteChanged, recency::RecencyRanking, site::*, ExportFormat};
 use rmf_site_format::*;
-use sdformat_rs::yaserde;
+use sdformat::yaserde;
 
 #[derive(Event)]
 pub struct SaveSite {
@@ -1035,6 +1035,32 @@ fn generate_nav_graphs(
     return Ok(nav_graphs);
 }
 
+fn generate_mutex_groups(
+    world: &mut World,
+    parent: Entity,
+) -> Result<BTreeMap<u32, MutexGroup>, SiteGenerationError> {
+    let mut state: SystemState<(
+        Query<(&NameInSite, &SiteID), (With<Group>, With<MutexMarker>)>,
+        Query<&Children>,
+    )> = SystemState::new(world);
+
+    let (q_groups, q_children) = state.get(world);
+
+    let Ok(children) = q_children.get(parent) else {
+        return Ok(BTreeMap::new());
+    };
+
+    let mut mutex_groups = BTreeMap::new();
+    for child in children {
+        let Ok((name, site_id)) = q_groups.get(*child) else {
+            continue;
+        };
+        mutex_groups.insert(site_id.0, MutexGroup::new(name.clone()));
+    }
+
+    Ok(mutex_groups)
+}
+
 fn generate_lanes(
     world: &mut World,
     site: Entity,
@@ -1047,6 +1073,7 @@ fn generate_lanes(
                 Option<&Original<Edge<Entity>>>,
                 &Motion,
                 &ReverseLane,
+                &Affiliation<Entity>,
                 &AssociatedGraphs<Entity>,
                 &SiteID,
                 &ChildOf,
@@ -1055,9 +1082,10 @@ fn generate_lanes(
         >,
         Query<&SiteID, With<NavGraphMarker>>,
         Query<&SiteID, With<Anchor>>,
+        Query<&SiteID, (With<Group>, Without<Pending>)>,
     )> = SystemState::new(world);
 
-    let (q_lanes, q_nav_graphs, q_anchors) = state.get(world);
+    let (q_lanes, q_nav_graphs, q_anchors, q_group_ids) = state.get(world);
 
     let get_anchor_id = |object, anchor| {
         let site_id = q_anchors
@@ -1073,7 +1101,7 @@ fn generate_lanes(
     };
 
     let mut lanes = BTreeMap::new();
-    for (e, edge, o_edge, forward, reverse, graphs, lane_id, child_of) in &q_lanes {
+    for (e, edge, o_edge, forward, reverse, affiliation, graphs, lane_id, child_of) in &q_lanes {
         if child_of.parent() != site {
             continue;
         }
@@ -1084,12 +1112,23 @@ fn generate_lanes(
             .to_u32(&q_nav_graphs)
             .map_err(|e| SiteGenerationError::BrokenNavGraphReference(e))?;
 
+        let mutex = if let Some(group) = affiliation.0 {
+            let group_id = q_group_ids
+                .get(group)
+                .map_err(|_| SiteGenerationError::BrokenAffiliation { object: e, group })?
+                .0;
+            Affiliation(Some(group_id))
+        } else {
+            Affiliation(None)
+        };
+
         lanes.insert(
             lane_id.0,
             Lane {
                 anchors: edge.clone(),
                 forward: forward.clone(),
                 reverse: reverse.clone(),
+                mutex,
                 graphs,
                 marker: LaneMarker,
             },
@@ -1111,6 +1150,7 @@ fn generate_locations(
                 Option<&Original<Point<Entity>>>,
                 &LocationTags,
                 &NameInSite,
+                &Affiliation<Entity>,
                 &AssociatedGraphs<Entity>,
                 &SiteID,
                 &ChildOf,
@@ -1119,9 +1159,10 @@ fn generate_locations(
         >,
         Query<&SiteID, With<NavGraphMarker>>,
         Query<&SiteID, With<Anchor>>,
+        Query<&SiteID, (With<Group>, With<MutexMarker>)>,
     )> = SystemState::new(world);
 
-    let (q_locations, q_nav_graphs, q_anchors) = state.get(world);
+    let (q_locations, q_nav_graphs, q_anchors, q_mutex_groups) = state.get(world);
 
     let get_anchor_id = |object, anchor| {
         let site_id = q_anchors
@@ -1131,7 +1172,7 @@ fn generate_locations(
     };
 
     let mut locations = BTreeMap::new();
-    for (e, point, o_point, tags, name, graphs, location_id, child_of) in &q_locations {
+    for (e, point, o_point, tags, name, mutex, graphs, location_id, child_of) in &q_locations {
         if child_of.parent() != site {
             continue;
         }
@@ -1141,6 +1182,17 @@ fn generate_locations(
         let graphs = graphs
             .to_u32(&q_nav_graphs)
             .map_err(|e| SiteGenerationError::BrokenNavGraphReference(e))?;
+        let mutex = if let Some(mutex_group) = mutex.0 {
+            let mutex_group_id = q_mutex_groups.get(mutex_group).map_err(|_| {
+                SiteGenerationError::BrokenAffiliation {
+                    object: e,
+                    group: mutex_group,
+                }
+            })?;
+            Affiliation(Some(mutex_group_id.0))
+        } else {
+            Affiliation(None)
+        };
 
         locations.insert(
             location_id.0,
@@ -1148,6 +1200,7 @@ fn generate_locations(
                 anchor: Point(point),
                 tags: tags.clone(),
                 name: name.clone(),
+                mutex,
                 graphs,
             },
         );
@@ -1414,10 +1467,10 @@ fn generate_model_instances(
     for (entity, (id, name, pose, level_id, description_id, description_export)) in
         model_instances_data.iter()
     {
-        let mut export_data = HashMap::<String, sdformat_rs::XmlElement>::new();
+        let mut export_data = HashMap::<String, sdformat::XmlElement>::new();
         for (label, value) in description_export.iter() {
             if let Some(data) = world
-                .resource_scope::<ExportHandlers, Option<sdformat_rs::XmlElement>>(
+                .resource_scope::<ExportHandlers, Option<sdformat::XmlElement>>(
                     move |world, mut export_handlers| {
                         if let Some(export_handler) = export_handlers.get_mut(label) {
                             export_handler.export(*entity, value.clone(), world)
@@ -1630,6 +1683,7 @@ pub fn generate_site(
     let fiducial_groups = generate_fiducial_groups(world, site)?;
     let textures = generate_texture_groups(world, site)?;
     let nav_graphs = generate_nav_graphs(world, site)?;
+    let mutex_groups = generate_mutex_groups(world, site)?;
     let lanes = generate_lanes(world, site)?;
     let locations = generate_locations(world, site)?;
     let graph_ranking = generate_graph_rankings(world, site)?;
@@ -1693,6 +1747,7 @@ pub fn generate_site(
                 ranking: graph_ranking,
                 lanes,
                 locations,
+                mutex_groups,
             },
         },
         model_descriptions,
@@ -1707,7 +1762,7 @@ pub fn generate_site(
 pub fn save_site(world: &mut World) {
     let save_events: Vec<_> = world.resource_mut::<Events<SaveSite>>().drain().collect();
     for save_event in save_events {
-        let mut new_path = dbg!(save_event.to_location);
+        let mut new_path = save_event.to_location;
         let path_str = match new_path.to_str() {
             Some(s) => s,
             None => {
@@ -1720,12 +1775,11 @@ pub fn save_site(world: &mut World) {
                 if path_str.ends_with(".building.yaml") {
                     warn!("Detected old file format, converting to new format");
                     new_path = path_str.replace(".building.yaml", ".site.json").into();
-                } else if path_str.ends_with(".site.ron") {
-                    // Noop, we allow .site.ron to remain as-is
                 } else if !path_str.ends_with(".site.json") {
                     info!("Appending .site.json to {}", new_path.display());
                     new_path = new_path.with_extension("site.json");
                 }
+
                 info!("Saving to {}", new_path.display());
                 let f = match std::fs::File::create(new_path.clone()) {
                     Ok(f) => f,
@@ -1746,31 +1800,16 @@ pub fn save_site(world: &mut World) {
                     }
                 };
 
-                if new_path.extension().is_some_and(|e| e == "json") {
-                    match site.to_writer_json(f) {
-                        Ok(()) => {
-                            info!("Save successful");
-                        }
-                        Err(err) => {
-                            if let Some(old_default_path) = old_default_path {
-                                world.entity_mut(save_event.site).insert(old_default_path);
-                            }
-                            error!("Save failed: {err}");
-                            continue;
-                        }
+                match site.to_writer_json(f) {
+                    Ok(()) => {
+                        info!("Save successful");
                     }
-                } else {
-                    match site.to_writer_ron(f) {
-                        Ok(()) => {
-                            info!("Save successful");
+                    Err(err) => {
+                        if let Some(old_default_path) = old_default_path {
+                            world.entity_mut(save_event.site).insert(old_default_path);
                         }
-                        Err(err) => {
-                            if let Some(old_default_path) = old_default_path {
-                                world.entity_mut(save_event.site).insert(old_default_path);
-                            }
-                            error!("Save failed: {err}");
-                            continue;
-                        }
+                        error!("Save failed: {err}");
+                        continue;
                     }
                 }
 
@@ -1855,7 +1894,6 @@ pub fn save_site(world: &mut World) {
                     }
                 };
 
-                dbg!(&new_path);
                 for (name, nav_graph) in legacy::nav_graph::NavGraph::from_site(&site) {
                     let graph_file = new_path.clone().join(name + ".nav.yaml");
                     info!(

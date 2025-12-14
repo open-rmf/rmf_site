@@ -1,11 +1,15 @@
 [package]
 name = "rmf_site_editor_web"
-version = "0.0.1"
-edition = "2021"
+version = "0.0.2"
+edition = "2024"
+description = "Web build of the rmf_site_editor"
+license = "Apache-2.0"
+repository = "https://github.com/open-rmf/rmf_site"
+readme = "README.md"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
-name = "librmf_site_editor_web"
+name = "rmf_site_editor_web"
 
 [dependencies]
 wasm-bindgen = {workspace = true} # Remember to update the README if we change this version number

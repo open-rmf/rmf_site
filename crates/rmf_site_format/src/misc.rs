@@ -196,6 +196,13 @@ impl Angle {
     pub fn is_degrees(&self) -> bool {
         matches!(self, Angle::Deg(_))
     }
+
+    pub fn wrap_to_pi(&mut self) {
+        match self {
+            Self::Deg(value) => wrap_to_extent(value, 180.0),
+            Self::Rad(value) => wrap_to_extent(value, std::f32::consts::PI),
+        }
+    }
 }
 
 impl std::ops::Mul<f32> for Angle {
@@ -532,5 +539,16 @@ impl<T: RefTrait> Affiliation<T> {
         } else {
             Ok(Affiliation(None))
         }
+    }
+}
+
+/// Wraps a given value to be within the range of [-extent, extent]
+pub fn wrap_to_extent(value: &mut f32, extent: f32) {
+    while *value > extent {
+        *value -= extent;
+    }
+
+    while *value < -extent {
+        *value += extent;
     }
 }

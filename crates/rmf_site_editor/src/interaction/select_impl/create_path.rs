@@ -20,7 +20,7 @@ use crate::{
     site::{ChangeDependent, Pending, TextureNeedsAssignment},
 };
 use bevy::prelude::*;
-use bevy_impulse::*;
+use crossflow::*;
 use rmf_site_format::Path;
 use std::borrow::Borrow;
 
@@ -51,7 +51,7 @@ pub fn spawn_create_path_service(
 
 pub struct CreatePath {
     /// Function pointer for spawning an initial path.
-    pub spawn_path: fn(Path<Entity>, &mut Commands) -> Entity,
+    pub insert_path: fn(Path<Entity>, &mut EntityCommands) -> SelectionNodeResult,
     /// The path which is being built. This will initially be [`None`] until setup
     /// happens, then `spawn_path` will be used to create this. For all the
     /// services in the `create_path` workflow besides setup, this should
@@ -76,24 +76,36 @@ pub struct CreatePath {
     /// reaching the minimum number of points.
     pub provisional_anchors: HashSet<Entity>,
     pub scope: AnchorScope,
+    pub creation_continuity: PathCreationContinuity,
+    pub level_change_continuity: LevelChangeContinuity,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum PathCreationContinuity {
+    /// Create just a single path and exit
+    Single,
+    /// Keep creating paths after the first is finished
+    Multiple,
 }
 
 impl CreatePath {
     pub fn new(
-        spawn_path: fn(Path<Entity>, &mut Commands) -> Entity,
+        insert_path: fn(Path<Entity>, &mut EntityCommands) -> SelectionNodeResult,
         minimum_points: usize,
         allow_inner_loops: bool,
         implied_complete_loop: bool,
         scope: AnchorScope,
     ) -> Self {
         Self {
-            spawn_path,
+            insert_path,
             path: None,
             allow_inner_loops,
             minimum_points,
             implied_complete_loop,
             scope,
             provisional_anchors: Default::default(),
+            creation_continuity: PathCreationContinuity::Multiple,
+            level_change_continuity: Default::default(),
         }
     }
 
@@ -127,32 +139,17 @@ impl Borrow<AnchorScope> for CreatePath {
     }
 }
 
-pub fn create_path_with_texture<T: Bundle + From<Path<Entity>>>(
+pub fn insert_path_with_texture<T: Bundle + From<Path<Entity>>>(
     path: Path<Entity>,
-    commands: &mut Commands,
-) -> Entity {
+    commands: &mut EntityCommands,
+) -> SelectionNodeResult {
     let new_bundle: T = path.into();
-    commands
-        .spawn((new_bundle, TextureNeedsAssignment, Pending))
-        .id()
+    commands.insert((new_bundle, TextureNeedsAssignment, Pending));
+    Ok(())
 }
 
-pub fn create_path_setup(
-    In(key): In<BufferKey<CreatePath>>,
-    mut access: BufferAccessMut<CreatePath>,
-    cursor: Res<Cursor>,
-    mut commands: Commands,
-) -> SelectionNodeResult {
-    let mut access = access.get_mut(&key).or_broken_buffer()?;
-    let state = access.newest_mut().or_broken_state()?;
-
-    if state.path.is_none() {
-        let path = Path(vec![cursor.level_anchor_placement]);
-        let path = (state.spawn_path)(path, &mut commands);
-        commands.queue(ChangeDependent::add(cursor.level_anchor_placement, path));
-        state.path = Some(path);
-    }
-
+pub fn create_path_setup(In(_): In<BufferKey<CreatePath>>) -> SelectionNodeResult {
+    // Do nothing. No setup is needed for paths.
     Ok(())
 }
 
@@ -187,16 +184,74 @@ pub fn on_select_for_create_path(
     In((selection, key)): In<(SelectionCandidate, BufferKey<CreatePath>)>,
     mut access: BufferAccessMut<CreatePath>,
     mut paths: Query<&mut Path<Entity>>,
+    parents: Query<&ChildOf>,
+    lifts: Query<(), With<LiftCabin<Entity>>>,
     mut commands: Commands,
     cursor: Res<Cursor>,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.newest_mut().or_broken_state()?;
 
+    if let Some(path) = state.path {
+        // Check if there is a break in the level continuity for the new anchor
+        match state.level_change_continuity {
+            LevelChangeContinuity::Separate => {
+                let path_ref = paths.get(path).or_broken_query()?;
+
+                // Ignore paths with one or fewer anchors, because the one anchor
+                // will just be the cursor preview anchor.
+                if path_ref.len() > 1 {
+                    if let Some(last) = path_ref.first() {
+                        if !are_anchors_siblings(*last, selection.candidate, &parents, &lifts)? {
+                            // Finish the current path and start a new one because there
+                            // is a break in the level continuity.
+                            let _ = finish_path(state, &mut paths, &mut commands)?;
+                        }
+                    }
+                }
+            }
+            LevelChangeContinuity::Continuous => {
+                // Do nothing
+            }
+        }
+    }
+
+    match state.path {
+        Some(path) => {
+            let mut path_mut = paths.get_mut(path).or_broken_query()?;
+            update_path(selection, state, &mut *path_mut, &mut commands, &cursor)?;
+        }
+        None => {
+            // We need to do this in a convoluted way because to update the path
+            // we need both the &mut Path and the Entity of the path, but we are
+            // spawning a new one so they need to be decoupled until the commands
+            // can be flushed.
+            let new_path_id = commands.spawn(()).id();
+            state.path = Some(new_path_id);
+
+            let mut new_path = Path(vec![cursor.level_anchor_placement]);
+            commands.queue(ChangeDependent::add(
+                cursor.level_anchor_placement,
+                new_path_id,
+            ));
+
+            update_path(selection, state, &mut new_path, &mut commands, &cursor)?;
+            (state.insert_path)(new_path, &mut commands.entity(new_path_id))?;
+        }
+    }
+
+    Ok(())
+}
+
+fn update_path(
+    selection: SelectionCandidate,
+    state: &mut CreatePath,
+    path_mut: &mut Path<Entity>,
+    commands: &mut Commands,
+    cursor: &Res<Cursor>,
+) -> SelectionNodeResult {
     let chosen = selection.candidate;
     let provisional = selection.provisional;
-    let path = state.path.or_broken_state()?;
-    let mut path_mut = paths.get_mut(path).or_broken_query()?;
 
     if state.implied_complete_loop {
         let first = path_mut.0.first().or_broken_state()?;
@@ -231,26 +286,35 @@ pub fn on_select_for_create_path(
         }
     }
 
-    state.set_last(chosen, path_mut.as_mut(), &mut commands)?;
+    state.set_last(chosen, path_mut, commands)?;
     if provisional {
         state.provisional_anchors.insert(chosen);
     }
 
     path_mut.0.push(cursor.level_anchor_placement);
-    commands.queue(ChangeDependent::add(cursor.level_anchor_placement, path));
-
+    commands.queue(ChangeDependent::add(
+        cursor.level_anchor_placement,
+        state.path.or_broken_state()?,
+    ));
     Ok(())
 }
 
 pub fn cleanup_create_path(
     In(key): In<BufferKey<CreatePath>>,
     mut access: BufferAccessMut<CreatePath>,
-    mut paths: Query<&'static mut Path<Entity>>,
+    mut paths: Query<&mut Path<Entity>>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
-    let state = access.pull().or_broken_state()?;
+    let mut state = access.pull().or_broken_state()?;
+    finish_path(&mut state, &mut paths, &mut commands)
+}
 
+fn finish_path(
+    state: &mut CreatePath,
+    paths: &mut Query<&mut Path<Entity>>,
+    commands: &mut Commands,
+) -> SelectionNodeResult {
     let Some(path) = state.path else {
         // If there is no path then there is nothing to cleanup. This might
         // happen if the setup needed to bail out for some reason.
@@ -271,8 +335,8 @@ pub fn cleanup_create_path(
             commands.queue(ChangeDependent::remove(*a, path));
         }
 
-        for a in state.provisional_anchors {
-            if let Ok(mut a_mut) = commands.get_entity(a) {
+        for a in &state.provisional_anchors {
+            if let Ok(mut a_mut) = commands.get_entity(*a) {
                 a_mut.despawn();
             }
         }
@@ -297,6 +361,9 @@ pub fn cleanup_create_path(
             commands.get_entity(path).or_broken_query()?.despawn();
         }
     }
+
+    state.path = None;
+    state.provisional_anchors.clear();
 
     Ok(())
 }

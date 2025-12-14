@@ -30,8 +30,8 @@ pub struct InspectFor {
 /// Implement this on a [`SystemParam`] struct to make it a widget that can be
 /// plugged into the site editor UI.
 ///
-/// See documentation of [`PropertiesTilePlugin`] or [`InspectionPlugin`] to see
-/// examples of using this.
+/// See documentation of [`PropertiesTilePlugin`] or
+/// `rmf_site_editor::widgets::inspector::InspectionPlugin` to see examples of using this.
 pub trait WidgetSystem<Input = (), Output = ()>: SystemParam {
     fn show(input: Input, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) -> Output;
 }
@@ -41,7 +41,7 @@ pub trait WidgetSystem<Input = (), Output = ()>: SystemParam {
 ///
 /// For standard types of widgets you don't need to create this component yourself,
 /// instead use one of the generic convenience plugins:
-/// - [`InspectionPlugin`]
+/// - `rmf_site_editor::widgets::inspector::InspectionPlugin`
 /// - [`PropertiesTilePlugin`]
 #[derive(Component)]
 pub struct Widget<Input = (), Output = ()> {

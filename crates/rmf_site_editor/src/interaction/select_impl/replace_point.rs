@@ -20,7 +20,7 @@ use crate::{
     site::{ChangeDependent, Original},
 };
 use bevy::prelude::*;
-use bevy_impulse::*;
+use crossflow::*;
 use rmf_site_format::Point;
 use std::borrow::Borrow;
 

@@ -309,7 +309,8 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                                 description: Affiliation(Some(description)),
                                 ..Default::default()
                             };
-                            self.object_placement.place_object_2d(instance);
+                            self.object_placement
+                                .place_object_2d(instance, Default::default());
                         }
                     }
                 }
