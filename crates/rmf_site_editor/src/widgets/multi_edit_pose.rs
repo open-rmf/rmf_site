@@ -60,12 +60,10 @@ impl<'w, 's> MultiEditPoseWidget<'w, 's> {
             for instance in instances {
                 if let Ok(pose) = self.poses.get(instance.clone()) {
                     let new_trans: [f32; 3] = (Vec3A::from(pose.trans) + trans_offset).into();
-                    let mut new_yaw = rot_offset + pose.rot.yaw();
-                    new_yaw.wrap_to_pi();
 
                     let new_pose = Pose {
                         trans: new_trans,
-                        rot: Rotation::Yaw(new_yaw),
+                        rot: pose.rot,
                     };
 
                     self.commands.trigger(Change::new(new_pose, instance));
