@@ -2,13 +2,25 @@ use bevy_derive::{Deref, DerefMut};
 pub use bevy_ecs::prelude::*;
 use bytemuck::TransparentWrapper;
 use crossflow::Service;
+use std::collections::HashSet;
 
 use crate::*;
 use web_time::Instant;
 
 /// Used as a resource to keep track of which entity is currently selected.
-#[derive(Default, Debug, Clone, Copy, Deref, DerefMut, Resource)]
-pub struct Selection(pub Option<Entity>);
+#[derive(Default, Debug, Clone, Resource)]
+pub struct Selection {
+    pub selected: HashSet<Entity>,
+}
+
+impl Selection {
+    pub fn get_single(&self) -> Option<Entity> {
+        if self.selected.len() > 1 {
+            return None;
+        }
+        self.selected.iter().next().copied()
+    }
+}
 
 /// Used as a resource to keep track of which entity is currently hovered.
 #[derive(Default, Debug, Clone, Copy, Deref, DerefMut, Resource)]
@@ -65,3 +77,17 @@ pub struct InspectorServiceConfigs {
 #[derive(Resource, Debug, TransparentWrapper)]
 #[repr(transparent)]
 pub struct InspectorService(pub Service<(), ()>);
+
+// Stores inspection settings such as enabling multi selection of entities.
+#[derive(Resource)]
+pub struct InspectionSettings {
+    pub multi_select: bool,
+}
+
+impl Default for InspectionSettings {
+    fn default() -> Self {
+        Self {
+            multi_select: false,
+        }
+    }
+}

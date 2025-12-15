@@ -21,7 +21,9 @@ use replace_side::*;
 
 pub mod select_anchor;
 use rmf_site_format::{LiftCabin, Pending};
-use rmf_site_picking::{CommonNodeErrors, Hover, Select, Selectable, SelectionFilter};
+use rmf_site_picking::{
+    CommonNodeErrors, Hover, InspectionSettings, Select, Selectable, SelectionFilter,
+};
 pub use select_anchor::*;
 
 use anyhow::Error as Anyhow;
@@ -37,6 +39,7 @@ pub const SELECT_ANCHOR_MODE_LABEL: &'static str = "select_anchor";
 #[derive(SystemParam)]
 pub struct InspectorFilter<'w, 's> {
     selectables: Query<'w, 's, &'static Selectable, (Without<Preview>, Without<Pending>)>,
+    inspection_settings: Res<'w, InspectionSettings>,
 }
 
 impl<'w, 's> SelectionFilter for InspectorFilter<'w, 's> {
@@ -50,7 +53,7 @@ impl<'w, 's> SelectionFilter for InspectorFilter<'w, 's> {
         Some(target)
     }
     fn on_click(&mut self, hovered: Hover) -> Option<Select> {
-        Some(Select::new(hovered.0))
+        Some(Select::new(hovered.0).multi_select(self.inspection_settings.multi_select))
     }
 }
 

@@ -159,6 +159,7 @@ pub enum SelectionServiceStages {
 #[derive(SystemParam)]
 struct InspectorFilter<'w, 's> {
     selectables: Query<'w, 's, &'static Selectable, Without<Preview>>,
+    inspection_settings: Res<'w, InspectionSettings>,
 }
 
 impl<'w, 's> SelectionFilter for InspectorFilter<'w, 's> {
@@ -172,7 +173,7 @@ impl<'w, 's> SelectionFilter for InspectorFilter<'w, 's> {
         Some(target)
     }
     fn on_click(&mut self, hovered: Hover) -> Option<Select> {
-        Some(Select::new(hovered.0))
+        Some(Select::new(hovered.0).multi_select(self.inspection_settings.multi_select))
     }
 }
 pub type SelectionNodeResult<T = ()> = Result<T, Option<Anyhow>>;

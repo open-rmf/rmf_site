@@ -97,6 +97,9 @@ use view_levels::*;
 pub mod view_model_instances;
 use view_model_instances::*;
 
+pub mod multi_edit_pose;
+use multi_edit_pose::*;
+
 pub mod view_scenarios;
 use view_scenarios::*;
 

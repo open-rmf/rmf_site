@@ -39,26 +39,52 @@ pub fn process_new_selector(
 
 pub fn selection_update(
     In(BlockingService {
-        request: Select(new_selection),
+        request: Select {
+            candidate,
+            multi_select,
+        },
         ..
     }): BlockingServiceInput<Select>,
-    mut selected: Query<&mut Selected>,
+    mut query_selected: Query<&mut Selected>,
     mut selection: ResMut<Selection>,
 ) {
-    if selection.0 != new_selection.map(|s| s.candidate) {
-        if let Some(previous_selection) = selection.0 {
-            if let Ok(mut selected) = selected.get_mut(previous_selection) {
+    if let Some(candidate) = candidate.map(|s| s.candidate) {
+        if multi_select {
+            let Ok(mut selected) = query_selected.get_mut(candidate) else {
+                return;
+            };
+
+            // If selection candidate is in current selections, remove and deselect it.
+            // Else, add the selection candidate to current selections.
+            if selection.selected.remove(&candidate) {
+                selected.is_selected = false;
+            } else {
+                selected.is_selected = true;
+                selection.selected.insert(candidate);
+            }
+        } else {
+            // Only one entity can be selected, so current selections are cleared and
+            // a single selection candidate is added to the current selection.
+            for previous_selection in &selection.selected {
+                if let Ok(mut selected) = query_selected.get_mut(*previous_selection) {
+                    selected.is_selected = false;
+                }
+            }
+            selection.selected.clear();
+
+            let Ok(mut selected) = query_selected.get_mut(candidate) else {
+                return;
+            };
+            selected.is_selected = true;
+            selection.selected.insert(candidate);
+        }
+    } else {
+        for previous_selection in &selection.selected {
+            if let Ok(mut selected) = query_selected.get_mut(*previous_selection) {
                 selected.is_selected = false;
             }
         }
-
-        if let Some(new_selection) = new_selection {
-            if let Ok(mut selected) = selected.get_mut(new_selection.candidate) {
-                selected.is_selected = true;
-            }
-        }
-
-        selection.0 = new_selection.map(|s| s.candidate);
+        selection.selected.clear();
     }
 }
 
@@ -205,7 +231,7 @@ pub fn hover_service<Filter: SystemParam + 'static>(
 }
 
 /// A continuous service that filters [`Select`] events and issues out a
-/// [`Hover`] stream.
+/// [`Select`] stream.
 ///
 /// This complements [`hover_service`] and [`hover_picking`]
 /// and is the final piece of the [`SelectionService`] workflow.
@@ -231,7 +257,7 @@ pub fn select_service<Filter: SystemParam + 'static>(
 
     for selected in select.read() {
         let mut selected = *selected;
-        if let Some(selected) = &mut selected.0 {
+        if let Some(selected) = &mut selected.candidate {
             match filter.filter_select(selected.candidate) {
                 Some(candidate) => selected.candidate = candidate,
                 None => {
@@ -267,7 +293,7 @@ pub fn clear_hover_select(
     mut hovered: Query<&mut Hovered>,
     mut hovering: ResMut<Hovering>,
     mut selected: Query<&mut Selected>,
-    mut selection: ResMut<Selection>,
+    selection: ResMut<Selection>,
 ) {
     if let Some(previous_hovering) = hovering.0.take() {
         if let Ok(mut hovered) = hovered.get_mut(previous_hovering) {
@@ -275,8 +301,8 @@ pub fn clear_hover_select(
         }
     }
 
-    if let Some(previous_selection) = selection.0.take() {
-        if let Ok(mut selected) = selected.get_mut(previous_selection) {
+    for e in &selection.selected {
+        if let Ok(mut selected) = selected.get_mut(*e) {
             selected.is_selected = false;
         }
     }
@@ -435,7 +461,7 @@ pub fn send_double_click_event(
     for selected in select.read() {
         let current_time = Instant::now();
 
-        let Some(selected_entity) = selected.0.map(|c| c.candidate) else {
+        let Some(selected_entity) = selected.candidate.map(|c| c.candidate) else {
             return;
         };
 
@@ -450,5 +476,16 @@ pub fn send_double_click_event(
         }
         double_clicked.last_selected_entity = Some(selected_entity);
         double_clicked.last_selected_time = current_time;
+    }
+}
+
+pub fn multi_select_on_shift(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut inspection_settings: ResMut<InspectionSettings>,
+) {
+    let multi_select = keyboard_input.pressed(KeyCode::ShiftLeft);
+
+    if inspection_settings.multi_select != multi_select {
+        inspection_settings.multi_select = multi_select;
     }
 }
