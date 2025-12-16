@@ -55,9 +55,9 @@ pub struct CachedLevel(Entity);
 #[derive(Component, Clone, Copy, Debug, Deref, DerefMut)]
 pub struct NextSiteID(pub u32);
 
-pub fn change_site(
+pub fn on_change_site(
+    trigger: Trigger<ChangeCurrentSite>,
     mut commands: Commands,
-    mut change_current_site: EventReader<ChangeCurrentSite>,
     mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
     mut create_new_scenario: EventWriter<CreateScenario>,
     mut current_workspace: ResMut<CurrentWorkspace>,
@@ -78,101 +78,100 @@ pub fn change_site(
         }
     };
 
-    if let Some(cmd) = change_current_site.read().last() {
-        if open_sites.get(cmd.site).is_err() {
-            error!(
-                "Requested workspace change to an entity that is not an open site: {:?}",
-                cmd.site
-            );
-            return;
-        }
+    let cmd = trigger.event();
+    if open_sites.get(cmd.site).is_err() {
+        error!(
+            "Requested workspace change to an entity that is not an open site: {:?}",
+            cmd.site
+        );
+        return;
+    }
 
-        if let Some(chosen_level) = cmd.level {
-            if child_of
-                .get(chosen_level)
-                .ok()
-                .filter(|child_of| child_of.parent() == cmd.site)
-                .is_none()
-            {
-                error!(
+    if let Some(chosen_level) = cmd.level {
+        if child_of
+            .get(chosen_level)
+            .ok()
+            .filter(|child_of| child_of.parent() == cmd.site)
+            .is_none()
+        {
+            error!(
                     "Requested level change to an entity {:?} that is not a level of the requested site {:?}",
                     chosen_level, cmd.site,
                 );
-                return;
+            return;
+        }
+    }
+
+    current_workspace.root = Some(cmd.site);
+    current_workspace.display = true;
+
+    if let Some(new_level) = cmd.level {
+        if let Some(previous_level) = current_level.0 {
+            if previous_level != new_level {
+                set_visibility(previous_level, Visibility::Hidden);
             }
         }
 
-        current_workspace.root = Some(cmd.site);
-        current_workspace.display = true;
-
-        if let Some(new_level) = cmd.level {
-            if let Some(previous_level) = current_level.0 {
-                if previous_level != new_level {
-                    set_visibility(previous_level, Visibility::Hidden);
-                }
-            }
-
-            set_visibility(new_level, Visibility::Inherited);
-            commands.entity(cmd.site).insert(CachedLevel(new_level));
-            current_level.0 = Some(new_level);
-        } else {
-            if let Ok(cached_level) = cached_levels.get(cmd.site) {
-                set_visibility(**cached_level, Visibility::Inherited);
-                current_level.0 = Some(**cached_level);
-            } else {
-                if let Ok(children) = children.get(cmd.site) {
-                    let mut found_level = false;
-                    for child in children {
-                        if let Ok(level) = levels.get(*child) {
-                            commands.entity(cmd.site).insert(CachedLevel(level));
-                            current_level.0 = Some(level);
-                            found_level = true;
-                            set_visibility(level, Visibility::Inherited);
-                        }
-                    }
-
-                    if !found_level {
-                        // Create a new blank level for the user
-                        let new_level = commands
-                            .spawn((Transform::default(), Visibility::default()))
-                            .insert(LevelProperties {
-                                name: NameInSite("<unnamed level>".to_owned()),
-                                elevation: LevelElevation(0.),
-                                global_floor_visibility: default(),
-                                global_drawing_visibility: default(),
-                            })
-                            .insert(ChildOf(cmd.site))
-                            .id();
-
-                        commands.entity(cmd.site).insert(CachedLevel(new_level));
-                        current_level.0 = Some(new_level);
-                    }
-                }
-            }
-        }
-
-        if let Some(new_scenario) = cmd.scenario {
-            if let Some(previous_scenario) = current_scenario.0 {
-                if previous_scenario != new_scenario {
-                    change_current_scenario.write(ChangeCurrentScenario(new_scenario));
-                }
-            }
+        set_visibility(new_level, Visibility::Inherited);
+        commands.entity(cmd.site).insert(CachedLevel(new_level));
+        current_level.0 = Some(new_level);
+    } else {
+        if let Ok(cached_level) = cached_levels.get(cmd.site) {
+            set_visibility(**cached_level, Visibility::Inherited);
+            current_level.0 = Some(**cached_level);
         } else {
             if let Ok(children) = children.get(cmd.site) {
-                let any_scenario = default_scenario.0.or_else(|| {
-                    children
-                        .iter()
-                        .filter(|child| scenarios.get(*child).is_ok())
-                        .next()
-                });
-                if let Some(new_scenario) = any_scenario {
-                    change_current_scenario.write(ChangeCurrentScenario(new_scenario));
-                } else {
-                    create_new_scenario.write(CreateScenario {
-                        name: None,
-                        parent: None,
-                    });
+                let mut found_level = false;
+                for child in children {
+                    if let Ok(level) = levels.get(*child) {
+                        commands.entity(cmd.site).insert(CachedLevel(level));
+                        current_level.0 = Some(level);
+                        found_level = true;
+                        set_visibility(level, Visibility::Inherited);
+                    }
                 }
+
+                if !found_level {
+                    // Create a new blank level for the user
+                    let new_level = commands
+                        .spawn((Transform::default(), Visibility::default()))
+                        .insert(LevelProperties {
+                            name: NameInSite("<unnamed level>".to_owned()),
+                            elevation: LevelElevation(0.),
+                            global_floor_visibility: default(),
+                            global_drawing_visibility: default(),
+                        })
+                        .insert(ChildOf(cmd.site))
+                        .id();
+
+                    commands.entity(cmd.site).insert(CachedLevel(new_level));
+                    current_level.0 = Some(new_level);
+                }
+            }
+        }
+    }
+
+    if let Some(new_scenario) = cmd.scenario {
+        if let Some(previous_scenario) = current_scenario.0 {
+            if previous_scenario != new_scenario {
+                change_current_scenario.write(ChangeCurrentScenario(new_scenario));
+            }
+        }
+    } else {
+        if let Ok(children) = children.get(cmd.site) {
+            let any_scenario = default_scenario.0.or_else(|| {
+                children
+                    .iter()
+                    .filter(|child| scenarios.get(*child).is_ok())
+                    .next()
+            });
+            if let Some(new_scenario) = any_scenario {
+                change_current_scenario.write(ChangeCurrentScenario(new_scenario));
+            } else {
+                create_new_scenario.write(CreateScenario {
+                    name: None,
+                    parent: None,
+                });
             }
         }
     }
