@@ -5682,6 +5682,7 @@ dependencies = [
  "futures-lite 1.13.0",
  "geo",
  "gz-fuel",
+ "image",
  "itertools 0.11.0",
  "mapf",
  "nalgebra 0.32.6",

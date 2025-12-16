@@ -56,6 +56,7 @@ sdformat = {workspace = true}
 gz-fuel = {workspace = true}
 pathdiff = {workspace = true}
 ehttp = { workspace = true, features = ["native-async"] }
+image = { workspace = true}
 nalgebra = {workspace = true}
 anyhow = {workspace = true}
 uuid = { workspace = true, features = ["v4"] }
