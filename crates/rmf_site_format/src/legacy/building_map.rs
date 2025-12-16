@@ -678,14 +678,14 @@ impl BuildingMap {
                         OrientationConstraint::None
                     },
                     speed_limit: None,
-                    dock: left_dock,
+                    dock: right_dock,
                 };
 
                 let reverse = if !lane.2.bidirectional.1 {
                     ReverseLane::Disable
-                } else if right_dock != motion.dock {
+                } else if left_dock != motion.dock {
                     ReverseLane::Different(Motion {
-                        dock: right_dock,
+                        dock: left_dock,
                         ..motion.clone()
                     })
                 } else {

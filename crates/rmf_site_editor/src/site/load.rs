@@ -811,7 +811,6 @@ pub struct EntityGenerationParams<'w, 's> {
 #[derive(SystemParam)]
 pub struct SiteLoadingParams<'w, 's> {
     load_sites: EventReader<'w, 's, LoadSite>,
-    change_current_site: EventWriter<'w, ChangeCurrentSite>,
 }
 
 pub fn load_site(
@@ -839,8 +838,7 @@ pub fn load_site(
         }
 
         if cmd.focus {
-            let mut loading_params = loading_params_state.get_mut(world);
-            loading_params.change_current_site.write(ChangeCurrentSite {
+            world.trigger(ChangeCurrentSite {
                 site,
                 level: None,
                 scenario: None,

@@ -370,10 +370,7 @@ impl Plugin for SitePlugin {
                 .after(SiteUpdateSet::ProcessChangesFlush)
                 .run_if(AppState::in_displaying_mode()),
         )
-        .add_systems(
-            Update,
-            (save_site, change_site.after(load_site)).run_if(AppState::in_displaying_mode()),
-        )
+        .add_systems(Update, save_site)
         .add_systems(
             PostUpdate,
             (
@@ -488,6 +485,7 @@ impl Plugin for SitePlugin {
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
         )
+        .add_observer(on_change_site)
         .add_observer(handle_inclusion_change_for_model_visibility)
         .add_observer(handle_on_level_change);
     }
