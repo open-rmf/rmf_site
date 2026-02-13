@@ -38,9 +38,6 @@ pub struct Texture {
 #[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct TextureGroup {
     pub name: NameInSite,
-    // The flatten attribute currently does not work correctly for the .ron
-    // format, so we cannot use it for now.
-    // #[serde(flatten)]
     pub texture: Texture,
     #[serde(skip)]
     pub group: Group,

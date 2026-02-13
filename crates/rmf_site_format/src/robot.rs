@@ -15,7 +15,9 @@
  *
 */
 
-use crate::*;
+#[cfg(feature = "bevy")]
+use crate::OnLevel;
+
 #[cfg(feature = "bevy")]
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};

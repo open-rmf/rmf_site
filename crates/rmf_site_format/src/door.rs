@@ -96,6 +96,36 @@ impl DoorType {
             Self::Model(_) => "Model",
         }
     }
+
+    pub fn set_open(&mut self) {
+        self.set_positions(1.0);
+    }
+
+    pub fn set_closed(&mut self) {
+        self.set_positions(0.0);
+    }
+
+    pub fn set_positions(&mut self, position: f32) {
+        match self {
+            Self::SingleSliding(door) => {
+                door.position = position;
+            }
+            Self::SingleSwing(door) => {
+                door.position = position;
+            }
+            Self::DoubleSliding(door) => {
+                door.left_position = position;
+                door.right_position = position;
+            }
+            Self::DoubleSwing(door) => {
+                door.left_position = position;
+                door.right_position = position;
+            }
+            Self::Model(_) => {
+                // Unsupported for now
+            }
+        }
+    }
 }
 
 impl Default for DoorType {
@@ -109,6 +139,7 @@ impl Default for DoorType {
 pub struct SingleSlidingDoor {
     /// Which side the door slides towards
     pub towards: Side,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub position: f32,
 }
 
@@ -132,7 +163,9 @@ impl From<SingleSlidingDoor> for DoorType {
 pub struct DoubleSlidingDoor {
     /// Length of the left door divided by the length of the right door
     pub left_right_ratio: f32,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub left_position: f32,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub right_position: f32,
 }
 
@@ -170,6 +203,7 @@ pub struct SingleSwingDoor {
     pub pivot_on: Side,
     /// How does the door swing
     pub swing: Swing,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub position: f32,
 }
 
@@ -196,7 +230,9 @@ pub struct DoubleSwingDoor {
     pub swing: Swing,
     /// Length of the left door divided by the length of the right door
     pub left_right_ratio: f32,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub left_position: f32,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub right_position: f32,
 }
 
@@ -424,10 +460,17 @@ impl<T: RefTrait> Door<T> {
 
 impl<T: RefTrait> From<Edge<T>> for Door<T> {
     fn from(edge: Edge<T>) -> Self {
+        // When converting an edge into a door, initialize it as closed instead of open.
+        // This is more intuitive for users who are creating a door.
+        let kind = SingleSlidingDoor {
+            position: 0.0,
+            ..Default::default()
+        };
+
         Door {
             anchors: edge,
             name: NameInSite("<Unnamed>".to_string()),
-            kind: SingleSlidingDoor::default().into(),
+            kind: kind.into(),
             marker: Default::default(),
         }
     }

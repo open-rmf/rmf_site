@@ -16,16 +16,19 @@
 */
 
 use crate::*;
-#[cfg(feature = "bevy")]
-use bevy::prelude::{Component, Reflect};
 use chrono::DateTime;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     fmt,
     time::{SystemTime, UNIX_EPOCH},
 };
 use uuid::Uuid;
+#[cfg(feature = "bevy")]
+use {
+    bevy::prelude::{Component, Reflect},
+    serde::de::DeserializeOwned,
+};
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]

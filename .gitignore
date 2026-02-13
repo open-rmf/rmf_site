@@ -1,7 +1,7 @@
 target
-web/librmf_site_editor_web.d.ts
-web/librmf_site_editor_web.js
-web/librmf_site_editor_web_bg.wasm
-web/librmf_site_editor_web_bg_optimized.wasm
-web/librmf_site_editor_web_bg.wasm.d.ts
+web/rmf_site_editor_web.d.ts
+web/rmf_site_editor_web.js
+web/rmf_site_editor_web_bg.wasm
+web/rmf_site_editor_web_bg_optimized.wasm
+web/rmf_site_editor_web_bg.wasm.d.ts
 /test_output/

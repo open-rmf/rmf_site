@@ -69,7 +69,7 @@ pub struct ChangePick {
 
 pub(crate) fn pick_topmost(
     picks: impl Iterator<Item = Entity>,
-    selectable: &Query<&Selectable>,
+    selectable: &Query<&Selectable, Without<Preview>>,
 ) -> Option<Entity> {
     for topmost_entity in picks {
         if let Ok(sel) = selectable.get(topmost_entity) {
@@ -88,10 +88,10 @@ pub(crate) fn pick_topmost(
 
 // TODO(@mxgrey): Consider making this a service similar to hover_service and select_service
 pub(crate) fn update_picked(
-    selectable: Query<&Selectable>,
+    selectable: Query<&Selectable, Without<Preview>>,
     block_status: Res<PickBlockStatus>,
     pointers: Query<&PointerInteraction>,
-    visual_cues: Query<&ComputedVisualCue>,
+    visual_cues: Query<&ComputedVisualCue, Without<Preview>>,
     mut picked: ResMut<Picked>,
     mut change_pick: EventWriter<ChangePick>,
 ) {

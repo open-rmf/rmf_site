@@ -87,6 +87,9 @@ pub use measurement::*;
 pub mod model;
 pub use model::*;
 
+pub mod model_property;
+pub use model_property::*;
+
 pub mod modifier;
 pub use modifier::*;
 
@@ -153,7 +156,7 @@ pub use wall::*;
 
 use crate::recency::{RecencyRank, RecencyRankingPlugin};
 use crate::{AppState, RegisterIssueType};
-pub use rmf_site_format::{DirectionalLight, PointLight, SpotLight, Style, *};
+pub use rmf_site_format::{DirectionalLight, PointLight, SpotLight, *};
 
 use rmf_site_picking::SelectionServiceStages;
 
@@ -310,8 +313,23 @@ impl Plugin for SitePlugin {
             PropertyPlugin::<OnLevel<Entity>, Robot>::default(),
             SlotcarSdfPlugin,
             MaterialPlugin::<ExtendedMaterial<StandardMaterial, LaneArrowMaterial>>::default(),
+            InfiniteGridPlugin,
         ))
-        .add_plugins((InfiniteGridPlugin,))
+        .add_plugins((
+            RobotPropertiesPlugin::default(),
+            RobotPropertyPlugin::<Mobility, RecallMobility>::default(),
+            RobotPropertyPlugin::<Collision, RecallCollision>::default(),
+            RobotPropertyPlugin::<PowerDissipation, RecallPowerDissipation>::default(),
+            RobotPropertyPlugin::<PowerSource, RecallPowerSource>::default(),
+            EmptyRobotPropertyPlugin::<Mobility>::new(),
+            EmptyRobotPropertyPlugin::<Collision>::new(),
+            EmptyRobotPropertyPlugin::<PowerSource>::new(),
+            RobotPropertyKindPlugin::<DifferentialDrive, Mobility, RecallDifferentialDrive>::default(),
+            RobotPropertyKindPlugin::<CircleCollision, Collision, RecallCircleCollision>::default(),
+            RobotPropertyKindPlugin::<AmbientSystem, PowerDissipation, RecallAmbientSystem>::default(),
+            RobotPropertyKindPlugin::<MechanicalSystem, PowerDissipation, RecallMechanicalSystem>::default(),
+            RobotPropertyKindPlugin::<Battery, PowerSource, RecallBattery>::default(),
+        ))
         .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
         .add_issue_type(&DUPLICATED_LIFT_NAME_ISSUE_UUID, "Duplicate lift name")
         .add_issue_type(
@@ -349,10 +367,7 @@ impl Plugin for SitePlugin {
                 .after(SiteUpdateSet::ProcessChangesFlush)
                 .run_if(AppState::in_displaying_mode()),
         )
-        .add_systems(
-            Update,
-            (save_site, change_site.after(load_site)).run_if(AppState::in_displaying_mode()),
-        )
+        .add_systems(Update, save_site)
         .add_systems(
             PostUpdate,
             (
@@ -423,7 +438,9 @@ impl Plugin for SitePlugin {
                 add_unused_fiducial_tracker,
                 update_fiducial_usage_tracker,
                 update_color_for_lanes.after(update_material_for_display_color),
-                update_visibility_for_lanes.after(remove_association_for_deleted_graphs),
+                update_visibility_for_lanes
+                    .after(remove_association_for_deleted_graphs)
+                    .after(add_lane_visuals),
                 update_visibility_for_locations.after(remove_association_for_deleted_graphs),
                 update_changed_location,
                 update_location_for_moved_anchors,
@@ -466,6 +483,7 @@ impl Plugin for SitePlugin {
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
         )
+        .add_observer(on_change_site)
         .add_observer(handle_inclusion_change_for_model_visibility)
         .add_observer(handle_on_level_change);
     }

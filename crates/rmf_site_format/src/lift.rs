@@ -247,9 +247,9 @@ impl<T: RefTrait> LiftCabin<T> {
         Ok(result)
     }
 
-    pub fn moment_of_inertia(&self, mass: f64) -> sdformat_rs::SdfInertialInertia {
+    pub fn moment_of_inertia(&self, mass: f64) -> sdformat::SdfInertialInertia {
         match self {
-            Self::Rect(params) => sdformat_rs::SdfInertialInertia {
+            Self::Rect(params) => sdformat::SdfInertialInertia {
                 ixx: mass / 12.0
                     * (params.width.powi(2) + DEFAULT_CABIN_WALL_THICKNESS.powi(2)) as f64,
                 iyy: mass / 12.0
@@ -258,6 +258,25 @@ impl<T: RefTrait> LiftCabin<T> {
                 ..Default::default()
             },
         }
+    }
+
+    #[cfg(feature = "bevy")]
+    pub fn contains_point(&self, point_in_lift_coordinates: bevy::math::Vec3A) -> bool {
+        let p = point_in_lift_coordinates;
+        match self {
+            Self::Rect(rect) => {
+                let aabb = rect.aabb();
+                let min = aabb.min();
+                let max = aabb.max();
+                for i in 0..2 {
+                    if p[i] < min[i] || max[i] < p[i] {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        true
     }
 }
 
@@ -645,7 +664,7 @@ impl<T: RefTrait> LiftCabinDoorPlacement<T> {
 impl LiftCabinDoorPlacement<Entity> {
     pub fn to_u32(&self, doors: &QueryLiftDoor) -> LiftCabinDoorPlacement<u32> {
         LiftCabinDoorPlacement {
-            door: doors.get(self.door).unwrap().0 .0,
+            door: doors.get(self.door).unwrap().0.0,
             width: self.width,
             thickness: self.thickness,
             shifted: self.shifted,

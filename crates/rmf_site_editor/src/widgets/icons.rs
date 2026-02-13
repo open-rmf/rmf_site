@@ -33,7 +33,7 @@ impl Plugin for IconsPlugin {
 struct IconBuilder(Handle<Image>);
 impl IconBuilder {
     pub fn new(name: &str, asset_server: &AssetServer) -> Self {
-        Self(asset_server.load("embedded://librmf_site_editor/".to_owned() + name))
+        Self(asset_server.load("embedded://rmf_site_editor/".to_owned() + name))
     }
 
     pub fn build(self, egui_context: &mut EguiContexts) -> Icon {

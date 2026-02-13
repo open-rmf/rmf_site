@@ -16,7 +16,7 @@
 */
 
 use crate::{CURRENT_MAJOR_VERSION, CURRENT_MINOR_VERSION};
-use serde::{de::Visitor, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::Visitor};
 
 /// rmf_site_format uses a kind of semantic versioning.
 /// We will continue to parse every format version starting from 1.0 in
@@ -123,9 +123,7 @@ impl<'de> Visitor<'de> for SemVerVisitor {
         if version_components[0] > CURRENT_MAJOR_VERSION {
             return Err(E::custom(format!(
                 "major version of input data is [{}], but your version of rmf_site_format only supports up to [{}.{}]; try updating to the latest version of rmf_site_format to read this file",
-                version_components[0],
-                CURRENT_MAJOR_VERSION,
-                CURRENT_MINOR_VERSION,
+                version_components[0], CURRENT_MAJOR_VERSION, CURRENT_MINOR_VERSION,
             )));
         }
 

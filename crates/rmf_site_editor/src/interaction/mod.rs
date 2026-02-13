@@ -166,7 +166,8 @@ impl Plugin for InteractionPlugin {
                 CategoryVisibilityPlugin::<LocationTags>::visible(true),
                 CategoryVisibilityPlugin::<FiducialMarker>::visible(true),
                 CategoryVisibilityPlugin::<VisualMeshMarker>::visible(true),
-                CategoryVisibilityPlugin::<CollisionMeshMarker>::visible(false),
+                CategoryVisibilityPlugin::<CollisionMeshMarker>::visible(false)
+                    .with_initialization(),
                 CategoryVisibilityPlugin::<MeasurementMarker>::visible(true),
                 CategoryVisibilityPlugin::<WallMarker>::visible(true),
             ))

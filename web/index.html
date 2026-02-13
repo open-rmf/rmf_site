@@ -18,9 +18,9 @@
 <body>
 <canvas id="rmf_site_editor_canvas">
   <script type="module">
-    import init from "./librmf_site_editor_web.js";
+    import init from "./rmf_site_editor_web.js";
     document.addEventListener('contextmenu', function(evt) { evt.preventDefault(); });
-    init("./librmf_site_editor_web_bg_optimized.wasm").then(function (wasm) {
+    init("./rmf_site_editor_web_bg_optimized.wasm").then(function (wasm) {
       wasm.run_js();
     });
   </script>

@@ -85,9 +85,6 @@ impl LoadSite {
                 }
             } else if filename.ends_with(".json") {
                 Site::from_bytes_json(data)?
-            } else if filename.ends_with(".ron") {
-                Site::from_bytes_ron(data)
-                    .map_err(|err| LoadSiteError::RonParsingError(Box::new(err)))?
             } else {
                 return Err(LoadSiteError::UnrecognizedFileType(path.clone()));
             };
@@ -111,9 +108,6 @@ impl LoadSite {
                             .to_site()
                             .map_err(|_| LoadSiteError::UnknownDataFormat)
                     })
-            })
-            .or_else(|_| {
-                Site::from_bytes_ron(data).map_err(|_| LoadSiteError::UnknownDataFormat)
             })?;
 
         Ok(Self {
@@ -142,7 +136,7 @@ pub enum LoadSiteError {
     #[error("Unrecognized file type: {0}")]
     UnrecognizedFileType(PathBuf),
     #[error(
-        "Cannot determine data format for raw data. It could not be parsed as .building.yaml, .site.json, or .site.ron"
+        "Cannot determine data format for raw data. It could not be parsed as .building.yaml or .site.json"
     )]
     UnknownDataFormat,
 }
@@ -549,6 +543,16 @@ fn generate_site_entities(
         consider_id(*fiducial_id);
     }
 
+    for (group_id, group) in &site_data.navigation.guided.mutex_groups {
+        let group_entity = commands
+            .spawn(group.clone())
+            .insert(SiteID(*group_id))
+            .insert(ChildOf(site_id))
+            .id();
+        id_to_entity.insert(*group_id, group_entity);
+        consider_id(*group_id);
+    }
+
     for (nav_graph_id, nav_graph_data) in &site_data.navigation.guided.graphs {
         let nav_graph = commands
             .spawn((Transform::default(), Visibility::default()))
@@ -824,7 +828,6 @@ pub struct EntityGenerationParams<'w, 's> {
 #[derive(SystemParam)]
 pub struct SiteLoadingParams<'w, 's> {
     load_sites: EventReader<'w, 's, LoadSite>,
-    change_current_site: EventWriter<'w, ChangeCurrentSite>,
 }
 
 pub fn load_site(
@@ -852,8 +855,7 @@ pub fn load_site(
         }
 
         if cmd.focus {
-            let mut loading_params = loading_params_state.get_mut(world);
-            loading_params.change_current_site.write(ChangeCurrentSite {
+            world.trigger(ChangeCurrentSite {
                 site,
                 level: None,
                 scenario: None,

@@ -20,11 +20,20 @@ use crate::{
     site::{ModelInstance, ModelLoader},
 };
 use bevy::prelude::*;
-use bevy_impulse::*;
+use crossflow::*;
 use rmf_site_format::Category;
 use tracing::{error, info, warn};
 
 pub const PLACE_OBJECT_2D_MODE_LABEL: &'static str = "place_object_2d";
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub enum PlaceObjectContinuity {
+    #[default]
+    Continue,
+    Finish,
+}
+
+pub type PlaceObjectResult = SelectionNodeResult<PlaceObjectContinuity>;
 
 pub fn spawn_place_object_2d_workflow(app: &mut App) -> ObjectPlacementServices {
     let setup = app.spawn_service(place_object_2d_setup.into_blocking_service());
@@ -59,7 +68,7 @@ pub fn spawn_place_object_2d_workflow(app: &mut App) -> ObjectPlacementServices 
 pub fn build_2d_placement_workflow<State: 'static + Send + Sync>(
     setup: Service<BufferKey<State>, SelectionNodeResult>,
     find_placement: Service<(), Transform>,
-    placement_chosen: Service<(Transform, BufferKey<State>), SelectionNodeResult>,
+    placement_chosen: Service<(Transform, BufferKey<State>), PlaceObjectResult>,
     handle_key_code: Service<KeyCode, SelectionNodeResult>,
     cleanup: Service<BufferKey<State>, ()>,
     keyboard_just_pressed: Service<(), (), StreamOf<KeyCode>>,
@@ -80,13 +89,26 @@ pub fn build_2d_placement_workflow<State: 'static + Send + Sync>(
             .output()
             .fork_clone(builder);
 
-        setup_finished
+        let find_placement_node = setup_finished
             .clone_chain(builder)
-            .then(find_placement)
+            .then_node(find_placement);
+
+        find_placement_node
+            .output
+            .chain(builder)
             .with_access(buffer)
             .then(placement_chosen)
             .fork_result(
-                |ok| ok.connect(scope.terminate),
+                |ok| {
+                    ok.map_block(|c| match c {
+                        PlaceObjectContinuity::Continue => Ok(()),
+                        PlaceObjectContinuity::Finish => Err(()),
+                    })
+                    .fork_result(
+                        |ok| ok.connect(find_placement_node.input),
+                        |err| err.connect(scope.terminate),
+                    )
+                },
                 |err| err.map_block(print_if_err).connect(scope.terminate),
             );
 
@@ -96,7 +118,6 @@ pub fn build_2d_placement_workflow<State: 'static + Send + Sync>(
         keyboard_node
             .streams
             .chain(builder)
-            .inner()
             .then(handle_key_code)
             .fork_result(
                 |ok| ok.connect(scope.terminate),
@@ -115,7 +136,7 @@ pub fn build_2d_placement_workflow<State: 'static + Send + Sync>(
 
 pub struct PlaceObject2d {
     pub object: ModelInstance<Entity>,
-    pub level: Entity,
+    pub on_placed: PlaceObjectContinuity,
 }
 
 pub fn place_object_2d_setup(
@@ -209,16 +230,20 @@ pub fn on_keyboard_for_place_object_2d(In(key): In<KeyCode>) -> SelectionNodeRes
 
 pub fn on_placement_chosen_2d(
     In((placement, key)): In<(Transform, BufferKey<PlaceObject2d>)>,
-    mut access: BufferAccessMut<PlaceObject2d>,
+    access: BufferAccess<PlaceObject2d>,
     mut model_loader: ModelLoader,
-) -> SelectionNodeResult {
-    let mut access = access.get_mut(&key).or_broken_buffer()?;
-    let mut state = access.pull().or_broken_state()?;
+    current_level: Res<CurrentLevel>,
+) -> PlaceObjectResult {
+    let access = access.get(&key).or_broken_buffer()?;
+    let state = access.newest().or_broken_state()?;
+    let mut object = state.object.clone();
 
-    state.object.pose = placement.into();
+    let level = current_level.or_broken_query()?;
+
+    object.pose = placement.into();
     model_loader
-        .spawn_model_instance(state.level, state.object)
+        .spawn_model_instance(level, object)
         .insert(Category::Model);
 
-    Ok(())
+    Ok(state.on_placed)
 }

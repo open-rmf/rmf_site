@@ -65,11 +65,8 @@ impl PanelWidget {
 /// This function can be used to render all panels in an application, either by
 /// adding this function to a schedule as a system or by calling it from inside
 /// of an exclusive system. Note that this is automatically run by
-/// [`site_ui_layout`][1] so there is no need to use this function yourself
-/// unless you are not using the [`StandardUiPlugin`][2].
-///
-/// [1]: crate::widgets::site_ui_layout
-/// [2]: crate::widgets::StandardUiPlugin
+/// `rmf_site_editor::widgets::site_ui_layout` so there is no need to use this function yourself
+/// unless you are not using the `rmf_site_editor::widgets::StandardUiPlugin`.
 pub fn render_panels(
     world: &mut World,
     panel_widgets: &mut QueryState<(Entity, &mut PanelWidget)>,
