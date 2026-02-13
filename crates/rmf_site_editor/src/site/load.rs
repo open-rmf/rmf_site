@@ -691,8 +691,11 @@ fn generate_site_entities(
     }
 
     for (task_id, task_data) in &site_data.tasks {
+        let task = task_data
+            .convert(&id_to_entity)
+            .as_broken_error(site_id, "task")?;
         let task_entity = commands
-            .spawn(task_data.clone())
+            .spawn(task.clone())
             .insert(SiteID(*task_id))
             .insert(Category::Task)
             .insert(ChildOf(site_id))

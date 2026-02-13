@@ -305,11 +305,11 @@ impl Plugin for SitePlugin {
             ChangePlugin::<ModelProperty<Scale>>::default(),
             ChangePlugin::<ModelProperty<IsStatic>>::default(),
             ChangePlugin::<ModelProperty<Robot>>::default(),
-            ChangePlugin::<Task>::default(),
+            ChangePlugin::<Task<Entity>>::default(),
             PropertyPlugin::<Pose, InstanceMarker>::default(),
             PropertyPlugin::<Inclusion, InstanceMarker>::default(),
-            PropertyPlugin::<Inclusion, Task>::default(),
-            PropertyPlugin::<TaskParams, Task>::default(),
+            PropertyPlugin::<Inclusion, Task<Entity>>::default(),
+            PropertyPlugin::<TaskParams, Task<Entity>>::default(),
             PropertyPlugin::<OnLevel<Entity>, Robot>::default(),
             SlotcarSdfPlugin,
             MaterialPlugin::<ExtendedMaterial<StandardMaterial, LaneArrowMaterial>>::default(),
@@ -478,6 +478,7 @@ impl Plugin for SitePlugin {
                 check_for_missing_root_modifiers::<InstanceMarker>,
                 update_default_scenario,
                 update_lane_motion_visuals,
+                update_direct_task_fleet,
             )
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenTransformAndVisibility),

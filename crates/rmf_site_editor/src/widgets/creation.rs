@@ -22,7 +22,9 @@ use crate::{
         IsStatic, Members, ModelDescriptionBundle, ModelInstance, ModelMarker, ModelProperty,
         NameInSite, Recall, RecallAssetSource, Scale,
     },
-    widgets::{AssetGalleryStatus, Icons, InspectAssetSourceComponent, InspectScaleComponent},
+    widgets::{
+        AssetGalleryStatus, Icons, InspectAssetSourceComponent, InspectScaleComponent, TaskWidget,
+    },
     AppState, CurrentWorkspace,
 };
 
@@ -52,6 +54,7 @@ impl Plugin for StandardCreationPlugin {
             DrawingCreationPlugin::default(),
             ModelCreationPlugin::default(),
             BrowseFuelTogglePlugin::default(),
+            TaskPanelTogglePlugin::default(),
         ));
     }
 }
@@ -665,6 +668,50 @@ impl<'w> WidgetSystem<Tile> for BrowseFuelToggle<'w> {
         {
             if let Some(gallery) = &mut params.asset_gallery {
                 gallery.show = !gallery.show;
+            }
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct TaskPanelTogglePlugin {}
+
+impl Plugin for TaskPanelTogglePlugin {
+    fn build(&self, app: &mut App) {
+        app.add_plugins(HeaderTilePlugin::<TaskPanelToggle>::new());
+    }
+}
+
+#[derive(SystemParam)]
+pub struct TaskPanelToggle<'w> {
+    task_widget: Option<ResMut<'w, TaskWidget>>,
+    app_state: Res<'w, State<AppState>>,
+}
+
+impl<'w> WidgetSystem<Tile> for TaskPanelToggle<'w> {
+    fn show(_: Tile, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) -> () {
+        let mut params = state.get_mut(world);
+        if !matches!(params.app_state.get(), AppState::SiteEditor) {
+            return;
+        }
+
+        let enabled = params.task_widget.is_some();
+        let toggled_on = params.task_widget.as_ref().is_some_and(|panel| panel.show);
+        let tooltip = if !enabled {
+            "Task panel is not available"
+        } else if toggled_on {
+            "Close task panel"
+        } else {
+            "Open task panel"
+        };
+
+        if ui
+            .add_enabled(enabled, Button::new("📋").selected(toggled_on))
+            .on_hover_text(tooltip)
+            .clicked()
+        {
+            if let Some(panel) = &mut params.task_widget {
+                panel.show = !panel.show;
             }
         }
     }

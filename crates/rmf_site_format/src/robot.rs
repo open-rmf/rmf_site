@@ -26,12 +26,16 @@ use std::collections::BTreeMap;
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component), require(OnLevel<Entity>))]
 pub struct Robot {
+    // TODO(@xiyuoh) Fleet name is a string for now, we probably want some kind of
+    // fleet registration at some point
+    pub fleet: String,
     pub properties: BTreeMap<String, serde_json::Value>,
 }
 
 impl Default for Robot {
     fn default() -> Self {
         Self {
+            fleet: "<Unnamed>".to_string(),
             properties: BTreeMap::new(),
         }
     }
