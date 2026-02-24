@@ -34,13 +34,13 @@ pub fn spawn_create_path_service(
         app.spawn_service(anchor_selection_setup::<CreatePath>.into_blocking_service());
     let state_setup = app.spawn_service(create_path_setup.into_blocking_service());
     let update_preview = app.spawn_service(on_hover_for_create_path.into_blocking_service());
-    let update_current = app.spawn_service(on_select_for_create_path.into_blocking_service());
+    let update_current = app.spawn_service(on_select_for_create_path);
     let handle_key_code = app.spawn_service(exit_on_esc::<CreatePath>.into_blocking_service());
     let cleanup_state = app.spawn_service(cleanup_create_path.into_blocking_service());
 
     helpers.spawn_anchor_selection_workflow(
         anchor_setup,
-        state_setup,
+        state_setup.optional_stream_cast(),
         update_preview,
         update_current,
         handle_key_code,
@@ -180,8 +180,17 @@ pub fn on_hover_for_create_path(
     state.set_last(chosen, path_mut.as_mut(), &mut commands)
 }
 
+type OnSelectService = BlockingServiceInput<
+    (SelectionCandidate, BufferKey<CreatePath>),
+    StreamOf<SelectionAlignmentBasis>,
+>;
+
 pub fn on_select_for_create_path(
-    In((selection, key)): In<(SelectionCandidate, BufferKey<CreatePath>)>,
+    In(BlockingService {
+        request: (selection, key),
+        streams,
+        ..
+    }): OnSelectService,
     mut access: BufferAccessMut<CreatePath>,
     mut paths: Query<&mut Path<Entity>>,
     parents: Query<&ChildOf>,
@@ -206,6 +215,9 @@ pub fn on_select_for_create_path(
                             // Finish the current path and start a new one because there
                             // is a break in the level continuity.
                             let _ = finish_path(state, &mut paths, &mut commands)?;
+
+                            // Reset the alignment basis
+                            streams.send(SelectionAlignmentBasis::none());
                         }
                     }
                 }
@@ -219,7 +231,14 @@ pub fn on_select_for_create_path(
     match state.path {
         Some(path) => {
             let mut path_mut = paths.get_mut(path).or_broken_query()?;
-            update_path(selection, state, &mut *path_mut, &mut commands, &cursor)?;
+            update_path(
+                selection,
+                state,
+                &mut *path_mut,
+                &mut commands,
+                &cursor,
+                &streams,
+            )?;
         }
         None => {
             // We need to do this in a convoluted way because to update the path
@@ -235,7 +254,14 @@ pub fn on_select_for_create_path(
                 new_path_id,
             ));
 
-            update_path(selection, state, &mut new_path, &mut commands, &cursor)?;
+            update_path(
+                selection,
+                state,
+                &mut new_path,
+                &mut commands,
+                &cursor,
+                &streams,
+            )?;
             (state.insert_path)(new_path, &mut commands.entity(new_path_id))?;
         }
     }
@@ -249,6 +275,7 @@ fn update_path(
     path_mut: &mut Path<Entity>,
     commands: &mut Commands,
     cursor: &Res<Cursor>,
+    streams: &StreamBuffer<SelectionAlignmentBasis>,
 ) -> SelectionNodeResult {
     let chosen = selection.candidate;
     let provisional = selection.provisional;
@@ -290,6 +317,9 @@ fn update_path(
     if provisional {
         state.provisional_anchors.insert(chosen);
     }
+
+    // Update the alignment basis to use the newly selected anchor
+    streams.send(SelectionAlignmentBasis::new(chosen));
 
     path_mut.0.push(cursor.level_anchor_placement);
     commands.queue(ChangeDependent::add(

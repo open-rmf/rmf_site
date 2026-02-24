@@ -32,13 +32,13 @@ pub fn spawn_create_edges_service(
         app.spawn_service(anchor_selection_setup::<CreateEdges>.into_blocking_service());
     let state_setup = app.spawn_service(create_edges_setup.into_blocking_service());
     let update_preview = app.spawn_service(on_hover_for_create_edges.into_blocking_service());
-    let update_current = app.spawn_service(on_select_for_create_edges.into_blocking_service());
+    let update_current = app.spawn_service(on_select_for_create_edges);
     let handle_key_code = app.spawn_service(on_keyboard_for_create_edges.into_blocking_service());
     let cleanup_state = app.spawn_service(cleanup_create_edges.into_blocking_service());
 
     helpers.spawn_anchor_selection_workflow(
         anchor_setup,
-        state_setup,
+        state_setup.optional_stream_cast(),
         update_preview,
         update_current,
         handle_key_code,
@@ -247,8 +247,17 @@ pub fn on_hover_for_create_edges(
     Ok(())
 }
 
+type OnSelectService = BlockingServiceInput<
+    (SelectionCandidate, BufferKey<CreateEdges>),
+    StreamOf<SelectionAlignmentBasis>,
+>;
+
 pub fn on_select_for_create_edges(
-    In((selection, key)): In<(SelectionCandidate, BufferKey<CreateEdges>)>,
+    In(BlockingService {
+        request: (selection, key),
+        streams,
+        ..
+    }): OnSelectService,
     mut access: BufferAccessMut<CreateEdges>,
     mut edges: Query<&mut Edge<Entity>>,
     mut commands: Commands,
@@ -300,6 +309,8 @@ pub fn on_select_for_create_edges(
 
                 preview.side = Side::Right;
                 preview.provisional_start = selection.provisional;
+
+                streams.send(SelectionAlignmentBasis::new(anchor));
             }
             Side::Right => {
                 // We are finishing the edge
@@ -334,6 +345,10 @@ pub fn on_select_for_create_edges(
                         // Start drawing a new edge from a blank slate with the
                         // next selection
                         state.initialize_preview(cursor.level_anchor_placement, &mut commands);
+
+                        // Reset the basis for aligning the anchors because we will be
+                        // starting a new edge after this.
+                        streams.send(SelectionAlignmentBasis::none());
                     }
                     EdgeCreationContinuity::Continuous => {
                         // Start drawing a new edge, picking up from the end
@@ -347,6 +362,9 @@ pub fn on_select_for_create_edges(
                         });
                         commands.queue(ChangeDependent::add(anchor, edge));
                         commands.queue(ChangeDependent::add(cursor.level_anchor_placement, edge));
+
+                        // Use the latest selection for the new alignment basis.
+                        streams.send(SelectionAlignmentBasis::new(anchor));
                     }
                 }
             }
@@ -361,6 +379,9 @@ pub fn on_select_for_create_edges(
             side: Side::start(),
             provisional_start: selection.provisional,
         });
+
+        // Use the latest selection for the new alignment basis.
+        streams.send(SelectionAlignmentBasis::new(anchor));
     }
 
     Ok(())

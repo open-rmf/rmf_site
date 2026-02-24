@@ -120,7 +120,7 @@ pub fn build_2d_placement_workflow<State: 'static + Send + Sync>(
             .chain(builder)
             .then(handle_key_code)
             .fork_result(
-                |ok| ok.connect(scope.terminate),
+                |ok| ok.unused(),
                 |err| err.map_block(print_if_err).connect(scope.terminate),
             );
 
