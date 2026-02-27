@@ -160,6 +160,10 @@ pub enum PanelSide {
     Bottom,
     Left,
     Right,
+    TopCentered,
+    BottomCentered,
+    LeftCentered,
+    RightCentered,
 }
 
 /// Wrapper to hold either a vertical or horizontal egui panel
@@ -204,20 +208,42 @@ impl EguiPanel {
 impl PanelSide {
     /// Is the long direction of the panel horizontal
     pub fn is_horizontal(&self) -> bool {
-        matches!(self, Self::Top | Self::Bottom)
+        matches!(
+            self,
+            Self::Top | Self::Bottom | Self::TopCentered | Self::BottomCentered
+        )
     }
 
     /// Is the long direction of the panel vertical
     pub fn is_vertical(&self) -> bool {
-        matches!(self, Self::Left | Self::Right)
+        matches!(
+            self,
+            Self::Left | Self::Right | Self::LeftCentered | Self::RightCentered
+        )
+    }
+
+    /// Is the elements in the panel meant to be centered
+    pub fn is_centered(&self) -> bool {
+        matches!(
+            self,
+            Self::TopCentered | Self::BottomCentered | Self::LeftCentered | Self::RightCentered
+        )
     }
 
     /// Align the Ui to line up with the long direction of the panel
     pub fn align<R>(self, ui: &mut Ui, f: impl FnOnce(&mut Ui) -> R) -> egui::InnerResponse<R> {
         if self.is_horizontal() {
-            ui.horizontal(f)
+            if self.is_centered() {
+                ui.horizontal_centered(f)
+            } else {
+                ui.horizontal(f)
+            }
         } else {
-            ui.vertical(f)
+            if self.is_centered() {
+                ui.vertical_centered(f)
+            } else {
+                ui.vertical(f)
+            }
         }
     }
 
@@ -238,10 +264,18 @@ impl PanelSide {
     /// Get the egui panel that is associated with this panel type.
     pub fn get_panel(self) -> EguiPanel {
         match self {
-            Self::Left => EguiPanel::Vertical(egui::SidePanel::left("left_panel")),
-            Self::Right => EguiPanel::Vertical(egui::SidePanel::right("right_panel")),
-            Self::Top => EguiPanel::Horizontal(egui::TopBottomPanel::top("top_panel")),
-            Self::Bottom => EguiPanel::Horizontal(egui::TopBottomPanel::bottom("bottom_panel")),
+            Self::Left | Self::LeftCentered => {
+                EguiPanel::Vertical(egui::SidePanel::left("left_panel"))
+            }
+            Self::Right | Self::RightCentered => {
+                EguiPanel::Vertical(egui::SidePanel::right("right_panel"))
+            }
+            Self::Top | Self::TopCentered => {
+                EguiPanel::Horizontal(egui::TopBottomPanel::top("top_panel"))
+            }
+            Self::Bottom | Self::BottomCentered => {
+                EguiPanel::Horizontal(egui::TopBottomPanel::bottom("bottom_panel"))
+            }
         }
     }
 }
