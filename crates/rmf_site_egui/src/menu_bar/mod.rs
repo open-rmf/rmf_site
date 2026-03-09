@@ -284,6 +284,7 @@ pub fn render_sub_menu(
                 }
                 if ui.add_enabled(!disabled, button).clicked() {
                     extension_events.write(MenuEvent::MenuClickEvent(*entity));
+                    ui.close_menu();
                 }
             }
             &MenuItem::CheckBox(ref title, mut value) => {
