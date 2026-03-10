@@ -59,6 +59,21 @@ struct MenuDropdowns<'w, 's> {
 impl<'w, 's> WidgetSystem<Tile> for MenuDropdowns<'w, 's> {
     fn show(_: Tile, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) {
         let mut params = state.get_mut(world);
+
+        // Capture state before rendering menus, used for the fallback close logic below.
+        let bar_id = ui.id();
+        let was_open_with_id: Option<egui::Id> = {
+            let bar_state = egui::menu::BarState::load(ui.ctx(), bar_id);
+            (**bar_state).as_ref().map(|root| root.id)
+        };
+        let click_pos = ui.ctx().input(|i| {
+            if i.pointer.any_click() {
+                i.pointer.interact_pos()
+            } else {
+                None
+            }
+        });
+
         ui.menu_button("File", |ui| {
             render_sub_menu(
                 ui,
@@ -96,6 +111,29 @@ impl<'w, 's> WidgetSystem<Tile> for MenuDropdowns<'w, 's> {
                 false,
             );
         }
+
+        // Fallback: egui's built-in "close menu on click outside" relies on
+        // `any_pressed() && primary_down()`, which fails when press and release both
+        // arrive in the same frame (e.g. fast clicks or platform-specific event batching).
+        // In that case `primary_down()` is already false by the time the check runs.
+        // We use `any_click()` here as a fallback, which correctly detects same-frame clicks.
+        // We only act if the same menu that was open before rendering is still open after
+        // (meaning egui didn't close it), and the click was outside the menu's area.
+        if let (Some(prev_id), Some(pos)) = (was_open_with_id, click_pos) {
+            let mut bar_state = egui::menu::BarState::load(ui.ctx(), bar_id);
+            let should_close = {
+                if let Some(root) = (**bar_state).as_ref() {
+                    root.id == prev_id && !root.menu_state.read().area_contains(pos)
+                } else {
+                    false
+                }
+            };
+            if should_close {
+                **bar_state = None;
+                bar_state.store(ui.ctx(), bar_id);
+            }
+        }
+
         ui.separator();
     }
 }
@@ -284,6 +322,7 @@ pub fn render_sub_menu(
                 }
                 if ui.add_enabled(!disabled, button).clicked() {
                     extension_events.write(MenuEvent::MenuClickEvent(*entity));
+                    ui.close_menu();
                 }
             }
             &MenuItem::CheckBox(ref title, mut value) => {
