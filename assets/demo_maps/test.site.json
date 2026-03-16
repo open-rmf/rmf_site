@@ -998,6 +998,32 @@
             }
           },
           "inclusion": "Included"
+        },
+        "138": {
+          "inclusion": "Included"
+        },
+        "139": {
+          "inclusion": "Included"
+        }
+      },
+      "tasks": {
+        "138": {
+          "inclusion": "Included",
+          "params": {
+            "unix_millis_earliest_start_time": null,
+            "unix_millis_request_time": null,
+            "priority": null,
+            "labels": []
+          }
+        },
+        "139": {
+          "inclusion": "Included",
+          "params": {
+            "unix_millis_earliest_start_time": null,
+            "unix_millis_request_time": null,
+            "priority": null,
+            "labels": []
+          }
         }
       },
       "name": "Default Scenario",
@@ -1020,6 +1046,7 @@
   },
   "robots": {
     "52": {
+      "fleet": "HospitalRobot",
       "properties": {
         "Collision": {
           "config": {
@@ -1057,7 +1084,7 @@
   },
   "model_instances": {
     "53": {
-      "parent": 1,
+      "parent": 22,
       "name": "L1_robot",
       "pose": {
         "trans": [
@@ -1225,6 +1252,36 @@
         }
       },
       "description": 129
+    }
+  },
+  "tasks": {
+    "138": {
+      "Dispatch": {
+        "request": {
+          "id": "task-20250904-030419",
+          "category": "Go To Place",
+          "description": {
+            "location": 121
+          },
+          "description_display": "A",
+          "created_time": 1756955059673
+        }
+      }
+    },
+    "139": {
+      "Direct": {
+        "robot": 53,
+        "fleet": "HospitalRobot",
+        "request": {
+          "id": "task-20250904-030447",
+          "category": "Wait For",
+          "description": {
+            "duration": 30.0
+          },
+          "description_display": "30 seconds",
+          "created_time": 1756955087335
+        }
+      }
     }
   }
 }
