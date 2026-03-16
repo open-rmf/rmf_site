@@ -71,6 +71,9 @@ pub use inspector::*;
 pub mod move_layer;
 pub use move_layer::*;
 
+pub mod occupancy_export_menu;
+pub use occupancy_export_menu::*;
+
 pub mod sdf_export_menu;
 use rmf_site_egui::*;
 use rmf_site_picking::{Hover, SelectionServiceStages, UiFocused};
@@ -168,6 +171,8 @@ impl Plugin for StandardUiPlugin {
                 SdfExportMenuPlugin::default(),
                 #[cfg(not(target_arch = "wasm32"))]
                 NavGraphIoPlugin::default(),
+                #[cfg(not(target_arch = "wasm32"))]
+                OccupancyExportMenuPlugin::default(),
             ))
             .add_systems(Startup, init_ui_style)
             .add_systems(
