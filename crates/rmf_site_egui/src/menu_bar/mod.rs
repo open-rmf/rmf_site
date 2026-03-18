@@ -62,10 +62,8 @@ impl<'w, 's> WidgetSystem<Tile> for MenuDropdowns<'w, 's> {
 
         // Capture state before rendering menus, used for the fallback close logic below.
         let bar_id = ui.id();
-        let was_open_with_id: Option<egui::Id> = {
-            let bar_state = egui::menu::BarState::load(ui.ctx(), bar_id);
-            (**bar_state).as_ref().map(|root| root.id)
-        };
+        let mut bar_state = egui::menu::BarState::load(ui.ctx(), bar_id);
+        let was_open_with_id: Option<egui::Id> = (**bar_state).as_ref().map(|root| root.id);
         let click_pos = ui.ctx().input(|i| {
             if i.pointer.any_click() {
                 i.pointer.interact_pos()
@@ -119,15 +117,11 @@ impl<'w, 's> WidgetSystem<Tile> for MenuDropdowns<'w, 's> {
         // We use `any_click()` here as a fallback, which correctly detects same-frame clicks.
         // We only act if the same menu that was open before rendering is still open after
         // (meaning egui didn't close it), and the click was outside the menu's area.
-        if let (Some(prev_id), Some(pos)) = (was_open_with_id, click_pos) {
-            let mut bar_state = egui::menu::BarState::load(ui.ctx(), bar_id);
-            let should_close = {
-                if let Some(root) = (**bar_state).as_ref() {
-                    root.id == prev_id && !root.menu_state.read().area_contains(pos)
-                } else {
-                    false
-                }
-            };
+        if let Some((prev_id, pos)) = was_open_with_id.zip(click_pos) {
+            let should_close = (**bar_state)
+                .as_ref()
+                .filter(|root| root.id == prev_id && !root.menu_state.read().area_contains(pos))
+                .is_some();
             if should_close {
                 **bar_state = None;
                 bar_state.store(ui.ctx(), bar_id);
