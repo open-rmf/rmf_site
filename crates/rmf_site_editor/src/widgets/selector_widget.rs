@@ -22,7 +22,7 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Button, Ui};
 use rmf_site_egui::{ShareableWidget, WidgetSystem};
-use rmf_site_picking::{Hover, Select, Selection, InspectionSettings};
+use rmf_site_picking::{Hover, InspectionSettings, Select, Selection};
 
 /// A widget that can be used to select entities.
 #[derive(SystemParam)]
@@ -61,10 +61,8 @@ impl<'w, 's> SelectorWidget<'w, 's> {
         let response = ui.add(Button::image_and_text(icon, text));
 
         if response.clicked() {
-            self.select.write(
-                Select::new(Some(entity))
-                .multi_select(self.inspection.multi_select)
-            );
+            self.select
+                .write(Select::new(Some(entity)).multi_select(self.inspection.multi_select));
         } else if response.hovered() {
             self.hover.write(Hover(Some(entity)));
         }
