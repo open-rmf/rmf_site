@@ -63,6 +63,9 @@ pub use headless_export::*;
 pub mod inclusion;
 pub use inclusion::*;
 
+pub mod infinite_grid;
+pub use infinite_grid::*;
+
 pub mod lane;
 pub use lane::*;
 
