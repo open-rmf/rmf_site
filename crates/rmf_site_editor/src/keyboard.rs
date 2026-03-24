@@ -75,8 +75,10 @@ fn handle_keyboard_input(
     if keyboard_input.just_pressed(KeyCode::Delete)
         || keyboard_input.just_pressed(KeyCode::Backspace)
     {
-        if let Some(selection) = selection.0 {
-            delete.write(Delete::new(selection));
+        if !selection.selected.is_empty() {
+            for e in &selection.selected {
+                delete.write(Delete::new(*e));
+            }
         } else {
             warn!("No selected entity to delete");
         }

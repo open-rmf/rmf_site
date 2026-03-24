@@ -81,6 +81,9 @@ pub use inspect_model_description::*;
 pub mod inspect_motion;
 pub use inspect_motion::*;
 
+pub mod inspect_multi_selection;
+pub use inspect_multi_selection::*;
+
 pub mod inspect_mutex;
 pub use inspect_mutex::*;
 
@@ -325,6 +328,7 @@ pub struct Inspector<'w, 's> {
     children: Query<'w, 's, &'static Children>,
     heading: Query<'w, 's, (Option<&'static Category>, Option<&'static SiteID>)>,
     inspect_for_query: Query<'w, 's, &'static InspectFor>,
+    inspect_multi_selection: InspectMultiSelection<'w, 's>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for Inspector<'w, 's> {
@@ -350,8 +354,16 @@ impl<'w, 's> WidgetSystem<Tile> for Inspector<'w, 's> {
                     return;
                 };
 
-                let Some(mut selection) = selection.0 else {
-                    ui.label("Nothing selected");
+                if selection.selected.len() > 1 {
+                    let instances: SmallVec<[Entity; 16]> =
+                        selection.selected.iter().cloned().collect();
+
+                    let mut inspect_multi_selection = state.get_mut(world).inspect_multi_selection;
+                    inspect_multi_selection.show_widget(instances, ui);
+                    return;
+                }
+
+                let Some(mut selection) = selection.get_single() else {
                     return;
                 };
 
@@ -361,7 +373,7 @@ impl<'w, 's> WidgetSystem<Tile> for Inspector<'w, 's> {
                     selection = inspect_for.entity;
                 }
 
-                let params = state.get(world);
+                let params = state.get_mut(world);
 
                 let (label, site_id) =
                     if let Ok((category, site_id)) = params.heading.get(selection) {

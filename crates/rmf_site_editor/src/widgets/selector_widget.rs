@@ -22,13 +22,14 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Button, Ui};
 use rmf_site_egui::{ShareableWidget, WidgetSystem};
-use rmf_site_picking::{Hover, Select, Selection};
+use rmf_site_picking::{Hover, InspectionSettings, Select, Selection};
 
 /// A widget that can be used to select entities.
 #[derive(SystemParam)]
 pub struct SelectorWidget<'w, 's> {
     pub site_id: Query<'w, 's, &'static SiteID>,
     pub icons: Res<'w, Icons>,
+    pub inspection: Res<'w, InspectionSettings>,
     pub selection: Res<'w, Selection>,
     pub select: EventWriter<'w, Select>,
     pub hover: EventWriter<'w, Hover>,
@@ -44,7 +45,7 @@ impl<'w, 's> WidgetSystem<Entity, ()> for SelectorWidget<'w, 's> {
 impl<'w, 's> SelectorWidget<'w, 's> {
     pub fn show_widget(&mut self, entity: Entity, ui: &mut Ui) {
         let site_id = self.site_id.get(entity).ok().cloned();
-        let is_selected = self.selection.0.is_some_and(|s| s == entity);
+        let is_selected = self.selection.selected.contains(&entity);
 
         let text = match site_id {
             Some(id) => format!("#{}", id.0),
@@ -60,7 +61,8 @@ impl<'w, 's> SelectorWidget<'w, 's> {
         let response = ui.add(Button::image_and_text(icon, text));
 
         if response.clicked() {
-            self.select.write(Select::new(Some(entity)));
+            self.select
+                .write(Select::new(Some(entity)).multi_select(self.inspection.multi_select));
         } else if response.hovered() {
             self.hover.write(Hover(Some(entity)));
         }
