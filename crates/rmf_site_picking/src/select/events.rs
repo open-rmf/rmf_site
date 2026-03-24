@@ -23,15 +23,30 @@ pub struct Hover(pub Option<Entity>);
 
 /// Used as an event to command a change in the selected entity.
 #[derive(Default, Debug, Clone, Copy, Deref, DerefMut, Event)]
-pub struct Select(pub Option<SelectionCandidate>);
+pub struct Select {
+    #[deref]
+    pub candidate: Option<SelectionCandidate>,
+    pub multi_select: bool,
+}
 
 impl Select {
     pub fn new(candidate: Option<Entity>) -> Select {
-        Select(candidate.map(|c| SelectionCandidate::new(c)))
+        Select {
+            candidate: candidate.map(|c| SelectionCandidate::new(c)),
+            multi_select: false,
+        }
+    }
+
+    pub fn multi_select(mut self, on: bool) -> Self {
+        self.multi_select = on;
+        self
     }
 
     pub fn provisional(candidate: Entity) -> Select {
-        Select(Some(SelectionCandidate::provisional(candidate)))
+        Select {
+            candidate: Some(SelectionCandidate::provisional(candidate)),
+            multi_select: false,
+        }
     }
 }
 

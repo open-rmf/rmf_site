@@ -453,7 +453,7 @@ pub fn build_anchor_selection_workflow<State: 'static + Send + Sync>(
             .streams
             .select
             .chain(builder)
-            .map_block(|s| s.0)
+            .map_block(|s| s.candidate)
             .dispose_on_none()
             .with_access(buffer)
             .then_node(update_current);
