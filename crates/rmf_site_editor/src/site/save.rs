@@ -32,7 +32,9 @@ use std::{
 };
 use thiserror::Error as ThisError;
 
-use crate::{exit_confirmation::SiteChanged, recency::RecencyRanking, site::*, ExportFormat};
+use crate::{
+    exit_confirmation::SiteChanged, occupancy::Grid, recency::RecencyRanking, site::*, ExportFormat,
+};
 use rmf_site_format::*;
 use sdformat::yaserde;
 
@@ -1759,6 +1761,42 @@ pub fn generate_site(
     });
 }
 
+pub fn export_grid(world: &mut World, path: &PathBuf) {
+    let mut system_state: SystemState<(Query<(&Grid, &ChildOf)>, Query<&NameInSite>)> =
+        SystemState::new(world);
+    let (grids, names) = system_state.get(&world);
+    let mut num_grids_saved = 0;
+    for (grid, parent) in grids {
+        let mut img = image::RgbImage::new(
+            (grid.range.width() + 1) as u32,
+            (grid.range.height() + 1) as u32,
+        );
+
+        img.fill(255u8);
+        let Ok(name) = names.get(parent.0) else {
+            error!("Could not get level name");
+            continue;
+        };
+
+        for cell in &grid.occupied {
+            img.put_pixel(
+                (cell.x - grid.range.min_cell().x) as u32,
+                (cell.y - grid.range.min_cell().y) as u32,
+                image::Rgb([0, 0, 0]),
+            );
+        }
+
+        let mut path = path.clone();
+        path.push(format!("occupancy.{}.png", name.0));
+        if let Err(err_str) = img.save(path) {
+            error!("Could not save image: {:?}", err_str);
+        } else {
+            num_grids_saved += 1;
+        }
+    }
+    info!("Successfully exported {} occupancy grids", num_grids_saved);
+}
+
 pub fn save_site(world: &mut World) {
     let save_events: Vec<_> = world.resource_mut::<Events<SaveSite>>().drain().collect();
     for save_event in save_events {
@@ -1916,6 +1954,9 @@ pub fn save_site(world: &mut World) {
                     "Saving all site nav graphs to {}",
                     new_path.to_str().unwrap_or("<failed to render??>")
                 );
+            }
+            ExportFormat::OccupancyGrid => {
+                export_grid(world, &new_path);
             }
         }
     }
