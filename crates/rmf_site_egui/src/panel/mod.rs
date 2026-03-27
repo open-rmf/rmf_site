@@ -154,16 +154,24 @@ impl Default for ScrollConfig {
 }
 
 /// Indicate which side a panel is on
-#[derive(Clone, Copy, Debug, Component)]
+#[derive(Clone, Copy, Debug)]
 pub enum PanelSide {
     Top,
     Bottom,
     Left,
     Right,
-    TopCentered,
-    BottomCentered,
-    LeftCentered,
-    RightCentered,
+}
+
+impl PanelSide {
+    /// Is the long direction of the panel horizontal
+    pub fn is_horizontal(&self) -> bool {
+        matches!(self, Self::Top | Self::Bottom)
+    }
+
+    /// Is the long direction of the panel vertical
+    pub fn is_vertical(&self) -> bool {
+        matches!(self, Self::Left | Self::Right)
+    }
 }
 
 /// Wrapper to hold either a vertical or horizontal egui panel
@@ -205,29 +213,69 @@ impl EguiPanel {
     }
 }
 
-impl PanelSide {
-    /// Is the long direction of the panel horizontal
-    pub fn is_horizontal(&self) -> bool {
-        matches!(
-            self,
-            Self::Top | Self::Bottom | Self::TopCentered | Self::BottomCentered
-        )
-    }
+/// Indicate whether the panel should be centered
+#[derive(Clone, Copy, Debug, Default)]
+pub struct PanelAlignment {
+    pub centered: bool,
+}
 
-    /// Is the long direction of the panel vertical
-    pub fn is_vertical(&self) -> bool {
-        matches!(
-            self,
-            Self::Left | Self::Right | Self::LeftCentered | Self::RightCentered
-        )
-    }
-
-    /// Is the elements in the panel meant to be centered
+impl PanelAlignment {
+    /// Are the elements in the panel meant to be centered
     pub fn is_centered(&self) -> bool {
-        matches!(
-            self,
-            Self::TopCentered | Self::BottomCentered | Self::LeftCentered | Self::RightCentered
-        )
+        self.centered
+    }
+}
+
+#[derive(Clone, Copy, Debug, Component)]
+pub struct PanelSettings {
+    pub side: PanelSide,
+    pub alignment: PanelAlignment,
+}
+
+impl PanelSettings {
+    pub fn right() -> Self {
+        Self {
+            side: PanelSide::Right,
+            alignment: PanelAlignment::default(),
+        }
+    }
+
+    pub fn left() -> Self {
+        Self {
+            side: PanelSide::Left,
+            alignment: PanelAlignment::default(),
+        }
+    }
+
+    pub fn top() -> Self {
+        Self {
+            side: PanelSide::Top,
+            alignment: PanelAlignment::default(),
+        }
+    }
+
+    pub fn bottom() -> Self {
+        Self {
+            side: PanelSide::Bottom,
+            alignment: PanelAlignment::default(),
+        }
+    }
+
+    pub fn centered(mut self) -> Self {
+        self.alignment.centered = true;
+        self
+    }
+
+    pub fn is_horizontal(&self) -> bool {
+        self.side.is_horizontal()
+    }
+
+    pub fn is_vertical(&self) -> bool {
+        self.side.is_vertical()
+    }
+
+    pub fn is_centered(&self) -> bool {
+        self.alignment.is_centered()
     }
 
     /// Align the Ui to line up with the long direction of the panel
@@ -263,17 +311,11 @@ impl PanelSide {
 
     /// Get the egui panel that is associated with this panel type.
     pub fn get_panel(self) -> EguiPanel {
-        match self {
-            Self::Left | Self::LeftCentered => {
-                EguiPanel::Vertical(egui::SidePanel::left("left_panel"))
-            }
-            Self::Right | Self::RightCentered => {
-                EguiPanel::Vertical(egui::SidePanel::right("right_panel"))
-            }
-            Self::Top | Self::TopCentered => {
-                EguiPanel::Horizontal(egui::TopBottomPanel::top("top_panel"))
-            }
-            Self::Bottom | Self::BottomCentered => {
+        match self.side {
+            PanelSide::Left => EguiPanel::Vertical(egui::SidePanel::left("left_panel")),
+            PanelSide::Right => EguiPanel::Vertical(egui::SidePanel::right("right_panel")),
+            PanelSide::Top => EguiPanel::Horizontal(egui::TopBottomPanel::top("top_panel")),
+            PanelSide::Bottom => {
                 EguiPanel::Horizontal(egui::TopBottomPanel::bottom("bottom_panel"))
             }
         }

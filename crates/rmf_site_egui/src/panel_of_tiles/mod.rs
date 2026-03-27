@@ -32,7 +32,7 @@ pub struct Tile {
     /// What kind of panel is this tile inside of. Use this if you want your
     /// widget layout to be different based on what kind of panel it was placed
     /// in.
-    pub panel: PanelSide,
+    pub panel: PanelSettings,
 }
 
 /// Reusable widget that defines a panel with "tiles" where each tile is a child widget.
@@ -52,16 +52,17 @@ pub fn show_panel_of_tiles(
         return;
     }
 
-    let Some(side) = world.get::<PanelSide>(id) else {
-        error!("Side component missing for panel_of_tiles_widget {id:?}");
+    let Some(settings) = world.get::<PanelSettings>(id) else {
+        error!("PanelSettings component missing for panel_of_tiles_widget {id:?}");
         return;
     };
 
-    let side = *side;
+    let settings = *settings;
 
     let config = world.get::<PanelConfig>(id).cloned().unwrap_or_default();
 
-    side.get_panel()
+    settings
+        .get_panel()
         .map_vertical(|panel| {
             panel
                 .resizable(config.resizable)
@@ -76,21 +77,28 @@ pub fn show_panel_of_tiles(
             egui::ScrollArea::new(config.enable_scroll())
                 .auto_shrink(config.auto_shrink())
                 .show(ui, |ui| {
-                    side.align(ui, |ui| render_tiles(ui, world, &children, side, id));
+                    settings.align(ui, |ui| render_tiles(ui, world, &children, settings, id));
                 });
         });
 }
 
-fn render_tiles(ui: &mut Ui, world: &mut World, children: &[Entity], side: PanelSide, id: Entity) {
+fn render_tiles(
+    ui: &mut Ui,
+    world: &mut World,
+    children: &[Entity],
+    settings: PanelSettings,
+    id: Entity,
+) {
     for &child in children {
         let tile = Tile {
             id: child,
-            panel: side,
+            panel: settings,
         };
         if let Err(err) = world.try_show_in(child, tile, ui) {
             error!(
                 "Could not render child widget {child:?} in \
-                                tile panel {id:?} on side {side:?}: {err:?}"
+                 tile panel {id:?} on side {:?}: {:?}",
+                settings.side, err
             );
         }
     }

@@ -28,7 +28,7 @@ pub struct MenuBarPlugin {}
 impl Plugin for MenuBarPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
-            HeaderPanelPlugin::new(PanelSide::TopCentered),
+            HeaderPanelPlugin::new(PanelSettings::top().centered()),
             MenuDropdownPlugin::default(),
         ))
         .add_event::<MenuEvent>()
