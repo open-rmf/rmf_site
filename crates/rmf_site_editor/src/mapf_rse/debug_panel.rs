@@ -85,7 +85,7 @@ pub struct NegotiationDebugWidget<'w, 's> {
     negotiation_debug_data: ResMut<'w, NegotiationDebugData>,
     negotiation_params: ResMut<'w, NegotiationParams>,
     negotiation_request: EventWriter<'w, NegotiationRequest>,
-    tasks: Query<'w, 's, &'static Task>,
+    tasks: Query<'w, 's, &'static Task<Entity>>,
     grids: Query<'w, 's, (Entity, &'static Grid)>,
     current_level: Res<'w, CurrentLevel>,
     child_of: Query<'w, 's, &'static ChildOf>,
@@ -252,7 +252,7 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
 
     fn show_gotoplace_tasks(&mut self, ui: &mut Ui) {
         let tasks = self.tasks.iter().filter(|task| {
-            if task.request().category() == GoToPlace::label() {
+            if task.request().category() == GoToPlace::<Entity>::label() {
                 true
             } else {
                 false
@@ -262,7 +262,14 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
         for task in tasks {
             ui.separator();
             ui.label(format!("Task {}", num_tasks));
-            ui.label(format!("Robot name - {}", task.robot()));
+            ui.label(format!(
+                "Robot name - {}",
+                task.robot()
+                    .0
+                    .and_then(|e| self.robots.get(e).ok())
+                    .map(|(_, name, _)| name.0.clone())
+                    .unwrap_or("No Robot".to_string())
+            ));
             ui.label(format!("Description - {}", task.request().description()));
             num_tasks += 1;
         }
