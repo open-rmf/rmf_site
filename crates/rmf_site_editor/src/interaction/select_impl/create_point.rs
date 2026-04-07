@@ -38,9 +38,9 @@ pub fn spawn_create_point_service(
 
     helpers.spawn_anchor_selection_workflow(
         anchor_setup,
-        state_setup,
+        state_setup.optional_stream_cast(),
         update_preview,
-        update_current,
+        update_current.optional_stream_cast(),
         handle_key_code,
         cleanup_state,
         app.world_mut(),
