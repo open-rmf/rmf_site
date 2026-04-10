@@ -5707,6 +5707,7 @@ dependencies = [
  "urdf-rs",
  "utm",
  "uuid",
+ "web-sys",
  "web-time",
 ]
 

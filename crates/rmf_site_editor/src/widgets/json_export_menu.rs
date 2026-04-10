@@ -22,6 +22,8 @@ use bevy::{
 };
 use bevy_egui::{egui, EguiContexts};
 use rmf_site_egui::*;
+#[cfg(target_arch = "wasm32")]
+use web_sys::{Clipboard, Window};
 
 #[derive(Resource)]
 pub struct JsonExportMenu {
@@ -111,7 +113,13 @@ fn show_export_json_dialog(mut world: &mut World) {
             ui.horizontal(|ui| {
                 ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                     if ui.button("Copy to clipboard").clicked() {
+                        #[cfg(not(target_arch = "wasm32"))]
                         ui.ctx().copy_text(site);
+
+                        #[cfg(target_arch = "wasm32")]
+                        if let Some(window) = web_sys::window() {
+                            let _ = window.navigator().clipboard().write_text(&site);
+                        }
                     }
                 });
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
