@@ -5683,6 +5683,7 @@ dependencies = [
  "geo",
  "gz-fuel",
  "itertools 0.11.0",
+ "js-sys",
  "mapf",
  "nalgebra 0.32.6",
  "pathdiff",
@@ -5707,6 +5708,7 @@ dependencies = [
  "urdf-rs",
  "utm",
  "uuid",
+ "wasm-bindgen",
  "web-sys",
  "web-time",
 ]

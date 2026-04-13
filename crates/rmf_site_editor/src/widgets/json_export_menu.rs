@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{site::generate_site, AppState, CurrentWorkspace, WorkspaceSaver};
+use crate::{site::generate_site, AppState, CurrentWorkspace};
 use bevy::{
     ecs::{hierarchy::ChildOf, system::SystemState},
     prelude::*,
@@ -23,7 +23,9 @@ use bevy::{
 use bevy_egui::{egui, EguiContexts};
 use rmf_site_egui::*;
 #[cfg(target_arch = "wasm32")]
-use web_sys::{Clipboard, Window};
+use wasm_bindgen::prelude::*;
+#[cfg(target_arch = "wasm32")]
+use web_sys::{Blob, BlobPropertyBag, Clipboard, HtmlAnchorElement, Url, Window};
 
 #[derive(Resource)]
 pub struct JsonExportMenu {
@@ -79,14 +81,20 @@ fn show_export_json_dialog(mut world: &mut World) {
         return;
     };
 
-    let Ok(mut site) = generate_site(world, ws_root)
-        .map_err(|err| error!("Unable to compile site: {err}"))
-        .and_then(|site| {
-            site.to_string_json_pretty()
-                .map_err(|err| error!("Unable to serialize site to JSON: {err}"))
-        })
-    else {
-        return;
+    let mut site = match generate_site(world, ws_root) {
+        Ok(site) => site,
+        Err(err) => {
+            error!("Unable to compile site: {err}");
+            return;
+        }
+    };
+
+    let mut site_str = match site.to_string_json_pretty() {
+        Ok(json) => json,
+        Err(err) => {
+            error!("Unable to serialize site to JSON: {err}");
+            return;
+        }
     };
 
     let mut state: SystemState<EguiContexts> = SystemState::new(world);
@@ -102,7 +110,7 @@ fn show_export_json_dialog(mut world: &mut World) {
                 .max_height(400.0)
                 .show(ui, |ui| {
                     ui.add(
-                        egui::TextEdit::multiline(&mut site)
+                        egui::TextEdit::multiline(&mut site_str)
                             .font(egui::TextStyle::Monospace)
                             .code_editor()
                             .desired_width(f32::INFINITY),
@@ -114,11 +122,19 @@ fn show_export_json_dialog(mut world: &mut World) {
                 ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                     if ui.button("Copy to clipboard").clicked() {
                         #[cfg(not(target_arch = "wasm32"))]
-                        ui.ctx().copy_text(site);
+                        ui.ctx().copy_text(site_str);
 
                         #[cfg(target_arch = "wasm32")]
                         if let Some(window) = web_sys::window() {
-                            let _ = window.navigator().clipboard().write_text(&site);
+                            let _ = window.navigator().clipboard().write_text(&site_str);
+                        }
+                    }
+                    #[cfg(target_arch = "wasm32")]
+                    if ui.button("Download file").clicked() {
+                        if download_site_file(site.properties.name.0.clone(), site_str.clone())
+                            .is_err()
+                        {
+                            error!("Failed to download site JSON file");
                         }
                     }
                 });
@@ -135,6 +151,28 @@ fn show_export_json_dialog(mut world: &mut World) {
         let mut json_export = state.get_mut(world);
         json_export.show_dialog = false;
     }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn download_site_file(site_name: String, site_str: String) -> Result<(), JsValue> {
+    let window = web_sys::window().ok_or("Window not found for download")?;
+    let document = window.document().ok_or("Document not found for download")?;
+    let mut parts = js_sys::Array::new();
+    parts.push(&JsValue::from_str(&site_str));
+    let blob =
+        Blob::new_with_str_sequence_and_options(&parts, BlobPropertyBag::new().type_("text/json"))?;
+    let url = Url::create_object_url_with_blob(&blob)?;
+    let anchor = document
+        .create_element("a")?
+        .dyn_into::<HtmlAnchorElement>()?;
+    anchor.set_href(&url);
+    let filename = site_name + ".site.json";
+    anchor.set_download(&filename);
+    anchor.click();
+
+    Url::revoke_object_url(&url)?;
+
+    Ok(())
 }
 
 #[derive(Default)]
