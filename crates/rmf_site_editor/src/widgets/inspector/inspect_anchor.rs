@@ -88,7 +88,7 @@ impl<'w, 's> WidgetSystem<InspectAnchorInput, Option<InspectAnchorResponse>>
 pub struct InspectAnchorInput {
     pub anchor: Entity,
     pub is_dependency: bool,
-    pub panel: PanelSide,
+    pub panel: PanelSettings,
 }
 
 fn impl_inspect_anchor(

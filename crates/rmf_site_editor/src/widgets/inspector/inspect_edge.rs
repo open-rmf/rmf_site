@@ -119,7 +119,7 @@ impl<'w, 's> InspectEdge<'w, 's> {
         edge: Edge<Entity>,
         labels: EdgeLabels,
         category: Category,
-        panel: PanelSide,
+        panel: PanelSettings,
         ui: &mut Ui,
         state: &mut SystemState<Self>,
         world: &mut World,

@@ -134,7 +134,7 @@ pub struct StandardPropertiesPanelPlugin {}
 impl Plugin for StandardPropertiesPanelPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
-            PropertiesPanelPlugin::new(PanelSide::Right),
+            PropertiesPanelPlugin::new(PanelSettings::right().centered()),
             ViewLevelsPlugin::default(),
             ViewScenariosPlugin::default(),
             ViewModelInstancesPlugin::default(),
