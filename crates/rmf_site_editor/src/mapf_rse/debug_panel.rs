@@ -16,10 +16,11 @@
 */
 
 use super::*;
+use crossflow::RequestExt;
 use crate::{
     mapf_rse::debug_panel::egui::DragValue,
     occupancy,
-    occupancy::{CalculateGridRequest, OccupancyInfo},
+    occupancy::{OccupancyInfo, OccupancyServices},
     prelude::SystemState,
     site::Change,
 };
@@ -90,7 +91,7 @@ pub struct NegotiationDebugWidget<'w, 's> {
     current_level: Res<'w, CurrentLevel>,
     child_of: Query<'w, 's, &'static ChildOf>,
     occupancy_info: ResMut<'w, OccupancyInfo>,
-    calculate_grid: EventWriter<'w, CalculateGridRequest>,
+    occupancy_services: Res<'w, OccupancyServices>,
     name_in_site: Query<'w, 's, &'static NameInSite>,
     open_sites: Query<'w, 's, Entity, With<NameOfSite>>,
     current_workspace: Res<'w, CurrentWorkspace>,
@@ -286,7 +287,9 @@ impl<'w, 's> NegotiationDebugWidget<'w, 's> {
                 .on_hover_text("Slide to calculate occupancy without robots")
                 .changed()
             {
-                self.calculate_grid.write(CalculateGridRequest);
+                self.commands
+                    .request((), self.occupancy_services.calculate_and_replan)
+                    .detach();
             }
         });
 
