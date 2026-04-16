@@ -16,8 +16,8 @@
 */
 
 use crate::{
-    occupancy::{CalculateGrid, ExportGridRequest, OccupancyInfo},
-    AppState, WorkspaceSaver,
+    occupancy::{OccupancyExporter, OccupancyInfo},
+    AppState,
 };
 use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 use bevy_egui::{
@@ -59,7 +59,7 @@ struct ExportOccupancyConfig {
 
 fn handle_export_occupancy_menu_events(
     mut menu_events: EventReader<MenuEvent>,
-    mut export_event: EventWriter<ExportGridRequest>,
+    mut exporter: OccupancyExporter,
     occupancy_menu: Res<OccupancyExportMenu>,
     mut occupancy_info: ResMut<OccupancyInfo>,
     mut egui_context: EguiContexts,
@@ -82,7 +82,7 @@ fn handle_export_occupancy_menu_events(
         });
         if ui.button("Export").clicked() {
             configuration.visible = false;
-            export_event.write(ExportGridRequest);
+            exporter.export_to_dialog();
         }
     });
 }

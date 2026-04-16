@@ -19,10 +19,10 @@ use crate::{
     layers::ZLayer,
     mapf_rse::{MAPFDebugDisplay, NegotiationRequest},
     site::{Category, LevelElevation, NameOfSite, SiteAssets},
-    workspace::WorkspaceSaver,
+    workspace::WorkspaceSavingServices,
 };
 use bevy::{
-    ecs::{hierarchy::ChildOf, relationship::AncestorIter},
+    ecs::{hierarchy::ChildOf, relationship::AncestorIter, system::SystemParam},
     math::{swizzles::*, Affine3A, Mat3A, Vec2, Vec3A},
     prelude::*,
     render::{
@@ -30,6 +30,7 @@ use bevy::{
         primitives::Aabb,
     },
 };
+use crossflow::*;
 use itertools::Itertools;
 use rmf_site_format::Robot;
 use rmf_site_mesh::*;
@@ -42,10 +43,29 @@ impl Plugin for OccupancyPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<CalculateGridRequest>()
             .add_event::<NegotiationRequest>()
-            .add_event::<ExportGridRequest>()
             .init_resource::<MAPFDebugDisplay>()
             .init_resource::<OccupancyInfo>()
-            .add_systems(Update, (handle_mapf_request, handle_export_request));
+            .add_systems(Startup, initialize_occupancy_export_services)
+            .add_systems(Update, handle_mapf_request);
+    }
+}
+
+#[derive(Resource)]
+pub struct OccupancyExportServices {
+    pub export_occupancy_to_dialog: Service<(), ()>,
+}
+
+#[derive(SystemParam)]
+pub struct OccupancyExporter<'w, 's> {
+    occupancy_export: Res<'w, OccupancyExportServices>,
+    commands: Commands<'w, 's>,
+}
+
+impl<'w, 's> OccupancyExporter<'w, 's> {
+    pub fn export_to_dialog(&mut self) {
+        self.commands
+            .request((), self.occupancy_export.export_occupancy_to_dialog)
+            .detach();
     }
 }
 
@@ -165,9 +185,6 @@ impl GridRange {
 }
 
 #[derive(Event)]
-pub struct ExportGridRequest;
-
-#[derive(Event)]
 pub struct CalculateGridRequest;
 
 pub struct CalculateGrid {
@@ -199,7 +216,7 @@ enum Group {
 }
 
 fn handle_export_request(
-    mut request: EventReader<ExportGridRequest>,
+    In(BlockingService { .. }): BlockingServiceInput<()>,
     occupancy_info: Res<OccupancyInfo>,
     robots: Query<Entity, With<Robot>>,
     mut commands: Commands,
@@ -216,29 +233,45 @@ fn handle_export_request(
     assets: Res<SiteAssets>,
     grids: Query<Entity, With<Grid>>,
     display_mapf_debug: Res<MAPFDebugDisplay>,
-    mut workspace_saver: WorkspaceSaver,
 ) {
-    if let Some(export_req) = request.read().last() {
-        let grid = CalculateGrid {
-            cell_size: occupancy_info.cell_size,
-            ignore: robots.iter().collect(),
-            ..default()
-        };
-        calculate_grid(
-            &grid,
-            &mut commands,
-            &bodies,
-            &meta,
-            &child_of,
-            &levels,
-            &sites,
-            &mut meshes,
-            &assets,
-            &grids,
-            &display_mapf_debug,
-        );
-        workspace_saver.export_occupancy_to_dialog();
-    }
+    let grid = CalculateGrid {
+        cell_size: occupancy_info.cell_size,
+        ignore: robots.iter().collect(),
+        ..default()
+    };
+    calculate_grid(
+        &grid,
+        &mut commands,
+        &bodies,
+        &meta,
+        &child_of,
+        &levels,
+        &sites,
+        &mut meshes,
+        &assets,
+        &grids,
+        &display_mapf_debug,
+    );
+}
+
+fn initialize_occupancy_export_services(world: &mut World) {
+    let calculate_occupancy_grid = world.spawn_service(handle_export_request);
+    let workspace_export = world
+        .resource::<WorkspaceSavingServices>()
+        .export_occupancy_grid
+        .clone();
+    let export_occupancy_to_dialog = world.spawn_workflow(|scope, builder| {
+        scope
+            .input
+            .chain(builder)
+            .then(calculate_occupancy_grid)
+            .then(workspace_export)
+            .connect(scope.terminate)
+    });
+
+    world.insert_resource(OccupancyExportServices {
+        export_occupancy_to_dialog,
+    });
 }
 
 fn handle_mapf_request(
