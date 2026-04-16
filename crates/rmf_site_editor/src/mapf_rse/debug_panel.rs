@@ -16,7 +16,6 @@
 */
 
 use super::*;
-use crossflow::RequestExt;
 use crate::{
     mapf_rse::debug_panel::egui::DragValue,
     occupancy,
@@ -29,6 +28,7 @@ use bevy_egui::egui::{
     self, Align, CollapsingHeader, Color32, ComboBox, Frame, Grid as EguiGrid, Response,
     ScrollArea, Stroke, Ui,
 };
+use crossflow::RequestExt;
 use rmf_site_egui::{
     MenuEvent, MenuItem, PanelWidget, PanelWidgetInput, ToolMenu, TryShowWidgetWorld, Widget,
     WidgetSystem,
