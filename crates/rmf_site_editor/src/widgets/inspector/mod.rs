@@ -299,7 +299,7 @@ pub struct Inspect {
     /// What entity is the current inspection widget attached to.
     pub inspection: Entity,
     /// What kind of panel is the inspector rendered on.
-    pub panel: PanelSide,
+    pub panel: PanelSettings,
 }
 
 /// This contains a reference to the main inspector widget of the application.

@@ -54,13 +54,13 @@ where
 /// Get the ID of the properties panel.
 #[derive(Resource)]
 pub struct PropertiesPanel {
-    side: PanelSide,
+    settings: PanelSettings,
     id: Entity,
 }
 
 impl PropertiesPanel {
     pub fn side(&self) -> PanelSide {
-        self.side
+        self.settings.side
     }
 
     pub fn id(&self) -> Entity {
@@ -72,27 +72,27 @@ impl PropertiesPanel {
 /// to use `rmf_site_editor::widgets::StandardPropertiesPanelPlugin` unless you need
 /// very specific customization of the properties panel.
 pub struct PropertiesPanelPlugin {
-    side: PanelSide,
+    settings: PanelSettings,
 }
 
 impl PropertiesPanelPlugin {
-    pub fn new(side: PanelSide) -> Self {
-        Self { side }
+    pub fn new(settings: PanelSettings) -> Self {
+        Self { settings }
     }
 }
 
 impl Default for PropertiesPanelPlugin {
     fn default() -> Self {
-        Self::new(PanelSide::Right)
+        Self::new(PanelSettings::right())
     }
 }
 
 impl Plugin for PropertiesPanelPlugin {
     fn build(&self, app: &mut App) {
         let widget = PanelWidget::new(show_panel_of_tiles, app.world_mut());
-        let id = app.world_mut().spawn((widget, self.side)).id();
+        let id = app.world_mut().spawn((widget, self.settings)).id();
         app.world_mut().insert_resource(PropertiesPanel {
-            side: self.side,
+            settings: self.settings,
             id,
         });
     }
