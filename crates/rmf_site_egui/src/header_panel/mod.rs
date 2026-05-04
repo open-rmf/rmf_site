@@ -49,7 +49,7 @@ where
 #[derive(Resource)]
 pub struct HeaderPanel {
     id: Entity,
-    side: PanelSide,
+    settings: PanelSettings,
 }
 
 impl HeaderPanel {
@@ -58,24 +58,24 @@ impl HeaderPanel {
     }
 
     pub fn side(&self) -> PanelSide {
-        self.side
+        self.settings.side
     }
 }
 
 /// This plugin builds a header panel for the editor
 pub struct HeaderPanelPlugin {
-    side: PanelSide,
+    settings: PanelSettings,
 }
 
 impl HeaderPanelPlugin {
-    pub fn new(side: PanelSide) -> Self {
-        Self { side }
+    pub fn new(settings: PanelSettings) -> Self {
+        Self { settings }
     }
 }
 
 impl Default for HeaderPanelPlugin {
     fn default() -> Self {
-        Self::new(PanelSide::Top)
+        Self::new(PanelSettings::top())
     }
 }
 
@@ -86,7 +86,7 @@ impl Plugin for HeaderPanelPlugin {
             .world_mut()
             .spawn((
                 widget,
-                self.side,
+                self.settings,
                 PanelConfig {
                     resizable: false,
                     default_dimension: 30.0,
@@ -102,7 +102,7 @@ impl Plugin for HeaderPanelPlugin {
             ))
             .id();
         app.world_mut().insert_resource(HeaderPanel {
-            side: self.side,
+            settings: self.settings,
             id,
         });
     }
