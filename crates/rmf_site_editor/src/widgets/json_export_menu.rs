@@ -28,6 +28,31 @@ use wasm_bindgen::prelude::*;
 use web_sys::{Blob, BlobPropertyBag, Clipboard, HtmlAnchorElement, Url, Window};
 
 #[derive(Resource)]
+pub struct DownloadFileMenu {
+    download_file: Entity,
+}
+
+impl DownloadFileMenu {
+    pub fn get(&self) -> Entity {
+        self.download_file
+    }
+}
+
+impl FromWorld for DownloadFileMenu {
+    fn from_world(world: &mut World) -> Self {
+        let file_header = world.resource::<FileMenu>().get();
+        let download_file = world
+            .spawn((
+                MenuItem::Text(TextMenuItem::new("Download File")),
+                ChildOf(file_header),
+            ))
+            .id();
+
+        DownloadFileMenu { download_file }
+    }
+}
+
+#[derive(Resource)]
 pub struct JsonExportMenu {
     export_json: Entity,
     show_dialog: bool,
@@ -54,6 +79,53 @@ impl FromWorld for JsonExportMenu {
             show_dialog: false,
         }
     }
+}
+
+#[derive(Clone, Event)]
+pub struct DownloadSiteFile {
+    pub site_name: String,
+    pub site_str: String,
+}
+
+fn handle_download_file_menu_events(mut world: &mut World) {
+    let mut state: SystemState<(
+        EventReader<MenuEvent>,
+        ResMut<DownloadFileMenu>,
+        Res<CurrentWorkspace>,
+    )> = SystemState::new(world);
+    let (mut menu_events, download_file, current_workspace) = state.get_mut(world);
+    let Some(event) = menu_events.read().last() else {
+        return;
+    };
+    if !(event.clicked() && event.source() == download_file.get()) {
+        return;
+    }
+
+    let Some(ws_root) = current_workspace.root else {
+        warn!("Failed saving workspace, no current workspace found");
+        return;
+    };
+
+    let site = match generate_site(world, ws_root) {
+        Ok(site) => site,
+        Err(err) => {
+            error!("Unable to compile site: {err}");
+            return;
+        }
+    };
+
+    let site_str = match site.to_string_json_pretty() {
+        Ok(json) => json,
+        Err(err) => {
+            error!("Unable to serialize site to JSON: {err}");
+            return;
+        }
+    };
+
+    world.trigger(DownloadSiteFile {
+        site_name: site.properties.name.0.clone(),
+        site_str: site_str.clone(),
+    });
 }
 
 fn handle_export_json_menu_events(
@@ -101,6 +173,7 @@ fn show_export_json_dialog(mut world: &mut World) {
     let mut contexts = state.get_mut(world);
 
     let mut close_dialog = false;
+    let mut download = false;
     egui::Window::new("Export Site JSON")
         .collapsible(false)
         .resizable(false)
@@ -122,7 +195,7 @@ fn show_export_json_dialog(mut world: &mut World) {
                 ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                     if ui.button("Copy to clipboard").clicked() {
                         #[cfg(not(target_arch = "wasm32"))]
-                        ui.ctx().copy_text(site_str);
+                        ui.ctx().copy_text(site_str.clone());
 
                         #[cfg(target_arch = "wasm32")]
                         if let Some(window) = web_sys::window() {
@@ -131,11 +204,7 @@ fn show_export_json_dialog(mut world: &mut World) {
                     }
                     #[cfg(target_arch = "wasm32")]
                     if ui.button("Download file").clicked() {
-                        if download_site_file(site.properties.name.0.clone(), site_str.clone())
-                            .is_err()
-                        {
-                            error!("Failed to download site JSON file");
-                        }
+                        download = true;
                     }
                 });
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -146,10 +215,25 @@ fn show_export_json_dialog(mut world: &mut World) {
             });
         });
 
+    if download {
+        world.trigger(DownloadSiteFile {
+            site_name: site.properties.name.0.clone(),
+            site_str: site_str.clone(),
+        });
+    }
+
     if close_dialog {
         let mut state: SystemState<ResMut<JsonExportMenu>> = SystemState::new(world);
         let mut json_export = state.get_mut(world);
         json_export.show_dialog = false;
+    }
+}
+
+fn on_download_site(trigger: Trigger<DownloadSiteFile>) {
+    let event = trigger.event();
+    #[cfg(target_arch = "wasm32")]
+    if download_site_file(event.site_name.clone(), event.site_str.clone()).is_err() {
+        error!("Failed to download site JSON file");
     }
 }
 
@@ -180,12 +264,16 @@ pub struct JsonExportMenuPlugin {}
 
 impl Plugin for JsonExportMenuPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<JsonExportMenu>().add_systems(
-            Update,
-            (
-                handle_export_json_menu_events.run_if(AppState::in_displaying_mode()),
-                show_export_json_dialog,
-            ),
-        );
+        app.init_resource::<JsonExportMenu>()
+            .init_resource::<DownloadFileMenu>()
+            .add_systems(
+                Update,
+                (
+                    handle_export_json_menu_events.run_if(AppState::in_displaying_mode()),
+                    handle_download_file_menu_events.run_if(AppState::in_displaying_mode()),
+                    show_export_json_dialog,
+                ),
+            )
+            .add_observer(on_download_site);
     }
 }

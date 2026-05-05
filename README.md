@@ -90,7 +90,7 @@ Use the `--release` flag for better runtime performance.
 # Build and Run (WebAssembly)
 
 TODO: The web assembly version is highly experimental, currently it lacks important features like
-saving/loading of map files.
+saving/loading of map files. However, you may opt to export the JSON file via download or copy/paste.
 
 ```bash
 $ scripts/build-web.sh
