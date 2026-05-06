@@ -16,6 +16,7 @@
 */
 
 use bevy::{ecs::hierarchy::ChildOf, prelude::*};
+use crossflow::RequestExt;
 use std::{
     collections::{BTreeMap, HashMap},
     fmt::Debug,
@@ -25,7 +26,7 @@ use std::{
 use crate::{
     color_picker::ColorPicker,
     layers::ZLayer,
-    occupancy::{CalculateGridRequest, Cell, Grid, OccupancyVisualMarker},
+    occupancy::{Cell, Grid, OccupancyServices, OccupancyVisualMarker},
     site::{
         line_stroke_transform, Affiliation, Change, CircleCollision, CurrentLevel,
         DifferentialDrive, GoToPlace, Group, LocationTags, ModelMarker, Point, Pose, Robot,
@@ -253,7 +254,7 @@ fn handle_start_negotiation(
     current_workspace: Res<CurrentWorkspace>,
     mapf_info: Query<&mut MAPFDebugInfo>,
     mut commands: Commands,
-    mut calculate_grid: EventWriter<CalculateGridRequest>,
+    occupancy_services: Res<OccupancyServices>,
     mut debug_data: ResMut<NegotiationDebugData>,
     planning_progress_channel: Res<PlanningProgressChannel>,
 ) {
@@ -285,7 +286,9 @@ fn handle_start_negotiation(
 
     let Some(grid) = grid else {
         warn!("No occupancy grid, sending calculate grid request");
-        calculate_grid.write(CalculateGridRequest);
+        commands
+            .request((), occupancy_services.calculate_and_replan)
+            .detach();
         return;
     };
 

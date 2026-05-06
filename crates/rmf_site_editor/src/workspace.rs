@@ -56,6 +56,7 @@ pub enum ExportFormat {
     Default,
     Sdf,
     NavGraph,
+    OccupancyGrid,
 }
 
 /// Used to keep track of visibility when switching workspace
@@ -518,6 +519,8 @@ pub struct WorkspaceSavingServices {
     pub export_nav_graphs_to_dialog: Service<(), ()>,
     /// Exports the nav graphs from the requested site to the requested path.
     pub export_nav_graphs_to_path: Service<PathBuf, ()>,
+    /// Exports Occupancy Grid from the requested
+    pub export_occupancy_grid: Service<(), ()>,
 }
 
 impl FromWorld for WorkspaceSavingServices {
@@ -616,6 +619,16 @@ impl FromWorld for WorkspaceSavingServices {
                 .connect(scope.terminate)
         });
 
+        let export_occupancy_grid = world.spawn_workflow(|scope, builder| {
+            scope
+                .input
+                .chain(builder)
+                .then(pick_folder)
+                .map_block(|path| (path, ExportFormat::OccupancyGrid))
+                .then(send_file_save)
+                .connect(scope.terminate)
+        });
+
         Self {
             save_workspace_to_dialog,
             save_workspace_to_path,
@@ -624,6 +637,7 @@ impl FromWorld for WorkspaceSavingServices {
             export_sdf_to_path,
             export_nav_graphs_to_dialog,
             export_nav_graphs_to_path,
+            export_occupancy_grid,
         }
     }
 }
@@ -679,6 +693,13 @@ impl<'w, 's> WorkspaceSaver<'w, 's> {
     pub fn export_nav_graphs_to_path(&mut self, path: PathBuf) {
         self.commands
             .request(path, self.workspace_saving.export_nav_graphs_to_path)
+            .detach();
+    }
+
+    /// Request to export the occupancy grid
+    pub fn export_occupancy_to_dialog(&mut self) {
+        self.commands
+            .request((), self.workspace_saving.export_occupancy_grid)
             .detach();
     }
 }
