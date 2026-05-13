@@ -336,6 +336,10 @@ impl Plugin for SitePlugin {
         .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
         .add_issue_type(&DUPLICATED_LIFT_NAME_ISSUE_UUID, "Duplicate lift name")
         .add_issue_type(
+            &DUPLICATED_LOCATION_NAME_ISSUE_UUID,
+            "Duplicate location name",
+        )
+        .add_issue_type(
             &FIDUCIAL_WITHOUT_AFFILIATION_ISSUE_UUID,
             "Fiducial without affiliation",
         )
@@ -351,6 +355,7 @@ impl Plugin for SitePlugin {
                 update_drawing_children_to_pixel_coordinates,
                 check_for_duplicated_door_names,
                 check_for_duplicated_lift_names,
+                check_for_duplicated_location_names,
                 check_for_duplicated_dock_names,
                 check_for_fiducials_without_affiliation,
                 check_for_close_unconnected_anchors,
