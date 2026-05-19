@@ -72,6 +72,9 @@ web-time = {workspace = true}
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 bevy_egui = { workspace = true, default-features = false, features = ["open_url", "default_fonts", "render"] }
 crossflow = { workspace = true, features = ["single_threaded_async"]}
+js-sys = { workspace = true }
+wasm-bindgen = { workspace = true }
+web-sys = { workspace = true, features = ["Clipboard", "Window", "Navigator", "Blob", "Url", "HtmlAnchorElement", "Document"] }
 web-time = {workspace = true}
 
 [dev-dependencies]

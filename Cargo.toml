@@ -75,7 +75,9 @@ bytemuck = {version = "1.22"}
 bevy_infinite_grid = { version = "0.15"}
 testdir = "0.9"
 file_diff = "1.0"
+web-sys = "0.3"
 web-time = "1"
+js-sys = "0.3"
 
 bevy = {version = "0.16", features = ["configurable_error_handler"]}
 bevy_a11y = "0.16"
