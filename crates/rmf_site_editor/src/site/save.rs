@@ -2020,6 +2020,18 @@ mod tests {
             );
         }
 
+        #[cfg(windows)]
+        {
+            let _ = std::os::windows::fs::symlink_dir(
+                assets_dir.join("models"),
+                target_test_dir.join("models"),
+            );
+            let _ = std::os::windows::fs::symlink_dir(
+                assets_dir.join("drawings"),
+                target_test_dir.join("drawings"),
+            );
+        }
+
         let destination = destination.to_str().unwrap().to_owned();
 
         let mut app = App::new();

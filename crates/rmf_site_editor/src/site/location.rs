@@ -15,9 +15,14 @@
  *
 */
 
-use crate::{layers::ZLayer, site::*};
-use bevy::{ecs::hierarchy::ChildOf, prelude::*};
+use crate::{issue::*, layers::ZLayer, site::*};
+use bevy::{
+    ecs::{hierarchy::ChildOf, relationship::AncestorIter},
+    prelude::*,
+};
 use rmf_site_picking::{Hovered, Select, Selected, VisualCue};
+use std::collections::{BTreeSet, HashMap};
+use uuid::Uuid;
 
 pub const BILLBOARD_LENGTH: f32 = 0.3;
 const BILLBOARD_BASE_OFFSET: Vec3 = Vec3::new(0., 0., BILLBOARD_LENGTH / 3. * 0.5);
@@ -507,6 +512,46 @@ pub fn handle_consider_location_tag(
             let r = recall.as_mut();
             if let Some(LocationTag::Workcell(model)) = &r.consider_tag {
                 r.consider_tag_asset_source_recall.remember(&model.source);
+            }
+        }
+    }
+}
+
+/// Unique UUID to identify issue of duplicated location names
+pub const DUPLICATED_LOCATION_NAME_ISSUE_UUID: Uuid =
+    Uuid::from_u128(0xfb7d467f76f749de840198e3e0110bb5u128);
+
+// When triggered by a validation request event, check if there are duplicated location names and
+// generate an issue if that is the case
+pub fn check_for_duplicated_location_names(
+    mut commands: Commands,
+    mut validate_events: EventReader<ValidateWorkspace>,
+    child_of: Query<&ChildOf>,
+    location_names: Query<(Entity, &NameInSite), With<LocationTags>>,
+) {
+    for root in validate_events.read() {
+        let mut names: HashMap<String, BTreeSet<Entity>> = HashMap::new();
+        for (e, name) in &location_names {
+            if AncestorIter::new(&child_of, e).any(|p| p == **root) {
+                let entities_with_name = names.entry(name.0.clone()).or_default();
+                entities_with_name.insert(e);
+            }
+        }
+        for (name, entities) in names.drain() {
+            if entities.len() > 1 {
+                let issue = Issue {
+                    key: IssueKey {
+                        entities,
+                        kind: DUPLICATED_LOCATION_NAME_ISSUE_UUID,
+                    },
+                    brief: format!("Multiple locations found with the same name {}", name),
+                    hint: "Locations are referenced by name when robots are dispatched to them \
+                           via RMF tasks. Each location should have a unique name; rename the \
+                           affected locations."
+                        .to_string(),
+                };
+                let id = commands.spawn(issue).id();
+                commands.entity(**root).add_child(id);
             }
         }
     }
