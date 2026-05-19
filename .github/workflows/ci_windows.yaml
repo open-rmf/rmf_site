@@ -3,7 +3,7 @@ on:
   pull_request:
   workflow_dispatch:
   push:
-    branches: [main, xiyu/ci_windows]
+    branches: [main]
 
 jobs:
   build:
