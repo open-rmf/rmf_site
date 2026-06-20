@@ -716,6 +716,8 @@ pub fn update_changed_door(
             Changed<Edge<Entity>>,
             Changed<DoorType>,
             Changed<NameInSite>,
+            Changed<Bottom>,
+            Changed<Top>,
         )>,
     >,
     anchors: AnchorParams,

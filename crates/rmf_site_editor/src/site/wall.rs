@@ -141,7 +141,7 @@ pub fn update_walls(
         Entity,
         (
             With<WallMarker>,
-            Or<(Changed<Affiliation<Entity>>, Changed<Edge<Entity>>)>,
+            Or<(Changed<Affiliation<Entity>>, Changed<Edge<Entity>>, Changed<Bottom>, Changed<Top>)>,
         ),
     >,
     all_walls: Query<Entity, With<WallMarker>>,

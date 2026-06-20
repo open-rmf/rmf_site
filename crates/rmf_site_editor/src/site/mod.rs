@@ -270,6 +270,12 @@ impl Plugin for SitePlugin {
             ChangePlugin::<Texture>::default(),
         ))
         .add_plugins((
+            ChangePlugin::<Bottom>::default(),
+            RecallPlugin::<RecallBottom>::default(),
+            ChangePlugin::<Top>::default(),
+            RecallPlugin::<RecallTop>::default(),
+        ))
+        .add_plugins((
             ChangePlugin::<DoorType>::default(),
             RecallPlugin::<RecallDoorType>::default(),
             ChangePlugin::<LevelElevation>::default(),
