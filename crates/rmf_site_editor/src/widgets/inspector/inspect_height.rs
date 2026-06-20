@@ -16,11 +16,11 @@
 */
 
 use crate::{
-    site::{Bottom, RecallBottom, Top, RecallTop, Height, RecallHeight, Change},
+    site::{Bottom, Change, Height, RecallBottom, RecallHeight, RecallTop, Top},
     widgets::{prelude::*, Inspect},
 };
-use bevy_egui::egui::{ComboBox, DragValue, Grid};
 use bevy::prelude::*;
+use bevy_egui::egui::{ComboBox, DragValue, Grid};
 use rmf_site_egui::WidgetSystem;
 
 #[derive(SystemParam)]
@@ -31,7 +31,12 @@ pub struct InspectHeight<'w, 's> {
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectHeight<'w, 's> {
-    fn show(Inspect { selection, .. }: Inspect, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) {
+    fn show(
+        Inspect { selection, .. }: Inspect,
+        ui: &mut Ui,
+        state: &mut SystemState<Self>,
+        world: &mut World,
+    ) {
         let mut params = state.get_mut(world);
 
         Grid::new("inspect_height").show(ui, |ui| {
@@ -39,7 +44,9 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectHeight<'w, 's> {
                 ui.label("Top");
                 ui.push_id("InspectHeight_Top", |ui| {
                     if let Some(new_top) = show_height(ui, &*top, &*recall) {
-                        params.commands.trigger(Change::new(Top(new_top), selection));
+                        params
+                            .commands
+                            .trigger(Change::new(Top(new_top), selection));
                     }
                 });
                 ui.end_row();
@@ -49,7 +56,9 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectHeight<'w, 's> {
                 ui.label("Bottom");
                 ui.push_id("InspectHeight_Bottom", |ui| {
                     if let Some(new_bottom) = show_height(ui, &*bottom, &*recall) {
-                        params.commands.trigger(Change::new(Bottom(new_bottom), selection));
+                        params
+                            .commands
+                            .trigger(Change::new(Bottom(new_bottom), selection));
                     }
                 });
                 ui.end_row();
@@ -58,11 +67,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectHeight<'w, 's> {
     }
 }
 
-fn show_height(
-    ui: &mut Ui,
-    height: &Height,
-    recall: &RecallHeight,
-) -> Option<Height> {
+fn show_height(ui: &mut Ui, height: &Height, recall: &RecallHeight) -> Option<Height> {
     let mut new_height = *height;
     ComboBox::from_id_salt("height_type")
         .selected_text(height.label())
@@ -71,14 +76,11 @@ fn show_height(
             ui.selectable_value(&mut new_height, height.assume_fixed(recall), "fixed");
         });
 
-        ui.add(
-            DragValue::new(new_height.value_mut())
-            .speed(0.02)
-        );
+    ui.add(DragValue::new(new_height.value_mut()).speed(0.02));
 
-        if new_height != *height {
-            return Some(new_height);
-        }
+    if new_height != *height {
+        return Some(new_height);
+    }
 
-        None
+    None
 }

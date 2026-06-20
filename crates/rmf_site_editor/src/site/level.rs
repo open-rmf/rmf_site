@@ -17,7 +17,10 @@
 
 use crate::site::*;
 use crate::{CurrentWorkspace, Issue, ValidateWorkspace};
-use bevy::ecs::{hierarchy::ChildOf, system::{SystemState, SystemParam}};
+use bevy::ecs::{
+    hierarchy::ChildOf,
+    system::{SystemParam, SystemState},
+};
 use bevy::prelude::*;
 use std::collections::HashMap;
 use uuid::Uuid;

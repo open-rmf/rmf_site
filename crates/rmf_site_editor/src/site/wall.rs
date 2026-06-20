@@ -21,8 +21,8 @@ use bevy_mod_outline::GenerateOutlineNormalsError;
 use rmf_site_format::{Edge, WallMarker};
 use rmf_site_mesh::*;
 use rmf_site_picking::Selectable;
-use thiserror::Error;
 use smallvec::SmallVec;
+use thiserror::Error;
 
 pub const DEFAULT_WALL_THICKNESS: f32 = 0.1;
 
@@ -141,7 +141,12 @@ pub fn update_walls(
         Entity,
         (
             With<WallMarker>,
-            Or<(Changed<Affiliation<Entity>>, Changed<Edge<Entity>>, Changed<Bottom>, Changed<Top>)>,
+            Or<(
+                Changed<Affiliation<Entity>>,
+                Changed<Edge<Entity>>,
+                Changed<Bottom>,
+                Changed<Top>,
+            )>,
         ),
     >,
     all_walls: Query<Entity, With<WallMarker>>,
@@ -164,7 +169,8 @@ pub fn update_walls(
     changed_level_elevations: Query<Entity, Changed<LevelElevation>>,
 ) {
     let mut update_wall = |e: Entity| {
-        let Ok((edge, texture_source, mesh, material, wall_bottom, wall_height)) = walls.get(e) else {
+        let Ok((edge, texture_source, mesh, material, wall_bottom, wall_height)) = walls.get(e)
+        else {
             return;
         };
 

@@ -26,10 +26,10 @@ use rmf_site_mesh::{
     flat_arc, flat_arrow_mesh_between, line_stroke_away_from, line_stroke_mesh, MeshBuffer, Radians,
 };
 use rmf_site_picking::{Hovered, Selectable, VisualCue};
+use smallvec::SmallVec;
 use std::collections::{BTreeSet, HashMap};
 use std::num::NonZero;
 use uuid::Uuid;
-use smallvec::SmallVec;
 
 pub const DOOR_CUE_HEIGHT: f32 = 0.004;
 pub const DOOR_STOP_LINE_THICKNESS: f32 = 0.01;

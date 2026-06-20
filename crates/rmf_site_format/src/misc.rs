@@ -206,7 +206,7 @@ impl Height {
     pub fn fixed(&self) -> Option<f32> {
         match self {
             Self::Fixed(fixed) => Some(*fixed),
-            _ => None
+            _ => None,
         }
     }
 

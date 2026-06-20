@@ -132,21 +132,21 @@ pub fn make_wall_mesh(
         // Right
         [length / texture_width, z_delta / texture_height], // 8
         [0., z_delta / texture_height],                     // 9
-        [0., 0.],                                          // 10
-        [length / texture_width, 0.],                      // 11
+        [0., 0.],                                           // 10
+        [length / texture_width, 0.],                       // 11
         // Left
         [0., 0.],                                          // 12
         [length / texture_width, 0.],                      // 13
         [length / texture_width, height / texture_height], // 14
-        [0., z_delta / texture_height],                     // 15
+        [0., z_delta / texture_height],                    // 15
         // Front
         [0., z_delta / texture_height],                     // 16
         [length / texture_width, z_delta / texture_height], // 17
-        [length / texture_width, 0.],                      // 18
-        [0., 0.],                                          // 19
+        [length / texture_width, 0.],                       // 18
+        [0., 0.],                                           // 19
         // Back
-        [length / texture_width, 0.],                      // 20
-        [0., 0.],                                          // 21
+        [length / texture_width, 0.],                       // 20
+        [0., 0.],                                           // 21
         [0., z_delta / texture_height],                     // 22
         [length / texture_width, z_delta / texture_height], // 23
     ];
