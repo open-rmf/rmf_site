@@ -20,7 +20,6 @@ use crate::{
     site::LightKind,
 };
 use bevy::prelude::*;
-use rmf_site_camera::HeadlightToggle;
 
 #[derive(Clone, Copy, Debug, Component)]
 pub struct LightBodies {
@@ -65,7 +64,7 @@ pub fn add_physical_light_visual_cues(
     new_lights: Query<(Entity, &LightKind), Added<LightKind>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     assets: Res<InteractionAssets>,
-    mut headlight_toggle: ResMut<HeadlightToggle>,
+    // mut headlight_toggle: ResMut<HeadlightToggle>,
 ) {
     for (e, kind) in &new_lights {
         let light_material = materials.add(StandardMaterial {
@@ -75,9 +74,11 @@ pub fn add_physical_light_visual_cues(
             ..default()
         });
 
-        if kind.is_directional() {
-            headlight_toggle.0 = false;
-        }
+        // This behavior is disabled until we resolve
+        // https://github.com/open-rmf/rmf_site/issues/431
+        // if kind.is_directional() {
+        //     headlight_toggle.0 = false;
+        // }
 
         let point_visibility = if kind.is_point() {
             Visibility::Inherited
@@ -178,7 +179,7 @@ pub fn update_physical_light_visual_cues(
     >,
     mut material_assets: ResMut<Assets<StandardMaterial>>,
     mut visibilities: Query<&mut Visibility>,
-    mut headlight_toggle: ResMut<HeadlightToggle>,
+    // mut headlight_toggle: ResMut<HeadlightToggle>,
 ) {
     for (kind, bodies, material) in &changed {
         bodies.switch(kind, &mut visibilities);
@@ -188,8 +189,10 @@ pub fn update_physical_light_visual_cues(
             error!("Unable to get material asset for light");
         }
 
-        if kind.is_directional() {
-            headlight_toggle.0 = false;
-        }
+        // This behavior is disabled until we resolve
+        // https://github.com/open-rmf/rmf_site/issues/431
+        // if kind.is_directional() {
+        //     headlight_toggle.0 = false;
+        // }
     }
 }

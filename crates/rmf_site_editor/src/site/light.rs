@@ -108,12 +108,13 @@ pub fn update_physical_lights(
                     commands.entity(e).insert(spot.to_bevy());
                 }
             }
-            LightKind::Directional(dir) => {
-                if let Some(b_dir) = &mut b_dir {
-                    **b_dir = dir.to_bevy();
-                } else {
-                    commands.entity(e).insert(dir.to_bevy());
-                }
+            LightKind::Directional(_dir) => {
+                error!("Directional lights are temporarily not supported. See https://github.com/open-rmf/rmf_site/issues/431");
+                // if let Some(b_dir) = &mut b_dir {
+                //     **b_dir = dir.to_bevy();
+                // } else {
+                //     commands.entity(e).insert(dir.to_bevy());
+                // }
             }
         }
 
