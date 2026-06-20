@@ -33,6 +33,13 @@ pub struct Door<T: RefTrait> {
     pub name: NameInSite,
     /// What kind of door is it.
     pub kind: DoorType,
+    /// If the door does not start from the floor, what is the height of its
+    /// bottom?
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub bottom: Bottom,
+    /// How high does the door reach?
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub top: Top,
     #[serde(skip)]
     pub marker: DoorMarker,
 }
@@ -442,6 +449,8 @@ impl Door<Entity> {
             anchors,
             name: self.name.clone(),
             kind: self.kind.clone(),
+            bottom: Default::default(),
+            top: Default::default(),
             marker: Default::default(),
         }
     }
@@ -453,6 +462,8 @@ impl<T: RefTrait> Door<T> {
             anchors: self.anchors.convert(id_map)?,
             name: self.name.clone(),
             kind: self.kind.clone(),
+            bottom: Default::default(),
+            top: Default::default(),
             marker: Default::default(),
         })
     }
@@ -470,6 +481,8 @@ impl<T: RefTrait> From<Edge<T>> for Door<T> {
         Door {
             anchors: edge,
             name: NameInSite("<Unnamed>".to_string()),
+            bottom: Default::default(),
+            top: Default::default(),
             kind: kind.into(),
             marker: Default::default(),
         }

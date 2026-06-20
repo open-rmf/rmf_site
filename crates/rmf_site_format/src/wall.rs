@@ -27,6 +27,13 @@ pub struct Wall<T: RefTrait> {
     pub anchors: Edge<T>,
     #[serde(skip_serializing_if = "is_default")]
     pub texture: Affiliation<T>,
+    /// If the wall does not start from the floor, what is the height of the
+    /// bottom of the wall?
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub bottom: Bottom,
+    /// How high does the wall reach?
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub top: Top,
     #[serde(skip)]
     pub marker: WallMarker,
 }
@@ -40,6 +47,8 @@ impl<T: RefTrait> Wall<T> {
         Ok(Wall {
             anchors: self.anchors.convert(id_map)?,
             texture: self.texture.convert(id_map)?,
+            top: Default::default(),
+            bottom: Default::default(),
             marker: Default::default(),
         })
     }
@@ -50,6 +59,8 @@ impl<T: RefTrait> From<Edge<T>> for Wall<T> {
         Self {
             anchors,
             texture: Affiliation(None),
+            top: Default::default(),
+            bottom: Default::default(),
             marker: Default::default(),
         }
     }

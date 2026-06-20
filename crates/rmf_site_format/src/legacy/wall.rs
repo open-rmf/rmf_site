@@ -90,6 +90,8 @@ impl Wall {
         Ok(SiteWall {
             anchors: [*left_anchor, *right_anchor].into(),
             texture: Affiliation(Some(texture_site_id)),
+            top: Default::default(),
+            bottom: Default::default(),
             marker: Default::default(),
         })
     }

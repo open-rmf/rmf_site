@@ -23,6 +23,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 pub const DEFAULT_LEVEL_HEIGHT: f32 = 3.0;
+pub const MINIMUM_LEVEL_HEIGHT: f32 = 2.0;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Side {
@@ -156,6 +157,46 @@ pub struct Scale(pub Vec3);
 impl Default for Scale {
     fn default() -> Self {
         Self(Vec3::ONE)
+    }
+}
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum Height {
+    /// The wall height is some ratio of the floor height. This should be between
+    /// 0 and 1 or else the wall may clip onto other levels.
+    LevelHeightRatio(f32),
+    /// The wall height is fixed to a specific value in meters.
+    Fixed(f32),
+}
+
+impl Height {
+    pub fn for_level_height(&self, level_height: f32) -> f32 {
+        match self {
+            Self::LevelHeightRatio(ratio) => *ratio * level_height,
+            Self::Fixed(value) => *value,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+#[serde(transparent)]
+pub struct Top(pub Height);
+
+impl Default for Top {
+    fn default() -> Self {
+        Self(Height::LevelHeightRatio(1.0))
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+#[serde(transparent)]
+pub struct Bottom(pub Height);
+
+impl Default for Bottom {
+    fn default() -> Self {
+        Self(Height::Fixed(0.0))
     }
 }
 
