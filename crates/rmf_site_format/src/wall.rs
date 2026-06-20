@@ -47,8 +47,8 @@ impl<T: RefTrait> Wall<T> {
         Ok(Wall {
             anchors: self.anchors.convert(id_map)?,
             texture: self.texture.convert(id_map)?,
-            top: Default::default(),
-            bottom: Default::default(),
+            top: self.top,
+            bottom: self.bottom,
             marker: Default::default(),
         })
     }

@@ -449,8 +449,8 @@ impl Door<Entity> {
             anchors,
             name: self.name.clone(),
             kind: self.kind.clone(),
-            bottom: Default::default(),
-            top: Default::default(),
+            bottom: self.bottom,
+            top: self.top,
             marker: Default::default(),
         }
     }
@@ -462,8 +462,8 @@ impl<T: RefTrait> Door<T> {
             anchors: self.anchors.convert(id_map)?,
             name: self.name.clone(),
             kind: self.kind.clone(),
-            bottom: Default::default(),
-            top: Default::default(),
+            bottom: self.bottom,
+            top: self.top,
             marker: Default::default(),
         })
     }
