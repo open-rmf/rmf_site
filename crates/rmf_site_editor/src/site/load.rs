@@ -414,14 +414,6 @@ fn generate_site_entities(
         }
 
         for (wall_id, wall) in &level_data.walls {
-            if wall.top != Top::default() {
-                dbg!(&wall.top);
-            }
-
-            if wall.bottom != Bottom::default() {
-                dbg!(&wall.bottom);
-            }
-
             commands
                 .spawn(
                     wall.convert(&id_to_entity)
