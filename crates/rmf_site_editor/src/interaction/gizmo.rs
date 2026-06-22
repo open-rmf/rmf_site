@@ -110,7 +110,7 @@ impl Gizmo {
     }
 }
 
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, Copy)]
 pub struct Draggable {
     pub for_entity: Entity,
     pub drag: Option<InitialDragConditions>,
