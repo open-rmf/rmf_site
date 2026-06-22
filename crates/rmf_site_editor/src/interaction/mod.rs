@@ -45,6 +45,9 @@ pub use gizmo::*;
 pub mod highlight;
 pub use highlight::*;
 
+pub mod infinite_grid;
+pub use infinite_grid::*;
+
 pub mod lane;
 pub use lane::*;
 
@@ -211,6 +214,7 @@ impl Plugin for InteractionPlugin {
                     update_cursor_hover_visualization.after(SelectionServiceStages::Select),
                     update_location_visual_cues.after(SelectionServiceStages::Select),
                     update_gizmo_click_start.after(SelectionServiceStages::Select),
+                    update_infinite_grid_cues.after(SelectionServiceStages::Select),
                     update_gizmo_release,
                     update_drag_motions
                         .after(update_gizmo_click_start)

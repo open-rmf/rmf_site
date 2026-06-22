@@ -19,9 +19,10 @@ use crate::{
     layers::ZLayer,
     mapf_rse::{MAPFDebugDisplay, NegotiationRequest},
     site::{Category, LevelElevation, NameOfSite, SiteAssets},
+    workspace::WorkspaceSavingServices,
 };
 use bevy::{
-    ecs::{hierarchy::ChildOf, relationship::AncestorIter},
+    ecs::{hierarchy::ChildOf, relationship::AncestorIter, system::SystemParam},
     math::{swizzles::*, Affine3A, Mat3A, Vec2, Vec3A},
     prelude::*,
     render::{
@@ -29,6 +30,7 @@ use bevy::{
         primitives::Aabb,
     },
 };
+use crossflow::*;
 use itertools::Itertools;
 use rmf_site_format::Robot;
 use rmf_site_mesh::*;
@@ -39,11 +41,40 @@ pub struct OccupancyPlugin;
 
 impl Plugin for OccupancyPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<CalculateGridRequest>()
-            .add_event::<NegotiationRequest>()
+        app.add_event::<NegotiationRequest>()
             .init_resource::<MAPFDebugDisplay>()
             .init_resource::<OccupancyInfo>()
-            .add_systems(Update, handle_calculate_grid_request);
+            .add_systems(Startup, initialize_occupancy_services);
+    }
+}
+
+#[derive(Resource)]
+pub struct OccupancyServices {
+    /// Calculates the occupancy grid then opens a folder dialog to export it.
+    pub export_occupancy_to_dialog: Service<(), ()>,
+    /// Calculates the occupancy grid then triggers MAPF replanning.
+    pub calculate_and_replan: Service<(), ()>,
+}
+
+#[derive(SystemParam)]
+pub struct OccupancyExporter<'w, 's> {
+    occupancy_services: Res<'w, OccupancyServices>,
+    commands: Commands<'w, 's>,
+}
+
+impl<'w, 's> OccupancyExporter<'w, 's> {
+    /// Calculate the occupancy grid and open a folder dialog to export it.
+    pub fn export_to_dialog(&mut self) {
+        self.commands
+            .request((), self.occupancy_services.export_occupancy_to_dialog)
+            .detach();
+    }
+
+    /// Calculate the occupancy grid and trigger MAPF replanning.
+    pub fn calculate_and_replan(&mut self) {
+        self.commands
+            .request((), self.occupancy_services.calculate_and_replan)
+            .detach();
     }
 }
 
@@ -128,6 +159,14 @@ impl GridRange {
         }
     }
 
+    pub fn width(&self) -> usize {
+        self.min[0].abs_diff(self.max[0]) as usize
+    }
+
+    pub fn height(&self) -> usize {
+        self.min[1].abs_diff(self.max[1]) as usize
+    }
+
     pub fn include(&mut self, cell: Cell) {
         self.min[0] = self.min[0].min(cell.x);
         self.min[1] = self.min[1].min(cell.y);
@@ -153,9 +192,6 @@ impl GridRange {
         (self.min[0]..=self.max[0]).cartesian_product(self.min[1]..=self.max[1])
     }
 }
-
-#[derive(Event)]
-pub struct CalculateGridRequest;
 
 pub struct CalculateGrid {
     /// How large is each cell
@@ -185,8 +221,8 @@ enum Group {
     None,
 }
 
-fn handle_calculate_grid_request(
-    mut request: EventReader<CalculateGridRequest>,
+fn calculate_occupancy_grid(
+    In(BlockingService { .. }): BlockingServiceInput<()>,
     occupancy_info: Res<OccupancyInfo>,
     robots: Query<Entity, With<Robot>>,
     mut commands: Commands,
@@ -202,32 +238,64 @@ fn handle_calculate_grid_request(
     mut meshes: ResMut<Assets<Mesh>>,
     assets: Res<SiteAssets>,
     grids: Query<Entity, With<Grid>>,
-    mut replan: EventWriter<NegotiationRequest>,
     display_mapf_debug: Res<MAPFDebugDisplay>,
 ) {
-    if request.read().last().is_some() {
-        let grid = CalculateGrid {
-            cell_size: occupancy_info.cell_size,
-            ignore: robots.iter().collect(),
-            ..default()
-        };
-        calculate_grid(
-            &grid,
-            &mut commands,
-            &bodies,
-            &meta,
-            &child_of,
-            &levels,
-            &sites,
-            &mut meshes,
-            &assets,
-            &grids,
-            &display_mapf_debug,
-        );
+    let grid = CalculateGrid {
+        cell_size: occupancy_info.cell_size,
+        ignore: robots.iter().collect(),
+        ..default()
+    };
+    calculate_grid(
+        &grid,
+        &mut commands,
+        &bodies,
+        &meta,
+        &child_of,
+        &levels,
+        &sites,
+        &mut meshes,
+        &assets,
+        &grids,
+        &display_mapf_debug,
+    );
+}
 
-        // TODO: (Nielsen) Use bevy impulse workflow
-        replan.write(NegotiationRequest);
-    }
+fn send_negotiation_request(
+    In(BlockingService { .. }): BlockingServiceInput<()>,
+    mut negotiation_request: EventWriter<NegotiationRequest>,
+) {
+    negotiation_request.write(NegotiationRequest);
+}
+
+fn initialize_occupancy_services(world: &mut World) {
+    let grid_svc = world.spawn_service(calculate_occupancy_grid);
+    let workspace_export = world
+        .resource::<WorkspaceSavingServices>()
+        .export_occupancy_grid
+        .clone();
+    let export_occupancy_to_dialog = world.spawn_workflow(|scope, builder| {
+        scope
+            .input
+            .chain(builder)
+            .then(grid_svc)
+            .then(workspace_export)
+            .connect(scope.terminate)
+    });
+
+    let send_replan = world.spawn_service(send_negotiation_request);
+    let calculate_and_replan = world.spawn_workflow(|scope, builder| {
+        scope
+            .input
+            .chain(builder)
+            .then(grid_svc)
+            .then(send_replan)
+            .connect(scope.terminate)
+    });
+
+    world.insert_resource(OccupancyServices {
+        export_occupancy_to_dialog,
+        calculate_and_replan,
+    });
 }
 
 pub fn calculate_grid(
