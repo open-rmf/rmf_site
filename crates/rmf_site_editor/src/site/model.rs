@@ -450,7 +450,7 @@ fn instance_spawn_request_into_model_load_request(
     Ok(ModelLoadingRequest {
         parent: request.parent,
         source: source.0.clone(),
-        interaction: Some(DragPlaneBundle::new(request.parent, Vec3::Z)),
+        interaction: Some(DragPlaneBundle::new(request.parent, Vec3::Z).globally()),
     })
 }
 
@@ -511,7 +511,7 @@ impl<'w, 's> ModelLoader<'w, 's> {
 
     /// Run a basic workflow to update the asset source of an existing entity
     pub fn update_asset_source(&mut self, entity: Entity, source: AssetSource) {
-        let interaction = DragPlaneBundle::new(entity, Vec3::Z);
+        let interaction = DragPlaneBundle::new(entity, Vec3::Z).globally();
         self.update_asset_source_series(entity, source, Some(interaction))
             .detach();
     }
@@ -545,7 +545,7 @@ impl<'w, 's> ModelLoader<'w, 's> {
                 }
             }
         }
-        let interaction = DragPlaneBundle::new(entity, Vec3::Z);
+        let interaction = DragPlaneBundle::new(entity, Vec3::Z).globally();
         for e in instance_entities.iter() {
             self.update_asset_source_series(*e, source.clone(), Some(interaction.clone()))
                 .detach();

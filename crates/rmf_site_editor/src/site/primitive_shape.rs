@@ -22,7 +22,7 @@ use bevy::render::view::RenderLayers;
 use rmf_site_camera::MODEL_PREVIEW_LAYER;
 use rmf_site_picking::Selectable;
 
-use crate::interaction::DragPlaneBundle;
+use crate::interaction::{DragAxis, DragPlane, Draggable};
 use crate::site::SiteAssets;
 
 use rmf_site_format::PrimitiveShape;
@@ -43,6 +43,7 @@ pub fn handle_new_primitive_shapes(
     primitives: Query<(Entity, &PrimitiveShape), Added<PrimitiveShape>>,
     child_of: Query<&ChildOf>,
     selectables: Query<&Selectable>,
+    interactions: Query<(Option<&Draggable>, Option<&DragPlane>, Option<&DragAxis>)>,
     render_layers: Query<&RenderLayers>,
     mut meshes: ResMut<Assets<Mesh>>,
     site_assets: Res<SiteAssets>,
@@ -71,15 +72,37 @@ pub fn handle_new_primitive_shapes(
             .id();
 
         let spawn_selectable = |mut cmd: EntityCommands| {
-            let selectable = if let Some(selectable) = AncestorIter::new(&child_of, e)
-                .filter_map(|p| selectables.get(p).ok())
-                .last()
-            {
-                selectable.element
-            } else {
-                e
+            // Get the first ancestor of the shape that is selectable (i.e. interactable).
+            let Some((parent, selectable)) = AncestorIter::new(&child_of, e)
+                .filter_map(|p| {
+                    if let Some(selectable) = selectables.get(p).ok() {
+                        Some((p, selectable))
+                    } else {
+                        None
+                    }
+                })
+                .next()
+            else {
+                return;
             };
-            cmd.insert(DragPlaneBundle::new(selectable, Vec3::Z));
+
+            cmd.insert(*selectable);
+
+            // Copy the selection behaviors of this ancestor to the primitive shape
+            // SAFETY: All the components we query for are optional, so this query
+            // will always succeed.
+            let (draggable, drag_plane, drag_axis) = interactions.get(parent).unwrap();
+            if let Some(draggable) = draggable {
+                cmd.insert(*draggable);
+            }
+
+            if let Some(drag_plane) = drag_plane {
+                cmd.insert(*drag_plane);
+            }
+
+            if let Some(drag_axis) = drag_axis {
+                cmd.insert(*drag_axis);
+            }
         };
         let mut entity_commands = commands.entity(id);
         if let Some(render_layer) = AncestorIter::new(&child_of, e)
