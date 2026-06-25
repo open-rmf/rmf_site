@@ -97,7 +97,7 @@ pub struct CreateTaskDialog {
 impl FromWorld for TaskWidget {
     fn from_world(world: &mut World) -> Self {
         let panel_widget = PanelWidget::new(tasks_panel, world);
-        let panel_id = world.spawn((panel_widget, PanelSide::Left)).id();
+        let panel_id = world.spawn((panel_widget, PanelSettings::left())).id();
 
         let main_task_widget = Widget::new::<ViewTasks>(world);
         let id = world.spawn(main_task_widget).insert(ChildOf(panel_id)).id();
@@ -769,7 +769,7 @@ fn show_create_task_dialog(
             for child in children {
                 let tile = Tile {
                     id: widget_entity,
-                    panel: PanelSide::Top, // Any panel will do
+                    panel: PanelSettings::top(), // Any panel will do
                 };
                 let _ = world.try_show_in(child, tile, ui);
             }
