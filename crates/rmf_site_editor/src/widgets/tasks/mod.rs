@@ -17,9 +17,9 @@
 use crate::{
     site::{
         count_scenarios_with_inclusion, Affiliation, Category, Change, CurrentScenario, Delete,
-        DispatchTaskRequest, GetModifier, Group, Inclusion, Modifier, NameInSite, Pending, Robot,
-        RobotTaskRequest, ScenarioModifiers, SiteUpdateSet, Task, TaskKinds, TaskParams,
-        TaskRequest, UpdateModifier,
+        DispatchTaskRequest, GetModifier, Group, Inclusion, ModelProperty, Modifier, NameInSite,
+        Pending, Robot, RobotTaskRequest, ScenarioModifiers, SiteUpdateSet, Task, TaskKinds,
+        TaskParams, TaskRequest, UpdateModifier,
     },
     AppState, CurrentWorkspace, Icons,
 };
@@ -152,7 +152,8 @@ pub struct ViewTasks<'w, 's> {
     get_params_modifier: GetModifier<'w, 's, Modifier<TaskParams>>,
     hover: EventWriter<'w, Hover>,
     icons: Res<'w, Icons>,
-    robots: Query<'w, 's, (Entity, &'static NameInSite, &'static Robot), Without<Group>>,
+    robots: Query<'w, 's, (Entity, &'static NameInSite, &'static Affiliation<Entity>), With<Robot>>,
+    fleets: Query<'w, 's, &'static NameInSite, With<ModelProperty<Robot>>>,
     scenarios: Query<
         'w,
         's,
@@ -316,6 +317,7 @@ fn show_task_widget(
                 &mut params.edit_mode,
                 &mut params.task_kinds,
                 &params.robots,
+                &params.fleets,
                 scenario_count,
                 &params.icons,
                 present,
@@ -354,7 +356,8 @@ fn show_task_params(
     delete: &mut EventWriter<Delete>,
     edit_mode: &mut EventWriter<EditModeEvent>,
     task_kinds: &ResMut<TaskKinds>,
-    robots: &Query<(Entity, &NameInSite, &Robot), Without<Group>>,
+    robots: &Query<(Entity, &NameInSite, &Affiliation<Entity>), With<Robot>>,
+    fleets: &Query<&NameInSite, With<ModelProperty<Robot>>>,
     scenario_count: i32,
     icons: &Res<Icons>,
     present: bool,
@@ -473,6 +476,7 @@ fn show_task_params(
         in_edit_mode,
         get_params_modifier,
         robots,
+        fleets,
         task_kinds,
         hover,
     );
@@ -487,7 +491,8 @@ fn show_editable_task(
     scenario: Entity,
     in_edit_mode: bool,
     get_params_modifier: &GetModifier<Modifier<TaskParams>>,
-    robots: &Query<(Entity, &NameInSite, &Robot), Without<Group>>,
+    robots: &Query<(Entity, &NameInSite, &Affiliation<Entity>), With<Robot>>,
+    fleets: &Query<&NameInSite, With<ModelProperty<Robot>>>,
     task_kinds: &ResMut<TaskKinds>,
     hover: &mut EventWriter<Hover>,
 ) {
@@ -529,6 +534,7 @@ fn show_editable_task(
                     &mut new_task,
                     &task_request,
                     robots,
+                    fleets,
                     task.robot(),
                     task.fleet(),
                     hover,
@@ -584,7 +590,7 @@ fn show_editable_task(
                     if !in_edit_mode {
                         ui.label(task_request.fleet_name().unwrap_or("None".to_string()));
                     } else {
-                        edit_fleet_widget(ui, &mut new_task, robots);
+                        edit_fleet_widget(ui, &mut new_task, robots, fleets);
                     }
                 });
             }
@@ -701,7 +707,8 @@ fn show_create_task_dialog(
     edit_state: &mut SystemState<(
         Commands,
         GetModifier<Modifier<TaskParams>>,
-        Query<(Entity, &NameInSite, &Robot), Without<Group>>,
+        Query<(Entity, &NameInSite, &Affiliation<Entity>), With<Robot>>,
+        Query<&NameInSite, With<ModelProperty<Robot>>>,
         ResMut<TaskKinds>,
         EventWriter<Hover>,
     )>,
@@ -732,7 +739,7 @@ fn show_create_task_dialog(
         .resizable(false)
         .anchor(Align2::CENTER_CENTER, [0.0, 0.0])
         .show(&mut ctx, |ui| {
-            let (mut commands, get_params_modifier, robots, task_kinds, mut hover) =
+            let (mut commands, get_params_modifier, robots, fleets, task_kinds, mut hover) =
                 edit_state.get_mut(world);
             show_editable_task(
                 ui,
@@ -744,6 +751,7 @@ fn show_create_task_dialog(
                 true,
                 &get_params_modifier,
                 &robots,
+                &fleets,
                 &task_kinds,
                 &mut hover,
             );
@@ -817,7 +825,8 @@ fn edit_request_type_widget(
     ui: &mut Ui,
     task: &mut Task<Entity>,
     task_request: &TaskRequest,
-    robots: &Query<(Entity, &NameInSite, &Robot), Without<Group>>,
+    robots: &Query<(Entity, &NameInSite, &Affiliation<Entity>), With<Robot>>,
+    fleets: &Query<&NameInSite, With<ModelProperty<Robot>>>,
     robot: Affiliation<Entity>,
     fleet: String,
     hover: &mut EventWriter<Hover>,
@@ -862,14 +871,19 @@ fn edit_request_type_widget(
                 .show_ui(ui, |ui| {
                     // Sort robots alphabetically
                     let mut sorted_robots = robots.iter().fold(
-                        Vec::<(Entity, String, Robot)>::new(),
-                        |mut l, (e, name, r)| {
-                            l.push((e, name.0.clone(), r.clone()));
+                        Vec::<(Entity, String, String)>::new(),
+                        |mut l, (e, name, model_desc)| {
+                            if let Some(fleet_name) = model_desc
+                                .0
+                                .and_then(|desc_e| fleets.get(desc_e).ok().map(|n| n.0.clone()))
+                            {
+                                l.push((e, name.0.clone(), fleet_name));
+                            }
                             l
                         },
                     );
                     sorted_robots.sort_by(|a, b| a.1.cmp(&b.1));
-                    for (robot_entity, robot_name, robot) in sorted_robots.iter() {
+                    for (robot_entity, robot_name, fleet_name) in sorted_robots.iter() {
                         let requested_robot = robot_task_request.robot_mut();
                         let resp = ui.add(SelectableLabel::new(
                             requested_robot.0.is_some_and(|e| e == *robot_entity),
@@ -886,7 +900,7 @@ fn edit_request_type_widget(
                             .0
                             .is_some_and(|e| e == *robot_entity)
                         {
-                            *robot_task_request.fleet_mut() = robot.fleet.clone();
+                            *robot_task_request.fleet_mut() = fleet_name.clone();
                         }
                     }
                 });
@@ -960,7 +974,8 @@ fn edit_requester_widget(ui: &mut Ui, task: &mut Task<Entity>) {
 fn edit_fleet_widget(
     ui: &mut Ui,
     task: &mut Task<Entity>,
-    robots: &Query<(Entity, &NameInSite, &Robot), Without<Group>>,
+    robots: &Query<(Entity, &NameInSite, &Affiliation<Entity>), With<Robot>>,
+    fleets: &Query<&NameInSite, With<ModelProperty<Robot>>>,
 ) {
     // TODO(@xiyuoh) when available, insert combobox of registered fleets
     let new_task_request = task.request_mut();
@@ -968,14 +983,20 @@ fn edit_fleet_widget(
         .fleet_name_mut()
         .get_or_insert(String::new());
     // Sort fleets alphabetically; only list fleets with robots
-    let mut sorted_fleets = robots
-        .iter()
-        .fold(Vec::<String>::new(), |mut l, (_, _, robot)| {
-            if !l.contains(&robot.fleet) {
-                l.push(robot.fleet.clone());
-            }
-            l
-        });
+    let mut sorted_fleets =
+        robots
+            .iter()
+            .fold(Vec::<String>::new(), |mut l, (e, _, model_desc)| {
+                if let Some(fleet_name) = model_desc
+                    .0
+                    .and_then(|desc_e| fleets.get(desc_e).ok().map(|n| n.0.clone()))
+                {
+                    if !l.contains(&fleet_name) {
+                        l.push(fleet_name);
+                    }
+                }
+                l
+            });
     sorted_fleets.sort();
     ComboBox::from_id_salt("select_fleet")
         .selected_text(fleet_name.clone())

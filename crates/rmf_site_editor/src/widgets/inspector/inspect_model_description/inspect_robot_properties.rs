@@ -97,17 +97,9 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectRobotProperties<'w, 's> {
             return;
         };
         // Ensure that this widget is displayed only when there is a valid Robot property
-        let Ok(mut robot_model_property) = params.model_descriptions.get_mut(description_entity)
-        else {
+        let Ok(_robot_model_property) = params.model_descriptions.get(description_entity) else {
             return;
         };
-
-        ui.horizontal(|ui| {
-            ui.label("Fleet:");
-            TextEdit::singleline(&mut robot_model_property.0.fleet)
-                .desired_width(ui.available_width())
-                .show(ui);
-        });
 
         ui.label("Robot Properties");
 

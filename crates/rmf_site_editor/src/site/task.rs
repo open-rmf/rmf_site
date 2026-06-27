@@ -16,7 +16,8 @@
 */
 
 use crate::site::{
-    Element, Group, ModelMarker, Robot, StandardProperty, Task, TaskKind, TaskParams,
+    Affiliation, Element, Group, ModelMarker, ModelProperty, NameInSite, Robot, StandardProperty,
+    Task, TaskKind, TaskParams,
 };
 use bevy::prelude::*;
 use std::collections::HashMap;
@@ -63,16 +64,28 @@ pub fn update_task_kind_component<T: TaskKind>(
 // are not tagged to any robot. Convert fleet name to its own component so that
 // we can track non-direct task fleet name changes too.
 pub fn update_direct_task_fleet(
-    robots: Query<(Entity, Ref<Robot>), (With<ModelMarker>, Without<Group>)>,
+    robots: Query<
+        (Entity, Ref<Robot>, &NameInSite, &Affiliation<Entity>),
+        (With<ModelMarker>, Without<Group>),
+    >,
+    fleets: Query<&NameInSite, With<ModelProperty<Robot>>>,
     mut tasks: Query<&mut Task<Entity>>,
 ) {
-    for (entity, robot) in robots.iter() {
+    for (entity, robot, robot_name, affiliation) in robots.iter() {
         if robot.is_changed() {
             for mut task in tasks.iter_mut() {
-                if task.robot().0.is_some_and(|e| e == entity) && task.fleet() != robot.fleet {
+                let Some(fleet_name) = affiliation
+                    .0
+                    .and_then(|e| fleets.get(e).ok().map(|n| n.0.clone()))
+                else {
+                    error!("No fleet name found for robot [{}]!", robot_name.0);
+                    continue;
+                };
+                if task.robot().0.is_some_and(|e| e == entity) && task.fleet() != fleet_name {
                     // Update fleet name if it has changed
+                    // TODO(@xiyuoh) find a way to point the fleet name to the relevant robot fleet instead
                     if let Some(fleet) = task.fleet_mut() {
-                        *fleet = robot.fleet.clone();
+                        *fleet = fleet_name;
                     }
                 }
             }
