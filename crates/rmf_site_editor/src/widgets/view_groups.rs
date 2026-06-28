@@ -19,12 +19,15 @@ use crate::{
     interaction::ObjectPlacement,
     site::{
         Affiliation, Change, Delete, FiducialMarker, Group, MergeGroups, ModelInstance,
-        ModelMarker, MutexMarker, NameInSite, SiteID, Texture,
+        ModelMarker, ModelProperty, MutexMarker, NameInSite, Robot, SiteID, Texture,
     },
     widgets::{prelude::*, SelectorWidget},
     AppState, CurrentWorkspace, Icons,
 };
-use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy::{
+    ecs::{query::QueryFilter, system::SystemParam},
+    prelude::*,
+};
 use bevy_egui::egui::{Button, CollapsingHeader, TextEdit, Ui, Widget};
 use rmf_site_egui::{PropertiesTilePlugin, Tile, WidgetSystem};
 use std::any::TypeId;
@@ -55,7 +58,16 @@ pub struct ViewGroups<'w, 's> {
         'w,
         's,
         (&'static NameInSite, Option<&'static SiteID>),
-        (With<ModelMarker>, With<Group>),
+        (
+            (With<ModelMarker>, Without<ModelProperty<Robot>>),
+            With<Group>,
+        ),
+    >,
+    robots: Query<
+        'w,
+        's,
+        (&'static NameInSite, Option<&'static SiteID>),
+        ((With<ModelMarker>, With<ModelProperty<Robot>>), With<Group>),
     >,
     mutexes: Query<
         'w,
@@ -113,6 +125,18 @@ impl<'w, 's> ViewGroups<'w, 's> {
                 &self.icons,
                 &mut self.events,
                 ui,
+                true,
+            );
+        });
+        CollapsingHeader::new("Robots").show(ui, |ui| {
+            Self::show_groups(
+                children,
+                &self.robots,
+                &mut modes.robots,
+                &self.icons,
+                &mut self.events,
+                ui,
+                true,
             );
         });
         CollapsingHeader::new("Textures").show(ui, |ui| {
@@ -123,6 +147,7 @@ impl<'w, 's> ViewGroups<'w, 's> {
                 &self.icons,
                 &mut self.events,
                 ui,
+                false,
             );
         });
         CollapsingHeader::new("Fiducials").show(ui, |ui| {
@@ -133,6 +158,7 @@ impl<'w, 's> ViewGroups<'w, 's> {
                 &self.icons,
                 &mut self.events,
                 ui,
+                false,
             );
         });
         CollapsingHeader::new("Mutexes").show(ui, |ui| {
@@ -143,17 +169,19 @@ impl<'w, 's> ViewGroups<'w, 's> {
                 &self.icons,
                 &mut self.events,
                 ui,
+                false,
             );
         });
     }
 
-    fn show_groups<'b, T: Component>(
+    fn show_groups<'b, F: QueryFilter>(
         children: impl IntoIterator<Item = &'b Entity>,
-        q_groups: &Query<(&NameInSite, Option<&SiteID>), (With<T>, With<Group>)>,
+        q_groups: &Query<(&NameInSite, Option<&SiteID>), (F, With<Group>)>,
         mode: &mut GroupViewMode,
         icons: &Res<Icons>,
         events: &mut ViewGroupsEvents,
         ui: &mut Ui,
+        model: bool,
     ) {
         ui.horizontal(|ui| match mode {
             GroupViewMode::View => {
@@ -204,7 +232,8 @@ impl<'w, 's> ViewGroups<'w, 's> {
             ui.horizontal(|ui| {
                 match mode.clone() {
                     GroupViewMode::View => {
-                        if TypeId::of::<T>() == TypeId::of::<ModelMarker>() {
+                        // TODO(@xiyuoh) Not the best approach to introduce a new arg, reconsider this
+                        if model {
                             if ui
                                 .add(Button::image(icons.add.egui()))
                                 .on_hover_text("Add a new model instance of this group")
@@ -259,7 +288,7 @@ impl<'w, 's> ViewGroups<'w, 's> {
                             .on_hover_text("Delete this group")
                             .clicked()
                         {
-                            if TypeId::of::<T>() == TypeId::of::<ModelMarker>() {
+                            if model {
                                 events.delete.write(Delete::new(*child).and_dependents());
                             } else {
                                 events.commands.entity(*child).despawn();
@@ -300,6 +329,7 @@ pub struct GroupViewModes {
     fiducials: GroupViewMode,
     model_descriptions: GroupViewMode,
     mutexes: GroupViewMode,
+    robots: GroupViewMode,
 }
 
 impl GroupViewModes {
