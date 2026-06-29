@@ -1046,7 +1046,6 @@
   },
   "robots": {
     "52": {
-      "fleet": "HospitalRobot",
       "properties": {
         "Collision": {
           "config": {
@@ -1084,7 +1083,7 @@
   },
   "model_instances": {
     "53": {
-      "parent": 22,
+      "parent": 1,
       "name": "L1_robot",
       "pose": {
         "trans": [
@@ -1271,7 +1270,7 @@
     "139": {
       "Direct": {
         "robot": 53,
-        "fleet": "HospitalRobot",
+        "fleet": "Robot",
         "request": {
           "id": "task-20250904-030447",
           "category": "Wait For",
