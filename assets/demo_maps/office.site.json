@@ -1,0 +1,3687 @@
+{
+  "format_version": "0.1",
+  "properties": {
+    "name": "building"
+  },
+  "levels": {
+    "1": {
+      "properties": {
+        "name": "L1",
+        "elevation": 0.0
+      },
+      "anchors": {
+        "8": {
+          "Translate2D": [
+            10.580057,
+            -4.7116404
+          ]
+        },
+        "9": {
+          "Translate2D": [
+            15.490137,
+            -4.6348753
+          ]
+        },
+        "10": {
+          "Translate2D": [
+            18.048775,
+            -4.603604
+          ]
+        },
+        "11": {
+          "Translate2D": [
+            18.05304,
+            -6.0892053
+          ]
+        },
+        "12": {
+          "Translate2D": [
+            17.412415,
+            -6.1211033
+          ]
+        },
+        "13": {
+          "Translate2D": [
+            16.205616,
+            -6.139524
+          ]
+        },
+        "14": {
+          "Translate2D": [
+            15.51164,
+            -6.1487346
+          ]
+        },
+        "15": {
+          "Translate2D": [
+            14.079464,
+            -2.55928
+          ]
+        },
+        "16": {
+          "Translate2D": [
+            23.683365,
+            -2.8822217
+          ]
+        },
+        "17": {
+          "Translate2D": [
+            23.149818,
+            -6.0320377
+          ]
+        },
+        "18": {
+          "Translate2D": [
+            19.429005,
+            -6.1162777
+          ]
+        },
+        "19": {
+          "Translate2D": [
+            19.452404,
+            -9.874535
+          ]
+        },
+        "20": {
+          "Translate2D": [
+            19.447721,
+            -10.763783
+          ]
+        },
+        "21": {
+          "Translate2D": [
+            19.461767,
+            -11.540705
+          ]
+        },
+        "22": {
+          "Translate2D": [
+            22.494581,
+            -11.2739315
+          ]
+        },
+        "23": {
+          "Translate2D": [
+            22.780071,
+            -8.681068
+          ]
+        },
+        "24": {
+          "Translate2D": [
+            13.709717,
+            -12.004055
+          ]
+        },
+        "25": {
+          "Translate2D": [
+            10.789239,
+            -11.952568
+          ]
+        },
+        "26": {
+          "Translate2D": [
+            7.8874707,
+            -11.507943
+          ]
+        },
+        "27": {
+          "Translate2D": [
+            5.003421,
+            -10.693384
+          ]
+        },
+        "28": {
+          "Translate2D": [
+            2.2776413,
+            -9.52562
+          ]
+        },
+        "29": {
+          "Translate2D": [
+            6.5326786,
+            -1.1435614
+          ]
+        },
+        "30": {
+          "Translate2D": [
+            8.487429,
+            -1.9423063
+          ]
+        },
+        "31": {
+          "Translate2D": [
+            10.123115,
+            -2.3701692
+          ]
+        },
+        "32": {
+          "Translate2D": [
+            11.812286,
+            -2.6086085
+          ]
+        },
+        "33": {
+          "Translate2D": [
+            12.184438,
+            -2.5996943
+          ]
+        },
+        "34": {
+          "Translate2D": [
+            8.492153,
+            -3.026101
+          ]
+        },
+        "35": {
+          "Translate2D": [
+            7.5163774,
+            -4.939701
+          ]
+        },
+        "36": {
+          "Translate2D": [
+            8.337649,
+            -5.3544
+          ]
+        },
+        "37": {
+          "Translate2D": [
+            8.256338,
+            -5.4926333
+          ]
+        },
+        "38": {
+          "Translate2D": [
+            5.189086,
+            -3.7721398
+          ]
+        },
+        "39": {
+          "Translate2D": [
+            7.8497334,
+            -6.2917104
+          ]
+        },
+        "40": {
+          "Translate2D": [
+            5.552679,
+            -10.839313
+          ]
+        },
+        "41": {
+          "Translate2D": [
+            6.8979225,
+            -2.0253696
+          ]
+        },
+        "42": {
+          "Translate2D": [
+            10.247854,
+            -3.0920558
+          ]
+        },
+        "43": {
+          "Translate2D": [
+            10.086146,
+            -6.9794364
+          ]
+        },
+        "44": {
+          "Translate2D": [
+            10.433054,
+            -5.5750957
+          ]
+        },
+        "46": {
+          "Translate2D": [
+            16.855825,
+            -6.881364
+          ]
+        },
+        "47": {
+          "Translate2D": [
+            16.846334,
+            -5.404067
+          ]
+        },
+        "49": {
+          "Translate2D": [
+            18.739525,
+            -6.873982
+          ]
+        },
+        "50": {
+          "Translate2D": [
+            18.794422,
+            -10.372407
+          ]
+        },
+        "51": {
+          "Translate2D": [
+            19.895699,
+            -3.40715
+          ]
+        },
+        "53": {
+          "Translate2D": [
+            13.130567,
+            -3.964806
+          ]
+        },
+        "54": {
+          "Translate2D": [
+            8.911855,
+            -6.181352
+          ]
+        },
+        "55": {
+          "Translate2D": [
+            20.948248,
+            -7.497347
+          ]
+        },
+        "57": {
+          "Translate2D": [
+            7.914645,
+            -7.9188695
+          ]
+        },
+        "58": {
+          "Translate2D": [
+            5.3464847,
+            -4.976814
+          ]
+        },
+        "60": {
+          "Translate2D": [
+            15.157189,
+            -11.227092
+          ]
+        },
+        "61": {
+          "Translate2D": [
+            11.553369,
+            -11.315971
+          ]
+        },
+        "62": {
+          "Translate2D": [
+            18.813843,
+            -11.0789795
+          ]
+        },
+        "63": {
+          "Translate2D": [
+            7.9883037,
+            -10.780257
+          ]
+        },
+        "64": {
+          "Translate2D": [
+            9.376501,
+            -11.142885
+          ]
+        },
+        "65": {
+          "Translate2D": [
+            6.2640343,
+            -3.5156863
+          ]
+        },
+        "67": {
+          "Translate2D": [
+            18.72902,
+            -3.8959816
+          ]
+        },
+        "68": {
+          "Translate2D": [
+            11.565889,
+            -6.9968076
+          ]
+        },
+        "69": {
+          "Translate2D": [
+            15.298605,
+            -6.9288383
+          ]
+        },
+        "70": {
+          "Translate2D": [
+            11.573762,
+            -9.250289
+          ]
+        },
+        "71": {
+          "Translate2D": [
+            15.166704,
+            -9.242974
+          ]
+        },
+        "72": {
+          "Translate2D": [
+            6.5173054,
+            -5.2329288
+          ]
+        },
+        "73": {
+          "Translate2D": [
+            17.067495,
+            -11.097883
+          ]
+        },
+        "74": {
+          "Translate2D": [
+            20.893654,
+            -10.308373
+          ]
+        },
+        "75": {
+          "Translate2D": [
+            20.423693,
+            -5.312098
+          ]
+        }
+      },
+      "doors": {
+        "77": {
+          "anchors": [
+            33,
+            15
+          ],
+          "name": "main_door",
+          "kind": {
+            "DoubleSwing": {
+              "swing": {
+                "Backward": {
+                  "deg": 90.0
+                }
+              },
+              "left_right_ratio": 1.0,
+              "left_position": 1.0,
+              "right_position": 1.0
+            }
+          },
+          "top": {
+            "fixed": 2.13
+          }
+        },
+        "78": {
+          "anchors": [
+            37,
+            39
+          ],
+          "name": "coe_door",
+          "kind": {
+            "SingleSwing": {
+              "pivot_on": "Left",
+              "swing": {
+                "Backward": {
+                  "deg": 90.0
+                }
+              },
+              "position": 1.0
+            }
+          },
+          "top": {
+            "fixed": 2.13
+          }
+        },
+        "79": {
+          "anchors": [
+            20,
+            19
+          ],
+          "name": "hardware_door",
+          "kind": {
+            "SingleSwing": {
+              "pivot_on": "Left",
+              "swing": {
+                "Backward": {
+                  "deg": 90.0
+                }
+              },
+              "position": 1.0
+            }
+          },
+          "top": {
+            "fixed": 2.13
+          }
+        }
+      },
+      "drawings": {
+        "80": {
+          "properties": {
+            "name": "office",
+            "source": {
+              "Local": "office.png"
+            },
+            "pose": {
+              "trans": [
+                0.0,
+                -0.0,
+                0.0
+              ],
+              "rot": {
+                "yaw": {
+                  "rad": 0.0
+                }
+              }
+            },
+            "pixels_per_meter": 118.12659
+          },
+          "anchors": {
+            "2": {
+              "Translate2D": [
+                80.27,
+                -1024.974
+              ]
+            },
+            "3": {
+              "Translate2D": [
+                580.795,
+                -43.396
+              ]
+            },
+            "4": {
+              "Translate2D": [
+                258.725,
+                -1426.884
+              ]
+            },
+            "5": {
+              "Translate2D": [
+                2624.464,
+                -1625.219
+              ]
+            },
+            "6": {
+              "Translate2D": [
+                2809.312,
+                -1349.93
+              ]
+            },
+            "7": {
+              "Translate2D": [
+                2951.32,
+                -368.569
+              ]
+            }
+          },
+          "measurements": {
+            "81": {
+              "anchors": [
+                3,
+                2
+              ],
+              "distance": 9.315
+            },
+            "82": {
+              "anchors": [
+                7,
+                6
+              ],
+              "distance": 8.409
+            },
+            "83": {
+              "anchors": [
+                4,
+                5
+              ],
+              "distance": 20.089
+            }
+          }
+        }
+      },
+      "floors": {
+        "85": {
+          "anchors": [
+            29,
+            30,
+            31,
+            32,
+            33,
+            15,
+            16,
+            17,
+            23,
+            22,
+            21,
+            24,
+            25,
+            26,
+            40,
+            27,
+            28,
+            38
+          ],
+          "texture": 84
+        }
+      },
+      "lights": {
+        "165": {
+          "pose": {
+            "trans": [
+              14.154307,
+              -6.6284823,
+              2.6
+            ],
+            "rot": {
+              "euler_xyz": [
+                {
+                  "deg": 30.0
+                },
+                {
+                  "deg": 0.0
+                },
+                {
+                  "deg": 0.0
+                }
+              ]
+            }
+          },
+          "kind": {
+            "type": "spot",
+            "color": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "intensity": 800.0,
+            "range": 20.0,
+            "radius": 0.0,
+            "enable_shadows": true
+          }
+        },
+        "166": {
+          "pose": {
+            "trans": [
+              10.776575,
+              -6.6284823,
+              2.6
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 0.0
+              }
+            }
+          },
+          "kind": {
+            "type": "point",
+            "color": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "intensity": 800.0,
+            "range": 20.0,
+            "radius": 0.0,
+            "enable_shadows": false
+          }
+        },
+        "167": {
+          "pose": {
+            "trans": [
+              16.702421,
+              -5.3586583,
+              2.6
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 0.0
+              }
+            }
+          },
+          "kind": {
+            "type": "point",
+            "color": [
+              0.5,
+              0.5,
+              1.0
+            ],
+            "intensity": 800.0,
+            "range": 20.0,
+            "radius": 0.0,
+            "enable_shadows": true
+          }
+        }
+      },
+      "physical_cameras": {
+        "163": {
+          "name": "camera1",
+          "pose": {
+            "trans": [
+              13.316223,
+              -4.410523,
+              2.0
+            ],
+            "rot": {
+              "euler_xyz": [
+                {
+                  "deg": 0.0
+                },
+                {
+                  "deg": 17.188734
+                },
+                {
+                  "deg": 89.95438
+                }
+              ]
+            }
+          },
+          "properties": {
+            "width": 480,
+            "height": 320,
+            "horizontal_fov": {
+              "rad": 2.0
+            },
+            "frame_rate": 30.0
+          }
+        },
+        "164": {
+          "name": "camera2",
+          "pose": {
+            "trans": [
+              6.315259,
+              -10.539541,
+              2.0
+            ],
+            "rot": {
+              "euler_xyz": [
+                {
+                  "deg": 0.0
+                },
+                {
+                  "deg": 17.188734
+                },
+                {
+                  "deg": 22.918312
+                }
+              ]
+            }
+          },
+          "properties": {
+            "width": 480,
+            "height": 320,
+            "horizontal_fov": {
+              "rad": 2.0
+            },
+            "frame_rate": 30.0
+          }
+        }
+      },
+      "walls": {
+        "169": {
+          "anchors": [
+            8,
+            9
+          ],
+          "texture": 168
+        },
+        "170": {
+          "anchors": [
+            9,
+            14
+          ],
+          "texture": 168
+        },
+        "171": {
+          "anchors": [
+            14,
+            13
+          ],
+          "texture": 168
+        },
+        "172": {
+          "anchors": [
+            9,
+            10
+          ],
+          "texture": 168
+        },
+        "173": {
+          "anchors": [
+            10,
+            11
+          ],
+          "texture": 168
+        },
+        "174": {
+          "anchors": [
+            11,
+            12
+          ],
+          "texture": 168
+        },
+        "175": {
+          "anchors": [
+            16,
+            15
+          ],
+          "texture": 168
+        },
+        "176": {
+          "anchors": [
+            16,
+            17
+          ],
+          "texture": 168
+        },
+        "177": {
+          "anchors": [
+            17,
+            18
+          ],
+          "texture": 168
+        },
+        "178": {
+          "anchors": [
+            18,
+            19
+          ],
+          "texture": 168
+        },
+        "179": {
+          "anchors": [
+            22,
+            23
+          ],
+          "texture": 168
+        },
+        "180": {
+          "anchors": [
+            17,
+            23
+          ],
+          "texture": 168
+        },
+        "181": {
+          "anchors": [
+            20,
+            21
+          ],
+          "texture": 168
+        },
+        "182": {
+          "anchors": [
+            21,
+            22
+          ],
+          "texture": 168
+        },
+        "183": {
+          "anchors": [
+            24,
+            21
+          ],
+          "texture": 168
+        },
+        "184": {
+          "anchors": [
+            26,
+            25
+          ],
+          "texture": 168
+        },
+        "185": {
+          "anchors": [
+            25,
+            24
+          ],
+          "texture": 168
+        },
+        "186": {
+          "anchors": [
+            28,
+            27
+          ],
+          "texture": 168
+        },
+        "187": {
+          "anchors": [
+            33,
+            32
+          ],
+          "texture": 168
+        },
+        "188": {
+          "anchors": [
+            32,
+            31
+          ],
+          "texture": 168
+        },
+        "189": {
+          "anchors": [
+            31,
+            30
+          ],
+          "texture": 168
+        },
+        "190": {
+          "anchors": [
+            30,
+            29
+          ],
+          "texture": 168
+        },
+        "191": {
+          "anchors": [
+            37,
+            36
+          ],
+          "texture": 168
+        },
+        "192": {
+          "anchors": [
+            36,
+            35
+          ],
+          "texture": 168
+        },
+        "193": {
+          "anchors": [
+            35,
+            34
+          ],
+          "texture": 168
+        },
+        "194": {
+          "anchors": [
+            38,
+            35
+          ],
+          "texture": 168
+        },
+        "195": {
+          "anchors": [
+            29,
+            38
+          ],
+          "texture": 168
+        },
+        "196": {
+          "anchors": [
+            28,
+            38
+          ],
+          "texture": 168
+        },
+        "197": {
+          "anchors": [
+            27,
+            40
+          ],
+          "texture": 168
+        },
+        "198": {
+          "anchors": [
+            40,
+            26
+          ],
+          "texture": 168
+        },
+        "199": {
+          "anchors": [
+            39,
+            40
+          ],
+          "texture": 168
+        },
+        "266": {
+          "anchors": [
+            37,
+            39
+          ],
+          "texture": 168,
+          "bottom": {
+            "fixed": 2.13
+          }
+        },
+        "267": {
+          "anchors": [
+            15,
+            33
+          ],
+          "texture": 168,
+          "bottom": {
+            "fixed": 2.13
+          }
+        },
+        "268": {
+          "anchors": [
+            20,
+            19
+          ],
+          "texture": 168,
+          "bottom": {
+            "fixed": 2.13
+          }
+        }
+      },
+      "rankings": {
+        "floors": [
+          85
+        ],
+        "drawings": [
+          80
+        ]
+      },
+      "user_camera_poses": {
+        "200": {
+          "pose": {
+            "trans": [
+              3.334979,
+              -16.818161,
+              10.0
+            ],
+            "rot": {
+              "quat": [
+                0.4247082,
+                -0.17591988,
+                -0.3398511,
+                0.82047325
+              ]
+            }
+          },
+          "name": "default",
+          "marker": null
+        }
+      }
+    }
+  },
+  "textures": {
+    "84": {
+      "name": "blue_linoleum",
+      "texture": {
+        "source": {
+          "Remote": "OpenRobotics/RMF_Materials/textures/blue_linoleum.png"
+        },
+        "rotation": {
+          "deg": 0.0
+        },
+        "width": 1.0,
+        "height": 1.0
+      }
+    },
+    "168": {
+      "name": "default",
+      "texture": {
+        "source": {
+          "Remote": "OpenRobotics/RMF_Materials/textures/default.png"
+        },
+        "alpha": 1.0,
+        "width": 1.0,
+        "height": 3.0
+      }
+    }
+  },
+  "navigation": {
+    "guided": {
+      "graphs": {
+        "201": {
+          "name": "0",
+          "color": [
+            1.0,
+            0.50000024,
+            0.3
+          ]
+        }
+      },
+      "ranking": [
+        201
+      ],
+      "lanes": {
+        "202": {
+          "anchors": [
+            41,
+            42
+          ],
+          "graphs": {
+            "Only": [
+              201
+            ]
+          }
+        },
+        "204": {
+          "anchors": [
+            46,
+            49
+          ],
+          "graphs": {
+            "Only": [
+              201
+            ]
+          }
+        },
+        "206": {
+          "anchors": [
+            46,
+            47
+          ],
+          "graphs": {
+            "Only": [
+              201
+            ]
+          }
+        },
+        "208": {
+          "anchors": [
+            53,
+            42
+          ],
+          "graphs": {
+            "Only": [
+              201
+            ]
+          }
+        },
+        "210": {
+          "anchors": [
+            42,
+            54
+          ],
+          "graphs": {
+            "Only": [
+              201
+            ]
+          }
+        },
+        "212": {
+          "anchors": [
+            54,
+            43
+          ],
+          "graphs": {
+            "Only": [
+              201
+            ]
+          }
+        },
+        "214": {
+          "anchors": [
+            54,
+            57
+          ],
+          "graphs": {
+            "Only": [
+              201
+            ]
+          }
+        },
+        "216": {
+          "anchors": [
+            62,
+            50
+          ],
+          "graphs": {
+            "Only": [
+              201
+            ]
+          }
+        },
+        "218": {
+          "anchors": [
+            57,
+            63
+          ],
+          "graphs": {
+            "Only": [
+              201
+            ]
+          }
+        },
+        "220": {
+          "anchors": [
+            63,
+            64
+          ],
+          "graphs": {
+            "Only": [
+              201
+            ]
+          }
+        },
+        "222": {
+          "anchors": [
+            41,
+            65
+          ],
+          "graphs": {
+            "Only": [
+              201
+            ]
+          }
+        },
+        "224": {
+          "anchors": [
+            67,
+            53
+          ],
+          "graphs": {
+            "Only": [
+              201
+            ]
+          }
+        },
+        "226": {
+          "anchors": [
+            67,
+            51
+          ],
+          "graphs": {
+            "Only": [
+              201
+            ]
+          }
+        },
+        "228": {
+          "anchors": [
+            43,
+            44
+          ],
+          "graphs": {
+            "Only": [
+              201
+            ]
+          }
+        },
+        "230": {
+          "anchors": [
+            43,
+            68
+          ],
+          "graphs": {
+            "Only": [
+              201
+            ]
+          }
+        },
+        "232": {
+          "anchors": [
+            68,
+            69
+          ],
+          "graphs": {
+            "Only": [
+              201
+            ]
+          }
+        },
+        "234": {
+          "anchors": [
+            69,
+            46
+          ],
+          "graphs": {
+            "Only": [
+              201
+            ]
+          }
+        },
+        "236": {
+          "anchors": [
+            61,
+            70
+          ],
+          "graphs": {
+            "Only": [
+              201
+            ]
+          }
+        },
+        "238": {
+          "anchors": [
+            70,
+            68
+          ],
+          "graphs": {
+            "Only": [
+              201
+            ]
+          }
+        },
+        "240": {
+          "anchors": [
+            60,
+            71
+          ],
+          "graphs": {
+            "Only": [
+              201
+            ]
+          }
+        },
+        "242": {
+          "anchors": [
+            71,
+            69
+          ],
+          "graphs": {
+            "Only": [
+              201
+            ]
+          }
+        },
+        "244": {
+          "anchors": [
+            54,
+            72
+          ],
+          "graphs": {
+            "Only": [
+              201
+            ]
+          }
+        },
+        "246": {
+          "anchors": [
+            72,
+            58
+          ],
+          "graphs": {
+            "Only": [
+              201
+            ]
+          }
+        },
+        "248": {
+          "anchors": [
+            49,
+            50
+          ],
+          "graphs": {
+            "Only": [
+              201
+            ]
+          }
+        },
+        "250": {
+          "anchors": [
+            62,
+            73
+          ],
+          "graphs": {
+            "Only": [
+              201
+            ]
+          }
+        },
+        "252": {
+          "anchors": [
+            50,
+            74
+          ],
+          "graphs": {
+            "Only": [
+              201
+            ]
+          }
+        },
+        "254": {
+          "anchors": [
+            74,
+            55
+          ],
+          "graphs": {
+            "Only": [
+              201
+            ]
+          }
+        },
+        "256": {
+          "anchors": [
+            64,
+            61
+          ],
+          "graphs": {
+            "Only": [
+              201
+            ]
+          }
+        },
+        "258": {
+          "anchors": [
+            61,
+            60
+          ],
+          "graphs": {
+            "Only": [
+              201
+            ]
+          }
+        },
+        "260": {
+          "anchors": [
+            60,
+            73
+          ],
+          "graphs": {
+            "Only": [
+              201
+            ]
+          }
+        },
+        "262": {
+          "anchors": [
+            67,
+            75
+          ],
+          "graphs": {
+            "Only": [
+              201
+            ]
+          }
+        },
+        "264": {
+          "anchors": [
+            67,
+            49
+          ],
+          "graphs": {
+            "Only": [
+              201
+            ]
+          }
+        }
+      },
+      "locations": {
+        "45": {
+          "anchor": 44,
+          "tags": [
+            "Charger",
+            "ParkingSpot",
+            "HoldingPoint"
+          ],
+          "name": "tinyRobot1_charger",
+          "graphs": "All"
+        },
+        "48": {
+          "anchor": 47,
+          "tags": [
+            "HoldingPoint"
+          ],
+          "name": "pantry",
+          "graphs": "All"
+        },
+        "52": {
+          "anchor": 51,
+          "tags": [
+            "HoldingPoint"
+          ],
+          "name": "lounge",
+          "graphs": "All"
+        },
+        "56": {
+          "anchor": 55,
+          "tags": [
+            "HoldingPoint"
+          ],
+          "name": "hardware_2",
+          "graphs": "All"
+        },
+        "59": {
+          "anchor": 58,
+          "tags": [
+            "HoldingPoint"
+          ],
+          "name": "coe",
+          "graphs": "All"
+        },
+        "66": {
+          "anchor": 65,
+          "tags": [
+            "ParkingSpot"
+          ],
+          "name": "supplies",
+          "graphs": "All"
+        },
+        "76": {
+          "anchor": 75,
+          "tags": [
+            "Charger",
+            "ParkingSpot",
+            "HoldingPoint"
+          ],
+          "name": "tinyRobot2_charger",
+          "graphs": "All"
+        }
+      }
+    }
+  },
+  "scenarios": {
+    "0": {
+      "instances": {
+        "87": {
+          "pose": {
+            "trans": [
+              6.562113,
+              -6.721654,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 243.52425
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "88": {
+          "pose": {
+            "trans": [
+              6.23907,
+              -7.4834976,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 242.01164
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "89": {
+          "pose": {
+            "trans": [
+              5.7584496,
+              -8.260444,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 243.33517
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "90": {
+          "pose": {
+            "trans": [
+              5.395881,
+              -9.025724,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 243.26642
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "91": {
+          "pose": {
+            "trans": [
+              3.8721597,
+              -8.264829,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 62.601368
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "92": {
+          "pose": {
+            "trans": [
+              4.2620125,
+              -7.489813,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 64.24576
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "93": {
+          "pose": {
+            "trans": [
+              4.6526785,
+              -6.752375,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 60.80801
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "94": {
+          "pose": {
+            "trans": [
+              5.012623,
+              -6.0588393,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 61.75912
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "96": {
+          "pose": {
+            "trans": [
+              15.988145,
+              -5.750839,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 90.00021
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "98": {
+          "pose": {
+            "trans": [
+              14.255758,
+              -5.5469394,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 0.95110995
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "100": {
+          "pose": {
+            "trans": [
+              11.788456,
+              -5.9797463,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 181.12915
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "101": {
+          "pose": {
+            "trans": [
+              8.395375,
+              -4.354185,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 62.968063
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "102": {
+          "pose": {
+            "trans": [
+              14.24488,
+              -5.941482,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 181.02028
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "104": {
+          "pose": {
+            "trans": [
+              10.225911,
+              -8.526616,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 90.00021
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "105": {
+          "pose": {
+            "trans": [
+              10.183296,
+              -9.890382,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 90.00021
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "106": {
+          "pose": {
+            "trans": [
+              13.810744,
+              -9.831106,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 90.00021
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "107": {
+          "pose": {
+            "trans": [
+              9.391493,
+              -8.541964,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": -90.00021
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "108": {
+          "pose": {
+            "trans": [
+              9.369923,
+              -9.890179,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 270.00064
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "109": {
+          "pose": {
+            "trans": [
+              12.944046,
+              -9.827407,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 270.00064
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "110": {
+          "pose": {
+            "trans": [
+              12.955153,
+              -8.47181,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": -90.00021
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "111": {
+          "pose": {
+            "trans": [
+              13.810744,
+              -8.460695,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 90.00021
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "112": {
+          "pose": {
+            "trans": [
+              6.734191,
+              -9.675341,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 62.326347
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "114": {
+          "pose": {
+            "trans": [
+              6.1112156,
+              -10.564387,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 63.621235
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "116": {
+          "pose": {
+            "trans": [
+              17.31969,
+              -8.342677,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 90.00021
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "117": {
+          "pose": {
+            "trans": [
+              17.350328,
+              -9.715696,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 90.00021
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "118": {
+          "pose": {
+            "trans": [
+              16.480625,
+              -9.730028,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": -90.00021
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "119": {
+          "pose": {
+            "trans": [
+              16.485409,
+              -8.382483,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": -90.00021
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "120": {
+          "pose": {
+            "trans": [
+              22.074837,
+              -10.320243,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 264.0648
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "121": {
+          "pose": {
+            "trans": [
+              22.382769,
+              -7.5850835,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 262.50635
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "122": {
+          "pose": {
+            "trans": [
+              19.943605,
+              -8.644574,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 90.89403
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "123": {
+          "pose": {
+            "trans": [
+              19.9331,
+              -7.1938,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 90.14345
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "124": {
+          "pose": {
+            "trans": [
+              7.475032,
+              -3.8687313,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 242.28093
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "125": {
+          "pose": {
+            "trans": [
+              13.006471,
+              -5.565733,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 91.180504
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "126": {
+          "pose": {
+            "trans": [
+              21.541857,
+              -3.953166,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 0.0
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "127": {
+          "pose": {
+            "trans": [
+              22.419247,
+              -3.953166,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 0.0
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "128": {
+          "pose": {
+            "trans": [
+              22.696745,
+              -4.5000033,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": -90.00021
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "129": {
+          "pose": {
+            "trans": [
+              22.382515,
+              -5.0345993,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 180.00043
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "130": {
+          "pose": {
+            "trans": [
+              21.484724,
+              -5.026438,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 180.00043
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "131": {
+          "pose": {
+            "trans": [
+              20.954208,
+              -4.508164,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 90.00021
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "132": {
+          "pose": {
+            "trans": [
+              14.205617,
+              -8.518074,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": -90.00021
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "133": {
+          "pose": {
+            "trans": [
+              21.993357,
+              -7.5173593,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 81.30271
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "134": {
+          "pose": {
+            "trans": [
+              21.731417,
+              -10.292781,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 83.64611
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "136": {
+          "pose": {
+            "trans": [
+              8.8679695,
+              -8.37472,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 90.00021
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "137": {
+          "pose": {
+            "trans": [
+              8.853638,
+              -9.784393,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 90.00021
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "138": {
+          "pose": {
+            "trans": [
+              10.702933,
+              -8.503742,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 270.00064
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "139": {
+          "pose": {
+            "trans": [
+              10.698159,
+              -9.870412,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 270.00064
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "140": {
+          "pose": {
+            "trans": [
+              12.456662,
+              -8.470295,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 90.00021
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "141": {
+          "pose": {
+            "trans": [
+              14.310741,
+              -9.832181,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": -90.00021
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "142": {
+          "pose": {
+            "trans": [
+              16.021889,
+              -9.773042,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 90.00021
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "143": {
+          "pose": {
+            "trans": [
+              16.041004,
+              -8.435044,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 90.00021
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "144": {
+          "pose": {
+            "trans": [
+              17.80429,
+              -8.544952,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": -90.00021
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "145": {
+          "pose": {
+            "trans": [
+              17.832962,
+              -9.725254,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": -90.00021
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "146": {
+          "pose": {
+            "trans": [
+              12.394543,
+              -9.712716,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 90.00021
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "147": {
+          "pose": {
+            "trans": [
+              11.842889,
+              -5.5646405,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 0.9167325
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "148": {
+          "pose": {
+            "trans": [
+              17.944157,
+              -7.932152,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 90.00021
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "149": {
+          "pose": {
+            "trans": [
+              22.225718,
+              -9.267287,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 264.8039
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "151": {
+          "pose": {
+            "trans": [
+              5.2486067,
+              -7.3819118,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 63.12276
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "153": {
+          "pose": {
+            "trans": [
+              21.87649,
+              -4.467352,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 0.0
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "155": {
+          "pose": {
+            "trans": [
+              15.06798,
+              -2.9141111,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": -1.6730368
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "157": {
+          "pose": {
+            "trans": [
+              7.948846,
+              -2.980853,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 152.63596
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "159": {
+          "pose": {
+            "trans": [
+              17.70439,
+              -5.2915354,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 90.00021
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "161": {
+          "pose": {
+            "trans": [
+              10.433054,
+              -5.5750957,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 0.0
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "162": {
+          "pose": {
+            "trans": [
+              20.423693,
+              -5.312098,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 0.0
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        }
+      },
+      "name": "Default Scenario",
+      "parent_scenario": null
+    }
+  },
+  "model_descriptions": {
+    "86": {
+      "name": "OfficeChairBlack",
+      "source": {
+        "Search": "OpenRobotics/OfficeChairBlack"
+      },
+      "is_static": true
+    },
+    "95": {
+      "name": "Fridge",
+      "source": {
+        "Search": "OpenRobotics/Fridge"
+      },
+      "is_static": true
+    },
+    "97": {
+      "name": "OfficeChairGrey",
+      "source": {
+        "Search": "OpenRobotics/OfficeChairGrey"
+      },
+      "is_static": true
+    },
+    "99": {
+      "name": "AdjTable",
+      "source": {
+        "Search": "OpenRobotics/AdjTable"
+      },
+      "is_static": true
+    },
+    "103": {
+      "name": "SmallCubicle",
+      "source": {
+        "Search": "OpenRobotics/SmallCubicle"
+      },
+      "is_static": true
+    },
+    "113": {
+      "name": "Drawer",
+      "source": {
+        "Search": "OpenRobotics/Drawer"
+      },
+      "is_static": true
+    },
+    "115": {
+      "name": "BigCubicle",
+      "source": {
+        "Search": "OpenRobotics/BigCubicle"
+      },
+      "is_static": true
+    },
+    "135": {
+      "name": "OfficeChairBlue",
+      "source": {
+        "Search": "OpenRobotics/OfficeChairBlue"
+      },
+      "is_static": true
+    },
+    "150": {
+      "name": "ConfTable",
+      "source": {
+        "Search": "OpenRobotics/ConfTable"
+      },
+      "is_static": true
+    },
+    "152": {
+      "name": "RecTable",
+      "source": {
+        "Search": "OpenRobotics/RecTable"
+      },
+      "is_static": true
+    },
+    "154": {
+      "name": "WhiteCabinet",
+      "source": {
+        "Search": "OpenRobotics/WhiteCabinet"
+      },
+      "is_static": true
+    },
+    "156": {
+      "name": "SquareShelf",
+      "source": {
+        "Search": "OpenRobotics/SquareShelf"
+      },
+      "is_static": true
+    },
+    "158": {
+      "name": "Coke",
+      "source": {
+        "Search": "OpenRobotics/Coke"
+      }
+    },
+    "160": {
+      "name": "TinyRobot",
+      "source": {
+        "Search": "Open-RMF/TinyRobot"
+      }
+    }
+  },
+  "robots": {
+    "160": {
+      "properties": {
+        "Collision": {
+          "config": {
+            "offset": [
+              0.0,
+              0.0
+            ],
+            "radius": 0.2857271432876587
+          },
+          "kind": "Circle Collision"
+        },
+        "Mobility": {
+          "config": {
+            "bidirectional": true,
+            "rotation_center_offset": [
+              0.0,
+              0.0
+            ],
+            "rotational_speed": 0.6000000238418579,
+            "translational_speed": 0.5
+          },
+          "kind": "Differential Drive"
+        },
+        "Power Dissipation": {
+          "config": {
+            "Ambient System": {
+              "idle_power": 20.0
+            },
+            "Mechanical System": {
+              "friction_coefficient": 0.2199999988079071,
+              "mass": 20.0,
+              "moment_of_inertia": 10.0
+            }
+          }
+        },
+        "Power Source": {
+          "config": {
+            "capacity": 24.0,
+            "charging_current": 5.0,
+            "voltage": 12.0
+          },
+          "kind": "Battery"
+        }
+      }
+    }
+  },
+  "model_instances": {
+    "87": {
+      "parent": 1,
+      "name": "OfficeChairBlack",
+      "pose": {
+        "trans": [
+          6.562113,
+          -6.721654,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 243.52425
+          }
+        }
+      },
+      "description": 86
+    },
+    "88": {
+      "parent": 1,
+      "name": "OfficeChairBlack",
+      "pose": {
+        "trans": [
+          6.23907,
+          -7.4834976,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 242.01164
+          }
+        }
+      },
+      "description": 86
+    },
+    "89": {
+      "parent": 1,
+      "name": "OfficeChairBlack",
+      "pose": {
+        "trans": [
+          5.7584496,
+          -8.260444,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 243.33517
+          }
+        }
+      },
+      "description": 86
+    },
+    "90": {
+      "parent": 1,
+      "name": "OfficeChairBlack",
+      "pose": {
+        "trans": [
+          5.395881,
+          -9.025724,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 243.26642
+          }
+        }
+      },
+      "description": 86
+    },
+    "91": {
+      "parent": 1,
+      "name": "OfficeChairBlack",
+      "pose": {
+        "trans": [
+          3.8721597,
+          -8.264829,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 62.601368
+          }
+        }
+      },
+      "description": 86
+    },
+    "92": {
+      "parent": 1,
+      "name": "OfficeChairBlack",
+      "pose": {
+        "trans": [
+          4.2620125,
+          -7.489813,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 64.24576
+          }
+        }
+      },
+      "description": 86
+    },
+    "93": {
+      "parent": 1,
+      "name": "OfficeChairBlack",
+      "pose": {
+        "trans": [
+          4.6526785,
+          -6.752375,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 60.80801
+          }
+        }
+      },
+      "description": 86
+    },
+    "94": {
+      "parent": 1,
+      "name": "OfficeChairBlack",
+      "pose": {
+        "trans": [
+          5.012623,
+          -6.0588393,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 61.75912
+          }
+        }
+      },
+      "description": 86
+    },
+    "96": {
+      "parent": 1,
+      "name": "Fridge",
+      "pose": {
+        "trans": [
+          15.988145,
+          -5.750839,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 90.00021
+          }
+        }
+      },
+      "description": 95
+    },
+    "98": {
+      "parent": 1,
+      "name": "OfficeChairGrey",
+      "pose": {
+        "trans": [
+          14.255758,
+          -5.5469394,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 0.95110995
+          }
+        }
+      },
+      "description": 97
+    },
+    "100": {
+      "parent": 1,
+      "name": "AdjTable",
+      "pose": {
+        "trans": [
+          11.788456,
+          -5.9797463,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 181.12915
+          }
+        }
+      },
+      "description": 99
+    },
+    "101": {
+      "parent": 1,
+      "name": "AdjTable",
+      "pose": {
+        "trans": [
+          8.395375,
+          -4.354185,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 62.968063
+          }
+        }
+      },
+      "description": 99
+    },
+    "102": {
+      "parent": 1,
+      "name": "AdjTable",
+      "pose": {
+        "trans": [
+          14.24488,
+          -5.941482,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 181.02028
+          }
+        }
+      },
+      "description": 99
+    },
+    "104": {
+      "parent": 1,
+      "name": "SmallCubicle",
+      "pose": {
+        "trans": [
+          10.225911,
+          -8.526616,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 90.00021
+          }
+        }
+      },
+      "description": 103
+    },
+    "105": {
+      "parent": 1,
+      "name": "SmallCubicle",
+      "pose": {
+        "trans": [
+          10.183296,
+          -9.890382,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 90.00021
+          }
+        }
+      },
+      "description": 103
+    },
+    "106": {
+      "parent": 1,
+      "name": "SmallCubicle",
+      "pose": {
+        "trans": [
+          13.810744,
+          -9.831106,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 90.00021
+          }
+        }
+      },
+      "description": 103
+    },
+    "107": {
+      "parent": 1,
+      "name": "SmallCubicle",
+      "pose": {
+        "trans": [
+          9.391493,
+          -8.541964,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": -90.00021
+          }
+        }
+      },
+      "description": 103
+    },
+    "108": {
+      "parent": 1,
+      "name": "SmallCubicle",
+      "pose": {
+        "trans": [
+          9.369923,
+          -9.890179,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 270.00064
+          }
+        }
+      },
+      "description": 103
+    },
+    "109": {
+      "parent": 1,
+      "name": "SmallCubicle",
+      "pose": {
+        "trans": [
+          12.944046,
+          -9.827407,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 270.00064
+          }
+        }
+      },
+      "description": 103
+    },
+    "110": {
+      "parent": 1,
+      "name": "SmallCubicle",
+      "pose": {
+        "trans": [
+          12.955153,
+          -8.47181,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": -90.00021
+          }
+        }
+      },
+      "description": 103
+    },
+    "111": {
+      "parent": 1,
+      "name": "SmallCubicle",
+      "pose": {
+        "trans": [
+          13.810744,
+          -8.460695,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 90.00021
+          }
+        }
+      },
+      "description": 103
+    },
+    "112": {
+      "parent": 1,
+      "name": "AdjTable",
+      "pose": {
+        "trans": [
+          6.734191,
+          -9.675341,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 62.326347
+          }
+        }
+      },
+      "description": 99
+    },
+    "114": {
+      "parent": 1,
+      "name": "Drawer",
+      "pose": {
+        "trans": [
+          6.1112156,
+          -10.564387,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 63.621235
+          }
+        }
+      },
+      "description": 113
+    },
+    "116": {
+      "parent": 1,
+      "name": "BigCubicle",
+      "pose": {
+        "trans": [
+          17.31969,
+          -8.342677,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 90.00021
+          }
+        }
+      },
+      "description": 115
+    },
+    "117": {
+      "parent": 1,
+      "name": "BigCubicle",
+      "pose": {
+        "trans": [
+          17.350328,
+          -9.715696,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 90.00021
+          }
+        }
+      },
+      "description": 115
+    },
+    "118": {
+      "parent": 1,
+      "name": "BigCubicle",
+      "pose": {
+        "trans": [
+          16.480625,
+          -9.730028,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": -90.00021
+          }
+        }
+      },
+      "description": 115
+    },
+    "119": {
+      "parent": 1,
+      "name": "BigCubicle",
+      "pose": {
+        "trans": [
+          16.485409,
+          -8.382483,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": -90.00021
+          }
+        }
+      },
+      "description": 115
+    },
+    "120": {
+      "parent": 1,
+      "name": "AdjTable",
+      "pose": {
+        "trans": [
+          22.074837,
+          -10.320243,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 264.0648
+          }
+        }
+      },
+      "description": 99
+    },
+    "121": {
+      "parent": 1,
+      "name": "AdjTable",
+      "pose": {
+        "trans": [
+          22.382769,
+          -7.5850835,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 262.50635
+          }
+        }
+      },
+      "description": 99
+    },
+    "122": {
+      "parent": 1,
+      "name": "AdjTable",
+      "pose": {
+        "trans": [
+          19.943605,
+          -8.644574,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 90.89403
+          }
+        }
+      },
+      "description": 99
+    },
+    "123": {
+      "parent": 1,
+      "name": "AdjTable",
+      "pose": {
+        "trans": [
+          19.9331,
+          -7.1938,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 90.14345
+          }
+        }
+      },
+      "description": 99
+    },
+    "124": {
+      "parent": 1,
+      "name": "AdjTable",
+      "pose": {
+        "trans": [
+          7.475032,
+          -3.8687313,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 242.28093
+          }
+        }
+      },
+      "description": 99
+    },
+    "125": {
+      "parent": 1,
+      "name": "AdjTable",
+      "pose": {
+        "trans": [
+          13.006471,
+          -5.565733,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 91.180504
+          }
+        }
+      },
+      "description": 99
+    },
+    "126": {
+      "parent": 1,
+      "name": "OfficeChairGrey",
+      "pose": {
+        "trans": [
+          21.541857,
+          -3.953166,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 0.0
+          }
+        }
+      },
+      "description": 97
+    },
+    "127": {
+      "parent": 1,
+      "name": "OfficeChairGrey",
+      "pose": {
+        "trans": [
+          22.419247,
+          -3.953166,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 0.0
+          }
+        }
+      },
+      "description": 97
+    },
+    "128": {
+      "parent": 1,
+      "name": "OfficeChairGrey",
+      "pose": {
+        "trans": [
+          22.696745,
+          -4.5000033,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": -90.00021
+          }
+        }
+      },
+      "description": 97
+    },
+    "129": {
+      "parent": 1,
+      "name": "OfficeChairGrey",
+      "pose": {
+        "trans": [
+          22.382515,
+          -5.0345993,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 180.00043
+          }
+        }
+      },
+      "description": 97
+    },
+    "130": {
+      "parent": 1,
+      "name": "OfficeChairGrey",
+      "pose": {
+        "trans": [
+          21.484724,
+          -5.026438,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 180.00043
+          }
+        }
+      },
+      "description": 97
+    },
+    "131": {
+      "parent": 1,
+      "name": "OfficeChairGrey",
+      "pose": {
+        "trans": [
+          20.954208,
+          -4.508164,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 90.00021
+          }
+        }
+      },
+      "description": 97
+    },
+    "132": {
+      "parent": 1,
+      "name": "OfficeChairGrey",
+      "pose": {
+        "trans": [
+          14.205617,
+          -8.518074,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": -90.00021
+          }
+        }
+      },
+      "description": 97
+    },
+    "133": {
+      "parent": 1,
+      "name": "OfficeChairGrey",
+      "pose": {
+        "trans": [
+          21.993357,
+          -7.5173593,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 81.30271
+          }
+        }
+      },
+      "description": 97
+    },
+    "134": {
+      "parent": 1,
+      "name": "OfficeChairGrey",
+      "pose": {
+        "trans": [
+          21.731417,
+          -10.292781,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 83.64611
+          }
+        }
+      },
+      "description": 97
+    },
+    "136": {
+      "parent": 1,
+      "name": "OfficeChairBlue",
+      "pose": {
+        "trans": [
+          8.8679695,
+          -8.37472,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 90.00021
+          }
+        }
+      },
+      "description": 135
+    },
+    "137": {
+      "parent": 1,
+      "name": "OfficeChairBlue",
+      "pose": {
+        "trans": [
+          8.853638,
+          -9.784393,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 90.00021
+          }
+        }
+      },
+      "description": 135
+    },
+    "138": {
+      "parent": 1,
+      "name": "OfficeChairBlue",
+      "pose": {
+        "trans": [
+          10.702933,
+          -8.503742,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 270.00064
+          }
+        }
+      },
+      "description": 135
+    },
+    "139": {
+      "parent": 1,
+      "name": "OfficeChairBlue",
+      "pose": {
+        "trans": [
+          10.698159,
+          -9.870412,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 270.00064
+          }
+        }
+      },
+      "description": 135
+    },
+    "140": {
+      "parent": 1,
+      "name": "OfficeChairBlue",
+      "pose": {
+        "trans": [
+          12.456662,
+          -8.470295,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 90.00021
+          }
+        }
+      },
+      "description": 135
+    },
+    "141": {
+      "parent": 1,
+      "name": "OfficeChairBlue",
+      "pose": {
+        "trans": [
+          14.310741,
+          -9.832181,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": -90.00021
+          }
+        }
+      },
+      "description": 135
+    },
+    "142": {
+      "parent": 1,
+      "name": "OfficeChairBlue",
+      "pose": {
+        "trans": [
+          16.021889,
+          -9.773042,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 90.00021
+          }
+        }
+      },
+      "description": 135
+    },
+    "143": {
+      "parent": 1,
+      "name": "OfficeChairBlue",
+      "pose": {
+        "trans": [
+          16.041004,
+          -8.435044,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 90.00021
+          }
+        }
+      },
+      "description": 135
+    },
+    "144": {
+      "parent": 1,
+      "name": "OfficeChairBlue",
+      "pose": {
+        "trans": [
+          17.80429,
+          -8.544952,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": -90.00021
+          }
+        }
+      },
+      "description": 135
+    },
+    "145": {
+      "parent": 1,
+      "name": "OfficeChairBlue",
+      "pose": {
+        "trans": [
+          17.832962,
+          -9.725254,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": -90.00021
+          }
+        }
+      },
+      "description": 135
+    },
+    "146": {
+      "parent": 1,
+      "name": "OfficeChairBlack",
+      "pose": {
+        "trans": [
+          12.394543,
+          -9.712716,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 90.00021
+          }
+        }
+      },
+      "description": 86
+    },
+    "147": {
+      "parent": 1,
+      "name": "OfficeChairGrey",
+      "pose": {
+        "trans": [
+          11.842889,
+          -5.5646405,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 0.9167325
+          }
+        }
+      },
+      "description": 97
+    },
+    "148": {
+      "parent": 1,
+      "name": "Drawer",
+      "pose": {
+        "trans": [
+          17.944157,
+          -7.932152,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 90.00021
+          }
+        }
+      },
+      "description": 113
+    },
+    "149": {
+      "parent": 1,
+      "name": "Drawer",
+      "pose": {
+        "trans": [
+          22.225718,
+          -9.267287,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 264.8039
+          }
+        }
+      },
+      "description": 113
+    },
+    "151": {
+      "parent": 1,
+      "name": "ConfTable",
+      "pose": {
+        "trans": [
+          5.2486067,
+          -7.3819118,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 63.12276
+          }
+        }
+      },
+      "description": 150
+    },
+    "153": {
+      "parent": 1,
+      "name": "RecTable",
+      "pose": {
+        "trans": [
+          21.87649,
+          -4.467352,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 0.0
+          }
+        }
+      },
+      "description": 152
+    },
+    "155": {
+      "parent": 1,
+      "name": "WhiteCabinet",
+      "pose": {
+        "trans": [
+          15.06798,
+          -2.9141111,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": -1.6730368
+          }
+        }
+      },
+      "description": 154
+    },
+    "157": {
+      "parent": 1,
+      "name": "SquareShelf",
+      "pose": {
+        "trans": [
+          7.948846,
+          -2.980853,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 152.63596
+          }
+        }
+      },
+      "description": 156
+    },
+    "159": {
+      "parent": 1,
+      "name": "Coke",
+      "pose": {
+        "trans": [
+          17.70439,
+          -5.2915354,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 90.00021
+          }
+        }
+      },
+      "description": 158
+    },
+    "161": {
+      "parent": 1,
+      "name": "tinyRobot1",
+      "pose": {
+        "trans": [
+          10.433054,
+          -5.5750957,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 0.0
+          }
+        }
+      },
+      "description": 160
+    },
+    "162": {
+      "parent": 1,
+      "name": "tinyRobot2",
+      "pose": {
+        "trans": [
+          20.423693,
+          -5.312098,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 0.0
+          }
+        }
+      },
+      "description": 160
+    }
+  }
+}

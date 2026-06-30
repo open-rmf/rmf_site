@@ -398,6 +398,8 @@ fn generate_levels(
                 Option<&Original<Edge<Entity>>>,
                 &NameInSite,
                 &DoorType,
+                &Bottom,
+                &Top,
                 &SiteID,
             ),
             Without<Pending>,
@@ -450,6 +452,8 @@ fn generate_levels(
                 Option<&Original<Edge<Entity>>>,
                 &Affiliation<Entity>,
                 &SiteID,
+                &Top,
+                &Bottom,
             ),
             (With<WallMarker>, Without<Pending>),
         >,
@@ -551,7 +555,7 @@ fn generate_levels(
                     if let Ok((anchor, id)) = q_anchors.get(c) {
                         level.anchors.insert(id.0, anchor.clone());
                     }
-                    if let Ok((edge, o_edge, name, kind, id)) = q_doors.get(c) {
+                    if let Ok((edge, o_edge, name, kind, bottom, top, id)) = q_doors.get(c) {
                         let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
                         let anchors = get_anchor_id_edge(c, edge)?;
                         level.doors.insert(
@@ -560,6 +564,8 @@ fn generate_levels(
                                 anchors,
                                 name: name.clone(),
                                 kind: kind.clone(),
+                                bottom: *bottom,
+                                top: *top,
                                 marker: DoorMarker,
                             },
                         );
@@ -666,7 +672,7 @@ fn generate_levels(
                             },
                         );
                     }
-                    if let Ok((edge, o_edge, texture, id)) = q_walls.get(c) {
+                    if let Ok((edge, o_edge, texture, id, height, bottom)) = q_walls.get(c) {
                         let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
                         let anchors = get_anchor_id_edge(c, edge)?;
                         let texture = if let Affiliation(Some(e)) = texture {
@@ -680,6 +686,8 @@ fn generate_levels(
                             Wall {
                                 anchors,
                                 texture,
+                                top: *height,
+                                bottom: *bottom,
                                 marker: WallMarker,
                             },
                         );

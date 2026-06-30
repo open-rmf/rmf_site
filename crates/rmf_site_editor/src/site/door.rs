@@ -21,11 +21,12 @@ use bevy::{
     prelude::*,
 };
 use bevy_rich_text3d::*;
-use rmf_site_format::{Category, DoorType, Edge, DEFAULT_LEVEL_HEIGHT};
+use rmf_site_format::{Category, DoorType, Edge};
 use rmf_site_mesh::{
     flat_arc, flat_arrow_mesh_between, line_stroke_away_from, line_stroke_mesh, MeshBuffer, Radians,
 };
 use rmf_site_picking::{Hovered, Selectable, VisualCue};
+use smallvec::SmallVec;
 use std::collections::{BTreeSet, HashMap};
 use std::num::NonZero;
 use uuid::Uuid;
@@ -130,7 +131,14 @@ fn handle_name_limit(limit: usize, name: &str) -> String {
     result
 }
 
-fn find_door_position_tfs(kind: &DoorType, length: f32, offset: f32) -> Vec<Transform> {
+fn find_door_position_tfs(
+    kind: &DoorType,
+    bottom: f32,
+    top: f32,
+    length: f32,
+    offset: f32,
+) -> Vec<Transform> {
+    let delta_z = top - bottom;
     let door_slide_tf = |side: Side, position, door_length, is_double, offset| {
         let (translation_offset, gap) = match is_double {
             false => (0.0, 0.0),
@@ -139,8 +147,8 @@ fn find_door_position_tfs(kind: &DoorType, length: f32, offset: f32) -> Vec<Tran
         let distance = (door_length * position + gap + translation_offset) * side.sign();
 
         Transform {
-            translation: Vec3::new(0., distance + offset, DEFAULT_LEVEL_HEIGHT / 2.0),
-            scale: Vec3::new(DEFAULT_DOOR_THICKNESS, door_length, DEFAULT_LEVEL_HEIGHT),
+            translation: Vec3::new(0., distance + offset, delta_z / 2.0),
+            scale: Vec3::new(DEFAULT_DOOR_THICKNESS, door_length, delta_z),
             ..default()
         }
     };
@@ -176,8 +184,8 @@ fn find_door_position_tfs(kind: &DoorType, length: f32, offset: f32) -> Vec<Tran
         let door_swing_rotation = Quat::from_axis_angle(Vec3::Z, sweep);
 
         Transform {
-            translation: Vec3::new(new_x, new_y + offset, DEFAULT_LEVEL_HEIGHT / 2.0),
-            scale: Vec3::new(DEFAULT_DOOR_THICKNESS, door_length, DEFAULT_LEVEL_HEIGHT),
+            translation: Vec3::new(new_x, new_y + offset, delta_z / 2.0),
+            scale: Vec3::new(DEFAULT_DOOR_THICKNESS, door_length, delta_z),
             rotation: door_swing_rotation,
         }
     };
@@ -244,6 +252,8 @@ fn make_door_visuals(
     edge: &Edge<Entity>,
     anchors: &AnchorParams,
     kind: &DoorType,
+    bottom: f32,
+    top: f32,
 ) -> (Transform, Vec<Transform>, Mesh, f32, Vec3) {
     let p_start = anchors
         .point_in_parent_frame_of(edge.left(), Category::Door, entity)
@@ -262,13 +272,13 @@ fn make_door_visuals(
     let door_tfs = match kind {
         // TODO(luca) implement model variant
         DoorType::SingleSwing(_) | DoorType::SingleSliding(_) | DoorType::Model(_) => {
-            find_door_position_tfs(kind, length, 0.0)
+            find_door_position_tfs(kind, bottom, top, length, 0.0)
         }
         DoorType::DoubleSwing(door) => {
-            find_door_position_tfs(kind, length, door.compute_offset(length))
+            find_door_position_tfs(kind, bottom, top, length, door.compute_offset(length))
         }
         DoorType::DoubleSliding(door) => {
-            find_door_position_tfs(kind, length, door.compute_offset(length))
+            find_door_position_tfs(kind, bottom, top, length, door.compute_offset(length))
         }
     };
 
@@ -488,6 +498,8 @@ pub fn add_door_visuals(
             Entity,
             &Edge<Entity>,
             &DoorType,
+            &Bottom,
+            &Top,
             Option<&NameInSite>,
             Option<&Visibility>,
         ),
@@ -497,13 +509,18 @@ pub fn add_door_visuals(
         ),
     >,
     anchors: AnchorParams,
+    level_height: LevelHeightParam,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    for (e, edge, kind, name, visibility) in &new_doors {
+    for (e, edge, kind, bottom, top, name, visibility) in &new_doors {
+        let level_height = level_height.get_level_height(e);
+        let bottom = bottom.for_level_height(level_height);
+        let top = top.for_level_height(level_height);
+
         let (pose_tf, door_tfs, cue_mesh, door_length, name_scale) =
-            make_door_visuals(e, edge, &anchors, kind);
+            make_door_visuals(e, edge, &anchors, kind, bottom, top);
 
         let bodies = door_tfs
             .iter()
@@ -585,6 +602,8 @@ fn update_door_visuals(
     segments: &DoorSegments,
     name: Option<&NameInSite>,
     anchors: &AnchorParams,
+    bottom: f32,
+    top: f32,
     transforms: &mut Query<&mut Transform>,
     mesh_handles: &mut Query<&mut Mesh3d>,
     texts: &mut Query<&mut Text3d>,
@@ -592,7 +611,7 @@ fn update_door_visuals(
     assets: &Res<SiteAssets>,
 ) -> Option<DoorBodyType> {
     let (pose_tf, door_tfs, cue_mesh, door_length, child_scale) =
-        make_door_visuals(entity, edge, anchors, kind);
+        make_door_visuals(entity, edge, anchors, kind, bottom, top);
     let mut door_transform = transforms.get_mut(entity).unwrap();
     *door_transform = pose_tf;
     let mut entities = segments.body.entities();
@@ -607,6 +626,8 @@ fn update_door_visuals(
         segments.name_on_door,
         segments.name_on_floor,
         child_scale,
+        bottom,
+        top,
         texts,
         transforms,
     );
@@ -645,6 +666,8 @@ fn update_door_name(
     door_entity: Entity,
     floor_entity: Entity,
     name_scale: Vec3,
+    bottom: f32,
+    top: f32,
     texts: &mut Query<&mut Text3d>,
     transforms: &mut Query<&mut Transform>,
 ) {
@@ -672,7 +695,7 @@ fn update_door_name(
             }
         }
     };
-    update_name(DEFAULT_LEVEL_HEIGHT, door_entity);
+    update_name(top - bottom, door_entity);
     update_name(door_length, floor_entity);
 }
 
@@ -684,6 +707,8 @@ pub fn update_changed_door(
             &Edge<Entity>,
             &DoorType,
             Option<&NameInSite>,
+            &Bottom,
+            &Top,
             &mut DoorSegments,
             &mut Hovered,
         ),
@@ -691,16 +716,23 @@ pub fn update_changed_door(
             Changed<Edge<Entity>>,
             Changed<DoorType>,
             Changed<NameInSite>,
+            Changed<Bottom>,
+            Changed<Top>,
         )>,
     >,
     anchors: AnchorParams,
+    level_height: LevelHeightParam,
     mut transforms: Query<&mut Transform>,
     mut mesh_handles: Query<&mut Mesh3d>,
     mut texts: Query<&mut Text3d>,
     mut mesh_assets: ResMut<Assets<Mesh>>,
     assets: Res<SiteAssets>,
 ) {
-    for (entity, edge, kind, name, mut segments, mut hovered) in &mut doors {
+    for (entity, edge, kind, name, bottom, top, mut segments, mut hovered) in &mut doors {
+        let level_height = level_height.get_level_height(entity);
+        let bottom = bottom.for_level_height(level_height);
+        let top = top.for_level_height(level_height);
+
         let old_door_count = segments.body.entities().len();
         if let Some(new_body) = update_door_visuals(
             &mut commands,
@@ -710,6 +742,8 @@ pub fn update_changed_door(
             &segments,
             name,
             &anchors,
+            bottom,
+            top,
             &mut transforms,
             &mut mesh_handles,
             &mut texts,
@@ -726,13 +760,15 @@ pub fn update_changed_door(
     }
 }
 
-pub fn update_door_for_moved_anchors(
+pub fn update_door_for_changed_dependency(
     mut commands: Commands,
-    mut doors: Query<(
+    doors: Query<(
         Entity,
         &Edge<Entity>,
         &DoorType,
         &DoorSegments,
+        &Bottom,
+        &Top,
         Option<&NameInSite>,
     )>,
     anchors: AnchorParams,
@@ -743,31 +779,64 @@ pub fn update_door_for_moved_anchors(
             Or<(Changed<Anchor>, Changed<GlobalTransform>)>,
         ),
     >,
+    level_height: LevelHeightParam,
     mut transforms: Query<&mut Transform>,
     mut mesh_handles: Query<&mut Mesh3d>,
     mut mesh_assets: ResMut<Assets<Mesh>>,
     mut texts: Query<&mut Text3d>,
     assets: Res<SiteAssets>,
+    changed_level_elevations: Query<Entity, Changed<LevelElevation>>,
 ) {
+    let mut update_door = |entity: Entity| {
+        if let Some((entity, edge, kind, segments, bottom, top, name)) = doors.get(entity).ok() {
+            let level_height = level_height.get_level_height(entity);
+            let bottom = bottom.for_level_height(level_height);
+            let top = top.for_level_height(level_height);
+
+            update_door_visuals(
+                &mut commands,
+                entity,
+                edge,
+                kind,
+                &segments,
+                name,
+                &anchors,
+                bottom,
+                top,
+                &mut transforms,
+                &mut mesh_handles,
+                &mut texts,
+                &mut mesh_assets,
+                &assets,
+            );
+        }
+    };
+
+    if !changed_level_elevations.is_empty() {
+        // We might need to update all doors when a level elevation changes.
+        // This could be more efficient if we kept track of level ordering within
+        // a site.
+        for d in doors {
+            update_door(d.0);
+        }
+
+        // All doors have been updated, so we can skip the rest of the function
+        return;
+    }
+
+    let mut update_doors = SmallVec::<[_; 8]>::new();
     for dependents in &changed_anchors {
         for dependent in dependents.iter() {
-            if let Some((entity, edge, kind, segments, name)) = doors.get_mut(*dependent).ok() {
-                update_door_visuals(
-                    &mut commands,
-                    entity,
-                    edge,
-                    kind,
-                    &segments,
-                    name,
-                    &anchors,
-                    &mut transforms,
-                    &mut mesh_handles,
-                    &mut texts,
-                    &mut mesh_assets,
-                    &assets,
-                );
+            if doors.contains(*dependent) {
+                if !update_doors.contains(dependent) {
+                    update_doors.push(*dependent);
+                }
             }
         }
+    }
+
+    for e in update_doors {
+        update_door(e);
     }
 }
 

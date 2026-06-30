@@ -103,6 +103,7 @@ pub fn make_wall_mesh(
     p_start: Vec3,
     p_end: Vec3,
     thickness: f32,
+    bottom: f32,
     height: f32,
     texture_height: Option<f32>,
     texture_width: Option<f32>,
@@ -113,6 +114,7 @@ pub fn make_wall_mesh(
     let center = (p_start + p_end) / 2.0;
     let texture_height = texture_height.unwrap_or(height);
     let texture_width = texture_width.unwrap_or(1.0);
+    let z_delta = height - bottom;
 
     // The default UV coordinates made by bevy do not work well for walls,
     // so we customize them here
@@ -123,35 +125,35 @@ pub fn make_wall_mesh(
         [0., 0.], // 2
         [0., 0.], // 3
         // Bottom
-        [0., height / texture_height], // 4
-        [0., height / texture_height], // 5
-        [0., height / texture_height], // 6
-        [0., height / texture_height], // 7
+        [0., z_delta / texture_height], // 4
+        [0., z_delta / texture_height], // 5
+        [0., z_delta / texture_height], // 6
+        [0., z_delta / texture_height], // 7
         // Right
-        [length / texture_width, height / texture_height], // 8
-        [0., height / texture_height],                     // 9
-        [0., 0.],                                          // 10
-        [length / texture_width, 0.],                      // 11
+        [length / texture_width, z_delta / texture_height], // 8
+        [0., z_delta / texture_height],                     // 9
+        [0., 0.],                                           // 10
+        [length / texture_width, 0.],                       // 11
         // Left
         [0., 0.],                                          // 12
         [length / texture_width, 0.],                      // 13
         [length / texture_width, height / texture_height], // 14
-        [0., height / texture_height],                     // 15
+        [0., z_delta / texture_height],                    // 15
         // Front
-        [0., height / texture_height],                     // 16
-        [length / texture_width, height / texture_height], // 17
-        [length / texture_width, 0.],                      // 18
-        [0., 0.],                                          // 19
+        [0., z_delta / texture_height],                     // 16
+        [length / texture_width, z_delta / texture_height], // 17
+        [length / texture_width, 0.],                       // 18
+        [0., 0.],                                           // 19
         // Back
-        [length / texture_width, 0.],                      // 20
-        [0., 0.],                                          // 21
-        [0., height / texture_height],                     // 22
-        [length / texture_width, height / texture_height], // 23
+        [length / texture_width, 0.],                       // 20
+        [0., 0.],                                           // 21
+        [0., z_delta / texture_height],                     // 22
+        [length / texture_width, z_delta / texture_height], // 23
     ];
-    make_cuboid(length, thickness, height)
+    make_cuboid(length, thickness, z_delta)
         .with_uv(uv)
         .transform_by(
-            Affine3A::from_translation(Vec3::new(center.x, center.y, height / 2.0))
+            Affine3A::from_translation(Vec3::new(center.x, center.y, (bottom + height) / 2.0))
                 * Affine3A::from_rotation_z(yaw),
         )
 }
