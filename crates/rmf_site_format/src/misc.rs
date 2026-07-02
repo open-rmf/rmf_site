@@ -15,7 +15,7 @@
  *
 */
 
-use crate::RefTrait;
+use crate::{Recall, RefTrait};
 #[cfg(feature = "bevy")]
 use bevy::prelude::*;
 use glam::{Quat, Vec2, Vec3};
@@ -23,6 +23,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 pub const DEFAULT_LEVEL_HEIGHT: f32 = 3.0;
+pub const MINIMUM_LEVEL_HEIGHT: f32 = 2.0;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Side {
@@ -156,6 +157,143 @@ pub struct Scale(pub Vec3);
 impl Default for Scale {
     fn default() -> Self {
         Self(Vec3::ONE)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum Height {
+    /// The wall height is some ratio of the floor height. This should be between
+    /// 0 and 1 or else the wall may clip onto other levels.
+    LevelHeightRatio(f32),
+    /// The wall height is fixed to a specific value in meters.
+    Fixed(f32),
+}
+
+impl Height {
+    pub fn for_level_height(&self, level_height: f32) -> f32 {
+        match self {
+            Self::LevelHeightRatio(ratio) => *ratio * level_height,
+            Self::Fixed(value) => *value,
+        }
+    }
+
+    pub fn value_mut(&mut self) -> &mut f32 {
+        match self {
+            Self::LevelHeightRatio(ratio) => ratio,
+            Self::Fixed(fixed) => fixed,
+        }
+    }
+
+    pub fn label(&self) -> &str {
+        match self {
+            Self::LevelHeightRatio(_) => "ratio",
+            Self::Fixed(_) => "fixed",
+        }
+    }
+
+    pub fn ratio(&self) -> Option<f32> {
+        match self {
+            Self::LevelHeightRatio(ratio) => Some(*ratio),
+            _ => None,
+        }
+    }
+
+    pub fn assume_ratio(&self, recall: &RecallHeight) -> Self {
+        Self::LevelHeightRatio(self.ratio().unwrap_or(recall.ratio))
+    }
+
+    pub fn fixed(&self) -> Option<f32> {
+        match self {
+            Self::Fixed(fixed) => Some(*fixed),
+            _ => None,
+        }
+    }
+
+    pub fn assume_fixed(&self, recall: &RecallHeight) -> Self {
+        Self::Fixed(self.fixed().unwrap_or(recall.fixed))
+    }
+}
+
+pub struct RecallHeight {
+    ratio: f32,
+    fixed: f32,
+}
+
+impl Recall for RecallHeight {
+    type Source = Height;
+
+    fn remember(&mut self, source: &Self::Source) {
+        match source {
+            Height::LevelHeightRatio(ratio) => {
+                self.ratio = *ratio;
+            }
+            Height::Fixed(fixed) => {
+                self.fixed = *fixed;
+            }
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+#[serde(transparent)]
+pub struct Top(pub Height);
+
+impl Default for Top {
+    fn default() -> Self {
+        Self(Height::LevelHeightRatio(1.0))
+    }
+}
+
+#[cfg_attr(feature = "bevy", derive(Component, Deref))]
+pub struct RecallTop(pub RecallHeight);
+
+impl Recall for RecallTop {
+    type Source = Top;
+
+    fn remember(&mut self, source: &Self::Source) {
+        self.0.remember(&source.0);
+    }
+}
+
+impl Default for RecallTop {
+    fn default() -> Self {
+        Self(RecallHeight {
+            ratio: 1.0,
+            fixed: DEFAULT_LEVEL_HEIGHT,
+        })
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+#[serde(transparent)]
+pub struct Bottom(pub Height);
+
+impl Default for Bottom {
+    fn default() -> Self {
+        Self(Height::Fixed(0.0))
+    }
+}
+
+#[cfg_attr(feature = "bevy", derive(Component, Deref))]
+pub struct RecallBottom(pub RecallHeight);
+
+impl Recall for RecallBottom {
+    type Source = Bottom;
+
+    fn remember(&mut self, source: &Self::Source) {
+        self.0.remember(&source.0);
+    }
+}
+
+impl Default for RecallBottom {
+    fn default() -> Self {
+        Self(RecallHeight {
+            ratio: 0.0,
+            fixed: 0.0,
+        })
     }
 }
 
