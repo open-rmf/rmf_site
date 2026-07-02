@@ -266,6 +266,12 @@ impl PanelSettings {
         self
     }
 
+    /// Turn off the centered property, if it is on
+    pub fn flush(mut self) -> Self {
+        self.alignment.centered = false;
+        self
+    }
+
     pub fn is_horizontal(&self) -> bool {
         self.side.is_horizontal()
     }
