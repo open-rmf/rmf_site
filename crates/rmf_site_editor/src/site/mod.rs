@@ -270,6 +270,12 @@ impl Plugin for SitePlugin {
             ChangePlugin::<Texture>::default(),
         ))
         .add_plugins((
+            ChangePlugin::<Bottom>::default(),
+            RecallPlugin::<RecallBottom>::default(),
+            ChangePlugin::<Top>::default(),
+            RecallPlugin::<RecallTop>::default(),
+        ))
+        .add_plugins((
             ChangePlugin::<DoorType>::default(),
             RecallPlugin::<RecallDoorType>::default(),
             ChangePlugin::<LevelElevation>::default(),
@@ -403,7 +409,6 @@ impl Plugin for SitePlugin {
             PostUpdate,
             (
                 add_wall_visual,
-                update_walls_for_moved_anchors,
                 update_walls,
                 update_transforms_for_changed_poses,
                 align_site_drawings,
@@ -419,7 +424,7 @@ impl Plugin for SitePlugin {
                 update_anchor_transforms,
                 add_door_visuals,
                 update_changed_door,
-                update_door_for_moved_anchors,
+                update_door_for_changed_dependency,
                 add_floor_visuals,
                 update_floors,
                 update_floors_for_moved_anchors,

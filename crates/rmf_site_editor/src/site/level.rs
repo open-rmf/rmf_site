@@ -17,7 +17,10 @@
 
 use crate::site::*;
 use crate::{CurrentWorkspace, Issue, ValidateWorkspace};
-use bevy::ecs::{hierarchy::ChildOf, system::SystemState};
+use bevy::ecs::{
+    hierarchy::ChildOf,
+    system::{SystemParam, SystemState},
+};
 use bevy::prelude::*;
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -250,5 +253,65 @@ pub fn check_for_invalid_level_assignments(
                 commands.entity(**root).add_child(issue_id);
             }
         }
+    }
+}
+
+#[derive(SystemParam)]
+pub struct LevelHeightParam<'w, 's> {
+    elevations: Query<'w, 's, (Entity, &'static LevelElevation)>,
+    child_of: Query<'w, 's, &'static ChildOf>,
+    site: Query<'w, 's, Entity, With<NameOfSite>>,
+}
+
+impl<'w, 's> LevelHeightParam<'w, 's> {
+    pub fn get_level_height(&self, entity: Entity) -> f32 {
+        let level = 'level: {
+            let mut e = Some(entity);
+            while let Some(next) = e {
+                if self.elevations.contains(next) {
+                    break 'level next;
+                }
+
+                e = self.child_of.get(next).ok().map(|c| c.parent());
+            }
+
+            return DEFAULT_LEVEL_HEIGHT;
+        };
+
+        let Ok((_, elevation)) = self.elevations.get(level) else {
+            return DEFAULT_LEVEL_HEIGHT;
+        };
+
+        let get_site = |level: Entity| {
+            let mut parent = Some(level);
+            while let Some(next) = parent {
+                if self.site.contains(next) {
+                    return Some(next);
+                }
+
+                parent = self.child_of.get(next).ok().map(|c| c.parent());
+            }
+
+            None
+        };
+
+        let site = get_site(level);
+        let mut closest = None;
+        for (other_level, other_elevation) in &self.elevations {
+            let other_elevation = other_elevation.0;
+            if other_elevation <= elevation.0 + MINIMUM_LEVEL_HEIGHT {
+                continue;
+            }
+
+            if get_site(other_level) != site {
+                continue;
+            }
+
+            if closest.is_none_or(|h| other_elevation < h) {
+                closest = Some(other_elevation);
+            }
+        }
+
+        closest.unwrap_or(DEFAULT_LEVEL_HEIGHT)
     }
 }

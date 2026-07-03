@@ -45,6 +45,9 @@ pub use inspect_geography::*;
 pub mod inspect_group;
 pub use inspect_group::*;
 
+pub mod inspect_height;
+pub use inspect_height::*;
+
 pub mod inspect_is_static;
 pub use inspect_is_static::*;
 
@@ -207,6 +210,7 @@ impl Plugin for StandardInspectorPlugin {
                 InspectionPlugin::<InspectScale>::new(),
                 InspectionPlugin::<InspectLight>::new(),
                 InspectionPlugin::<InspectDoor>::new(),
+                InspectionPlugin::<InspectHeight>::new(),
                 InspectionPlugin::<InspectPrimitiveShape>::new(),
                 InspectionPlugin::<InspectMeasurement>::new(),
                 InspectionPlugin::<InspectPhysicalCameraProperties>::new(),

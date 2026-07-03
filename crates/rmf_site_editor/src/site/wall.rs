@@ -18,9 +18,10 @@
 use crate::site::*;
 use bevy::{ecs::query::QueryEntityError, prelude::*};
 use bevy_mod_outline::GenerateOutlineNormalsError;
-use rmf_site_format::{Edge, WallMarker, DEFAULT_LEVEL_HEIGHT};
+use rmf_site_format::{Edge, WallMarker};
 use rmf_site_mesh::*;
 use rmf_site_picking::Selectable;
+use smallvec::SmallVec;
 use thiserror::Error;
 
 pub const DEFAULT_WALL_THICKNESS: f32 = 0.1;
@@ -41,6 +42,8 @@ fn make_wall(
     wall: &Edge<Entity>,
     texture: &Texture,
     anchors: &AnchorParams,
+    bottom: f32,
+    top: f32,
 ) -> Result<Mesh, MeshCreationError> {
     // TODO(luca) map texture rotation to UV coordinates
     let p_start = anchors.point_in_parent_frame_of(wall.start(), Category::Wall, entity)?;
@@ -58,7 +61,8 @@ fn make_wall(
         p_start,
         p_end,
         DEFAULT_WALL_THICKNESS,
-        DEFAULT_LEVEL_HEIGHT,
+        bottom,
+        top,
         texture.height,
         texture.width,
     ))
@@ -68,21 +72,25 @@ fn make_wall(
 
 pub fn add_wall_visual(
     mut commands: Commands,
-    walls: Query<(Entity, &Edge<Entity>, &Affiliation<Entity>), Added<WallMarker>>,
+    walls: Query<(Entity, &Edge<Entity>, &Affiliation<Entity>, &Bottom, &Top), Added<WallMarker>>,
     anchors: AnchorParams,
     textures: Query<(Option<&TextureImage>, &Texture)>,
+    level_height: LevelHeightParam,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    for (e, edge, texture_source) in &walls {
+    for (e, edge, texture_source, wall_bottom, wall_height) in &walls {
+        let level_height = level_height.get_level_height(e);
+        let bottom = wall_bottom.for_level_height(level_height);
+        let top = wall_height.for_level_height(level_height);
         let (base_color_texture, texture) = from_texture_source(texture_source, &textures);
         let (base_color, alpha_mode) = if let Some(alpha) = texture.alpha.filter(|a| a < &1.0) {
             (Color::default().with_alpha(alpha), AlphaMode::Blend)
         } else {
             (Color::default(), AlphaMode::Opaque)
         };
-        let wall_mesh = match make_wall(e, edge, &texture, &anchors) {
+        let wall_mesh = match make_wall(e, edge, &texture, &anchors, bottom, top) {
             Ok(mesh) => mesh,
             Err(err) => {
                 error!("Error while adding a wall: {err}");
@@ -117,10 +125,35 @@ pub fn add_wall_visual(
     }
 }
 
-pub fn update_walls_for_moved_anchors(
-    walls: Query<(Entity, &Edge<Entity>, &Affiliation<Entity>, &Mesh3d), With<WallMarker>>,
-    anchors: AnchorParams,
-    textures: Query<(Option<&TextureImage>, &Texture)>,
+pub fn update_walls(
+    walls: Query<
+        (
+            &Edge<Entity>,
+            &Affiliation<Entity>,
+            &Mesh3d,
+            &MeshMaterial3d<StandardMaterial>,
+            &Bottom,
+            &Top,
+        ),
+        With<WallMarker>,
+    >,
+    changed_walls: Query<
+        Entity,
+        (
+            With<WallMarker>,
+            Or<(
+                Changed<Affiliation<Entity>>,
+                Changed<Edge<Entity>>,
+                Changed<Bottom>,
+                Changed<Top>,
+            )>,
+        ),
+    >,
+    all_walls: Query<Entity, With<WallMarker>>,
+    changed_texture_sources: Query<
+        &Members,
+        (With<Group>, Or<(Changed<TextureImage>, Changed<Texture>)>),
+    >,
     changed_anchors: Query<
         &Dependents,
         (
@@ -129,69 +162,31 @@ pub fn update_walls_for_moved_anchors(
         ),
     >,
     mut meshes: ResMut<Assets<Mesh>>,
-) {
-    for dependents in &changed_anchors {
-        for dependent in dependents.iter() {
-            if let Some((e, edge, texture_source, mesh)) = walls.get(*dependent).ok() {
-                let (_, texture) = from_texture_source(texture_source, &textures);
-                let Some(mesh) = meshes.get_mut(&mesh.0) else {
-                    continue;
-                };
-                *mesh = match make_wall(e, edge, &texture, &anchors) {
-                    Ok(mesh) => mesh,
-                    Err(err) => {
-                        error!("Error while changing wall anchors: {err}");
-                        continue;
-                    }
-                };
-            }
-        }
-    }
-}
-
-pub fn update_walls(
-    walls: Query<
-        (
-            &Edge<Entity>,
-            &Affiliation<Entity>,
-            &Mesh3d,
-            &MeshMaterial3d<StandardMaterial>,
-        ),
-        With<WallMarker>,
-    >,
-    changed_walls: Query<
-        Entity,
-        (
-            With<WallMarker>,
-            Or<(Changed<Affiliation<Entity>>, Changed<Edge<Entity>>)>,
-        ),
-    >,
-    changed_texture_sources: Query<
-        &Members,
-        (With<Group>, Or<(Changed<TextureImage>, Changed<Texture>)>),
-    >,
-    mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    level_height: LevelHeightParam,
     anchors: AnchorParams,
     textures: Query<(Option<&TextureImage>, &Texture)>,
+    changed_level_elevations: Query<Entity, Changed<LevelElevation>>,
 ) {
-    for e in changed_walls.iter().chain(
-        changed_texture_sources
-            .iter()
-            .flat_map(|members| members.iter().cloned()),
-    ) {
-        let Ok((edge, texture_source, mesh, material)) = walls.get(e) else {
-            continue;
+    let mut update_wall = |e: Entity| {
+        let Ok((edge, texture_source, mesh, material, wall_bottom, wall_height)) = walls.get(e)
+        else {
+            return;
         };
+
+        let level_height = level_height.get_level_height(e);
+        let bottom = wall_bottom.for_level_height(level_height);
+        let top = wall_height.for_level_height(level_height);
+
         let (base_color_texture, texture) = from_texture_source(texture_source, &textures);
         let Some(mesh) = meshes.get_mut(&mesh.0) else {
-            continue;
+            return;
         };
-        *mesh = match make_wall(e, edge, &texture, &anchors) {
+        *mesh = match make_wall(e, edge, &texture, &anchors, bottom, top) {
             Ok(mesh) => mesh,
             Err(err) => {
                 error!("Error while creating wall mesh: {err}");
-                continue;
+                return;
             }
         };
         if let Some(material) = materials.get_mut(material) {
@@ -204,5 +199,42 @@ pub fn update_walls(
             material.base_color = base_color;
             material.alpha_mode = alpha_mode;
         }
+    };
+
+    if !changed_level_elevations.is_empty() {
+        // We might need to update all walls when a level elevation changes.
+        // This could be more efficient if we kept track of level ordering within
+        // a site.
+        for e in &all_walls {
+            update_wall(e);
+        }
+
+        return;
+    }
+
+    let mut walls_to_update = SmallVec::<[_; 8]>::new();
+    for e in changed_walls.iter().chain(
+        changed_texture_sources
+            .iter()
+            .flat_map(|members| members.iter().cloned()),
+    ) {
+        if !walls_to_update.contains(&e) {
+            walls_to_update.push(e);
+        }
+    }
+
+    for dependents in &changed_anchors {
+        // Update walls whose anchors have moved
+        for dependent in dependents.iter() {
+            if all_walls.contains(*dependent) {
+                if !walls_to_update.contains(dependent) {
+                    walls_to_update.push(*dependent);
+                }
+            }
+        }
+    }
+
+    for e in walls_to_update {
+        update_wall(e);
     }
 }

@@ -180,7 +180,7 @@ impl<'w, 's> ViewLevels<'w, 's> {
                     }
 
                     let r = ui
-                        .add(DragValue::new(&mut shown_elevation).suffix("m"))
+                        .add(DragValue::new(&mut shown_elevation).suffix("m").speed(0.02))
                         .on_hover_text("Elevation of the level");
                     if r.dragged() || r.has_focus() {
                         any_dragging = true;

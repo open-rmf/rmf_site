@@ -235,6 +235,7 @@ pub fn update_lift_cabin(
                             wall[0],
                             wall[1],
                             params.thickness(),
+                            0.0,
                             DEFAULT_LEVEL_HEIGHT / 3.0,
                             None,
                             None,
