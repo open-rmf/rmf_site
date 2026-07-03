@@ -179,7 +179,13 @@ fn impl_inspect_anchor(
             });
         }
 
-        ui.add_space(10.0);
+        if !is_dependency {
+            // When inspecting an anchor, this adds some breathing room from the
+            // InspectAnchorDependents widget. When this is instead for a
+            // dependency, we skip adding the space because this widget will be
+            // integrated into a grid.
+            ui.add_space(10.0);
+        }
     }
 
     Some(InspectAnchorResponse { replace })
