@@ -137,44 +137,54 @@ fn impl_inspect_anchor(
                 }
             });
         } else {
-            match anchor {
-                Anchor::Translate2D(_) => {
-                    if !is_dependency {
-                        ui.label("x");
-                    }
-                    let mut x = tf.translation.x;
-                    ui.add(DragValue::new(&mut x).speed(0.01));
+            panel.orthogonal(ui, |ui| {
+                match anchor {
+                    Anchor::Translate2D(_) => {
+                        if !is_dependency {
+                            ui.label("x");
+                        }
+                        let mut x = tf.translation.x;
+                        ui.add(DragValue::new(&mut x).speed(0.01));
 
-                    if !is_dependency {
-                        ui.label("y");
-                    }
-                    let mut y = tf.translation.y;
-                    ui.add(DragValue::new(&mut y).speed(0.01));
+                        if !is_dependency {
+                            ui.label("y");
+                        }
+                        let mut y = tf.translation.y;
+                        ui.add(DragValue::new(&mut y).speed(0.01));
 
-                    if x != tf.translation.x || y != tf.translation.y {
-                        {}
-                        params.move_to.write(MoveTo {
-                            entity: id,
-                            transform: Transform::from_translation([x, y, 0.0].into()),
+                        if x != tf.translation.x || y != tf.translation.y {
+                            {}
+                            params.move_to.write(MoveTo {
+                                entity: id,
+                                transform: Transform::from_translation([x, y, 0.0].into()),
+                            });
+                        }
+                    }
+                    Anchor::CategorizedTranslate2D(_) => {
+                        warn!("Categorized translate inspector not implemented yet");
+                    }
+                    Anchor::Pose3D(pose) => {
+                        panel.align(ui, |ui| {
+                            if let Some(new_pose) = InspectPoseComponent::new(pose).show(ui) {
+                                // TODO(luca) Using moveto doesn't allow switching between variants of
+                                // Pose3D
+                                params.move_to.write(MoveTo {
+                                    entity: id,
+                                    transform: new_pose.transform(),
+                                });
+                            }
                         });
                     }
                 }
-                Anchor::CategorizedTranslate2D(_) => {
-                    warn!("Categorized translate inspector not implemented yet");
-                }
-                Anchor::Pose3D(pose) => {
-                    panel.align(ui, |ui| {
-                        if let Some(new_pose) = InspectPoseComponent::new(pose).show(ui) {
-                            // TODO(luca) Using moveto doesn't allow switching between variants of
-                            // Pose3D
-                            params.move_to.write(MoveTo {
-                                entity: id,
-                                transform: new_pose.transform(),
-                            });
-                        }
-                    });
-                }
-            }
+            });
+        }
+
+        if !is_dependency {
+            // When inspecting an anchor, this adds some breathing room from the
+            // InspectAnchorDependents widget. When this is instead for a
+            // dependency, we skip adding the space because this widget will be
+            // integrated into a grid.
+            ui.add_space(10.0);
         }
     }
 
@@ -214,8 +224,8 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectAnchorDependents<'w, 's> {
             }
         }
 
-        panel.align(ui, |ui| {
-            ui.heading("Dependencies");
+        panel.flush().align(ui, |ui| {
+            ui.heading("Dependents");
             for (category, entities) in &category_map {
                 ui.label(category.label());
                 for e in entities {
