@@ -1947,7 +1947,7 @@ pub fn save_site(world: &mut World) {
                 }
 
                 migrate_relative_paths(save_event.site, &sdf_path, world);
-                let sdf = match site.to_sdf(base_sdf_xml.as_deref()) {
+                let sdf = match site.to_sdf_with_base_xml(base_sdf_xml.as_deref()) {
                     Ok(sdf) => sdf,
                     Err(err) => {
                         error!("Unable to convert site to sdf: {err}");

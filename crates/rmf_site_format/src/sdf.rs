@@ -425,7 +425,13 @@ fn make_sdf_door(
 }
 
 impl Site {
-    pub fn to_sdf(&self, base_sdf_xml: Option<&str>) -> Result<SdfRoot, SdfConversionError> {
+    pub fn to_sdf(&self) -> Result<SdfRoot, SdfConversionError> {
+        self.to_sdf_with_base_xml(None)
+    }
+    pub fn to_sdf_with_base_xml(
+        &self,
+        base_sdf_xml: Option<&str>,
+    ) -> Result<SdfRoot, SdfConversionError> {
         let get_anchor = |id: u32| -> Result<&Anchor, SdfConversionError> {
             self.get_anchor(id)
                 .ok_or(SdfConversionError::BrokenAnchorReference(id))
@@ -986,7 +992,7 @@ mod tests {
         let map = BuildingMap::from_bytes(&data).unwrap();
         let site = map.to_site().unwrap();
         // Convert to an sdf
-        let sdf = site.to_sdf(None).unwrap();
+        let sdf = site.to_sdf_with_base_xml(None).unwrap();
         let config = yaserde::ser::Config {
             perform_indent: true,
             write_document_declaration: true,
@@ -1036,7 +1042,7 @@ mod tests {
     </world>
 </sdf>"#;
 
-        let sdf = site.to_sdf(Some(custom_base)).unwrap();
+        let sdf = site.to_sdf_with_base_xml(Some(custom_base)).unwrap();
         assert_eq!(sdf.world[0].name, "building");
         assert_eq!(sdf.world[0].physics[0].name.as_deref(), Some("1ms"));
         assert_eq!(sdf.world[0].light[0].name, "sun");
