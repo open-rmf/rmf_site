@@ -595,7 +595,7 @@ impl FromWorld for WorkspaceSavingServices {
                         .pick_folder()
                         .await
                         .map(|f| f.path().to_path_buf());
-                    
+
                     #[cfg(target_arch = "wasm32")]
                     let folder_path = {
                         warn!("Folder dialogs are not implemented in wasm");
@@ -699,7 +699,10 @@ impl<'w, 's> WorkspaceSaver<'w, 's> {
     /// Request to export the workspace as a sdf to provided folder
     pub fn export_sdf_to_path(&mut self, path: PathBuf, base_sdf_path: Option<PathBuf>) {
         self.commands
-            .request((path, base_sdf_path), self.workspace_saving.export_sdf_to_path)
+            .request(
+                (path, base_sdf_path),
+                self.workspace_saving.export_sdf_to_path,
+            )
             .detach();
     }
 

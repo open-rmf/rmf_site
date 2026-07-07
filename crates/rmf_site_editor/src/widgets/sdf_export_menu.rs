@@ -96,7 +96,7 @@ fn show_export_sdf_dialog(
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
         .show(contexts.ctx_mut(), |ui| {
             ui.checkbox(&mut sdf_menu.use_custom_base, "Use custom base SDF file");
-            
+
             if sdf_menu.use_custom_base {
                 ui.horizontal(|ui| {
                     if ui.button("Browse...").clicked() {
@@ -109,7 +109,7 @@ fn show_export_sdf_dialog(
                     }
                 });
             }
-            
+
             ui.add_space(10.0);
             ui.horizontal(|ui| {
                 if ui.button("Export").clicked() {
@@ -161,9 +161,7 @@ fn show_export_sdf_dialog(
     }
 }
 
-fn resolve_sdf_base_file(
-    mut sdf_menu: ResMut<SdfExportMenu>,
-) {
+fn resolve_sdf_base_file(mut sdf_menu: ResMut<SdfExportMenu>) {
     let mut resolved = false;
     if let Some(task) = &mut sdf_menu.choosing_file {
         if let Some(result) = future::block_on(future::poll_once(task)) {

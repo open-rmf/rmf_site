@@ -436,7 +436,9 @@ impl Site {
                 .ok_or(SdfConversionError::BrokenLevelReference(id))
         };
         let mut root = match base_sdf_xml {
-            Some(xml) => yaserde::de::from_str(xml).map_err(SdfConversionError::CorruptedBaseSdf)?,
+            Some(xml) => {
+                yaserde::de::from_str(xml).map_err(SdfConversionError::CorruptedBaseSdf)?
+            }
             None => WORLD_TEMPLATE
                 .clone()
                 .map_err(SdfConversionError::CorruptedWorldTemplate)?,
@@ -1000,7 +1002,7 @@ mod tests {
         let data = std::fs::read("../../assets/demo_maps/office.building.yaml").unwrap();
         let map = BuildingMap::from_bytes(&data).unwrap();
         let site = map.to_site().unwrap();
-        
+
         let custom_base = r#"<?xml version="1.0" ?>
 <sdf version="1.9">
     <world name="custom_world">

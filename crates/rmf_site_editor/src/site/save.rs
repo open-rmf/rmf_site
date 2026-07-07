@@ -1902,15 +1902,13 @@ pub fn save_site(world: &mut World) {
                 };
 
                 let base_sdf_xml = match &base_sdf_path {
-                    Some(path) => {
-                        match std::fs::read_to_string(path) {
-                            Ok(xml) => Some(xml),
-                            Err(e) => {
-                                error!("Unable to read base SDF file at {}: {e}", path.display());
-                                continue;
-                            }
+                    Some(path) => match std::fs::read_to_string(path) {
+                        Ok(xml) => Some(xml),
+                        Err(e) => {
+                            error!("Unable to read base SDF file at {}: {e}", path.display());
+                            continue;
                         }
-                    }
+                    },
                     None => None,
                 };
 
