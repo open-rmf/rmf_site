@@ -54,7 +54,9 @@ pub struct CurrentWorkspace {
 pub enum ExportFormat {
     #[default]
     Default,
-    Sdf,
+    Sdf {
+        base_sdf_path: Option<PathBuf>,
+    },
     NavGraph,
     OccupancyGrid,
 }
@@ -512,9 +514,9 @@ pub struct WorkspaceSavingServices {
     /// Saves the current workspace in the current default file.
     pub save_workspace_to_default_file: Service<(), ()>,
     /// Opens a dialog to pick a folder and exports the requested workspace as an SDF.
-    pub export_sdf_to_dialog: Service<(), ()>,
+    pub export_sdf_to_dialog: Service<Option<PathBuf>, ()>,
     /// Exports the requested workspace as an SDF in the requested path.
-    pub export_sdf_to_path: Service<PathBuf, ()>,
+    pub export_sdf_to_path: Service<(PathBuf, Option<PathBuf>), ()>,
     /// Opens a dialog to pick a folder and exports the nav graphs from the requested site.
     pub export_nav_graphs_to_dialog: Service<(), ()>,
     /// Exports the nav graphs from the requested site to the requested path.
@@ -586,8 +588,26 @@ impl FromWorld for WorkspaceSavingServices {
             scope
                 .input
                 .chain(builder)
-                .then(pick_folder)
-                .map_block(|path| (path, ExportFormat::Sdf))
+                .map_async(|base_sdf_path| async move {
+                    #[cfg(not(target_arch = "wasm32"))]
+                    let folder_path = AsyncFileDialog::new()
+                        .set_title("Select Export Folder")
+                        .pick_folder()
+                        .await
+                        .map(|f| f.path().to_path_buf());
+                    
+                    #[cfg(target_arch = "wasm32")]
+                    let folder_path = {
+                        warn!("Folder dialogs are not implemented in wasm");
+                        None
+                    };
+
+                    folder_path.map(|fp| (fp, base_sdf_path))
+                })
+                .cancel_on_none()
+                .map_block(|(folder_path, base_sdf_path)| {
+                    (folder_path, ExportFormat::Sdf { base_sdf_path })
+                })
                 .then(send_file_save)
                 .connect(scope.terminate)
         });
@@ -595,7 +615,7 @@ impl FromWorld for WorkspaceSavingServices {
             scope
                 .input
                 .chain(builder)
-                .map_block(|path| (path, ExportFormat::Sdf))
+                .map_block(|(path, base_sdf_path)| (path, ExportFormat::Sdf { base_sdf_path }))
                 .then(send_file_save)
                 .connect(scope.terminate)
         });
@@ -670,16 +690,16 @@ impl<'w, 's> WorkspaceSaver<'w, 's> {
     }
 
     /// Request to export the workspace as a sdf to a folder selected from a dialog
-    pub fn export_sdf_to_dialog(&mut self) {
+    pub fn export_sdf_to_dialog(&mut self, base_sdf_path: Option<PathBuf>) {
         self.commands
-            .request((), self.workspace_saving.export_sdf_to_dialog)
+            .request(base_sdf_path, self.workspace_saving.export_sdf_to_dialog)
             .detach();
     }
 
     /// Request to export the workspace as a sdf to provided folder
-    pub fn export_sdf_to_path(&mut self, path: PathBuf) {
+    pub fn export_sdf_to_path(&mut self, path: PathBuf, base_sdf_path: Option<PathBuf>) {
         self.commands
-            .request(path, self.workspace_saving.export_sdf_to_path)
+            .request((path, base_sdf_path), self.workspace_saving.export_sdf_to_path)
             .detach();
     }
 

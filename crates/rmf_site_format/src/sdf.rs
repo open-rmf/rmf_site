@@ -49,6 +49,8 @@ pub enum SdfConversionError {
     BrokenModelDescriptionReference(u32),
     #[error("Failed deserializing world template: {0}")]
     CorruptedWorldTemplate(String),
+    #[error("Failed deserializing base SDF: {0}")]
+    CorruptedBaseSdf(String),
 }
 
 impl Pose {
@@ -423,7 +425,7 @@ fn make_sdf_door(
 }
 
 impl Site {
-    pub fn to_sdf(&self) -> Result<SdfRoot, SdfConversionError> {
+    pub fn to_sdf(&self, base_sdf_xml: Option<&str>) -> Result<SdfRoot, SdfConversionError> {
         let get_anchor = |id: u32| -> Result<&Anchor, SdfConversionError> {
             self.get_anchor(id)
                 .ok_or(SdfConversionError::BrokenAnchorReference(id))
@@ -433,9 +435,12 @@ impl Site {
                 .get(&id)
                 .ok_or(SdfConversionError::BrokenLevelReference(id))
         };
-        let mut root = WORLD_TEMPLATE
-            .clone()
-            .map_err(SdfConversionError::CorruptedWorldTemplate)?;
+        let mut root = match base_sdf_xml {
+            Some(xml) => yaserde::de::from_str(xml).map_err(SdfConversionError::CorruptedBaseSdf)?,
+            None => WORLD_TEMPLATE
+                .clone()
+                .map_err(SdfConversionError::CorruptedWorldTemplate)?,
+        };
         let world = &mut root.world[0];
         let mut min_elevation = f32::MAX;
         let mut max_elevation = f32::MIN;
@@ -979,7 +984,7 @@ mod tests {
         let map = BuildingMap::from_bytes(&data).unwrap();
         let site = map.to_site().unwrap();
         // Convert to an sdf
-        let sdf = site.to_sdf().unwrap();
+        let sdf = site.to_sdf(None).unwrap();
         let config = yaserde::ser::Config {
             perform_indent: true,
             write_document_declaration: true,
@@ -988,5 +993,50 @@ mod tests {
         let s = yaserde::ser::to_string_with_config(&sdf, &config).unwrap();
         let output_dir = testdir!();
         std::fs::write(output_dir.join("test.sdf"), s).unwrap();
+    }
+
+    #[test]
+    fn serialize_sdf_with_custom_base() {
+        let data = std::fs::read("../../assets/demo_maps/office.building.yaml").unwrap();
+        let map = BuildingMap::from_bytes(&data).unwrap();
+        let site = map.to_site().unwrap();
+        
+        let custom_base = r#"<?xml version="1.0" ?>
+<sdf version="1.9">
+    <world name="custom_world">
+        <physics name="1ms" type="ignored">
+            <max_step_size>0.001</max_step_size>
+            <real_time_factor>1.0</real_time_factor>
+            <real_time_update_rate>1000</real_time_update_rate>
+        </physics>
+        <gravity>0 0 -9.8</gravity>
+        <magnetic_field>5.64e-6 2.29e-5 -4.24e-5</magnetic_field>
+        <atmosphere type="adiabatic" />
+        <scene>
+            <ambient>1 1 1</ambient>
+            <background>0.8 0.8 0.8</background>
+            <grid>false</grid>
+            <shadows>true</shadows>
+        </scene>
+        <light type="directional" name="sun">
+            <cast_shadows>true</cast_shadows>
+            <pose>0 0 10 0 0 0</pose>
+            <diffuse>0.8 0.8 0.8 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <attenuation>
+                <range>1000</range>
+                <constant>0.9</constant>
+                <linear>0.01</linear>
+                <quadratic>0.001</quadratic>
+            </attenuation>
+            <direction>-0.5 0.1 -0.9</direction>
+        </light>
+    </world>
+</sdf>"#;
+
+        let sdf = site.to_sdf(Some(custom_base)).unwrap();
+        assert_eq!(sdf.world[0].name, "building");
+        assert_eq!(sdf.world[0].physics[0].name.as_deref(), Some("1ms"));
+        assert_eq!(sdf.world[0].light[0].name, "sun");
     }
 }

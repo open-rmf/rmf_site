@@ -100,6 +100,9 @@ pub struct CommandLineArgs {
     /// This requires you to specify FILENAME, and it can be used with export_sdf.
     #[cfg_attr(not(target_arch = "wasm32"), arg(long))]
     pub export_nav: Option<String>,
+    /// Base SDF file to use when exporting. If not specified, the default base world is used.
+    #[cfg_attr(not(target_arch = "wasm32"), arg(long))]
+    pub export_sdf_base: Option<String>,
 }
 
 #[derive(Clone, Default, Eq, PartialEq, Debug, Hash, States)]
@@ -144,6 +147,9 @@ pub struct SiteEditor {
     /// exporting its site as an SDF.
     export_sdf: Option<String>,
     /// Contains Some(path) if the site editor is running in headless mode
+    /// using a custom base SDF.
+    export_sdf_base: Option<String>,
+    /// Contains Some(path) if the site editor is running in headless mode
     /// exporting its nav graphs.
     export_nav: Option<String>,
     autoload: Option<Autoload>,
@@ -160,6 +166,7 @@ impl SiteEditor {
 
     pub fn from_cli_args(command_line_args: Vec<String>) -> Self {
         let mut _export_sdf = None;
+        let mut _export_sdf_base = None;
         let mut _export_nav = None;
         let mut autoload = None;
 
@@ -173,11 +180,13 @@ impl SiteEditor {
                 ));
             }
             _export_sdf = command_line_args.export_sdf;
+            _export_sdf_base = command_line_args.export_sdf_base;
             _export_nav = command_line_args.export_nav;
         }
 
         Self {
             export_sdf: _export_sdf,
+            export_sdf_base: _export_sdf_base,
             export_nav: _export_nav,
             autoload,
             save_as_path: None,
@@ -186,6 +195,11 @@ impl SiteEditor {
 
     pub fn export_sdf(mut self, export_to_file: Option<String>) -> Self {
         self.export_sdf = export_to_file;
+        self
+    }
+
+    pub fn export_sdf_base(mut self, base_file: Option<String>) -> Self {
+        self.export_sdf_base = base_file;
         self
     }
 
@@ -335,6 +349,7 @@ impl Plugin for SiteEditor {
             ));
             app.insert_resource(site::HeadlessExportState::new(
                 self.export_sdf.clone(),
+                self.export_sdf_base.clone(),
                 self.export_nav.clone(),
                 self.save_as_path.clone(),
             ));

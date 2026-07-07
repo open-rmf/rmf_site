@@ -42,6 +42,7 @@ pub struct HeadlessExportState {
     world_loaded: bool,
     export_request_sent: bool,
     sdf_target_path: Option<String>,
+    sdf_base_path: Option<String>,
     nav_target_path: Option<String>,
     save_target_path: Option<String>,
     loading: Option<Promise<()>>,
@@ -50,6 +51,7 @@ pub struct HeadlessExportState {
 impl HeadlessExportState {
     pub fn new(
         sdf_target_path: Option<String>,
+        sdf_base_path: Option<String>,
         nav_target_path: Option<String>,
         save_target_path: Option<String>,
     ) -> Self {
@@ -58,6 +60,7 @@ impl HeadlessExportState {
             world_loaded: false,
             export_request_sent: false,
             sdf_target_path,
+            sdf_base_path,
             nav_target_path,
             save_target_path,
             loading: None,
@@ -143,7 +146,11 @@ pub fn headless_export(
             if !export_state.export_request_sent && export_state.iterations > 5 {
                 if let Some(sdf_target_path) = &export_state.sdf_target_path {
                     let path = std::path::PathBuf::from(sdf_target_path.clone());
-                    workspace_saver.export_sdf_to_path(path);
+                    let base_path = export_state
+                        .sdf_base_path
+                        .as_ref()
+                        .map(std::path::PathBuf::from);
+                    workspace_saver.export_sdf_to_path(path, base_path);
                 }
 
                 if let Some(nav_target_path) = &export_state.nav_target_path {
