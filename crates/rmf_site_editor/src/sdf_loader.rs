@@ -28,8 +28,8 @@ use crate::site::{
     VisualMeshMarker,
 };
 use rmf_site_format::{
-    Angle, AssetSource, Category, IsBaseOccupancyGrid, IsStatic, Model, ModelMarker, NameInSite, Pose, PrimitiveShape,
-    Rotation, Scale,
+    Angle, AssetSource, Category, IsBaseOccupancyGrid, IsStatic, Model, ModelMarker, NameInSite,
+    Pose, PrimitiveShape, Rotation, Scale,
 };
 
 use std::str::Utf8Error;

@@ -612,7 +612,6 @@ impl Default for IsBaseOccupancyGrid {
     }
 }
 
-
 /// Marker component for previewable entities
 #[derive(Clone, Copy, Debug, Default)]
 #[cfg_attr(feature = "bevy", derive(Component))]

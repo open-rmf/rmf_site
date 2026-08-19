@@ -162,4 +162,3 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelIsBaseOccupancyGrid<'w, 's> {
         }
     }
 }
-

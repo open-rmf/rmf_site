@@ -323,10 +323,7 @@ fn is_excluded_from_base_occupancy_grid(
         }
         if let Ok(affiliation) = affiliations.get(p) {
             if let Some(desc_entity) = affiliation.0 {
-                if is_base_occupancy_grid
-                    .get(desc_entity)
-                    .is_ok_and(|b| !b.0)
-                {
+                if is_base_occupancy_grid.get(desc_entity).is_ok_and(|b| !b.0) {
                     return true;
                 }
                 if model_properties_is_base_occupancy_grid
