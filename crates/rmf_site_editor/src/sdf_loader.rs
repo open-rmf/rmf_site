@@ -28,7 +28,7 @@ use crate::site::{
     VisualMeshMarker,
 };
 use rmf_site_format::{
-    Angle, AssetSource, Category, IsStatic, Model, ModelMarker, NameInSite, Pose, PrimitiveShape,
+    Angle, AssetSource, Category, IsBaseOccupancyGrid, IsStatic, Model, ModelMarker, NameInSite, Pose, PrimitiveShape,
     Rotation, Scale,
 };
 
@@ -46,6 +46,7 @@ impl Plugin for SdfPlugin {
             .register_type::<AssetSource>()
             .register_type::<Pose>()
             .register_type::<IsStatic>()
+            .register_type::<IsBaseOccupancyGrid>()
             .register_type::<Scale>()
             .register_type::<ModelMarker>()
             .register_type::<VisualMeshMarker>()
@@ -217,6 +218,7 @@ fn spawn_geometry<'a, 'b>(
                     is_static: IsStatic(is_static),
                     scale: parse_scale(&mesh.scale),
                     marker: ModelMarker,
+                    ..Default::default()
                 })
                 .id(),
         ),

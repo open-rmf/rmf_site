@@ -600,6 +600,19 @@ impl Default for IsStatic {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(transparent)]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
+pub struct IsBaseOccupancyGrid(pub bool);
+
+impl Default for IsBaseOccupancyGrid {
+    fn default() -> Self {
+        IsBaseOccupancyGrid(true)
+    }
+}
+
+
 /// Marker component for previewable entities
 #[derive(Clone, Copy, Debug, Default)]
 #[cfg_attr(feature = "bevy", derive(Component))]

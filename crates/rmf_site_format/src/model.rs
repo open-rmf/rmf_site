@@ -33,6 +33,9 @@ pub struct Model {
     #[serde(default, skip_serializing_if = "is_default")]
     /// Whether this model should be able to move in simulation
     pub is_static: IsStatic,
+    #[serde(default, skip_serializing_if = "is_default")]
+    /// Whether this model is part of the base occupancy grid
+    pub is_base_occupancy_grid: IsBaseOccupancyGrid,
     /// Scale to be applied to the model
     #[serde(default, skip_serializing_if = "is_default")]
     pub scale: Scale,
@@ -53,6 +56,7 @@ impl Default for Model {
             source: AssetSource::default(),
             pose: Pose::default(),
             is_static: IsStatic(false),
+            is_base_occupancy_grid: IsBaseOccupancyGrid(true),
             scale: Scale::default(),
             marker: ModelMarker,
         }
@@ -83,6 +87,8 @@ pub struct ModelDescriptionBundle {
     #[serde(default, skip_serializing_if = "is_default")]
     pub is_static: ModelProperty<IsStatic>,
     #[serde(default, skip_serializing_if = "is_default")]
+    pub is_base_occupancy_grid: ModelProperty<IsBaseOccupancyGrid>,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub scale: ModelProperty<Scale>,
     #[serde(skip)]
     pub export: ExportWith,
@@ -98,6 +104,7 @@ impl Default for ModelDescriptionBundle {
             name: NameInSite("<Unnamed>".to_string()),
             source: ModelProperty(AssetSource::default()),
             is_static: ModelProperty(IsStatic::default()),
+            is_base_occupancy_grid: ModelProperty(IsBaseOccupancyGrid::default()),
             scale: ModelProperty(Scale::default()),
             export: ExportWith::default(),
             group: Group,
