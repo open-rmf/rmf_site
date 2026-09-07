@@ -1886,7 +1886,7 @@ pub fn save_site(world: &mut World) {
                 // supporting multiple sites being open in one app.
                 world.resource_mut::<SiteChanged>().0 = false;
             }
-            ExportFormat::Sdf => {
+            ExportFormat::Sdf { base_sdf_path } => {
                 // TODO(luca) reduce code duplication with default exporting
 
                 // Make sure to generate the site before anything else, because
@@ -1899,6 +1899,17 @@ pub fn save_site(world: &mut World) {
                         error!("Unable to compile site: {err}");
                         continue;
                     }
+                };
+
+                let base_sdf_xml = match &base_sdf_path {
+                    Some(path) => match std::fs::read_to_string(path) {
+                        Ok(xml) => Some(xml),
+                        Err(e) => {
+                            error!("Unable to read base SDF file at {}: {e}", path.display());
+                            continue;
+                        }
+                    },
+                    None => None,
                 };
 
                 info!("Saving to {}", new_path.display());
@@ -1936,7 +1947,7 @@ pub fn save_site(world: &mut World) {
                 }
 
                 migrate_relative_paths(save_event.site, &sdf_path, world);
-                let sdf = match site.to_sdf() {
+                let sdf = match site.to_sdf_with_base_xml(base_sdf_xml.as_deref()) {
                     Ok(sdf) => sdf,
                     Err(err) => {
                         error!("Unable to convert site to sdf: {err}");
