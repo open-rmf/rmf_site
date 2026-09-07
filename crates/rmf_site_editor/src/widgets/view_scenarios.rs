@@ -39,8 +39,9 @@ pub struct ViewScenariosPlugin {}
 
 impl Plugin for ViewScenariosPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<ScenarioDisplay>()
-            .add_plugins(PropertiesTilePlugin::<ViewScenarios>::new());
+        app.init_resource::<ScenarioDisplay>().add_plugins(
+            PropertiesTilePlugin::<ViewScenarios>::new("Scenarios").in_group(TabGroup::Top),
+        );
     }
 }
 
@@ -66,13 +67,9 @@ pub struct ViewScenarios<'w, 's> {
 }
 
 impl<'w, 's> WidgetSystem<Tile> for ViewScenarios<'w, 's> {
-    fn show(_: Tile, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) -> () {
+    fn show(_: Tile, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) {
         let mut params = state.get_mut(world);
-        CollapsingHeader::new("Scenarios")
-            .default_open(true)
-            .show(ui, |ui| {
-                params.show_widget(ui);
-            });
+        params.show_widget(ui);
     }
 }
 

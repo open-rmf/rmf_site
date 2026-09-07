@@ -29,7 +29,7 @@ pub struct BuildingPreviewPlugin {}
 
 impl Plugin for BuildingPreviewPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(PropertiesTilePlugin::<BuildingPreview>::new());
+        app.add_plugins(PropertiesTilePlugin::<BuildingPreview>::new("Preview"));
     }
 }
 

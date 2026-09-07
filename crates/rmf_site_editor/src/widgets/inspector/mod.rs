@@ -322,7 +322,10 @@ impl FromWorld for MainInspector {
     fn from_world(world: &mut World) -> Self {
         let widget = Widget::new::<Inspector>(world);
         let properties_panel = world.resource::<PropertiesPanel>().id();
-        let id = world.spawn(widget).insert(ChildOf(properties_panel)).id();
+        let id = world
+            .spawn((widget, Name::new("Inspect")))
+            .insert(ChildOf(properties_panel))
+            .id();
         Self { id }
     }
 }
@@ -350,69 +353,77 @@ impl<'w, 's> WidgetSystem<Tile> for Inspector<'w, 's> {
         }
         */
 
-        CollapsingHeader::new("Inspect")
-            .default_open(true)
-            .show(ui, |ui| {
-                let Some(selection) = world.get_resource::<Selection>() else {
-                    ui.label("ERROR: Selection resource is not available");
-                    return;
-                };
+        let Some(selection) = world.get_resource::<Selection>() else {
+            ui.label("ERROR: Selection resource is not available");
+            return;
+        };
 
-                if selection.selected.len() > 1 {
-                    let instances: SmallVec<[Entity; 16]> =
-                        selection.selected.iter().cloned().collect();
-
-                    let mut inspect_multi_selection = state.get_mut(world).inspect_multi_selection;
-                    inspect_multi_selection.show_widget(instances, ui);
-                    return;
-                }
-
-                let Some(mut selection) = selection.get_single() else {
-                    return;
-                };
-
-                let inspect_for_query = state.get_mut(world).inspect_for_query;
-
-                if let Ok(inspect_for) = inspect_for_query.get(selection) {
-                    selection = inspect_for.entity;
-                }
-
-                let params = state.get_mut(world);
-
-                let (label, site_id) =
-                    if let Ok((category, site_id)) = params.heading.get(selection) {
-                        (
-                            category.map(|x| x.label()).unwrap_or("<Unknown Type>"),
-                            site_id,
-                        )
-                    } else {
-                        ("<Unknown Type>", None)
-                    };
-
-                if let Some(site_id) = site_id {
-                    ui.heading(format!("{} #{}", label, site_id.0));
-                } else {
-                    ui.heading(format!("{} (unsaved)", label));
-                }
-
-                let children: Result<SmallVec<[_; 16]>, _> = params
-                    .children
-                    .get(id)
-                    .map(|children| children.iter().collect());
-                let Ok(children) = children else {
-                    return;
-                };
-
-                panel.align(ui, |ui| {
-                    for child in children {
-                        let inspect = Inspect {
-                            selection,
-                            inspection: child,
-                            panel,
-                        };
-                        let _ = world.try_show_in(child, inspect, ui);
-                    }
-                });
+        // Add prompts when no entity is selected to prevent tab from looking broken
+        if selection.selected.is_empty() {
+            ui.vertical_centered(|ui| {
+                ui.add_space(20.0);
+                ui.label(
+                    bevy_egui::egui::RichText::new("No entity selected")
+                        .italics()
+                        .color(bevy_egui::egui::Color32::from_gray(160)),
+                );
+                ui.label("Click on an object in the scene to inspect its properties.");
             });
+            return;
+        }
+
+        if selection.selected.len() > 1 {
+            let instances: SmallVec<[Entity; 16]> = selection.selected.iter().cloned().collect();
+
+            let mut inspect_multi_selection = state.get_mut(world).inspect_multi_selection;
+            inspect_multi_selection.show_widget(instances, ui);
+            return;
+        }
+
+        let Some(mut selection) = selection.get_single() else {
+            return;
+        };
+
+        let inspect_for_query = state.get_mut(world).inspect_for_query;
+
+        if let Ok(inspect_for) = inspect_for_query.get(selection) {
+            selection = inspect_for.entity;
+        }
+
+        let params = state.get_mut(world);
+
+        let (label, site_id) = if let Ok((category, site_id)) = params.heading.get(selection) {
+            (
+                category.map(|x| x.label()).unwrap_or("<Unknown Type>"),
+                site_id,
+            )
+        } else {
+            ("<Unknown Type>", None)
+        };
+
+        if let Some(site_id) = site_id {
+            ui.heading(format!("{} #{}", label, site_id.0));
+        } else {
+            ui.heading(format!("{} (unsaved)", label));
+        }
+
+        let children: Result<SmallVec<[_; 16]>, _> = params
+            .children
+            .get(id)
+            .map(|children| children.iter().collect());
+        let Ok(children) = children else {
+            return;
+        };
+
+        panel.align(ui, |ui| {
+            for child in children {
+                let inspect = Inspect {
+                    selection,
+                    inspection: child,
+                    panel,
+                };
+                let _ = world.try_show_in(child, inspect, ui);
+            }
+        });
     }
 }
