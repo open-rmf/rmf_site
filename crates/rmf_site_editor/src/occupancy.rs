@@ -32,7 +32,7 @@ use bevy::{
 };
 use crossflow::*;
 use itertools::Itertools;
-use rmf_site_format::Robot;
+use rmf_site_format::{DoorMarker, Robot};
 use rmf_site_mesh::*;
 use rmf_site_picking::ComputedVisualCue;
 use std::collections::{HashMap, HashSet};
@@ -215,6 +215,13 @@ impl Default for CalculateGrid {
     }
 }
 
+impl CalculateGrid {
+    pub fn exclude<T: Component>(mut self, entities: &Query<Entity, With<T>>) -> Self {
+        self.ignore.extend(entities.iter());
+        self
+    }
+}
+
 enum Group {
     Level(Entity),
     Site(Entity),
@@ -225,6 +232,7 @@ fn calculate_occupancy_grid(
     In(BlockingService { .. }): BlockingServiceInput<()>,
     occupancy_info: Res<OccupancyInfo>,
     robots: Query<Entity, With<Robot>>,
+    doors: Query<Entity, With<DoorMarker>>,
     mut commands: Commands,
     bodies: Query<(Entity, &Mesh3d, &Aabb, &GlobalTransform)>,
     meta: Query<(
@@ -242,9 +250,10 @@ fn calculate_occupancy_grid(
 ) {
     let grid = CalculateGrid {
         cell_size: occupancy_info.cell_size,
-        ignore: robots.iter().collect(),
         ..default()
-    };
+    }
+    .exclude(&robots)
+    .exclude(&doors);
     calculate_grid(
         &grid,
         &mut commands,

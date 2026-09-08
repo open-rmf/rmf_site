@@ -5882,6 +5882,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "rmf_site_sim"
+version = "0.0.1"
+dependencies = [
+ "bevy",
+ "bevy_egui",
+ "crossbeam-channel",
+ "mapf",
+ "rand",
+ "rand_distr",
+ "rmf_site_editor",
+ "rmf_site_egui",
+ "rmf_site_format",
+ "rmf_site_sim",
+]
+
+[[package]]
 name = "robust"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
