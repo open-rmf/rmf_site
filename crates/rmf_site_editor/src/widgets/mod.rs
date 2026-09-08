@@ -112,11 +112,14 @@ use view_scenarios::*;
 pub mod view_lights;
 use view_lights::*;
 
+pub mod properties_panel;
+pub use properties_panel::*;
+
 pub mod view_nav_graphs;
 use view_nav_graphs::*;
 
 pub mod workspace;
-use workspace::*;
+pub use workspace::*;
 
 pub mod prelude {
     //! This module gives easy access to the traits, structs, and plugins that
@@ -152,6 +155,12 @@ impl Plugin for StandardPropertiesPanelPlugin {
             ViewLightsPlugin::default(),
             BuildingPreviewPlugin::default(),
         ));
+
+        let properties_panel_id = app.world().resource::<PropertiesPanel>().id();
+        let panel_widget = PanelWidget::new(show_properties_panel, app.world_mut());
+        app.world_mut()
+            .entity_mut(properties_panel_id)
+            .insert(panel_widget);
     }
 }
 

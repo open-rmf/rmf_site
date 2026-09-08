@@ -29,15 +29,15 @@ use rmf_site_egui::*;
 use rmf_site_format::{InstanceMarker, SiteID};
 use rmf_site_picking::Selection;
 
-const INSTANCES_VIEWER_HEIGHT: f32 = 200.0;
-
 /// Add a plugin for viewing and editing a list of all levels
 #[derive(Default)]
 pub struct ViewModelInstancesPlugin {}
 
 impl Plugin for ViewModelInstancesPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(PropertiesTilePlugin::<ViewModelInstances>::new());
+        app.add_plugins(
+            PropertiesTilePlugin::<ViewModelInstances>::new("Models").in_group(TabGroup::Top),
+        );
     }
 }
 
@@ -75,13 +75,9 @@ pub struct ViewModelInstances<'w, 's> {
 }
 
 impl<'w, 's> WidgetSystem<Tile> for ViewModelInstances<'w, 's> {
-    fn show(_: Tile, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) -> () {
+    fn show(_: Tile, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) {
         let mut params = state.get_mut(world);
-        CollapsingHeader::new("Models")
-            .default_open(true)
-            .show(ui, |ui| {
-                params.show_widget(ui);
-            });
+        params.show_widget(ui);
     }
 }
 
@@ -90,7 +86,6 @@ impl<'w, 's> ViewModelInstances<'w, 's> {
         if let Some(current_scenario_entity) = self.current_scenario.0 {
             let mut unaffiliated_instances = Vec::<Entity>::new();
             ScrollArea::vertical()
-                .max_height(INSTANCES_VIEWER_HEIGHT)
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
                     for (desc_entity, desc_name, _) in self.model_descriptions.iter() {
