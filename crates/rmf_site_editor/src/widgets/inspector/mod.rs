@@ -229,6 +229,10 @@ impl Plugin for StandardInspectorPlugin {
                     InspectModelPropertyPlugin::<InspectModelAssetSource, AssetSource>::new(
                         "Asset Source".to_string(),
                     ),
+                    InspectModelPropertyPlugin::<
+                        InspectModelIsBaseOccupancyGrid,
+                        IsBaseOccupancyGrid,
+                    >::new("Base Occupancy Grid".to_string()),
                     InspectRobotPropertiesPlugin::default(),
                     InspectRobotPropertyPlugin::<InspectMobility, Mobility>::new(),
                     InspectRobotPropertyPlugin::<InspectCollision, Collision>::new(),

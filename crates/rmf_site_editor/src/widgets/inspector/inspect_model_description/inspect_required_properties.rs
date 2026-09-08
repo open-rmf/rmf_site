@@ -18,8 +18,8 @@
 use super::get_selected_description_entity;
 use crate::{
     site::{
-        AssetSource, Change, DefaultFile, Group, ModelLoader, ModelMarker, ModelProperty,
-        ModelPropertyQuery, RecallAssetSource, Scale,
+        AssetSource, Change, DefaultFile, Group, IsBaseOccupancyGrid, ModelLoader, ModelMarker,
+        ModelProperty, ModelPropertyQuery, NameInSite, RecallAssetSource, Scale,
     },
     widgets::{prelude::*, Inspect, InspectAssetSourceComponent, InspectScaleComponent},
     CurrentWorkspace,
@@ -111,6 +111,54 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelAssetSource<'w, 's> {
             params
                 .model_loader
                 .update_description_asset_source(description_entity, new_source);
+        }
+    }
+}
+
+#[derive(SystemParam)]
+pub struct InspectModelIsBaseOccupancyGrid<'w, 's> {
+    commands: Commands<'w, 's>,
+    model_instances: ModelPropertyQuery<'w, 's, NameInSite>,
+    model_descriptions: Query<
+        'w,
+        's,
+        &'static ModelProperty<IsBaseOccupancyGrid>,
+        (With<ModelMarker>, With<Group>),
+    >,
+}
+
+impl<'w, 's> WidgetSystem<Inspect> for InspectModelIsBaseOccupancyGrid<'w, 's> {
+    fn show(
+        Inspect { selection, .. }: Inspect,
+        ui: &mut Ui,
+        state: &mut SystemState<Self>,
+        world: &mut World,
+    ) {
+        let mut params = state.get_mut(world);
+        let Some(description_entity) = get_selected_description_entity(
+            selection,
+            &params.model_instances,
+            &params.model_descriptions,
+        ) else {
+            return;
+        };
+
+        let Ok(ModelProperty(is_base_occupancy_grid)) =
+            params.model_descriptions.get(description_entity)
+        else {
+            return;
+        };
+
+        let mut value = is_base_occupancy_grid.0;
+        if ui
+            .checkbox(&mut value, "Base Occupancy Grid")
+            .on_hover_text("Whether this model is included when generating base occupancy grids")
+            .changed()
+        {
+            params.commands.trigger(Change::new(
+                ModelProperty(IsBaseOccupancyGrid(value)),
+                description_entity,
+            ));
         }
     }
 }
