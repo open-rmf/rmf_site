@@ -389,11 +389,12 @@ mod tests {
         // Create a root scenario
         let root_scenario = app
             .world_mut()
-            .spawn((ScenarioModifiers::<Entity>::default(), Affiliation::<Entity>(None)))
+            .spawn((
+                ScenarioModifiers::<Entity>::default(),
+                Affiliation::<Entity>(None),
+            ))
             .id();
-        app.world_mut()
-            .resource_mut::<CurrentScenario>()
-            .0 = Some(root_scenario);
+        app.world_mut().resource_mut::<CurrentScenario>().0 = Some(root_scenario);
 
         // Spawn an instance element with a non-zero initial Pose
         let initial_pose = Pose {
@@ -408,7 +409,8 @@ mod tests {
         app.update();
 
         // Trigger UseModifier as would happen when Inclusion is modified
-        app.world_mut().trigger(UseModifier::new(element, root_scenario));
+        app.world_mut()
+            .trigger(UseModifier::new(element, root_scenario));
         app.update();
 
         // Verify the element's Pose was NOT overwritten with Pose::default() [0, 0, 0]
