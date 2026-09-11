@@ -30,8 +30,8 @@ use bevy_egui::egui::{
 };
 use crossflow::RequestExt;
 use rmf_site_egui::{
-    MenuEvent, MenuItem, PanelWidget, PanelWidgetInput, ToolMenu, TryShowWidgetWorld, Widget,
-    WidgetSystem,
+    CloseMenu, MenuEvent, MenuItem, PanelWidget, PanelWidgetInput, ToolMenu, TryShowWidgetWorld,
+    Widget, WidgetSystem,
 };
 use rmf_site_format::{NameInSite, Task, TaskKind};
 
@@ -104,6 +104,7 @@ pub struct NegotiationDebugWidget<'w, 's> {
     robot_debug_materials: Query<'w, 's, &'static DebugMaterial, With<Robot>>,
     materials: ResMut<'w, Assets<StandardMaterial>>,
     set_all_path_visible_request: EventWriter<'w, SetAllPathVisibleRequest>,
+    close_menu: EventWriter<'w, CloseMenu>,
 }
 
 fn negotiation_debug_panel(In(input): In<PanelWidgetInput>, world: &mut World) {
@@ -168,6 +169,7 @@ impl<'w, 's> WidgetSystem for NegotiationDebugWidget<'w, 's> {
 
         if ui.button("Close").clicked() {
             params.display_mapf_debug.show = false;
+            params.close_menu.write(CloseMenu);
         }
     }
 }
