@@ -32,6 +32,7 @@ impl Plugin for MenuBarPlugin {
             MenuDropdownPlugin::default(),
         ))
         .add_event::<MenuEvent>()
+        .add_event::<CloseMenu>()
         .init_resource::<FileMenu>()
         .init_resource::<ToolMenu>()
         .init_resource::<ViewMenu>();
@@ -53,6 +54,7 @@ struct MenuDropdowns<'w, 's> {
     menus: Query<'w, 's, (&'static Menu, Entity)>,
     menu_items: Query<'w, 's, (&'static mut MenuItem, Has<MenuDisabled>)>,
     extension_events: EventWriter<'w, MenuEvent>,
+    close_menu_events: EventReader<'w, 's, CloseMenu>,
     view_menu: Res<'w, ViewMenu>,
     file_menu: Res<'w, FileMenu>,
     children: Query<'w, 's, &'static Children>,
@@ -66,6 +68,11 @@ impl<'w, 's> WidgetSystem<Tile> for MenuDropdowns<'w, 's> {
         // Capture state before rendering menus, used for the fallback close logic below.
         let bar_id = ui.id();
         let mut bar_state = egui::menu::BarState::load(ui.ctx(), bar_id);
+        if params.close_menu_events.read().next().is_some() {
+            **bar_state = None;
+            bar_state.store(ui.ctx(), bar_id);
+            bar_state = egui::menu::BarState::load(ui.ctx(), bar_id);
+        }
         let was_open_with_id: Option<egui::Id> = (**bar_state).as_ref().map(|root| root.id);
         let click_pos = ui.ctx().input(|i| {
             if i.pointer.any_click() {
@@ -134,6 +141,10 @@ impl<'w, 's> WidgetSystem<Tile> for MenuDropdowns<'w, 's> {
         ui.separator();
     }
 }
+
+/// Request that any open top-level menu is closed.
+#[derive(Event)]
+pub struct CloseMenu;
 
 /// Adding this to an entity to an entity with the [`MenuItem`] component
 /// will grey out and disable a [`MenuItem`].
