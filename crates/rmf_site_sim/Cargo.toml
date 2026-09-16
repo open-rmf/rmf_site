@@ -1,0 +1,33 @@
+[package]
+name = "rmf_site_sim"
+version = "0.0.1"
+edition = "2024"
+authors = ["Grey <mxgrey@intrinsic.ai>"]
+description = "Discrete event simulation for rmf_site_editor"
+license = "Apache-2.0"
+repository = "https://github.com/open-rmf/rmf_site"
+
+[dependencies]
+bevy = { workspace = true, features = ["dynamic_linking"] }
+bevy_egui = { workspace = true, optional = true }
+crossbeam-channel = { workspace = true }
+rmf_site_egui = { workspace = true, optional = true }
+rmf_site_format = { workspace = true, features = ["bevy"], optional = true }
+
+[features]
+default = []
+egui = ["dep:bevy_egui"]
+rmf_site_egui = ["egui", "dep:rmf_site_egui", "dep:rmf_site_format"]
+
+[dev-dependencies]
+mapf = { workspace = true }
+rand = "0.8"
+rand_distr = "0.4"
+rmf_site_editor = { workspace = true }
+rmf_site_egui = { workspace = true }
+rmf_site_sim = { path = ".", features = ["rmf_site_egui"] }
+
+[[example]]
+name = "rmf_site_editor"
+path = "examples/rmf_site_editor/main.rs"
+required-features = ["rmf_site_egui"]

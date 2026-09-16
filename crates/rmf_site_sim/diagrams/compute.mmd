@@ -1,0 +1,17 @@
+flowchart TD
+    start([Start of simulation]) --> startup["Run startup systems"]
+    startup --> predict["Run prediction systems"]
+
+    subgraph compute_step["Compute time-step"]
+    due{"Any candidates at<br/>the current time-step?"}
+    due -- yes --> select["1. Append top candidate to to time-step<br/>2. Apply selected candidate on world<br/>3. Discard all other candiates"]
+    select --> predict
+    predict --> due
+    end
+
+    due -- no --> send["Send time-step to main thread"]
+    send --> due_next{"Any candidates<br/>in the future?"}
+    due_next -- yes --> advance["Advance clock to the earliest candidate"]
+    due_next -- no --> done(["End of simulation"])
+    advance --> due
+    
