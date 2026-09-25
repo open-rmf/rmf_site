@@ -15,6 +15,7 @@
  *
 */
 
+use crate::interaction::CategoryVisibility;
 use crate::{layers::ZLayer, site::*};
 use crate::{CurrentWorkspace, Issue, ValidateWorkspace};
 use bevy::ecs::{hierarchy::ChildOf, relationship::AncestorIter};
@@ -514,6 +515,25 @@ fn backward_arrow_color(lane_color: LinearRgba) -> LinearRgba {
     .into()
 }
 
+fn lane_entity_visibility(
+  lanes_category: &CategoryVisibility<LaneMarker>,
+  edge: &Edge<Entity>,
+  associated: &AssociatedGraphs<Entity>,
+  child_of: &Query<&ChildOf>,
+  levels: &Query<(), With<LevelElevation>>,
+  current_level: &Res<CurrentLevel>,
+  graphs: &GraphSelect,
+) -> Visibility {
+  if !lanes_category.0 {
+      return Visibility::Hidden;
+  }
+  if should_display_lane(edge, associated, child_of, levels, current_level, graphs) {
+      Visibility::Inherited
+  } else {
+      Visibility::Hidden
+  }
+}
+
 // TODO(MXG): Generalize this to all edges
 pub fn update_visibility_for_lanes(
     mut lanes: Query<
@@ -543,23 +563,21 @@ pub fn update_visibility_for_lanes(
         ),
     >,
     mut removed: RemovedComponents<NavGraphMarker>,
+    lanes_category: Res<CategoryVisibility<LaneMarker>>,
 ) {
     let graph_change = !graph_changed_visibility.is_empty() || removed.read().next().is_some();
-    let update_all = current_level.is_changed() || graph_change;
+    let update_all = current_level.is_changed() || graph_change || lanes_category.is_changed();
     if update_all {
         for (edge, associated, _, mut visibility) in &mut lanes {
-            let new_visibility = if should_display_lane(
+            let new_visibility = lane_entity_visibility(
+                &lanes_category,
                 edge,
                 associated,
                 &child_of,
                 &levels,
                 &current_level,
                 &graphs,
-            ) {
-                Visibility::Inherited
-            } else {
-                Visibility::Hidden
-            };
+            );
 
             if *visibility != new_visibility {
                 *visibility = new_visibility;
@@ -568,18 +586,15 @@ pub fn update_visibility_for_lanes(
     } else {
         for (e, _, _) in &lanes_with_changed_association {
             if let Ok((edge, associated, _, mut visibility)) = lanes.get_mut(e) {
-                let new_visibility = if should_display_lane(
+                let new_visibility = lane_entity_visibility(
+                    &lanes_category,
                     edge,
                     associated,
                     &child_of,
                     &levels,
                     &current_level,
                     &graphs,
-                ) {
-                    Visibility::Inherited
-                } else {
-                    Visibility::Hidden
-                };
+                );
 
                 if *visibility != new_visibility {
                     *visibility = new_visibility;
