@@ -8,7 +8,7 @@ license = "Apache-2.0"
 repository = "https://github.com/open-rmf/rmf_site"
 
 [dependencies]
-bevy = { workspace = true, features = ["dynamic_linking"] }
+bevy = { workspace = true }
 bevy_egui = { workspace = true, optional = true }
 crossbeam-channel = { workspace = true }
 rmf_site_egui = { workspace = true, optional = true }
