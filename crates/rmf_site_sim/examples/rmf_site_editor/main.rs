@@ -91,13 +91,13 @@ use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
 mod mapf;
+mod playback;
 mod simulation;
 mod ui;
-mod visualization;
 
+use playback::*;
 use simulation::*;
 use ui::SimulationUiPlugin;
-use visualization::*;
 
 fn main() {
     App::new()

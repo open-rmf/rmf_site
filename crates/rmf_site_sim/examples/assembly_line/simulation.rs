@@ -387,7 +387,7 @@ fn build_simulation(world: &World) -> Simulation {
             app.insert_resource(SimulationRng(StdRng::seed_from_u64(RANDOMNESS_SEED)));
         })
         .add_prediction_systems((motion, processor, autonomous_mobile_robot).chain())
-        .add_visualization_systems((animate_motion, (draw_processors, draw_products)).chain())
+        .add_playback_systems((animate_motion, (draw_processors, draw_products)).chain())
         .build(world)
 }
 

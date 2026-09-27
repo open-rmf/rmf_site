@@ -1,7 +1,7 @@
 use crate::compute::{SimulationComputeSettings, SimulationComputeTimer, compute_async};
 use crate::event::DynPrediction;
 use crate::schedule::{
-    ScheduleBuilder, SimulationPredict, SimulationStartup, SimulationVisualize,
+    ScheduleBuilder, SimulationPlaybackSchedule, SimulationPredictionSchedule, SimulationStartup,
     SystemExecutionOrdering,
 };
 use crate::sync::Synchronizer;
@@ -32,7 +32,7 @@ pub struct SimulationBuilder<M: Component + Clone> {
     marker: PhantomData<M>,
     startup_schedule_builder: ScheduleBuilder,
     prediction_schedule_builder: ScheduleBuilder,
-    visualization_schedule_builder: ScheduleBuilder,
+    playback_schedule_builder: ScheduleBuilder,
     plugins: Vec<SimulationPluginFactory>,
     compute_settings: SimulationComputeSettings,
 }
@@ -55,9 +55,9 @@ impl<M: Component + Clone> SimulationBuilder<M> {
         Self {
             synchronizer,
             startup_schedule_builder: ScheduleBuilder::new(SimulationStartup),
-            prediction_schedule_builder: ScheduleBuilder::new(SimulationPredict)
+            prediction_schedule_builder: ScheduleBuilder::new(SimulationPredictionSchedule)
                 .set_ordering(SystemExecutionOrdering::Total),
-            visualization_schedule_builder: ScheduleBuilder::new(SimulationVisualize),
+            playback_schedule_builder: ScheduleBuilder::new(SimulationPlaybackSchedule),
             plugins: Vec::new(),
             compute_settings: SimulationComputeSettings::default(),
             marker: PhantomData,
@@ -112,12 +112,11 @@ impl<M: Component + Clone> SimulationBuilder<M> {
 
     /// Adds a set of systems to be run in the main world, while this simulation
     /// is being played back.
-    pub fn add_visualization_systems<S>(
+    pub fn add_playback_systems<S>(
         mut self,
         systems: impl IntoScheduleConfigs<ScheduleSystem, S>,
     ) -> Self {
-        self.visualization_schedule_builder =
-            self.visualization_schedule_builder.add_systems(systems);
+        self.playback_schedule_builder = self.playback_schedule_builder.add_systems(systems);
         self
     }
 
@@ -136,7 +135,7 @@ pub struct Simulation {
     state: SimulationComputeState,
     compute_timer: SimulationComputeTimer,
     update_receiver: Receiver<SimulationComputeUpdate>,
-    visualization_schedule: Schedule,
+    playback_schedule: Schedule,
 }
 
 impl Simulation {
@@ -161,7 +160,7 @@ impl Simulation {
             state: SimulationComputeState::Computing,
             compute_timer,
             update_receiver: receiver,
-            visualization_schedule: builder.visualization_schedule_builder.build(),
+            playback_schedule: builder.playback_schedule_builder.build(),
         }
     }
 
@@ -182,15 +181,15 @@ impl Simulation {
     }
 
     // TODO(@reuben-thomas): View usage
-    pub fn take_visualization_schedule(&mut self) -> Schedule {
+    pub fn take_playback_schedule(&mut self) -> Schedule {
         std::mem::replace(
-            &mut self.visualization_schedule,
-            Schedule::new(SimulationVisualize),
+            &mut self.playback_schedule,
+            Schedule::new(SimulationPlaybackSchedule),
         )
     }
 
-    pub fn restore_visualization_schedule(&mut self, schedule: Schedule) {
-        self.visualization_schedule = schedule;
+    pub fn restore_playback_schedule(&mut self, schedule: Schedule) {
+        self.playback_schedule = schedule;
     }
 
     /// The computed simulation steps, ordered by simulation time.

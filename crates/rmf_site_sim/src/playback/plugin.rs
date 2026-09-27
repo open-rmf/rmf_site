@@ -125,7 +125,7 @@ impl SimulationPlayback {
 
     // TODO(@reuben-thomas): Is there a better pattern here to give temporary
     // access?
-    /// Runs the active simulation's visualization schedule on the main world.
+    /// Runs the active simulation's playback schedule on the main world.
     fn visualize(world: &mut World) {
         let Some(simulation_entity) = world
             .resource::<SimulationPlayback>()
@@ -138,10 +138,10 @@ impl SimulationPlayback {
             return;
         };
 
-        let mut schedule = simulation.take_visualization_schedule();
+        let mut schedule = simulation.take_playback_schedule();
         schedule.run(world);
         if let Some(mut simulation) = world.get_mut::<Simulation>(simulation_entity) {
-            simulation.restore_visualization_schedule(schedule);
+            simulation.restore_playback_schedule(schedule);
         }
     }
 }

@@ -183,7 +183,7 @@ pub fn spawn_simulation(world: &mut World, tasks: &[Entity], name: String) -> En
         .register_component::<DoorType>()
         .register_resource::<Occupancy>()
         .add_prediction_systems((request_generator, robot, door, planner).chain())
-        .add_visualization_systems((animate_robots, animate_doors, draw_robot_paths).chain())
+        .add_playback_systems((animate_robots, animate_doors, draw_robot_paths).chain())
         .build(world);
 
     world.spawn((simulation, NameInSite(name))).id()

@@ -1,5 +1,5 @@
 use crate::event::{DynPrediction, Predictions};
-use crate::schedule::{SimulationPredict, SimulationStartup};
+use crate::schedule::{SimulationPredictionSchedule, SimulationStartup};
 use crate::simulation::{
     SimulationComputeState, SimulationComputeUpdate, SimulationPluginFactory, SimulationState,
     SimulationStep,
@@ -96,7 +96,7 @@ fn runner(mut app: App, settings: SimulationComputeSettings) -> AppExit {
     world.run_schedule(SimulationStartup);
 
     // Seed initial predictions, and advance clock to the first time step.
-    world.run_schedule(SimulationPredict);
+    world.run_schedule(SimulationPredictionSchedule);
     advance_clock_to_next_event(world);
 
     while let Some(step) = compute_step(world, settings.max_events_per_step) {
@@ -134,7 +134,7 @@ fn compute_step(world: &mut World, max_events: Option<u64>) -> Option<Simulation
 
     while let Some(event) = execute_highest_priority_current_event(world) {
         events.push(event);
-        world.run_schedule(SimulationPredict);
+        world.run_schedule(SimulationPredictionSchedule);
 
         if let Some(max_events) = max_events
             && events.len() as u64 >= max_events
@@ -243,7 +243,7 @@ mod tests {
     fn test_compute_simulation() {
         let (sender, receiver) = crossbeam_channel::unbounded();
 
-        let mut prediction_schedule = Schedule::new(SimulationPredict);
+        let mut prediction_schedule = Schedule::new(SimulationPredictionSchedule);
         prediction_schedule.add_systems(increment);
 
         let mut app = App::new();

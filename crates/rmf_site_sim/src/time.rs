@@ -63,8 +63,7 @@ impl From<SimulationTime> for Duration {
 
 /// The current simulation time.
 ///
-/// This resource may be read to get the current time by prediction systems during the
-/// computation of a simulation, or visualization systems during playback.
+/// This resource may be read to get the current time by prediction or playback systems.
 #[derive(Resource, Debug, Default)]
 pub struct SimulationClock {
     now: SimulationTime,

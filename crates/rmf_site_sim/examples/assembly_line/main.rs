@@ -39,11 +39,11 @@ use rmf_site_sim::time::{SimulationClock, SimulationTime};
 use std::collections::HashMap;
 use std::time::Duration;
 
+mod playback;
 mod simulation;
-mod visualization;
 
+use playback::*;
 use simulation::*;
-use visualization::*;
 
 fn main() {
     App::new()

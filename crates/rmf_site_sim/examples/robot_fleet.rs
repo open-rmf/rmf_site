@@ -177,9 +177,9 @@ fn setup(world: &mut World) {
         .register_resource::<ActiveRequestEntities>()
         // Systems representing models used to compute the simulation.
         .add_prediction_systems((request_generator, planner, robot))
-        // Systems to visualize this simulation's synchronized state in the main world while it
-        // is the active playback simulation.
-        .add_visualization_systems(
+        // Systems to visualize this simulation's interpolated state in the main
+        // world while it is the active playback simulation.
+        .add_playback_systems(
             (
                 animate_robots,
                 (draw_robots, draw_waypoints, draw_trajectory),

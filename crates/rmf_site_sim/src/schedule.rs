@@ -16,12 +16,12 @@ pub struct SimulationStartup;
 /// The schedule executing prediction systems that predict events based on the
 /// current state of the world.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, ScheduleLabel)]
-pub struct SimulationPredict;
+pub struct SimulationPredictionSchedule;
 
 /// The schedule run in the main world to visualize a simulation while it is the
 /// active playback simulation.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, ScheduleLabel)]
-pub struct SimulationVisualize;
+pub struct SimulationPlaybackSchedule;
 
 #[derive(Default, Clone)]
 pub enum SystemExecutionOrdering {
