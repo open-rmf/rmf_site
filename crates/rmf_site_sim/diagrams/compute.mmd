@@ -3,15 +3,15 @@ flowchart TD
     startup --> predict["Run prediction systems"]
 
     subgraph compute_step["Compute time-step"]
-    due{"Any candidates at<br/>the current time-step?"}
-    due -- yes --> select["1. Append top candidate to to time-step<br/>2. Apply selected candidate on world<br/>3. Discard all other candiates"]
+    due{"Any predictions at<br/>the current time-step?"}
+    due -- yes --> select["1. Append top predictions to time-step<br/>2. Apply selected prediction on world<br/>3. Discard all other predictions"]
     select --> predict
     predict --> due
     end
 
     due -- no --> send["Send time-step to main thread"]
-    send --> due_next{"Any candidates<br/>in the future?"}
-    due_next -- yes --> advance["Advance clock to the earliest candidate"]
+    send --> due_next{"Any predictions<br/>in the future?"}
+    due_next -- yes --> advance["Advance clock to the earliest prediction"]
     due_next -- no --> done(["End of simulation"])
     advance --> due
-    
+

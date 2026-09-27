@@ -1,5 +1,5 @@
 use crate::compute::{SimulationComputeSettings, SimulationComputeTimer, compute_async};
-use crate::event::DynDiscreteEvent;
+use crate::event::DynPrediction;
 use crate::schedule::{
     ScheduleBuilder, SimulationPredict, SimulationStartup, SimulationVisualize,
     SystemExecutionOrdering,
@@ -258,12 +258,12 @@ pub enum SimulationComputeState {
 /// A single computed simulation step.
 #[derive(Clone)]
 pub struct SimulationStep {
-    events: Vec<Box<dyn DynDiscreteEvent>>,
+    events: Vec<Box<dyn DynPrediction>>,
 }
 
 impl SimulationStep {
     /// Creates a new [`SimulationStep`] from a vector of events.
-    pub fn new(events: Vec<Box<dyn DynDiscreteEvent>>) -> Self {
+    pub fn new(events: Vec<Box<dyn DynPrediction>>) -> Self {
         Self { events }
     }
 
@@ -279,7 +279,7 @@ impl SimulationStep {
     }
 
     /// Each event executed in this step, in execution order.
-    pub fn events(&self) -> impl Iterator<Item = &dyn DynDiscreteEvent> + '_ {
+    pub fn events(&self) -> impl Iterator<Item = &dyn DynPrediction> + '_ {
         self.events.iter().map(|event| event.as_ref())
     }
 }

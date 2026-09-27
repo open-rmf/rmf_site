@@ -1,4 +1,4 @@
-use crate::event::{CandidateDiscreteEvents, DynDiscreteEvent};
+use crate::event::{DynPrediction, Predictions};
 use crate::schedule::{SimulationPredict, SimulationStartup};
 use crate::simulation::{
     SimulationComputeState, SimulationComputeUpdate, SimulationPluginFactory, SimulationState,
@@ -78,7 +78,7 @@ fn build_app(
     app.add_schedule(startup_schedule);
     app.add_schedule(prediction_schedule);
     app.init_resource::<SimulationClock>()
-        .init_resource::<CandidateDiscreteEvents>()
+        .init_resource::<Predictions>()
         .insert_resource(StateUpdateSender::new(sender));
     app.set_runner(move |app| runner(app, settings));
 
@@ -95,7 +95,7 @@ fn runner(mut app: App, settings: SimulationComputeSettings) -> AppExit {
     let world = app.world_mut();
     world.run_schedule(SimulationStartup);
 
-    // Seed initial candidate events, and advance clock to the first time step.
+    // Seed initial predictions, and advance clock to the first time step.
     world.run_schedule(SimulationPredict);
     advance_clock_to_next_event(world);
 
@@ -116,9 +116,9 @@ fn runner(mut app: App, settings: SimulationComputeSettings) -> AppExit {
     AppExit::Success
 }
 
-/// Advances the clock to the time of the next candidate event, if any.
+/// Advances the clock to the time of the next prediction, if any.
 fn advance_clock_to_next_event(world: &mut World) {
-    let Some(next_time) = world.resource::<CandidateDiscreteEvents>().next_time() else {
+    let Some(next_time) = world.resource::<Predictions>().next_time() else {
         return;
     };
     world
@@ -153,17 +153,17 @@ fn compute_step(world: &mut World, max_events: Option<u64>) -> Option<Simulation
     }
 }
 
-/// Executes the highest priority candidate event due at the current simulation
-/// time if any, and then discards all other candidate events.
-fn execute_highest_priority_current_event(world: &mut World) -> Option<Box<dyn DynDiscreteEvent>> {
+/// Executes the highest priority prediction due at the current simulation
+/// time if any, and then discards all other predictions.
+fn execute_highest_priority_current_event(world: &mut World) -> Option<Box<dyn DynPrediction>> {
     let now = world.resource::<SimulationClock>().now();
 
-    let mut candidates = world.resource_mut::<CandidateDiscreteEvents>();
-    if candidates.next_time() != Some(now) {
+    let mut predictions = world.resource_mut::<Predictions>();
+    if predictions.next_time() != Some(now) {
         return None;
     }
-    let event = candidates.pop_highest_priority_event()?;
-    candidates.discard_all();
+    let event = predictions.pop_highest_priority()?;
+    predictions.discard_all();
 
     event.clone().apply(world);
     Some(event)
@@ -250,7 +250,7 @@ mod tests {
         app.add_schedule(Schedule::new(SimulationStartup));
         app.add_schedule(prediction_schedule);
         app.init_resource::<SimulationClock>()
-            .init_resource::<CandidateDiscreteEvents>()
+            .init_resource::<Predictions>()
             .init_resource::<Count>()
             .insert_resource(StateUpdateSender::new(sender));
         app.set_runner(|app| runner(app, SimulationComputeSettings::default()));

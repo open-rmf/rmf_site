@@ -70,7 +70,7 @@ impl RobotTrajectory {
     }
 }
 
-/// A convenience command for assigning trajectories to all robots in a single [`rmf_site_sim::event::DiscreteEvent`].
+/// A convenience command for assigning trajectories to all robots in a single [`rmf_site_sim::event::Prediction`].
 #[derive(Clone, Debug)]
 pub struct AssignRobotTrajectory {
     pub trajectories: Vec<(Entity, RobotTrajectory)>,

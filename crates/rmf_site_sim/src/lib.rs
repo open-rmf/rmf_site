@@ -29,9 +29,9 @@
 //! | State | A state vector describing the state of the world at any time-instance. | A [`simulation::SimulationState`], which wraps a [`bevy::prelude::World`](bevy::ecs::world::World), containing all entities, as well as resource and component values. |
 //! | Entity | An instance that requires representation in the model. | [`bevy::prelude::Entity`](bevy::ecs::entity::Entity) |
 //! | Attributes | Properties of an entity, or the system as a whole. | [`bevy::prelude::Component`](bevy::ecs::component::Component), [`bevy::prelude::Resource`](bevy::ecs::prelude::Resource) |
-//! | Event | An instantaneous occurrence that changes the state of the system. | An [`event::DiscreteEvent`], implemented automatically for any cloneable [`bevy::prelude::Command`](bevy::ecs::system::Command). |
-//! | Event Notice | A record of an event that may occur at some simulation time and the necessary parameters to execute it. | Predicted using the [`event::CandidateEventWriter`], [`event::CandidateComponentEventWriter`], and [`event::CandidateResourceEventWriter`] system parameters. |
-//! | Future Event List (FEL) | A list of event notices for future events, ordered by time of occurrence. | The [`event::CandidateDiscreteEvents`] resource, which should not be modified directly. |
+//! | Event | An instantaneous occurrence that changes the state of the system. | An [`event::Prediction`], implemented automatically for any cloneable [`bevy::prelude::Command`](bevy::ecs::system::Command). |
+//! | Event Notice | A record of an event that may occur at some simulation time and the necessary parameters to execute it. | Predicted using the [`event::PredictionWriter`] system parameters. |
+//! | Future Event List (FEL) | A list of event notices for future events, ordered by time of occurrence. | The [`event::Predictions`] resource, which should not be modified directly. |
 //! | Clock | A variable representing the current value of simulated time. | The [`time::SimulationClock`] resource. |
 //! | Output | Data produced by running the simulation. | A [`SimulationStep`] for each computed simulation time, collected by the [`Simulation`] component. |
 //!
@@ -44,14 +44,14 @@
 //! ## Predictions Systems
 //!
 //! A prediction system should be a pure function that can perform any non-mutating
-//! operation on the world state, and submit mutations as candidate events using the
-//! [`CandidateEventWriter`](event::CandidateEventWriter). All prediction systems within a [`Simulation`] will be
+//! operation on the world state, and propose mutations as predictions using the
+//! [`PredictionWriter`](event::PredictionWriter). All prediction systems within a [`Simulation`] will be
 //! executed after every event.
 //!
-//! ## Candidate Events Priority
+//! ## Prediction Priority
 //!
-//! Every candidate event submitted during a run of the [`SimulationPredict`]
-//! schedule is ranked, and only the single highest priority candidate is
+//! Every prediction proposed during a run of the [`SimulationPredict`]
+//! schedule is ranked, and only the single highest priority prediction is
 //! executed, with the others discarded. Priority is determined by:
 //!
 //! 1. **Time.**: Whichever event is predicted for the earliest time.
@@ -75,7 +75,7 @@
 //! ## Avoid Direct World Mutation
 //!
 //! The output of a simulation is the list of events that were executed, and
-//! any direct world mutation not expressed through a candidate event will silently
+//! any direct world mutation not expressed through a prediction will silently
 //! not be recorded as such.
 //!
 //! # Examples

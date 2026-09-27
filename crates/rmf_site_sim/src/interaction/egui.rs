@@ -1,6 +1,6 @@
 //! [`egui`] widgets for inspecting simulations and controlling playback.
 
-use crate::event::DynDiscreteEvent;
+use crate::event::DynPrediction;
 use crate::playback::{
     DEFAULT_PLAYBACK_SPEED, PLAYBACK_SPEED_RANGE, SeekDirection, SimulationActivePlaybackView,
     SimulationPlaybackCommand, SimulationPlaybackSeek, SimulationReplayBehaviour,
@@ -409,13 +409,13 @@ impl<'a> SimulationPlaybackEventTable<'a> {
             });
     }
 
-    fn show_event(ui: &mut egui::Ui, id_salt: impl Hash, event: &dyn DynDiscreteEvent) {
+    fn show_event(ui: &mut egui::Ui, id_salt: impl Hash, event: &dyn DynPrediction) {
         egui::CollapsingHeader::new(egui::RichText::new(event.name()).strong())
             .id_salt(id_salt)
             .show(ui, |ui| Self::show_event_contents(ui, event));
     }
 
-    fn show_event_contents(ui: &mut egui::Ui, event: &dyn DynDiscreteEvent) {
+    fn show_event_contents(ui: &mut egui::Ui, event: &dyn DynPrediction) {
         egui::Frame::new()
             .fill(ui.visuals().code_bg_color)
             .corner_radius(ui.visuals().noninteractive().corner_radius)
