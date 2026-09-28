@@ -1,13 +1,22 @@
 use bevy::ecs::system::{SystemParam, SystemState};
 use bevy::prelude::*;
-use bevy_egui::egui;
+use bevy_egui::{egui, EguiContexts};
 use rmf_site_egui::{Tile, WidgetSystem};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::mpsc::UnboundedReceiver;
 
 pub const DEFAULT_CONNECTION_URL: &str = "ws://127.0.0.1:9090";
 pub const DEFAULT_SITE_DATA_URL: &str = "http://127.0.0.1:8080/site_file";
+
+#[derive(Default, Clone, Copy, PartialEq, Eq)]
+pub enum LoadSiteStatus {
+    #[default]
+    None,
+    Receiving,
+    Loading,
+}
 
 #[derive(Resource)]
 pub struct SiteFetchReceiver(pub UnboundedReceiver<Vec<u8>>);
@@ -19,6 +28,7 @@ pub struct LiveStreamState {
     pub connection_requested: Arc<AtomicBool>,
     pub connection_active: Arc<AtomicBool>,
     pub site_loaded: bool,
+    pub load_site_status: LoadSiteStatus,
 }
 
 impl Default for LiveStreamState {
@@ -29,6 +39,7 @@ impl Default for LiveStreamState {
             connection_requested: Arc::new(AtomicBool::new(false)),
             connection_active: Arc::new(AtomicBool::new(false)),
             site_loaded: false,
+            load_site_status: LoadSiteStatus::None,
         }
     }
 }
@@ -62,6 +73,7 @@ pub fn auto_fetch_site_on_connect(mut state: ResMut<LiveStreamState>, mut comman
 
     if is_currently_active && !state.site_loaded {
         state.site_loaded = true;
+        state.load_site_status = LoadSiteStatus::Receiving;
 
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
         commands.insert_resource(SiteFetchReceiver(rx));
@@ -81,15 +93,71 @@ pub fn auto_fetch_site_on_connect(mut state: ResMut<LiveStreamState>, mut comman
 pub fn process_site_download(
     mut commands: Commands,
     receiver: Option<ResMut<SiteFetchReceiver>>,
+    mut state: ResMut<LiveStreamState>,
     mut load_site: EventWriter<crate::site::LoadSite>,
 ) {
     if let Some(mut rx) = receiver {
-        if let Ok(bytes) = rx.0.try_recv() {
-            if let Ok(mut site) = crate::site::LoadSite::from_data(&bytes, None) {
-                site.focus = true;
-                load_site.write(site);
+        match rx.0.try_recv() {
+            Ok(bytes) => {
+                if let Ok(mut site) = crate::site::LoadSite::from_data(&bytes, None) {
+                    state.load_site_status = LoadSiteStatus::Loading;
+                    site.focus = true;
+                    load_site.write(site);
+                } else {
+                    state.load_site_status = LoadSiteStatus::None;
+                }
+                commands.remove_resource::<SiteFetchReceiver>();
             }
-            commands.remove_resource::<SiteFetchReceiver>();
+            Err(TryRecvError::Disconnected) => {
+                state.load_site_status = LoadSiteStatus::None;
+                commands.remove_resource::<SiteFetchReceiver>();
+            }
+            Err(TryRecvError::Empty) => {}
         }
+    }
+}
+
+pub fn load_site_status_ui(state: Res<LiveStreamState>, mut egui_context: EguiContexts) {
+    let text = match state.load_site_status {
+        LoadSiteStatus::Receiving => "Receiving site data...",
+        LoadSiteStatus::Loading => "Loading site data...",
+        LoadSiteStatus::None => return,
+    };
+
+    egui::Window::new("Site Load Status")
+        .title_bar(false)
+        .resizable(false)
+        .collapsible(false)
+        .anchor(egui::Align2::LEFT_TOP, [10.0, 40.0])
+        .show(egui_context.ctx_mut(), |ui| {
+            egui::Frame::NONE.inner_margin(4.0).show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.add(egui::Spinner::new().size(8.0).color(egui::Color32::WHITE));
+                    ui.label(
+                        egui::RichText::new(text)
+                            .size(12.0)
+                            .color(egui::Color32::WHITE),
+                    );
+                });
+            });
+        });
+}
+
+pub fn check_load_site_completion(
+    mut state: ResMut<LiveStreamState>,
+    load_site_events: EventReader<crate::site::LoadSite>,
+    pending_models: Query<
+        (),
+        (
+            With<crate::site::PendingModel>,
+            Without<crate::site::ModelFailedLoading>,
+        ),
+    >,
+) {
+    if state.load_site_status == LoadSiteStatus::Loading
+        && load_site_events.is_empty()
+        && pending_models.is_empty()
+    {
+        state.load_site_status = LoadSiteStatus::None;
     }
 }

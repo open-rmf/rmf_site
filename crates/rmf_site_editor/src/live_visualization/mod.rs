@@ -9,7 +9,8 @@ use rmf_site_egui::{HeaderPanel, HeaderTilePlugin};
 use std::sync::atomic::Ordering;
 
 use live_state::{
-    auto_fetch_site_on_connect, process_site_download, LiveStreamState, LiveStreamStatusWidget,
+    auto_fetch_site_on_connect, check_load_site_completion, load_site_status_ui,
+    process_site_download, LiveStreamState, LiveStreamStatusWidget,
 };
 use network_client::StreamPlugin;
 use odometry::{update_live_robots, LiveEventOdom, LiveRobotMarker, LiveRobotsMap};
@@ -38,6 +39,8 @@ impl Plugin for LiveVisualizationPlugin {
                 update_live_safe_zones,
                 auto_fetch_site_on_connect,
                 process_site_download,
+                load_site_status_ui,
+                check_load_site_completion,
             ),
         )
         .add_systems(OnEnter(crate::AppState::MainMenu), disconnect_live_stream);
@@ -60,6 +63,7 @@ fn disconnect_live_stream(
     state.connection_requested.store(false, Ordering::Relaxed);
     state.connection_active.store(false, Ordering::Relaxed);
     state.site_loaded = false;
+    state.load_site_status = crate::live_visualization::live_state::LoadSiteStatus::None;
     robot_map.0.clear();
     path_state.0.clear();
     safe_zones_state.0.clear();
