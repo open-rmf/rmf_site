@@ -12,7 +12,7 @@ const TIMEOUT_SECONDS: u64 = 2;
 
 #[derive(Resource)]
 pub struct VisualizationStreamChannel<T> {
-    pub sender: UnboundedSender<T>,
+    sender: UnboundedSender<T>,
     pub receiver: UnboundedReceiver<T>,
 }
 
@@ -29,7 +29,7 @@ pub trait LiveStreamHandler: Send + Sync + 'static {
 
 #[derive(Resource, Clone, Default)]
 pub struct StreamRegistry {
-    pub spawners:
+    spawners:
         Vec<Arc<dyn Fn(String, ClientHandle, Arc<AtomicBool>, Arc<AtomicBool>) + Send + Sync>>,
 }
 

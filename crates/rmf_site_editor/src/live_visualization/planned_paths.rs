@@ -12,41 +12,41 @@ use super::network_client::{
 };
 use super::odometry::{LiveRobotMarker, LiveRobotsMap};
 
-pub const PLANNED_PATH_Z_OFFSET: f32 = 0.05;
-pub const PLANNED_PATH_COLOR: Color = Color::srgb(0.0, 1.0, 0.0);
+const PLANNED_PATH_Z_OFFSET: f32 = 0.05;
+const PLANNED_PATH_COLOR: Color = Color::srgb(0.0, 1.0, 0.0);
 
-pub const DEPENDENCY_Z_OFFSET: f32 = 0.051;
-pub const DEPENDENCY_LINE_COLOR: Color = Color::srgb(1.0, 0.5, 0.0);
-pub const DEPENDENCY_WAITING_POINT_COLOR: Color = Color::srgb(1.0, 0.85, 0.0);
-pub const DEPENDENCY_DASH_LENGTH: f32 = 0.15;
-pub const DEPENDENCY_GAP_LENGTH: f32 = 0.1;
-pub const DEPENDENCY_LINE_SPEED: f32 = 0.5;
-pub const DEPENDENCY_ARROW_SIZE: f32 = 0.1;
+const DEPENDENCY_Z_OFFSET: f32 = 0.051;
+const DEPENDENCY_LINE_COLOR: Color = Color::srgb(1.0, 0.5, 0.0);
+const DEPENDENCY_WAITING_POINT_COLOR: Color = Color::srgb(1.0, 0.85, 0.0);
+const DEPENDENCY_DASH_LENGTH: f32 = 0.15;
+const DEPENDENCY_GAP_LENGTH: f32 = 0.1;
+const DEPENDENCY_LINE_SPEED: f32 = 0.5;
+const DEPENDENCY_ARROW_SIZE: f32 = 0.1;
 
-pub const PATH_POINT_OUTER_RADIUS: f32 = 0.05;
-pub const PATH_POINT_INNER_RADIUS: f32 = 0.02;
+const PATH_POINT_OUTER_RADIUS: f32 = 0.05;
+const PATH_POINT_INNER_RADIUS: f32 = 0.02;
 
-pub const PATH_ENDPOINT_COLOR: Color = Color::srgb(1.0, 0.0, 0.0);
-pub const PATH_ENDPOINT_CROSS_RADIUS: f32 = 0.1;
-pub const PATH_ENDPOINT_Z_OFFSET: f32 = 0.001;
+const PATH_ENDPOINT_COLOR: Color = Color::srgb(1.0, 0.0, 0.0);
+const PATH_ENDPOINT_CROSS_RADIUS: f32 = 0.1;
+const PATH_ENDPOINT_Z_OFFSET: f32 = 0.001;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct LiveBlocker {
-    pub name: String,
-    pub required_progress: f32,
+struct LiveBlocker {
+    name: String,
+    required_progress: f32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct LiveWaypoint {
-    pub position: Vec3,
-    pub progress: f32,
-    pub departure_blockers: Vec<LiveBlocker>,
+struct LiveWaypoint {
+    position: Vec3,
+    progress: f32,
+    departure_blockers: Vec<LiveBlocker>,
 }
 
 #[derive(Debug, Clone)]
 pub struct LiveEventPlan {
-    pub name: String,
-    pub waypoints: Vec<LiveWaypoint>,
+    name: String,
+    waypoints: Vec<LiveWaypoint>,
 }
 
 impl LiveStreamHandler for LiveEventPlan {
@@ -114,9 +114,9 @@ impl LiveStreamHandler for LiveEventPlan {
 
 #[derive(Debug, Clone)]
 pub struct LiveEventProgress {
-    pub name: String,
-    pub target_waypoint: usize,
-    pub progress: f32,
+    name: String,
+    target_waypoint: usize,
+    progress: f32,
 }
 
 impl LiveStreamHandler for LiveEventProgress {
@@ -165,9 +165,9 @@ impl LiveStreamHandler for LiveEventProgress {
 pub struct LivePathsState(pub HashMap<String, PlannedPathData>);
 
 pub struct PlannedPathData {
-    pub waypoints: Vec<LiveWaypoint>,
-    pub target_waypoint: usize,
-    pub current_progress: f32,
+    waypoints: Vec<LiveWaypoint>,
+    target_waypoint: usize,
+    current_progress: f32,
 }
 
 impl PlannedPathData {

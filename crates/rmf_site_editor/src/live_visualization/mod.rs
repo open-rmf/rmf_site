@@ -1,8 +1,8 @@
 pub mod live_state;
 pub mod network_client;
-pub mod odometry;
-pub mod planned_paths;
-pub mod safe_zones;
+mod odometry;
+mod planned_paths;
+mod safe_zones;
 
 use bevy::prelude::*;
 use rmf_site_egui::{HeaderPanel, HeaderTilePlugin};

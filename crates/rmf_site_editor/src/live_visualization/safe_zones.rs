@@ -22,13 +22,13 @@ const SAFE_ZONE_OUTLINE_RGBA: [u8; 4] = [0, 255, 0, 120];
 
 #[derive(Debug, Clone)]
 pub struct LiveEventSafeZone {
-    pub name: String,
-    pub resolution: f32,
-    pub size_x: u32,
-    pub size_y: u32,
-    pub origin_x: f32,
-    pub origin_y: f32,
-    pub data: Vec<u8>,
+    name: String,
+    resolution: f32,
+    size_x: u32,
+    size_y: u32,
+    origin_x: f32,
+    origin_y: f32,
+    data: Vec<u8>,
 }
 
 impl LiveStreamHandler for LiveEventSafeZone {
@@ -82,8 +82,8 @@ pub struct LiveSafeZoneState(pub HashMap<String, Entity>);
 
 #[derive(Component)]
 pub struct SafeZoneMarker {
-    pub name: String,
-    pub image_handle: Handle<Image>,
+    name: String,
+    image_handle: Handle<Image>,
 }
 
 pub fn update_live_safe_zones(

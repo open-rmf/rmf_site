@@ -14,11 +14,11 @@ use super::network_client::{
 
 #[derive(Debug, Clone)]
 pub struct LiveEventOdom {
-    pub name: String,
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
-    pub yaw: f32,
+    name: String,
+    x: f32,
+    y: f32,
+    z: f32,
+    yaw: f32,
 }
 
 impl LiveStreamHandler for LiveEventOdom {

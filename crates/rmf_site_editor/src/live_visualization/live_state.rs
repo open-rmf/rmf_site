@@ -7,8 +7,8 @@ use std::sync::Arc;
 use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::mpsc::UnboundedReceiver;
 
-pub const DEFAULT_CONNECTION_URL: &str = "ws://127.0.0.1:9090";
-pub const DEFAULT_SITE_DATA_URL: &str = "http://127.0.0.1:8080/site_file";
+const DEFAULT_CONNECTION_URL: &str = "ws://127.0.0.1:9090";
+const DEFAULT_SITE_DATA_URL: &str = "http://127.0.0.1:8080/site_file";
 
 #[derive(Default, Clone, Copy, PartialEq, Eq)]
 pub enum LoadSiteStatus {
@@ -19,7 +19,7 @@ pub enum LoadSiteStatus {
 }
 
 #[derive(Resource)]
-pub struct SiteFetchReceiver(pub UnboundedReceiver<Vec<u8>>);
+pub struct SiteFetchReceiver(UnboundedReceiver<Vec<u8>>);
 
 #[derive(Resource)]
 pub struct LiveStreamState {

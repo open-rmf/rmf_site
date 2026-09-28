@@ -48,7 +48,7 @@ impl Default for PropertiesPanelState {
 pub struct PropertiesTabViewer<'a> {
     pub world: &'a mut World,
     pub settings: PanelSettings,
-    pub is_streaming_mode: bool,
+    is_streaming_mode: bool,
 }
 
 impl<'a> TabViewer for PropertiesTabViewer<'a> {
