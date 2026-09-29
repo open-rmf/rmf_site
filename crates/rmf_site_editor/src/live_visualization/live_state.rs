@@ -15,6 +15,7 @@
  *
 */
 
+use crate::site::{LoadSite, ModelFailedLoading, PendingModel};
 use bevy::ecs::system::{SystemParam, SystemState};
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
@@ -37,7 +38,7 @@ pub enum LoadSiteStatus {
 
 // Holds receiver to receive site data asynchronously
 #[derive(Resource)]
-pub struct SiteFetchReceiver(UnboundedReceiver<Vec<u8>>);
+pub struct SiteFetchReceiver(UnboundedReceiver<Result<LoadSite, String>>);
 
 #[derive(Resource)]
 pub struct LiveStreamState {
@@ -99,7 +100,9 @@ pub fn auto_fetch_site_on_connect(mut state: ResMut<LiveStreamState>, mut comman
         ehttp::fetch(request, move |result| {
             if let Ok(response) = result {
                 if response.status == 200 {
-                    let _ = tx.send(response.bytes);
+                    let parsed =
+                        LoadSite::from_data(&response.bytes, None).map_err(|e| e.to_string());
+                    let _ = tx.send(parsed);
                 }
             }
         });
@@ -111,21 +114,17 @@ pub fn process_site_download(
     mut commands: Commands,
     receiver: Option<ResMut<SiteFetchReceiver>>,
     mut state: ResMut<LiveStreamState>,
-    mut load_site: EventWriter<crate::site::LoadSite>,
+    mut load_site: EventWriter<LoadSite>,
 ) {
     if let Some(mut rx) = receiver {
         match rx.0.try_recv() {
-            Ok(bytes) => {
-                if let Ok(mut site) = crate::site::LoadSite::from_data(&bytes, None) {
-                    state.load_site_status = LoadSiteStatus::Loading;
-                    site.focus = true;
-                    load_site.write(site);
-                } else {
-                    state.load_site_status = LoadSiteStatus::None;
-                }
+            Ok(Ok(mut site)) => {
+                state.load_site_status = LoadSiteStatus::Loading;
+                site.focus = true;
+                load_site.write(site);
                 commands.remove_resource::<SiteFetchReceiver>();
             }
-            Err(TryRecvError::Disconnected) => {
+            Ok(Err(_)) | Err(TryRecvError::Disconnected) => {
                 state.load_site_status = LoadSiteStatus::None;
                 commands.remove_resource::<SiteFetchReceiver>();
             }
@@ -162,14 +161,8 @@ pub fn load_site_status_ui(state: Res<LiveStreamState>, mut egui_context: EguiCo
 
 pub fn check_load_site_completion(
     mut state: ResMut<LiveStreamState>,
-    load_site_events: EventReader<crate::site::LoadSite>,
-    pending_models: Query<
-        (),
-        (
-            With<crate::site::PendingModel>,
-            Without<crate::site::ModelFailedLoading>,
-        ),
-    >,
+    load_site_events: EventReader<LoadSite>,
+    pending_models: Query<(), (With<PendingModel>, Without<ModelFailedLoading>)>,
 ) {
     if state.load_site_status == LoadSiteStatus::Loading
         && load_site_events.is_empty()

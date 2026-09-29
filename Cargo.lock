@@ -286,7 +286,7 @@ dependencies = [
  "objc2-foundation 0.3.2",
  "parking_lot",
  "percent-encoding",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
  "x11rb",
 ]
 
@@ -2967,7 +2967,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -6123,7 +6123,7 @@ dependencies = [
 [[package]]
 name = "roslibrust"
 version = "0.20.0"
-source = "git+https://github.com/althea28/roslibrust#4c7a4a1afd8493a2910ea81ca3146873729add31"
+source = "git+https://github.com/althea28/roslibrust#daa6e1edd3d2e38cfa26c7ebb6dae1924646c0d2"
 dependencies = [
  "roslibrust_codegen",
  "roslibrust_common",
@@ -6133,7 +6133,7 @@ dependencies = [
 [[package]]
 name = "roslibrust_codegen"
 version = "0.20.0"
-source = "git+https://github.com/althea28/roslibrust#4c7a4a1afd8493a2910ea81ca3146873729add31"
+source = "git+https://github.com/althea28/roslibrust#daa6e1edd3d2e38cfa26c7ebb6dae1924646c0d2"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -6159,7 +6159,7 @@ dependencies = [
 [[package]]
 name = "roslibrust_common"
 version = "0.20.0"
-source = "git+https://github.com/althea28/roslibrust#4c7a4a1afd8493a2910ea81ca3146873729add31"
+source = "git+https://github.com/althea28/roslibrust#daa6e1edd3d2e38cfa26c7ebb6dae1924646c0d2"
 dependencies = [
  "anyhow",
  "async-stream",
@@ -6173,7 +6173,7 @@ dependencies = [
 [[package]]
 name = "roslibrust_rosbridge"
 version = "0.20.0"
-source = "git+https://github.com/althea28/roslibrust#4c7a4a1afd8493a2910ea81ca3146873729add31"
+source = "git+https://github.com/althea28/roslibrust#daa6e1edd3d2e38cfa26c7ebb6dae1924646c0d2"
 dependencies = [
  "anyhow",
  "dashmap",
@@ -6259,7 +6259,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.11.0",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -6691,7 +6691,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3d1e2c7f27f8d4cb10542a02c49005dbd6e93095799d6f3be745fae9f8fedd4"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -7950,7 +7950,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]

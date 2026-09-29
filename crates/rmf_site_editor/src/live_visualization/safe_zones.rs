@@ -45,7 +45,8 @@ pub struct LiveEventSafeZone {
     size_y: u32,
     origin_x: f32,
     origin_y: f32,
-    data: Vec<u8>,
+    image_size: Extent3d,
+    rgba_data: Vec<u8>,
 }
 
 impl LiveStreamHandler for LiveEventSafeZone {
@@ -68,14 +69,22 @@ impl LiveStreamHandler for LiveEventSafeZone {
                     sender,
                     connect_flag,
                     connection_active,
-                    |safezone_msg| LiveEventSafeZone {
-                        name: robot_name.clone(),
-                        resolution: safezone_msg.costmap.metadata.resolution,
-                        size_x: safezone_msg.costmap.metadata.size_x,
-                        size_y: safezone_msg.costmap.metadata.size_y,
-                        origin_x: safezone_msg.costmap.metadata.origin.position.x as f32,
-                        origin_y: safezone_msg.costmap.metadata.origin.position.y as f32,
-                        data: safezone_msg.costmap.data,
+                    |safezone_msg| {
+                        let size_x = safezone_msg.costmap.metadata.size_x;
+                        let size_y = safezone_msg.costmap.metadata.size_y;
+                        // Convert costmap array to image metadata
+                        let (image_size, rgba_data) =
+                            convert_costmap_to_texture(size_x, size_y, &safezone_msg.costmap.data);
+                        LiveEventSafeZone {
+                            name: robot_name.clone(),
+                            resolution: safezone_msg.costmap.metadata.resolution,
+                            size_x,
+                            size_y,
+                            origin_x: safezone_msg.costmap.metadata.origin.position.x as f32,
+                            origin_y: safezone_msg.costmap.metadata.origin.position.y as f32,
+                            image_size,
+                            rgba_data,
+                        }
                     },
                 )
                 .await;
@@ -156,10 +165,7 @@ pub fn update_live_safe_zones(
         latest_events.insert(event.name.clone(), event);
     }
 
-    // Convert costmap array to image metadata
     for (_, event) in latest_events {
-        let (image_size, rgba_data) = convert_costmap_to_texture(&event);
-
         // Scale image to in-world dimensions
         let physical_width = event.size_x as f32 * event.resolution;
         let physical_height = event.size_y as f32 * event.resolution;
@@ -167,6 +173,9 @@ pub fn update_live_safe_zones(
         // Position image on floor plan
         let target_transform =
             get_safezone_target_position(&event, physical_width, physical_height);
+
+        let image_size = event.image_size;
+        let rgba_data = event.rgba_data;
 
         // If safe zone already exists for robot, update existing pixel data
         if let Some(&entity) = safe_zones_state.0.get(&event.name) {
@@ -251,47 +260,69 @@ pub fn update_live_safe_zones(
     }
 }
 
-fn convert_costmap_to_texture(event: &LiveEventSafeZone) -> (Extent3d, Vec<u8>) {
+fn convert_costmap_to_texture(size_x: u32, size_y: u32, data: &[u8]) -> (Extent3d, Vec<u8>) {
+    let (size_x, size_y) = (size_x as i32, size_y as i32);
+
     // Multiply costmap dimensions by constant scale factor to increase resolution
-    let scaled_size_x = (event.size_x as i32) * SAFE_ZONE_SCALE;
-    let scaled_size_y = (event.size_y as i32) * SAFE_ZONE_SCALE;
+    let scaled_size_x = size_x * SAFE_ZONE_SCALE;
+    let scaled_size_y = size_y * SAFE_ZONE_SCALE;
 
     let mut rgba_data = vec![0u8; (scaled_size_x * scaled_size_y * 4) as usize];
 
-    let is_safe_space = |scaled_x: i32, scaled_y: i32| -> bool {
-        if scaled_x < 0 || scaled_x >= scaled_size_x || scaled_y < 0 || scaled_y >= scaled_size_y {
+    let is_safe_space = |orig_x: i32, orig_y: i32| -> bool {
+        if !(0..size_x).contains(&orig_x) || !(0..size_y).contains(&orig_y) {
             // If out of bounds, it is not free space
             false
         } else {
             // Checks if pixel is in safe space by mapping back to raw event data
-            let orig_x = (scaled_x / SAFE_ZONE_SCALE) as usize;
-            let orig_y = (scaled_y / SAFE_ZONE_SCALE) as usize;
-            let ros_idx = orig_y * (event.size_x as usize) + orig_x;
-            event.data.get(ros_idx).copied() == Some(0)
+            let data_idx = (orig_y * size_x + orig_x) as usize;
+            data.get(data_idx).copied() == Some(0)
         }
     };
 
-    let is_border = |x: i32, y: i32| -> bool {
-        for ny in (y - 1)..=(y + 1) {
-            for nx in (x - 1)..=(x + 1) {
-                if !is_safe_space(nx, ny) {
-                    return true;
-                }
+    let get_edge_offset = |subpixel: i32| -> i32 {
+        if subpixel == 0 {
+            -1
+        } else if subpixel == SAFE_ZONE_SCALE - 1 {
+            1
+        } else {
+            0
+        }
+    };
+
+    for orig_y in 0..size_y {
+        for orig_x in 0..size_x {
+            if !is_safe_space(orig_x, orig_y) {
+                continue;
             }
-        }
-        false
-    };
 
-    for y in 0..scaled_size_y {
-        for x in 0..scaled_size_x {
-            if is_safe_space(x, y) {
-                let new_y = scaled_size_y - 1 - y;
-                let pixel_idx = (new_y * scaled_size_x + x) as usize * 4;
+            let is_unsafe = |offset_x: i32, offset_y: i32| -> bool {
+                (offset_x != 0 || offset_y != 0)
+                    && !is_safe_space(orig_x + offset_x, orig_y + offset_y)
+            };
 
-                if is_border(x, y) {
-                    rgba_data[pixel_idx..pixel_idx + 4].copy_from_slice(&SAFE_ZONE_OUTLINE_RGBA);
-                } else {
-                    rgba_data[pixel_idx..pixel_idx + 4].copy_from_slice(&SAFE_ZONE_RGBA);
+            let base_x = orig_x * SAFE_ZONE_SCALE;
+            let base_y = orig_y * SAFE_ZONE_SCALE;
+
+            for subpixel_y in 0..SAFE_ZONE_SCALE {
+                let new_y = scaled_size_y - 1 - (base_y + subpixel_y);
+                let row_offset = new_y * scaled_size_x;
+                let edge_offset_y = get_edge_offset(subpixel_y);
+                let is_y_border = is_unsafe(0, edge_offset_y);
+
+                for subpixel_x in 0..SAFE_ZONE_SCALE {
+                    let edge_offset_x = get_edge_offset(subpixel_x);
+                    let is_border = is_y_border
+                        || is_unsafe(edge_offset_x, 0)
+                        || is_unsafe(edge_offset_x, edge_offset_y);
+
+                    let pixel_idx = ((row_offset + base_x + subpixel_x) * 4) as usize;
+                    let color = if is_border {
+                        &SAFE_ZONE_OUTLINE_RGBA
+                    } else {
+                        &SAFE_ZONE_RGBA
+                    };
+                    rgba_data[pixel_idx..pixel_idx + 4].copy_from_slice(color);
                 }
             }
         }
