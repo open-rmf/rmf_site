@@ -77,6 +77,25 @@ impl LiveStreamHandler for LiveEventOdom {
         };
         spawn_network_task(task);
     }
+
+    fn cleanup(world: &mut World) {
+        if world
+            .get_resource::<LiveRobotsMap>()
+            .is_none_or(|m| m.0.is_empty())
+        {
+            return;
+        }
+        let _ = world.run_system_cached(
+            |mut commands: Commands,
+             mut robot_map: ResMut<LiveRobotsMap>,
+             live_robots: Query<Entity, With<LiveRobotMarker>>| {
+                robot_map.0.clear();
+                for entity in live_robots.iter() {
+                    commands.entity(entity).remove::<LiveRobotMarker>();
+                }
+            },
+        );
+    }
 }
 
 #[derive(Component)]
@@ -90,17 +109,10 @@ pub fn update_live_robots(
     mut channel: ResMut<VisualizationStreamChannel<LiveEventOdom>>,
     mut commands: Commands,
     mut robot_map: ResMut<LiveRobotsMap>,
-    live_robots: Query<Entity, With<LiveRobotMarker>>,
     untracked: Query<(Entity, &NameInSite), Without<LiveRobotMarker>>,
     mut poses: Query<&mut Pose>,
 ) {
     if !state.connection_active.load(Ordering::Relaxed) {
-        if !robot_map.0.is_empty() {
-            robot_map.0.clear();
-            for entity in live_robots.iter() {
-                commands.entity(entity).remove::<LiveRobotMarker>();
-            }
-        }
         return;
     }
 

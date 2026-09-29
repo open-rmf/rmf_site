@@ -16,13 +16,11 @@
 */
 
 use super::demo_world::*;
-use crate::live_visualization::live_state::LiveStreamState;
-use crate::live_visualization::network_client::{start_rosbridge_subscriber, StreamRegistry};
+use crate::live_visualization::LiveStreamState;
 use crate::{site::LoadSite, AppState, Autoload, WorkspaceLoader};
 use bevy::{app::AppExit, prelude::*, window::PrimaryWindow};
 use bevy_egui::{egui, EguiContexts};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::atomic::Ordering;
 
 const MAIN_MENU_PADDING: f32 = 10.0;
 
@@ -31,13 +29,9 @@ fn egui_ui(
     mut _exit: EventWriter<AppExit>,
     mut workspace_loader: WorkspaceLoader,
     mut _app_state: ResMut<State<AppState>>,
-    mut next_app_state: ResMut<NextState<AppState>>,
-    mut next_interaction_state: ResMut<NextState<crate::interaction::InteractionState>>,
-    mut load_site: EventWriter<LoadSite>,
     autoload: Option<ResMut<Autoload>>,
     primary_windows: Query<Entity, With<PrimaryWindow>>,
     mut live_stream_state: ResMut<LiveStreamState>,
-    registry: Res<StreamRegistry>,
 ) {
     if let Some(mut autoload) = autoload {
         #[cfg(not(target_arch = "wasm32"))]
@@ -122,22 +116,9 @@ fn egui_ui(
                             if connection_initiated {
                                 ui.label("Stream requested...");
                             } else if ui.button("Connect").clicked() {
-                                live_stream_state.connection_requested =
-                                    Arc::new(AtomicBool::new(true));
-                                live_stream_state.connection_active =
-                                    Arc::new(AtomicBool::new(false));
-
-                                start_rosbridge_subscriber(
-                                    &live_stream_state.url,
-                                    registry.clone(),
-                                    live_stream_state.connection_requested.clone(),
-                                    live_stream_state.connection_active.clone(),
-                                );
-
-                                next_app_state.set(AppState::SiteEditor);
-                                next_interaction_state
-                                    .set(crate::interaction::InteractionState::Enable);
-                                load_site.write(LoadSite::blank_L1("live".to_owned(), None));
+                                live_stream_state
+                                    .connection_requested
+                                    .store(true, Ordering::Relaxed);
                             }
                         });
                     });

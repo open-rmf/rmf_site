@@ -83,15 +83,48 @@ impl LiveStreamHandler for LiveEventSafeZone {
         };
         spawn_network_task(task);
     }
+
+    fn cleanup(world: &mut World) {
+        if world
+            .get_resource::<LiveSafeZoneState>()
+            .is_none_or(|s| s.0.is_empty())
+        {
+            return;
+        }
+        let _ =
+            world.run_system_cached(
+                |mut commands: Commands,
+                 mut safe_zones_state: ResMut<LiveSafeZoneState>,
+                 mut images: ResMut<Assets<Image>>,
+                 mut meshes: ResMut<Assets<Mesh>>,
+                 mut materials: ResMut<Assets<StandardMaterial>>,
+                 safe_zones: Query<(
+                    &SafeZoneMarker,
+                    &Mesh3d,
+                    &MeshMaterial3d<StandardMaterial>,
+                )>| {
+                    for (_, entity) in safe_zones_state.0.drain() {
+                        if let Ok((marker, mesh3d, mat3d)) = safe_zones.get(entity) {
+                            images.remove(&marker.image_handle);
+                            meshes.remove(&mesh3d.0);
+                            materials.remove(&mat3d.0);
+                        }
+                        if let Ok(mut cmds) = commands.get_entity(entity) {
+                            cmds.despawn();
+                        }
+                    }
+                },
+            );
+    }
 }
 
 #[derive(Default, Resource)]
-pub struct LiveSafeZoneState(pub HashMap<String, Entity>);
+pub struct LiveSafeZoneState(HashMap<String, Entity>);
 
 #[derive(Component)]
 pub struct SafeZoneMarker {
     name: String,
-    pub image_handle: Handle<Image>,
+    image_handle: Handle<Image>,
 }
 
 pub fn update_live_safe_zones(
@@ -113,18 +146,7 @@ pub fn update_live_safe_zones(
         &mut Visibility,
     )>,
 ) {
-    // Cleanup all safe zone entities on network disconnect
     if !state.connection_active.load(Ordering::Relaxed) {
-        for (_, entity) in safe_zones_state.0.drain() {
-            if let Ok((_, marker, _, mesh3d, mat3d, _)) = safe_zones.get(entity) {
-                images.remove(&marker.image_handle);
-                meshes.remove(&mesh3d.0);
-                materials.remove(&mat3d.0);
-            }
-            if let Ok(mut cmds) = commands.get_entity(entity) {
-                cmds.despawn();
-            }
-        }
         return;
     }
 

@@ -44,6 +44,8 @@ pub trait LiveStreamHandler: Send + Sync + 'static {
         connection_active: Arc<AtomicBool>,
     ) where
         Self: Sized;
+
+    fn cleanup(_world: &mut World) {}
 }
 
 #[derive(Resource, Clone, Default)]
@@ -91,6 +93,20 @@ impl<T: LiveStreamHandler> Plugin for StreamPlugin<T> {
                     );
                 },
             ));
+
+        app.add_systems(OnEnter(crate::AppState::MainMenu), T::cleanup)
+            .add_systems(
+                PreUpdate,
+                (|world: &mut World| {
+                    let is_active = world
+                        .get_resource::<super::live_state::LiveStreamState>()
+                        .is_some_and(|s| s.connection_active.load(Ordering::Relaxed));
+                    if !is_active {
+                        T::cleanup(world);
+                    }
+                })
+                .run_if(in_state(crate::AppState::SiteEditor)),
+            );
     }
 }
 

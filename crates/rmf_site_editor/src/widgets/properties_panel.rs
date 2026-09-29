@@ -21,7 +21,7 @@ use egui_dock::{DockArea, DockState, Style, TabViewer};
 use std::collections::HashSet;
 use std::sync::atomic::Ordering;
 
-use crate::live_visualization::live_state::LiveStreamState;
+use crate::live_visualization::LiveStreamState;
 use crate::AppState;
 use rmf_site_egui::{
     PanelConfig, PanelSettings, PanelWidgetInput, TabGroup, Tile, TryShowWidgetWorld,

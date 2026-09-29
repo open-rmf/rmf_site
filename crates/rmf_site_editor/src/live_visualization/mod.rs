@@ -15,24 +15,26 @@
  *
 */
 
-pub mod live_state;
-pub mod network_client;
+mod live_state;
+mod network_client;
 mod odometry;
 mod planned_paths;
 mod safe_zones;
 
 use bevy::prelude::*;
 use rmf_site_egui::{HeaderPanel, HeaderTilePlugin};
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
+pub use live_state::LiveStreamState;
 use live_state::{
     auto_fetch_site_on_connect, check_load_site_completion, load_site_status_ui,
-    process_site_download, LiveStreamState, LiveStreamStatusWidget,
+    process_site_download, LiveStreamStatusWidget, LoadSiteStatus,
 };
-use network_client::StreamPlugin;
-use odometry::{update_live_robots, LiveEventOdom, LiveRobotMarker, LiveRobotsMap};
+use network_client::{start_rosbridge_subscriber, StreamPlugin, StreamRegistry};
+use odometry::{update_live_robots, LiveEventOdom, LiveRobotsMap};
 use planned_paths::{update_live_paths, LiveEventPlan, LiveEventProgress, LivePathsState};
-use safe_zones::{update_live_safe_zones, LiveEventSafeZone, LiveSafeZoneState, SafeZoneMarker};
+use safe_zones::{update_live_safe_zones, LiveEventSafeZone, LiveSafeZoneState};
 
 pub struct LiveVisualizationPlugin;
 
@@ -48,6 +50,10 @@ impl Plugin for LiveVisualizationPlugin {
         .init_resource::<LiveRobotsMap>()
         .init_resource::<LivePathsState>()
         .init_resource::<LiveSafeZoneState>()
+        .add_systems(
+            Update,
+            start_live_stream.run_if(in_state(crate::AppState::MainMenu)),
+        )
         .add_systems(
             Update,
             (
@@ -69,37 +75,36 @@ impl Plugin for LiveVisualizationPlugin {
     }
 }
 
-fn disconnect_live_stream(
-    mut commands: Commands,
-    mut state: ResMut<LiveStreamState>,
-    mut robot_map: ResMut<LiveRobotsMap>,
-    mut path_state: ResMut<LivePathsState>,
-    mut safe_zones_state: ResMut<LiveSafeZoneState>,
-    mut images: ResMut<Assets<Image>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    live_robots: Query<Entity, With<LiveRobotMarker>>,
-    safe_zones: Query<(
-        Entity,
-        &SafeZoneMarker,
-        &Mesh3d,
-        &MeshMaterial3d<StandardMaterial>,
-    )>,
+fn start_live_stream(
+    mut live_stream_state: ResMut<LiveStreamState>,
+    registry: Res<StreamRegistry>,
+    mut next_app_state: ResMut<NextState<crate::AppState>>,
+    mut next_interaction_state: ResMut<NextState<crate::interaction::InteractionState>>,
+    mut load_site: EventWriter<crate::site::LoadSite>,
 ) {
+    if live_stream_state
+        .connection_requested
+        .load(Ordering::Relaxed)
+    {
+        live_stream_state.connection_requested = Arc::new(AtomicBool::new(true));
+        live_stream_state.connection_active = Arc::new(AtomicBool::new(false));
+
+        start_rosbridge_subscriber(
+            &live_stream_state.url,
+            registry.clone(),
+            live_stream_state.connection_requested.clone(),
+            live_stream_state.connection_active.clone(),
+        );
+
+        next_app_state.set(crate::AppState::SiteEditor);
+        next_interaction_state.set(crate::interaction::InteractionState::Enable);
+        load_site.write(crate::site::LoadSite::blank_L1("live".to_owned(), None));
+    }
+}
+
+fn disconnect_live_stream(mut state: ResMut<LiveStreamState>) {
     state.connection_requested.store(false, Ordering::Relaxed);
     state.connection_active.store(false, Ordering::Relaxed);
     state.site_loaded = false;
-    state.load_site_status = crate::live_visualization::live_state::LoadSiteStatus::None;
-    robot_map.0.clear();
-    path_state.0.clear();
-    safe_zones_state.0.clear();
-    for entity in live_robots.iter() {
-        commands.entity(entity).despawn();
-    }
-    for (entity, marker, mesh3d, mat3d) in safe_zones.iter() {
-        images.remove(&marker.image_handle);
-        meshes.remove(&mesh3d.0);
-        materials.remove(&mat3d.0);
-        commands.entity(entity).despawn();
-    }
+    state.load_site_status = LoadSiteStatus::None;
 }

@@ -66,7 +66,7 @@ use site_asset_io::SiteAssetIoPlugin;
 pub mod mapf_rse;
 use mapf_rse::NegotiationPlugin;
 
-pub mod live_visualization;
+mod live_visualization;
 use live_visualization::LiveVisualizationPlugin;
 
 pub mod osm_slippy_map;

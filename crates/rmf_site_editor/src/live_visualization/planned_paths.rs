@@ -120,6 +120,18 @@ impl LiveStreamHandler for LiveEventPlan {
         };
         spawn_network_task(task);
     }
+
+    fn cleanup(world: &mut World) {
+        if world
+            .get_resource::<LivePathsState>()
+            .is_none_or(|s| s.0.is_empty())
+        {
+            return;
+        }
+        let _ = world.run_system_cached(|mut path_state: ResMut<LivePathsState>| {
+            path_state.0.clear();
+        });
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -193,7 +205,6 @@ pub fn update_live_paths(
     mut gizmos: Gizmos,
 ) {
     if !state.connection_active.load(Ordering::Relaxed) {
-        path_state.0.clear();
         return;
     }
 
