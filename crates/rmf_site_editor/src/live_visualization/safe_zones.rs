@@ -29,7 +29,7 @@ use super::live_state::LiveStreamState;
 use super::network_client::{
     run_subscription_loop, spawn_network_task, LiveStreamHandler, VisualizationStreamChannel,
 };
-use super::odometry::LiveRobotsMap;
+use super::odometry::LiveRobotsState;
 use super::planned_paths::LivePathsState;
 
 const SAFE_ZONE_SCALE: i32 = 8;
@@ -54,7 +54,7 @@ impl LiveStreamHandler for LiveEventSafeZone {
         robot_name: String,
         client: ClientHandle,
         sender: UnboundedSender<Self>,
-        connect_flag: Arc<AtomicBool>,
+        connection_requested: Arc<AtomicBool>,
         connection_active: Arc<AtomicBool>,
     ) {
         let topic_name = format!("/{}/plan/safe_zone", robot_name);
@@ -67,7 +67,7 @@ impl LiveStreamHandler for LiveEventSafeZone {
                 run_subscription_loop(
                     safezone_sub,
                     sender,
-                    connect_flag,
+                    connection_requested,
                     connection_active,
                     |safezone_msg| {
                         let size_x = safezone_msg.costmap.metadata.size_x;
@@ -95,7 +95,7 @@ impl LiveStreamHandler for LiveEventSafeZone {
 
     fn cleanup(world: &mut World) {
         if world
-            .get_resource::<LiveSafeZoneState>()
+            .get_resource::<LiveSafeZonesState>()
             .is_none_or(|s| s.0.is_empty())
         {
             return;
@@ -103,12 +103,12 @@ impl LiveStreamHandler for LiveEventSafeZone {
         let _ =
             world.run_system_cached(
                 |mut commands: Commands,
-                 mut safe_zones_state: ResMut<LiveSafeZoneState>,
+                 mut safe_zones_state: ResMut<LiveSafeZonesState>,
                  mut images: ResMut<Assets<Image>>,
                  mut meshes: ResMut<Assets<Mesh>>,
                  mut materials: ResMut<Assets<StandardMaterial>>,
                  safe_zones: Query<(
-                    &SafeZoneMarker,
+                    &LiveSafeZoneMarker,
                     &Mesh3d,
                     &MeshMaterial3d<StandardMaterial>,
                 )>| {
@@ -128,10 +128,10 @@ impl LiveStreamHandler for LiveEventSafeZone {
 }
 
 #[derive(Default, Resource)]
-pub struct LiveSafeZoneState(HashMap<String, Entity>);
+pub struct LiveSafeZonesState(HashMap<String, Entity>);
 
 #[derive(Component)]
-pub struct SafeZoneMarker {
+pub struct LiveSafeZoneMarker {
     name: String,
     image_handle: Handle<Image>,
 }
@@ -140,15 +140,15 @@ pub fn update_live_safe_zones(
     state: Res<LiveStreamState>,
     mut channel: ResMut<VisualizationStreamChannel<LiveEventSafeZone>>,
     path_state: Res<LivePathsState>,
-    robot_map: Res<LiveRobotsMap>,
+    robot_map: Res<LiveRobotsState>,
     mut commands: Commands,
-    mut safe_zones_state: ResMut<LiveSafeZoneState>,
+    mut safe_zones_state: ResMut<LiveSafeZonesState>,
     mut images: ResMut<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut safe_zones: Query<(
         Entity,
-        &mut SafeZoneMarker,
+        &mut LiveSafeZoneMarker,
         &mut Transform,
         &mut Mesh3d,
         &mut MeshMaterial3d<StandardMaterial>,
@@ -165,7 +165,7 @@ pub fn update_live_safe_zones(
         latest_events.insert(event.name.clone(), event);
     }
 
-    for (_, event) in latest_events {
+    for event in latest_events.into_values() {
         // Scale image to in-world dimensions
         let physical_width = event.size_x as f32 * event.resolution;
         let physical_height = event.size_y as f32 * event.resolution;
@@ -184,7 +184,7 @@ pub fn update_live_safe_zones(
             {
                 let size_matches = images
                     .get(&marker.image_handle)
-                    .map_or(false, |img| img.texture_descriptor.size == image_size);
+                    .is_some_and(|img| img.texture_descriptor.size == image_size);
 
                 if size_matches {
                     if let Some(image) = images.get_mut(&marker.image_handle) {
@@ -228,7 +228,7 @@ pub fn update_live_safe_zones(
 
             let entity = commands
                 .spawn((
-                    SafeZoneMarker {
+                    LiveSafeZoneMarker {
                         name: event.name.clone(),
                         image_handle,
                     },
@@ -250,7 +250,7 @@ pub fn update_live_safe_zones(
         let has_arrived = path_state
             .0
             .get(&marker.name)
-            .map_or(true, |path_data| path_data.is_completed());
+            .is_none_or(|path_data| path_data.is_completed());
 
         if has_arrived || !robot_exists {
             *visibility = Visibility::Hidden;
@@ -305,6 +305,7 @@ fn convert_costmap_to_texture(size_x: u32, size_y: u32, data: &[u8]) -> (Extent3
             let base_y = orig_y * SAFE_ZONE_SCALE;
 
             for subpixel_y in 0..SAFE_ZONE_SCALE {
+                // Invert Y-axis as costmap data starts at bottom-left but GPU textures start at top-left
                 let new_y = scaled_size_y - 1 - (base_y + subpixel_y);
                 let row_offset = new_y * scaled_size_x;
                 let edge_offset_y = get_edge_offset(subpixel_y);
@@ -342,6 +343,8 @@ fn get_safezone_target_position(
     physical_width: f32,
     physical_height: f32,
 ) -> Transform {
+    // origin_x and origin_y represent the center of grid cell (0, 0) not its bottom-left corner,
+    // requiring a half-cell shift to align the quad center
     let center_x = event.origin_x + (physical_width - event.resolution) / 2.0;
     let center_y = event.origin_y + (physical_height - event.resolution) / 2.0;
 

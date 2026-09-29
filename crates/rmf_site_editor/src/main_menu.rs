@@ -58,11 +58,11 @@ fn egui_ui(
         .fixed_size(egui::vec2(700.0, 500.0))
         .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0., 0.))
         .show(ctx, |ui| {
-            ui.add_space(10.);
+            ui.add_space(MAIN_MENU_PADDING);
             ui.vertical_centered(|ui| {
                 ui.heading("Welcome to The RMF Site Editor!");
             });
-            ui.add_space(10.);
+            ui.add_space(MAIN_MENU_PADDING);
 
             ui.columns(2, |columns| {
                 egui::Frame::NONE

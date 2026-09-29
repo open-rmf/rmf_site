@@ -114,7 +114,7 @@ pub fn auto_fetch_site_on_connect(
         ehttp::fetch(request, move |result| {
             let parsed = match result {
                 Ok(response) => {
-                    if response.status == 200 {
+                    if response.ok {
                         LoadSite::from_data(&response.bytes, None).map_err(|e| e.to_string())
                     } else {
                         Err(format!(

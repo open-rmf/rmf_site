@@ -27,7 +27,7 @@ use super::live_state::LiveStreamState;
 use super::network_client::{
     run_subscription_loop, spawn_network_task, LiveStreamHandler, VisualizationStreamChannel,
 };
-use super::odometry::{LiveRobotMarker, LiveRobotsMap};
+use super::odometry::{LiveRobotMarker, LiveRobotsState};
 
 const PLANNED_PATH_Z_OFFSET: f32 = 0.05;
 const PLANNED_PATH_COLOR: Color = Color::srgb(0.0, 1.0, 0.0);
@@ -71,7 +71,7 @@ impl LiveStreamHandler for LiveEventPlan {
         robot_name: String,
         client: ClientHandle,
         sender: UnboundedSender<Self>,
-        connect_flag: Arc<AtomicBool>,
+        connection_requested: Arc<AtomicBool>,
         connection_active: Arc<AtomicBool>,
     ) {
         let topic_name = format!("/{}/plan", robot_name);
@@ -81,7 +81,7 @@ impl LiveStreamHandler for LiveEventPlan {
                 run_subscription_loop(
                     plan_sub,
                     sender,
-                    connect_flag,
+                    connection_requested,
                     connection_active,
                     |plan_msg| {
                         let waypoints: Vec<LiveWaypoint> = plan_msg
@@ -99,8 +99,8 @@ impl LiveStreamHandler for LiveEventPlan {
 
                                 LiveWaypoint {
                                     position: Vec3::new(
-                                        wp.position[0] as f32,
-                                        wp.position[1] as f32,
+                                        wp.position[0],
+                                        wp.position[1],
                                         PLANNED_PATH_Z_OFFSET,
                                     ),
                                     progress: wp.progress,
@@ -146,7 +146,7 @@ impl LiveStreamHandler for LiveEventProgress {
         robot_name: String,
         client: ClientHandle,
         sender: UnboundedSender<Self>,
-        connect_flag: Arc<AtomicBool>,
+        connection_requested: Arc<AtomicBool>,
         connection_active: Arc<AtomicBool>,
     ) {
         let topic_name = format!("/{}/plan/progress", robot_name);
@@ -159,7 +159,7 @@ impl LiveStreamHandler for LiveEventProgress {
                 run_subscription_loop(
                     prog_sub,
                     sender,
-                    connect_flag,
+                    connection_requested,
                     connection_active,
                     |prog_msg| LiveEventProgress {
                         name: robot_name.clone(),
@@ -200,7 +200,7 @@ pub fn update_live_paths(
     mut plan_channel: ResMut<VisualizationStreamChannel<LiveEventPlan>>,
     mut progress_channel: ResMut<VisualizationStreamChannel<LiveEventProgress>>,
     mut path_state: ResMut<LivePathsState>,
-    robot_map: Res<LiveRobotsMap>,
+    robot_map: Res<LiveRobotsState>,
     live_robots: Query<&Transform, With<LiveRobotMarker>>,
     mut gizmos: Gizmos,
 ) {

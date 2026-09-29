@@ -43,7 +43,7 @@ impl LiveStreamHandler for LiveEventOdom {
         robot_name: String,
         client: ClientHandle,
         sender: UnboundedSender<Self>,
-        connect_flag: Arc<AtomicBool>,
+        connection_requested: Arc<AtomicBool>,
         connection_active: Arc<AtomicBool>,
     ) {
         let topic_name = format!("/{}/odom", robot_name);
@@ -53,12 +53,13 @@ impl LiveStreamHandler for LiveEventOdom {
                 run_subscription_loop(
                     odom_sub,
                     sender,
-                    connect_flag,
+                    connection_requested,
                     connection_active,
                     |odom_msg| {
                         let pos = &odom_msg.pose.pose.position;
                         let q = &odom_msg.pose.pose.orientation;
 
+                        // Convert 3D ROS orientation quaternion to 2D yaw angle around z-axis
                         let siny_cosp: f64 = 2.0 * (q.w * q.z + q.x * q.y);
                         let cosy_cosp: f64 = 1.0 - 2.0 * (q.y * q.y + q.z * q.z);
                         let yaw = siny_cosp.atan2(cosy_cosp) as f32;
@@ -80,14 +81,14 @@ impl LiveStreamHandler for LiveEventOdom {
 
     fn cleanup(world: &mut World) {
         if world
-            .get_resource::<LiveRobotsMap>()
+            .get_resource::<LiveRobotsState>()
             .is_none_or(|m| m.0.is_empty())
         {
             return;
         }
         let _ = world.run_system_cached(
             |mut commands: Commands,
-             mut robot_map: ResMut<LiveRobotsMap>,
+             mut robot_map: ResMut<LiveRobotsState>,
              live_robots: Query<Entity, With<LiveRobotMarker>>| {
                 robot_map.0.clear();
                 for entity in live_robots.iter() {
@@ -102,13 +103,13 @@ impl LiveStreamHandler for LiveEventOdom {
 pub struct LiveRobotMarker;
 
 #[derive(Default, Resource)]
-pub struct LiveRobotsMap(pub HashMap<String, Entity>);
+pub struct LiveRobotsState(pub HashMap<String, Entity>);
 
 pub fn update_live_robots(
     state: Res<LiveStreamState>,
     mut channel: ResMut<VisualizationStreamChannel<LiveEventOdom>>,
     mut commands: Commands,
-    mut robot_map: ResMut<LiveRobotsMap>,
+    mut robot_map: ResMut<LiveRobotsState>,
     untracked: Query<(Entity, &NameInSite), Without<LiveRobotMarker>>,
     mut poses: Query<&mut Pose>,
 ) {

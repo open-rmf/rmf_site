@@ -32,9 +32,9 @@ use live_state::{
     process_site_download, LiveStreamStatusWidget, LoadSiteStatus, SiteFetchReceiver,
 };
 use network_client::{start_rosbridge_subscriber, StreamPlugin, StreamRegistry};
-use odometry::{update_live_robots, LiveEventOdom, LiveRobotsMap};
+use odometry::{update_live_robots, LiveEventOdom, LiveRobotsState};
 use planned_paths::{update_live_paths, LiveEventPlan, LiveEventProgress, LivePathsState};
-use safe_zones::{update_live_safe_zones, LiveEventSafeZone, LiveSafeZoneState};
+use safe_zones::{update_live_safe_zones, LiveEventSafeZone, LiveSafeZonesState};
 
 pub struct LiveVisualizationPlugin;
 
@@ -47,9 +47,9 @@ impl Plugin for LiveVisualizationPlugin {
             StreamPlugin::<LiveEventSafeZone>::default(),
         ))
         .init_resource::<LiveStreamState>()
-        .init_resource::<LiveRobotsMap>()
+        .init_resource::<LiveRobotsState>()
         .init_resource::<LivePathsState>()
-        .init_resource::<LiveSafeZoneState>()
+        .init_resource::<LiveSafeZonesState>()
         .add_systems(
             Update,
             start_live_stream.run_if(in_state(crate::AppState::MainMenu)),

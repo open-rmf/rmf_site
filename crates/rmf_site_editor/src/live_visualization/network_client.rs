@@ -40,7 +40,7 @@ pub trait LiveStreamHandler: Send + Sync + 'static {
         robot_name: String,
         client: ClientHandle,
         sender: UnboundedSender<Self>,
-        connect_flag: Arc<AtomicBool>,
+        connection_requested: Arc<AtomicBool>,
         connection_active: Arc<AtomicBool>,
     ) where
         Self: Sized;
@@ -83,12 +83,12 @@ impl<T: LiveStreamHandler> Plugin for StreamPlugin<T> {
             .resource_mut::<StreamRegistry>()
             .spawners
             .push(Arc::new(
-                move |robot_name, client, connect_flag, connection_active| {
+                move |robot_name, client, connection_requested, connection_active| {
                     T::spawn_stream(
                         robot_name,
                         client,
                         tx_clone.clone(),
-                        connect_flag,
+                        connection_requested,
                         connection_active,
                     );
                 },
@@ -157,7 +157,7 @@ async fn wait_until_inactive(connection_active: &Arc<AtomicBool>) {
 pub async fn run_subscription_loop<M, E, F>(
     sub: Subscriber<M>,
     sender: UnboundedSender<E>,
-    connect_flag: Arc<AtomicBool>,
+    connection_requested: Arc<AtomicBool>,
     connection_active: Arc<AtomicBool>,
     mut map_fn: F,
 ) where
@@ -170,7 +170,9 @@ pub async fn run_subscription_loop<M, E, F>(
             _ = wait_until_inactive(&connection_active) => break,
         };
 
-        if !connect_flag.load(Ordering::Relaxed) || !connection_active.load(Ordering::Relaxed) {
+        if !connection_requested.load(Ordering::Relaxed)
+            || !connection_active.load(Ordering::Relaxed)
+        {
             break;
         }
 
@@ -211,28 +213,30 @@ async fn run_rosbridge_loop(
             info!("Connected via roslibrust to {}", url);
             connection_active.store(true, Ordering::Relaxed);
 
-            let health_client = client.clone();
-            let health_flag = connection_active.clone();
-            let health_cancel = connection_requested.clone();
+            {
+                let health_client = client.clone();
+                let connection_active = connection_active.clone();
+                let connection_requested = connection_requested.clone();
 
-            // Async task to ping server with lightweight subscription every few seconds to check connection health
-            spawn_network_task(async move {
-                loop {
-                    sleep(Duration::from_secs(TIMEOUT_SECONDS)).await;
+                // Async task to periodically check if the rosbridge client has disconnected
+                spawn_network_task(async move {
+                    loop {
+                        sleep(Duration::from_secs(TIMEOUT_SECONDS)).await;
 
-                    if !health_cancel.load(Ordering::Relaxed)
-                        || !health_flag.load(Ordering::Relaxed)
-                    {
-                        break;
+                        if !connection_requested.load(Ordering::Relaxed)
+                            || !connection_active.load(Ordering::Relaxed)
+                        {
+                            break;
+                        }
+
+                        if health_client.is_disconnected() {
+                            warn!("Rosbridge connection lost.");
+                            connection_active.store(false, Ordering::Relaxed);
+                            break;
+                        }
                     }
-
-                    if health_client.is_disconnected() {
-                        warn!("Rosbridge connection lost.");
-                        health_flag.store(false, Ordering::Relaxed);
-                        break;
-                    }
-                }
-            });
+                });
+            }
 
             if let Ok(discovery_sub) = client
                 .subscribe_transient_local::<ParticipantList>("/destination/discovery")
@@ -254,10 +258,9 @@ async fn run_rosbridge_loop(
                     }
 
                     for p in msg.participants {
-                        if subscribed_robots.contains(&p.name) {
+                        if !subscribed_robots.insert(p.name.clone()) {
                             continue;
                         }
-                        subscribed_robots.insert(p.name.clone());
 
                         info!("Subscribing to: {}", p.name);
 
