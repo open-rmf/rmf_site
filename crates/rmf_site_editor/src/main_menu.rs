@@ -21,7 +21,8 @@ use crate::live_visualization::network_client::{start_rosbridge_subscriber, Stre
 use crate::{site::LoadSite, AppState, Autoload, WorkspaceLoader};
 use bevy::{app::AppExit, prelude::*, window::PrimaryWindow};
 use bevy_egui::{egui, EguiContexts};
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 const MAIN_MENU_PADDING: f32 = 10.0;
 
@@ -98,7 +99,7 @@ fn egui_ui(
                 egui::Frame::NONE
                     .inner_margin(MAIN_MENU_PADDING)
                     .show(&mut columns[1], |ui| {
-                        ui.heading("Visualise from Stream:");
+                        ui.heading("Visualize from Stream:");
                         ui.add_space(MAIN_MENU_PADDING);
 
                         ui.horizontal(|ui| {
@@ -121,9 +122,10 @@ fn egui_ui(
                             if connection_initiated {
                                 ui.label("Stream requested...");
                             } else if ui.button("Connect").clicked() {
-                                live_stream_state
-                                    .connection_requested
-                                    .store(true, Ordering::Relaxed);
+                                live_stream_state.connection_requested =
+                                    Arc::new(AtomicBool::new(true));
+                                live_stream_state.connection_active =
+                                    Arc::new(AtomicBool::new(false));
 
                                 start_rosbridge_subscriber(
                                     &live_stream_state.url,

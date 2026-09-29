@@ -1,3 +1,20 @@
+/*
+ * Copyright (C) 2026 Open Source Robotics Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+*/
+
 use bevy::prelude::*;
 use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
@@ -10,9 +27,9 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use super::live_state::LiveStreamState;
 use super::network_client::{
-    spawn_network_task, wait_until_inactive, LiveStreamHandler, VisualizationStreamChannel,
+    run_subscription_loop, spawn_network_task, LiveStreamHandler, VisualizationStreamChannel,
 };
-use super::odometry::LiveRobotMarker;
+use super::odometry::LiveRobotsMap;
 use super::planned_paths::LivePathsState;
 
 const SAFE_ZONE_SCALE: i32 = 8;
@@ -42,35 +59,26 @@ impl LiveStreamHandler for LiveEventSafeZone {
         let topic_name = format!("/{}/plan/safe_zone", robot_name);
 
         let task = async move {
-            if let Ok(sz_sub) = client
+            if let Ok(safezone_sub) = client
                 .subscribe_transient_local::<SafeZone>(&topic_name)
                 .await
             {
-                loop {
-                    let sz_msg = tokio::select! {
-                        msg = sz_sub.next() => msg,
-                        _ = wait_until_inactive(&connection_active) => break,
-                    };
-
-                    if !connect_flag.load(Ordering::Relaxed)
-                        || !connection_active.load(Ordering::Relaxed)
-                    {
-                        break;
-                    }
-
-                    if let Err(e) = sender.send(LiveEventSafeZone {
+                run_subscription_loop(
+                    safezone_sub,
+                    sender,
+                    connect_flag,
+                    connection_active,
+                    |safezone_msg| LiveEventSafeZone {
                         name: robot_name.clone(),
-                        resolution: sz_msg.costmap.metadata.resolution,
-                        size_x: sz_msg.costmap.metadata.size_x,
-                        size_y: sz_msg.costmap.metadata.size_y,
-                        origin_x: sz_msg.costmap.metadata.origin.position.x as f32,
-                        origin_y: sz_msg.costmap.metadata.origin.position.y as f32,
-                        data: sz_msg.costmap.data,
-                    }) {
-                        error!("Failed to send SafeZone event across channel: {}", e);
-                        break;
-                    }
-                }
+                        resolution: safezone_msg.costmap.metadata.resolution,
+                        size_x: safezone_msg.costmap.metadata.size_x,
+                        size_y: safezone_msg.costmap.metadata.size_y,
+                        origin_x: safezone_msg.costmap.metadata.origin.position.x as f32,
+                        origin_y: safezone_msg.costmap.metadata.origin.position.y as f32,
+                        data: safezone_msg.costmap.data,
+                    },
+                )
+                .await;
             }
         };
         spawn_network_task(task);
@@ -83,19 +91,20 @@ pub struct LiveSafeZoneState(pub HashMap<String, Entity>);
 #[derive(Component)]
 pub struct SafeZoneMarker {
     name: String,
-    image_handle: Handle<Image>,
+    pub image_handle: Handle<Image>,
 }
 
 pub fn update_live_safe_zones(
     state: Res<LiveStreamState>,
     mut channel: ResMut<VisualizationStreamChannel<LiveEventSafeZone>>,
     path_state: Res<LivePathsState>,
+    robot_map: Res<LiveRobotsMap>,
     mut commands: Commands,
     mut safe_zones_state: ResMut<LiveSafeZoneState>,
     mut images: ResMut<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut marker_query: Query<(
+    mut safe_zones: Query<(
         Entity,
         &mut SafeZoneMarker,
         &mut Transform,
@@ -103,11 +112,15 @@ pub fn update_live_safe_zones(
         &mut MeshMaterial3d<StandardMaterial>,
         &mut Visibility,
     )>,
-    robot_query: Query<&LiveRobotMarker>,
 ) {
-    // Cleanup all SafeZone entities on network disconnect
+    // Cleanup all safe zone entities on network disconnect
     if !state.connection_active.load(Ordering::Relaxed) {
         for (_, entity) in safe_zones_state.0.drain() {
+            if let Ok((_, marker, _, mesh3d, mat3d, _)) = safe_zones.get(entity) {
+                images.remove(&marker.image_handle);
+                meshes.remove(&mesh3d.0);
+                materials.remove(&mat3d.0);
+            }
             if let Ok(mut cmds) = commands.get_entity(entity) {
                 cmds.despawn();
             }
@@ -115,7 +128,7 @@ pub fn update_live_safe_zones(
         return;
     }
 
-    // Get latest SafeZone messages for each robot
+    // Get latest safe zone messages for each robot
     let mut latest_events = HashMap::new();
     while let Ok(event) = channel.receiver.try_recv() {
         latest_events.insert(event.name.clone(), event);
@@ -133,10 +146,10 @@ pub fn update_live_safe_zones(
         let target_transform =
             get_safezone_target_position(&event, physical_width, physical_height);
 
-        // If SafeZone already exists for robot, update existing pixel data
+        // If safe zone already exists for robot, update existing pixel data
         if let Some(&entity) = safe_zones_state.0.get(&event.name) {
             if let Ok((_, mut marker, mut transform, mut mesh3d, mut mat3d, _)) =
-                marker_query.get_mut(entity)
+                safe_zones.get_mut(entity)
             {
                 let size_matches = images
                     .get(&marker.image_handle)
@@ -145,9 +158,14 @@ pub fn update_live_safe_zones(
                 if size_matches {
                     if let Some(image) = images.get_mut(&marker.image_handle) {
                         image.data = Some(rgba_data);
+                        // Mark material as mutated so the updated texture is re-extracted
                         let _ = materials.get_mut(&mat3d.0);
                     }
                 } else {
+                    images.remove(&marker.image_handle);
+                    meshes.remove(&mesh3d.0);
+                    materials.remove(&mat3d.0);
+
                     let (new_image_handle, new_mesh, new_mat) = create_safezone_assets(
                         image_size,
                         rgba_data,
@@ -166,7 +184,7 @@ pub fn update_live_safe_zones(
                 *transform = target_transform;
             }
         } else {
-            // If SafeZone does not exist yet, create new image and mesh
+            // If safe zone does not exist yet, create new image and mesh
             let (image_handle, mesh3d, mat3d) = create_safezone_assets(
                 image_size,
                 rgba_data,
@@ -194,15 +212,9 @@ pub fn update_live_safe_zones(
         }
     }
 
-    // Update visibility of each existing SafeZones based on robot progress
-    for (_, marker, _, _, _, mut visibility) in marker_query.iter_mut() {
-        let mut robot_exists = false;
-        for robot in robot_query.iter() {
-            if robot.name == marker.name {
-                robot_exists = true;
-                break;
-            }
-        }
+    // Update visibility of each existing safe zone based on robot progress
+    for (_, marker, _, _, _, mut visibility) in safe_zones.iter_mut() {
+        let robot_exists = robot_map.0.contains_key(&marker.name);
 
         let has_arrived = path_state
             .0
@@ -233,7 +245,7 @@ fn convert_costmap_to_texture(event: &LiveEventSafeZone) -> (Extent3d, Vec<u8>) 
             let orig_x = (scaled_x / SAFE_ZONE_SCALE) as usize;
             let orig_y = (scaled_y / SAFE_ZONE_SCALE) as usize;
             let ros_idx = orig_y * (event.size_x as usize) + orig_x;
-            event.data[ros_idx] == 0
+            event.data.get(ros_idx).copied() == Some(0)
         }
     };
 

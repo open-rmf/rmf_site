@@ -1,18 +1,37 @@
+/*
+ * Copyright (C) 2026 Open Source Robotics Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+*/
+
 use bevy::prelude::*;
 use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 use rmf_site_msgs::rmf_prototype_msgs::msg::ParticipantList;
-use roslibrust::rosbridge::ClientHandle;
+use roslibrust::rosbridge::{ClientHandle, Subscriber};
+use roslibrust::RosMessageType;
 
 const TIMEOUT_SECONDS: u64 = 2;
 
 #[derive(Resource)]
 pub struct VisualizationStreamChannel<T> {
-    sender: UnboundedSender<T>,
+    _sender: UnboundedSender<T>,
     pub receiver: UnboundedReceiver<T>,
 }
 
@@ -49,7 +68,7 @@ impl<T: LiveStreamHandler> Plugin for StreamPlugin<T> {
     fn build(&self, app: &mut App) {
         let (tx, rx) = unbounded_channel();
         app.insert_resource(VisualizationStreamChannel::<T> {
-            sender: tx.clone(),
+            _sender: tx.clone(),
             receiver: rx,
         });
 
@@ -80,22 +99,19 @@ pub fn spawn_network_task<F>(future: F)
 where
     F: std::future::Future<Output = ()> + Send + 'static,
 {
+    // Use OnceLock to lazily initialize a single shared Tokio runtime across all network tasks
+    static RUNTIME: std::sync::OnceLock<tokio::runtime::Runtime> = std::sync::OnceLock::new();
+
     if let Ok(handle) = tokio::runtime::Handle::try_current() {
         handle.spawn(future);
     } else {
-        std::thread::spawn(move || {
-            let rt = match tokio::runtime::Builder::new_multi_thread()
+        let rt = RUNTIME.get_or_init(|| {
+            tokio::runtime::Builder::new_multi_thread()
                 .enable_all()
                 .build()
-            {
-                Ok(rt) => rt,
-                Err(e) => {
-                    eprintln!("Failed to initialize Tokio runtime: {e}");
-                    return;
-                }
-            };
-            rt.block_on(future);
+                .expect("Failed to initialize Tokio runtime")
         });
+        rt.spawn(future);
     }
 }
 
@@ -107,14 +123,45 @@ where
     wasm_bindgen_futures::spawn_local(future);
 }
 
-// On losing connection, this function kills all zombie tasks
-pub async fn wait_until_inactive(connection_active: &Arc<AtomicBool>) {
-    while connection_active.load(Ordering::Relaxed) {
-        #[cfg(not(target_arch = "wasm32"))]
-        tokio::time::sleep(std::time::Duration::from_secs(TIMEOUT_SECONDS)).await;
+async fn sleep(duration: Duration) {
+    #[cfg(not(target_arch = "wasm32"))]
+    tokio::time::sleep(duration).await;
 
-        #[cfg(target_arch = "wasm32")]
-        gloo_timers::future::sleep(std::time::Duration::from_secs(TIMEOUT_SECONDS)).await;
+    #[cfg(target_arch = "wasm32")]
+    gloo_timers::future::sleep(duration).await;
+}
+
+// On losing connection, this function kills all zombie tasks
+async fn wait_until_inactive(connection_active: &Arc<AtomicBool>) {
+    while connection_active.load(Ordering::Relaxed) {
+        sleep(Duration::from_secs(TIMEOUT_SECONDS)).await;
+    }
+}
+
+pub async fn run_subscription_loop<M, E, F>(
+    sub: Subscriber<M>,
+    sender: UnboundedSender<E>,
+    connect_flag: Arc<AtomicBool>,
+    connection_active: Arc<AtomicBool>,
+    mut map_fn: F,
+) where
+    M: RosMessageType,
+    F: FnMut(M) -> E,
+{
+    loop {
+        let msg = tokio::select! {
+            msg = sub.next() => msg,
+            _ = wait_until_inactive(&connection_active) => break,
+        };
+
+        if !connect_flag.load(Ordering::Relaxed) || !connection_active.load(Ordering::Relaxed) {
+            break;
+        }
+
+        if let Err(e) = sender.send(map_fn(msg)) {
+            error!("Failed to send event: {}", e);
+            break;
+        }
     }
 }
 
@@ -142,7 +189,7 @@ async fn run_rosbridge_loop(
     while connection_requested.load(Ordering::Relaxed) {
         // Add timeout for initial connection
         let opts = roslibrust::rosbridge::ClientHandleOptions::new(&url)
-            .timeout(std::time::Duration::from_secs(TIMEOUT_SECONDS));
+            .timeout(Duration::from_secs(TIMEOUT_SECONDS));
 
         if let Ok(client) = ClientHandle::new_with_options(opts).await {
             info!("Connected via roslibrust to {}", url);
@@ -155,12 +202,7 @@ async fn run_rosbridge_loop(
             // Async task to ping server with lightweight subscription every few seconds to check connection health
             spawn_network_task(async move {
                 loop {
-                    #[cfg(not(target_arch = "wasm32"))]
-                    tokio::time::sleep(std::time::Duration::from_secs(TIMEOUT_SECONDS)).await;
-
-                    #[cfg(target_arch = "wasm32")]
-                    gloo_timers::future::sleep(std::time::Duration::from_secs(TIMEOUT_SECONDS))
-                        .await;
+                    sleep(Duration::from_secs(TIMEOUT_SECONDS)).await;
 
                     if !health_cancel.load(Ordering::Relaxed)
                         || !health_flag.load(Ordering::Relaxed)
@@ -173,7 +215,7 @@ async fn run_rosbridge_loop(
                         .await
                         .is_err()
                     {
-                        println!("Rosbridge connection lost.");
+                        warn!("Rosbridge connection lost.");
                         health_flag.store(false, Ordering::Relaxed);
                         break;
                     }
@@ -195,7 +237,7 @@ async fn run_rosbridge_loop(
                     if !connection_requested.load(Ordering::Relaxed)
                         || !connection_active.load(Ordering::Relaxed)
                     {
-                        println!("Disconnecting from rosbridge discovery stream.");
+                        info!("Disconnecting from rosbridge discovery stream.");
                         break;
                     }
 
@@ -205,7 +247,7 @@ async fn run_rosbridge_loop(
                         }
                         subscribed_robots.insert(p.name.clone());
 
-                        println!("Subscribing to: {}", p.name);
+                        info!("Subscribing to: {}", p.name);
 
                         for spawner in &registry.spawners {
                             spawner(
@@ -220,20 +262,16 @@ async fn run_rosbridge_loop(
             }
 
             connection_active.store(false, Ordering::Relaxed);
-            println!("Connection to server lost. Attempting to reconnect...");
+            warn!("Connection to server lost. Attempting to reconnect...");
         } else {
             connection_active.store(false, Ordering::Relaxed);
         }
 
         if connection_requested.load(Ordering::Relaxed) {
-            #[cfg(not(target_arch = "wasm32"))]
-            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-
-            #[cfg(target_arch = "wasm32")]
-            gloo_timers::future::sleep(std::time::Duration::from_secs(2)).await;
+            sleep(Duration::from_secs(TIMEOUT_SECONDS)).await;
         }
     }
 
-    println!("User disconnected. Shutting down network thread.");
+    info!("User disconnected. Shutting down network thread.");
     connection_active.store(false, Ordering::Relaxed);
 }
