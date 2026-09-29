@@ -95,26 +95,18 @@ impl<T: LiveStreamHandler> Plugin for StreamPlugin<T> {
             ));
 
         app.add_systems(OnEnter(crate::AppState::MainMenu), T::cleanup)
-            .add_systems(PreUpdate, |world: &mut World| {
-                let in_site_editor = world
-                    .get_resource::<State<crate::AppState>>()
-                    .is_some_and(|s| *s.get() == crate::AppState::SiteEditor);
-                let is_active = world
-                    .get_resource::<super::live_state::LiveStreamState>()
-                    .is_some_and(|s| s.connection_active.load(Ordering::Relaxed));
-
-                if in_site_editor && !is_active {
-                    T::cleanup(world);
-                }
-
-                if !in_site_editor || !is_active {
-                    if let Some(mut channel) =
-                        world.get_resource_mut::<VisualizationStreamChannel<T>>()
-                    {
-                        while channel.receiver.try_recv().is_ok() {}
+            .add_systems(
+                PreUpdate,
+                (|world: &mut World| {
+                    let is_active = world
+                        .get_resource::<super::live_state::LiveStreamState>()
+                        .is_some_and(|s| s.connection_active.load(Ordering::Relaxed));
+                    if !is_active {
+                        T::cleanup(world);
                     }
-                }
-            });
+                })
+                .run_if(in_state(crate::AppState::SiteEditor)),
+            );
     }
 }
 

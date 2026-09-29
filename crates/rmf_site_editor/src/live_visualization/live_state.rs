@@ -27,6 +27,7 @@ use tokio::sync::mpsc::UnboundedReceiver;
 
 const DEFAULT_CONNECTION_URL: &str = "ws://127.0.0.1:9090";
 const DEFAULT_SITE_DATA_URL: &str = "http://127.0.0.1:8080/site_file";
+const TIMEOUT_SECONDS: f32 = 2.0;
 
 #[derive(Default, Clone, Copy, PartialEq, Eq)]
 pub enum LoadSiteStatus {
@@ -48,6 +49,7 @@ pub struct LiveStreamState {
     pub connection_active: Arc<AtomicBool>,
     pub site_loaded: bool,
     pub load_site_status: LoadSiteStatus,
+    pub retry_timer: Option<Timer>,
 }
 
 impl Default for LiveStreamState {
@@ -59,6 +61,7 @@ impl Default for LiveStreamState {
             connection_active: Arc::new(AtomicBool::new(false)),
             site_loaded: false,
             load_site_status: LoadSiteStatus::None,
+            retry_timer: None,
         }
     }
 }
@@ -86,11 +89,22 @@ impl<'w> WidgetSystem<Tile> for LiveStreamStatusWidget<'w> {
     }
 }
 
-pub fn auto_fetch_site_on_connect(mut state: ResMut<LiveStreamState>, mut commands: Commands) {
+pub fn auto_fetch_site_on_connect(
+    mut state: ResMut<LiveStreamState>,
+    receiver: Option<Res<SiteFetchReceiver>>,
+    time: Res<Time>,
+    mut commands: Commands,
+) {
     let is_currently_active = state.connection_active.load(Ordering::Relaxed);
 
-    if is_currently_active && !state.site_loaded {
-        state.site_loaded = true;
+    if is_currently_active && !state.site_loaded && receiver.is_none() {
+        if let Some(timer) = &mut state.retry_timer {
+            if !timer.tick(time.delta()).finished() {
+                return;
+            }
+            state.retry_timer = None;
+        }
+
         state.load_site_status = LoadSiteStatus::Receiving;
 
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
@@ -98,13 +112,20 @@ pub fn auto_fetch_site_on_connect(mut state: ResMut<LiveStreamState>, mut comman
 
         let request = ehttp::Request::get(&state.site_url);
         ehttp::fetch(request, move |result| {
-            if let Ok(response) = result {
-                if response.status == 200 {
-                    let parsed =
-                        LoadSite::from_data(&response.bytes, None).map_err(|e| e.to_string());
-                    let _ = tx.send(parsed);
+            let parsed = match result {
+                Ok(response) => {
+                    if response.status == 200 {
+                        LoadSite::from_data(&response.bytes, None).map_err(|e| e.to_string())
+                    } else {
+                        Err(format!(
+                            "HTTP {}: {}",
+                            response.status, response.status_text
+                        ))
+                    }
                 }
-            }
+                Err(err) => Err(err),
+            };
+            let _ = tx.send(parsed);
         });
     }
 }
@@ -116,19 +137,37 @@ pub fn process_site_download(
     mut state: ResMut<LiveStreamState>,
     mut load_site: EventWriter<LoadSite>,
 ) {
+    if !state.connection_requested.load(Ordering::Relaxed) {
+        if receiver.is_some() {
+            commands.remove_resource::<SiteFetchReceiver>();
+        }
+        state.load_site_status = LoadSiteStatus::None;
+        state.retry_timer = None;
+        return;
+    }
+
     if let Some(mut rx) = receiver {
-        match rx.0.try_recv() {
-            Ok(Ok(mut site)) => {
+        let result = match rx.0.try_recv() {
+            Ok(res) => res,
+            Err(TryRecvError::Disconnected) => Err("Channel disconnected".to_string()),
+            Err(TryRecvError::Empty) => return,
+        };
+
+        commands.remove_resource::<SiteFetchReceiver>();
+
+        match result {
+            Ok(mut site) => {
+                state.site_loaded = true;
+                state.retry_timer = None;
                 state.load_site_status = LoadSiteStatus::Loading;
                 site.focus = true;
                 load_site.write(site);
-                commands.remove_resource::<SiteFetchReceiver>();
             }
-            Ok(Err(_)) | Err(TryRecvError::Disconnected) => {
+            Err(err) => {
+                warn!("Failed to load site from {}: {}", state.site_url, err);
                 state.load_site_status = LoadSiteStatus::None;
-                commands.remove_resource::<SiteFetchReceiver>();
+                state.retry_timer = Some(Timer::from_seconds(TIMEOUT_SECONDS, TimerMode::Once));
             }
-            Err(TryRecvError::Empty) => {}
         }
     }
 }

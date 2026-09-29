@@ -29,7 +29,7 @@ use std::sync::Arc;
 pub use live_state::LiveStreamState;
 use live_state::{
     auto_fetch_site_on_connect, check_load_site_completion, load_site_status_ui,
-    process_site_download, LiveStreamStatusWidget, LoadSiteStatus,
+    process_site_download, LiveStreamStatusWidget, LoadSiteStatus, SiteFetchReceiver,
 };
 use network_client::{start_rosbridge_subscriber, StreamPlugin, StreamRegistry};
 use odometry::{update_live_robots, LiveEventOdom, LiveRobotsMap};
@@ -102,9 +102,11 @@ fn start_live_stream(
     }
 }
 
-fn disconnect_live_stream(mut state: ResMut<LiveStreamState>) {
+fn disconnect_live_stream(mut commands: Commands, mut state: ResMut<LiveStreamState>) {
+    commands.remove_resource::<SiteFetchReceiver>();
     state.connection_requested.store(false, Ordering::Relaxed);
     state.connection_active.store(false, Ordering::Relaxed);
     state.site_loaded = false;
     state.load_site_status = LoadSiteStatus::None;
+    state.retry_timer = None;
 }

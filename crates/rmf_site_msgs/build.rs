@@ -24,6 +24,15 @@ fn main() {
     // Fetch standard messages via VCS
     let ros2_interfaces_dir = PathBuf::from("../../external/ros2_interfaces");
     let repos_file_path = PathBuf::from("../../ros2_interfaces.repos");
+    let prototype_msgs_dir =
+        PathBuf::from("../../external/next_gen_prototype_interfaces/rmf_prototype_msgs");
+
+    if !prototype_msgs_dir.exists() {
+        panic!(
+            "Missing submodule at '{}'. Please run 'git submodule update --init --recursive'.",
+            prototype_msgs_dir.display()
+        );
+    }
 
     if !ros2_interfaces_dir.join("common_interfaces").exists() {
         println!("cargo:warning=Standard ROS 2 messages not found. Automatically running 'vcs import'...");
@@ -50,7 +59,7 @@ fn main() {
     // Define search paths to .msg files
     let search_paths = vec![
         // Custom Open-RMF Messages
-        PathBuf::from("../../external/next_gen_prototype_interfaces/rmf_prototype_msgs"),
+        prototype_msgs_dir,
         PathBuf::from("../../external/next_gen_prototype_interfaces/rmf_layered_map_msgs"),
         PathBuf::from("../../external/next_gen_prototype_interfaces/rmf_next_gen_reservation_msgs"),
         // Standard ROS 2 Messages
@@ -79,6 +88,8 @@ fn main() {
     let dest_path = PathBuf::from(out_dir).join("messages.rs");
     // Write the generated code to disk
     std::fs::write(&dest_path, source.to_string()).unwrap();
+
+    println!("cargo:rerun-if-changed={}", repos_file_path.display());
 
     // Tell cargo to re-run our build script ONLY if these specific .msg files change
     for path in &dependent_paths {
