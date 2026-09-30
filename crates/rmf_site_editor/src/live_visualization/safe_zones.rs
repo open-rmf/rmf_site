@@ -100,30 +100,29 @@ impl LiveStreamHandler for LiveEventSafeZone {
         {
             return;
         }
-        let _ =
-            world.run_system_cached(
-                |mut commands: Commands,
-                 mut safe_zones_state: ResMut<LiveSafeZonesState>,
-                 mut images: ResMut<Assets<Image>>,
-                 mut meshes: ResMut<Assets<Mesh>>,
-                 mut materials: ResMut<Assets<StandardMaterial>>,
-                 safe_zones: Query<(
-                    &LiveSafeZoneMarker,
-                    &Mesh3d,
-                    &MeshMaterial3d<StandardMaterial>,
-                )>| {
-                    for (_, entity) in safe_zones_state.0.drain() {
-                        if let Ok((marker, mesh3d, mat3d)) = safe_zones.get(entity) {
-                            images.remove(&marker.image_handle);
-                            meshes.remove(&mesh3d.0);
-                            materials.remove(&mat3d.0);
-                        }
-                        if let Ok(mut cmds) = commands.get_entity(entity) {
-                            cmds.despawn();
-                        }
+        let _ = world.run_system_cached(
+            |mut commands: Commands,
+             mut safe_zones_state: ResMut<LiveSafeZonesState>,
+             mut images: ResMut<Assets<Image>>,
+             mut meshes: ResMut<Assets<Mesh>>,
+             mut materials: ResMut<Assets<StandardMaterial>>,
+             safe_zones: Query<(
+                &LiveSafeZoneMarker,
+                &Mesh3d,
+                &MeshMaterial3d<StandardMaterial>,
+            )>| {
+                for (_, entity) in safe_zones_state.0.drain() {
+                    if let Ok((marker, mesh3d, mat3d)) = safe_zones.get(entity) {
+                        images.remove(&marker.image_handle);
+                        meshes.remove(&mesh3d.0);
+                        materials.remove(&mat3d.0);
                     }
-                },
-            );
+                    if let Ok(mut cmds) = commands.get_entity(entity) {
+                        cmds.despawn();
+                    }
+                }
+            },
+        );
     }
 }
 
