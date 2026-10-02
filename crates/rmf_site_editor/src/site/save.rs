@@ -136,6 +136,7 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
                     With<DoorType>,
                     With<DrawingMarker>,
                     With<FloorMarker>,
+                    With<ZoneMarker>,
                     With<LightKind>,
                     With<ModelMarker>,
                     With<PhysicalCameraProperties>,
@@ -435,6 +436,15 @@ fn generate_levels(
             ),
             (With<FloorMarker>, Without<Pending>),
         >,
+        Query<
+            (
+                &Path<Entity>,
+                Option<&Original<Path<Entity>>>,
+                &NameInSite,
+                &SiteID,
+            ),
+            (With<ZoneMarker>, Without<Pending>),
+        >,
         Query<(&LightKind, &Pose, &SiteID)>,
         Query<
             (
@@ -482,6 +492,7 @@ fn generate_levels(
         q_drawings,
         q_fiducials,
         q_floors,
+        q_zones,
         q_lights,
         q_measurements,
         q_physical_cameras,
@@ -649,6 +660,16 @@ fn generate_levels(
                                 texture,
                                 preferred_semi_transparency: preferred_alpha.clone(),
                                 marker: FloorMarker,
+                            },
+                        );
+                    }
+                    if let Ok((path, original, name, id)) = q_zones.get(c) {
+                        let path = original.map(|p| &p.0).unwrap_or(path);
+                        level.zones.insert(
+                            id.0,
+                            Zone {
+                                anchors: get_anchor_id_path(c, &path.0)?,
+                                name: name.clone(),
                             },
                         );
                     }
@@ -1997,6 +2018,72 @@ mod tests {
     use crate::*;
     use std::{path::Path, time::Duration};
     use testdir::testdir;
+
+    #[test]
+    fn zone_entity_roundtrip() {
+        use super::*;
+        let mut world = World::new();
+        let site = world
+            .spawn((NameOfSite("Zones".into()), NextSiteID(200)))
+            .id();
+        let level = world
+            .spawn((LevelProperties::default(), SiteID(10), ChildOf(site)))
+            .id();
+        let mut mapping = HashMap::new();
+        for (id, point) in [(1, [0.0, 0.0]), (2, [4.0, 0.0]), (3, [0.0, 4.0])] {
+            let entity = world
+                .spawn((Anchor::from(point), SiteID(id + 100), ChildOf(level)))
+                .id();
+            mapping.insert(id, entity);
+        }
+        let zone: Zone<u32> = serde_json::from_value(serde_json::json!({
+            "anchors": [1, 2, 3], "name": "Weak Wi-Fi"
+        }))
+        .unwrap();
+        let zone_entity = world
+            .spawn((
+                ZoneBundle::from(zone.convert(&mapping).unwrap()),
+                ChildOf(level),
+                Visibility::Hidden,
+            ))
+            .id();
+        assign_site_ids(&mut world, site).unwrap();
+        let zone_id = world.get::<SiteID>(zone_entity).unwrap().0;
+        assert_eq!(zone_id, 200);
+        assign_site_ids(&mut world, site).unwrap();
+        assert_eq!(world.get::<SiteID>(zone_entity).unwrap().0, zone_id);
+        // Hidden zones are still saved.
+        let saved = generate_levels(&mut world, site).unwrap();
+        let saved = &saved[&10].zones[&zone_id];
+        assert_eq!(saved.anchors.0, vec![101, 102, 103]);
+        assert_eq!(saved.name.0, "Weak Wi-Fi");
+
+        // Unfinished polygons are omitted.
+        world.entity_mut(zone_entity).insert(Pending);
+        assert!(generate_levels(&mut world, site).unwrap()[&10]
+            .zones
+            .is_empty());
+    }
+
+    #[test]
+    fn zone_save_rejects_broken_anchor() {
+        use super::*;
+        let mut world = World::new();
+        let site = world.spawn(NameOfSite("Zones".into())).id();
+        let level = world
+            .spawn((LevelProperties::default(), SiteID(10), ChildOf(site)))
+            .id();
+        let missing_anchor = world.spawn_empty().id();
+        world.spawn((
+            ZoneBundle::from(rmf_site_format::Path(vec![missing_anchor])),
+            SiteID(20),
+            ChildOf(level),
+        ));
+        assert!(matches!(
+            generate_levels(&mut world, site),
+            Err(SiteGenerationError::BrokenAnchorReference { .. })
+        ));
+    }
 
     #[test]
     #[cfg(not(target_arch = "wasm32"))]

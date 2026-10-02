@@ -401,6 +401,17 @@ fn generate_site_entities(
             consider_id(*drawing_id);
         }
 
+        for (zone_id, zone) in &level_data.zones {
+            let zone = zone
+                .convert(&id_to_entity)
+                .as_broken_error(site_id, "zone")?;
+            commands
+                .spawn(ZoneBundle::from(zone))
+                .insert(SiteID(*zone_id))
+                .insert(ChildOf(level_entity));
+            consider_id(*zone_id);
+        }
+
         for (floor_id, floor) in &level_data.floors {
             commands
                 .spawn(
