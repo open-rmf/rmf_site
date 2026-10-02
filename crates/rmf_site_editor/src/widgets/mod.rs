@@ -118,6 +118,9 @@ pub use properties_panel::*;
 pub mod view_nav_graphs;
 use view_nav_graphs::*;
 
+mod zones;
+pub(crate) use zones::ZonesPlugin;
+
 pub mod workspace;
 pub use workspace::*;
 

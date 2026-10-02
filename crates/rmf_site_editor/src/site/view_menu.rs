@@ -18,7 +18,7 @@
 use crate::interaction::{CategoryVisibility, SetCategoryVisibility};
 use crate::site::{
     CollisionMeshMarker, DoorMarker, FiducialMarker, FloorMarker, LaneMarker, LiftCabin,
-    LiftCabinDoorMarker, LocationTags, MeasurementMarker, VisualMeshMarker, WallMarker,
+    LiftCabinDoorMarker, LocationTags, MeasurementMarker, VisualMeshMarker, WallMarker, ZoneMarker,
 };
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
@@ -28,6 +28,7 @@ use rmf_site_egui::*;
 struct VisibilityEvents<'w> {
     doors: EventWriter<'w, SetCategoryVisibility<DoorMarker>>,
     floors: EventWriter<'w, SetCategoryVisibility<FloorMarker>>,
+    zones: EventWriter<'w, SetCategoryVisibility<ZoneMarker>>,
     lanes: EventWriter<'w, SetCategoryVisibility<LaneMarker>>,
     lift_cabins: EventWriter<'w, SetCategoryVisibility<LiftCabin<Entity>>>,
     lift_cabin_doors: EventWriter<'w, SetCategoryVisibility<LiftCabinDoorMarker>>,
@@ -46,6 +47,7 @@ pub struct ViewMenuPlugin;
 pub struct ViewMenuItems {
     doors: Entity,
     floors: Entity,
+    zones: Entity,
     lanes: Entity,
     lifts: Entity,
     locations: Entity,
@@ -72,6 +74,13 @@ impl FromWorld for ViewMenuItems {
             .spawn(MenuItem::CheckBox(
                 "Floors".to_string(),
                 default_visibility.0,
+            ))
+            .insert(ChildOf(view_header))
+            .id();
+        let zones = world
+            .spawn(MenuItem::CheckBox(
+                "Zones".to_owned(),
+                world.resource::<CategoryVisibility<ZoneMarker>>().0,
             ))
             .insert(ChildOf(view_header))
             .id();
@@ -143,6 +152,7 @@ impl FromWorld for ViewMenuItems {
         ViewMenuItems {
             doors,
             floors,
+            zones,
             lanes,
             lifts,
             locations,
@@ -172,6 +182,8 @@ fn handle_view_menu_events(
             events.doors.write(toggle(event.source()).into());
         } else if event.clicked() && event.source() == view_menu.floors {
             events.floors.write(toggle(event.source()).into());
+        } else if event.clicked() && event.source() == view_menu.zones {
+            events.zones.write(toggle(event.source()).into());
         } else if event.clicked() && event.source() == view_menu.lanes {
             events.lanes.write(toggle(event.source()).into());
         } else if event.clicked() && event.source() == view_menu.lifts {
