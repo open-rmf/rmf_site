@@ -50,6 +50,26 @@ mod tests {
     use crate::{Anchor, Level, LevelElevation, Site};
 
     #[test]
+    fn zone_example_has_resolvable_level_boundaries() {
+        let site =
+            Site::from_bytes_json(include_bytes!("../../../assets/demo_maps/office.site.json"))
+                .unwrap();
+        assert_eq!(site.levels.len(), 1);
+        for level in site.levels.values() {
+            assert_eq!(level.zones.len(), 3);
+            for zone in level.zones.values() {
+                assert!(zone.anchors.0.len() >= 3);
+                assert!(
+                    zone.anchors
+                        .0
+                        .iter()
+                        .all(|id| level.anchors.contains_key(id))
+                );
+            }
+        }
+    }
+
+    #[test]
     fn old_level_without_zones_remains_unchanged() {
         let original = serde_json::to_value(Level::default()).unwrap();
         assert!(original.get("zones").is_none());
