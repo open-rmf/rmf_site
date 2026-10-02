@@ -54,7 +54,8 @@ fn new_billboard_position(billboard_vec: Vec3, camera_vec: Vec3) -> Vec3 {
 }
 
 pub fn update_billboard_location(
-    mut query_mesh: Query<(&mut Transform, &Billboard)>,
+    mut query_mesh: Query<(&mut Transform, &Billboard, Option<&ChildOf>)>,
+    query_parents: Query<&GlobalTransform>,
     query_cameras: Query<(&Projection, &GlobalTransform)>,
     active_camera: ActiveCameraQuery,
 ) {
@@ -67,11 +68,10 @@ pub fn update_billboard_location(
 
     let camera_direction = camera_transform.forward().into();
 
-    for (mut transform, billboard) in &mut query_mesh {
+    for (mut transform, billboard, child_of) in &mut query_mesh {
         let new_position: Vec3 = new_billboard_position(billboard.offset, camera_direction);
-        transform.translation = new_position;
 
-        transform.rotation = Transform::IDENTITY
+        let global_rotation = Transform::IDENTITY
             .aligned_by(
                 Dir3::Z,
                 Dir3::new(-camera_direction).unwrap(),
@@ -79,6 +79,20 @@ pub fn update_billboard_location(
                 Dir3::new(new_position).unwrap(),
             )
             .rotation;
+
+        // If billboard has a parent, inverse the parent's transform to get the true global transform
+        if let Some(child_of) = child_of {
+            if let Ok(parent_global) = query_parents.get(child_of.parent()) {
+                let parent_transform = parent_global.compute_transform();
+                transform.rotation = parent_transform.rotation.inverse() * global_rotation;
+                transform.translation =
+                    parent_transform.rotation.inverse() * new_position / parent_transform.scale;
+                continue;
+            }
+        }
+
+        transform.translation = new_position;
+        transform.rotation = global_rotation;
     }
 }
 
