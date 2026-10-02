@@ -640,6 +640,7 @@ impl BuildingMap {
                     doors,
                     drawings,
                     floors,
+                    zones: Default::default(),
                     lights,
                     physical_cameras,
                     walls,
