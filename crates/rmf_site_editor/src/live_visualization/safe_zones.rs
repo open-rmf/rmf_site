@@ -25,6 +25,8 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedSender;
 
+use crate::layers::ZLayer;
+
 use super::network_client::{
     run_subscription_loop, spawn_network_task, LiveStreamHandler, VisualizationStreamChannel,
 };
@@ -32,9 +34,13 @@ use super::odometry::LiveRobotsState;
 use super::planned_paths::LivePathsState;
 
 const SAFE_ZONE_SCALE: i32 = 8;
-const SAFE_ZONE_Z_OFFSET: f32 = 0.045;
 const SAFE_ZONE_RGBA: [u8; 4] = [0, 255, 0, 50];
 const SAFE_ZONE_OUTLINE_RGBA: [u8; 4] = [0, 255, 0, 120];
+
+const INCREMENTAL_WAYPOINT_OUTER_RADIUS: f32 = 0.06;
+const INCREMENTAL_WAYPOINT_INNER_RADIUS: f32 = 0.02;
+const INCREMENTAL_WAYPOINT_CROSS_RADIUS: f32 = 0.1;
+const INCREMENTAL_WAYPOINT_COLOR: Color = Color::srgb(1.0, 0.0, 0.0);
 
 #[derive(Debug, Clone)]
 pub struct LiveEventSafeZone {
@@ -46,6 +52,7 @@ pub struct LiveEventSafeZone {
     origin_y: f32,
     image_size: Extent3d,
     rgba_data: Vec<u8>,
+    incremental_target: Option<Vec3>,
 }
 
 impl LiveStreamHandler for LiveEventSafeZone {
@@ -74,6 +81,21 @@ impl LiveStreamHandler for LiveEventSafeZone {
                         // Convert costmap array to image metadata
                         let (image_size, rgba_data) =
                             convert_costmap_to_texture(size_x, size_y, &safezone_msg.costmap.data);
+                        let incremental_target =
+                            safezone_msg.incremental_target.regions.first().and_then(
+                                |target_region| {
+                                    let points = &target_region.region.points;
+                                    if points.len() >= 2 {
+                                        Some(Vec3::new(
+                                            points[0],
+                                            points[1],
+                                            ZLayer::IncrementalWaypoint.to_z(),
+                                        ))
+                                    } else {
+                                        None
+                                    }
+                                },
+                            );
                         LiveEventSafeZone {
                             name: robot_name.clone(),
                             resolution: safezone_msg.costmap.metadata.resolution,
@@ -83,6 +105,7 @@ impl LiveStreamHandler for LiveEventSafeZone {
                             origin_y: safezone_msg.costmap.metadata.origin.position.y as f32,
                             image_size,
                             rgba_data,
+                            incremental_target,
                         }
                     },
                 )
@@ -132,6 +155,7 @@ pub struct LiveSafeZonesState(HashMap<String, Entity>);
 pub struct LiveSafeZoneMarker {
     name: String,
     image_handle: Handle<Image>,
+    incremental_target: Option<Vec3>,
 }
 
 pub fn update_live_safe_zones(
@@ -139,6 +163,7 @@ pub fn update_live_safe_zones(
     path_state: Res<LivePathsState>,
     robot_map: Res<LiveRobotsState>,
     mut commands: Commands,
+    mut gizmos: Gizmos,
     mut safe_zones_state: ResMut<LiveSafeZonesState>,
     mut images: ResMut<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -205,6 +230,7 @@ pub fn update_live_safe_zones(
                     *mat3d = new_mat;
                 }
 
+                marker.incremental_target = event.incremental_target;
                 *transform = target_transform;
             }
         } else {
@@ -224,6 +250,7 @@ pub fn update_live_safe_zones(
                     LiveSafeZoneMarker {
                         name: event.name.clone(),
                         image_handle,
+                        incremental_target: event.incremental_target,
                     },
                     mesh3d,
                     mat3d,
@@ -249,6 +276,9 @@ pub fn update_live_safe_zones(
             *visibility = Visibility::Hidden;
         } else {
             *visibility = Visibility::Inherited;
+            if let Some(target_pos) = marker.incremental_target {
+                draw_path_target_point(&mut gizmos, target_pos, INCREMENTAL_WAYPOINT_COLOR);
+            }
         }
     }
 }
@@ -341,7 +371,7 @@ fn get_safezone_target_position(
     let center_x = event.origin_x + (physical_width - event.resolution) / 2.0;
     let center_y = event.origin_y + (physical_height - event.resolution) / 2.0;
 
-    Transform::from_xyz(center_x, center_y, SAFE_ZONE_Z_OFFSET)
+    Transform::from_xyz(center_x, center_y, ZLayer::SafeZone.to_z())
 }
 
 fn create_safezone_assets(
@@ -372,4 +402,21 @@ fn create_safezone_assets(
     }));
 
     (image_handle, mesh3d, mat3d)
+}
+
+fn draw_path_target_point(gizmos: &mut Gizmos, pos: Vec3, color: Color) {
+    let new_pos = pos.with_z(ZLayer::IncrementalWaypoint.to_z());
+    let isometry_pos = Isometry3d::new(new_pos, Quat::IDENTITY);
+    gizmos.circle(isometry_pos, INCREMENTAL_WAYPOINT_OUTER_RADIUS, color);
+    gizmos.circle(isometry_pos, INCREMENTAL_WAYPOINT_INNER_RADIUS, color);
+    gizmos.line(
+        new_pos + Vec3::X * INCREMENTAL_WAYPOINT_CROSS_RADIUS,
+        new_pos - Vec3::X * INCREMENTAL_WAYPOINT_CROSS_RADIUS,
+        color,
+    );
+    gizmos.line(
+        new_pos + Vec3::Y * INCREMENTAL_WAYPOINT_CROSS_RADIUS,
+        new_pos - Vec3::Y * INCREMENTAL_WAYPOINT_CROSS_RADIUS,
+        color,
+    );
 }

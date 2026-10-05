@@ -16,6 +16,7 @@
 */
 
 mod live_state;
+mod local_paths;
 mod network_client;
 mod odometry;
 mod planned_paths;
@@ -31,6 +32,7 @@ use live_state::{
     auto_fetch_site_on_connect, check_load_site_completion, load_site_status_ui,
     process_site_download, LiveStreamStatusWidget, LoadSiteStatus, SiteFetchReceiver,
 };
+use local_paths::{update_live_local_paths, LiveEventLocalPlan, LiveLocalPathsState};
 use network_client::{start_rosbridge_subscriber, StreamPlugin, StreamRegistry};
 use odometry::{update_live_robots, LiveEventOdom, LiveRobotsState};
 use planned_paths::{update_live_paths, LiveEventPlan, LiveEventProgress, LivePathsState};
@@ -45,11 +47,13 @@ impl Plugin for LiveVisualizationPlugin {
             StreamPlugin::<LiveEventPlan>::default(),
             StreamPlugin::<LiveEventProgress>::default(),
             StreamPlugin::<LiveEventSafeZone>::default(),
+            StreamPlugin::<LiveEventLocalPlan>::default(),
         ))
         .init_resource::<LiveStreamState>()
         .init_resource::<LiveRobotsState>()
         .init_resource::<LivePathsState>()
         .init_resource::<LiveSafeZonesState>()
+        .init_resource::<LiveLocalPathsState>()
         .add_systems(
             Update,
             start_live_stream.run_if(in_state(crate::AppState::MainMenu)),
@@ -70,6 +74,7 @@ impl Plugin for LiveVisualizationPlugin {
                 update_live_robots,
                 update_live_paths,
                 update_live_safe_zones,
+                update_live_local_paths,
             )
                 .run_if(in_state(crate::AppState::SiteStream))
                 .run_if(LiveStreamState::in_connected_mode()),

@@ -23,15 +23,15 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedSender;
 
+use crate::layers::ZLayer;
+
 use super::network_client::{
     run_subscription_loop, spawn_network_task, LiveStreamHandler, VisualizationStreamChannel,
 };
-use super::odometry::{LiveRobotMarker, LiveRobotsState};
+use super::odometry::LiveRobotsState;
 
-const PLANNED_PATH_Z_OFFSET: f32 = 0.05;
 const PLANNED_PATH_COLOR: Color = Color::srgb(0.0, 1.0, 0.0);
 
-const DEPENDENCY_Z_OFFSET: f32 = 0.051;
 const DEPENDENCY_LINE_COLOR: Color = Color::srgb(1.0, 0.5, 0.0);
 const DEPENDENCY_WAITING_POINT_COLOR: Color = Color::srgb(1.0, 0.85, 0.0);
 const DEPENDENCY_DASH_LENGTH: f32 = 0.15;
@@ -41,10 +41,7 @@ const DEPENDENCY_ARROW_SIZE: f32 = 0.1;
 
 const PATH_POINT_OUTER_RADIUS: f32 = 0.05;
 const PATH_POINT_INNER_RADIUS: f32 = 0.02;
-
-const PATH_ENDPOINT_COLOR: Color = Color::srgb(1.0, 0.0, 0.0);
-const PATH_ENDPOINT_CROSS_RADIUS: f32 = 0.1;
-const PATH_ENDPOINT_Z_OFFSET: f32 = 0.001;
+const PATH_POINT_CROSS_RADIUS: f32 = 0.02;
 
 #[derive(Debug, Clone, PartialEq)]
 struct LiveBlocker {
@@ -100,7 +97,7 @@ impl LiveStreamHandler for LiveEventPlan {
                                     position: Vec3::new(
                                         wp.position[0],
                                         wp.position[1],
-                                        PLANNED_PATH_Z_OFFSET,
+                                        ZLayer::PlannedPath.to_z(),
                                     ),
                                     progress: wp.progress,
                                     departure_blockers: blockers,
@@ -136,6 +133,7 @@ impl LiveStreamHandler for LiveEventPlan {
 #[derive(Debug, Clone)]
 pub struct LiveEventProgress {
     name: String,
+    reached_waypoint: usize,
     target_waypoint: usize,
     progress: f32,
 }
@@ -162,6 +160,7 @@ impl LiveStreamHandler for LiveEventProgress {
                     connection_active,
                     |prog_msg| LiveEventProgress {
                         name: robot_name.clone(),
+                        reached_waypoint: prog_msg.reached_waypoint as usize,
                         target_waypoint: prog_msg.target_waypoint as usize,
                         progress: prog_msg.progress,
                     },
@@ -178,14 +177,14 @@ pub struct LivePathsState(pub HashMap<String, PlannedPathData>);
 
 pub struct PlannedPathData {
     waypoints: Vec<LiveWaypoint>,
-    target_waypoint: usize,
+    target_waypoint: Option<usize>,
+    completed_waypoint: usize,
     current_progress: f32,
 }
 
 impl PlannedPathData {
     pub fn is_completed(&self) -> bool {
         self.waypoints.is_empty()
-            || self.target_waypoint >= self.waypoints.len()
             || self
                 .waypoints
                 .last()
@@ -199,7 +198,6 @@ pub fn update_live_paths(
     mut progress_channel: ResMut<VisualizationStreamChannel<LiveEventProgress>>,
     mut path_state: ResMut<LivePathsState>,
     robot_map: Res<LiveRobotsState>,
-    live_robots: Query<&Transform, With<LiveRobotMarker>>,
     mut gizmos: Gizmos,
 ) {
     while let Ok(event) = plan_channel.receiver.try_recv() {
@@ -208,7 +206,8 @@ pub fn update_live_paths(
             .entry(event.name.clone())
             .or_insert(PlannedPathData {
                 waypoints: Vec::new(),
-                target_waypoint: 1,
+                target_waypoint: None,
+                completed_waypoint: 0,
                 current_progress: f32::MAX,
             });
 
@@ -218,11 +217,12 @@ pub fn update_live_paths(
             robot_path.waypoints = event.waypoints;
 
             // If the robot already had a path, this is a brand new detour.
-            // Target is reset to the beginning of the new path.
+            // Target and completed waypoint are reset to the beginning of the new path.
             // If it did not have an existing path, the Progress message arrived
-            // first, so the target_waypoint is left alone.
+            // first, so the target_waypoint and completed_waypoint are left alone.
             if has_existing_path {
-                robot_path.target_waypoint = 1;
+                robot_path.target_waypoint = None;
+                robot_path.completed_waypoint = 0;
                 robot_path.current_progress = 0.0;
             }
         }
@@ -234,61 +234,52 @@ pub fn update_live_paths(
             .entry(event.name.clone())
             .or_insert(PlannedPathData {
                 waypoints: Vec::new(),
-                target_waypoint: event.target_waypoint,
+                target_waypoint: Some(event.target_waypoint),
+                completed_waypoint: 0,
                 current_progress: event.progress,
             });
-        robot_path.target_waypoint = event.target_waypoint;
+
+        if let Some(prev_target) = robot_path.target_waypoint {
+            if event.target_waypoint > prev_target {
+                // Previous incremental target was just completed, update completed waypoint
+                robot_path.completed_waypoint = prev_target.min(event.reached_waypoint);
+            } else if event.target_waypoint < prev_target {
+                // New path started, reset completed waypoing
+                robot_path.completed_waypoint = 0;
+            }
+        }
+
+        robot_path.target_waypoint = Some(event.target_waypoint);
         robot_path.current_progress = event.progress;
     }
 
     for (name, path_data) in path_state.0.iter() {
-        if path_data.is_completed() {
+        if path_data.is_completed() || !robot_map.0.contains_key(name) {
             continue;
         }
 
-        let mut robot_pos = None;
-        if let Some(&robot) = robot_map.0.get(name) {
-            if let Ok(transform) = live_robots.get(robot) {
-                robot_pos = Some(Vec3::new(
-                    transform.translation.x,
-                    transform.translation.y,
-                    PLANNED_PATH_Z_OFFSET,
-                ));
-            }
-        }
-
-        let start_pos = match robot_pos {
-            Some(pos) => pos,
-            None => continue,
-        };
-
-        let mut final_target_idx = path_data
-            .target_waypoint
+        let start_idx = path_data
+            .completed_waypoint
             .min(path_data.waypoints.len().saturating_sub(1));
 
-        // Handle bug where target waypoint is prematurely updated, causing the robot to skip intermediate waypoints.
-        // Compare the progress of each waypoint with the current progress to get the true unreached waypoint.
-        // This loop likely only needs to check the current and previous waypoint.
-        while final_target_idx > 0
-            && path_data.current_progress <= path_data.waypoints[final_target_idx - 1].progress
-        {
-            final_target_idx -= 1;
-        }
-
-        // Draw line from robot's current position to the target waypoint, then along the path to the final waypoint.
-        if final_target_idx < path_data.waypoints.len() {
-            let mut points_to_draw = vec![start_pos];
-            points_to_draw.extend(
-                path_data.waypoints[final_target_idx..]
-                    .iter()
-                    .map(|wp| wp.position),
-            );
+        // Draw line from the last completed incremental target waypoint along the path to the final waypoint.
+        if start_idx < path_data.waypoints.len() {
+            let points_to_draw: Vec<Vec3> = path_data.waypoints[start_idx..]
+                .iter()
+                .map(|wp| wp.position)
+                .collect();
 
             if points_to_draw.len() > 1 {
                 gizmos.linestrip(points_to_draw, PLANNED_PATH_COLOR);
 
+                draw_path_start_point(
+                    &mut gizmos,
+                    path_data.waypoints[start_idx].position,
+                    PLANNED_PATH_COLOR,
+                );
+
                 if let Some(final_wp) = path_data.waypoints.last() {
-                    draw_path_endpoint(&mut gizmos, final_wp.position, PATH_ENDPOINT_COLOR);
+                    draw_path_end_point(&mut gizmos, final_wp.position, PLANNED_PATH_COLOR);
                 }
             }
         }
@@ -313,7 +304,7 @@ pub fn update_live_paths(
                             clearance_pos = Some(Vec3::new(
                                 blocking_wp.position.x,
                                 blocking_wp.position.y,
-                                DEPENDENCY_Z_OFFSET,
+                                ZLayer::PlannedPathPoint.to_z(),
                             ));
                             break;
                         }
@@ -321,15 +312,21 @@ pub fn update_live_paths(
 
                     // Draw dependency line connecting the waiting point to the clearance point
                     if let Some(end_pos) = clearance_pos {
-                        let start_pos =
-                            Vec3::new(wp.position.x, wp.position.y, DEPENDENCY_Z_OFFSET);
+                        let start_pos = Vec3::new(
+                            wp.position.x,
+                            wp.position.y,
+                            ZLayer::PlannedPathPoint.to_z(),
+                        );
                         let wait_wp = if i > 0 {
                             &path_data.waypoints[i - 1]
                         } else {
                             wp
                         };
-                        let waiting_pos =
-                            Vec3::new(wait_wp.position.x, wait_wp.position.y, DEPENDENCY_Z_OFFSET);
+                        let waiting_pos = Vec3::new(
+                            wait_wp.position.x,
+                            wait_wp.position.y,
+                            ZLayer::PlannedPathPoint.to_z(),
+                        );
                         draw_dependency_line(start_pos, end_pos, waiting_pos, &time, &mut gizmos);
                     }
                 }
@@ -384,24 +381,40 @@ fn draw_path_arrowhead(gizmos: &mut Gizmos, pos: Vec3, dir: Vec3, color: Color) 
 }
 
 fn draw_path_waiting_point(gizmos: &mut Gizmos, pos: Vec3, color: Color) {
-    let new_pos = Isometry3d::new(pos + Vec3::Z * PATH_ENDPOINT_Z_OFFSET, Quat::IDENTITY);
+    let new_pos = Isometry3d::new(pos.with_z(ZLayer::PlannedPathPoint.to_z()), Quat::IDENTITY);
     gizmos.circle(new_pos, PATH_POINT_OUTER_RADIUS, color);
     gizmos.circle(new_pos, PATH_POINT_INNER_RADIUS, color);
 }
 
-fn draw_path_endpoint(gizmos: &mut Gizmos, pos: Vec3, color: Color) {
-    let new_pos = pos + Vec3::Z * PATH_ENDPOINT_Z_OFFSET;
+fn draw_path_start_point(gizmos: &mut Gizmos, pos: Vec3, color: Color) {
+    let new_pos = pos.with_z(ZLayer::PlannedPathPoint.to_z());
+    let isometry_pos = Isometry3d::new(pos.with_z(ZLayer::PlannedPathPoint.to_z()), Quat::IDENTITY);
+    gizmos.circle(isometry_pos, PATH_POINT_INNER_RADIUS, color);
+    gizmos.line(
+        new_pos + Vec3::X * PATH_POINT_CROSS_RADIUS,
+        new_pos - Vec3::X * PATH_POINT_CROSS_RADIUS,
+        color,
+    );
+    gizmos.line(
+        new_pos + Vec3::Y * PATH_POINT_CROSS_RADIUS,
+        new_pos - Vec3::Y * PATH_POINT_CROSS_RADIUS,
+        color,
+    );
+}
+
+fn draw_path_end_point(gizmos: &mut Gizmos, pos: Vec3, color: Color) {
+    let new_pos = pos.with_z(ZLayer::PlannedPathPoint.to_z());
     let isometry_pos = Isometry3d::new(new_pos, Quat::IDENTITY);
     gizmos.circle(isometry_pos, PATH_POINT_OUTER_RADIUS, color);
     gizmos.circle(isometry_pos, PATH_POINT_INNER_RADIUS, color);
     gizmos.line(
-        new_pos + Vec3::X * PATH_ENDPOINT_CROSS_RADIUS,
-        new_pos - Vec3::X * PATH_ENDPOINT_CROSS_RADIUS,
+        new_pos + Vec3::X * PATH_POINT_CROSS_RADIUS,
+        new_pos - Vec3::X * PATH_POINT_CROSS_RADIUS,
         color,
     );
     gizmos.line(
-        new_pos + Vec3::Y * PATH_ENDPOINT_CROSS_RADIUS,
-        new_pos - Vec3::Y * PATH_ENDPOINT_CROSS_RADIUS,
+        new_pos + Vec3::Y * PATH_POINT_CROSS_RADIUS,
+        new_pos - Vec3::Y * PATH_POINT_CROSS_RADIUS,
         color,
     );
 }
