@@ -323,7 +323,7 @@ impl FromWorld for MainInspector {
         let widget = Widget::new::<Inspector>(world);
         let properties_panel = world.resource::<PropertiesPanel>().id();
         let id = world
-            .spawn((widget, Name::new("Inspect")))
+            .spawn((widget, Name::new("Inspect"), ShowInStream(true)))
             .insert(ChildOf(properties_panel))
             .id();
         Self { id }

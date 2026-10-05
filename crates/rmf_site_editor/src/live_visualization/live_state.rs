@@ -52,6 +52,26 @@ pub struct LiveStreamState {
     pub retry_timer: Option<Timer>,
 }
 
+impl LiveStreamState {
+    pub fn is_streaming(&self) -> bool {
+        self.connection_requested.load(Ordering::Relaxed)
+    }
+
+    pub fn request_connection(&self) {
+        self.connection_requested.store(true, Ordering::Relaxed);
+    }
+
+    pub fn is_connected(&self) -> bool {
+        self.connection_active.load(Ordering::Relaxed)
+    }
+
+    pub fn in_connected_mode() -> impl Condition<()> {
+        IntoSystem::into_system(|state: Option<Res<LiveStreamState>>| {
+            state.is_some_and(|s| s.is_connected())
+        })
+    }
+}
+
 impl Default for LiveStreamState {
     fn default() -> Self {
         Self {
@@ -68,6 +88,7 @@ impl Default for LiveStreamState {
 
 #[derive(SystemParam)]
 pub struct LiveStreamStatusWidget<'w> {
+    app_state: Res<'w, State<crate::AppState>>,
     state: Res<'w, LiveStreamState>,
 }
 
@@ -75,12 +96,12 @@ impl<'w> WidgetSystem<Tile> for LiveStreamStatusWidget<'w> {
     fn show(_: Tile, ui: &mut egui::Ui, state: &mut SystemState<Self>, world: &mut World) {
         let params = state.get(world);
 
-        if !params.state.connection_requested.load(Ordering::Relaxed) {
+        if *params.app_state.get() != crate::AppState::SiteStream {
             return;
         }
 
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            if params.state.connection_active.load(Ordering::Relaxed) {
+            if params.state.is_connected() {
                 ui.label(egui::RichText::new("\u{2022}  Connected").color(egui::Color32::GREEN));
             } else {
                 ui.label(egui::RichText::new("\u{2022}  Disconnected").color(egui::Color32::RED));
@@ -95,9 +116,7 @@ pub fn auto_fetch_site_on_connect(
     time: Res<Time>,
     mut commands: Commands,
 ) {
-    let is_currently_active = state.connection_active.load(Ordering::Relaxed);
-
-    if is_currently_active && !state.site_loaded && receiver.is_none() {
+    if state.is_connected() && !state.site_loaded && receiver.is_none() {
         if let Some(timer) = &mut state.retry_timer {
             if !timer.tick(time.delta()).finished() {
                 return;
@@ -137,7 +156,7 @@ pub fn process_site_download(
     mut state: ResMut<LiveStreamState>,
     mut load_site: EventWriter<LoadSite>,
 ) {
-    if !state.connection_requested.load(Ordering::Relaxed) {
+    if !state.is_streaming() {
         if receiver.is_some() {
             commands.remove_resource::<SiteFetchReceiver>();
         }

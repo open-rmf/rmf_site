@@ -57,17 +57,24 @@ impl Plugin for LiveVisualizationPlugin {
         .add_systems(
             Update,
             (
-                update_live_robots,
-                update_live_paths,
-                update_live_safe_zones,
                 auto_fetch_site_on_connect,
                 process_site_download,
                 load_site_status_ui,
                 check_load_site_completion,
             )
-                .run_if(in_state(crate::AppState::SiteEditor)),
+                .run_if(in_state(crate::AppState::SiteStream)),
         )
-        .add_systems(OnEnter(crate::AppState::MainMenu), disconnect_live_stream);
+        .add_systems(
+            Update,
+            (
+                update_live_robots,
+                update_live_paths,
+                update_live_safe_zones,
+            )
+                .run_if(in_state(crate::AppState::SiteStream))
+                .run_if(LiveStreamState::in_connected_mode()),
+        )
+        .add_systems(OnExit(crate::AppState::SiteStream), disconnect_live_stream);
 
         if app.world().get_resource::<HeaderPanel>().is_some() {
             app.add_plugins(HeaderTilePlugin::<LiveStreamStatusWidget>::new());
@@ -82,10 +89,7 @@ fn start_live_stream(
     mut next_interaction_state: ResMut<NextState<crate::interaction::InteractionState>>,
     mut load_site: EventWriter<crate::site::LoadSite>,
 ) {
-    if live_stream_state
-        .connection_requested
-        .load(Ordering::Relaxed)
-    {
+    if live_stream_state.is_streaming() {
         live_stream_state.connection_requested = Arc::new(AtomicBool::new(true));
         live_stream_state.connection_active = Arc::new(AtomicBool::new(false));
 
@@ -96,7 +100,7 @@ fn start_live_stream(
             live_stream_state.connection_active.clone(),
         );
 
-        next_app_state.set(crate::AppState::SiteEditor);
+        next_app_state.set(crate::AppState::SiteStream);
         next_interaction_state.set(crate::interaction::InteractionState::Enable);
         load_site.write(crate::site::LoadSite::blank_L1("live".to_owned(), None));
     }

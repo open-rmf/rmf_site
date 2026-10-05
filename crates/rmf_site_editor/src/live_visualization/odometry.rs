@@ -20,7 +20,7 @@ use rmf_site_format::{Angle, NameInSite, Pose, Rotation};
 use rmf_site_msgs::nav_msgs::msg::Odometry;
 use roslibrust::rosbridge::ClientHandle;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -113,10 +113,6 @@ pub fn update_live_robots(
     untracked: Query<(Entity, &NameInSite), Without<LiveRobotMarker>>,
     mut poses: Query<&mut Pose>,
 ) {
-    if !state.connection_active.load(Ordering::Relaxed) {
-        return;
-    }
-
     while let Ok(event) = channel.receiver.try_recv() {
         // Find existing robot
         let robot = if let Some(&entity) = robot_map.0.get(&event.name) {

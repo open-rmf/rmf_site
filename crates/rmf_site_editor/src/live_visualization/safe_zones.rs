@@ -21,11 +21,10 @@ use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use rmf_site_msgs::rmf_prototype_msgs::msg::SafeZone;
 use roslibrust::rosbridge::ClientHandle;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedSender;
 
-use super::live_state::LiveStreamState;
 use super::network_client::{
     run_subscription_loop, spawn_network_task, LiveStreamHandler, VisualizationStreamChannel,
 };
@@ -136,7 +135,6 @@ pub struct LiveSafeZoneMarker {
 }
 
 pub fn update_live_safe_zones(
-    state: Res<LiveStreamState>,
     mut channel: ResMut<VisualizationStreamChannel<LiveEventSafeZone>>,
     path_state: Res<LivePathsState>,
     robot_map: Res<LiveRobotsState>,
@@ -154,10 +152,6 @@ pub fn update_live_safe_zones(
         &mut Visibility,
     )>,
 ) {
-    if !state.connection_active.load(Ordering::Relaxed) {
-        return;
-    }
-
     // Get latest safe zone messages for each robot
     let mut latest_events = HashMap::new();
     while let Ok(event) = channel.receiver.try_recv() {

@@ -112,13 +112,17 @@ pub enum AppState {
     SiteEditor,
     SiteVisualizer,
     SiteDrawingEditor,
+    SiteStream,
 }
 
 impl AppState {
     pub fn in_displaying_mode() -> impl Condition<()> {
         IntoSystem::into_system(|state: Res<State<AppState>>| match state.get() {
             AppState::MainMenu => false,
-            AppState::SiteEditor | AppState::SiteVisualizer | AppState::SiteDrawingEditor => true,
+            AppState::SiteEditor
+            | AppState::SiteVisualizer
+            | AppState::SiteDrawingEditor
+            | AppState::SiteStream => true,
         })
     }
 }

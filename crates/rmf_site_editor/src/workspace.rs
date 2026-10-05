@@ -90,6 +90,7 @@ impl Plugin for WorkspacePlugin {
 
 pub fn dispatch_new_workspace_events(
     state: Res<State<AppState>>,
+    mut app_state: ResMut<NextState<AppState>>,
     mut new_workspace: EventReader<CreateNewWorkspace>,
     mut load_site: EventWriter<LoadSite>,
 ) {
@@ -98,7 +99,11 @@ pub fn dispatch_new_workspace_events(
             AppState::MainMenu => {
                 error!("Sent generic new workspace while in main menu");
             }
-            AppState::SiteEditor | AppState::SiteDrawingEditor | AppState::SiteVisualizer => {
+            AppState::SiteEditor
+            | AppState::SiteDrawingEditor
+            | AppState::SiteVisualizer
+            | AppState::SiteStream => {
+                app_state.set(AppState::SiteEditor);
                 load_site.write(LoadSite {
                     site: Site::blank_L1("new".to_owned()),
                     focus: true,
@@ -498,7 +503,7 @@ fn send_file_save(
                 format: request.1,
             });
         }
-        AppState::MainMenu => { /* Noop */ }
+        AppState::MainMenu | AppState::SiteStream => { /* Noop */ }
     }
 }
 

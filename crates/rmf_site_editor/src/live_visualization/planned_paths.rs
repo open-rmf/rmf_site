@@ -19,11 +19,10 @@ use bevy::prelude::*;
 use rmf_site_msgs::rmf_prototype_msgs::msg::{Plan, Progress};
 use roslibrust::rosbridge::ClientHandle;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedSender;
 
-use super::live_state::LiveStreamState;
 use super::network_client::{
     run_subscription_loop, spawn_network_task, LiveStreamHandler, VisualizationStreamChannel,
 };
@@ -195,7 +194,6 @@ impl PlannedPathData {
 }
 
 pub fn update_live_paths(
-    state: Res<LiveStreamState>,
     time: Res<Time>,
     mut plan_channel: ResMut<VisualizationStreamChannel<LiveEventPlan>>,
     mut progress_channel: ResMut<VisualizationStreamChannel<LiveEventProgress>>,
@@ -204,10 +202,6 @@ pub fn update_live_paths(
     live_robots: Query<&Transform, With<LiveRobotMarker>>,
     mut gizmos: Gizmos,
 ) {
-    if !state.connection_active.load(Ordering::Relaxed) {
-        return;
-    }
-
     while let Ok(event) = plan_channel.receiver.try_recv() {
         let robot_path = path_state
             .0

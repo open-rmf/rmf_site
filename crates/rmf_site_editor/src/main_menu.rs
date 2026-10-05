@@ -20,7 +20,6 @@ use crate::live_visualization::LiveStreamState;
 use crate::{site::LoadSite, AppState, Autoload, WorkspaceLoader};
 use bevy::{app::AppExit, prelude::*, window::PrimaryWindow};
 use bevy_egui::{egui, EguiContexts};
-use std::sync::atomic::Ordering;
 
 const MAIN_MENU_PADDING: f32 = 10.0;
 
@@ -108,17 +107,13 @@ fn egui_ui(
 
                         ui.add_space(MAIN_MENU_PADDING * 0.5);
 
-                        let connection_initiated = live_stream_state
-                            .connection_requested
-                            .load(Ordering::Relaxed);
+                        let connection_initiated = live_stream_state.is_streaming();
 
                         ui.vertical_centered_justified(|ui| {
                             if connection_initiated {
                                 ui.label("Stream requested...");
                             } else if ui.button("Connect").clicked() {
-                                live_stream_state
-                                    .connection_requested
-                                    .store(true, Ordering::Relaxed);
+                                live_stream_state.request_connection();
                             }
                         });
                     });

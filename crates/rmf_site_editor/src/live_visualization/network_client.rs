@@ -94,18 +94,18 @@ impl<T: LiveStreamHandler> Plugin for StreamPlugin<T> {
                 },
             ));
 
-        app.add_systems(OnEnter(crate::AppState::MainMenu), T::cleanup)
+        app.add_systems(OnExit(crate::AppState::SiteStream), T::cleanup)
             .add_systems(
                 PreUpdate,
                 (|world: &mut World| {
                     let is_active = world
                         .get_resource::<super::live_state::LiveStreamState>()
-                        .is_some_and(|s| s.connection_active.load(Ordering::Relaxed));
+                        .is_some_and(|s| s.is_connected());
                     if !is_active {
                         T::cleanup(world);
                     }
                 })
-                .run_if(in_state(crate::AppState::SiteEditor)),
+                .run_if(in_state(crate::AppState::SiteStream)),
             );
     }
 }
