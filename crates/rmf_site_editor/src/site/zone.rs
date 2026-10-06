@@ -32,10 +32,60 @@ use std::collections::HashSet;
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub(crate) struct ZoneMarker;
 
+#[derive(Component)]
+pub(crate) struct ZoneSetMarker;
+
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ZoneSetFilter {
+    #[default]
+    All,
+    Unassigned,
+    Set(Entity),
+}
+
+#[derive(Default, Resource)]
+pub(crate) struct ZoneFilter {
+    pub(crate) site: Option<Entity>,
+    pub(crate) selection: ZoneSetFilter,
+}
+
+impl ZoneSetFilter {
+    fn matches(self, sets: &ZoneSets<Entity>) -> bool {
+        match self {
+            Self::All => true,
+            Self::Unassigned => sets.0.is_empty(),
+            Self::Set(set) => sets.0.contains(&set),
+        }
+    }
+}
+
+pub(super) fn update_zone_sets(
+    mut deleted: RemovedComponents<ZoneSetMarker>,
+    mut zones: Query<&mut ZoneSets<Entity>>,
+    mut filter: ResMut<ZoneFilter>,
+    workspace: Res<crate::CurrentWorkspace>,
+) {
+    if filter.site != workspace.root {
+        filter.site = workspace.root;
+        filter.selection = ZoneSetFilter::All;
+    }
+    for set in deleted.read() {
+        for mut sets in &mut zones {
+            if sets.0.contains(&set) {
+                sets.0.remove(&set);
+            }
+        }
+        if filter.selection == ZoneSetFilter::Set(set) {
+            filter.selection = ZoneSetFilter::All;
+        }
+    }
+}
+
 #[derive(Bundle)]
 pub(crate) struct ZoneBundle {
     anchors: Path<Entity>,
     name: NameInSite,
+    sets: ZoneSets<Entity>,
     marker: ZoneMarker,
 }
 
@@ -44,6 +94,7 @@ impl From<Zone<Entity>> for ZoneBundle {
         Self {
             anchors: zone.anchors,
             name: zone.name,
+            sets: zone.sets,
             marker: ZoneMarker,
         }
     }
@@ -164,14 +215,28 @@ fn make_zone_mesh(positions: &[[f32; 3]]) -> Mesh {
 
 pub(super) fn add_zone_visuals(
     mut commands: Commands,
-    zones: Query<(Entity, &Path<Entity>), Added<ZoneMarker>>,
+    mut zones: Query<
+        (
+            Entity,
+            &Path<Entity>,
+            &mut ZoneSets<Entity>,
+            Option<&SiteID>,
+        ),
+        Added<ZoneMarker>,
+    >,
     anchors: AnchorParams,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     visibility: Res<CategoryVisibility<ZoneMarker>>,
+    filter: Res<ZoneFilter>,
 ) {
-    for (entity, path) in &zones {
+    for (entity, path, mut sets, id) in &mut zones {
+        if id.is_none() {
+            if let ZoneSetFilter::Set(set) = filter.selection {
+                sets.0.insert(set);
+            }
+        }
         let mesh = meshes.add(zone_mesh(entity, path, &anchors));
         let visual = commands
             .spawn((
@@ -192,7 +257,7 @@ pub(super) fn add_zone_visuals(
             .entity(entity)
             .insert((
                 Transform::from_xyz(0.0, 0.0, ZLayer::Zone.to_z()),
-                if visibility.0 {
+                if visibility.0 && filter.selection.matches(&sets) {
                     Visibility::Inherited
                 } else {
                     Visibility::Hidden
@@ -245,16 +310,29 @@ pub(crate) fn clear_hidden_zone_selection(
     mut zones: Query<
         (
             Entity,
-            &Visibility,
+            &mut Visibility,
+            &ZoneSets<Entity>,
+            Option<&Pending>,
             Option<&mut Selected>,
             Option<&mut Hovered>,
         ),
         With<ZoneMarker>,
     >,
+    category: Res<CategoryVisibility<ZoneMarker>>,
+    filter: Res<ZoneFilter>,
     mut selection: ResMut<Selection>,
     mut hovering: ResMut<Hovering>,
 ) {
-    for (entity, visibility, selected, hovered) in &mut zones {
+    for (entity, mut visibility, sets, pending, selected, hovered) in &mut zones {
+        let visible = category.0 && (pending.is_some() || filter.selection.matches(sets));
+        let next = if visible {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
+        if *visibility != next {
+            *visibility = next;
+        }
         if *visibility != Visibility::Hidden {
             continue;
         }
@@ -282,6 +360,143 @@ mod tests {
     use bevy::{
         ecs::system::RunSystemOnce, render::mesh::VertexAttributeValues, state::app::StatesPlugin,
     };
+
+    #[test]
+    fn zone_set_filter_preserves_membership_and_global_visibility() {
+        let mut app = visual_test_app();
+        let first = app.world_mut().spawn(ZoneSetMarker).id();
+        let second = app.world_mut().spawn(ZoneSetMarker).id();
+        let (zone, _) = spawn_zone(app.world_mut(), 0.0);
+        app.world_mut()
+            .get_mut::<ZoneSets<Entity>>(zone)
+            .unwrap()
+            .0
+            .extend([first, second]);
+        let (unassigned, _) = spawn_zone(app.world_mut(), 0.0);
+        app.update();
+        app.world_mut().resource_mut::<ZoneFilter>().selection = ZoneSetFilter::Set(first);
+        app.world_mut()
+            .run_system_once(clear_hidden_zone_selection)
+            .unwrap();
+        assert_eq!(
+            *app.world().get::<Visibility>(zone).unwrap(),
+            Visibility::Inherited
+        );
+        assert_eq!(
+            *app.world().get::<Visibility>(unassigned).unwrap(),
+            Visibility::Hidden
+        );
+        app.world_mut().resource_mut::<ZoneFilter>().selection = ZoneSetFilter::Set(second);
+        app.world_mut()
+            .run_system_once(clear_hidden_zone_selection)
+            .unwrap();
+        assert_eq!(
+            *app.world().get::<Visibility>(zone).unwrap(),
+            Visibility::Inherited
+        );
+        app.world_mut()
+            .resource_mut::<Selection>()
+            .selected
+            .insert(zone);
+        app.world_mut().entity_mut(zone).insert(Selected {
+            is_selected: true,
+            ..default()
+        });
+        app.world_mut().resource_mut::<ZoneFilter>().selection = ZoneSetFilter::Unassigned;
+        app.world_mut()
+            .run_system_once(clear_hidden_zone_selection)
+            .unwrap();
+        assert_eq!(
+            *app.world().get::<Visibility>(zone).unwrap(),
+            Visibility::Hidden
+        );
+        assert_eq!(
+            *app.world().get::<Visibility>(unassigned).unwrap(),
+            Visibility::Inherited
+        );
+        assert!(app.world().resource::<Selection>().selected.is_empty());
+        assert!(!app.world().get::<Selected>(zone).unwrap().cue());
+        app.world_mut().entity_mut(zone).insert(Pending);
+        app.world_mut()
+            .run_system_once(clear_hidden_zone_selection)
+            .unwrap();
+        assert_eq!(
+            *app.world().get::<Visibility>(zone).unwrap(),
+            Visibility::Inherited
+        );
+        app.world_mut()
+            .resource_mut::<CategoryVisibility<ZoneMarker>>()
+            .0 = false;
+        app.world_mut()
+            .run_system_once(clear_hidden_zone_selection)
+            .unwrap();
+        assert_eq!(
+            *app.world().get::<Visibility>(zone).unwrap(),
+            Visibility::Hidden
+        );
+        assert_eq!(
+            *app.world().get::<Visibility>(unassigned).unwrap(),
+            Visibility::Hidden
+        );
+        assert_eq!(
+            app.world().get::<ZoneSets<Entity>>(zone).unwrap().0,
+            std::collections::BTreeSet::from([first, second])
+        );
+    }
+
+    #[test]
+    fn deleting_a_zone_set_preserves_zones_and_other_memberships() {
+        let mut app = visual_test_app();
+        app.init_resource::<crate::CurrentWorkspace>()
+            .add_systems(Update, update_zone_sets);
+        let first = app.world_mut().spawn(ZoneSetMarker).id();
+        let second = app.world_mut().spawn(ZoneSetMarker).id();
+        let (zone, _) = spawn_zone(app.world_mut(), 0.0);
+        app.world_mut()
+            .get_mut::<ZoneSets<Entity>>(zone)
+            .unwrap()
+            .0
+            .extend([first, second]);
+        app.update();
+        app.world_mut().resource_mut::<ZoneFilter>().selection = ZoneSetFilter::Set(first);
+        app.world_mut().despawn(first);
+        app.update();
+        assert_eq!(
+            app.world().get::<ZoneSets<Entity>>(zone).unwrap().0,
+            std::collections::BTreeSet::from([second])
+        );
+        assert_eq!(
+            app.world().resource::<ZoneFilter>().selection,
+            ZoneSetFilter::All
+        );
+    }
+
+    #[test]
+    fn drawing_in_a_filtered_set_assigns_new_zones_but_preserves_loaded_membership() {
+        let mut app = visual_test_app();
+        let set = app.world_mut().spawn(ZoneSetMarker).id();
+        app.world_mut().resource_mut::<ZoneFilter>().selection = ZoneSetFilter::Set(set);
+        let (new_zone, _) = spawn_zone(app.world_mut(), 0.0);
+        let (loaded_zone, _) = spawn_zone(app.world_mut(), 0.0);
+        app.world_mut().entity_mut(loaded_zone).insert(SiteID(50));
+        app.update();
+        assert!(app
+            .world()
+            .get::<ZoneSets<Entity>>(new_zone)
+            .unwrap()
+            .0
+            .contains(&set));
+        assert!(app
+            .world()
+            .get::<ZoneSets<Entity>>(loaded_zone)
+            .unwrap()
+            .0
+            .is_empty());
+        assert_eq!(
+            *app.world().get::<Visibility>(loaded_zone).unwrap(),
+            Visibility::Hidden
+        );
+    }
 
     #[test]
     fn zone_geometry_accepts_concavity_but_rejects_invalid_boundaries() {
@@ -330,6 +545,7 @@ mod tests {
             ))
             .init_resource::<Assets<Mesh>>()
             .init_resource::<Assets<StandardMaterial>>()
+            .init_resource::<ZoneFilter>()
             .init_resource::<Selection>()
             .init_resource::<Hovering>()
             .add_systems(

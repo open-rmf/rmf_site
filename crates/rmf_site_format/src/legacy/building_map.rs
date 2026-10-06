@@ -795,6 +795,7 @@ impl BuildingMap {
                 ..Default::default()
             },
             levels,
+            zone_sets: Default::default(),
             lifts,
             fiducial_groups,
             fiducials: cartesian_fiducials,

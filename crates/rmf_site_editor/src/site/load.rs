@@ -324,6 +324,20 @@ fn generate_site_entities(
         consider_id(*group_id);
     }
 
+    for (set_id, set) in &site_data.zone_sets {
+        let entity = commands
+            .spawn((
+                set.name.clone(),
+                ZoneSetMarker,
+                Group,
+                SiteID(*set_id),
+                ChildOf(site_id),
+            ))
+            .id();
+        id_to_entity.insert(*set_id, entity);
+        consider_id(*set_id);
+    }
+
     for (level_id, level_data) in &site_data.levels {
         let level_entity = commands
             .spawn(SiteID(*level_id))

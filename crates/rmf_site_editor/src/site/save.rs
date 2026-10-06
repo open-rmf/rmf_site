@@ -152,7 +152,12 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
         Query<
             Entity,
             (
-                Or<(With<LaneMarker>, With<LocationTags>, With<NavGraphMarker>)>,
+                Or<(
+                    With<LaneMarker>,
+                    With<LocationTags>,
+                    With<NavGraphMarker>,
+                    With<ZoneSetMarker>,
+                )>,
                 Without<Pending>,
             ),
         >,
@@ -441,6 +446,7 @@ fn generate_levels(
                 &Path<Entity>,
                 Option<&Original<Path<Entity>>>,
                 &NameInSite,
+                &ZoneSets<Entity>,
                 &SiteID,
             ),
             (With<ZoneMarker>, Without<Pending>),
@@ -663,13 +669,19 @@ fn generate_levels(
                             },
                         );
                     }
-                    if let Ok((path, original, name, id)) = q_zones.get(c) {
+                    if let Ok((path, original, name, sets, id)) = q_zones.get(c) {
                         let path = original.map(|p| &p.0).unwrap_or(path);
                         level.zones.insert(
                             id.0,
                             Zone {
                                 anchors: get_anchor_id_path(c, &path.0)?,
                                 name: name.clone(),
+                                sets: ZoneSets(
+                                    sets.0
+                                        .iter()
+                                        .map(|set| get_group_id(c, *set))
+                                        .collect::<Result<_, _>>()?,
+                                ),
                             },
                         );
                     }
@@ -1722,6 +1734,23 @@ fn generate_tasks(
     Ok(res)
 }
 
+fn generate_zone_sets(world: &mut World, site: Entity) -> BTreeMap<u32, ZoneSet> {
+    let mut state: SystemState<(
+        Query<&Children>,
+        Query<(&SiteID, &NameInSite), With<ZoneSetMarker>>,
+    )> = SystemState::new(world);
+    let (children, sets) = state.get(world);
+    let mut result = BTreeMap::new();
+    if let Ok(children) = children.get(site) {
+        for child in children {
+            if let Ok((id, name)) = sets.get(*child) {
+                result.insert(id.0, ZoneSet { name: name.clone() });
+            }
+        }
+    }
+    result
+}
+
 pub fn generate_site(
     world: &mut World,
     site: Entity,
@@ -1731,6 +1760,7 @@ pub fn generate_site(
     assign_site_ids(world, site)?;
     let anchors = collect_site_anchors(world, site);
     let levels = generate_levels(world, site)?;
+    let zone_sets = generate_zone_sets(world, site);
     let lifts = generate_lifts(world, site)?;
     let fiducials = generate_fiducials(world, site)?;
     let fiducial_groups = generate_fiducial_groups(world, site)?;
@@ -1790,6 +1820,7 @@ pub fn generate_site(
         anchors,
         properties,
         levels,
+        zone_sets,
         lifts,
         fiducials,
         fiducial_groups,
@@ -2057,6 +2088,31 @@ mod tests {
         let saved = &saved[&10].zones[&zone_id];
         assert_eq!(saved.anchors.0, vec![101, 102, 103]);
         assert_eq!(saved.name.0, "Weak Wi-Fi");
+
+        let set = world
+            .spawn((
+                NameInSite("Survey".into()),
+                ZoneSetMarker,
+                Group,
+                ChildOf(site),
+            ))
+            .id();
+        world
+            .get_mut::<ZoneSets<Entity>>(zone_entity)
+            .unwrap()
+            .0
+            .insert(set);
+        assign_site_ids(&mut world, site).unwrap();
+        let set_id = world.get::<SiteID>(set).unwrap().0;
+        assert_eq!(
+            generate_zone_sets(&mut world, site)[&set_id].name.0,
+            "Survey"
+        );
+        let saved = generate_levels(&mut world, site).unwrap();
+        assert_eq!(
+            saved[&10].zones[&zone_id].sets.0,
+            std::collections::BTreeSet::from([set_id])
+        );
 
         // Unfinished polygons are omitted.
         world.entity_mut(zone_entity).insert(Pending);

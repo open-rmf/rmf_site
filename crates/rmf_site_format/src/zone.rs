@@ -16,14 +16,18 @@
 */
 
 use crate::{NameInSite, Path, RefTrait};
+#[cfg(feature = "bevy")]
+use bevy::prelude::Component;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 /// A named zone polygon on a level. The boundary closes implicitly.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Zone<T: RefTrait> {
     pub anchors: Path<T>,
     pub name: NameInSite,
+    #[serde(default, skip_serializing_if = "ZoneSets::is_empty")]
+    pub sets: ZoneSets<T>,
 }
 
 impl<T: RefTrait> Zone<T> {
@@ -31,6 +35,7 @@ impl<T: RefTrait> Zone<T> {
         Ok(Zone {
             anchors: self.anchors.convert(id_map)?,
             name: self.name.clone(),
+            sets: self.sets.convert(id_map)?,
         })
     }
 }
@@ -40,7 +45,40 @@ impl<T: RefTrait> From<Path<T>> for Zone<T> {
         Self {
             anchors,
             name: NameInSite("<Unnamed>".to_owned()),
+            sets: ZoneSets::default(),
         }
+    }
+}
+
+/// A named set of zones, shared across levels.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ZoneSet {
+    pub name: NameInSite,
+}
+
+/// The sets that a zone belongs to.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(transparent)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct ZoneSets<T: RefTrait>(pub BTreeSet<T>);
+
+impl<T: RefTrait> Default for ZoneSets<T> {
+    fn default() -> Self {
+        Self(BTreeSet::new())
+    }
+}
+
+impl<T: RefTrait> ZoneSets<T> {
+    fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<ZoneSets<U>, T> {
+        self.0
+            .iter()
+            .map(|id| id_map.get(id).copied().ok_or(*id))
+            .collect::<Result<BTreeSet<_>, _>>()
+            .map(ZoneSets)
     }
 }
 
@@ -48,6 +86,69 @@ impl<T: RefTrait> From<Path<T>> for Zone<T> {
 mod tests {
     use super::*;
     use crate::{Anchor, Level, LevelElevation, Site};
+
+    #[test]
+    fn zone_sets_roundtrip_and_remap_membership() {
+        let zone = Zone {
+            anchors: Path(vec![1_u32, 2, 3]),
+            name: NameInSite("Desk aisle".into()),
+            sets: ZoneSets(BTreeSet::from([10, 20])),
+        };
+        let mapping = HashMap::from([(1, 101_u32), (2, 102), (3, 103), (10, 110), (20, 120)]);
+        let converted = zone.convert(&mapping).unwrap();
+        assert_eq!(converted.sets.0, BTreeSet::from([110, 120]));
+        assert_eq!(zone.sets.convert(&HashMap::from([(10, 110_u32)])), Err(20));
+        let mut site = Site::default();
+        site.zone_sets.insert(
+            10,
+            ZoneSet {
+                name: NameInSite("Wi-Fi survey".into()),
+            },
+        );
+        site.zone_sets.insert(
+            20,
+            ZoneSet {
+                name: NameInSite("Inspection areas".into()),
+            },
+        );
+        for (level_id, offset) in [(5, 0), (6, 100)] {
+            let mut level = Level::default();
+            let mapping = HashMap::from([
+                (1, offset + 1),
+                (2, offset + 2),
+                (3, offset + 3),
+                (10, 10),
+                (20, 20),
+            ]);
+            for (id, point) in [(1, [0.0, 0.0]), (2, [2.0, 0.0]), (3, [0.0, 2.0])] {
+                level.anchors.insert(offset + id, Anchor::from(point));
+            }
+            level
+                .zones
+                .insert(offset + 4, zone.convert(&mapping).unwrap());
+            site.levels.insert(level_id, level);
+        }
+        let encoded = serde_json::to_vec(&site).unwrap();
+        let decoded = Site::from_bytes_json(&encoded).unwrap();
+        assert_eq!(decoded.zone_sets, site.zone_sets);
+        for level in decoded.levels.values() {
+            assert_eq!(
+                level.zones.values().next().unwrap().sets.0,
+                BTreeSet::from([10, 20])
+            );
+        }
+        let old: Zone<u32> =
+            serde_json::from_value(serde_json::json!({"anchors": [1, 2, 3], "name": "Old zone"}))
+                .unwrap();
+        assert!(old.sets.is_empty());
+        assert!(serde_json::to_value(old).unwrap().get("sets").is_none());
+        assert!(
+            serde_json::to_value(Site::default())
+                .unwrap()
+                .get("zone_sets")
+                .is_none()
+        );
+    }
 
     #[test]
     fn zone_example_has_resolvable_level_boundaries() {
@@ -83,6 +184,7 @@ mod tests {
         let zone = Zone {
             anchors: Path(vec![1_u32, 2, 3]),
             name: NameInSite("Poor Wi-Fi corridor".into()),
+            sets: ZoneSets::default(),
         };
         let converted = zone
             .convert(&HashMap::from([(1, 11_u32), (2, 12), (3, 13)]))
