@@ -68,12 +68,14 @@ pub trait StandardProperty:
 
 impl<T: StandardProperty> Property for T {
     fn get_fallback(for_element: Entity, _in_scenario: Entity, world: &mut World) -> Self {
-        let mut state: SystemState<Query<&LastSetValue<Self>>> = SystemState::new(world);
-        let last_set_value = state.get(world);
+        let mut state: SystemState<(Query<&LastSetValue<Self>>, Query<&Self>)> =
+            SystemState::new(world);
+        let (last_set_value, current_value) = state.get(world);
 
         last_set_value
             .get(for_element)
             .map(|value| (**value).clone())
+            .or_else(|_| current_value.get(for_element).cloned())
             .unwrap_or(Self::default())
     }
 
@@ -367,5 +369,60 @@ fn update_changed_property<T: Property, E: Element>(
                 new_value.clone(),
             ));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::site::Pose;
+    use rmf_site_format::InstanceMarker;
+
+    #[test]
+    fn test_standard_property_fallback_preserves_initial_pose() {
+        let mut app = App::new();
+        app.add_plugins(PropertyPlugin::<Pose, InstanceMarker>::default());
+        app.init_resource::<CurrentScenario>();
+        app.init_resource::<Trashcan>();
+        app.add_event::<ChangeCurrentScenario>();
+
+        // Create a root scenario
+        let root_scenario = app
+            .world_mut()
+            .spawn((
+                ScenarioModifiers::<Entity>::default(),
+                Affiliation::<Entity>(None),
+            ))
+            .id();
+        app.world_mut().resource_mut::<CurrentScenario>().0 = Some(root_scenario);
+
+        // Spawn an instance element with a non-zero initial Pose
+        let initial_pose = Pose {
+            trans: [12.0, 34.0, 5.0],
+            rot: Default::default(),
+        };
+        let element = app
+            .world_mut()
+            .spawn((initial_pose.clone(), InstanceMarker))
+            .id();
+
+        app.update();
+
+        // Trigger UseModifier as would happen when Inclusion is modified
+        app.world_mut()
+            .trigger(UseModifier::new(element, root_scenario));
+        app.update();
+
+        // Verify the element's Pose was NOT overwritten with Pose::default() [0, 0, 0]
+        let pose = app.world().get::<Pose>(element).unwrap();
+        assert_eq!(pose.trans, [12.0, 34.0, 5.0]);
+
+        // Also verify the root scenario modifier was populated with the initial pose
+        let mut get_modifier_state =
+            SystemState::<GetModifier<Modifier<Pose>>>::new(app.world_mut());
+        let get_modifier = get_modifier_state.get(app.world());
+        let modifier = get_modifier.get(root_scenario, element);
+        assert!(modifier.is_some());
+        assert_eq!(modifier.unwrap().trans, [12.0, 34.0, 5.0]);
     }
 }

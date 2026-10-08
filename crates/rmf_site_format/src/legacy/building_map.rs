@@ -407,11 +407,13 @@ impl BuildingMap {
                     let mut site_measurement = measurement.to_site(&vertex_to_anchor_id)?;
                     let edge = &mut site_measurement.anchors;
                     // Remove the measurement anchors from the level anchors, since they belong to
-                    // the drawing
-                    let left = level_anchors.remove_entry(&edge.left()).unwrap();
-                    let right = level_anchors.remove_entry(&edge.right()).unwrap();
-                    drawing_anchors.insert(left.0, left.1);
-                    drawing_anchors.insert(right.0, right.1);
+                    // the drawing. Two measurements can share an endpoint, so the anchor may
+                    // have been moved already by an earlier measurement.
+                    for anchor_id in [edge.left(), edge.right()] {
+                        if let Some((id, anchor)) = level_anchors.remove_entry(&anchor_id) {
+                            drawing_anchors.insert(id, anchor);
+                        }
+                    }
                     measurements.insert(site_id.next().unwrap(), site_measurement);
                     // TODO(MXG): Have rankings for measurements
                 }
@@ -827,6 +829,33 @@ struct FeatureInfo {
 mod tests {
     use super::*;
     use std::error::Error;
+
+    #[test]
+    fn measurements_can_share_a_vertex() {
+        let data = r#"
+name: shared_corner
+coordinate_system: reference_image
+levels:
+  L1:
+    elevation: 0
+    drawing:
+      filename: l1.png
+    vertices:
+      - [0, 0, 0, ""]
+      - [0, 100, 0, ""]
+      - [200, 0, 0, ""]
+    measurements:
+      - [0, 2, {distance: [3, 20.0]}]
+      - [1, 0, {distance: [3, 10.0]}]
+"#;
+        let map = BuildingMap::from_bytes(data.as_bytes()).unwrap();
+        let site = map.to_site().unwrap();
+        let level = site.levels.values().next().unwrap();
+        let drawing = level.drawings.values().next().unwrap();
+        assert_eq!(drawing.measurements.len(), 2);
+        assert_eq!(drawing.anchors.len(), 3);
+        assert!(level.anchors.is_empty());
+    }
 
     #[test]
     fn building_map_serialization() -> std::result::Result<(), Box<dyn Error>> {
