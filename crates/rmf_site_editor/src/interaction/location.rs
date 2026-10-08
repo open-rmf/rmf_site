@@ -18,7 +18,7 @@ use crate::{interaction::*, site::*};
 use bevy::prelude::*;
 use rmf_site_egui::InspectFor;
 
-pub fn add_billboard_visual_cues(
+pub fn add_location_billboard_visual_cues(
     mut commands: Commands,
     mut billboards: Query<(Entity, &ChildOf), Changed<LocationBillboardMarker>>,
     points: Query<&Point<Entity>>,
@@ -26,7 +26,7 @@ pub fn add_billboard_visual_cues(
 ) {
     // Updates newly spawned billboards on existing locations
     for (e, parent) in billboards.iter_mut() {
-        update_billboard_visual_cues(&mut commands, e, parent, points, locations);
+        update_location_billboard_visual_cues(&mut commands, e, parent, points, locations);
     }
 }
 
@@ -54,21 +54,25 @@ pub fn update_location_visual_cues(
                     warn!("could not find billboard");
                     return;
                 };
-                update_billboard_visual_cues(&mut commands, bb_entity, parent, points, locations);
+                update_location_billboard_visual_cues(
+                    &mut commands,
+                    bb_entity,
+                    parent,
+                    points,
+                    locations,
+                );
             }
         }
     }
 }
 
-fn update_billboard_visual_cues(
+fn update_location_billboard_visual_cues(
     commands: &mut Commands,
     e: Entity,
     parent: &ChildOf,
     points: Query<&Point<Entity>>,
     locations: Query<Entity, With<LocationTags>>,
 ) {
-    commands.entity(e).insert(VisualCue::no_outline());
-
     if let Ok(point) = points.get(parent.0) {
         let mut drag_plane_bundle = DragPlaneBundle::new(point.0, Vec3::Z);
         drag_plane_bundle.selectable.element = e;

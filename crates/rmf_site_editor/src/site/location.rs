@@ -389,10 +389,6 @@ pub fn update_location_for_changed_location_tags(
 
                     if let Some(tooltip) = tooltip_opt.as_mut() {
                         tooltip.0 = mutex_group_text.clone();
-                    } else {
-                        commands
-                            .entity(existing_billboard_id)
-                            .insert(BillboardTooltip(mutex_group_text.clone()));
                     }
                     make_new_billboard = false;
                 } else {

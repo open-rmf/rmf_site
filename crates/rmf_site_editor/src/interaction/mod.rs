@@ -257,7 +257,8 @@ impl Plugin for InteractionPlugin {
                     add_popups,
                     register_double_click_event,
                     update_camera_targets,
-                    add_billboard_visual_cues.after(update_location_for_changed_location_tags),
+                    add_location_billboard_visual_cues
+                        .after(update_location_for_changed_location_tags),
                 )
                     .run_if(in_state(InteractionState::Enable))
                     .in_set(InteractionUpdateSet::AddVisuals),

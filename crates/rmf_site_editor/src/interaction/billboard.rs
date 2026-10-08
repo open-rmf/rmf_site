@@ -19,16 +19,23 @@ use crate::interaction::Hovering;
 use bevy::prelude::*;
 use rmf_site_camera::{active_camera_maybe, ActiveCameraQuery};
 use rmf_site_egui::canvas_tooltips::CanvasTooltips;
-use rmf_site_picking::Hovered;
+use rmf_site_picking::{ComputedVisualCue, Hovered, VisualCue};
 use std::borrow::Cow;
 
 #[derive(Component, Clone, Debug, Default)]
+#[require(
+    Transform,
+    Visibility,
+    VisualCue = VisualCue::no_outline(),
+    ComputedVisualCue = ComputedVisualCue(VisualCue::no_outline()),
+)]
 pub struct Billboard {
     pub offset: Vec3,
     pub hover_enabled: bool,
 }
 
 #[derive(Component, Clone, Debug)]
+#[require(Billboard)]
 pub struct BillboardTooltip(pub String);
 
 fn new_billboard_position(billboard_vec: Vec3, camera_vec: Vec3) -> Vec3 {
@@ -56,27 +63,27 @@ fn new_billboard_position(billboard_vec: Vec3, camera_vec: Vec3) -> Vec3 {
 pub fn update_billboard_location(
     mut query_mesh: Query<(&mut Transform, &Billboard, Option<&ChildOf>)>,
     query_parents: Query<&GlobalTransform>,
-    query_cameras: Query<(&Projection, &GlobalTransform)>,
+    query_cameras: Query<&GlobalTransform>,
     active_camera: ActiveCameraQuery,
 ) {
     let Ok(active_camera_entity) = active_camera_maybe(&active_camera) else {
         return;
     };
-    let Ok((_camera_projection, camera_transform)) = query_cameras.get(active_camera_entity) else {
+    let Ok(camera_transform) = query_cameras.get(active_camera_entity) else {
         return;
     };
 
-    let camera_direction = camera_transform.forward().into();
+    let camera_direction = camera_transform.forward();
 
     for (mut transform, billboard, child_of) in &mut query_mesh {
-        let new_position: Vec3 = new_billboard_position(billboard.offset, camera_direction);
+        let new_position: Vec3 = new_billboard_position(billboard.offset, *camera_direction);
 
         let global_rotation = Transform::IDENTITY
             .aligned_by(
                 Dir3::Z,
-                Dir3::new(-camera_direction).unwrap(),
+                -camera_direction,
                 Dir3::Y,
-                Dir3::new(new_position).unwrap(),
+                Dir3::new(new_position).unwrap_or(camera_transform.up()),
             )
             .rotation;
 

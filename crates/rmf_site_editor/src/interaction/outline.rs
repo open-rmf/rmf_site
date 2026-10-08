@@ -154,11 +154,7 @@ pub fn update_outline_visualization(
             Changed<ComputedVisualCue>,
         )>,
     >,
-    descendants: Query<(
-        Option<&Children>,
-        Option<&ComputedVisualCue>,
-        Option<&OutlineVolume>,
-    )>,
+    descendants: Query<(Option<&Children>, Option<&ComputedVisualCue>)>,
 ) {
     for (e, hovered, selected, vis, suppress, layer) in &outlinable {
         let color = if suppress.is_some() {
@@ -173,18 +169,9 @@ pub fn update_outline_visualization(
         let mut queue: SmallVec<[Entity; 10]> = SmallVec::new();
         queue.push(root);
         while let Some(top) = queue.pop() {
-            if let Ok((children, cue, outline)) = descendants.get(top) {
+            if let Ok((children, cue)) = descendants.get(top) {
                 if let Some(cue) = cue {
                     if !cue.allow_outline {
-                        if outline.is_some() {
-                            commands
-                                .entity(top)
-                                .remove::<OutlineVolume>()
-                                .remove::<OutlineStencil>()
-                                .remove::<ComputedOutline>()
-                                .remove::<OutlineMode>()
-                                .remove::<OutlineRenderLayers>();
-                        }
                         // TODO(MXG): Consider if we should allow the children
                         // to be added. What if the non-outlined visual cue
                         // has descendents that should be outlined?
