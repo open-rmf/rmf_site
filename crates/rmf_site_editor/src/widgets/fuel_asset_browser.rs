@@ -49,10 +49,13 @@ impl Plugin for FuelAssetBrowserPlugin {
 pub struct ShowAssetFilters {
     pub owner: Option<String>,
     pub recall_owner: Option<String>,
+    pub owner_search: String,
     pub tag: Option<String>,
     pub recall_tag: Option<String>,
+    pub tag_search: String,
     pub private: Option<bool>,
     pub recall_private: Option<bool>,
+    pub model_search: String,
 }
 
 /// Used to indicate whether to show or hide the [`FuelAssetBrowser`].
@@ -146,10 +149,23 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                                     .unwrap_or(owners[0].clone()),
                             };
                             ComboBox::from_id_salt("Asset Owner Filter")
+                                .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
                                 .selected_text(selected.clone())
                                 .show_ui(ui, |ui| {
-                                    for owner in owners.into_iter() {
-                                        ui.selectable_value(&mut selected, owner.clone(), owner);
+                                    ui.text_edit_singleline(
+                                        &mut gallery_status.filters.owner_search,
+                                    );
+                                    let search = gallery_status.filters.owner_search.to_lowercase();
+                                    for owner in owners
+                                        .into_iter()
+                                        .filter(|o| o.to_lowercase().starts_with(&search))
+                                    {
+                                        if ui
+                                            .selectable_value(&mut selected, owner.clone(), owner)
+                                            .clicked()
+                                        {
+                                            ui.memory_mut(|mem| mem.close_popup());
+                                        }
                                     }
                                     ui.end_row();
                                 });
@@ -180,10 +196,21 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                                     .unwrap_or(tags[0].clone()),
                             };
                             ComboBox::from_id_salt("Asset Tag Filter")
+                                .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
                                 .selected_text(selected.clone())
                                 .show_ui(ui, |ui| {
-                                    for tag in tags.into_iter() {
-                                        ui.selectable_value(&mut selected, tag.clone(), tag);
+                                    ui.text_edit_singleline(&mut gallery_status.filters.tag_search);
+                                    let search = gallery_status.filters.tag_search.to_lowercase();
+                                    for tag in tags
+                                        .into_iter()
+                                        .filter(|t| t.to_lowercase().starts_with(&search))
+                                    {
+                                        if ui
+                                            .selectable_value(&mut selected, tag.clone(), tag)
+                                            .clicked()
+                                        {
+                                            ui.memory_mut(|mem| mem.close_popup());
+                                        }
                                     }
                                     ui.end_row();
                                 });
@@ -225,8 +252,14 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
 
                 ui.add_space(10.0);
 
+                ui.label(RichText::new("Models").size(14.0));
+                ui.add_space(5.0);
+                ui.text_edit_singleline(&mut gallery_status.filters.model_search);
+                ui.add_space(5.0);
+
                 // TODO(luca) should we cache the models by filters result to avoid calling at every
                 // frame?
+                let model_search = gallery_status.filters.model_search.to_lowercase();
                 let models = models
                     .iter()
                     .filter(|m| {
@@ -242,10 +275,9 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                     .filter(|m| {
                         tag_filter.is_none()
                             | tag_filter.as_ref().is_some_and(|tag| m.tags.contains(&tag))
-                    });
+                    })
+                    .filter(|m| m.name.to_lowercase().contains(&model_search));
 
-                ui.label(RichText::new("Models").size(14.0));
-                ui.add_space(5.0);
                 // Show models
                 let mut new_selected = None;
                 ScrollArea::vertical()
