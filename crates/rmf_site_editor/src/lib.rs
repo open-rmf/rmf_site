@@ -300,15 +300,15 @@ impl Plugin for SiteEditor {
                 crossflow::CrossflowPlugin::default(),
             ));
 
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            // TODO(@mxgrey): Look into how to get text working in wasm.
-            // Currently we get a "no default font found" panic.
-            app.add_plugins(Text3dPlugin {
-                load_system_fonts: true,
-                ..Default::default()
-            });
-        }
+        // Load font for wasm
+        app.insert_resource(bevy_rich_text3d::LoadFonts {
+            font_embedded: vec![include_bytes!("../../../assets/fonts/FiraSans-Regular.ttf")],
+            ..Default::default()
+        });
+        app.add_plugins(Text3dPlugin {
+            load_system_fonts: true,
+            ..Default::default()
+        });
 
         if self.is_headless() {
             // Turn off GPU preprocessing in headless mode so that this can
