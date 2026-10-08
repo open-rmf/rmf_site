@@ -18,7 +18,7 @@
 use super::get_selected_description_entity;
 use crate::{
     site::{
-        AssetSource, Change, DefaultFile, Group, IsBaseOccupancyGrid, ModelLoader, ModelMarker,
+        AssetSource, Change, DefaultFile, Group, KnownObstacle, ModelLoader, ModelMarker,
         ModelProperty, ModelPropertyQuery, NameInSite, RecallAssetSource, Scale,
     },
     widgets::{prelude::*, Inspect, InspectAssetSourceComponent, InspectScaleComponent},
@@ -119,12 +119,8 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelAssetSource<'w, 's> {
 pub struct InspectModelIsBaseOccupancyGrid<'w, 's> {
     commands: Commands<'w, 's>,
     model_instances: ModelPropertyQuery<'w, 's, NameInSite>,
-    model_descriptions: Query<
-        'w,
-        's,
-        &'static ModelProperty<IsBaseOccupancyGrid>,
-        (With<ModelMarker>, With<Group>),
-    >,
+    model_descriptions:
+        Query<'w, 's, &'static ModelProperty<KnownObstacle>, (With<ModelMarker>, With<Group>)>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectModelIsBaseOccupancyGrid<'w, 's> {
@@ -156,7 +152,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectModelIsBaseOccupancyGrid<'w, 's> {
             .changed()
         {
             params.commands.trigger(Change::new(
-                ModelProperty(IsBaseOccupancyGrid(value)),
+                ModelProperty(KnownObstacle(value)),
                 description_entity,
             ));
         }

@@ -231,7 +231,7 @@ impl Plugin for StandardInspectorPlugin {
                     ),
                     InspectModelPropertyPlugin::<
                         InspectModelIsBaseOccupancyGrid,
-                        IsBaseOccupancyGrid,
+                        KnownObstacle,
                     >::new("Base Occupancy Grid".to_string()),
                     InspectRobotPropertiesPlugin::default(),
                     InspectRobotPropertyPlugin::<InspectMobility, Mobility>::new(),

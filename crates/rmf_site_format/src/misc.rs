@@ -604,11 +604,11 @@ impl Default for IsStatic {
 #[serde(transparent)]
 #[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut, Reflect))]
 #[cfg_attr(feature = "bevy", reflect(Component))]
-pub struct IsBaseOccupancyGrid(pub bool);
+pub struct KnownObstacle(pub bool);
 
-impl Default for IsBaseOccupancyGrid {
+impl Default for KnownObstacle {
     fn default() -> Self {
-        IsBaseOccupancyGrid(true)
+        KnownObstacle(true)
     }
 }
 
