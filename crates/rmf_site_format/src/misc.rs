@@ -600,6 +600,18 @@ impl Default for IsStatic {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(transparent)]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
+pub struct KnownObstacle(pub bool);
+
+impl Default for KnownObstacle {
+    fn default() -> Self {
+        KnownObstacle(true)
+    }
+}
+
 /// Marker component for previewable entities
 #[derive(Clone, Copy, Debug, Default)]
 #[cfg_attr(feature = "bevy", derive(Component))]
