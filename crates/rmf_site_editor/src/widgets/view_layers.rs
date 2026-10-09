@@ -36,7 +36,7 @@ pub struct ViewLayersPlugin {}
 
 impl Plugin for ViewLayersPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(PropertiesTilePlugin::<ViewLayers>::new("Layers"));
+        app.add_plugins(PropertiesTilePlugin::<ViewLayers>::new("Layers").show_in_stream(true));
     }
 }
 
@@ -69,7 +69,10 @@ pub struct ViewLayers<'w, 's> {
 impl<'w, 's> WidgetSystem<Tile> for ViewLayers<'w, 's> {
     fn show(_: Tile, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) {
         let mut params = state.get_mut(world);
-        if *params.app_state.get() != AppState::SiteEditor {
+        if !matches!(
+            params.app_state.get(),
+            AppState::SiteEditor | AppState::SiteStream
+        ) {
             return;
         }
         params.show_widget(ui);

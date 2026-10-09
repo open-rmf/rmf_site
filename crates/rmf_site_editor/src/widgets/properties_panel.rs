@@ -22,7 +22,7 @@ use std::collections::HashSet;
 
 use crate::AppState;
 use rmf_site_egui::{
-    PanelConfig, PanelSettings, PanelWidgetInput, TabGroup, Tile, TryShowWidgetWorld,
+    PanelConfig, PanelSettings, PanelWidgetInput, ShowInStream, TabGroup, Tile, TryShowWidgetWorld,
 };
 
 const TAB_BAR_HEIGHT: f32 = 24.0;
@@ -32,6 +32,7 @@ const CLOSE_TAB_ACTIVE_COLOR: egui::Color32 = egui::Color32::from_rgb(240, 80, 8
 pub struct PropertiesPanelState {
     pub dock_state: DockState<Entity>,
     pub known_tabs: HashSet<Entity>,
+    pub is_streaming_mode: Option<bool>,
 }
 
 impl Default for PropertiesPanelState {
@@ -39,6 +40,7 @@ impl Default for PropertiesPanelState {
         Self {
             dock_state: DockState::new(vec![]),
             known_tabs: HashSet::new(),
+            is_streaming_mode: None,
         }
     }
 }
@@ -46,6 +48,7 @@ impl Default for PropertiesPanelState {
 pub struct PropertiesTabViewer<'a> {
     pub world: &'a mut World,
     pub settings: PanelSettings,
+    is_streaming_mode: bool,
 }
 
 impl<'a> TabViewer for PropertiesTabViewer<'a> {
@@ -72,6 +75,10 @@ impl<'a> TabViewer for PropertiesTabViewer<'a> {
     }
 
     fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {
+        if self.is_streaming_mode {
+            ui.disable();
+        }
+
         let _ = self.world.try_show_in(
             *tab,
             Tile {
@@ -87,12 +94,18 @@ pub fn show_properties_panel(
     In(PanelWidgetInput { id, context }): In<PanelWidgetInput>,
     world: &mut World,
 ) {
-    let in_display_mode = world
+    let app_state = world
         .get_resource::<State<AppState>>()
-        .is_some_and(|s| match s.get() {
-            AppState::MainMenu => false,
-            AppState::SiteEditor | AppState::SiteVisualizer | AppState::SiteDrawingEditor => true,
-        });
+        .map(|s| s.get().clone());
+    let in_display_mode = matches!(
+        app_state,
+        Some(
+            AppState::SiteEditor
+                | AppState::SiteVisualizer
+                | AppState::SiteDrawingEditor
+                | AppState::SiteStream
+        )
+    );
 
     if !in_display_mode {
         return;
@@ -102,12 +115,29 @@ pub fn show_properties_panel(
         world.init_resource::<PropertiesPanelState>();
     }
 
+    let is_streaming_mode = matches!(app_state, Some(AppState::SiteStream));
+
     let tabs: Vec<Entity> = world
         .get::<Children>(id)
-        .map(|c| c.to_vec())
+        .map(|c| {
+            c.iter()
+                .filter(|&tab| {
+                    if is_streaming_mode {
+                        world.get::<ShowInStream>(tab).is_some_and(|s| s.0)
+                    } else {
+                        true
+                    }
+                })
+                .collect()
+        })
         .unwrap_or_default();
 
     world.resource_scope::<PropertiesPanelState, ()>(|world, mut state| {
+        if state.is_streaming_mode != Some(is_streaming_mode) {
+            state.known_tabs.clear();
+            state.is_streaming_mode = Some(is_streaming_mode);
+        }
+
         let is_initial_load = state.known_tabs.is_empty();
 
         let mut new_tabs = Vec::new();
@@ -215,10 +245,6 @@ pub fn show_properties_panel(
                                 }
                             }
                         });
-
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.label(egui::RichText::new("Properties").weak());
-                    });
                 });
 
                 ui.separator();
@@ -227,7 +253,11 @@ pub fn show_properties_panel(
                     .get::<PanelSettings>(id)
                     .copied()
                     .unwrap_or(PanelSettings::right());
-                let mut tab_viewer = PropertiesTabViewer { world, settings };
+                let mut tab_viewer = PropertiesTabViewer {
+                    world,
+                    settings,
+                    is_streaming_mode,
+                };
                 DockArea::new(&mut state.dock_state)
                     .style(style)
                     .show_close_buttons(true)

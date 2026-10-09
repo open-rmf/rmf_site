@@ -66,6 +66,9 @@ use site_asset_io::SiteAssetIoPlugin;
 pub mod mapf_rse;
 use mapf_rse::NegotiationPlugin;
 
+mod live_visualization;
+use live_visualization::LiveVisualizationPlugin;
+
 pub mod osm_slippy_map;
 use bevy::render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
@@ -109,13 +112,17 @@ pub enum AppState {
     SiteEditor,
     SiteVisualizer,
     SiteDrawingEditor,
+    SiteStream,
 }
 
 impl AppState {
     pub fn in_displaying_mode() -> impl Condition<()> {
         IntoSystem::into_system(|state: Res<State<AppState>>| match state.get() {
             AppState::MainMenu => false,
-            AppState::SiteEditor | AppState::SiteVisualizer | AppState::SiteDrawingEditor => true,
+            AppState::SiteEditor
+            | AppState::SiteVisualizer
+            | AppState::SiteDrawingEditor
+            | AppState::SiteStream => true,
         })
     }
 }
@@ -323,7 +330,8 @@ impl Plugin for SiteEditor {
             app.add_plugins((StandardUiPlugin::default(), MainMenuPlugin))
                 // Note order matters, plugins that edit the menus must be initialized after the UI
                 .add_plugins((site::ViewMenuPlugin, OSMViewPlugin, SiteWireframePlugin))
-                .add_plugins(NegotiationPlugin::default());
+                .add_plugins(NegotiationPlugin::default())
+                .add_plugins(LiveVisualizationPlugin);
         }
 
         if self.is_headless_export() {

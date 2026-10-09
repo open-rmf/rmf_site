@@ -1,0 +1,21 @@
+repositories:
+  common_interfaces:
+    type: git
+    url: https://github.com/ros2/common_interfaces.git
+    version: jazzy
+  rcl_interfaces:
+    type: git
+    url: https://github.com/ros2/rcl_interfaces.git
+    version: jazzy
+  unique_identifier_msgs:
+    type: git
+    url: https://github.com/ros2/unique_identifier_msgs.git
+    version: jazzy
+  geographic_info:
+    type: git
+    url: https://github.com/ros-geographic-info/geographic_info.git
+    version: ros2
+  navigation2:
+    type: git
+    url: https://github.com/ros-navigation/navigation2.git
+    version: jazzy

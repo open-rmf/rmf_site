@@ -74,6 +74,35 @@ $ tar xf ~/binaryen-version_123-x86_64-linux.tar.gz -C ~/
 $ export PATH=$PATH:~/binaryen-version_123/bin
 ```
 
+# Fetch Message Definitions (Required for Live Visualization)
+
+The Site Editor features a Live Fleet Visualization tool that communicates with ROS 2 backends via WebSockets. To compile the necessary Rust structs without requiring a local ROS 2 installation, you must initialize the message submodules and install `vcstool`.
+
+**1. Initialize the custom messages submodule:**
+If you did not clone this repository with the `--recursive` flag, you must initialize the submodule containing the custom Open-RMF messages:
+```bash
+$ git submodule update --init --recursive
+```
+
+**2. Install `vcstool`:**
+The build script automatically downloads standard ROS 2 message blueprints (e.g., `nav_msgs`) during compilation. It requires the `vcs` command-line tool to be installed on your system.
+
+*Option A: Install via pipx (Native Host Machine - Mac/Windows/Linux)*
+```bash
+# Install the vcs tool using pipx
+$ pipx install vcstool
+
+# (For Python 3.12+ Users): Fix missing legacy dependencies by forcing 
+# the injection of an older setuptools version that still contains pkg_resources
+$ pipx inject --force vcstool "setuptools<70.0.0"
+```
+
+*Option B: Use a ROS 2 Container (Alternative)*
+If you are compiling inside an Ubuntu or ROS 2 Docker/distrobox environment, you can install it directly via `apt`:
+```bash
+$ sudo apt update && sudo apt install -y python3-vcstool
+```
+
 # Build and Run (Desktop)
 
 Currently tested on Ubuntu 20.04.4 LTS and windows 11.
@@ -83,6 +112,8 @@ From the root directory:
 ```bash
 $ cargo run
 ```
+
+*(Note: During the very first build, the compiler will pause to automatically run `vcs import` and download standard ROS 2 blueprints into the `external/ros2_interfaces/` directory).*
 
 Use the `--features bevy/dynamic_linking` flag to improve compile time through dynamic linking.
 Use the `--release` flag for better runtime performance.

@@ -1,0 +1,15 @@
+[package]
+name = "rmf_site_msgs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+roslibrust = { workspace = true, features = ["codegen"] }
+base64 = "0.22"
+
+[build-dependencies]
+roslibrust_codegen = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

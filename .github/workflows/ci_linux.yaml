@@ -18,6 +18,12 @@ jobs:
         sudo apt-get update
         sudo apt-get install libasound2-dev libudev-dev libgtk-3-dev
     - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+    - name: Install vcstool
+      run: |
+        pipx install vcstool
+        pipx inject --force vcstool "setuptools<70.0.0"
     - name: Test rmf_site_format
       run: |
         cd crates/rmf_site_format
@@ -44,6 +50,7 @@ jobs:
     - uses: actions/checkout@v4
       with:
         path: site_ws/src/rmf_site
+        submodules: recursive
     - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@stable
       # TODO(@xiyuoh) Revisit when colcon-cargo supports shared target directory

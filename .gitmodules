@@ -1,0 +1,3 @@
+[submodule "external/next_gen_prototype_interfaces"]
+	path = external/next_gen_prototype_interfaces
+	url = https://github.com/althea28/next_gen_prototypes_interfaces.git
