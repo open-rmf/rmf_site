@@ -116,17 +116,21 @@ pub use inspect_texture::*;
 
 pub mod inspect_value;
 pub use inspect_value::*;
-use rmf_site_picking::Selection;
+use rmf_site_picking::{Select, Selection};
 
-use crate::site::{Category, SiteID};
+use crate::{
+    site::{Category, SiteID},
+    CurrentWorkspace,
+};
 use bevy::{
     ecs::{
         hierarchy::ChildOf,
+        relationship::AncestorIter,
         system::{SystemParam, SystemState},
     },
     prelude::*,
 };
-use bevy_egui::egui::{CollapsingHeader, Ui};
+use bevy_egui::egui::{CollapsingHeader, Color32, Key, TextEdit, Ui};
 use rmf_site_egui::*;
 use rmf_site_format::*;
 use smallvec::SmallVec;
@@ -330,12 +334,100 @@ impl FromWorld for MainInspector {
     }
 }
 
+/// Persistent widget-local state for the Site ID lookup control in the
+/// [`Inspector`] widget.
+#[derive(Default)]
+struct SiteIdLookup {
+    input: String,
+    error: Option<String>,
+}
+
+/// Finds the entity carrying `target` as its [`SiteID`], restricted to the
+/// workspace rooted at `root` (i.e. `root` itself or one of its descendants).
+fn find_entity_with_site_id(
+    target: u32,
+    root: Entity,
+    site_ids: &Query<(Entity, &SiteID)>,
+    child_of: &Query<&ChildOf>,
+) -> Option<Entity> {
+    site_ids.iter().find_map(|(entity, site_id)| {
+        if site_id.0 != target {
+            return None;
+        }
+
+        let in_workspace =
+            entity == root || AncestorIter::new(child_of, entity).any(|ancestor| ancestor == root);
+        in_workspace.then_some(entity)
+    })
+}
+
 #[derive(SystemParam)]
 pub struct Inspector<'w, 's> {
     children: Query<'w, 's, &'static Children>,
     heading: Query<'w, 's, (Option<&'static Category>, Option<&'static SiteID>)>,
     inspect_for_query: Query<'w, 's, &'static InspectFor>,
     inspect_multi_selection: InspectMultiSelection<'w, 's>,
+    current_workspace: Res<'w, CurrentWorkspace>,
+    all_site_ids: Query<'w, 's, (Entity, &'static SiteID)>,
+    child_of: Query<'w, 's, &'static ChildOf>,
+    select: EventWriter<'w, Select>,
+    site_id_lookup: Local<'s, SiteIdLookup>,
+}
+
+impl<'w, 's> Inspector<'w, 's> {
+    /// Renders a small control that lets a user type a raw numeric [`SiteID`]
+    /// and select the matching entity, scoped to the current workspace.
+    fn show_site_id_lookup(&mut self, ui: &mut Ui) {
+        let mut submit = false;
+        ui.horizontal(|ui| {
+            ui.label("Site ID:");
+            let response = ui.add(
+                TextEdit::singleline(&mut self.site_id_lookup.input)
+                    .desired_width(80.0)
+                    .hint_text("e.g. 42"),
+            );
+            if response.changed() {
+                self.site_id_lookup.error = None;
+            }
+            if response.lost_focus() && ui.input(|i| i.key_pressed(Key::Enter)) {
+                submit = true;
+            }
+            if ui.button("Select").clicked() {
+                submit = true;
+            }
+        });
+
+        if submit {
+            self.site_id_lookup.error = match self.site_id_lookup.input.trim().parse::<u32>() {
+                Ok(target) => match self.current_workspace.root {
+                    Some(root) => {
+                        match find_entity_with_site_id(
+                            target,
+                            root,
+                            &self.all_site_ids,
+                            &self.child_of,
+                        ) {
+                            Some(entity) => {
+                                self.select.write(Select::new(Some(entity)));
+                                None
+                            }
+                            None => Some(format!(
+                                "No entity with Site ID {target} was found in the current site."
+                            )),
+                        }
+                    }
+                    None => Some("No site is currently open.".to_string()),
+                },
+                Err(_) => Some("Site ID must be a whole number.".to_string()),
+            };
+        }
+
+        if let Some(error) = &self.site_id_lookup.error {
+            ui.colored_label(Color32::from_rgb(200, 60, 60), error);
+        }
+
+        ui.separator();
+    }
 }
 
 impl<'w, 's> WidgetSystem<Tile> for Inspector<'w, 's> {
@@ -352,6 +444,10 @@ impl<'w, 's> WidgetSystem<Tile> for Inspector<'w, 's> {
             _ => return,
         }
         */
+
+        // The Site ID lookup must stay visible even when nothing is selected,
+        // so it is shown before the "no entity selected" early return below.
+        state.get_mut(world).show_site_id_lookup(ui);
 
         let Some(selection) = world.get_resource::<Selection>() else {
             ui.label("ERROR: Selection resource is not available");
@@ -425,5 +521,59 @@ impl<'w, 's> WidgetSystem<Tile> for Inspector<'w, 's> {
                 let _ = world.try_show_in(child, inspect, ui);
             }
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn resolve(world: &mut World, target: u32, root: Entity) -> Option<Entity> {
+        let mut state = SystemState::<(Query<(Entity, &SiteID)>, Query<&ChildOf>)>::new(world);
+        let (site_ids, child_of) = state.get(world);
+        find_entity_with_site_id(target, root, &site_ids, &child_of)
+    }
+
+    #[test]
+    fn finds_entity_in_current_workspace() {
+        let mut world = World::new();
+        let root = world.spawn(SiteID(1)).id();
+        let child = world.spawn((SiteID(2), ChildOf(root))).id();
+
+        assert_eq!(resolve(&mut world, 2, root), Some(child));
+        assert_eq!(resolve(&mut world, 1, root), Some(root));
+    }
+
+    #[test]
+    fn ignores_same_id_in_another_workspace() {
+        let mut world = World::new();
+        let root_a = world.spawn_empty().id();
+        let root_b = world.spawn_empty().id();
+        let child_a = world.spawn((SiteID(5), ChildOf(root_a))).id();
+        let child_b = world.spawn((SiteID(5), ChildOf(root_b))).id();
+
+        // Both workspaces contain an entity with SiteID(5); the lookup must
+        // resolve to the one that actually belongs to the requested root.
+        assert_eq!(resolve(&mut world, 5, root_a), Some(child_a));
+        assert_eq!(resolve(&mut world, 5, root_b), Some(child_b));
+    }
+
+    #[test]
+    fn handles_nested_descendants() {
+        let mut world = World::new();
+        let root = world.spawn(SiteID(1)).id();
+        let level = world.spawn((SiteID(2), ChildOf(root))).id();
+        let anchor = world.spawn((SiteID(3), ChildOf(level))).id();
+
+        assert_eq!(resolve(&mut world, 3, root), Some(anchor));
+    }
+
+    #[test]
+    fn returns_none_for_missing_id() {
+        let mut world = World::new();
+        let root = world.spawn(SiteID(1)).id();
+        world.spawn((SiteID(2), ChildOf(root)));
+
+        assert_eq!(resolve(&mut world, 99, root), None);
     }
 }
