@@ -23,8 +23,24 @@ use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     hash::Hash,
     io,
+    path::PathBuf,
 };
 use uuid::Uuid;
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub enum BaseSdf {
+    #[default]
+    Default,
+    File(PathBuf),
+    Xml(String),
+}
+
+impl BaseSdf {
+    pub fn is_default(&self) -> bool {
+        matches!(self, Self::Default)
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
@@ -39,6 +55,8 @@ pub struct SiteProperties<T: RefTrait> {
     pub filtered_issue_kinds: FilteredIssueKinds,
     #[serde(default, skip_serializing_if = "is_default")]
     pub extension_settings: SiteExtensionSettings,
+    #[serde(default, skip_serializing_if = "BaseSdf::is_default")]
+    pub base_sdf: BaseSdf,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -92,6 +110,7 @@ impl<T: RefTrait> Default for SiteProperties<T> {
             filtered_issues: FilteredIssues::default(),
             filtered_issue_kinds: FilteredIssueKinds::default(),
             extension_settings: Default::default(),
+            base_sdf: Default::default(),
         }
     }
 }
@@ -104,6 +123,7 @@ impl<T: RefTrait> SiteProperties<T> {
             filtered_issues: self.filtered_issues.convert(id_map)?,
             filtered_issue_kinds: self.filtered_issue_kinds.clone(),
             extension_settings: self.extension_settings.clone(),
+            base_sdf: self.base_sdf.clone(),
         })
     }
 }

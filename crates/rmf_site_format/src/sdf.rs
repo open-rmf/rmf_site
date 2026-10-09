@@ -16,7 +16,8 @@
 */
 
 use crate::{
-    Anchor, Angle, AssetSource, Category, DoorType, Level, LiftCabin, Pose, Rotation, Site, Swing,
+    Anchor, Angle, AssetSource, BaseSdf, Category, DoorType, Level, LiftCabin, Pose, Rotation,
+    Site, Swing,
 };
 use glam::Vec3;
 use once_cell::sync::Lazy;
@@ -51,6 +52,8 @@ pub enum SdfConversionError {
     CorruptedWorldTemplate(String),
     #[error("Failed deserializing base SDF: {0}")]
     CorruptedBaseSdf(String),
+    #[error("Base SDF is missing a <world> element")]
+    MissingWorldInBaseSdf,
 }
 
 impl Pose {
@@ -426,7 +429,17 @@ fn make_sdf_door(
 
 impl Site {
     pub fn to_sdf(&self) -> Result<SdfRoot, SdfConversionError> {
-        self.to_sdf_with_base_xml(None)
+        let base_xml = match &self.properties.base_sdf {
+            BaseSdf::Default => None,
+            BaseSdf::File(path) => Some(std::fs::read_to_string(path).map_err(|e| {
+                SdfConversionError::CorruptedBaseSdf(format!(
+                    "Unable to read base SDF file at {}: {e}",
+                    path.display()
+                ))
+            })?),
+            BaseSdf::Xml(xml) => Some(xml.clone()),
+        };
+        self.to_sdf_with_base_xml(base_xml.as_deref())
     }
     pub fn to_sdf_with_base_xml(
         &self,
@@ -441,7 +454,7 @@ impl Site {
                 .get(&id)
                 .ok_or(SdfConversionError::BrokenLevelReference(id))
         };
-        let mut root = match base_sdf_xml {
+        let mut root: SdfRoot = match base_sdf_xml {
             Some(xml) => {
                 yaserde::de::from_str(xml).map_err(SdfConversionError::CorruptedBaseSdf)?
             }
@@ -449,7 +462,10 @@ impl Site {
                 .clone()
                 .map_err(SdfConversionError::CorruptedWorldTemplate)?,
         };
-        let world = &mut root.world[0];
+        let world = root
+            .world
+            .first_mut()
+            .ok_or(SdfConversionError::MissingWorldInBaseSdf)?;
         let mut min_elevation = f32::MAX;
         let mut max_elevation = f32::MIN;
         let mut toggle_floors_plugin = SdfPlugin {
@@ -1046,5 +1062,62 @@ mod tests {
         assert_eq!(sdf.world[0].name, "building");
         assert_eq!(sdf.world[0].physics[0].name.as_deref(), Some("1ms"));
         assert_eq!(sdf.world[0].light[0].name, "sun");
+    }
+
+    #[test]
+    fn serialize_sdf_with_missing_world_returns_error() {
+        let data = std::fs::read("../../assets/demo_maps/office.building.yaml").unwrap();
+        let map = BuildingMap::from_bytes(&data).unwrap();
+        let site = map.to_site().unwrap();
+
+        let base_without_world = r#"<?xml version="1.0" ?>
+<sdf version="1.9">
+</sdf>"#;
+
+        let err = site
+            .to_sdf_with_base_xml(Some(base_without_world))
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            super::SdfConversionError::MissingWorldInBaseSdf
+        ));
+    }
+
+    #[test]
+    fn serialize_sdf_with_site_base_sdf_property() {
+        let data = std::fs::read("../../assets/demo_maps/office.building.yaml").unwrap();
+        let map = BuildingMap::from_bytes(&data).unwrap();
+        let mut site = map.to_site().unwrap();
+
+        let custom_base = r#"<?xml version="1.0" ?>
+<sdf version="1.9">
+    <world name="embedded_world">
+        <physics name="2ms" type="ignored">
+            <max_step_size>0.002</max_step_size>
+            <real_time_factor>1.0</real_time_factor>
+            <real_time_update_rate>500</real_time_update_rate>
+        </physics>
+        <gravity>0 0 -9.8</gravity>
+        <magnetic_field>5.64e-6 2.29e-5 -4.24e-5</magnetic_field>
+        <atmosphere type="adiabatic" />
+        <scene>
+            <ambient>1 1 1</ambient>
+            <background>0.8 0.8 0.8</background>
+            <grid>false</grid>
+            <shadows>true</shadows>
+        </scene>
+    </world>
+</sdf>"#;
+
+        site.properties.base_sdf = crate::BaseSdf::Xml(custom_base.to_string());
+        let json = site.to_bytes_json().unwrap();
+        let roundtripped = crate::Site::from_bytes_json(&json).unwrap();
+        assert_eq!(
+            roundtripped.properties.base_sdf,
+            crate::BaseSdf::Xml(custom_base.to_string())
+        );
+
+        let sdf = roundtripped.to_sdf().unwrap();
+        assert_eq!(sdf.world[0].physics[0].name.as_deref(), Some("2ms"));
     }
 }

@@ -103,6 +103,9 @@ pub struct CommandLineArgs {
     /// Base SDF file to use when exporting. If not specified, the default base world is used.
     #[cfg_attr(not(target_arch = "wasm32"), arg(long))]
     pub export_sdf_base: Option<String>,
+    /// Override the base SDF saved inside the site file with the file specified by --export-sdf-base.
+    #[cfg_attr(not(target_arch = "wasm32"), arg(long, default_value_t = false))]
+    pub override_base_sdf: bool,
 }
 
 #[derive(Clone, Default, Eq, PartialEq, Debug, Hash, States)]
@@ -149,6 +152,9 @@ pub struct SiteEditor {
     /// Contains Some(path) if the site editor is running in headless mode
     /// using a custom base SDF.
     export_sdf_base: Option<String>,
+    /// Whether to override a base SDF already saved in the site file when
+    /// `export_sdf_base` is specified.
+    override_base_sdf: bool,
     /// Contains Some(path) if the site editor is running in headless mode
     /// exporting its nav graphs.
     export_nav: Option<String>,
@@ -167,6 +173,7 @@ impl SiteEditor {
     pub fn from_cli_args(command_line_args: Vec<String>) -> Self {
         let mut _export_sdf = None;
         let mut _export_sdf_base = None;
+        let mut _override_base_sdf = false;
         let mut _export_nav = None;
         let mut autoload = None;
 
@@ -181,12 +188,14 @@ impl SiteEditor {
             }
             _export_sdf = command_line_args.export_sdf;
             _export_sdf_base = command_line_args.export_sdf_base;
+            _override_base_sdf = command_line_args.override_base_sdf;
             _export_nav = command_line_args.export_nav;
         }
 
         Self {
             export_sdf: _export_sdf,
             export_sdf_base: _export_sdf_base,
+            override_base_sdf: _override_base_sdf,
             export_nav: _export_nav,
             autoload,
             save_as_path: None,
@@ -200,6 +209,11 @@ impl SiteEditor {
 
     pub fn export_sdf_base(mut self, base_file: Option<String>) -> Self {
         self.export_sdf_base = base_file;
+        self
+    }
+
+    pub fn override_base_sdf(mut self, override_base: bool) -> Self {
+        self.override_base_sdf = override_base;
         self
     }
 
@@ -350,6 +364,7 @@ impl Plugin for SiteEditor {
             app.insert_resource(site::HeadlessExportState::new(
                 self.export_sdf.clone(),
                 self.export_sdf_base.clone(),
+                self.override_base_sdf,
                 self.export_nav.clone(),
                 self.save_as_path.clone(),
             ));

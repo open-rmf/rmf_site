@@ -17,7 +17,6 @@
 
 use crate::{
     site::{AlignSiteDrawings, Delete},
-    widgets::SdfExportMenu,
     CreateNewWorkspace, CurrentWorkspace, DebugMode, WorkspaceLoader, WorkspaceSaver,
 };
 use bevy::{prelude::*, window::PrimaryWindow};
@@ -49,7 +48,6 @@ fn handle_keyboard_input(
     primary_windows: Query<Entity, With<PrimaryWindow>>,
     mut workspace_loader: WorkspaceLoader,
     mut workspace_saver: WorkspaceSaver,
-    mut sdf_menu: Option<ResMut<SdfExportMenu>>,
 ) {
     let Some(egui_context) = primary_windows
         .single()
@@ -108,9 +106,7 @@ fn handle_keyboard_input(
         }
 
         if keyboard_input.just_pressed(KeyCode::KeyE) {
-            if let Some(mut sdf_menu) = sdf_menu {
-                sdf_menu.show_dialog = true;
-            }
+            workspace_saver.export_sdf_to_dialog();
         }
 
         // TODO(luca) pop up a confirmation prompt if the current file is not saved, or create a
