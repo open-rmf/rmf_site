@@ -59,6 +59,8 @@ pub struct Level {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub floors: BTreeMap<u32, Floor<u32>>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub zones: BTreeMap<u32, Zone<u32>>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub lights: BTreeMap<u32, Light>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub physical_cameras: BTreeMap<u32, PhysicalCamera>,
@@ -79,6 +81,7 @@ impl Level {
             doors: Default::default(),
             drawings: Default::default(),
             floors: Default::default(),
+            zones: Default::default(),
             lights: Default::default(),
             physical_cameras: Default::default(),
             walls: Default::default(),
