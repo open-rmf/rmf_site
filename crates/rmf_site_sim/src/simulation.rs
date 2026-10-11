@@ -6,9 +6,8 @@ use crate::schedule::{
 };
 use crate::sync::Synchronizer;
 use crate::time::SimulationTime;
-use bevy::app::Plugins;
-use bevy::ecs::system::ScheduleSystem;
-use bevy::prelude::*;
+use bevy_app::{App, Plugin, Plugins, Update};
+use bevy_ecs::{prelude::*, system::ScheduleSystem};
 use crossbeam_channel::{Receiver, unbounded};
 use std::collections::BTreeMap;
 use std::marker::PhantomData;

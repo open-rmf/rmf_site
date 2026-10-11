@@ -6,8 +6,10 @@ use crate::simulation::{
 };
 use crate::sync::{StateUpdateSender, Synchronizer};
 use crate::time::SimulationClock;
-use bevy::prelude::*;
-use bevy::tasks::{AsyncComputeTaskPool, TaskPool};
+use bevy_app::{App, AppExit};
+use bevy_ecs::prelude::*;
+use bevy_log::info;
+use bevy_tasks::{AsyncComputeTaskPool, TaskPool};
 use crossbeam_channel::Sender;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::time::{Duration, Instant};
@@ -214,7 +216,7 @@ mod tests {
     use super::*;
     use crate::event::PredictionWriter;
     use crate::time::SimulationTime;
-    use bevy::ecs::system::Command;
+    use bevy_ecs::system::Command;
     use std::time::Duration;
 
     const EXPECTED_FINAL_COUNT: u32 = 10;

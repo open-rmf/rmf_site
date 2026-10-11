@@ -1,5 +1,5 @@
 use crate::time::SimulationTime;
-use bevy::prelude::*;
+use bevy_ecs::prelude::*;
 use std::ops::RangeInclusive;
 use std::time::Duration;
 

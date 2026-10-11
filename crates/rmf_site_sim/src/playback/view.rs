@@ -1,8 +1,7 @@
 use super::plugin::{SimulationActivePlayback, SimulationPlayback};
 use crate::simulation::Simulation;
 use crate::time::{SimulationClock, SimulationTime};
-use bevy::ecs::system::SystemParam;
-use bevy::prelude::*;
+use bevy_ecs::{prelude::*, system::SystemParam};
 
 /// A helper [`SystemParam`] to view the active playback and its corresponding
 /// simulation.

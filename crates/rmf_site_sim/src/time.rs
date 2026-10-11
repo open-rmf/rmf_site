@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy_ecs::prelude::*;
 use std::ops::{Add, Sub};
 use std::time::Duration;
 

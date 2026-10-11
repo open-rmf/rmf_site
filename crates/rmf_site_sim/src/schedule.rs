@@ -1,11 +1,13 @@
-use bevy::ecs::schedule::{
-    InternedScheduleLabel, IntoScheduleConfigs, LogLevel, NodeId, Schedule, ScheduleBuildError,
-    ScheduleBuildPass, ScheduleBuildSettings, ScheduleConfigs, ScheduleGraph, ScheduleLabel,
-    SystemSet,
-    graph::{DiGraph, Direction},
+use bevy_ecs::{
+    schedule::{
+        InternedScheduleLabel, IntoScheduleConfigs, LogLevel, NodeId, Schedule, ScheduleBuildError,
+        ScheduleBuildPass, ScheduleBuildSettings, ScheduleConfigs, ScheduleGraph, ScheduleLabel,
+        SystemSet,
+        graph::{DiGraph, Direction},
+    },
+    system::ScheduleSystem,
+    world::World,
 };
-use bevy::ecs::system::ScheduleSystem;
-use bevy::ecs::world::World;
 use std::any::TypeId;
 use std::collections::{BTreeSet, HashMap, HashSet};
 
@@ -194,8 +196,8 @@ impl TotalOrderingBuildPass {
 mod tests {
     use super::*;
     use crate::event::PredictionWriter;
-    use bevy::ecs::resource::Resource;
-    use bevy::ecs::system::{IntoSystem, ResMut, System};
+    use bevy_ecs::resource::Resource;
+    use bevy_ecs::system::{IntoSystem, ResMut, System};
 
     #[derive(Clone, Debug, PartialEq, Eq, Hash, ScheduleLabel)]
     struct TestSchedule;

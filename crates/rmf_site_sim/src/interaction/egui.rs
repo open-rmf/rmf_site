@@ -7,7 +7,7 @@ use crate::playback::{
 };
 use crate::simulation::{Simulation, SimulationComputeState, SimulationStep};
 use crate::time::SimulationTime;
-use bevy::prelude::*;
+use bevy_ecs::prelude::*;
 use bevy_egui::egui::{self, Color32};
 use std::collections::BTreeMap;
 use std::hash::Hash;

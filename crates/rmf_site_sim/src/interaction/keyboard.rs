@@ -3,8 +3,11 @@
 use crate::playback::{
     SeekDirection, SimulationPlaybackCommand, SimulationPlaybackSeek, SimulationPlaybackView,
 };
-use bevy::platform::collections::HashMap;
-use bevy::prelude::*;
+use bevy_app::{App, Plugin, Update};
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::prelude::*;
+use bevy_input::prelude::{ButtonInput, KeyCode};
+use bevy_platform::collections::HashMap;
 
 /// Plugin for controlling the active playback simulation with the keyboard.
 ///

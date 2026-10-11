@@ -5,8 +5,10 @@ use super::command::{
 use crate::simulation::{Simulation, SimulationComputeState, SimulationState};
 use crate::sync::Synchronizer;
 use crate::time::{SimulationClock, SimulationTime};
-use bevy::ecs::event::EventCursor;
-use bevy::prelude::*;
+use bevy_app::{App, Plugin, Update};
+use bevy_ecs::{event::EventCursor, prelude::*};
+use bevy_log::*;
+use bevy_time::{Time, Timer, TimerMode};
 
 pub struct SimulationPlaybackPlugin;
 

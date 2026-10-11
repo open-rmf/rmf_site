@@ -1,8 +1,10 @@
 use crate::time::{SimulationClock, SimulationTime};
-use bevy::ecs::system::{Command, Deferred, SystemBuffer, SystemMeta, SystemParam};
-use bevy::prelude::*;
+use bevy_ecs::{
+    prelude::*,
+    system::{Command, Deferred, SystemBuffer, SystemMeta, SystemParam},
+};
+use bevy_log::*;
 use std::fmt::Debug;
-use std::marker::PhantomData;
 
 /// An instantaneous change on the world state, the [`bevy::prelude::World`] during a simulation.
 pub trait Prediction: Command + Clone + Send + Sync + Debug + 'static {
@@ -140,9 +142,12 @@ impl PredictionWriter<'_, '_> {
     }
 
     /// Predict that an instantaneous event will take place. An instantaneous
-    /// event does not advance the simulation clock. This is most often used
-    /// when a custom prediction system is being used to extend or modify the
-    /// behavior of a base (upstream) prediction system.
+    /// event does not advance the simulation clock.
+    ///
+    /// This is most often used when a custom prediction system is being used
+    /// to extend or modify the behavior of a base (upstream) prediction system.
+    /// For example, an event that adds noise to a trajectory can run
+    /// instantaneously alongside the creation of a new trajectory.
     pub fn predict_instantaneous(&mut self, event: impl Prediction) {
         self.predict(self.clock.now(), event);
     }
