@@ -6,7 +6,10 @@ use crate::interaction::egui::{
 };
 use crate::playback::{SimulationPlaybackCommand, SimulationPlaybackView};
 use crate::simulation::Simulation;
-use bevy_ecs::{prelude::*, system::{SystemParam, SystemState}};
+use bevy_ecs::{
+    prelude::*,
+    system::{SystemParam, SystemState},
+};
 use bevy_egui::egui::{self, Ui};
 use egui::Frame;
 use rmf_site_egui::{Tile, WidgetSystem};

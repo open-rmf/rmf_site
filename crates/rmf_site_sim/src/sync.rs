@@ -1,6 +1,6 @@
 use crate::simulation::{SimulationComputeUpdate, SimulationStep};
 use crate::time::SimulationTime;
-use bevy_ecs::{prelude::*, component::ComponentId};
+use bevy_ecs::{component::ComponentId, prelude::*};
 use bevy_log::*;
 use bevy_utils::TypeIdMap;
 use crossbeam_channel::Sender;
