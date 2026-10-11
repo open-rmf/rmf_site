@@ -110,8 +110,8 @@ impl MaterialExtension for LaneArrowMaterial {
 #[derive(Resource)]
 pub struct SiteAssets {
     pub lift_floor_material: Handle<StandardMaterial>,
-    pub billboard_base_mesh: Handle<Mesh>,
-    pub billboard_mesh: Handle<Mesh>,
+    pub location_billboard_base_mesh: Handle<Mesh>,
+    pub location_billboard_mesh: Handle<Mesh>,
     pub lane_mid_mesh: Handle<Mesh>,
     pub lane_mid_outline: Handle<Mesh>,
     pub lane_end_mesh: Handle<Mesh>,
@@ -146,12 +146,12 @@ pub struct SiteAssets {
     pub occupied_material: Handle<StandardMaterial>,
     pub default_mesh_grey_material: Handle<StandardMaterial>,
     pub location_tag_mesh: Handle<Mesh>,
-    pub base_billboard_material: Handle<StandardMaterial>,
-    pub charger_material: Handle<StandardMaterial>,
-    pub holding_point_material: Handle<StandardMaterial>,
-    pub parking_material: Handle<StandardMaterial>,
+    pub location_billboard_base_material: Handle<StandardMaterial>,
+    pub location_billboard_charger_material: Handle<StandardMaterial>,
+    pub location_billboard_holding_point_material: Handle<StandardMaterial>,
+    pub location_billboard_parking_material: Handle<StandardMaterial>,
     pub lockpad_material: Handle<StandardMaterial>,
-    pub empty_billboard_material: Handle<StandardMaterial>,
+    pub location_billboard_empty_material: Handle<StandardMaterial>,
     pub robot_path_rectangle_mesh: Handle<Mesh>,
     pub robot_path_circle_mesh: Handle<Mesh>,
 }
@@ -179,7 +179,7 @@ pub fn billboard_material(base_color_texture: Handle<Image>) -> StandardMaterial
 impl FromWorld for SiteAssets {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.get_resource::<AssetServer>().unwrap();
-        let base_billboard_texture =
+        let location_billboard_base_texture =
             asset_server.load("embedded://rmf_site_editor/site/textures/base.png");
         let charger_texture =
             asset_server.load("embedded://rmf_site_editor/site/textures/charging.png");
@@ -189,7 +189,7 @@ impl FromWorld for SiteAssets {
             asset_server.load("embedded://rmf_site_editor/site/textures/parking.png");
         let lockpad_texture =
             asset_server.load("embedded://rmf_site_editor/site/textures/lockpad.png");
-        let empty_billboard_texture =
+        let location_billboard_empty_texture =
             asset_server.load("embedded://rmf_site_editor/site/textures/empty.png");
         let door_cue_texture =
             asset_server.load("embedded://rmf_site_editor/site/textures/door_cue.png");
@@ -282,18 +282,22 @@ impl FromWorld for SiteAssets {
         let default_mesh_grey_material =
             materials.add(old_default_material(Color::srgb(0.7, 0.7, 0.7)));
 
-        let base_billboard_material = materials.add(billboard_material(base_billboard_texture));
-        let charger_material: Handle<StandardMaterial> =
+        let location_billboard_base_material =
+            materials.add(billboard_material(location_billboard_base_texture));
+        let location_billboard_charger_material: Handle<StandardMaterial> =
             materials.add(billboard_material(charger_texture));
-        let holding_point_material = materials.add(billboard_material(holding_point_texture));
-        let parking_material = materials.add(billboard_material(parking_texture));
+        let location_billboard_holding_point_material =
+            materials.add(billboard_material(holding_point_texture));
+        let location_billboard_parking_material =
+            materials.add(billboard_material(parking_texture));
         let lockpad_material = materials.add(billboard_material(lockpad_texture));
-        let empty_billboard_material = materials.add(billboard_material(empty_billboard_texture));
+        let location_billboard_empty_material =
+            materials.add(billboard_material(location_billboard_empty_texture));
 
         let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
-        let billboard_base_mesh =
+        let location_billboard_base_mesh =
             meshes.add(Rectangle::new(BILLBOARD_LENGTH, BILLBOARD_LENGTH / 3.0));
-        let billboard_mesh: Handle<Mesh> =
+        let location_billboard_mesh: Handle<Mesh> =
             meshes.add(Rectangle::new(BILLBOARD_LENGTH, BILLBOARD_LENGTH));
         let level_anchor_mesh = meshes.add(
             Mesh::from(
@@ -365,8 +369,8 @@ impl FromWorld for SiteAssets {
             lane_mid_outline,
             lane_end_mesh,
             lane_end_outline,
-            billboard_mesh,
-            billboard_base_mesh,
+            location_billboard_mesh,
+            location_billboard_base_mesh,
             box_mesh,
             location_mesh,
             fiducial_mesh,
@@ -394,12 +398,12 @@ impl FromWorld for SiteAssets {
             occupied_material,
             default_mesh_grey_material,
             location_tag_mesh,
-            base_billboard_material,
-            charger_material,
-            holding_point_material,
-            parking_material,
+            location_billboard_base_material,
+            location_billboard_charger_material,
+            location_billboard_holding_point_material,
+            location_billboard_parking_material,
             lockpad_material,
-            empty_billboard_material,
+            location_billboard_empty_material,
             robot_path_rectangle_mesh,
             robot_path_circle_mesh,
         }
