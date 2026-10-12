@@ -23,6 +23,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedSender;
 
+use crate::interaction::CategoryVisibility;
 use crate::layers::ZLayer;
 
 use super::network_client::{
@@ -32,6 +33,9 @@ use super::odometry::LiveRobotsState;
 use super::planned_paths::LivePathsState;
 
 const LOCAL_PATH_COLOR: Color = Color::srgb(1.0, 0.0, 0.0);
+
+#[derive(Component, Clone, Debug)]
+pub struct LocalPathMarker;
 
 #[derive(Debug, Clone)]
 pub struct LiveEventLocalPlan {
@@ -102,10 +106,15 @@ pub fn update_live_local_paths(
     mut path_state: ResMut<LiveLocalPathsState>,
     planned_path_state: Res<LivePathsState>,
     robot_map: Res<LiveRobotsState>,
+    local_path_vis: Res<CategoryVisibility<LocalPathMarker>>,
     mut gizmos: Gizmos,
 ) {
     while let Ok(event) = channel.receiver.try_recv() {
         path_state.0.insert(event.name, event.waypoints);
+    }
+
+    if !local_path_vis.0 {
+        return;
     }
 
     for (name, waypoints) in path_state.0.iter() {

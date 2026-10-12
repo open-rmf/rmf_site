@@ -23,6 +23,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedSender;
 
+use crate::interaction::CategoryVisibility;
 use crate::layers::ZLayer;
 
 use super::network_client::{
@@ -42,6 +43,12 @@ const DEPENDENCY_ARROW_SIZE: f32 = 0.1;
 const PATH_POINT_OUTER_RADIUS: f32 = 0.05;
 const PATH_POINT_INNER_RADIUS: f32 = 0.02;
 const PATH_POINT_CROSS_RADIUS: f32 = 0.02;
+
+#[derive(Component, Clone, Debug)]
+pub struct PlannedPathMarker;
+
+#[derive(Component, Clone, Debug)]
+pub struct PathDependencyMarker;
 
 #[derive(Debug, Clone, PartialEq)]
 struct LiveBlocker {
@@ -198,6 +205,8 @@ pub fn update_live_paths(
     mut progress_channel: ResMut<VisualizationStreamChannel<LiveEventProgress>>,
     mut path_state: ResMut<LivePathsState>,
     robot_map: Res<LiveRobotsState>,
+    planned_path_vis: Res<CategoryVisibility<PlannedPathMarker>>,
+    dependency_vis: Res<CategoryVisibility<PathDependencyMarker>>,
     mut gizmos: Gizmos,
 ) {
     while let Ok(event) = plan_channel.receiver.try_recv() {
@@ -263,7 +272,7 @@ pub fn update_live_paths(
             .min(path_data.waypoints.len().saturating_sub(1));
 
         // Draw line from the last completed incremental target waypoint along the path to the final waypoint.
-        if start_idx < path_data.waypoints.len() {
+        if planned_path_vis.0 && start_idx < path_data.waypoints.len() {
             let points_to_draw: Vec<Vec3> = path_data.waypoints[start_idx..]
                 .iter()
                 .map(|wp| wp.position)
@@ -284,50 +293,58 @@ pub fn update_live_paths(
             }
         }
 
-        for (i, wp) in path_data.waypoints.iter().enumerate() {
-            // Disappear if the waiting robot has already passed this waypoint
-            if path_data.current_progress >= wp.progress {
-                continue;
-            }
+        if dependency_vis.0 {
+            for (i, wp) in path_data.waypoints.iter().enumerate() {
+                // Disappear if the waiting robot has already passed this waypoint
+                if path_data.current_progress >= wp.progress {
+                    continue;
+                }
 
-            for blocker in &wp.departure_blockers {
-                if let Some(blocking_path) = path_state.0.get(&blocker.name) {
-                    // Skip drawing if the dependency is fulfilled
-                    if blocking_path.current_progress >= blocker.required_progress {
-                        continue;
-                    }
-
-                    // Find the coordinates where the blocking robot will clear the dependency
-                    let mut clearance_pos = None;
-                    for blocking_wp in &blocking_path.waypoints {
-                        if blocking_wp.progress >= blocker.required_progress {
-                            clearance_pos = Some(Vec3::new(
-                                blocking_wp.position.x,
-                                blocking_wp.position.y,
-                                ZLayer::PlannedPathPoint.to_z(),
-                            ));
-                            break;
+                for blocker in &wp.departure_blockers {
+                    if let Some(blocking_path) = path_state.0.get(&blocker.name) {
+                        // Skip drawing if the dependency is fulfilled
+                        if blocking_path.current_progress >= blocker.required_progress {
+                            continue;
                         }
-                    }
 
-                    // Draw dependency line connecting the waiting point to the clearance point
-                    if let Some(end_pos) = clearance_pos {
-                        let start_pos = Vec3::new(
-                            wp.position.x,
-                            wp.position.y,
-                            ZLayer::PlannedPathPoint.to_z(),
-                        );
-                        let wait_wp = if i > 0 {
-                            &path_data.waypoints[i - 1]
-                        } else {
-                            wp
-                        };
-                        let waiting_pos = Vec3::new(
-                            wait_wp.position.x,
-                            wait_wp.position.y,
-                            ZLayer::PlannedPathPoint.to_z(),
-                        );
-                        draw_dependency_line(start_pos, end_pos, waiting_pos, &time, &mut gizmos);
+                        // Find the coordinates where the blocking robot will clear the dependency
+                        let mut clearance_pos = None;
+                        for blocking_wp in &blocking_path.waypoints {
+                            if blocking_wp.progress >= blocker.required_progress {
+                                clearance_pos = Some(Vec3::new(
+                                    blocking_wp.position.x,
+                                    blocking_wp.position.y,
+                                    ZLayer::PlannedPathPoint.to_z(),
+                                ));
+                                break;
+                            }
+                        }
+
+                        // Draw dependency line connecting the waiting point to the clearance point
+                        if let Some(end_pos) = clearance_pos {
+                            let start_pos = Vec3::new(
+                                wp.position.x,
+                                wp.position.y,
+                                ZLayer::PlannedPathPoint.to_z(),
+                            );
+                            let wait_wp = if i > 0 {
+                                &path_data.waypoints[i - 1]
+                            } else {
+                                wp
+                            };
+                            let waiting_pos = Vec3::new(
+                                wait_wp.position.x,
+                                wait_wp.position.y,
+                                ZLayer::PlannedPathPoint.to_z(),
+                            );
+                            draw_dependency_line(
+                                start_pos,
+                                end_pos,
+                                waiting_pos,
+                                &time,
+                                &mut gizmos,
+                            );
+                        }
                     }
                 }
             }

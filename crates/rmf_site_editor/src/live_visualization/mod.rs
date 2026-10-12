@@ -32,10 +32,13 @@ use live_state::{
     auto_fetch_site_on_connect, check_load_site_completion, load_site_status_ui,
     process_site_download, LiveStreamStatusWidget, LoadSiteStatus, SiteFetchReceiver,
 };
+pub use local_paths::LocalPathMarker;
 use local_paths::{update_live_local_paths, LiveEventLocalPlan, LiveLocalPathsState};
 use network_client::{start_rosbridge_subscriber, StreamPlugin, StreamRegistry};
 use odometry::{update_live_robots, LiveEventOdom, LiveRobotsState};
 use planned_paths::{update_live_paths, LiveEventPlan, LiveEventProgress, LivePathsState};
+pub use planned_paths::{PathDependencyMarker, PlannedPathMarker};
+pub use safe_zones::LiveSafeZoneMarker;
 use safe_zones::{update_live_safe_zones, LiveEventSafeZone, LiveSafeZonesState};
 
 pub struct LiveVisualizationPlugin;

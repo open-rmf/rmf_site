@@ -25,8 +25,10 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedSender;
 
+use crate::interaction::CategoryVisibility;
 use crate::layers::ZLayer;
 
+use super::local_paths::LocalPathMarker;
 use super::network_client::{
     run_subscription_loop, spawn_network_task, LiveStreamHandler, VisualizationStreamChannel,
 };
@@ -151,7 +153,7 @@ impl LiveStreamHandler for LiveEventSafeZone {
 #[derive(Default, Resource)]
 pub struct LiveSafeZonesState(HashMap<String, Entity>);
 
-#[derive(Component)]
+#[derive(Component, Clone, Debug)]
 pub struct LiveSafeZoneMarker {
     name: String,
     image_handle: Handle<Image>,
@@ -162,6 +164,8 @@ pub fn update_live_safe_zones(
     mut channel: ResMut<VisualizationStreamChannel<LiveEventSafeZone>>,
     path_state: Res<LivePathsState>,
     robot_map: Res<LiveRobotsState>,
+    safe_zone_vis: Res<CategoryVisibility<LiveSafeZoneMarker>>,
+    local_path_vis: Res<CategoryVisibility<LocalPathMarker>>,
     mut commands: Commands,
     mut gizmos: Gizmos,
     mut safe_zones_state: ResMut<LiveSafeZonesState>,
@@ -275,9 +279,15 @@ pub fn update_live_safe_zones(
         if has_arrived || !robot_exists {
             *visibility = Visibility::Hidden;
         } else {
-            *visibility = Visibility::Inherited;
-            if let Some(target_pos) = marker.incremental_target {
-                draw_path_target_point(&mut gizmos, target_pos, INCREMENTAL_WAYPOINT_COLOR);
+            *visibility = if safe_zone_vis.0 {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            };
+            if local_path_vis.0 {
+                if let Some(target_pos) = marker.incremental_target {
+                    draw_path_target_point(&mut gizmos, target_pos, INCREMENTAL_WAYPOINT_COLOR);
+                }
             }
         }
     }
