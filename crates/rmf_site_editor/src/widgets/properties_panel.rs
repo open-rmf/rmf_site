@@ -75,7 +75,12 @@ impl<'a> TabViewer for PropertiesTabViewer<'a> {
     }
 
     fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {
-        if self.is_streaming_mode {
+        let show = self
+            .world
+            .get::<ShowInStream>(*tab)
+            .copied()
+            .unwrap_or_default();
+        if show.should_disable(self.is_streaming_mode) {
             ui.disable();
         }
 
@@ -122,11 +127,11 @@ pub fn show_properties_panel(
         .map(|c| {
             c.iter()
                 .filter(|&tab| {
-                    if is_streaming_mode {
-                        world.get::<ShowInStream>(tab).is_some_and(|s| s.0)
-                    } else {
-                        true
-                    }
+                    world
+                        .get::<ShowInStream>(tab)
+                        .copied()
+                        .unwrap_or_default()
+                        .should_show(is_streaming_mode)
                 })
                 .collect()
         })

@@ -197,6 +197,12 @@ impl PlannedPathData {
                 .last()
                 .is_some_and(|last_wp| self.current_progress >= last_wp.progress)
     }
+
+    pub fn final_waypoint(&self) -> Option<Vec2> {
+        self.waypoints
+            .last()
+            .map(|wp| Vec2::new(wp.position.x, wp.position.y))
+    }
 }
 
 pub fn update_live_paths(

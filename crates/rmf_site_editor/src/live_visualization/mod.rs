@@ -15,6 +15,7 @@
  *
 */
 
+mod control;
 mod live_state;
 mod local_paths;
 mod network_client;
@@ -27,6 +28,7 @@ use rmf_site_egui::{HeaderPanel, HeaderTilePlugin};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
+use control::RobotPathControlPlugin;
 pub use live_state::LiveStreamState;
 use live_state::{
     auto_fetch_site_on_connect, check_load_site_completion, load_site_status_ui,
@@ -51,6 +53,7 @@ impl Plugin for LiveVisualizationPlugin {
             StreamPlugin::<LiveEventProgress>::default(),
             StreamPlugin::<LiveEventSafeZone>::default(),
             StreamPlugin::<LiveEventLocalPlan>::default(),
+            RobotPathControlPlugin::default(),
         ))
         .init_resource::<LiveStreamState>()
         .init_resource::<LiveRobotsState>()

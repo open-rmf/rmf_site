@@ -118,7 +118,7 @@ pub fn update_live_robots(
         let robot = if let Some(&entity) = robot_map.0.get(&event.name) {
             Some(entity)
         } else {
-            // New untracked robot: find matching NameInSite
+            // Find matching NameInSite for new untracked robot
             let mut found_entity = None;
             for (entity, name_in_site) in untracked.iter() {
                 if name_in_site.0 == event.name {

@@ -36,7 +36,10 @@ pub struct ViewLayersPlugin {}
 
 impl Plugin for ViewLayersPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(PropertiesTilePlugin::<ViewLayers>::new("Layers").show_in_stream(true));
+        app.add_plugins(
+            PropertiesTilePlugin::<ViewLayers>::new("Layers")
+                .show_in_stream(ShowInStream::ReadOnly),
+        );
     }
 }
 
