@@ -25,7 +25,7 @@ use crate::{
     Autoload, WorkspaceLoader,
 };
 use crossflow::Promise;
-use rmf_site_format::NameOfSite;
+use rmf_site_format::{BaseSdf, NameOfSite};
 
 /// Manages a simple state machine where we:
 ///   * Wait for a few iterations,
@@ -42,6 +42,8 @@ pub struct HeadlessExportState {
     world_loaded: bool,
     export_request_sent: bool,
     sdf_target_path: Option<String>,
+    sdf_base_path: Option<String>,
+    override_base_sdf: bool,
     nav_target_path: Option<String>,
     save_target_path: Option<String>,
     loading: Option<Promise<()>>,
@@ -50,6 +52,8 @@ pub struct HeadlessExportState {
 impl HeadlessExportState {
     pub fn new(
         sdf_target_path: Option<String>,
+        sdf_base_path: Option<String>,
+        override_base_sdf: bool,
         nav_target_path: Option<String>,
         save_target_path: Option<String>,
     ) -> Self {
@@ -58,6 +62,8 @@ impl HeadlessExportState {
             world_loaded: false,
             export_request_sent: false,
             sdf_target_path,
+            sdf_base_path,
+            override_base_sdf,
             nav_target_path,
             save_target_path,
             loading: None,
@@ -70,7 +76,7 @@ pub fn headless_export(
     mut exit: EventWriter<bevy::app::AppExit>,
     missing_models: Query<(), With<ModelLoadingState>>,
     mut export_state: ResMut<HeadlessExportState>,
-    sites: Query<(Entity, &NameOfSite)>,
+    sites: Query<(Entity, &NameOfSite, &BaseSdf)>,
     autoload: Option<ResMut<Autoload>>,
     mut workspace_loader: WorkspaceLoader,
     mut floor_visibilities: Query<&mut GlobalFloorVisibility>,
@@ -142,8 +148,24 @@ pub fn headless_export(
         } else {
             if !export_state.export_request_sent && export_state.iterations > 5 {
                 if let Some(sdf_target_path) = &export_state.sdf_target_path {
+                    if export_state.sdf_base_path.is_some() && !export_state.override_base_sdf {
+                        if sites.iter().any(|(_, _, base_sdf)| !base_sdf.is_default()) {
+                            error!(
+                                "The site already has a base SDF saved in it, \
+                                but --export-sdf-base was specified on the command line. \
+                                Add --override-base-sdf to override the site's saved base SDF."
+                            );
+                            exit.write(bevy::app::AppExit::error());
+                            return;
+                        }
+                    }
+
                     let path = std::path::PathBuf::from(sdf_target_path.clone());
-                    workspace_saver.export_sdf_to_path(path);
+                    let base_path = export_state
+                        .sdf_base_path
+                        .as_ref()
+                        .map(std::path::PathBuf::from);
+                    workspace_saver.export_sdf_to_path(path, base_path);
                 }
 
                 if let Some(nav_target_path) = &export_state.nav_target_path {

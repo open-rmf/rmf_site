@@ -1255,13 +1255,14 @@ fn generate_site_properties(
             &FilteredIssueKinds,
             &GeographicComponent,
             &SiteExtensionSettings,
+            &BaseSdf,
         )>,
         Query<&SiteID>,
     )> = SystemState::new(world);
 
     let (q_properties, q_ids) = state.get(world);
 
-    let Ok((name, issues, issue_kinds, geographic_offset, extension_settings)) =
+    let Ok((name, issues, issue_kinds, geographic_offset, extension_settings, base_sdf)) =
         q_properties.get(site)
     else {
         return Err(SiteGenerationError::InvalidSiteEntity(site));
@@ -1288,6 +1289,7 @@ fn generate_site_properties(
         filtered_issues: FilteredIssues(converted_issues),
         filtered_issue_kinds: issue_kinds.clone(),
         extension_settings: extension_settings.clone(),
+        base_sdf: base_sdf.clone(),
     })
 }
 
@@ -1312,6 +1314,20 @@ fn migrate_relative_paths(
         // be relative to.
         return;
     };
+
+    if let Some(mut base_sdf) = world.get_mut::<BaseSdf>(site) {
+        if let BaseSdf::File(asset_path) = &mut *base_sdf {
+            if asset_path.is_relative() {
+                if let Some(new_parent) = new_path.parent() {
+                    if let Some(migrated) =
+                        pathdiff::diff_paths(old_path.with_file_name(&asset_path), new_parent)
+                    {
+                        *asset_path = migrated;
+                    }
+                }
+            }
+        }
+    }
 
     let mut state: SystemState<(Query<(Entity, &mut AssetSource)>, Query<&ChildOf>)> =
         SystemState::new(world);
@@ -1886,7 +1902,7 @@ pub fn save_site(world: &mut World) {
                 // supporting multiple sites being open in one app.
                 world.resource_mut::<SiteChanged>().0 = false;
             }
-            ExportFormat::Sdf => {
+            ExportFormat::Sdf { base_sdf_path } => {
                 // TODO(luca) reduce code duplication with default exporting
 
                 // Make sure to generate the site before anything else, because
@@ -1899,6 +1915,52 @@ pub fn save_site(world: &mut World) {
                         error!("Unable to compile site: {err}");
                         continue;
                     }
+                };
+
+                let base_sdf_xml = match &base_sdf_path {
+                    Some(path) => match std::fs::read_to_string(path) {
+                        Ok(xml) => Some(xml),
+                        Err(e) => {
+                            error!("Unable to read base SDF file at {}: {e}", path.display());
+                            continue;
+                        }
+                    },
+                    None => match &site.properties.base_sdf {
+                        BaseSdf::Default => None,
+                        BaseSdf::Xml(xml) => Some(xml.clone()),
+                        BaseSdf::File(path) => {
+                            let resolved_path = if path.is_relative() {
+                                if let Some(default_file) =
+                                    world.get::<DefaultFile>(save_event.site)
+                                {
+                                    let candidate = default_file
+                                        .0
+                                        .parent()
+                                        .map(|p| p.join(path))
+                                        .unwrap_or_else(|| path.clone());
+                                    if candidate.exists() {
+                                        candidate
+                                    } else {
+                                        path.clone()
+                                    }
+                                } else {
+                                    path.clone()
+                                }
+                            } else {
+                                path.clone()
+                            };
+                            match std::fs::read_to_string(&resolved_path) {
+                                Ok(xml) => Some(xml),
+                                Err(e) => {
+                                    error!(
+                                        "Unable to read base SDF file at {}: {e}",
+                                        resolved_path.display()
+                                    );
+                                    continue;
+                                }
+                            }
+                        }
+                    },
                 };
 
                 info!("Saving to {}", new_path.display());
@@ -1916,13 +1978,6 @@ pub fn save_site(world: &mut World) {
                 let mut sdf_path = new_path.clone();
                 sdf_path.push(&site.properties.name.0);
                 sdf_path.set_extension("world");
-                let f = match std::fs::File::create(&sdf_path) {
-                    Ok(f) => f,
-                    Err(err) => {
-                        error!("Unable to save file {}: {err}", sdf_path.display());
-                        continue;
-                    }
-                };
 
                 let mut meshes_dir = new_path.clone();
                 meshes_dir.push("meshes");
@@ -1936,10 +1991,17 @@ pub fn save_site(world: &mut World) {
                 }
 
                 migrate_relative_paths(save_event.site, &sdf_path, world);
-                let sdf = match site.to_sdf() {
+                let sdf = match site.to_sdf_with_base_xml(base_sdf_xml.as_deref()) {
                     Ok(sdf) => sdf,
                     Err(err) => {
                         error!("Unable to convert site to sdf: {err}");
+                        continue;
+                    }
+                };
+                let f = match std::fs::File::create(&sdf_path) {
+                    Ok(f) => f,
+                    Err(err) => {
+                        error!("Unable to save file {}: {err}", sdf_path.display());
                         continue;
                     }
                 };
@@ -2147,5 +2209,81 @@ mod tests {
         if time.elapsed() > timeout.max_duration {
             exit.write(AppExit::error());
         }
+    }
+
+    #[test]
+    #[cfg(not(target_arch = "wasm32"))]
+    fn headless_export_override_base_sdf() {
+        use crate::site::{BaseSdf, ImportNavGraphs, LoadSite, NameOfSite, SaveSite};
+
+        fn run_headless_check(site_base_sdf: BaseSdf, override_flag: bool) -> Option<AppExit> {
+            let mut app = App::new();
+            app.add_plugins((
+                MinimalPlugins,
+                bevy::state::app::StatesPlugin,
+                crossflow::CrossflowPlugin::default(),
+            ))
+            .init_state::<AppState>()
+            .init_resource::<CurrentWorkspace>()
+            .init_resource::<FileDialogServices>()
+            .init_resource::<WorkspaceSavingServices>()
+            .init_resource::<SiteLoadingServices>()
+            .add_event::<SaveSite>()
+            .add_event::<LoadSite>()
+            .add_event::<ImportNavGraphs>()
+            .add_event::<CreateNewWorkspace>()
+            .insert_resource(Autoload {
+                filename: None,
+                import: None,
+            })
+            .insert_resource(site::HeadlessExportState::new(
+                Some("out_dir".to_owned()),
+                Some("cli_base.sdf".to_owned()),
+                override_flag,
+                None,
+                None,
+            ))
+            .add_systems(Update, site::headless_export);
+
+            let site_entity = app
+                .world_mut()
+                .spawn((NameOfSite("test".to_owned()), site_base_sdf))
+                .id();
+            app.world_mut().resource_mut::<CurrentWorkspace>().root = Some(site_entity);
+            app.world_mut()
+                .resource_mut::<NextState<AppState>>()
+                .set(AppState::SiteEditor);
+
+            for _ in 0..20 {
+                app.update();
+                let exit = app
+                    .world_mut()
+                    .resource_mut::<Events<AppExit>>()
+                    .drain()
+                    .next();
+                if let Some(exit) = exit {
+                    return Some(exit);
+                }
+            }
+            None
+        }
+
+        // 1. Site has saved BaseSdf and override_base_sdf is false -> exits with error
+        let exit = run_headless_check(
+            BaseSdf::File(std::path::PathBuf::from("saved_base.sdf")),
+            false,
+        );
+        assert_eq!(exit, Some(AppExit::error()));
+
+        // 2. Site has saved BaseSdf and override_base_sdf is true -> succeeds
+        let exit = run_headless_check(
+            BaseSdf::File(std::path::PathBuf::from("saved_base.sdf")),
+            true,
+        );
+        assert_eq!(exit, Some(AppExit::Success));
+
+        // 3. Site has BaseSdf::Default and override_base_sdf is false -> succeeds
+        let exit = run_headless_check(BaseSdf::Default, false);
+        assert_eq!(exit, Some(AppExit::Success));
     }
 }
