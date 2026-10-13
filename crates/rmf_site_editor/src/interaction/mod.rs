@@ -158,6 +158,7 @@ impl Plugin for InteractionPlugin {
             .init_resource::<InteractionAssets>()
             .init_resource::<Cursor>()
             .init_resource::<GizmoState>()
+            .init_resource::<GroupDrag>()
             .init_resource::<CurrentEditDrawing>()
             .init_resource::<CurrentLevel>()
             .insert_resource(HighlightAnchors(false))

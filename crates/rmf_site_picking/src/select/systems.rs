@@ -63,6 +63,13 @@ pub fn selection_update(
                 selection.selected.insert(candidate);
             }
         } else {
+            // If the candidate is already part of a multi-selection, a plain
+            // (non-multi) click on it preserves the whole selection, so the user
+            // can start dragging the group without losing it. Narrowing back to a
+            // single entity still works by clicking anything not already selected.
+            if selection.selected.len() > 1 && selection.selected.contains(&candidate) {
+                return;
+            }
             // Only one entity can be selected, so current selections are cleared and
             // a single selection candidate is added to the current selection.
             for previous_selection in &selection.selected {

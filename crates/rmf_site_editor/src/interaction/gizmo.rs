@@ -26,6 +26,7 @@ use bevy::{
 };
 use rmf_site_camera::{active_camera_maybe, ActiveCameraQuery};
 use rmf_site_format::Pose;
+use rmf_site_picking::Selection;
 
 #[derive(Debug, Clone, Copy)]
 pub struct InitialDragConditions {
@@ -259,6 +260,38 @@ pub struct MoveTo {
     pub transform: Transform,
 }
 
+/// One co-selected entity captured at the start of a group drag, so it can be
+/// translated by the same delta as the entity the user grabbed.
+#[derive(Debug, Clone, Copy)]
+pub struct GroupDragMember {
+    pub entity: Entity,
+    /// The entity's global transform when the drag began.
+    pub initial_global: Transform,
+    /// Converts a goal global transform back into the entity's parent frame.
+    pub parent_inv: Affine3A,
+}
+
+/// The other members of the current selection (besides the entity actually being
+/// dragged) that should move together with it. Populated when a drag starts and
+/// cleared when it ends.
+#[derive(Debug, Clone, Default, Resource)]
+pub struct GroupDrag {
+    pub members: Vec<GroupDragMember>,
+}
+
+/// Apply the drag's world-space translation `delta` to every co-selected member.
+fn write_group_moves(delta: Vec3, group_drag: &GroupDrag, move_to: &mut EventWriter<MoveTo>) {
+    for member in &group_drag.members {
+        let goal = member
+            .initial_global
+            .with_translation(member.initial_global.translation + delta);
+        move_to.write(MoveTo {
+            entity: member.entity,
+            transform: Transform::from_matrix((member.parent_inv * goal.compute_affine()).into()),
+        });
+    }
+}
+
 pub fn update_gizmo_click_start(
     mut gizmos: Query<(
         &Gizmo,
@@ -276,6 +309,8 @@ pub fn update_gizmo_click_start(
     mut picks: EventReader<ChangePick>,
     mut click: EventWriter<GizmoClicked>,
     mut removed_gizmos: RemovedComponents<Gizmo>,
+    selection: Res<Selection>,
+    mut group_drag: ResMut<GroupDrag>,
 ) {
     if gizmo_blocker.blocking() {
         if gizmo_blocker.is_changed() {
@@ -349,6 +384,24 @@ pub fn update_gizmo_click_start(
                             *material = MeshMaterial3d(drag_materials.drag.clone());
                         }
                         *gizmo_state = GizmoState::Dragging(e);
+
+                        // Capture the other selected entities so the whole
+                        // multi-selection is translated together by this drag.
+                        group_drag.members.clear();
+                        let primary = draggable.for_entity;
+                        for &member in &selection.selected {
+                            if member == primary {
+                                continue;
+                            }
+                            if let Ok((member_local, member_global)) = transforms.get(member) {
+                                group_drag.members.push(GroupDragMember {
+                                    entity: member,
+                                    initial_global: member_global.compute_transform(),
+                                    parent_inv: member_local.compute_affine()
+                                        * member_global.affine().inverse(),
+                                });
+                            }
+                        }
                     } else {
                         *gizmo_state = GizmoState::None;
                     }
@@ -373,6 +426,7 @@ pub fn update_gizmo_release(
     mut gizmo_state: ResMut<GizmoState>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     mut picked: ResMut<Picked>,
+    mut group_drag: ResMut<GroupDrag>,
 ) {
     let mouse_released = mouse_button_input.just_released(MouseButton::Left);
     let gizmos_blocked = gizmo_blockers.blocking();
@@ -387,6 +441,7 @@ pub fn update_gizmo_release(
 
             *gizmo_state = GizmoState::None;
             selection_blockers.dragging = false;
+            group_drag.members.clear();
             // Refresh the latest pick since some pick responders were blocked
             // during the dragging activity. Without this event, users will have
             // to move the cursor off of whatever object it happens to be
@@ -405,6 +460,7 @@ pub fn update_drag_motions(
     mut cursor_motion: EventReader<CursorMoved>,
     mut move_to: EventWriter<MoveTo>,
     ray_map: Res<RayMap>,
+    group_drag: Res<GroupDrag>,
 ) {
     if let GizmoState::Dragging(dragging) = *drag_state {
         let _cursor_position = match cursor_motion.read().last() {
@@ -455,6 +511,7 @@ pub fn update_drag_motions(
                         (initial.tf_for_entity_parent_inv * tf_goal.compute_affine()).into(),
                     ),
                 });
+                write_group_moves(delta, &group_drag, &mut move_to);
             }
         }
 
@@ -488,6 +545,7 @@ pub fn update_drag_motions(
                         (initial.tf_for_entity_parent_inv * tf_goal.compute_affine()).into(),
                     ),
                 });
+                write_group_moves(delta, &group_drag, &mut move_to);
             }
         }
     }
