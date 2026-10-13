@@ -92,6 +92,9 @@ pub use preview::*;
 pub mod select_impl;
 pub use select_impl::*;
 
+pub mod split;
+pub use split::*;
+
 pub mod user_camera;
 pub use user_camera::*;
 
@@ -155,6 +158,7 @@ impl Plugin for InteractionPlugin {
             .init_resource::<InteractionAssets>()
             .init_resource::<Cursor>()
             .init_resource::<GizmoState>()
+            .init_resource::<GroupDrag>()
             .init_resource::<CurrentEditDrawing>()
             .init_resource::<CurrentLevel>()
             .insert_resource(HighlightAnchors(false))
@@ -268,6 +272,12 @@ impl Plugin for InteractionPlugin {
                 propagate_visual_cues
                     .run_if(in_state(InteractionState::Enable))
                     .in_set(InteractionUpdateSet::ProcessVisuals),
+            )
+            .add_systems(
+                Update,
+                handle_split_on_ctrl_click
+                    .after(SelectionServiceStages::Select)
+                    .run_if(in_state(InteractionState::Enable)),
             )
             .add_systems(OnExit(InteractionState::Enable), hide_cursor)
             .add_systems(
