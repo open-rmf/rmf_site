@@ -325,6 +325,15 @@ impl Plugin for SitePlugin {
             InfiniteGridPlugin,
         ))
         .add_plugins((
+            PropertyPlugin::<Inclusion, LaneMarker>::default(),
+            PropertyPlugin::<Motion, LaneMarker>::default(),
+            PropertyPlugin::<ReverseLane, LaneMarker>::default(),
+            PropertyPlugin::<AssociatedGraphs<Entity>, LaneMarker>::default(),
+            PropertyPlugin::<Inclusion, LocationTags>::default(),
+            PropertyPlugin::<LocationTags, LocationTags>::default(),
+            PropertyPlugin::<AssociatedGraphs<Entity>, LocationTags>::default(),
+        ))
+        .add_plugins((
             RobotPropertiesPlugin::default(),
             RobotPropertyPlugin::<Mobility, RecallMobility>::default(),
             RobotPropertyPlugin::<Collision, RecallCollision>::default(),

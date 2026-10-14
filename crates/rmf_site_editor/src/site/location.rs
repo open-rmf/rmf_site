@@ -46,15 +46,22 @@ pub struct BillboardMarker {
     pub hover_enabled: bool,
 }
 
+impl Element for LocationTags {}
+impl StandardProperty for LocationTags {}
+
 // TODO(@mxgrey): Refactor this implementation with should_display_lane using traits and generics
 fn should_display_point(
     point: &Point<Entity>,
     associated: &AssociatedGraphs<Entity>,
+    inclusion: Option<&Inclusion>,
     child_of: &Query<&ChildOf>,
     levels: &Query<(), With<LevelElevation>>,
     current_level: &Res<CurrentLevel>,
     graphs: &GraphSelect,
 ) -> bool {
+    if inclusion.is_some_and(|i| *i == Inclusion::Hidden) {
+        return false;
+    }
     if let Ok(child_of) = child_of.get(point.0) {
         if levels.contains(child_of.parent()) && Some(child_of.parent()) != ***current_level {
             return false;
@@ -66,7 +73,15 @@ fn should_display_point(
 
 pub fn add_location_visuals(
     mut commands: Commands,
-    locations: Query<(Entity, &Point<Entity>, &AssociatedGraphs<Entity>), Added<LocationTags>>,
+    locations: Query<
+        (
+            Entity,
+            &Point<Entity>,
+            &AssociatedGraphs<Entity>,
+            Option<&Inclusion>,
+        ),
+        Added<LocationTags>,
+    >,
     graphs: GraphSelect,
     anchors: AnchorParams,
     child_of: Query<&ChildOf>,
@@ -75,7 +90,7 @@ pub fn add_location_visuals(
     assets: Res<SiteAssets>,
     current_level: Res<CurrentLevel>,
 ) {
-    for (e, point, associated_graphs) in &locations {
+    for (e, point, associated_graphs, inclusion) in &locations {
         if let Ok(mut deps) = dependents.get_mut(point.0) {
             deps.insert(e);
         }
@@ -84,6 +99,7 @@ pub fn add_location_visuals(
         let visibility = if should_display_point(
             point,
             associated_graphs,
+            inclusion,
             &child_of,
             &levels,
             &current_level,
@@ -118,6 +134,7 @@ pub fn update_changed_location(
             Entity,
             &Point<Entity>,
             &AssociatedGraphs<Entity>,
+            Option<&Inclusion>,
             &mut Visibility,
             &mut Transform,
         ),
@@ -129,7 +146,7 @@ pub fn update_changed_location(
     graphs: GraphSelect,
     current_level: Res<CurrentLevel>,
 ) {
-    for (e, point, associated, mut visibility, mut tf) in &mut locations {
+    for (e, point, associated, inclusion, mut visibility, mut tf) in &mut locations {
         let position = anchors
             .point_in_parent_frame_of(point.0, Category::Location, e)
             .unwrap();
@@ -139,6 +156,7 @@ pub fn update_changed_location(
         let new_visibility = if should_display_point(
             point,
             associated,
+            inclusion,
             &child_of,
             &levels,
             &current_level,
@@ -201,7 +219,9 @@ pub fn update_location_for_changed_location_tags(
         &mut locations
     {
         let mut billboard_meshes = previous_billboard_meshes.copied().unwrap_or_default();
-        select.write(Select::new(Some(e)));
+        if selected.as_ref().is_some_and(|s| s.is_selected) {
+            select.write(Select::new(Some(e)));
+        }
 
         let only_workcell_tags = !tags.iter().any(|t| !t.is_workcell());
         let no_billboards = only_workcell_tags && mutex_group.0.is_none();
@@ -412,6 +432,7 @@ pub fn update_visibility_for_locations(
         (
             &Point<Entity>,
             &AssociatedGraphs<Entity>,
+            Option<&Inclusion>,
             &mut Visibility,
             &mut MeshMaterial3d<StandardMaterial>,
         ),
@@ -423,7 +444,10 @@ pub fn update_visibility_for_locations(
     graphs: GraphSelect,
     locations_with_changed_association: Query<
         Entity,
-        (With<LocationTags>, Changed<AssociatedGraphs<Entity>>),
+        (
+            With<LocationTags>,
+            Or<(Changed<AssociatedGraphs<Entity>>, Changed<Inclusion>)>,
+        ),
     >,
     graph_changed_visibility: Query<
         (),
@@ -437,10 +461,11 @@ pub fn update_visibility_for_locations(
     let graph_change = !graph_changed_visibility.is_empty() || removed.read().next().is_some();
     let update_all = current_level.is_changed() || graph_change;
     if update_all {
-        for (point, associated, mut visibility, _) in &mut locations {
+        for (point, associated, inclusion, mut visibility, _) in &mut locations {
             let new_visibility = if should_display_point(
                 point,
                 associated,
+                inclusion,
                 &child_of,
                 &levels,
                 &current_level,
@@ -456,10 +481,11 @@ pub fn update_visibility_for_locations(
         }
     } else {
         for e in &locations_with_changed_association {
-            if let Ok((point, associated, mut visibility, _)) = locations.get_mut(e) {
+            if let Ok((point, associated, inclusion, mut visibility, _)) = locations.get_mut(e) {
                 let new_visibility = if should_display_point(
                     point,
                     associated,
+                    inclusion,
                     &child_of,
                     &levels,
                     &current_level,
@@ -477,12 +503,12 @@ pub fn update_visibility_for_locations(
     }
 
     if graph_change {
-        for (_, associated_graphs, _, mut m) in &mut locations {
+        for (_, associated_graphs, _, _, mut m) in &mut locations {
             *m = MeshMaterial3d(graphs.display_style(associated_graphs).0);
         }
     } else {
         for e in &locations_with_changed_association {
-            if let Ok((_, associated_graphs, _, mut m)) = locations.get_mut(e) {
+            if let Ok((_, associated_graphs, _, _, mut m)) = locations.get_mut(e) {
                 *m = MeshMaterial3d(graphs.display_style(associated_graphs).0);
             }
         }

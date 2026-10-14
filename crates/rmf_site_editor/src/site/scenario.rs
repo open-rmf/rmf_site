@@ -18,8 +18,9 @@
 use crate::{
     site::{
         count_scenarios_with_inclusion, Affiliation, CurrentScenario, Delete, Dependents, Element,
-        GetModifier, Group, Inclusion, InstanceMarker, IssueKey, ModelMarker, Modifier, NameInSite,
-        PendingModel, ScenarioBundle, ScenarioModifiers, UseModifier,
+        GetModifier, Group, Inclusion, InstanceMarker, IssueKey, LaneMarker, LocationTags,
+        ModelMarker, Modifier, NameInSite, Pending, PendingModel, ScenarioBundle,
+        ScenarioModifiers, UseModifier,
     },
     CurrentWorkspace, Issue, ValidateWorkspace,
 };
@@ -48,11 +49,17 @@ pub fn update_current_scenario(
     mut change_current_scenario: EventReader<ChangeCurrentScenario>,
     mut current_scenario: ResMut<CurrentScenario>,
     instances: Query<Entity, (With<InstanceMarker>, Without<PendingModel>)>,
+    lanes: Query<Entity, (With<LaneMarker>, Without<Pending>)>,
+    locations: Query<Entity, (With<LocationTags>, Without<Pending>)>,
 ) {
     if let Some(ChangeCurrentScenario(scenario_entity)) = change_current_scenario.read().last() {
         *current_scenario = CurrentScenario(Some(*scenario_entity));
-        for instance_entity in instances.iter() {
-            commands.trigger(UseModifier::new(instance_entity, *scenario_entity));
+        for entity in instances
+            .iter()
+            .chain(lanes.iter())
+            .chain(locations.iter())
+        {
+            commands.trigger(UseModifier::new(entity, *scenario_entity));
         }
     }
 }
@@ -202,5 +209,230 @@ pub fn check_for_hidden_model_instances(
             let issue_id = commands.spawn(issue).id();
             commands.entity(**root).add_child(issue_id);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::site::{
+        AssociatedGraphs, Edge, Lane, Location, LocationTag, Motion, OrientationConstraint, Point,
+        PropertyPlugin, ReverseLane, Trashcan, UpdateModifier,
+    };
+    use std::collections::BTreeSet;
+
+    fn setup_scenario_test_app() -> App {
+        let mut app = App::new();
+        app.init_resource::<CurrentScenario>()
+            .init_resource::<Trashcan>()
+            .add_event::<ChangeCurrentScenario>()
+            .add_plugins((
+                PropertyPlugin::<Inclusion, LaneMarker>::default(),
+                PropertyPlugin::<Motion, LaneMarker>::default(),
+                PropertyPlugin::<ReverseLane, LaneMarker>::default(),
+                PropertyPlugin::<AssociatedGraphs<Entity>, LaneMarker>::default(),
+                PropertyPlugin::<Inclusion, LocationTags>::default(),
+                PropertyPlugin::<LocationTags, LocationTags>::default(),
+                PropertyPlugin::<AssociatedGraphs<Entity>, LocationTags>::default(),
+            ))
+            .add_systems(Update, update_current_scenario);
+        app
+    }
+
+    #[test]
+    fn test_lane_and_location_scenario_inheritance_override_and_reset() {
+        let mut app = setup_scenario_test_app();
+
+        let root_scenario = app
+            .world_mut()
+            .spawn(ScenarioBundle::<Entity>::new(Some("Root".into()), None))
+            .id();
+        app.update();
+        assert_eq!(app.world().resource::<CurrentScenario>().0, Some(root_scenario));
+
+        let a1 = app.world_mut().spawn_empty().id();
+        let a2 = app.world_mut().spawn_empty().id();
+        let graph1 = app.world_mut().spawn_empty().id();
+
+        let lane = app
+            .world_mut()
+            .spawn(Lane::<Entity>::from(Edge::new(a1, a2)))
+            .id();
+        let location = app
+            .world_mut()
+            .spawn(Location::<Entity>::from(Point(a1)))
+            .id();
+        app.update();
+
+        // Spawn a child scenario (on_add_scenario switches to child_scenario)
+        let child_scenario = app
+            .world_mut()
+            .spawn(ScenarioBundle::<Entity>::new(
+                Some("Child".into()),
+                Some(root_scenario),
+            ))
+            .id();
+        app.update();
+        assert_eq!(
+            app.world().resource::<CurrentScenario>().0,
+            Some(child_scenario)
+        );
+
+        // Inherited in child scenario
+        assert_eq!(*app.world().get::<Inclusion>(lane).unwrap(), Inclusion::Included);
+        assert_eq!(*app.world().get::<ReverseLane>(lane).unwrap(), ReverseLane::Same);
+        assert_eq!(
+            *app.world().get::<Inclusion>(location).unwrap(),
+            Inclusion::Included
+        );
+        assert!(app.world().get::<LocationTags>(location).unwrap().0.is_empty());
+
+        // Override lane properties and location tags in child scenario
+        let child_motion = Motion {
+            orientation_constraint: OrientationConstraint::Forwards,
+            speed_limit: Some(2.5),
+            dock: None,
+        };
+        app.world_mut().entity_mut(lane).insert((
+            child_motion.clone(),
+            ReverseLane::Disable,
+            AssociatedGraphs::Only(BTreeSet::from([graph1])),
+        ));
+        app.world_mut().entity_mut(location).insert((
+            Inclusion::Hidden,
+            LocationTags(vec![LocationTag::Charger]),
+        ));
+        app.update();
+
+        // Switch back to root scenario and verify root values are preserved
+        app.world_mut()
+            .send_event(ChangeCurrentScenario(root_scenario));
+        app.update();
+        assert_eq!(*app.world().get::<Motion>(lane).unwrap(), Motion::default());
+        assert_eq!(*app.world().get::<ReverseLane>(lane).unwrap(), ReverseLane::Same);
+        assert_eq!(
+            *app.world().get::<AssociatedGraphs<Entity>>(lane).unwrap(),
+            AssociatedGraphs::All
+        );
+        assert_eq!(
+            *app.world().get::<Inclusion>(location).unwrap(),
+            Inclusion::Included
+        );
+        assert!(app.world().get::<LocationTags>(location).unwrap().0.is_empty());
+
+        // Switch to child scenario and verify overrides are restored
+        app.world_mut()
+            .send_event(ChangeCurrentScenario(child_scenario));
+        app.update();
+        assert_eq!(*app.world().get::<Motion>(lane).unwrap(), child_motion);
+        assert_eq!(
+            *app.world().get::<ReverseLane>(lane).unwrap(),
+            ReverseLane::Disable
+        );
+        assert_eq!(
+            *app.world().get::<AssociatedGraphs<Entity>>(lane).unwrap(),
+            AssociatedGraphs::Only(BTreeSet::from([graph1]))
+        );
+        assert_eq!(
+            *app.world().get::<Inclusion>(location).unwrap(),
+            Inclusion::Hidden
+        );
+        assert_eq!(
+            app.world().get::<LocationTags>(location).unwrap().0,
+            vec![LocationTag::Charger]
+        );
+
+        // Reset overrides in child scenario and verify fallback to root scenario values
+        app.world_mut()
+            .trigger(UpdateModifier::<Motion>::reset(child_scenario, lane));
+        app.world_mut()
+            .trigger(UpdateModifier::<ReverseLane>::reset(child_scenario, lane));
+        app.world_mut()
+            .trigger(UpdateModifier::<AssociatedGraphs<Entity>>::reset(
+                child_scenario,
+                lane,
+            ));
+        app.world_mut()
+            .trigger(UpdateModifier::<Inclusion>::reset(child_scenario, location));
+        app.world_mut()
+            .trigger(UpdateModifier::<LocationTags>::reset(
+                child_scenario,
+                location,
+            ));
+        app.update();
+
+        assert_eq!(*app.world().get::<Motion>(lane).unwrap(), Motion::default());
+        assert_eq!(*app.world().get::<ReverseLane>(lane).unwrap(), ReverseLane::Same);
+        assert_eq!(
+            *app.world().get::<AssociatedGraphs<Entity>>(lane).unwrap(),
+            AssociatedGraphs::All
+        );
+        assert_eq!(
+            *app.world().get::<Inclusion>(location).unwrap(),
+            Inclusion::Included
+        );
+        assert!(app.world().get::<LocationTags>(location).unwrap().0.is_empty());
+    }
+
+    #[test]
+    fn test_creating_lane_or_location_in_child_scenario_hides_in_root() {
+        let mut app = setup_scenario_test_app();
+
+        let root_scenario = app
+            .world_mut()
+            .spawn(ScenarioBundle::<Entity>::new(Some("Root".into()), None))
+            .id();
+        app.update();
+
+        let child_scenario = app
+            .world_mut()
+            .spawn(ScenarioBundle::<Entity>::new(
+                Some("Child".into()),
+                Some(root_scenario),
+            ))
+            .id();
+        app.update();
+        assert_eq!(
+            app.world().resource::<CurrentScenario>().0,
+            Some(child_scenario)
+        );
+
+        let a1 = app.world_mut().spawn_empty().id();
+        let a2 = app.world_mut().spawn_empty().id();
+        let lane = app
+            .world_mut()
+            .spawn(Lane::<Entity>::from(Edge::new(a1, a2)))
+            .id();
+        let location = app
+            .world_mut()
+            .spawn(Location::<Entity>::from(Point(a1)))
+            .id();
+        app.update();
+
+        // In child scenario, newly spawned lane and location are Included,
+        // and child scenario's modifier entity should NOT have spurious Motion/ReverseLane/LocationTags modifiers.
+        assert_eq!(*app.world().get::<Inclusion>(lane).unwrap(), Inclusion::Included);
+        assert_eq!(
+            *app.world().get::<Inclusion>(location).unwrap(),
+            Inclusion::Included
+        );
+        let child_modifiers = app
+            .world()
+            .get::<ScenarioModifiers<Entity>>(child_scenario)
+            .unwrap();
+        let child_lane_mod_entity = *child_modifiers.get(&lane).unwrap();
+        assert!(app.world().get::<Modifier<Inclusion>>(child_lane_mod_entity).is_some());
+        assert!(app.world().get::<Modifier<Motion>>(child_lane_mod_entity).is_none());
+        assert!(app.world().get::<Modifier<ReverseLane>>(child_lane_mod_entity).is_none());
+
+        // Switch to root scenario: lane and location created in child scenario must be Hidden in root!
+        app.world_mut()
+            .send_event(ChangeCurrentScenario(root_scenario));
+        app.update();
+        assert_eq!(*app.world().get::<Inclusion>(lane).unwrap(), Inclusion::Hidden);
+        assert_eq!(
+            *app.world().get::<Inclusion>(location).unwrap(),
+            Inclusion::Hidden
+        );
     }
 }

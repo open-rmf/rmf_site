@@ -73,6 +73,7 @@ pub struct Location<T: RefTrait> {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(transparent)]
 #[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+#[cfg_attr(feature = "bevy", require(Inclusion = Inclusion::Included))]
 pub struct LocationTags(pub Vec<LocationTag>);
 
 impl Default for LocationTags {

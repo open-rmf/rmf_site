@@ -1071,10 +1071,55 @@ fn generate_mutex_groups(
     Ok(mutex_groups)
 }
 
+fn find_primary_root_scenario(world: &mut World, site: Entity) -> Option<Entity> {
+    let mut state: SystemState<(
+        Query<(Entity, &SiteID, &Affiliation<Entity>), With<ScenarioModifiers<Entity>>>,
+        Query<&Children>,
+        Option<Res<DefaultScenario>>,
+    )> = SystemState::new(world);
+    let (scenarios, children, default_scenario) = state.get(world);
+
+    let Ok(site_children) = children.get(site) else {
+        return None;
+    };
+
+    let mut root_scenarios = Vec::<(u32, Entity)>::new();
+    for child in site_children.iter() {
+        if let Ok((entity, site_id, parent_scenario)) = scenarios.get(child) {
+            if parent_scenario.0.is_none() {
+                root_scenarios.push((site_id.0, entity));
+            }
+        }
+    }
+
+    if let Some(mut target) = default_scenario.and_then(|d| d.0) {
+        while let Ok((entity, _, parent_scenario)) = scenarios.get(target) {
+            if let Some(parent) = parent_scenario.0 {
+                target = parent;
+            } else {
+                if root_scenarios.iter().any(|(_, e)| *e == entity) {
+                    return Some(entity);
+                }
+                break;
+            }
+        }
+    }
+
+    root_scenarios.sort_by_key(|(id, _)| *id);
+    root_scenarios.first().map(|(_, e)| *e)
+}
+
 fn generate_lanes(
     world: &mut World,
     site: Entity,
+    use_current_scenario: bool,
 ) -> Result<BTreeMap<u32, Lane<u32>>, SiteGenerationError> {
+    let primary_root = if use_current_scenario {
+        None
+    } else {
+        find_primary_root_scenario(world, site)
+    };
+
     let mut state: SystemState<(
         Query<
             (
@@ -1085,6 +1130,7 @@ fn generate_lanes(
                 &ReverseLane,
                 &Affiliation<Entity>,
                 &AssociatedGraphs<Entity>,
+                Option<&Inclusion>,
                 &SiteID,
                 &ChildOf,
             ),
@@ -1093,9 +1139,19 @@ fn generate_lanes(
         Query<&SiteID, With<NavGraphMarker>>,
         Query<&SiteID, With<Anchor>>,
         Query<&SiteID, (With<Group>, Without<Pending>)>,
+        Query<&ScenarioModifiers<Entity>>,
+        Query<
+            (
+                Option<&Modifier<Motion>>,
+                Option<&Modifier<ReverseLane>>,
+                Option<&Modifier<AssociatedGraphs<Entity>>>,
+            ),
+            With<Affiliation<Entity>>,
+        >,
     )> = SystemState::new(world);
 
-    let (q_lanes, q_nav_graphs, q_anchors, q_group_ids) = state.get(world);
+    let (q_lanes, q_nav_graphs, q_anchors, q_group_ids, q_scenario_modifiers, q_lane_modifiers) =
+        state.get(world);
 
     let get_anchor_id = |object, anchor| {
         let site_id = q_anchors
@@ -1110,11 +1166,32 @@ fn generate_lanes(
         Ok(Edge::new(left, right))
     };
 
+    let root_modifiers = primary_root.and_then(|root| q_scenario_modifiers.get(root).ok());
+
     let mut lanes = BTreeMap::new();
-    for (e, edge, o_edge, forward, reverse, affiliation, graphs, lane_id, child_of) in &q_lanes {
+    for (e, edge, o_edge, forward, reverse, affiliation, graphs, inclusion, lane_id, child_of) in
+        &q_lanes
+    {
         if child_of.parent() != site {
             continue;
         }
+        if use_current_scenario && inclusion.is_some_and(|i| *i == Inclusion::Hidden) {
+            continue;
+        }
+
+        let (forward, reverse, graphs) = if let Some((mod_forward, mod_reverse, mod_graphs)) =
+            root_modifiers
+                .and_then(|m| m.get(&e))
+                .and_then(|me| q_lane_modifiers.get(*me).ok())
+        {
+            (
+                mod_forward.map(|m| &**m).unwrap_or(forward),
+                mod_reverse.map(|m| &**m).unwrap_or(reverse),
+                mod_graphs.map(|m| &**m).unwrap_or(graphs),
+            )
+        } else {
+            (forward, reverse, graphs)
+        };
 
         let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
         let edge = get_anchor_id_edge(e, edge)?;
@@ -1151,7 +1228,14 @@ fn generate_lanes(
 fn generate_locations(
     world: &mut World,
     site: Entity,
+    use_current_scenario: bool,
 ) -> Result<BTreeMap<u32, Location<u32>>, SiteGenerationError> {
+    let primary_root = if use_current_scenario {
+        None
+    } else {
+        find_primary_root_scenario(world, site)
+    };
+
     let mut state: SystemState<(
         Query<
             (
@@ -1162,6 +1246,7 @@ fn generate_locations(
                 &NameInSite,
                 &Affiliation<Entity>,
                 &AssociatedGraphs<Entity>,
+                Option<&Inclusion>,
                 &SiteID,
                 &ChildOf,
             ),
@@ -1170,9 +1255,24 @@ fn generate_locations(
         Query<&SiteID, With<NavGraphMarker>>,
         Query<&SiteID, With<Anchor>>,
         Query<&SiteID, (With<Group>, With<MutexMarker>)>,
+        Query<&ScenarioModifiers<Entity>>,
+        Query<
+            (
+                Option<&Modifier<LocationTags>>,
+                Option<&Modifier<AssociatedGraphs<Entity>>>,
+            ),
+            With<Affiliation<Entity>>,
+        >,
     )> = SystemState::new(world);
 
-    let (q_locations, q_nav_graphs, q_anchors, q_mutex_groups) = state.get(world);
+    let (
+        q_locations,
+        q_nav_graphs,
+        q_anchors,
+        q_mutex_groups,
+        q_scenario_modifiers,
+        q_location_modifiers,
+    ) = state.get(world);
 
     let get_anchor_id = |object, anchor| {
         let site_id = q_anchors
@@ -1181,11 +1281,30 @@ fn generate_locations(
         Ok(site_id.0)
     };
 
+    let root_modifiers = primary_root.and_then(|root| q_scenario_modifiers.get(root).ok());
+
     let mut locations = BTreeMap::new();
-    for (e, point, o_point, tags, name, mutex, graphs, location_id, child_of) in &q_locations {
+    for (e, point, o_point, tags, name, mutex, graphs, inclusion, location_id, child_of) in
+        &q_locations
+    {
         if child_of.parent() != site {
             continue;
         }
+        if use_current_scenario && inclusion.is_some_and(|i| *i == Inclusion::Hidden) {
+            continue;
+        }
+
+        let (tags, graphs) = if let Some((mod_tags, mod_graphs)) = root_modifiers
+            .and_then(|m| m.get(&e))
+            .and_then(|me| q_location_modifiers.get(*me).ok())
+        {
+            (
+                mod_tags.map(|m| &**m).unwrap_or(tags),
+                mod_graphs.map(|m| &**m).unwrap_or(graphs),
+            )
+        } else {
+            (tags, graphs)
+        };
 
         let point = o_point.map(|x| &x.0).unwrap_or(point);
         let point = get_anchor_id(e, point.0)?;
@@ -1513,6 +1632,8 @@ fn generate_model_instances(
 
 fn generate_scenarios(
     site: Entity,
+    base_lanes: &BTreeMap<u32, Lane<u32>>,
+    base_locations: &BTreeMap<u32, Location<u32>>,
     world: &mut World,
 ) -> Result<BTreeMap<u32, Scenario<u32>>, SiteGenerationError> {
     let mut state: SystemState<(
@@ -1524,6 +1645,9 @@ fn generate_scenarios(
             &Affiliation<Entity>,
         )>,
         Query<&SiteID, Without<Pending>>,
+        Query<&SiteID, (With<LaneMarker>, Without<Pending>)>,
+        Query<&SiteID, (With<LocationTags>, Without<Pending>)>,
+        Query<&SiteID, With<NavGraphMarker>>,
         Query<
             (
                 Option<&Modifier<Pose>>,
@@ -1536,26 +1660,73 @@ fn generate_scenarios(
             (Option<&Modifier<Inclusion>>, Option<&Modifier<TaskParams>>),
             With<Affiliation<Entity>>,
         >,
+        Query<
+            (
+                Option<&Modifier<Inclusion>>,
+                Option<&Modifier<Motion>>,
+                Option<&Modifier<ReverseLane>>,
+                Option<&Modifier<AssociatedGraphs<Entity>>>,
+            ),
+            With<Affiliation<Entity>>,
+        >,
+        Query<
+            (
+                Option<&Modifier<Inclusion>>,
+                Option<&Modifier<LocationTags>>,
+                Option<&Modifier<AssociatedGraphs<Entity>>>,
+            ),
+            With<Affiliation<Entity>>,
+        >,
         Query<&Children>,
     )> = SystemState::new(world);
-    let (scenarios, site_id, instance_modifiers, task_modifiers, children) = state.get(world);
+    let (
+        scenarios,
+        site_id,
+        q_lanes,
+        q_locations,
+        q_nav_graphs,
+        instance_modifiers,
+        task_modifiers,
+        lane_modifiers,
+        location_modifiers,
+        children,
+    ) = state.get(world);
     let mut res = BTreeMap::<u32, Scenario<u32>>::new();
 
     if let Ok(site_children) = children.get(site) {
+        let mut visited = std::collections::HashSet::<Entity>::new();
         for site_child in site_children.iter() {
             if let Ok((entity, ..)) = scenarios.get(site_child) {
                 let mut queue = vec![entity];
 
                 while let Some(scenario) = queue.pop() {
+                    if !visited.insert(scenario) {
+                        continue;
+                    }
+                    if let Ok(scenario_children) = children.get(scenario) {
+                        for child in scenario_children.iter() {
+                            if scenarios.contains(child) {
+                                queue.push(child);
+                            }
+                        }
+                    }
+
                     if let Ok((_, scenario_modifiers, name, scenario_id, parent_scenario)) =
                         scenarios.get(scenario)
                     {
+                        let is_root = parent_scenario.0.is_none();
                         res.insert(
                             scenario_id.0,
                             Scenario {
                                 instances: scenario_modifiers
                                     .iter()
                                     .filter_map(|(e_element, e_modifier)| {
+                                        if q_lanes.contains(*e_element)
+                                            || q_locations.contains(*e_element)
+                                        {
+                                            return None;
+                                        }
+
                                         let Ok((pose, inclusion, on_level)) =
                                             instance_modifiers.get(*e_modifier)
                                         else {
@@ -1631,6 +1802,128 @@ fn generate_scenarios(
                                         };
 
                                         Some(Ok((id, modifier)))
+                                    })
+                                    .collect::<Result<_, _>>()?,
+                                lanes: scenario_modifiers
+                                    .iter()
+                                    .filter_map(|(e_element, e_modifier)| {
+                                        let Ok(lane_site_id) = q_lanes.get(*e_element) else {
+                                            return None;
+                                        };
+                                        let Ok((inclusion, forward, reverse, graphs)) =
+                                            lane_modifiers.get(*e_modifier)
+                                        else {
+                                            return Some(Err(SiteGenerationError::BrokenModifier(
+                                                *e_modifier,
+                                            )));
+                                        };
+
+                                        let graphs = match graphs {
+                                            Some(g) => match g.to_u32(&q_nav_graphs) {
+                                                Ok(g) => Some(g),
+                                                Err(e) => {
+                                                    return Some(Err(
+                                                        SiteGenerationError::BrokenNavGraphReference(
+                                                            e,
+                                                        ),
+                                                    ))
+                                                }
+                                            },
+                                            None => None,
+                                        };
+
+                                        let modifier = if is_root {
+                                            let base_lane = base_lanes.get(&lane_site_id.0);
+                                            LaneModifier {
+                                                inclusion: inclusion
+                                                    .map(|i| **i)
+                                                    .filter(|i| *i != Inclusion::Included),
+                                                forward: forward
+                                                    .map(|f| (**f).clone())
+                                                    .filter(|f| {
+                                                        base_lane.map_or(true, |b| &b.forward != f)
+                                                    }),
+                                                reverse: reverse
+                                                    .map(|r| (**r).clone())
+                                                    .filter(|r| {
+                                                        base_lane.map_or(true, |b| &b.reverse != r)
+                                                    }),
+                                                graphs: graphs.filter(|g| {
+                                                    base_lane.map_or(true, |b| &b.graphs != g)
+                                                }),
+                                            }
+                                        } else {
+                                            LaneModifier {
+                                                inclusion: inclusion.map(|i| **i),
+                                                forward: forward.map(|f| (**f).clone()),
+                                                reverse: reverse.map(|r| (**r).clone()),
+                                                graphs,
+                                            }
+                                        };
+
+                                        if modifier.is_default() {
+                                            return None;
+                                        }
+
+                                        Some(Ok((lane_site_id.0, modifier)))
+                                    })
+                                    .collect::<Result<_, _>>()?,
+                                locations: scenario_modifiers
+                                    .iter()
+                                    .filter_map(|(e_element, e_modifier)| {
+                                        let Ok(location_site_id) = q_locations.get(*e_element)
+                                        else {
+                                            return None;
+                                        };
+                                        let Ok((inclusion, tags, graphs)) =
+                                            location_modifiers.get(*e_modifier)
+                                        else {
+                                            return Some(Err(SiteGenerationError::BrokenModifier(
+                                                *e_modifier,
+                                            )));
+                                        };
+
+                                        let graphs = match graphs {
+                                            Some(g) => match g.to_u32(&q_nav_graphs) {
+                                                Ok(g) => Some(g),
+                                                Err(e) => {
+                                                    return Some(Err(
+                                                        SiteGenerationError::BrokenNavGraphReference(
+                                                            e,
+                                                        ),
+                                                    ))
+                                                }
+                                            },
+                                            None => None,
+                                        };
+
+                                        let modifier = if is_root {
+                                            let base_location =
+                                                base_locations.get(&location_site_id.0);
+                                            LocationModifier {
+                                                inclusion: inclusion
+                                                    .map(|i| **i)
+                                                    .filter(|i| *i != Inclusion::Included),
+                                                tags: tags.map(|t| (**t).clone()).filter(|t| {
+                                                    base_location.map_or(true, |b| &b.tags != t)
+                                                }),
+                                                graphs: graphs.filter(|g| {
+                                                    base_location.map_or(true, |b| &b.graphs != g)
+                                                }),
+                                            }
+                                        } else {
+                                            LocationModifier {
+                                                inclusion: inclusion.map(|i| **i),
+                                                tags: tags.map(|t| (**t).clone()),
+                                                graphs,
+                                            }
+                                        };
+
+                                        if modifier.is_default() {
+                                            return None;
+                                        }
+
+                                        Some(Ok((location_site_id.0, modifier)))
                                     })
                                     .collect::<Result<_, _>>()?,
                                 properties: ScenarioBundle {
@@ -1716,14 +2009,14 @@ pub fn generate_site(
     let textures = generate_texture_groups(world, site)?;
     let nav_graphs = generate_nav_graphs(world, site)?;
     let mutex_groups = generate_mutex_groups(world, site)?;
-    let lanes = generate_lanes(world, site)?;
-    let locations = generate_locations(world, site)?;
+    let lanes = generate_lanes(world, site, false)?;
+    let locations = generate_locations(world, site, false)?;
     let graph_ranking = generate_graph_rankings(world, site)?;
     let properties = generate_site_properties(world, site)?;
     let model_descriptions = generate_model_descriptions(site, world)?;
     let robots = generate_robots(site, world)?;
     let model_instances = generate_model_instances(site, world)?;
-    let scenarios = generate_scenarios(site, world)?;
+    let scenarios = generate_scenarios(site, &lanes, &locations, world)?;
     let tasks = generate_tasks(site, world)?;
 
     let extensions = world.resource_scope::<ExtensionHooks, _>(|world, mut hooks| {
@@ -1954,13 +2247,28 @@ pub fn save_site(world: &mut World) {
                 }
             }
             ExportFormat::NavGraph => {
-                let site = match generate_site(world, save_event.site) {
+                let mut site = match generate_site(world, save_event.site) {
                     Ok(site) => site,
                     Err(err) => {
                         error!("Unable to compile site: {err}");
                         continue;
                     }
                 };
+                site.navigation.guided.lanes = match generate_lanes(world, save_event.site, true) {
+                    Ok(lanes) => lanes,
+                    Err(err) => {
+                        error!("Unable to compile active scenario lanes: {err}");
+                        continue;
+                    }
+                };
+                site.navigation.guided.locations =
+                    match generate_locations(world, save_event.site, true) {
+                        Ok(locations) => locations,
+                        Err(err) => {
+                            error!("Unable to compile active scenario locations: {err}");
+                            continue;
+                        }
+                    };
 
                 for (name, nav_graph) in legacy::nav_graph::NavGraph::from_site(&site) {
                     let graph_file = new_path.clone().join(name + ".nav.yaml");
@@ -2109,6 +2417,251 @@ mod tests {
         // At the end of a successful test we should delete the testdir.
         // This will avoid accumulating disk space with each test run.
         let _ = std::fs::remove_dir_all(target_test_dir);
+    }
+
+    #[test]
+    fn test_scenario_nav_graph_load_save_and_export() {
+        use super::{generate_lanes, generate_locations, SiteChanged};
+        use crate::site::*;
+        use bevy::scene::SceneSpawner;
+        use std::collections::BTreeSet;
+
+        let mut app = App::new();
+        app.init_resource::<CurrentWorkspace>()
+            .init_resource::<CurrentLevel>()
+            .init_resource::<CurrentScenario>()
+            .init_resource::<DefaultScenario>()
+            .init_resource::<Trashcan>()
+            .init_resource::<ExportHandlers>()
+            .init_resource::<ExtensionHooks>()
+            .init_resource::<SiteChanged>()
+            .init_resource::<SceneSpawner>()
+            .add_plugins((
+                AssetPlugin::default(),
+                ModelLoadingPlugin::default(),
+                PropertyPlugin::<Inclusion, LaneMarker>::default(),
+                PropertyPlugin::<Motion, LaneMarker>::default(),
+                PropertyPlugin::<ReverseLane, LaneMarker>::default(),
+                PropertyPlugin::<AssociatedGraphs<Entity>, LaneMarker>::default(),
+                PropertyPlugin::<Inclusion, LocationTags>::default(),
+                PropertyPlugin::<LocationTags, LocationTags>::default(),
+                PropertyPlugin::<AssociatedGraphs<Entity>, LocationTags>::default(),
+            ))
+            .add_event::<LoadSite>()
+            .add_event::<SaveSite>()
+            .add_event::<ChangeCurrentSite>()
+            .add_event::<ChangeCurrentScenario>()
+            .add_event::<ChangeDefaultScenario>()
+            .add_event::<CreateScenario>()
+            .add_observer(on_change_site)
+            .add_systems(
+                Update,
+                (
+                    load_site,
+                    update_current_scenario,
+                    update_default_scenario,
+                    save_site,
+                )
+                    .chain(),
+            );
+
+        let mut site_data = rmf_site_format::Site::default();
+        site_data.properties.name = NameOfSite("nav_scenario_test".to_string());
+        let mut level = rmf_site_format::Level::default();
+        level.properties.name = NameInSite("L1".to_string());
+        level.anchors.insert(1, Anchor::Translate2D([0.0, 0.0]));
+        level.anchors.insert(2, Anchor::Translate2D([5.0, 0.0]));
+        level.anchors.insert(3, Anchor::Translate2D([5.0, 5.0]));
+        site_data.levels.insert(10, level);
+
+        site_data.navigation.guided.graphs.insert(
+            20,
+            NavGraph {
+                name: NameInSite("graph_0".to_string()),
+                color: DisplayColor([1.0, 0.0, 0.0]),
+                marker: Default::default(),
+            },
+        );
+        site_data.navigation.guided.ranking = vec![20];
+
+        site_data.navigation.guided.lanes.insert(
+            30,
+            Lane {
+                anchors: Edge::new(1, 2),
+                forward: Motion::default(),
+                reverse: ReverseLane::Same,
+                mutex: Affiliation(None),
+                graphs: AssociatedGraphs::All,
+                marker: LaneMarker,
+            },
+        );
+        site_data.navigation.guided.lanes.insert(
+            31,
+            Lane {
+                anchors: Edge::new(2, 3),
+                forward: Motion::default(),
+                reverse: ReverseLane::Same,
+                mutex: Affiliation(None),
+                graphs: AssociatedGraphs::All,
+                marker: LaneMarker,
+            },
+        );
+
+        site_data.navigation.guided.locations.insert(
+            40,
+            Location {
+                anchor: Point(1),
+                tags: LocationTags(vec![]),
+                name: NameInSite("loc_a".to_string()),
+                mutex: Affiliation(None),
+                graphs: AssociatedGraphs::All,
+            },
+        );
+        site_data.navigation.guided.locations.insert(
+            41,
+            Location {
+                anchor: Point(3),
+                tags: LocationTags(vec![LocationTag::HoldingPoint]),
+                name: NameInSite("loc_b".to_string()),
+                mutex: Affiliation(None),
+                graphs: AssociatedGraphs::All,
+            },
+        );
+
+        // Root scenario (ID 50): lane 31 is Hidden in root
+        let mut root_scenario = Scenario::from_name_parent(Some("Root".to_string()), None);
+        root_scenario.lanes.insert(
+            31,
+            LaneModifier {
+                inclusion: Some(Inclusion::Hidden),
+                ..Default::default()
+            },
+        );
+        site_data.scenarios.insert(50, root_scenario);
+
+        // Child scenario (ID 51):
+        // - lane 30 has speed limit 1.5 and ReverseLane::Disable
+        // - lane 31 is Included
+        // - location 40 has Charger tag
+        // - location 41 is Hidden
+        let child_motion = Motion {
+            orientation_constraint: OrientationConstraint::Forwards,
+            speed_limit: Some(1.5),
+            dock: None,
+        };
+        let mut child_scenario = Scenario::from_name_parent(Some("Child".to_string()), Some(50));
+        child_scenario.lanes.insert(
+            30,
+            LaneModifier {
+                inclusion: None,
+                forward: Some(child_motion.clone()),
+                reverse: Some(ReverseLane::Disable),
+                graphs: Some(AssociatedGraphs::Only(BTreeSet::from([20]))),
+            },
+        );
+        child_scenario.lanes.insert(
+            31,
+            LaneModifier {
+                inclusion: Some(Inclusion::Included),
+                ..Default::default()
+            },
+        );
+        child_scenario.locations.insert(
+            40,
+            LocationModifier {
+                inclusion: None,
+                tags: Some(LocationTags(vec![LocationTag::Charger])),
+                graphs: None,
+            },
+        );
+        child_scenario.locations.insert(
+            41,
+            LocationModifier {
+                inclusion: Some(Inclusion::Hidden),
+                ..Default::default()
+            },
+        );
+        site_data.scenarios.insert(51, child_scenario);
+
+        app.world_mut().send_event(LoadSite {
+            site: site_data.clone(),
+            focus: true,
+            default_file: None,
+        });
+        app.update();
+        app.update();
+
+        let site_entity = app.world().resource::<CurrentWorkspace>().root.unwrap();
+
+        // Find root and child scenario entities by SiteID
+        let mut root_entity = None;
+        let mut child_entity = None;
+        for (e, id) in app
+            .world_mut()
+            .query_filtered::<(Entity, &SiteID), With<ScenarioModifiers<Entity>>>()
+            .iter(app.world())
+        {
+            if id.0 == 50 {
+                root_entity = Some(e);
+            } else if id.0 == 51 {
+                child_entity = Some(e);
+            }
+        }
+        let root_entity = root_entity.unwrap();
+        let child_entity = child_entity.unwrap();
+
+        // Switch to Child scenario and verify saving .site.json is scenario-invariant
+        app.world_mut()
+            .send_event(ChangeCurrentScenario(child_entity));
+        app.update();
+        assert_eq!(
+            app.world().resource::<CurrentScenario>().0,
+            Some(child_entity)
+        );
+
+        let saved_from_child = generate_site(app.world_mut(), site_entity).unwrap();
+        assert_eq!(
+            saved_from_child.navigation.guided.lanes,
+            site_data.navigation.guided.lanes
+        );
+        assert_eq!(
+            saved_from_child.navigation.guided.locations,
+            site_data.navigation.guided.locations
+        );
+        assert_eq!(saved_from_child.scenarios, site_data.scenarios);
+
+        // Verify active-scenario NavGraph export while Child scenario is active:
+        // - Both lanes 30 and 31 are Included in Child, with lane 30 ReverseLane::Disable (one-way)
+        // - Location 40 is Included (with Charger tag), Location 41 is Hidden
+        let active_child_lanes = generate_lanes(app.world_mut(), site_entity, true).unwrap();
+        let active_child_locations =
+            generate_locations(app.world_mut(), site_entity, true).unwrap();
+        assert_eq!(active_child_lanes.len(), 2);
+        assert_eq!(active_child_lanes[&30].forward, child_motion);
+        assert_eq!(active_child_lanes[&30].reverse, ReverseLane::Disable);
+        assert_eq!(active_child_locations.len(), 1);
+        assert!(active_child_locations.contains_key(&40));
+        assert!(!active_child_locations.contains_key(&41));
+        assert_eq!(
+            active_child_locations[&40].tags,
+            LocationTags(vec![LocationTag::Charger])
+        );
+
+        // Switch to Root scenario and verify active-scenario NavGraph export:
+        // - Lane 30 is Included (ReverseLane::Same), Lane 31 is Hidden
+        // - Both locations 40 and 41 are Included
+        app.world_mut()
+            .send_event(ChangeCurrentScenario(root_entity));
+        app.update();
+        let active_root_lanes = generate_lanes(app.world_mut(), site_entity, true).unwrap();
+        let active_root_locations =
+            generate_locations(app.world_mut(), site_entity, true).unwrap();
+        assert_eq!(active_root_lanes.len(), 1);
+        assert!(active_root_lanes.contains_key(&30));
+        assert!(!active_root_lanes.contains_key(&31));
+        assert_eq!(active_root_lanes[&30].reverse, ReverseLane::Same);
+        assert_eq!(active_root_locations.len(), 2);
+        assert!(active_root_locations[&40].tags.0.is_empty());
     }
 
     pub(crate) struct TestTimeoutPlugin {

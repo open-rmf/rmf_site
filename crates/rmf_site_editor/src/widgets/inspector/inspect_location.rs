@@ -16,7 +16,10 @@
 */
 
 use crate::{
-    site::{Change, ConsiderLocationTag, LocationTag, LocationTags, RecallLocationTags},
+    site::{
+        Change, ConsiderLocationTag, CurrentScenario, GetModifier, LocationTag, LocationTags,
+        Modifier, RecallLocationTags, UpdateModifier,
+    },
     widgets::{prelude::*, Icons, Inspect},
 };
 use bevy::prelude::*;
@@ -28,6 +31,8 @@ use smallvec::SmallVec;
 pub struct InspectLocation<'w, 's> {
     commands: Commands<'w, 's>,
     location_tags: Query<'w, 's, (&'static LocationTags, &'static RecallLocationTags)>,
+    current_scenario: Res<'w, CurrentScenario>,
+    get_modifier: GetModifier<'w, 's, Modifier<LocationTags>>,
     icons: Res<'w, Icons>,
     consider_tag: EventWriter<'w, ConsiderLocationTag>,
 }
@@ -126,6 +131,30 @@ impl<'w, 's> InspectLocation<'w, 's> {
             }
 
             self.commands.trigger(Change::new(new_tags, id));
+        }
+
+        if let Some(current_scenario_entity) = self.current_scenario.0 {
+            if let Ok((scenario_modifiers, parent_scenario)) =
+                self.get_modifier.scenarios.get(current_scenario_entity)
+            {
+                let has_modifier = scenario_modifiers
+                    .get(&id)
+                    .is_some_and(|e| self.get_modifier.modifiers.get(*e).is_ok());
+                if has_modifier && parent_scenario.0.is_some() {
+                    if ui
+                        .button("Reset Location Tags")
+                        .on_hover_text(
+                            "Reset location tags to their inherited value in this scenario",
+                        )
+                        .clicked()
+                    {
+                        self.commands.trigger(UpdateModifier::<LocationTags>::reset(
+                            current_scenario_entity,
+                            id,
+                        ));
+                    }
+                }
+            }
         }
     }
 }

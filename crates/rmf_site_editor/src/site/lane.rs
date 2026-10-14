@@ -47,15 +47,24 @@ impl LaneSegments {
     }
 }
 
+impl Element for LaneMarker {}
+impl StandardProperty for Motion {}
+impl StandardProperty for ReverseLane {}
+impl StandardProperty for AssociatedGraphs<Entity> {}
+
 // TODO(MXG): Refactor these function arguments into a SystemParam
 fn should_display_lane(
     edge: &Edge<Entity>,
     associated: &AssociatedGraphs<Entity>,
+    inclusion: Option<&Inclusion>,
     child_of: &Query<&ChildOf>,
     levels: &Query<(), With<LevelElevation>>,
     current_level: &Res<CurrentLevel>,
     graphs: &GraphSelect,
 ) -> bool {
+    if inclusion.is_some_and(|i| *i == Inclusion::Hidden) {
+        return false;
+    }
     for anchor in edge.array() {
         if let Ok(child_of) = child_of.get(anchor) {
             if levels.contains(child_of.parent()) && Some(child_of.parent()) != ***current_level {
@@ -96,6 +105,7 @@ pub fn add_lane_visuals(
             Option<&RecallMotion>,
             &Edge<Entity>,
             &AssociatedGraphs<Entity>,
+            Option<&Inclusion>,
         ),
         Added<LaneMarker>,
     >,
@@ -108,7 +118,7 @@ pub fn add_lane_visuals(
     current_level: Res<CurrentLevel>,
     mut extended_materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, LaneArrowMaterial>>>,
 ) {
-    for (e, motion, reverse, recall, edge, associated_graphs) in &lanes {
+    for (e, motion, reverse, recall, edge, associated_graphs, inclusion) in &lanes {
         for anchor in &edge.array() {
             if let Ok(mut deps) = dependents.get_mut(*anchor) {
                 deps.insert(e);
@@ -119,6 +129,7 @@ pub fn add_lane_visuals(
         let visibility = if should_display_lane(
             edge,
             associated_graphs,
+            inclusion,
             &child_of,
             &levels,
             &current_level,
@@ -334,6 +345,7 @@ pub fn update_changed_lane(
             Entity,
             &Edge<Entity>,
             &AssociatedGraphs<Entity>,
+            Option<&Inclusion>,
             &LaneSegments,
             &mut Visibility,
         ),
@@ -348,7 +360,7 @@ pub fn update_changed_lane(
     mut extended_materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, LaneArrowMaterial>>>,
     current_level: Res<CurrentLevel>,
 ) {
-    for (e, edge, associated, segments, mut visibility) in &mut lanes {
+    for (e, edge, associated, inclusion, segments, mut visibility) in &mut lanes {
         update_lane_visuals(
             e,
             edge,
@@ -362,6 +374,7 @@ pub fn update_changed_lane(
         let new_visibility = if should_display_lane(
             edge,
             associated,
+            inclusion,
             &child_of,
             &levels,
             &current_level,
@@ -411,11 +424,23 @@ pub fn update_lane_for_moved_anchor(
 
 pub fn remove_association_for_deleted_graphs(
     mut associaged_graphs: Query<&mut AssociatedGraphs<Entity>>,
+    mut modifier_graphs: Query<&mut Modifier<AssociatedGraphs<Entity>>>,
     mut removed: RemovedComponents<NavGraphMarker>,
 ) {
     for e in removed.read() {
         for mut associated in &mut associaged_graphs {
             match associated.as_mut() {
+                AssociatedGraphs::All => {}
+                AssociatedGraphs::Only(set) => {
+                    set.remove(&e);
+                }
+                AssociatedGraphs::AllExcept(set) => {
+                    set.remove(&e);
+                }
+            }
+        }
+        for mut modifier in &mut modifier_graphs {
+            match &mut **modifier {
                 AssociatedGraphs::All => {}
                 AssociatedGraphs::Only(set) => {
                     set.remove(&e);
@@ -520,6 +545,7 @@ pub fn update_visibility_for_lanes(
         (
             &Edge<Entity>,
             &AssociatedGraphs<Entity>,
+            Option<&Inclusion>,
             &LaneSegments,
             &mut Visibility,
         ),
@@ -531,7 +557,10 @@ pub fn update_visibility_for_lanes(
     graphs: GraphSelect,
     lanes_with_changed_association: Query<
         (Entity, &AssociatedGraphs<Entity>, &LaneSegments),
-        (With<LaneMarker>, Changed<AssociatedGraphs<Entity>>),
+        (
+            With<LaneMarker>,
+            Or<(Changed<AssociatedGraphs<Entity>>, Changed<Inclusion>)>,
+        ),
     >,
     mut materials: Query<&mut MeshMaterial3d<StandardMaterial>, Without<NavGraphMarker>>,
     mut transforms: Query<&mut Transform>,
@@ -547,10 +576,11 @@ pub fn update_visibility_for_lanes(
     let graph_change = !graph_changed_visibility.is_empty() || removed.read().next().is_some();
     let update_all = current_level.is_changed() || graph_change;
     if update_all {
-        for (edge, associated, _, mut visibility) in &mut lanes {
+        for (edge, associated, inclusion, _, mut visibility) in &mut lanes {
             let new_visibility = if should_display_lane(
                 edge,
                 associated,
+                inclusion,
                 &child_of,
                 &levels,
                 &current_level,
@@ -567,10 +597,11 @@ pub fn update_visibility_for_lanes(
         }
     } else {
         for (e, _, _) in &lanes_with_changed_association {
-            if let Ok((edge, associated, _, mut visibility)) = lanes.get_mut(e) {
+            if let Ok((edge, associated, inclusion, _, mut visibility)) = lanes.get_mut(e) {
                 let new_visibility = if should_display_lane(
                     edge,
                     associated,
+                    inclusion,
                     &child_of,
                     &levels,
                     &current_level,
@@ -589,7 +620,7 @@ pub fn update_visibility_for_lanes(
     }
 
     if graph_change {
-        for (_, associated_graphs, segments, _) in &lanes {
+        for (_, associated_graphs, _, segments, _) in &lanes {
             let (mat, _, rank) = graphs.display_style(associated_graphs);
             for e in segments.iter() {
                 if let Ok(mut m) = materials.get_mut(e) {

@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    site::Change,
+    site::{Change, CurrentScenario, GetModifier, Modifier, UpdateModifier},
     widgets::{
         inspector::{InspectAngle, InspectOptionF32},
         prelude::*,
@@ -53,6 +53,8 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectMotion<'w, 's> {
 pub struct InspectForwardMotion<'w, 's> {
     commands: Commands<'w, 's>,
     motions: Query<'w, 's, (&'static Motion, &'static RecallMotion)>,
+    current_scenario: Res<'w, CurrentScenario>,
+    get_modifier: GetModifier<'w, 's, Modifier<Motion>>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectForwardMotion<'w, 's> {
@@ -76,6 +78,27 @@ impl<'w, 's> InspectForwardMotion<'w, 's> {
         if let Some(new_motion) = InspectMotionComponent::new(motion, recall).show(ui) {
             self.commands.trigger(Change::new(new_motion, id));
         }
+
+        if let Some(current_scenario_entity) = self.current_scenario.0 {
+            if let Ok((scenario_modifiers, parent_scenario)) =
+                self.get_modifier.scenarios.get(current_scenario_entity)
+            {
+                let has_modifier = scenario_modifiers
+                    .get(&id)
+                    .is_some_and(|e| self.get_modifier.modifiers.get(*e).is_ok());
+                if has_modifier && parent_scenario.0.is_some() {
+                    if ui
+                        .button("Reset Forward Motion")
+                        .on_hover_text("Reset forward motion to its inherited value in this scenario")
+                        .clicked()
+                    {
+                        self.commands
+                            .trigger(UpdateModifier::<Motion>::reset(current_scenario_entity, id));
+                    }
+                }
+            }
+        }
+
         ui.add_space(10.0);
     }
 }
@@ -84,6 +107,8 @@ impl<'w, 's> InspectForwardMotion<'w, 's> {
 pub struct InspectReverseMotion<'w, 's> {
     commands: Commands<'w, 's>,
     reverse_motions: Query<'w, 's, (&'static ReverseLane, &'static RecallReverseLane)>,
+    current_scenario: Res<'w, CurrentScenario>,
+    get_modifier: GetModifier<'w, 's, Modifier<ReverseLane>>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectReverseMotion<'w, 's> {
@@ -142,6 +167,29 @@ impl<'w, 's> InspectReverseMotion<'w, 's> {
         if new_reverse != *reverse {
             self.commands.trigger(Change::new(new_reverse, id));
         }
+
+        if let Some(current_scenario_entity) = self.current_scenario.0 {
+            if let Ok((scenario_modifiers, parent_scenario)) =
+                self.get_modifier.scenarios.get(current_scenario_entity)
+            {
+                let has_modifier = scenario_modifiers
+                    .get(&id)
+                    .is_some_and(|e| self.get_modifier.modifiers.get(*e).is_ok());
+                if has_modifier && parent_scenario.0.is_some() {
+                    if ui
+                        .button("Reset Reverse Motion")
+                        .on_hover_text("Reset reverse motion to its inherited value in this scenario")
+                        .clicked()
+                    {
+                        self.commands.trigger(UpdateModifier::<ReverseLane>::reset(
+                            current_scenario_entity,
+                            id,
+                        ));
+                    }
+                }
+            }
+        }
+
         ui.add_space(10.0);
     }
 }

@@ -18,7 +18,9 @@
 use crate::{
     recency::RecencyRanking,
     site::{
-        Change, Delete, DisplayColor, NameInSite, NavGraph, NavGraphMarker,
+        count_scenarios_with_inclusion, Affiliation, Change, CurrentScenario, Delete, DisplayColor,
+        GetModifier, Inclusion, LaneMarker, LocationTags, Modifier, NameInSite, NavGraph,
+        NavGraphMarker, Pending, ScenarioModifiers, SiteID, UpdateModifier,
         DEFAULT_NAV_GRAPH_COLORS,
     },
     widgets::{
@@ -27,9 +29,13 @@ use crate::{
     },
     AppState, ChangeRank, CurrentWorkspace, WorkspaceLoader, WorkspaceSaver,
 };
-use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{ImageButton, TextEdit, Ui, Widget};
+use bevy::{
+    ecs::{hierarchy::ChildOf, relationship::AncestorIter, system::SystemParam},
+    prelude::*,
+};
+use bevy_egui::egui::{CollapsingHeader, ImageButton, ScrollArea, TextEdit, Ui, Widget};
 use rmf_site_egui::*;
+use rmf_site_format::Edge;
 
 /// Add a widget for viewing and editing navigation graphs.
 #[derive(Default)]
@@ -66,6 +72,30 @@ pub struct ViewNavGraphs<'w, 's> {
         ),
         With<NavGraphMarker>,
     >,
+    lanes: Query<
+        'w,
+        's,
+        (Entity, &'static Edge<Entity>, Option<&'static SiteID>),
+        (With<LaneMarker>, Without<Pending>),
+    >,
+    locations: Query<
+        'w,
+        's,
+        (Entity, &'static NameInSite, Option<&'static SiteID>),
+        (With<LocationTags>, Without<Pending>),
+    >,
+    child_of: Query<'w, 's, &'static ChildOf>,
+    scenarios: Query<
+        'w,
+        's,
+        (
+            Entity,
+            &'static ScenarioModifiers<Entity>,
+            &'static Affiliation<Entity>,
+        ),
+    >,
+    current_scenario: Res<'w, CurrentScenario>,
+    get_modifier: GetModifier<'w, 's, Modifier<Inclusion>>,
     icons: Res<'w, Icons>,
     current_workspace: ResMut<'w, CurrentWorkspace>,
     display_nav_graph: ResMut<'w, NavGraphDisplay>,
@@ -212,7 +242,187 @@ impl<'w, 's> ViewNavGraphs<'w, 's> {
                 MoveLayerButton::to_bottom(e, &mut self.change_rank, &self.icons).show(ui);
             });
         }
+
+        if let Some(current_scenario_entity) = self.current_scenario.0 {
+            ui.separator();
+            let root = self.current_workspace.root;
+            let mut lanes: Vec<_> = self
+                .lanes
+                .iter()
+                .filter(|(e, _, _)| AncestorIter::new(&self.child_of, *e).any(|p| Some(p) == root))
+                .collect();
+            lanes.sort_by_key(|(e, _, site_id)| (site_id.map(|s| s.0), e.index()));
+
+            let mut locations: Vec<_> = self
+                .locations
+                .iter()
+                .filter(|(e, _, _)| AncestorIter::new(&self.child_of, *e).any(|p| Some(p) == root))
+                .collect();
+            locations.sort_by_key(|(e, _, site_id)| (site_id.map(|s| s.0), e.index()));
+
+            ScrollArea::vertical()
+                .auto_shrink([false, false])
+                .show(ui, |ui| {
+                    CollapsingHeader::new("Lanes")
+                        .default_open(
+                            self.selector
+                                .selection
+                                .get_single()
+                                .is_some_and(|e| self.lanes.contains(e)),
+                        )
+                        .show(ui, |ui| {
+                            if lanes.is_empty() {
+                                ui.label("No lanes in site.");
+                            }
+                            for (lane_entity, edge, _) in lanes {
+                                let start_label = self
+                                    .selector
+                                    .site_id
+                                    .get(edge.start())
+                                    .map(|id| format!("#{}", id.0))
+                                    .unwrap_or_else(|_| "*".to_string());
+                                let end_label = self
+                                    .selector
+                                    .site_id
+                                    .get(edge.end())
+                                    .map(|id| format!("#{}", id.0))
+                                    .unwrap_or_else(|_| "*".to_string());
+                                let label = format!("{start_label} - {end_label}");
+                                let scenario_count = count_scenarios_with_inclusion(
+                                    &self.scenarios,
+                                    lane_entity,
+                                    &self.get_modifier,
+                                );
+                                show_nav_element_row(
+                                    ui,
+                                    &mut self.commands,
+                                    &label,
+                                    "Lane",
+                                    lane_entity,
+                                    &mut self.selector,
+                                    &mut self.delete,
+                                    &self.get_modifier,
+                                    current_scenario_entity,
+                                    scenario_count,
+                                    &self.icons,
+                                );
+                            }
+                        });
+
+                    CollapsingHeader::new("Locations")
+                        .default_open(
+                            self.selector
+                                .selection
+                                .get_single()
+                                .is_some_and(|e| self.locations.contains(e)),
+                        )
+                        .show(ui, |ui| {
+                            if locations.is_empty() {
+                                ui.label("No locations in site.");
+                            }
+                            for (location_entity, name, _) in locations {
+                                let label = if name.0.is_empty() {
+                                    "<Unnamed>"
+                                } else {
+                                    name.0.as_str()
+                                };
+                                let scenario_count = count_scenarios_with_inclusion(
+                                    &self.scenarios,
+                                    location_entity,
+                                    &self.get_modifier,
+                                );
+                                show_nav_element_row(
+                                    ui,
+                                    &mut self.commands,
+                                    label,
+                                    "Location",
+                                    location_entity,
+                                    &mut self.selector,
+                                    &mut self.delete,
+                                    &self.get_modifier,
+                                    current_scenario_entity,
+                                    scenario_count,
+                                    &self.icons,
+                                );
+                            }
+                        });
+                });
+        }
     }
+}
+
+fn show_nav_element_row(
+    ui: &mut Ui,
+    commands: &mut Commands,
+    label: &str,
+    kind_label: &str,
+    element: Entity,
+    selector: &mut SelectorWidget,
+    delete: &mut EventWriter<Delete>,
+    get_modifier: &GetModifier<Modifier<Inclusion>>,
+    scenario: Entity,
+    scenario_count: i32,
+    icons: &Res<Icons>,
+) {
+    let inclusion_modifier = get_modifier
+        .scenarios
+        .get(scenario)
+        .ok()
+        .and_then(|(scenario_modifiers, _)| scenario_modifiers.get(&element))
+        .and_then(|e| get_modifier.modifiers.get(*e).ok());
+    ui.horizontal(|ui| {
+        selector.show_widget(element, ui);
+        if let Some(inclusion_modifier) = inclusion_modifier {
+            if **inclusion_modifier == Inclusion::Hidden {
+                if ui
+                    .add(ImageButton::new(icons.hide.egui()))
+                    .on_hover_text(format!("{kind_label} is hidden in this scenario"))
+                    .clicked()
+                {
+                    commands.entity(element).insert(Inclusion::Included);
+                }
+            } else {
+                if ui
+                    .add(ImageButton::new(icons.show.egui()))
+                    .on_hover_text(format!("{kind_label} is included in this scenario"))
+                    .clicked()
+                {
+                    if get_modifier
+                        .scenarios
+                        .get(scenario)
+                        .is_ok_and(|(_, a)| a.0.is_some())
+                    {
+                        commands.trigger(UpdateModifier::<Inclusion>::reset(scenario, element));
+                    } else {
+                        commands.entity(element).insert(Inclusion::Hidden);
+                    }
+                }
+            }
+        } else {
+            if ui
+                .add(ImageButton::new(icons.link.egui()))
+                .on_hover_text(format!(
+                    "{kind_label} inclusion is inherited in this scenario"
+                ))
+                .clicked()
+            {
+                commands.entity(element).insert(Inclusion::Hidden);
+            }
+        }
+        if ui
+            .add(ImageButton::new(icons.trash.egui()))
+            .on_hover_text(format!(
+                "Remove {} from all scenarios",
+                kind_label.to_lowercase()
+            ))
+            .clicked()
+        {
+            delete.write(Delete::new(element));
+        }
+        ui.label(label).on_hover_text(format!(
+            "{kind_label} is included in {scenario_count} scenarios"
+        ));
+    });
 }
 
 #[derive(Resource)]

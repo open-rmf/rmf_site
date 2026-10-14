@@ -550,6 +550,7 @@ fn generate_site_entities(
         consider_id(*nav_graph_id);
     }
 
+    let mut lane_id_to_entity = HashMap::<u32, Entity>::new();
     for (lane_id, lane_data) in &site_data.navigation.guided.lanes {
         let lane = commands
             .spawn(
@@ -561,9 +562,11 @@ fn generate_site_entities(
             .insert(ChildOf(site_id))
             .id();
         id_to_entity.insert(*lane_id, lane);
+        lane_id_to_entity.insert(*lane_id, lane);
         consider_id(*lane_id);
     }
 
+    let mut location_id_to_entity = HashMap::<u32, Entity>::new();
     for (location_id, location_data) in &site_data.navigation.guided.locations {
         let location = commands
             .spawn(
@@ -575,6 +578,7 @@ fn generate_site_entities(
             .insert(ChildOf(site_id))
             .id();
         id_to_entity.insert(*location_id, location);
+        location_id_to_entity.insert(*location_id, location);
         consider_id(*location_id);
     }
     // Properties require the id_to_entity map to be fully populated to load suppressed issues
@@ -758,6 +762,161 @@ fn generate_site_entities(
                     *task_entity,
                     params.clone(),
                 ));
+            }
+        }
+
+        // Spawn lane and location modifier entities
+        if scenario_data.properties.parent_scenario.0.is_none() {
+            for lane_id in scenario_data.lanes.keys() {
+                if !lane_id_to_entity.contains_key(lane_id) {
+                    return Err(*lane_id).as_broken_error(site_id, "lane modifier");
+                }
+            }
+            for (lane_id, lane_data) in &site_data.navigation.guided.lanes {
+                let lane_entity = *lane_id_to_entity.get(lane_id).unwrap();
+                let lane_modifier = scenario_data.lanes.get(lane_id);
+                let inclusion = lane_modifier
+                    .and_then(|m| m.inclusion)
+                    .unwrap_or(Inclusion::Included);
+                let forward = lane_modifier
+                    .and_then(|m| m.forward.clone())
+                    .unwrap_or_else(|| lane_data.forward.clone());
+                let reverse = lane_modifier
+                    .and_then(|m| m.reverse.clone())
+                    .unwrap_or_else(|| lane_data.reverse.clone());
+                let graphs = match lane_modifier.and_then(|m| m.graphs.as_ref()) {
+                    Some(graphs) => graphs
+                        .convert(&id_to_entity)
+                        .as_broken_error(site_id, "lane modifier graphs")?,
+                    None => lane_data
+                        .graphs
+                        .convert(&id_to_entity)
+                        .as_broken_error(site_id, "lane")?,
+                };
+                commands.trigger(UpdateModifier::modify(
+                    scenario_entity,
+                    lane_entity,
+                    inclusion,
+                ));
+                commands.trigger(UpdateModifier::modify(
+                    scenario_entity,
+                    lane_entity,
+                    forward,
+                ));
+                commands.trigger(UpdateModifier::modify(
+                    scenario_entity,
+                    lane_entity,
+                    reverse,
+                ));
+                commands.trigger(UpdateModifier::modify(scenario_entity, lane_entity, graphs));
+            }
+
+            for location_id in scenario_data.locations.keys() {
+                if !location_id_to_entity.contains_key(location_id) {
+                    return Err(*location_id).as_broken_error(site_id, "location modifier");
+                }
+            }
+            for (location_id, location_data) in &site_data.navigation.guided.locations {
+                let location_entity = *location_id_to_entity.get(location_id).unwrap();
+                let location_modifier = scenario_data.locations.get(location_id);
+                let inclusion = location_modifier
+                    .and_then(|m| m.inclusion)
+                    .unwrap_or(Inclusion::Included);
+                let tags = location_modifier
+                    .and_then(|m| m.tags.clone())
+                    .unwrap_or_else(|| location_data.tags.clone());
+                let graphs = match location_modifier.and_then(|m| m.graphs.as_ref()) {
+                    Some(graphs) => graphs
+                        .convert(&id_to_entity)
+                        .as_broken_error(site_id, "location modifier graphs")?,
+                    None => location_data
+                        .graphs
+                        .convert(&id_to_entity)
+                        .as_broken_error(site_id, "location")?,
+                };
+                commands.trigger(UpdateModifier::modify(
+                    scenario_entity,
+                    location_entity,
+                    inclusion,
+                ));
+                commands.trigger(UpdateModifier::modify(
+                    scenario_entity,
+                    location_entity,
+                    tags,
+                ));
+                commands.trigger(UpdateModifier::modify(
+                    scenario_entity,
+                    location_entity,
+                    graphs,
+                ));
+            }
+        } else {
+            for (lane_id, lane_modifier) in scenario_data.lanes.iter() {
+                let lane_entity = lane_id_to_entity
+                    .get(lane_id)
+                    .ok_or(*lane_id)
+                    .as_broken_error(site_id, "lane modifier")?;
+                if let Some(inclusion) = lane_modifier.inclusion {
+                    commands.trigger(UpdateModifier::modify(
+                        scenario_entity,
+                        *lane_entity,
+                        inclusion,
+                    ));
+                }
+                if let Some(forward) = &lane_modifier.forward {
+                    commands.trigger(UpdateModifier::modify(
+                        scenario_entity,
+                        *lane_entity,
+                        forward.clone(),
+                    ));
+                }
+                if let Some(reverse) = &lane_modifier.reverse {
+                    commands.trigger(UpdateModifier::modify(
+                        scenario_entity,
+                        *lane_entity,
+                        reverse.clone(),
+                    ));
+                }
+                if let Some(graphs) = &lane_modifier.graphs {
+                    let graphs = graphs
+                        .convert(&id_to_entity)
+                        .as_broken_error(site_id, "lane modifier graphs")?;
+                    commands.trigger(UpdateModifier::modify(
+                        scenario_entity,
+                        *lane_entity,
+                        graphs,
+                    ));
+                }
+            }
+            for (location_id, location_modifier) in scenario_data.locations.iter() {
+                let location_entity = location_id_to_entity
+                    .get(location_id)
+                    .ok_or(*location_id)
+                    .as_broken_error(site_id, "location modifier")?;
+                if let Some(inclusion) = location_modifier.inclusion {
+                    commands.trigger(UpdateModifier::modify(
+                        scenario_entity,
+                        *location_entity,
+                        inclusion,
+                    ));
+                }
+                if let Some(tags) = &location_modifier.tags {
+                    commands.trigger(UpdateModifier::modify(
+                        scenario_entity,
+                        *location_entity,
+                        tags.clone(),
+                    ));
+                }
+                if let Some(graphs) = &location_modifier.graphs {
+                    let graphs = graphs
+                        .convert(&id_to_entity)
+                        .as_broken_error(site_id, "location modifier graphs")?;
+                    commands.trigger(UpdateModifier::modify(
+                        scenario_entity,
+                        *location_entity,
+                        graphs,
+                    ));
+                }
             }
         }
     }
