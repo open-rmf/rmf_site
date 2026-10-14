@@ -206,11 +206,11 @@ fn on_use_modifier<T: Property, E: Element>(
     trigger: Trigger<UseModifier>,
     world: &mut World,
     values: &mut QueryState<&mut T, With<E>>,
-    scenario_state: &mut SystemState<(Commands, Res<CurrentScenario>, GetModifier<Modifier<T>>)>,
+    scenario_state: &mut SystemState<(Res<CurrentScenario>, GetModifier<Modifier<T>>)>,
 ) {
     let event = trigger.event();
     let fallback_value = T::get_fallback(event.for_element, event.in_scenario, world);
-    let (mut commands, current_scenario, get_modifier) = scenario_state.get(world);
+    let (current_scenario, get_modifier) = scenario_state.get(world);
     // Only update current scenario properties
     if !current_scenario.0.is_some_and(|e| e == event.in_scenario) {
         return;
@@ -225,42 +225,44 @@ fn on_use_modifier<T: Property, E: Element>(
     {
         (**modifier).clone()
     } else {
-        // No modifier exists in this tree for this scenario/element pairing
-        // Make sure that a modifier for this property exists in the current scenario tree
-        if let Some(modifier_entity) = get_modifier
-            .scenarios
-            .get(event.in_scenario)
-            .ok()
-            .and_then(|(scenario_modifiers, _)| scenario_modifiers.get(&event.for_element))
-        {
-            commands
-                .entity(*modifier_entity)
-                .insert(Modifier::<T>::new(fallback_value));
-            scenario_state.apply(world);
-        } else {
-            // Modifier entity does not exist, add one to the root scenario
-            let mut target_scenario = event.in_scenario;
-            let mut root_scenario: Option<Entity> = None;
-            while root_scenario.is_none() {
-                let Ok((_, parent_scenario)) = get_modifier.scenarios.get(target_scenario) else {
-                    break;
-                };
-                if let Some(parent_entity) = parent_scenario.0 {
-                    target_scenario = parent_entity;
-                } else {
-                    root_scenario = Some(target_scenario);
-                    break;
-                }
-            }
-            if let Some(root_scenario_entity) = root_scenario {
-                world.trigger(UpdateModifier::modify(
-                    root_scenario_entity,
-                    event.for_element,
-                    fallback_value,
-                ))
+        // No modifier exists in this tree for this scenario/element pairing.
+        // Make sure that a modifier for this property exists in the root of this scenario tree.
+        let mut target_scenario = event.in_scenario;
+        let mut root_scenario: Option<Entity> = None;
+        while root_scenario.is_none() {
+            let Ok((_, parent_scenario)) = get_modifier.scenarios.get(target_scenario) else {
+                break;
+            };
+            if let Some(parent_entity) = parent_scenario.0 {
+                target_scenario = parent_entity;
+            } else {
+                root_scenario = Some(target_scenario);
+                break;
             }
         }
-        return;
+        if let Some(root_scenario_entity) = root_scenario {
+            if let Some(modifier_entity) = get_modifier
+                .scenarios
+                .get(root_scenario_entity)
+                .ok()
+                .and_then(|(scenario_modifiers, _)| scenario_modifiers.get(&event.for_element))
+                .copied()
+            {
+                world
+                    .commands()
+                    .entity(modifier_entity)
+                    .insert(Modifier::<T>::new(fallback_value.clone()));
+            } else {
+                world
+                    .commands()
+                    .trigger(UpdateModifier::modify_without_trigger(
+                        root_scenario_entity,
+                        event.for_element,
+                        fallback_value.clone(),
+                    ));
+            }
+        }
+        fallback_value
     };
 
     let changed = values
@@ -282,17 +284,20 @@ fn on_use_modifier<T: Property, E: Element>(
 /// e.g. insert additional modifiers in other scenarios.
 fn on_add_property<T: Property, E: Element>(
     trigger: Trigger<OnAdd, T>,
-    world: &mut World,
-    state: &mut SystemState<(Query<&T, With<E>>, Res<CurrentScenario>)>,
+    mut commands: Commands,
+    values: Query<&T, With<E>>,
+    current_scenario: Res<CurrentScenario>,
 ) {
-    let (values, current_scenario) = state.get_mut(world);
-    let Ok(value) = values.get(trigger.target()) else {
+    let target = trigger.target();
+    let Ok(value) = values.get(target).cloned() else {
         return;
     };
     let Some(scenario_entity) = current_scenario.0 else {
         return;
     };
-    T::on_new_element(trigger.target(), scenario_entity, value.clone(), world);
+    commands.queue(move |world: &mut World| {
+        T::on_new_element(target, scenario_entity, value, world);
+    });
 }
 
 /// When a new scenario has been created, this observer checks that it is a root
@@ -300,19 +305,20 @@ fn on_add_property<T: Property, E: Element>(
 /// for the Property, e.g. insert additional modifiers in the new scenario.
 fn on_add_scenario<T: Property + 'static + Send + Sync, E: Element>(
     trigger: Trigger<OnAdd, ScenarioModifiers<Entity>>,
-    world: &mut World,
-    state: &mut SystemState<Query<&Affiliation<Entity>>>,
-    events_state: &mut SystemState<EventWriter<ChangeCurrentScenario>>,
+    mut commands: Commands,
+    scenarios: Query<&Affiliation<Entity>>,
+    mut change_current_scenario: EventWriter<ChangeCurrentScenario>,
 ) {
-    let scenarios = state.get_mut(world);
-    let Ok(affiliation) = scenarios.get(trigger.target()) else {
+    let target = trigger.target();
+    let Ok(affiliation) = scenarios.get(target).copied() else {
         return;
     };
 
-    T::on_new_scenario::<E>(trigger.target(), *affiliation, world);
+    commands.queue(move |world: &mut World| {
+        T::on_new_scenario::<E>(target, affiliation, world);
+    });
 
-    let mut change_current_scenario = events_state.get_mut(world);
-    change_current_scenario.write(ChangeCurrentScenario(trigger.target()));
+    change_current_scenario.write(ChangeCurrentScenario(target));
 }
 
 /// Handles cleanup of scenario modifiers when elements are despawned

@@ -17,8 +17,8 @@
 
 use crate::{
     site::{
-        AssociatedGraphs, Change, ConsiderAssociatedGraph, NameInSite, NavGraphMarker,
-        RecallAssociatedGraphs,
+        AssociatedGraphs, Change, ConsiderAssociatedGraph, CurrentScenario, GetModifier, Modifier,
+        NameInSite, NavGraphMarker, RecallAssociatedGraphs, UpdateModifier,
     },
     widgets::{prelude::*, Icons, Inspect},
 };
@@ -39,6 +39,8 @@ pub struct InspectAssociatedGraphs<'w, 's> {
             &'static RecallAssociatedGraphs<Entity>,
         ),
     >,
+    current_scenario: Res<'w, CurrentScenario>,
+    get_modifier: GetModifier<'w, 's, Modifier<AssociatedGraphs<Entity>>>,
     graphs: Query<'w, 's, (Entity, &'static NameInSite), With<NavGraphMarker>>,
     icons: Res<'w, Icons>,
     consider_graph: EventWriter<'w, ConsiderAssociatedGraph>,
@@ -136,6 +138,31 @@ impl<'w, 's> InspectAssociatedGraphs<'w, 's> {
 
         if new_associated != *associated {
             self.commands.trigger(Change::new(new_associated, id));
+        }
+
+        if let Some(current_scenario_entity) = self.current_scenario.0 {
+            if let Ok((scenario_modifiers, parent_scenario)) =
+                self.get_modifier.scenarios.get(current_scenario_entity)
+            {
+                let has_modifier = scenario_modifiers
+                    .get(&id)
+                    .is_some_and(|e| self.get_modifier.modifiers.get(*e).is_ok());
+                if has_modifier && parent_scenario.0.is_some() {
+                    if ui
+                        .button("Reset Associated Graphs")
+                        .on_hover_text(
+                            "Reset associated graphs to their inherited value in this scenario",
+                        )
+                        .clicked()
+                    {
+                        self.commands
+                            .trigger(UpdateModifier::<AssociatedGraphs<Entity>>::reset(
+                                current_scenario_entity,
+                                id,
+                            ));
+                    }
+                }
+            }
         }
 
         ui.add_space(10.0);

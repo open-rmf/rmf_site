@@ -44,6 +44,7 @@ pub struct Lane<T: RefTrait> {
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", require(Inclusion = Inclusion::Included))]
 pub struct LaneMarker;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]

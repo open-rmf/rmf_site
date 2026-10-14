@@ -34,37 +34,31 @@ impl Property for Inclusion {
         value: Inclusion,
         world: &mut World,
     ) {
-        // Insert inclusion modifier with given value into target scenario
-        world.trigger(UpdateModifier::modify(in_scenario, for_element, value));
-
         let mut scenario_state: SystemState<
             Query<(Entity, &ScenarioModifiers<Entity>, &Affiliation<Entity>)>,
         > = SystemState::new(world);
         let scenarios = scenario_state.get_mut(world);
 
-        // Insert inclusion modifier into all root scenarios outside of the current tree as hidden
-        let mut current_root_entity: Entity = in_scenario;
-        while let Ok((_, _, parent_scenario)) = scenarios.get(current_root_entity) {
-            if let Some(parent_scenario_entity) = parent_scenario.0 {
-                current_root_entity = parent_scenario_entity;
-            } else {
-                break;
-            }
-        }
+        // Insert inclusion modifier into all root scenarios (other than in_scenario) as hidden
         let mut root_scenarios = HashSet::<Entity>::new();
         for (scenario_entity, _, parent_scenario) in scenarios.iter() {
-            if parent_scenario.0.is_some() || scenario_entity == current_root_entity {
+            if parent_scenario.0.is_some() || scenario_entity == in_scenario {
                 continue;
             }
             root_scenarios.insert(scenario_entity);
         }
         for root in root_scenarios.iter() {
-            world.trigger(UpdateModifier::modify(
+            world.commands().trigger(UpdateModifier::modify(
                 *root,
                 for_element,
                 Inclusion::Hidden,
             ));
         }
+
+        // Insert inclusion modifier with given value into target scenario
+        world
+            .commands()
+            .trigger(UpdateModifier::modify(in_scenario, for_element, value));
     }
 
     fn on_new_scenario<E: Element>(
@@ -94,7 +88,7 @@ impl Property for Inclusion {
 
         for target in target_tasks.iter() {
             // Mark all task modifiers as Hidden
-            world.trigger(UpdateModifier::modify(
+            world.commands().trigger(UpdateModifier::modify(
                 in_scenario,
                 *target,
                 Inclusion::Hidden,
