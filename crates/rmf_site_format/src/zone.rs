@@ -21,16 +21,42 @@ use bevy::prelude::Component;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, HashMap};
 
-/// A named zone polygon on a level. The boundary closes implicitly.
+/// A named polygon annotation stored in [`crate::Level::zones`].
+///
+/// The boundary is an ordered list of anchors on the level and closes
+/// implicitly from the last anchor to the first. A zone can belong to multiple
+/// named sets shared across levels; these are defined in
+/// [`crate::Site::zone_sets`].
+///
+/// In a site file, a zone uses anchor and set IDs:
+///
+/// ```json
+/// {
+///   "anchors": [10, 11, 12, 13],
+///   "name": "Cleaning area",
+///   "sets": [20]
+/// }
+/// ```
+///
+/// The `sets` field defaults to an empty list when absent and is omitted when
+/// empty. Names, boundaries, and memberships are saved with the site; editor
+/// visibility and set filters are not part of the format.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Zone<T: RefTrait> {
+    /// Ordered boundary anchors. The first anchor does not need to be repeated
+    /// at the end.
     pub anchors: Path<T>,
+    /// The zone's annotation name.
     pub name: NameInSite,
+    /// References to the site-wide sets that this zone belongs to.
     #[serde(default, skip_serializing_if = "ZoneSets::is_empty")]
     pub sets: ZoneSets<T>,
 }
 
 impl<T: RefTrait> Zone<T> {
+    /// Remap anchor and set references, preserving the zone's name.
+    ///
+    /// Returns the first reference missing from `id_map` as an error.
     pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Zone<U>, T> {
         Ok(Zone {
             anchors: self.anchors.convert(id_map)?,
@@ -50,17 +76,28 @@ impl<T: RefTrait> From<Path<T>> for Zone<T> {
     }
 }
 
-/// A named set of zones, shared across levels.
+/// A named set of zones stored in [`crate::Site::zone_sets`], shared across levels.
+///
+/// Membership is stored on each [`Zone::sets`], allowing a zone to belong to
+/// multiple sets. Removing a set should remove its references from those
+/// memberships while keeping the zones.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ZoneSet {
+    /// The name used to identify the set in the editor.
     pub name: NameInSite,
 }
 
-/// The sets that a zone belongs to.
+/// References to the site-wide [`ZoneSet`]s that a zone belongs to.
+///
+/// Serialized as a list of unique set IDs in a site file. The default is an
+/// empty set, representing a zone without any set memberships.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(transparent)]
 #[cfg_attr(feature = "bevy", derive(Component))]
-pub struct ZoneSets<T: RefTrait>(pub BTreeSet<T>);
+pub struct ZoneSets<T: RefTrait>(
+    /// The zone's set references.
+    pub BTreeSet<T>,
+);
 
 impl<T: RefTrait> Default for ZoneSets<T> {
     fn default() -> Self {

@@ -58,6 +58,11 @@ pub struct Level {
     pub drawings: BTreeMap<u32, Drawing>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub floors: BTreeMap<u32, Floor<u32>>,
+    /// Named polygon annotations keyed by site entity ID. Boundary anchors
+    /// reference this level's anchors.
+    ///
+    /// Defaults to an empty collection when absent and is omitted when empty,
+    /// preserving compatibility with older site files.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub zones: BTreeMap<u32, Zone<u32>>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
