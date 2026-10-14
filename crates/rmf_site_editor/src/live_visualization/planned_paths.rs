@@ -26,6 +26,10 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::interaction::CategoryVisibility;
 use crate::layers::ZLayer;
 
+use super::gizmos::{
+    draw_crosshair_symbol, draw_dashed_line, draw_path_arrowhead, draw_path_start_point,
+    draw_path_waiting_point,
+};
 use super::network_client::{
     run_subscription_loop, spawn_network_task, LiveStreamHandler, VisualizationStreamChannel,
 };
@@ -289,12 +293,24 @@ pub fn update_live_paths(
 
                 draw_path_start_point(
                     &mut gizmos,
-                    path_data.waypoints[start_idx].position,
+                    path_data.waypoints[start_idx]
+                        .position
+                        .with_z(ZLayer::PlannedPathPoint.to_z()),
+                    PATH_POINT_INNER_RADIUS,
+                    PATH_POINT_CROSS_RADIUS,
                     PLANNED_PATH_COLOR,
                 );
 
                 if let Some(final_wp) = path_data.waypoints.last() {
-                    draw_path_end_point(&mut gizmos, final_wp.position, PLANNED_PATH_COLOR);
+                    draw_crosshair_symbol(
+                        &mut gizmos,
+                        final_wp.position.with_z(ZLayer::PlannedPathPoint.to_z()),
+                        Quat::IDENTITY,
+                        PATH_POINT_OUTER_RADIUS,
+                        PATH_POINT_INNER_RADIUS,
+                        PATH_POINT_CROSS_RADIUS,
+                        PLANNED_PATH_COLOR,
+                    );
                 }
             }
         }
@@ -369,75 +385,28 @@ fn draw_dependency_line(
     let distance = delta.length();
 
     if distance > 0.0 {
-        let dir = delta / distance;
-        let pattern_length = DEPENDENCY_DASH_LENGTH + DEPENDENCY_GAP_LENGTH;
-        let offset = (time.elapsed_secs() * DEPENDENCY_LINE_SPEED) % pattern_length;
-        let mut current_dist = offset - pattern_length;
-
-        // Draw dashed line along vector
-        while current_dist < distance {
-            let start_dist = current_dist.max(0.0);
-            let end_dist = (current_dist + DEPENDENCY_DASH_LENGTH).min(distance);
-
-            if start_dist < end_dist {
-                let segment_start = start_pos + dir * start_dist;
-                let segment_end = start_pos + dir * end_dist;
-
-                gizmos.line(segment_start, segment_end, DEPENDENCY_LINE_COLOR);
-            }
-
-            current_dist += pattern_length;
-        }
-
-        draw_path_waiting_point(gizmos, waiting_pos, DEPENDENCY_WAITING_POINT_COLOR);
-        draw_path_arrowhead(gizmos, end_pos, dir, DEPENDENCY_LINE_COLOR);
+        draw_dashed_line(
+            gizmos,
+            start_pos,
+            end_pos,
+            DEPENDENCY_DASH_LENGTH,
+            DEPENDENCY_GAP_LENGTH,
+            time.elapsed_secs() * DEPENDENCY_LINE_SPEED,
+            DEPENDENCY_LINE_COLOR,
+        );
+        draw_path_waiting_point(
+            gizmos,
+            waiting_pos,
+            PATH_POINT_OUTER_RADIUS,
+            PATH_POINT_INNER_RADIUS,
+            DEPENDENCY_WAITING_POINT_COLOR,
+        );
+        draw_path_arrowhead(
+            gizmos,
+            end_pos,
+            delta / distance,
+            DEPENDENCY_ARROW_SIZE,
+            DEPENDENCY_LINE_COLOR,
+        );
     }
-}
-
-fn draw_path_arrowhead(gizmos: &mut Gizmos, pos: Vec3, dir: Vec3, color: Color) {
-    let perp = Vec3::new(-dir.y, dir.x, 0.0);
-    let p1 = pos - dir * DEPENDENCY_ARROW_SIZE + perp * (DEPENDENCY_ARROW_SIZE * 0.5);
-    let p2 = pos - dir * DEPENDENCY_ARROW_SIZE - perp * (DEPENDENCY_ARROW_SIZE * 0.5);
-
-    gizmos.line(pos, p1, color);
-    gizmos.line(pos, p2, color);
-}
-
-fn draw_path_waiting_point(gizmos: &mut Gizmos, pos: Vec3, color: Color) {
-    let new_pos = Isometry3d::new(pos.with_z(ZLayer::PlannedPathPoint.to_z()), Quat::IDENTITY);
-    gizmos.circle(new_pos, PATH_POINT_OUTER_RADIUS, color);
-    gizmos.circle(new_pos, PATH_POINT_INNER_RADIUS, color);
-}
-
-fn draw_path_start_point(gizmos: &mut Gizmos, pos: Vec3, color: Color) {
-    let new_pos = pos.with_z(ZLayer::PlannedPathPoint.to_z());
-    let isometry_pos = Isometry3d::new(pos.with_z(ZLayer::PlannedPathPoint.to_z()), Quat::IDENTITY);
-    gizmos.circle(isometry_pos, PATH_POINT_INNER_RADIUS, color);
-    gizmos.line(
-        new_pos + Vec3::X * PATH_POINT_CROSS_RADIUS,
-        new_pos - Vec3::X * PATH_POINT_CROSS_RADIUS,
-        color,
-    );
-    gizmos.line(
-        new_pos + Vec3::Y * PATH_POINT_CROSS_RADIUS,
-        new_pos - Vec3::Y * PATH_POINT_CROSS_RADIUS,
-        color,
-    );
-}
-
-fn draw_path_end_point(gizmos: &mut Gizmos, pos: Vec3, color: Color) {
-    let new_pos = pos.with_z(ZLayer::PlannedPathPoint.to_z());
-    let isometry_pos = Isometry3d::new(new_pos, Quat::IDENTITY);
-    gizmos.circle(isometry_pos, PATH_POINT_OUTER_RADIUS, color);
-    gizmos.circle(isometry_pos, PATH_POINT_INNER_RADIUS, color);
-    gizmos.line(
-        new_pos + Vec3::X * PATH_POINT_CROSS_RADIUS,
-        new_pos - Vec3::X * PATH_POINT_CROSS_RADIUS,
-        color,
-    );
-    gizmos.line(
-        new_pos + Vec3::Y * PATH_POINT_CROSS_RADIUS,
-        new_pos - Vec3::Y * PATH_POINT_CROSS_RADIUS,
-        color,
-    );
 }

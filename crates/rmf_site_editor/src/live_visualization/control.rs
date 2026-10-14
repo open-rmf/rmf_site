@@ -24,6 +24,8 @@ use rmf_site_egui::{
 use rmf_site_format::{Group, NameInSite, Pending, Pose, Robot};
 use std::collections::HashMap;
 
+use super::destination_picking::{DestinationPickingState, RobotDestination};
+
 use super::live_state::{LiveStreamState, LoadSiteStatus};
 use super::planned_paths::LivePathsState;
 
@@ -64,38 +66,26 @@ impl Plugin for RobotPathControlPlugin {
     }
 }
 
-fn cleanup_robot_path_control(mut control_state: ResMut<RobotPathControlState>) {
+fn cleanup_robot_path_control(
+    mut control_state: ResMut<RobotPathControlState>,
+    mut picking_state: ResMut<DestinationPickingState>,
+) {
     if !control_state.is_empty() {
         *control_state = RobotPathControlState::default();
     }
-}
-
-#[derive(Clone, Debug)]
-struct RobotDestination {
-    position: Vec2,
-    location_name: Option<String>,
-}
-
-impl RobotDestination {
-    fn display_label(&self) -> String {
-        self.location_name
-            .clone()
-            .unwrap_or_else(|| format!("({:.2}, {:.2})", self.position.x, self.position.y))
+    if !picking_state.is_empty() {
+        *picking_state = DestinationPickingState::default();
     }
 }
 
 #[derive(Default, Resource)]
 struct RobotPathControlState {
-    active_routing_robot: Option<String>,
     current_destinations: HashMap<String, RobotDestination>,
-    selected_destinations: HashMap<String, RobotDestination>,
 }
 
 impl RobotPathControlState {
     fn is_empty(&self) -> bool {
-        self.active_routing_robot.is_none()
-            && self.current_destinations.is_empty()
-            && self.selected_destinations.is_empty()
+        self.current_destinations.is_empty()
     }
 }
 
@@ -124,6 +114,7 @@ struct RobotPathControlWidget<'w, 's> {
     app_state: Res<'w, State<crate::AppState>>,
     livestream_state: Res<'w, LiveStreamState>,
     control_state: ResMut<'w, RobotPathControlState>,
+    picking_state: ResMut<'w, DestinationPickingState>,
     path_state: Res<'w, LivePathsState>,
     robots: Query<
         'w,
@@ -191,7 +182,7 @@ impl<'w, 's> RobotPathControlWidget<'w, 's> {
 
                     let path_data = self.path_state.0.get(robot_name);
 
-                    let selected_dest = self.control_state.selected_destinations.get(robot_name);
+                    let selected_dest = self.picking_state.selected_destinations.get(robot_name);
                     let current_dest = self.control_state.current_destinations.get(robot_name);
 
                     // Update Status column
@@ -223,16 +214,16 @@ impl<'w, 's> RobotPathControlWidget<'w, 's> {
                     ui.label(egui::RichText::new(goal_text).color(goal_color));
 
                     // Highlight robot that is currently being routed
-                    let is_routing = self.control_state.active_routing_robot.as_deref()
+                    let is_routing = self.picking_state.active_routing_robot.as_deref()
                         == Some(robot_name.as_str());
                     if ui
                         .add(egui::Button::new("Route").selected(is_routing))
                         .clicked()
                     {
                         if is_routing {
-                            self.control_state.active_routing_robot = None;
+                            self.picking_state.active_routing_robot = None;
                         } else {
-                            self.control_state.active_routing_robot = Some(robot_name.clone());
+                            self.picking_state.active_routing_robot = Some(robot_name.clone());
                         }
                     }
                     ui.end_row();
@@ -253,7 +244,7 @@ impl<'w, 's> RobotPathControlWidget<'w, 's> {
             egui::Layout::right_to_left(egui::Align::TOP),
             |ui| {
                 ui.add_enabled(
-                    !self.control_state.selected_destinations.is_empty(),
+                    !self.picking_state.selected_destinations.is_empty(),
                     egui::Button::new("Send Scenario"),
                 );
             },

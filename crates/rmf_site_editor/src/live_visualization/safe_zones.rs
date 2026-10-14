@@ -15,6 +15,7 @@
  *
 */
 
+use bevy::picking::Pickable;
 use bevy::prelude::*;
 use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
@@ -28,6 +29,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::interaction::CategoryVisibility;
 use crate::layers::ZLayer;
 
+use super::gizmos::draw_crosshair_symbol;
 use super::local_paths::LocalPathMarker;
 use super::network_client::{
     run_subscription_loop, spawn_network_task, LiveStreamHandler, VisualizationStreamChannel,
@@ -260,6 +262,7 @@ pub fn update_live_safe_zones(
                     mat3d,
                     target_transform,
                     Visibility::Hidden,
+                    Pickable::IGNORE,
                 ))
                 .id();
 
@@ -286,7 +289,15 @@ pub fn update_live_safe_zones(
             };
             if local_path_vis.0 {
                 if let Some(target_pos) = marker.incremental_target {
-                    draw_path_target_point(&mut gizmos, target_pos, INCREMENTAL_WAYPOINT_COLOR);
+                    draw_crosshair_symbol(
+                        &mut gizmos,
+                        target_pos,
+                        Quat::IDENTITY,
+                        INCREMENTAL_WAYPOINT_OUTER_RADIUS,
+                        INCREMENTAL_WAYPOINT_INNER_RADIUS,
+                        INCREMENTAL_WAYPOINT_CROSS_RADIUS,
+                        INCREMENTAL_WAYPOINT_COLOR,
+                    );
                 }
             }
         }
@@ -412,21 +423,4 @@ fn create_safezone_assets(
     }));
 
     (image_handle, mesh3d, mat3d)
-}
-
-fn draw_path_target_point(gizmos: &mut Gizmos, pos: Vec3, color: Color) {
-    let new_pos = pos.with_z(ZLayer::IncrementalWaypoint.to_z());
-    let isometry_pos = Isometry3d::new(new_pos, Quat::IDENTITY);
-    gizmos.circle(isometry_pos, INCREMENTAL_WAYPOINT_OUTER_RADIUS, color);
-    gizmos.circle(isometry_pos, INCREMENTAL_WAYPOINT_INNER_RADIUS, color);
-    gizmos.line(
-        new_pos + Vec3::X * INCREMENTAL_WAYPOINT_CROSS_RADIUS,
-        new_pos - Vec3::X * INCREMENTAL_WAYPOINT_CROSS_RADIUS,
-        color,
-    );
-    gizmos.line(
-        new_pos + Vec3::Y * INCREMENTAL_WAYPOINT_CROSS_RADIUS,
-        new_pos - Vec3::Y * INCREMENTAL_WAYPOINT_CROSS_RADIUS,
-        color,
-    );
 }

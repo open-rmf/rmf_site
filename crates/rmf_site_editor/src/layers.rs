@@ -22,6 +22,7 @@ pub enum ZLayer {
     IncrementalWaypoint,
     PlannedPathPoint,
     LocalPath,
+    DestinationTarget,
 }
 
 impl ZLayer {

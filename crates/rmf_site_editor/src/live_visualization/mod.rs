@@ -16,6 +16,8 @@
 */
 
 mod control;
+mod destination_picking;
+mod gizmos;
 mod live_state;
 mod local_paths;
 mod network_client;
@@ -29,6 +31,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use control::RobotPathControlPlugin;
+use destination_picking::DestinationPickingPlugin;
 pub use live_state::LiveStreamState;
 use live_state::{
     auto_fetch_site_on_connect, check_load_site_completion, load_site_status_ui,
@@ -53,6 +56,7 @@ impl Plugin for LiveVisualizationPlugin {
             StreamPlugin::<LiveEventProgress>::default(),
             StreamPlugin::<LiveEventSafeZone>::default(),
             StreamPlugin::<LiveEventLocalPlan>::default(),
+            DestinationPickingPlugin::default(),
             RobotPathControlPlugin::default(),
         ))
         .init_resource::<LiveStreamState>()
