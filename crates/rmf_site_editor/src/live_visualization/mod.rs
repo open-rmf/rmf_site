@@ -17,6 +17,7 @@
 
 mod control;
 mod destination_picking;
+mod destinations;
 mod gizmos;
 mod goal_publishing;
 mod live_state;
@@ -33,6 +34,7 @@ use std::sync::Arc;
 
 use control::RobotPathControlPlugin;
 use destination_picking::DestinationPickingPlugin;
+use destinations::{update_live_destinations, LiveDestinationsState, LiveEventDestination};
 use goal_publishing::DestinationGoalSender;
 pub use live_state::LiveStreamState;
 use live_state::{
@@ -58,6 +60,7 @@ impl Plugin for LiveVisualizationPlugin {
             StreamPlugin::<LiveEventProgress>::default(),
             StreamPlugin::<LiveEventSafeZone>::default(),
             StreamPlugin::<LiveEventLocalPlan>::default(),
+            StreamPlugin::<LiveEventDestination>::default(),
             DestinationPickingPlugin::default(),
             RobotPathControlPlugin::default(),
         ))
@@ -66,6 +69,7 @@ impl Plugin for LiveVisualizationPlugin {
         .init_resource::<LivePathsState>()
         .init_resource::<LiveSafeZonesState>()
         .init_resource::<LiveLocalPathsState>()
+        .init_resource::<LiveDestinationsState>()
         .init_resource::<DestinationGoalSender>()
         .add_systems(
             Update,
@@ -88,6 +92,7 @@ impl Plugin for LiveVisualizationPlugin {
                 update_live_paths,
                 update_live_safe_zones,
                 update_live_local_paths,
+                update_live_destinations,
             )
                 .run_if(in_state(crate::AppState::SiteStream))
                 .run_if(LiveStreamState::in_connected_mode()),

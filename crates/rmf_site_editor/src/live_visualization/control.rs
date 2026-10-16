@@ -25,6 +25,7 @@ use rmf_site_format::{Group, NameInSite, Pending, Pose, Robot};
 use std::collections::HashMap;
 
 use super::destination_picking::{DestinationPickingState, RobotDestination};
+use super::destinations::LiveDestinationsState;
 use super::goal_publishing::DestinationGoalSender;
 use super::live_state::{LiveStreamState, LoadSiteStatus};
 use super::planned_paths::LivePathsState;
@@ -32,6 +33,7 @@ use super::planned_paths::LivePathsState;
 const PENDING_COLOR: Color32 = Color32::from_rgb(250, 255, 94);
 const MOVING_COLOR: Color32 = Color32::from_rgb(41, 224, 255);
 const REACHED_COLOR: Color32 = Color32::from_rgb(69, 255, 94);
+const WAITING_COLOR: Color32 = Color32::from_rgb(255, 153, 23);
 
 #[derive(Default)]
 pub struct RobotPathControlPlugin {}
@@ -91,15 +93,23 @@ impl RobotPathControlState {
 
 fn update_robot_path_control_ui(
     mut control_state: ResMut<RobotPathControlState>,
+    destination_state: Res<LiveDestinationsState>,
     path_state: Res<LivePathsState>,
 ) {
     for (robot_name, path_data) in &path_state.0 {
         if let Some(final_pos) = path_data.final_waypoint() {
+            let path_is_detour = destination_state
+                .detours
+                .get(robot_name)
+                .copied()
+                .unwrap_or(false);
             control_state
                 .current_destinations
                 .entry(robot_name.clone())
                 .and_modify(|dest| {
-                    dest.position = final_pos;
+                    if !path_is_detour {
+                        dest.position = final_pos;
+                    }
                 })
                 .or_insert(RobotDestination {
                     position: final_pos,
@@ -116,6 +126,7 @@ struct RobotPathControlWidget<'w, 's> {
     livestream_state: Res<'w, LiveStreamState>,
     control_state: ResMut<'w, RobotPathControlState>,
     picking_state: ResMut<'w, DestinationPickingState>,
+    destination_state: ResMut<'w, LiveDestinationsState>,
     goal_sender: Res<'w, DestinationGoalSender>,
     path_state: ResMut<'w, LivePathsState>,
     robots: Query<
@@ -183,6 +194,13 @@ impl<'w, 's> RobotPathControlWidget<'w, 's> {
                     ui.label(format!("({:.2}, {:.2})", robot_pos.x, robot_pos.y));
 
                     let path_data = self.path_state.0.get(robot_name);
+                    let is_detour = self
+                        .destination_state
+                        .detours
+                        .get(robot_name)
+                        .copied()
+                        .unwrap_or(false);
+
                     let selected_dest = self.picking_state.selected_destinations.get(robot_name);
                     let current_dest = self.control_state.current_destinations.get(robot_name);
 
@@ -193,7 +211,11 @@ impl<'w, 's> RobotPathControlWidget<'w, 's> {
 
                         // Robot has completed path and there is no next destination queued
                         Some(_) if current_dest.is_some() && selected_dest.is_none() => {
-                            ("Reached", REACHED_COLOR)
+                            if is_detour {
+                                ("Waiting", WAITING_COLOR)
+                            } else {
+                                ("Reached", REACHED_COLOR)
+                            }
                         }
 
                         // Robot has no path data
@@ -205,6 +227,17 @@ impl<'w, 's> RobotPathControlWidget<'w, 's> {
                     let (goal_text, goal_color) = match (selected_dest, current_dest) {
                         // Robot has pending destination
                         (Some(dest), _) => (dest.display_label(), PENDING_COLOR),
+
+                        // Robot has been detoured
+                        (None, Some(dest)) if is_detour => {
+                            let detour_pos = path_data
+                                .and_then(|p| p.final_waypoint())
+                                .unwrap_or(dest.position);
+                            (
+                                format!("Detour: ({:.2}, {:.2})", detour_pos.x, detour_pos.y),
+                                status_color,
+                            )
+                        }
 
                         // Robot has no selected path but has completed destination
                         (None, Some(dest)) => (dest.display_label(), status_color),
@@ -264,6 +297,9 @@ impl<'w, 's> RobotPathControlWidget<'w, 's> {
             self.goal_sender.publish(robot_name.clone(), goal_msg);
 
             self.path_state.0.remove(&robot_name);
+            self.destination_state
+                .detours
+                .insert(robot_name.clone(), false);
             self.control_state
                 .current_destinations
                 .insert(robot_name, dest);

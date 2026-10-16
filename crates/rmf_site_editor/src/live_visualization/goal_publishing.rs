@@ -109,12 +109,7 @@ impl DestinationGoalReceiver {
         }
     }
 
-    async fn publish(
-        &mut self,
-        client: &ClientHandle,
-        robot_name: &str,
-        goal: &DestinationGoal,
-    ) {
+    async fn publish(&mut self, client: &ClientHandle, robot_name: &str, goal: &DestinationGoal) {
         let publisher = match self.goal_publishers.entry(robot_name.to_string()) {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => {
