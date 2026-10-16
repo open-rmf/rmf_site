@@ -27,6 +27,8 @@ use rmf_site_msgs::rmf_prototype_msgs::msg::ParticipantList;
 use roslibrust::rosbridge::{ClientHandle, Subscriber};
 use roslibrust::RosMessageType;
 
+use super::goal_publishing::DestinationGoalReceiver;
+
 const TIMEOUT_SECONDS: u64 = 2;
 
 #[derive(Resource)]
@@ -188,6 +190,7 @@ pub fn start_rosbridge_subscriber(
     registry: StreamRegistry,
     connection_requested: Arc<AtomicBool>,
     connection_active: Arc<AtomicBool>,
+    destination_goal_receiver: DestinationGoalReceiver,
 ) {
     let url = ws_url.to_string();
     spawn_network_task(run_rosbridge_loop(
@@ -195,6 +198,7 @@ pub fn start_rosbridge_subscriber(
         registry,
         connection_requested,
         connection_active,
+        destination_goal_receiver,
     ));
 }
 
@@ -203,6 +207,7 @@ async fn run_rosbridge_loop(
     registry: StreamRegistry,
     connection_requested: Arc<AtomicBool>,
     connection_active: Arc<AtomicBool>,
+    mut destination_goal_receiver: DestinationGoalReceiver,
 ) {
     while connection_requested.load(Ordering::Relaxed) {
         // Add timeout for initial connection
@@ -238,42 +243,10 @@ async fn run_rosbridge_loop(
                 });
             }
 
-            if let Ok(discovery_sub) = client
-                .subscribe_transient_local::<ParticipantList>("/destination/discovery")
-                .await
-            {
-                let mut subscribed_robots = HashSet::new();
-
-                loop {
-                    let msg = tokio::select! {
-                        msg = discovery_sub.next() => msg,
-                        _ = wait_until_inactive(&connection_active) => break,
-                    };
-
-                    if !connection_requested.load(Ordering::Relaxed)
-                        || !connection_active.load(Ordering::Relaxed)
-                    {
-                        info!("Disconnecting from rosbridge discovery stream.");
-                        break;
-                    }
-
-                    for p in msg.participants {
-                        if !subscribed_robots.insert(p.name.clone()) {
-                            continue;
-                        }
-
-                        info!("Subscribing to: {}", p.name);
-
-                        for spawner in &registry.spawners {
-                            spawner(
-                                p.name.clone(),
-                                client.clone(),
-                                connection_requested.clone(),
-                                connection_active.clone(),
-                            );
-                        }
-                    }
-                }
+            tokio::select! {
+                _ = run_discovery_loop(&client, &registry, &connection_requested, &connection_active) => {}
+                _ = destination_goal_receiver.run_publish_loop(&client, &connection_requested, &connection_active) => {}
+                _ = wait_until_inactive(&connection_active) => {}
             }
 
             connection_active.store(false, Ordering::Relaxed);
@@ -289,4 +262,46 @@ async fn run_rosbridge_loop(
 
     info!("User disconnected. Shutting down network thread.");
     connection_active.store(false, Ordering::Relaxed);
+}
+
+async fn run_discovery_loop(
+    client: &ClientHandle,
+    registry: &StreamRegistry,
+    connection_requested: &Arc<AtomicBool>,
+    connection_active: &Arc<AtomicBool>,
+) {
+    if let Ok(discovery_sub) = client
+        .subscribe_transient_local::<ParticipantList>("/destination/discovery")
+        .await
+    {
+        let mut subscribed_robots = HashSet::new();
+
+        loop {
+            let msg = discovery_sub.next().await;
+
+            if !connection_requested.load(Ordering::Relaxed)
+                || !connection_active.load(Ordering::Relaxed)
+            {
+                info!("Disconnecting from rosbridge discovery stream.");
+                break;
+            }
+
+            for p in msg.participants {
+                if !subscribed_robots.insert(p.name.clone()) {
+                    continue;
+                }
+
+                info!("Subscribing to: {}", p.name);
+
+                for spawner in &registry.spawners {
+                    spawner(
+                        p.name.clone(),
+                        client.clone(),
+                        connection_requested.clone(),
+                        connection_active.clone(),
+                    );
+                }
+            }
+        }
+    }
 }

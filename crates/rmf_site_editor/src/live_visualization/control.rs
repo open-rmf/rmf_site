@@ -25,7 +25,7 @@ use rmf_site_format::{Group, NameInSite, Pending, Pose, Robot};
 use std::collections::HashMap;
 
 use super::destination_picking::{DestinationPickingState, RobotDestination};
-
+use super::goal_publishing::DestinationGoalSender;
 use super::live_state::{LiveStreamState, LoadSiteStatus};
 use super::planned_paths::LivePathsState;
 
@@ -104,6 +104,7 @@ fn update_robot_path_control_ui(
                 .or_insert(RobotDestination {
                     position: final_pos,
                     location_name: None,
+                    target_nodes: Vec::new(),
                 });
         }
     }
@@ -115,7 +116,8 @@ struct RobotPathControlWidget<'w, 's> {
     livestream_state: Res<'w, LiveStreamState>,
     control_state: ResMut<'w, RobotPathControlState>,
     picking_state: ResMut<'w, DestinationPickingState>,
-    path_state: Res<'w, LivePathsState>,
+    goal_sender: Res<'w, DestinationGoalSender>,
+    path_state: ResMut<'w, LivePathsState>,
     robots: Query<
         'w,
         's,
@@ -181,7 +183,6 @@ impl<'w, 's> RobotPathControlWidget<'w, 's> {
                     ui.label(format!("({:.2}, {:.2})", robot_pos.x, robot_pos.y));
 
                     let path_data = self.path_state.0.get(robot_name);
-
                     let selected_dest = self.picking_state.selected_destinations.get(robot_name);
                     let current_dest = self.control_state.current_destinations.get(robot_name);
 
@@ -239,15 +240,35 @@ impl<'w, 's> RobotPathControlWidget<'w, 's> {
         }
 
         ui.add_space(8.0);
-        ui.allocate_ui_with_layout(
-            egui::vec2(grid_response.response.rect.width(), 0.0),
-            egui::Layout::right_to_left(egui::Align::TOP),
-            |ui| {
-                ui.add_enabled(
-                    !self.picking_state.selected_destinations.is_empty(),
-                    egui::Button::new("Send Scenario"),
-                );
-            },
-        );
+        let send_scenario_clicked = ui
+            .allocate_ui_with_layout(
+                egui::vec2(grid_response.response.rect.width(), 0.0),
+                egui::Layout::right_to_left(egui::Align::TOP),
+                |ui| {
+                    ui.add_enabled(
+                        !self.picking_state.selected_destinations.is_empty(),
+                        egui::Button::new("Send Scenario"),
+                    )
+                    .clicked()
+                },
+            )
+            .inner;
+
+        if !send_scenario_clicked {
+            return;
+        }
+
+        // Publish selected destinations as DestinationGoal
+        for (robot_name, dest) in self.picking_state.selected_destinations.drain() {
+            let goal_msg = dest.to_destination_goal();
+            self.goal_sender.publish(robot_name.clone(), goal_msg);
+
+            self.path_state.0.remove(&robot_name);
+            self.control_state
+                .current_destinations
+                .insert(robot_name, dest);
+        }
+
+        self.picking_state.active_routing_robot = None;
     }
 }

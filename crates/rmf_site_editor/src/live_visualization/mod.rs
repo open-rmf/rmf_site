@@ -18,6 +18,7 @@
 mod control;
 mod destination_picking;
 mod gizmos;
+mod goal_publishing;
 mod live_state;
 mod local_paths;
 mod network_client;
@@ -32,6 +33,7 @@ use std::sync::Arc;
 
 use control::RobotPathControlPlugin;
 use destination_picking::DestinationPickingPlugin;
+use goal_publishing::DestinationGoalSender;
 pub use live_state::LiveStreamState;
 use live_state::{
     auto_fetch_site_on_connect, check_load_site_completion, load_site_status_ui,
@@ -64,6 +66,7 @@ impl Plugin for LiveVisualizationPlugin {
         .init_resource::<LivePathsState>()
         .init_resource::<LiveSafeZonesState>()
         .init_resource::<LiveLocalPathsState>()
+        .init_resource::<DestinationGoalSender>()
         .add_systems(
             Update,
             start_live_stream.run_if(in_state(crate::AppState::MainMenu)),
@@ -100,6 +103,7 @@ impl Plugin for LiveVisualizationPlugin {
 fn start_live_stream(
     mut live_stream_state: ResMut<LiveStreamState>,
     registry: Res<StreamRegistry>,
+    mut goal_sender: ResMut<DestinationGoalSender>,
     mut next_app_state: ResMut<NextState<crate::AppState>>,
     mut next_interaction_state: ResMut<NextState<crate::interaction::InteractionState>>,
     mut load_site: EventWriter<crate::site::LoadSite>,
@@ -108,11 +112,15 @@ fn start_live_stream(
         live_stream_state.connection_requested = Arc::new(AtomicBool::new(true));
         live_stream_state.connection_active = Arc::new(AtomicBool::new(false));
 
+        let (sender, destination_goal_receiver) = DestinationGoalSender::new_channel();
+        *goal_sender = sender;
+
         start_rosbridge_subscriber(
             &live_stream_state.url,
             registry.clone(),
             live_stream_state.connection_requested.clone(),
             live_stream_state.connection_active.clone(),
+            destination_goal_receiver,
         );
 
         next_app_state.set(crate::AppState::SiteStream);

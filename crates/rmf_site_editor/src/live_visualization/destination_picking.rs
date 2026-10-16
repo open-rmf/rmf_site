@@ -15,11 +15,14 @@
  *
 */
 
+use bevy::ecs::hierarchy::ChildOf;
 use bevy::prelude::*;
 use rmf_site_egui::InspectFor;
 use rmf_site_format::{
-    Anchor, FloorMarker, Group, LaneMarker, LocationTags, NameInSite, Pending, Point, Pose, Robot,
+    Anchor, AssociatedGraphs, FloorMarker, Group, LaneMarker, LevelElevation, LocationTags,
+    NameInSite, NavGraphMarker, Pending, Point, Pose, Robot, SiteID,
 };
+use rmf_site_msgs::rmf_prototype_msgs::msg::{GraphElementKey, TargetNode};
 use rmf_site_picking::{CursorFrame, Hovering, PickBlockStatus, Select, SelectionServiceStages};
 use std::collections::HashMap;
 
@@ -64,6 +67,7 @@ impl Plugin for DestinationPickingPlugin {
 pub struct RobotDestination {
     pub position: Vec2,
     pub location_name: Option<String>,
+    pub target_nodes: Vec<TargetNode>,
 }
 
 impl RobotDestination {
@@ -111,9 +115,14 @@ fn select_robot_destination(
             &Point<Entity>,
             &GlobalTransform,
             &InheritedVisibility,
+            Option<&SiteID>,
+            &AssociatedGraphs<Entity>,
         ),
         (With<LocationTags>, Without<Pending>),
     >,
+    anchors: Query<(Option<&SiteID>, Option<&ChildOf>), With<Anchor>>,
+    levels: Query<&NameInSite, With<LevelElevation>>,
+    nav_graphs: Query<(Entity, &NameInSite), (With<NavGraphMarker>, Without<Pending>)>,
 ) {
     let Some(active_robot) = picking_state.active_routing_robot.clone() else {
         return;
@@ -146,39 +155,82 @@ fn select_robot_destination(
     // If destination is within a location, snap to location center
     let matched_location = locations
         .iter()
-        .filter(|(_, _, _, _, vis)| vis.get())
-        .filter_map(|(loc_entity, name, loc_point, loc_tf, _)| {
-            let loc_xy = loc_tf.translation().truncate();
-            let dist = cursor_xy.distance(loc_xy);
-            let directly_hovered =
-                hovered_entity == Some(loc_entity) || hovered_entity == Some(loc_point.0);
-            if directly_hovered || dist <= LOCATION_OUTER_RADIUS {
-                let effective_dist = if directly_hovered { 0.0 } else { dist };
-                Some((effective_dist, loc_xy, name.0.clone()))
-            } else {
-                None
-            }
-        })
+        .filter(|(_, _, _, _, vis, _, _)| vis.get())
+        .filter_map(
+            |(loc_entity, name, loc_point, loc_tf, _, loc_site_id, associated_graphs)| {
+                let loc_xy = loc_tf.translation().truncate();
+                let dist = cursor_xy.distance(loc_xy);
+                let directly_hovered =
+                    hovered_entity == Some(loc_entity) || hovered_entity == Some(loc_point.0);
+                if directly_hovered || dist <= LOCATION_OUTER_RADIUS {
+                    let effective_dist = if directly_hovered { 0.0 } else { dist };
+                    Some((
+                        effective_dist,
+                        loc_xy,
+                        &name.0,
+                        loc_point.0,
+                        loc_site_id.map(|s| s.0),
+                        associated_graphs,
+                    ))
+                } else {
+                    None
+                }
+            },
+        )
         .min_by(|a, b| a.0.total_cmp(&b.0));
 
-    let destination = if let Some((_, loc_center, loc_name)) = matched_location {
-        RobotDestination {
-            position: loc_center,
-            location_name: Some(loc_name),
-        }
-    } else {
-        RobotDestination {
-            position: cursor_xy,
-            location_name: None,
-        }
-    };
+    // Build the destination and attach graph node data if snapped to a named location
+    let destination =
+        if let Some((_, loc_center, loc_name, anchor_entity, loc_site_id, associated_graphs)) =
+            matched_location
+        {
+            let anchor = anchors.get(anchor_entity).ok();
+
+            let vertex_id = loc_site_id
+                .or_else(|| anchor.and_then(|(site_id, _)| site_id.map(|s| s.0)))
+                .map(|id| id as i64);
+
+            let level_name = anchor
+                .and_then(|(_, child_of)| child_of)
+                .and_then(|co| levels.get(co.parent()).ok())
+                .map(|n| n.0.clone());
+
+            let target_nodes = nav_graphs
+                .iter()
+                .filter(|(graph_entity, _)| associated_graphs.includes(*graph_entity))
+                .map(|(_, graph_name)| TargetNode {
+                    key: GraphElementKey {
+                        graph_name: graph_name.0.clone(),
+                        key: vertex_id.into_iter().collect(),
+                        name: vec![loc_name.clone()],
+                        map: level_name.clone().into_iter().collect(),
+                        element_type: GraphElementKey::ELEMENT_TYPE_NODE,
+                    },
+                    orientations: Vec::new(),
+                })
+                .collect();
+
+            RobotDestination {
+                position: loc_center,
+                location_name: Some(loc_name.clone()),
+                target_nodes,
+            }
+        } else {
+            // Free-space click. Use raw cursor coordinates with no associated graph nodes
+            RobotDestination {
+                position: cursor_xy,
+                location_name: None,
+                target_nodes: Vec::new(),
+            }
+        };
 
     info!(
-        "[Destination Select] robot={} cursor=({:.2}, {:.2}) matched_location={:?} final_dest=({:.2}, {:.2})",
+        "[Destination Select] robot={} cursor=({:.2}, {:.2}) matched_location={:?} target_nodes={:?} final_dest=({:.2}, {:.2})",
         active_robot,
         cursor_xy.x,
         cursor_xy.y,
         destination.location_name,
+        destination.target_nodes,
         destination.position.x,
         destination.position.y,
     );

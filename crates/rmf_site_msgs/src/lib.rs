@@ -37,3 +37,4 @@ export_ros_msgs!(rmf_prototype_msgs);
 export_ros_msgs!(nav_msgs);
 export_ros_msgs!(geometry_msgs);
 export_ros_msgs!(std_msgs);
+export_ros_msgs!(unique_identifier_msgs);
