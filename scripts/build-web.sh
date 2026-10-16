@@ -5,5 +5,6 @@ export CARGO_PROFILE_RELEASE_LTO=true
 export CARGO_PROFILE_RELEASE_OPT_LEVEL=z
 cargo build --target wasm32-unknown-unknown --release
 RUST_BACKTRACE=full wasm-bindgen --target web --out-dir web target/wasm32-unknown-unknown/release/rmf_site_editor_web.wasm
+ln -sfn ../assets web/assets
 cd web
 wasm-opt -Oz -o rmf_site_editor_web_bg_optimized.wasm rmf_site_editor_web_bg.wasm

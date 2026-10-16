@@ -17,6 +17,12 @@ pub enum ZLayer {
     SelectedLane,
     HoveredLane,
     LabelText,
+    SafeZone,
+    PlannedPath,
+    IncrementalWaypoint,
+    PlannedPathPoint,
+    LocalPath,
+    DestinationTarget,
 }
 
 impl ZLayer {

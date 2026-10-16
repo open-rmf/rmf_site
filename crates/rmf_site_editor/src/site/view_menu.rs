@@ -16,6 +16,9 @@
 */
 
 use crate::interaction::{CategoryVisibility, SetCategoryVisibility};
+use crate::live_visualization::{
+    LiveSafeZoneMarker, LocalPathMarker, PathDependencyMarker, PlannedPathMarker,
+};
 use crate::site::{
     CollisionMeshMarker, DoorMarker, FiducialMarker, FloorMarker, LaneMarker, LiftCabin,
     LiftCabinDoorMarker, LocationTags, MeasurementMarker, VisualMeshMarker, WallMarker,
@@ -37,6 +40,10 @@ struct VisibilityEvents<'w> {
     walls: EventWriter<'w, SetCategoryVisibility<WallMarker>>,
     visuals: EventWriter<'w, SetCategoryVisibility<VisualMeshMarker>>,
     collisions: EventWriter<'w, SetCategoryVisibility<CollisionMeshMarker>>,
+    planned_paths: EventWriter<'w, SetCategoryVisibility<PlannedPathMarker>>,
+    path_dependencies: EventWriter<'w, SetCategoryVisibility<PathDependencyMarker>>,
+    local_paths: EventWriter<'w, SetCategoryVisibility<LocalPathMarker>>,
+    safe_zones: EventWriter<'w, SetCategoryVisibility<LiveSafeZoneMarker>>,
 }
 
 #[derive(Default)]
@@ -54,6 +61,10 @@ pub struct ViewMenuItems {
     collisions: Entity,
     visuals: Entity,
     walls: Entity,
+    planned_paths: Entity,
+    path_dependencies: Entity,
+    local_paths: Entity,
+    safe_zones: Entity,
 }
 
 impl FromWorld for ViewMenuItems {
@@ -139,6 +150,38 @@ impl FromWorld for ViewMenuItems {
             ))
             .insert(ChildOf(view_header))
             .id();
+        let default_visibility = world.resource::<CategoryVisibility<PlannedPathMarker>>();
+        let planned_paths = world
+            .spawn(MenuItem::CheckBox(
+                "Planned Paths".to_string(),
+                default_visibility.0,
+            ))
+            .insert(ChildOf(view_header))
+            .id();
+        let default_visibility = world.resource::<CategoryVisibility<PathDependencyMarker>>();
+        let path_dependencies = world
+            .spawn(MenuItem::CheckBox(
+                "Path Dependencies".to_string(),
+                default_visibility.0,
+            ))
+            .insert(ChildOf(view_header))
+            .id();
+        let default_visibility = world.resource::<CategoryVisibility<LocalPathMarker>>();
+        let local_paths = world
+            .spawn(MenuItem::CheckBox(
+                "Local Paths".to_string(),
+                default_visibility.0,
+            ))
+            .insert(ChildOf(view_header))
+            .id();
+        let default_visibility = world.resource::<CategoryVisibility<LiveSafeZoneMarker>>();
+        let safe_zones = world
+            .spawn(MenuItem::CheckBox(
+                "Safe Zones".to_string(),
+                default_visibility.0,
+            ))
+            .insert(ChildOf(view_header))
+            .id();
 
         ViewMenuItems {
             doors,
@@ -151,6 +194,10 @@ impl FromWorld for ViewMenuItems {
             collisions,
             visuals,
             walls,
+            planned_paths,
+            path_dependencies,
+            local_paths,
+            safe_zones,
         }
     }
 }
@@ -190,6 +237,16 @@ fn handle_view_menu_events(
             events.visuals.write(toggle(event.source()).into());
         } else if event.clicked() && event.source() == view_menu.walls {
             events.walls.write(toggle(event.source()).into());
+        } else if event.clicked() && event.source() == view_menu.planned_paths {
+            events.planned_paths.write(toggle(event.source()).into());
+        } else if event.clicked() && event.source() == view_menu.path_dependencies {
+            events
+                .path_dependencies
+                .write(toggle(event.source()).into());
+        } else if event.clicked() && event.source() == view_menu.local_paths {
+            events.local_paths.write(toggle(event.source()).into());
+        } else if event.clicked() && event.source() == view_menu.safe_zones {
+            events.safe_zones.write(toggle(event.source()).into());
         }
     }
 }

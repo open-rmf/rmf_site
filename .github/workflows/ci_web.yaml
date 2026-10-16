@@ -37,6 +37,13 @@ jobs:
         cargo install -f wasm-bindgen-cli --version 0.2.100
 
     - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+
+    - name: Install vcstool
+      run: |
+        pipx install vcstool
+        pipx inject --force vcstool "setuptools<70.0.0"
 
     - name: build rmf_site_format
       run: |
