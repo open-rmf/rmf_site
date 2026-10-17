@@ -119,6 +119,13 @@ pub struct Site {
     pub anchors: BTreeMap<u32, Anchor>,
     /// Properties that are tied to the whole site
     pub properties: SiteProperties<u32>,
+    /// Named sets of zones keyed by site entity ID, shared across levels. Each
+    /// [`Zone::sets`] contains references to these IDs.
+    ///
+    /// Defaults to an empty collection when absent and is omitted when empty,
+    /// preserving compatibility with older site files.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub zone_sets: BTreeMap<u32, ZoneSet>,
     /// Properties of each level
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub levels: BTreeMap<u32, Level>,

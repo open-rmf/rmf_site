@@ -23,7 +23,9 @@ use bevy::prelude::*;
 use crossflow::*;
 
 use crate::interaction::{set_visibility, Cursor, GizmoBlockers, HighlightAnchors};
-use crate::site::{AnchorBundle, ChildCabinAnchorGroup, CurrentEditDrawing, DrawingMarker};
+use crate::site::{
+    AnchorBundle, ChildCabinAnchorGroup, CurrentEditDrawing, DrawingMarker, Pending, ZoneBundle,
+};
 use crate::workspace::CurrentWorkspace;
 use crate::{interaction::select_impl::*, site::CurrentLevel};
 use rmf_site_format::*;
@@ -204,6 +206,19 @@ impl<'w, 's> AnchorSelection<'w, 's> {
     pub fn create_floor(&mut self) {
         self.create_path(
             insert_path_with_texture::<Floor<Entity>>,
+            3,
+            false,
+            true,
+            AnchorScope::General,
+        );
+    }
+
+    pub(crate) fn create_zone(&mut self) {
+        self.create_path(
+            |path, commands| {
+                commands.insert((ZoneBundle::from(path), Pending));
+                Ok(())
+            },
             3,
             false,
             true,
