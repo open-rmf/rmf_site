@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    site::{Change, DefaultFile},
+    site::{resolve_and_read_base_sdf_file, Change, DefaultFile},
     AppState, CurrentWorkspace, WorkspaceSaver,
 };
 use bevy::{
@@ -39,14 +39,25 @@ pub enum FileChoiceTarget {
     EmbedXml,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
+pub enum SdfExportMode {
+    #[default]
+    Default,
+    LinkFile,
+    EmbedXml,
+}
+
 /// Keeps track of which entities are associated to the export sdf menu items.
 #[derive(Resource)]
 pub struct SdfExportMenu {
     export_sdf: Entity,
     export_sdf_settings: Entity,
     pub show_settings_dialog: bool,
+    pub initialized_for_site: Option<Entity>,
+    pub mode: SdfExportMode,
     pub last_file: PathBuf,
     pub last_xml: String,
+    pub load_xml_error: Option<String>,
     pub choosing_file: Option<(FileChoiceTarget, Task<Option<PathBuf>>)>,
 }
 
@@ -80,8 +91,11 @@ impl FromWorld for SdfExportMenu {
             export_sdf,
             export_sdf_settings,
             show_settings_dialog: false,
+            initialized_for_site: None,
+            mode: SdfExportMode::Default,
             last_file: PathBuf::new(),
             last_xml: String::new(),
+            load_xml_error: None,
             choosing_file: None,
         }
     }
@@ -98,6 +112,8 @@ fn handle_export_sdf_menu_events(
                 workspace_saver.export_sdf_to_dialog();
             } else if event.source() == sdf_menu.settings() {
                 sdf_menu.show_settings_dialog = true;
+                sdf_menu.initialized_for_site = None;
+                sdf_menu.load_xml_error = None;
             }
         }
     }
@@ -124,18 +140,26 @@ fn show_sdf_export_settings_dialog(
         return;
     };
 
-    match current_base_sdf {
-        BaseSdf::Default => {}
-        BaseSdf::File(path) => {
-            sdf_menu.last_file = path.clone();
+    if sdf_menu.initialized_for_site != Some(ws_root) {
+        match current_base_sdf {
+            BaseSdf::Default => {
+                sdf_menu.mode = SdfExportMode::Default;
+            }
+            BaseSdf::File(path) => {
+                sdf_menu.mode = SdfExportMode::LinkFile;
+                sdf_menu.last_file = path.clone();
+            }
+            BaseSdf::Xml(xml) => {
+                sdf_menu.mode = SdfExportMode::EmbedXml;
+                sdf_menu.last_xml = xml.clone();
+            }
         }
-        BaseSdf::Xml(xml) => {
-            sdf_menu.last_xml = xml.clone();
-        }
+        sdf_menu.load_xml_error = None;
+        sdf_menu.initialized_for_site = Some(ws_root);
     }
 
     let default_file = default_files.get(ws_root).ok();
-    let mut new_base_sdf = current_base_sdf.clone();
+    let mut validated_base_sdf: Option<BaseSdf> = None;
     let mut open = true;
     let mut close_clicked = false;
     let mut file_choice_request: Option<FileChoiceTarget> = None;
@@ -149,53 +173,57 @@ fn show_sdf_export_settings_dialog(
             ui.label("Base SDF World Template:");
             ui.horizontal(|ui| {
                 if ui
-                    .radio(matches!(new_base_sdf, BaseSdf::Default), "Default")
+                    .radio(sdf_menu.mode == SdfExportMode::Default, "Default")
                     .clicked()
                 {
-                    new_base_sdf = BaseSdf::Default;
+                    sdf_menu.mode = SdfExportMode::Default;
                 }
                 if ui
-                    .radio(matches!(new_base_sdf, BaseSdf::File(_)), "Link File")
+                    .radio(sdf_menu.mode == SdfExportMode::LinkFile, "Link File")
                     .clicked()
                 {
-                    new_base_sdf = BaseSdf::File(sdf_menu.last_file.clone());
+                    sdf_menu.mode = SdfExportMode::LinkFile;
                 }
                 if ui
-                    .radio(matches!(new_base_sdf, BaseSdf::Xml(_)), "Embed Raw XML")
+                    .radio(sdf_menu.mode == SdfExportMode::EmbedXml, "Embed Raw XML")
                     .clicked()
                 {
                     if sdf_menu.last_xml.is_empty() && !sdf_menu.last_file.as_os_str().is_empty() {
-                        let resolved = resolve_path(&sdf_menu.last_file, default_file);
-                        if let Ok(xml) = std::fs::read_to_string(resolved) {
+                        if let Ok(xml) =
+                            resolve_and_read_base_sdf_file(&sdf_menu.last_file, default_file)
+                        {
                             sdf_menu.last_xml = xml;
                         }
                     }
-                    new_base_sdf = BaseSdf::Xml(sdf_menu.last_xml.clone());
+                    sdf_menu.mode = SdfExportMode::EmbedXml;
                 }
             });
 
             ui.separator();
 
-            match &mut new_base_sdf {
-                BaseSdf::Default => {
+            match sdf_menu.mode {
+                SdfExportMode::Default => {
                     ui.label("Uses the built-in Gazebo world template when exporting to SDF.");
+                    validated_base_sdf = Some(BaseSdf::Default);
                 }
-                BaseSdf::File(path_buf) => {
-                    let mut path_str = path_buf.to_string_lossy().to_string();
+                SdfExportMode::LinkFile => {
+                    let mut path_str = sdf_menu.last_file.to_string_lossy().to_string();
                     let is_relative = if let Some(default_file) = default_file {
                         let path = Path::new(&path_str);
-                        let mut is_relative = path.is_relative();
+                        let mut is_relative = !path.as_os_str().is_empty() && path.is_relative();
                         if ui
                             .checkbox(&mut is_relative, "Relative to .site.json")
                             .clicked()
                         {
                             let parent_dir = default_file.0.parent().unwrap_or(Path::new(""));
-                            if is_relative {
-                                if let Some(rel) = diff_paths(path, parent_dir) {
-                                    path_str = rel.to_string_lossy().into_owned();
+                            if !path.as_os_str().is_empty() {
+                                if is_relative {
+                                    if let Some(rel) = diff_paths(path, parent_dir) {
+                                        path_str = rel.to_string_lossy().into_owned();
+                                    }
+                                } else {
+                                    path_str = parent_dir.join(path).to_string_lossy().into_owned();
                                 }
-                            } else {
-                                path_str = parent_dir.join(path).to_string_lossy().into_owned();
                             }
                         }
                         is_relative
@@ -213,25 +241,72 @@ fn show_sdf_export_settings_dialog(
                             .show(ui);
                     });
 
-                    *path_buf = PathBuf::from(path_str);
+                    sdf_menu.last_file = PathBuf::from(&path_str);
+
+                    if path_str.trim().is_empty() {
+                        ui.colored_label(
+                            egui::Color32::YELLOW,
+                            "Please enter or browse for a base SDF file.",
+                        );
+                    } else {
+                        match resolve_and_read_base_sdf_file(&sdf_menu.last_file, default_file) {
+                            Ok(_) => {
+                                ui.colored_label(
+                                    egui::Color32::LIGHT_GREEN,
+                                    "Valid base SDF file.",
+                                );
+                                validated_base_sdf =
+                                    Some(BaseSdf::File(sdf_menu.last_file.clone()));
+                            }
+                            Err(err) => {
+                                ui.colored_label(egui::Color32::LIGHT_RED, err);
+                            }
+                        }
+                    }
                 }
-                BaseSdf::Xml(xml) => {
+                SdfExportMode::EmbedXml => {
                     ui.horizontal(|ui| {
                         if ui.button("Load from File...").clicked() {
                             file_choice_request = Some(FileChoiceTarget::EmbedXml);
                         }
                         ui.label("Embedded XML saved directly in .site.json");
                     });
+                    if let Some(err) = &sdf_menu.load_xml_error {
+                        ui.colored_label(egui::Color32::LIGHT_RED, err);
+                    }
                     ui.add_space(4.0);
-                    egui::ScrollArea::vertical()
+                    let response = egui::ScrollArea::vertical()
                         .max_height(250.0)
                         .show(ui, |ui| {
-                            egui::TextEdit::multiline(xml)
+                            egui::TextEdit::multiline(&mut sdf_menu.last_xml)
                                 .code_editor()
                                 .desired_width(f32::INFINITY)
                                 .desired_rows(10)
-                                .show(ui);
+                                .show(ui)
                         });
+                    if response.inner.response.changed() {
+                        sdf_menu.load_xml_error = None;
+                    }
+
+                    if sdf_menu.last_xml.trim().is_empty() {
+                        ui.colored_label(
+                            egui::Color32::YELLOW,
+                            "Please enter or load base SDF XML.",
+                        );
+                    } else {
+                        match rmf_site_format::sdf::validate_base_sdf_xml(&sdf_menu.last_xml) {
+                            Ok(_) => {
+                                ui.colored_label(egui::Color32::LIGHT_GREEN, "Valid base SDF XML.");
+                                validated_base_sdf = Some(BaseSdf::Xml(sdf_menu.last_xml.clone()));
+                            }
+                            Err(err) => {
+                                ui.colored_label(
+                                    egui::Color32::LIGHT_RED,
+                                    format!("Invalid base SDF XML: {err}"),
+                                );
+                            }
+                        }
+                    }
                 }
             }
 
@@ -268,27 +343,15 @@ fn show_sdf_export_settings_dialog(
         }
     }
 
-    if &new_base_sdf != current_base_sdf {
-        commands.trigger(Change::new(new_base_sdf, ws_root));
+    if let Some(new_base_sdf) = validated_base_sdf {
+        if &new_base_sdf != current_base_sdf {
+            commands.trigger(Change::new(new_base_sdf, ws_root));
+        }
     }
 
     if !open || close_clicked {
         sdf_menu.show_settings_dialog = false;
     }
-}
-
-fn resolve_path(path: &Path, default_file: Option<&DefaultFile>) -> PathBuf {
-    if path.is_relative() {
-        if let Some(default_file) = default_file {
-            if let Some(parent) = default_file.0.parent() {
-                let candidate = parent.join(path);
-                if candidate.exists() {
-                    return candidate;
-                }
-            }
-        }
-    }
-    path.to_path_buf()
 }
 
 fn resolve_sdf_base_file(
@@ -311,10 +374,11 @@ fn resolve_sdf_base_file(
         let Some(ws_root) = current_workspace.root else {
             return;
         };
+        let default_file = default_files.get(ws_root).ok();
         match target {
             FileChoiceTarget::LinkFile { is_relative } => {
                 let final_path = if is_relative {
-                    if let Ok(default_file) = default_files.get(ws_root) {
+                    if let Some(default_file) = default_file {
                         let parent_dir = default_file.0.parent().unwrap_or(Path::new(""));
                         diff_paths(&path, parent_dir).unwrap_or(path)
                     } else {
@@ -324,15 +388,24 @@ fn resolve_sdf_base_file(
                     path
                 };
                 sdf_menu.last_file = final_path.clone();
-                commands.trigger(Change::new(BaseSdf::File(final_path), ws_root));
+                match resolve_and_read_base_sdf_file(&final_path, default_file) {
+                    Ok(_) => {
+                        commands.trigger(Change::new(BaseSdf::File(final_path), ws_root));
+                    }
+                    Err(err) => {
+                        error!("{err}");
+                    }
+                }
             }
-            FileChoiceTarget::EmbedXml => match std::fs::read_to_string(&path) {
+            FileChoiceTarget::EmbedXml => match resolve_and_read_base_sdf_file(&path, None) {
                 Ok(xml) => {
                     sdf_menu.last_xml = xml.clone();
+                    sdf_menu.load_xml_error = None;
                     commands.trigger(Change::new(BaseSdf::Xml(xml), ws_root));
                 }
                 Err(err) => {
-                    error!("Unable to read base SDF file at {}: {err}", path.display());
+                    error!("{err}");
+                    sdf_menu.load_xml_error = Some(err);
                 }
             },
         }

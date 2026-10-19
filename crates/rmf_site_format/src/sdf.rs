@@ -427,16 +427,48 @@ fn make_sdf_door(
     Ok(door_model)
 }
 
+pub fn validate_base_sdf_xml(xml: &str) -> Result<SdfRoot, SdfConversionError> {
+    if xml.trim().is_empty() {
+        return Err(SdfConversionError::CorruptedBaseSdf(
+            "Base SDF XML cannot be empty".to_string(),
+        ));
+    }
+    let root: SdfRoot = yaserde::de::from_str(xml).map_err(SdfConversionError::CorruptedBaseSdf)?;
+    if root.world.is_empty() {
+        return Err(SdfConversionError::MissingWorldInBaseSdf);
+    }
+    Ok(root)
+}
+
 impl Site {
     pub fn to_sdf(&self) -> Result<SdfRoot, SdfConversionError> {
         let base_xml = match &self.properties.base_sdf {
             BaseSdf::Default => None,
-            BaseSdf::File(path) => Some(std::fs::read_to_string(path).map_err(|e| {
-                SdfConversionError::CorruptedBaseSdf(format!(
-                    "Unable to read base SDF file at {}: {e}",
-                    path.display()
-                ))
-            })?),
+            BaseSdf::File(path) => {
+                if path.as_os_str().is_empty() || path.to_string_lossy().trim().is_empty() {
+                    return Err(SdfConversionError::CorruptedBaseSdf(
+                        "Base SDF file path cannot be empty".to_string(),
+                    ));
+                }
+                if !path.exists() {
+                    return Err(SdfConversionError::CorruptedBaseSdf(format!(
+                        "Base SDF file does not exist at {}",
+                        path.display()
+                    )));
+                }
+                if !path.is_file() {
+                    return Err(SdfConversionError::CorruptedBaseSdf(format!(
+                        "Base SDF path at {} is not a file",
+                        path.display()
+                    )));
+                }
+                Some(std::fs::read_to_string(path).map_err(|e| {
+                    SdfConversionError::CorruptedBaseSdf(format!(
+                        "Unable to read base SDF file at {}: {e}",
+                        path.display()
+                    ))
+                })?)
+            }
             BaseSdf::Xml(xml) => Some(xml.clone()),
         };
         self.to_sdf_with_base_xml(base_xml.as_deref())
@@ -455,9 +487,7 @@ impl Site {
                 .ok_or(SdfConversionError::BrokenLevelReference(id))
         };
         let mut root: SdfRoot = match base_sdf_xml {
-            Some(xml) => {
-                yaserde::de::from_str(xml).map_err(SdfConversionError::CorruptedBaseSdf)?
-            }
+            Some(xml) => validate_base_sdf_xml(xml)?,
             None => WORLD_TEMPLATE
                 .clone()
                 .map_err(SdfConversionError::CorruptedWorldTemplate)?,
@@ -1119,5 +1149,41 @@ mod tests {
 
         let sdf = roundtripped.to_sdf().unwrap();
         assert_eq!(sdf.world[0].physics[0].name.as_deref(), Some("2ms"));
+    }
+
+    #[test]
+    fn serialize_sdf_with_empty_or_invalid_base_sdf_returns_error() {
+        let data = std::fs::read("../../assets/demo_maps/office.building.yaml").unwrap();
+        let map = BuildingMap::from_bytes(&data).unwrap();
+        let mut site = map.to_site().unwrap();
+
+        // Empty file path
+        site.properties.base_sdf = crate::BaseSdf::File(std::path::PathBuf::new());
+        assert!(matches!(
+            site.to_sdf().unwrap_err(),
+            super::SdfConversionError::CorruptedBaseSdf(_)
+        ));
+
+        // Nonexistent file path
+        site.properties.base_sdf =
+            crate::BaseSdf::File(std::path::PathBuf::from("nonexistent_base_sdf_file.sdf"));
+        assert!(matches!(
+            site.to_sdf().unwrap_err(),
+            super::SdfConversionError::CorruptedBaseSdf(_)
+        ));
+
+        // Directory instead of a file
+        site.properties.base_sdf = crate::BaseSdf::File(std::path::PathBuf::from("../../assets"));
+        assert!(matches!(
+            site.to_sdf().unwrap_err(),
+            super::SdfConversionError::CorruptedBaseSdf(_)
+        ));
+
+        // Empty XML
+        site.properties.base_sdf = crate::BaseSdf::Xml("   ".to_string());
+        assert!(matches!(
+            site.to_sdf().unwrap_err(),
+            super::SdfConversionError::CorruptedBaseSdf(_)
+        ));
     }
 }
