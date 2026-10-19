@@ -15,11 +15,15 @@
  *
 */
 
+use crate::interaction::billboard::Billboard;
+use crate::site::SiteAssets;
 use bevy::prelude::*;
+use bevy_rich_text3d::*;
 use rmf_site_format::{Angle, NameInSite, Pose, Rotation};
 use rmf_site_msgs::nav_msgs::msg::Odometry;
 use roslibrust::rosbridge::ClientHandle;
 use std::collections::HashMap;
+use std::num::NonZero;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedSender;
@@ -28,6 +32,11 @@ use super::live_state::{LiveStreamState, LoadSiteStatus};
 use super::network_client::{
     run_subscription_loop, spawn_network_task, LiveStreamHandler, VisualizationStreamChannel,
 };
+
+// TODO: This z-height is currently hardcoded for the robot models used in the demo site.
+// If different robots are used later on, we can instead do a dynamic check for
+// the height of the models used.
+const ROBOT_BILLBOARD_Z_HEIGHT: f32 = 0.4;
 
 #[derive(Debug, Clone)]
 pub struct LiveEventOdom {
@@ -89,10 +98,14 @@ impl LiveStreamHandler for LiveEventOdom {
         let _ = world.run_system_cached(
             |mut commands: Commands,
              mut robot_map: ResMut<LiveRobotsState>,
-             live_robots: Query<Entity, With<LiveRobotMarker>>| {
+             live_robots: Query<Entity, With<LiveRobotMarker>>,
+             billboards: Query<Entity, With<LiveRobotBillboard>>| {
                 robot_map.0.clear();
                 for entity in live_robots.iter() {
                     commands.entity(entity).remove::<LiveRobotMarker>();
+                }
+                for billboard_entity in billboards.iter() {
+                    commands.entity(billboard_entity).despawn();
                 }
             },
         );
@@ -101,6 +114,9 @@ impl LiveStreamHandler for LiveEventOdom {
 
 #[derive(Component)]
 pub struct LiveRobotMarker;
+
+#[derive(Component)]
+pub struct LiveRobotBillboard;
 
 #[derive(Default, Resource)]
 pub struct LiveRobotsState(pub HashMap<String, Entity>);
@@ -112,6 +128,7 @@ pub fn update_live_robots(
     mut robot_map: ResMut<LiveRobotsState>,
     untracked: Query<(Entity, &NameInSite), Without<LiveRobotMarker>>,
     mut poses: Query<&mut Pose>,
+    site_assets: Res<SiteAssets>,
 ) {
     while let Ok(event) = channel.receiver.try_recv() {
         // Find existing robot
@@ -125,6 +142,7 @@ pub fn update_live_robots(
                     commands.entity(entity).insert(LiveRobotMarker);
 
                     robot_map.0.insert(event.name.clone(), entity);
+                    add_robot_status_billboard(&mut commands, &site_assets, entity, &event.name);
 
                     info!("Found existing robot: {}", event.name);
                     found_entity = Some(entity);
@@ -143,4 +161,40 @@ pub fn update_live_robots(
             warn!("No matching NameInSite found for: {}", event.name);
         }
     }
+}
+
+fn add_robot_status_billboard(
+    commands: &mut Commands,
+    site_assets: &Res<SiteAssets>,
+    robot_entity: Entity,
+    robot_name: &str,
+) {
+    let text_billboard_entity = commands
+        .spawn((
+            Text3d::new(robot_name),
+            Text3dStyling {
+                size: 250.,
+                weight: Weight(900),
+                stroke: NonZero::new(15),
+                color: Srgba::BLACK,
+                stroke_color: Srgba::WHITE,
+                world_scale: Some(Vec2::splat(0.1)),
+                layer_offset: 0.001,
+                align: TextAlign::Center,
+                anchor: TextAnchor::BOTTOM_CENTER,
+                ..Default::default()
+            },
+            Mesh3d::default(),
+            MeshMaterial3d(site_assets.text3d_material.clone()),
+            Billboard {
+                offset: Vec3::new(0.0, 0.0, ROBOT_BILLBOARD_Z_HEIGHT),
+                hover_enabled: false,
+            },
+            LiveRobotBillboard,
+        ))
+        .id();
+
+    commands
+        .entity(robot_entity)
+        .add_child(text_billboard_entity);
 }
