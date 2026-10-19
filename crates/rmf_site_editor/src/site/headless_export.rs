@@ -21,11 +21,14 @@ use bevy_rich_text3d::Text3d;
 use crate::WorkspaceSaver;
 
 use crate::{
-    site::{DoorType, GlobalFloorVisibility, LayerVisibility, ModelLoadingState},
+    site::{
+        resolve_and_read_base_sdf_file, DefaultFile, DoorType, GlobalFloorVisibility,
+        LayerVisibility, ModelLoadingState,
+    },
     Autoload, WorkspaceLoader,
 };
 use crossflow::Promise;
-use rmf_site_format::NameOfSite;
+use rmf_site_format::{BaseSdf, NameOfSite};
 
 /// Manages a simple state machine where we:
 ///   * Wait for a few iterations,
@@ -42,6 +45,8 @@ pub struct HeadlessExportState {
     world_loaded: bool,
     export_request_sent: bool,
     sdf_target_path: Option<String>,
+    sdf_base_path: Option<String>,
+    override_base_sdf: bool,
     nav_target_path: Option<String>,
     save_target_path: Option<String>,
     loading: Option<Promise<()>>,
@@ -50,6 +55,8 @@ pub struct HeadlessExportState {
 impl HeadlessExportState {
     pub fn new(
         sdf_target_path: Option<String>,
+        sdf_base_path: Option<String>,
+        override_base_sdf: bool,
         nav_target_path: Option<String>,
         save_target_path: Option<String>,
     ) -> Self {
@@ -58,6 +65,8 @@ impl HeadlessExportState {
             world_loaded: false,
             export_request_sent: false,
             sdf_target_path,
+            sdf_base_path,
+            override_base_sdf,
             nav_target_path,
             save_target_path,
             loading: None,
@@ -70,7 +79,7 @@ pub fn headless_export(
     mut exit: EventWriter<bevy::app::AppExit>,
     missing_models: Query<(), With<ModelLoadingState>>,
     mut export_state: ResMut<HeadlessExportState>,
-    sites: Query<(Entity, &NameOfSite)>,
+    sites: Query<(Entity, &NameOfSite, &BaseSdf, Option<&DefaultFile>)>,
     autoload: Option<ResMut<Autoload>>,
     mut workspace_loader: WorkspaceLoader,
     mut floor_visibilities: Query<&mut GlobalFloorVisibility>,
@@ -133,6 +142,7 @@ pub fn headless_export(
     if sites.is_empty() {
         error!("No site is loaded so we cannot export anything");
         exit.write(bevy::app::AppExit::error());
+        return;
     }
 
     if missing_models.is_empty() {
@@ -142,8 +152,71 @@ pub fn headless_export(
         } else {
             if !export_state.export_request_sent && export_state.iterations > 5 {
                 if let Some(sdf_target_path) = &export_state.sdf_target_path {
+                    if sdf_target_path.trim().is_empty() {
+                        error!("--export-sdf target path cannot be empty");
+                        exit.write(bevy::app::AppExit::error());
+                        return;
+                    }
+
                     let path = std::path::PathBuf::from(sdf_target_path.clone());
-                    workspace_saver.export_sdf_to_path(path);
+                    if path.exists() && !path.is_dir() {
+                        error!("SDF can only be exported to a folder: {}", path.display());
+                        exit.write(bevy::app::AppExit::error());
+                        return;
+                    }
+
+                    if let Some(base_path_str) = &export_state.sdf_base_path {
+                        if !export_state.override_base_sdf
+                            && sites
+                                .iter()
+                                .any(|(_, _, base_sdf, _)| !base_sdf.is_default())
+                        {
+                            error!(
+                                "The site already has a base SDF saved in it, \
+                                but --export-sdf-base was specified on the command line. \
+                                Add --override-base-sdf to override the site's saved base SDF."
+                            );
+                            exit.write(bevy::app::AppExit::error());
+                            return;
+                        }
+
+                        let base_path = std::path::PathBuf::from(base_path_str);
+                        if let Err(err) = resolve_and_read_base_sdf_file(&base_path, None) {
+                            error!("{err}");
+                            exit.write(bevy::app::AppExit::error());
+                            return;
+                        }
+                    } else {
+                        for (_, _, base_sdf, default_file) in &sites {
+                            match base_sdf {
+                                BaseSdf::Default => {}
+                                BaseSdf::File(site_base_path) => {
+                                    if let Err(err) =
+                                        resolve_and_read_base_sdf_file(site_base_path, default_file)
+                                    {
+                                        error!("{err}");
+                                        exit.write(bevy::app::AppExit::error());
+                                        return;
+                                    }
+                                }
+                                BaseSdf::Xml(xml) => {
+                                    if let Err(err) =
+                                        rmf_site_format::sdf::validate_base_sdf_xml(xml)
+                                    {
+                                        error!("Invalid embedded base SDF XML: {err}");
+                                        exit.write(bevy::app::AppExit::error());
+                                        return;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    let base_path = export_state
+                        .sdf_base_path
+                        .as_ref()
+                        .map(std::path::PathBuf::from);
+                    workspace_saver.export_sdf_to_path(path, base_path);
                 }
 
                 if let Some(nav_target_path) = &export_state.nav_target_path {

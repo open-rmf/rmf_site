@@ -263,6 +263,7 @@ impl Plugin for SitePlugin {
             ChangePlugin::<ReverseLane>::default(),
             RecallPlugin::<RecallReverseLane>::default(),
             ChangePlugin::<NameOfSite>::default(),
+            ChangePlugin::<BaseSdf>::default(),
             ChangePlugin::<NameInSite>::default(),
             ChangePlugin::<Pose>::default(),
             ChangePlugin::<Scale>::default(),

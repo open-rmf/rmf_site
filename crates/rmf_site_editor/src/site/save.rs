@@ -1255,13 +1255,14 @@ fn generate_site_properties(
             &FilteredIssueKinds,
             &GeographicComponent,
             &SiteExtensionSettings,
+            &BaseSdf,
         )>,
         Query<&SiteID>,
     )> = SystemState::new(world);
 
     let (q_properties, q_ids) = state.get(world);
 
-    let Ok((name, issues, issue_kinds, geographic_offset, extension_settings)) =
+    let Ok((name, issues, issue_kinds, geographic_offset, extension_settings, base_sdf)) =
         q_properties.get(site)
     else {
         return Err(SiteGenerationError::InvalidSiteEntity(site));
@@ -1288,6 +1289,7 @@ fn generate_site_properties(
         filtered_issues: FilteredIssues(converted_issues),
         filtered_issue_kinds: issue_kinds.clone(),
         extension_settings: extension_settings.clone(),
+        base_sdf: base_sdf.clone(),
     })
 }
 
@@ -1312,6 +1314,23 @@ fn migrate_relative_paths(
         // be relative to.
         return;
     };
+
+    if let Some(mut base_sdf) = world.get_mut::<BaseSdf>(site) {
+        if let BaseSdf::File(asset_path) = &mut *base_sdf {
+            if !asset_path.as_os_str().is_empty()
+                && !asset_path.to_string_lossy().trim().is_empty()
+                && asset_path.is_relative()
+            {
+                if let Some(new_parent) = new_path.parent() {
+                    if let Some(migrated) =
+                        pathdiff::diff_paths(old_path.with_file_name(&asset_path), new_parent)
+                    {
+                        *asset_path = migrated;
+                    }
+                }
+            }
+        }
+    }
 
     let mut state: SystemState<(Query<(Entity, &mut AssetSource)>, Query<&ChildOf>)> =
         SystemState::new(world);
@@ -1827,6 +1846,54 @@ pub fn export_grid(world: &mut World, path: &PathBuf) {
     info!("Successfully exported {} occupancy grids", num_grids_saved);
 }
 
+pub fn resolve_base_sdf_path(
+    path: &std::path::Path,
+    default_file: Option<&DefaultFile>,
+) -> PathBuf {
+    if path.is_relative() {
+        if let Some(default_file) = default_file {
+            if let Some(parent) = default_file.0.parent() {
+                let candidate = parent.join(path);
+                if candidate.is_file() || !path.exists() {
+                    return candidate;
+                }
+            }
+        }
+    }
+    path.to_path_buf()
+}
+
+pub fn resolve_and_read_base_sdf_file(
+    path: &std::path::Path,
+    default_file: Option<&DefaultFile>,
+) -> Result<String, String> {
+    if path.as_os_str().is_empty() || path.to_string_lossy().trim().is_empty() {
+        return Err("Base SDF file path cannot be empty".to_string());
+    }
+    let resolved_path = resolve_base_sdf_path(path, default_file);
+    if !resolved_path.exists() {
+        return Err(format!(
+            "Base SDF file does not exist at {}",
+            resolved_path.display()
+        ));
+    }
+    if !resolved_path.is_file() {
+        return Err(format!(
+            "Base SDF path at {} is not a file",
+            resolved_path.display()
+        ));
+    }
+    let xml = std::fs::read_to_string(&resolved_path).map_err(|e| {
+        format!(
+            "Unable to read base SDF file at {}: {e}",
+            resolved_path.display()
+        )
+    })?;
+    rmf_site_format::sdf::validate_base_sdf_xml(&xml)
+        .map_err(|e| format!("Invalid base SDF file at {}: {e}", resolved_path.display()))?;
+    Ok(xml)
+}
+
 pub fn save_site(world: &mut World) {
     let save_events: Vec<_> = world.resource_mut::<Events<SaveSite>>().drain().collect();
     for save_event in save_events {
@@ -1886,7 +1953,7 @@ pub fn save_site(world: &mut World) {
                 // supporting multiple sites being open in one app.
                 world.resource_mut::<SiteChanged>().0 = false;
             }
-            ExportFormat::Sdf => {
+            ExportFormat::Sdf { base_sdf_path } => {
                 // TODO(luca) reduce code duplication with default exporting
 
                 // Make sure to generate the site before anything else, because
@@ -1899,6 +1966,36 @@ pub fn save_site(world: &mut World) {
                         error!("Unable to compile site: {err}");
                         continue;
                     }
+                };
+
+                let default_file = world.get::<DefaultFile>(save_event.site);
+                let base_sdf_xml = match &base_sdf_path {
+                    Some(path) => match resolve_and_read_base_sdf_file(path, None) {
+                        Ok(xml) => Some(xml),
+                        Err(e) => {
+                            error!("{e}");
+                            continue;
+                        }
+                    },
+                    None => match &site.properties.base_sdf {
+                        BaseSdf::Default => None,
+                        BaseSdf::Xml(xml) => {
+                            if let Err(e) = rmf_site_format::sdf::validate_base_sdf_xml(xml) {
+                                error!("Invalid embedded base SDF XML: {e}");
+                                continue;
+                            }
+                            Some(xml.clone())
+                        }
+                        BaseSdf::File(path) => {
+                            match resolve_and_read_base_sdf_file(path, default_file) {
+                                Ok(xml) => Some(xml),
+                                Err(e) => {
+                                    error!("{e}");
+                                    continue;
+                                }
+                            }
+                        }
+                    },
                 };
 
                 info!("Saving to {}", new_path.display());
@@ -1916,13 +2013,6 @@ pub fn save_site(world: &mut World) {
                 let mut sdf_path = new_path.clone();
                 sdf_path.push(&site.properties.name.0);
                 sdf_path.set_extension("world");
-                let f = match std::fs::File::create(&sdf_path) {
-                    Ok(f) => f,
-                    Err(err) => {
-                        error!("Unable to save file {}: {err}", sdf_path.display());
-                        continue;
-                    }
-                };
 
                 let mut meshes_dir = new_path.clone();
                 meshes_dir.push("meshes");
@@ -1936,10 +2026,17 @@ pub fn save_site(world: &mut World) {
                 }
 
                 migrate_relative_paths(save_event.site, &sdf_path, world);
-                let sdf = match site.to_sdf() {
+                let sdf = match site.to_sdf_with_base_xml(base_sdf_xml.as_deref()) {
                     Ok(sdf) => sdf,
                     Err(err) => {
                         error!("Unable to convert site to sdf: {err}");
+                        continue;
+                    }
+                };
+                let f = match std::fs::File::create(&sdf_path) {
+                    Ok(f) => f,
+                    Err(err) => {
+                        error!("Unable to save file {}: {err}", sdf_path.display());
                         continue;
                     }
                 };
@@ -2147,5 +2244,279 @@ mod tests {
         if time.elapsed() > timeout.max_duration {
             exit.write(AppExit::error());
         }
+    }
+
+    #[test]
+    #[cfg(not(target_arch = "wasm32"))]
+    fn headless_export_cli_base_sdf_pathways() {
+        use crate::site::{BaseSdf, ImportNavGraphs, LoadSite, NameOfSite, SaveSite};
+
+        let target_test_dir = testdir!();
+        let valid_sdf_xml = r#"<?xml version="1.0" ?>
+<sdf version="1.9">
+    <world name="cli_world">
+        <gravity>0 0 -9.8</gravity>
+        <magnetic_field>5.64e-6 2.29e-5 -4.24e-5</magnetic_field>
+        <atmosphere type="adiabatic" />
+        <scene>
+            <ambient>1 1 1</ambient>
+            <background>0.8 0.8 0.8</background>
+            <grid>false</grid>
+            <shadows>true</shadows>
+        </scene>
+    </world>
+</sdf>"#;
+        let invalid_sdf_xml = r#"<?xml version="1.0" ?><sdf version="1.9"></sdf>"#;
+
+        let valid_base_file = target_test_dir.join("valid_base.sdf");
+        std::fs::write(&valid_base_file, valid_sdf_xml).unwrap();
+        let valid_base_str = valid_base_file.to_str().unwrap().to_owned();
+
+        let invalid_base_file = target_test_dir.join("invalid_base.sdf");
+        std::fs::write(&invalid_base_file, invalid_sdf_xml).unwrap();
+        let invalid_base_str = invalid_base_file.to_str().unwrap().to_owned();
+
+        let existing_file_as_target = target_test_dir.join("not_a_folder.txt");
+        std::fs::write(&existing_file_as_target, "hello").unwrap();
+
+        let out_dir = target_test_dir.join("out_sdf");
+        let out_dir_str = out_dir.to_str().unwrap().to_owned();
+
+        fn run_headless_check(
+            sdf_target_path: Option<String>,
+            cli_base_sdf: Option<String>,
+            site_base_sdf: BaseSdf,
+            override_flag: bool,
+        ) -> Option<AppExit> {
+            let mut app = App::new();
+            app.add_plugins((
+                MinimalPlugins,
+                bevy::state::app::StatesPlugin,
+                crossflow::CrossflowPlugin::default(),
+            ))
+            .init_state::<AppState>()
+            .init_resource::<CurrentWorkspace>()
+            .init_resource::<FileDialogServices>()
+            .init_resource::<WorkspaceSavingServices>()
+            .init_resource::<SiteLoadingServices>()
+            .add_event::<SaveSite>()
+            .add_event::<LoadSite>()
+            .add_event::<ImportNavGraphs>()
+            .add_event::<CreateNewWorkspace>()
+            .insert_resource(Autoload {
+                filename: None,
+                import: None,
+            })
+            .insert_resource(site::HeadlessExportState::new(
+                sdf_target_path,
+                cli_base_sdf,
+                override_flag,
+                None,
+                None,
+            ))
+            .add_systems(Update, site::headless_export);
+
+            let site_entity = app
+                .world_mut()
+                .spawn((NameOfSite("test".to_owned()), site_base_sdf))
+                .id();
+            app.world_mut().resource_mut::<CurrentWorkspace>().root = Some(site_entity);
+            app.world_mut()
+                .resource_mut::<NextState<AppState>>()
+                .set(AppState::SiteEditor);
+
+            for _ in 0..20 {
+                app.update();
+                let exit = app
+                    .world_mut()
+                    .resource_mut::<Events<AppExit>>()
+                    .drain()
+                    .next();
+                if let Some(exit) = exit {
+                    return Some(exit);
+                }
+            }
+            None
+        }
+
+        // 1. Site has saved BaseSdf::File and --export-sdf-base without --override-base-sdf -> error
+        assert_eq!(
+            run_headless_check(
+                Some(out_dir_str.clone()),
+                Some(valid_base_str.clone()),
+                BaseSdf::File(valid_base_file.clone()),
+                false,
+            ),
+            Some(AppExit::error())
+        );
+
+        // 2. Site has saved BaseSdf::Xml and --export-sdf-base without --override-base-sdf -> error
+        assert_eq!(
+            run_headless_check(
+                Some(out_dir_str.clone()),
+                Some(valid_base_str.clone()),
+                BaseSdf::Xml(valid_sdf_xml.to_owned()),
+                false,
+            ),
+            Some(AppExit::error())
+        );
+
+        // 3. Site has saved BaseSdf::File and --export-sdf-base WITH --override-base-sdf -> success
+        assert_eq!(
+            run_headless_check(
+                Some(out_dir_str.clone()),
+                Some(valid_base_str.clone()),
+                BaseSdf::File(valid_base_file.clone()),
+                true,
+            ),
+            Some(AppExit::Success)
+        );
+
+        // 4. Site has BaseSdf::Default and valid --export-sdf-base without --override-base-sdf -> success
+        assert_eq!(
+            run_headless_check(
+                Some(out_dir_str.clone()),
+                Some(valid_base_str.clone()),
+                BaseSdf::Default,
+                false,
+            ),
+            Some(AppExit::Success)
+        );
+
+        // 5. --export-sdf-base with empty filename -> error
+        assert_eq!(
+            run_headless_check(
+                Some(out_dir_str.clone()),
+                Some("   ".to_owned()),
+                BaseSdf::Default,
+                false,
+            ),
+            Some(AppExit::error())
+        );
+
+        // 6. --export-sdf-base with nonexistent filename -> error
+        assert_eq!(
+            run_headless_check(
+                Some(out_dir_str.clone()),
+                Some(
+                    target_test_dir
+                        .join("missing.sdf")
+                        .to_str()
+                        .unwrap()
+                        .to_owned()
+                ),
+                BaseSdf::Default,
+                false,
+            ),
+            Some(AppExit::error())
+        );
+
+        // 7. --export-sdf-base pointing to a directory instead of a file -> error
+        assert_eq!(
+            run_headless_check(
+                Some(out_dir_str.clone()),
+                Some(target_test_dir.to_str().unwrap().to_owned()),
+                BaseSdf::Default,
+                false,
+            ),
+            Some(AppExit::error())
+        );
+
+        // 8. --export-sdf-base pointing to an invalid SDF file (missing <world>) -> error
+        assert_eq!(
+            run_headless_check(
+                Some(out_dir_str.clone()),
+                Some(invalid_base_str.clone()),
+                BaseSdf::Default,
+                false,
+            ),
+            Some(AppExit::error())
+        );
+
+        // 9. --export-sdf target path is empty -> error
+        assert_eq!(
+            run_headless_check(
+                Some("".to_owned()),
+                Some(valid_base_str.clone()),
+                BaseSdf::Default,
+                false,
+            ),
+            Some(AppExit::error())
+        );
+
+        // 10. --export-sdf target path is an existing regular file (not a folder) -> error
+        assert_eq!(
+            run_headless_check(
+                Some(existing_file_as_target.to_str().unwrap().to_owned()),
+                Some(valid_base_str.clone()),
+                BaseSdf::Default,
+                false,
+            ),
+            Some(AppExit::error())
+        );
+
+        // 11. No --export-sdf-base, site has saved BaseSdf::File with empty path -> error
+        assert_eq!(
+            run_headless_check(
+                Some(out_dir_str.clone()),
+                None,
+                BaseSdf::File(std::path::PathBuf::new()),
+                false,
+            ),
+            Some(AppExit::error())
+        );
+
+        // 12. No --export-sdf-base, site has saved BaseSdf::File with nonexistent path -> error
+        assert_eq!(
+            run_headless_check(
+                Some(out_dir_str.clone()),
+                None,
+                BaseSdf::File(target_test_dir.join("missing.sdf")),
+                false,
+            ),
+            Some(AppExit::error())
+        );
+
+        // 13. No --export-sdf-base, site has saved BaseSdf::Xml with empty/invalid XML -> error
+        assert_eq!(
+            run_headless_check(
+                Some(out_dir_str.clone()),
+                None,
+                BaseSdf::Xml("".to_owned()),
+                false,
+            ),
+            Some(AppExit::error())
+        );
+        assert_eq!(
+            run_headless_check(
+                Some(out_dir_str.clone()),
+                None,
+                BaseSdf::Xml(invalid_sdf_xml.to_owned()),
+                false,
+            ),
+            Some(AppExit::error())
+        );
+
+        // 14. No --export-sdf-base, site has valid saved BaseSdf::File or BaseSdf::Xml -> success
+        assert_eq!(
+            run_headless_check(
+                Some(out_dir_str.clone()),
+                None,
+                BaseSdf::File(valid_base_file),
+                false,
+            ),
+            Some(AppExit::Success)
+        );
+        assert_eq!(
+            run_headless_check(
+                Some(out_dir_str),
+                None,
+                BaseSdf::Xml(valid_sdf_xml.to_owned()),
+                false,
+            ),
+            Some(AppExit::Success)
+        );
+
+        let _ = std::fs::remove_dir_all(target_test_dir);
     }
 }
