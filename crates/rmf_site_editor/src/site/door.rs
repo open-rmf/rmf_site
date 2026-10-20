@@ -131,7 +131,7 @@ fn handle_name_limit(limit: usize, name: &str) -> String {
     result
 }
 
-fn find_door_position_tfs(
+pub fn find_door_position_tfs(
     kind: &DoorType,
     bottom: f32,
     top: f32,
