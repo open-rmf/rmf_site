@@ -107,7 +107,7 @@ fn compute_model_source<'a, 'b>(
 ) -> Result<AssetSource, SdfError> {
     // SDF can reference models with the model:// syntax, which specifies a path relative to a certain
     // model, in the shape of model://ModelName/path_to_file.ext
-    let asset_source = if let Some(stripped) = subasset_uri.strip_prefix("model://") {
+    let mut asset_source = if let Some(stripped) = subasset_uri.strip_prefix("model://") {
         let mut asset_source =
             AssetSource::try_from(load_context.asset_path().to_string().as_str())
                 .map_err(SdfError::UnsupportedAssetSource)?;
@@ -168,6 +168,11 @@ fn compute_model_source<'a, 'b>(
             .or_else(|e| Err(SdfError::UnsupportedAssetSource(e.to_string())))?;
         AssetSource::try_from(path.to_string().as_str()).map_err(SdfError::UnsupportedAssetSource)
     }?;
+    // AssetPath joins paths with the platform separator, so on Windows the result
+    // may contain `\`. Remote and search sources are always `/`-separated names.
+    if let AssetSource::Remote(ref mut p) | AssetSource::Search(ref mut p) = asset_source {
+        *p = p.replace('\\', "/");
+    }
     Ok(asset_source)
 }
 
