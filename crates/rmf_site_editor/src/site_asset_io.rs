@@ -51,6 +51,17 @@ fn load_from_file<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError
     }
 }
 
+/// Converts an asset path into a name that always uses `/` as the separator.
+/// Bevy joins paths with the platform separator, so on Windows a resolved
+/// path such as `OpenRobotics/Model/meshes/mesh.obj` may arrive as
+/// `OpenRobotics\Model\meshes\mesh.obj`, which breaks fuel URL generation.
+fn asset_name_from_path(path: &Path) -> String {
+    path.iter()
+        .map(|c| c.to_string_lossy())
+        .collect::<Vec<_>>()
+        .join("/")
+}
+
 fn generate_remote_asset_url(name: &str) -> Result<String, AssetReaderError> {
     // Expected format: OrgName/ModelName/FileName.ext
     // We may need to be a bit magical here because some assets
@@ -263,7 +274,7 @@ impl Plugin for SiteAssetIoPlugin {
                     // Relative to a cache directory
                     // Attempt to fetch from the server and save it to the cache directory
 
-                    let asset_name = path.to_str().unwrap().to_owned();
+                    let asset_name = asset_name_from_path(path);
                     if let Ok(paths) = get_path_from_env() {
                         // Check if file exists
                         for path in paths.iter() {
@@ -300,7 +311,7 @@ impl Plugin for SiteAssetIoPlugin {
             "rmf-server",
             BevyAssetSource::build().with_reader(|| {
                 Box::new(SiteAssetReader::new(|path: &Path| {
-                    let asset_name = path.to_str().unwrap().to_owned();
+                    let asset_name = asset_name_from_path(path);
                     let remote_url: String = match generate_remote_asset_url(&asset_name) {
                         Ok(uri) => uri,
                         Err(e) => return Box::pin(async move { Err(e) }),
@@ -355,6 +366,32 @@ impl Plugin for SiteAssetIoPlugin {
         .register_asset_source(
             "memory",
             BevyAssetSource::build().with_reader(move || Box::new(reader.clone())),
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn asset_name_uses_forward_slashes() {
+        let expected = "OpenRobotics/AdjTable/meshes/AdjTable.obj";
+        assert_eq!(asset_name_from_path(Path::new(expected)), expected);
+
+        let mut path = PathBuf::from("OpenRobotics");
+        path.push("AdjTable");
+        path.push("meshes");
+        path.push("AdjTable.obj");
+        assert_eq!(asset_name_from_path(&path), expected);
+    }
+
+    #[test]
+    fn remote_url_from_asset_name() {
+        let uri = generate_remote_asset_url("OpenRobotics/AdjTable/meshes/AdjTable.obj").unwrap();
+        assert_eq!(
+            uri,
+            "https://fuel.gazebosim.org/1.0/OpenRobotics/models/AdjTable/tip/files/meshes/AdjTable.obj"
         );
     }
 }
