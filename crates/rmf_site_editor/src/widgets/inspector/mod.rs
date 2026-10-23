@@ -116,6 +116,7 @@ pub use inspect_texture::*;
 
 pub mod inspect_value;
 pub use inspect_value::*;
+use rmf_site_camera::PanToElement;
 use rmf_site_picking::{Select, Selected, Selection};
 
 use crate::{
@@ -383,8 +384,11 @@ fn resolve_site_id_input(
     site_ids: &Query<(Entity, &SiteID, Has<Selected>)>,
     child_of: &Query<&ChildOf>,
 ) -> Result<Entity, String> {
+    // The inspector heading displays IDs as `#42`, so accept an optional
+    // leading `#` for input that was copied from there.
     let target = input
         .trim()
+        .trim_start_matches('#')
         .parse::<u32>()
         .map_err(|_| "Site ID must be a whole number.".to_string())?;
     let root = root.ok_or_else(|| "No site is currently open.".to_string())?;
@@ -407,6 +411,7 @@ pub struct Inspector<'w, 's> {
     all_site_ids: Query<'w, 's, (Entity, &'static SiteID, Has<Selected>)>,
     child_of: Query<'w, 's, &'static ChildOf>,
     site_id_lookup: Local<'s, SiteIdLookup>,
+    pan_to: Option<ResMut<'w, PanToElement>>,
 }
 
 impl<'w, 's> Inspector<'w, 's> {
@@ -443,6 +448,11 @@ impl<'w, 's> Inspector<'w, 's> {
                     self.inspect_multi_selection
                         .select
                         .write(Select::new(Some(entity)));
+                    // The user may not know where the element is, so bring it
+                    // into view the same way a double click does.
+                    if let Some(pan_to) = self.pan_to.as_mut() {
+                        pan_to.target = Some(entity);
+                    }
                     None
                 }
                 Err(error) => Some(error),
@@ -671,5 +681,20 @@ mod tests {
         assert!(resolve_input(&mut world, "99", Some(root)).is_err());
         assert!(resolve_input(&mut world, "abc", Some(root)).is_err());
         assert!(resolve_input(&mut world, "3", None).is_err());
+    }
+
+    #[test]
+    fn accepts_hash_prefixed_input() {
+        let mut world = World::new();
+        let root = world.spawn(SiteID(1)).id();
+        let wall = world
+            .spawn((SiteID(184), Selected::default(), ChildOf(root)))
+            .id();
+
+        // IDs are shown as `Wall #184` in the inspector heading.
+        assert_eq!(resolve_input(&mut world, "#184", Some(root)), Ok(wall));
+        assert_eq!(resolve_input(&mut world, " #184 ", Some(root)), Ok(wall));
+        assert!(resolve_input(&mut world, "#", Some(root)).is_err());
+        assert!(resolve_input(&mut world, "#abc", Some(root)).is_err());
     }
 }
