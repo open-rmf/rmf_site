@@ -53,12 +53,14 @@ impl Plugin for DestinationPickingPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<DestinationPickingState>().add_systems(
             Update,
-            (select_robot_destination, draw_robot_destination_visuals)
+            (
+                select_robot_destination.run_if(LiveStreamState::in_connected_mode()),
+                draw_robot_destination_visuals,
+            )
                 .chain()
                 .after(SelectionServiceStages::Hover)
                 .before(SelectionServiceStages::Select)
-                .run_if(in_state(crate::AppState::SiteStream))
-                .run_if(LiveStreamState::in_connected_mode()),
+                .run_if(in_state(crate::AppState::SiteStream)),
         );
     }
 }
@@ -242,8 +244,8 @@ fn select_robot_destination(
 }
 
 fn draw_robot_destination_visuals(
-    state: Res<LiveStreamState>,
-    picking_state: Res<DestinationPickingState>,
+    stream_state: Res<LiveStreamState>,
+    mut picking_state: ResMut<DestinationPickingState>,
     mut gizmos: Gizmos,
     cursor: Query<&Transform, With<CursorFrame>>,
     hovering: Res<Hovering>,
@@ -260,7 +262,17 @@ fn draw_robot_destination_visuals(
     >,
     robots: Query<(&NameInSite, &Pose), (With<Robot>, Without<Group>, Without<Pending>)>,
 ) {
-    if state.load_site_status != LoadSiteStatus::None {
+    if !stream_state
+        .connection_active
+        .load(std::sync::atomic::Ordering::Relaxed)
+    {
+        if !picking_state.is_empty() {
+            *picking_state = DestinationPickingState::default();
+        }
+        return;
+    }
+
+    if stream_state.load_site_status != LoadSiteStatus::None {
         return;
     }
 

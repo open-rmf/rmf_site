@@ -126,7 +126,7 @@ pub mod prelude {
     //! we expect downstream users are likely to want easy access to if they are
     //! implementing and inserting their own widgets.
 
-    pub use super::{Inspect, InspectionPlugin};
+    pub use super::{Inspect, InspectionPlugin, ShowInStream};
     pub use bevy::ecs::{
         system::{SystemParam, SystemState},
         world::World,

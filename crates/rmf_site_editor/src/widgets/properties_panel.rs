@@ -22,11 +22,37 @@ use std::collections::HashSet;
 
 use crate::AppState;
 use rmf_site_egui::{
-    PanelConfig, PanelSettings, PanelWidgetInput, ShowInStream, TabGroup, Tile, TryShowWidgetWorld,
+    PanelConfig, PanelSettings, PanelWidgetInput, TabGroup, Tile, TryShowWidgetWorld,
 };
 
 const TAB_BAR_HEIGHT: f32 = 24.0;
 const CLOSE_TAB_ACTIVE_COLOR: egui::Color32 = egui::Color32::from_rgb(240, 80, 80);
+
+/// Controls whether a properties panel tab is shown and interactive in streaming mode.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ShowInStream {
+    /// Shown only outside of streaming mode
+    #[default]
+    Hidden,
+    /// Shown in all modes, read-only in streaming mode
+    ReadOnly,
+    /// Shown only in streaming mode, interactive while streaming
+    Interactive,
+}
+
+impl ShowInStream {
+    pub fn should_show(self, is_streaming_mode: bool) -> bool {
+        if is_streaming_mode {
+            self != Self::Hidden
+        } else {
+            self != Self::Interactive
+        }
+    }
+
+    pub fn should_disable(self, is_streaming_mode: bool) -> bool {
+        is_streaming_mode && self != Self::Interactive
+    }
+}
 
 #[derive(Resource)]
 pub struct PropertiesPanelState {

@@ -118,7 +118,10 @@ pub mod inspect_value;
 pub use inspect_value::*;
 use rmf_site_picking::Selection;
 
-use crate::site::{Category, SiteID};
+use crate::{
+    site::{Category, SiteID},
+    widgets::ShowInStream,
+};
 use bevy::{
     ecs::{
         hierarchy::ChildOf,

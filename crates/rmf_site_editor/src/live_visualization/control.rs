@@ -18,11 +18,11 @@
 use bevy::ecs::system::{SystemParam, SystemState};
 use bevy::prelude::*;
 use bevy_egui::egui::{self, Color32};
-use rmf_site_egui::{
-    PropertiesPanel, PropertiesTilePlugin, ShowInStream, TabGroup, Tile, WidgetSystem,
-};
+use rmf_site_egui::{PropertiesPanel, PropertiesTilePlugin, TabGroup, Tile, WidgetSystem};
 use rmf_site_format::{Group, NameInSite, Pending, Pose, Robot};
 use std::collections::HashMap;
+
+use crate::widgets::ShowInStream;
 
 use super::destination_picking::{DestinationPickingState, RobotDestination};
 use super::destinations::LiveDestinationsState;
@@ -43,26 +43,18 @@ impl Plugin for RobotPathControlPlugin {
         app.init_resource::<RobotPathControlState>()
             .add_systems(
                 Update,
-                update_robot_path_control_ui
-                    .run_if(in_state(crate::AppState::SiteStream))
-                    .run_if(LiveStreamState::in_connected_mode()),
+                update_robot_path_control_ui.run_if(in_state(crate::AppState::SiteStream)),
             )
             .add_systems(
                 OnExit(crate::AppState::SiteStream),
                 cleanup_robot_path_control,
-            )
-            .add_systems(
-                PreUpdate,
-                cleanup_robot_path_control
-                    .run_if(in_state(crate::AppState::SiteStream))
-                    .run_if(not(LiveStreamState::in_connected_mode())),
             );
 
         if app.world().get_resource::<PropertiesPanel>().is_some() {
             app.add_plugins(
                 PropertiesTilePlugin::<RobotPathControlWidget>::new("Fleet")
                     .in_group(TabGroup::Top)
-                    .show_in_stream(ShowInStream::Interactive),
+                    .insert(ShowInStream::Interactive),
             );
         }
     }
@@ -92,10 +84,21 @@ impl RobotPathControlState {
 }
 
 fn update_robot_path_control_ui(
+    stream_state: Res<LiveStreamState>,
     mut control_state: ResMut<RobotPathControlState>,
     destination_state: Res<LiveDestinationsState>,
     path_state: Res<LivePathsState>,
 ) {
+    if !stream_state
+        .connection_active
+        .load(std::sync::atomic::Ordering::Relaxed)
+    {
+        if !control_state.is_empty() {
+            *control_state = RobotPathControlState::default();
+        }
+        return;
+    }
+
     for (robot_name, path_data) in &path_state.0 {
         if let Some(final_pos) = path_data.final_waypoint() {
             let path_is_detour = destination_state

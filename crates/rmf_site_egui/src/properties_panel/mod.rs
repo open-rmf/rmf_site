@@ -17,7 +17,7 @@
 
 use bevy_app::prelude::*;
 use bevy_ecs::name::Name;
-use bevy_ecs::prelude::Component;
+use bevy_ecs::prelude::{Bundle, Component, EntityWorldMut};
 
 use crate::*;
 
@@ -29,32 +29,6 @@ pub enum TabGroup {
     Bottom,
 }
 
-/// Controls whether a properties panel tab is shown and interactive in streaming mode.
-#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum ShowInStream {
-    /// Shown only outside of streaming mode
-    #[default]
-    Hidden,
-    /// Shown in all modes, read-only in streaming mode
-    ReadOnly,
-    /// Shown only in streaming mode, interactive while streaming
-    Interactive,
-}
-
-impl ShowInStream {
-    pub fn should_show(self, is_streaming_mode: bool) -> bool {
-        if is_streaming_mode {
-            self != Self::Hidden
-        } else {
-            self != Self::Interactive
-        }
-    }
-
-    pub fn should_disable(self, is_streaming_mode: bool) -> bool {
-        is_streaming_mode && self != Self::Interactive
-    }
-}
-
 /// Use this plugin to add a single tile into the properties panel.
 pub struct PropertiesTilePlugin<W>
 where
@@ -62,7 +36,7 @@ where
 {
     name: String,
     group: TabGroup,
-    show_in_stream: ShowInStream,
+    inserters: Vec<Box<dyn Fn(&mut EntityWorldMut) + Send + Sync>>,
     _ignore: std::marker::PhantomData<W>,
 }
 
@@ -74,7 +48,7 @@ where
         Self {
             name: name.into(),
             group: TabGroup::default(),
-            show_in_stream: ShowInStream::default(),
+            inserters: Vec::new(),
             _ignore: Default::default(),
         }
     }
@@ -84,8 +58,10 @@ where
         self
     }
 
-    pub fn show_in_stream(mut self, show_in_stream: ShowInStream) -> Self {
-        self.show_in_stream = show_in_stream;
+    pub fn insert<B: Bundle + Clone>(mut self, bundle: B) -> Self {
+        self.inserters.push(Box::new(move |entity| {
+            entity.insert(bundle.clone());
+        }));
         self
     }
 }
@@ -100,8 +76,10 @@ where
         let mut entity = app.world_mut().spawn(widget);
         entity.insert(ChildOf(properties_panel));
         entity.insert(self.group);
-        entity.insert(self.show_in_stream);
         entity.insert(Name::new(self.name.clone()));
+        for insert in &self.inserters {
+            insert(&mut entity);
+        }
     }
 }
 
