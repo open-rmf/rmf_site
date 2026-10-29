@@ -169,6 +169,14 @@ fn add_robot_status_billboard(
     robot_entity: Entity,
     robot_name: &str,
 ) {
+    let billboard_pivot = commands
+        .spawn((
+            Transform::from_xyz(0.0, 0.0, ROBOT_BILLBOARD_Z_HEIGHT),
+            Visibility::Inherited,
+            LiveRobotBillboard,
+        ))
+        .id();
+
     let text_billboard_entity = commands
         .spawn((
             Text3d::new(robot_name),
@@ -181,20 +189,20 @@ fn add_robot_status_billboard(
                 world_scale: Some(Vec2::splat(0.1)),
                 layer_offset: 0.001,
                 align: TextAlign::Center,
-                anchor: TextAnchor::BOTTOM_CENTER,
+                anchor: TextAnchor::CENTER,
                 ..Default::default()
             },
             Mesh3d::default(),
             MeshMaterial3d(site_assets.text3d_material.clone()),
             Billboard {
-                offset: Vec3::new(0.0, 0.0, ROBOT_BILLBOARD_Z_HEIGHT),
+                offset: Vec3::ZERO,
                 hover_enabled: false,
             },
-            LiveRobotBillboard,
         ))
         .id();
 
     commands
-        .entity(robot_entity)
+        .entity(billboard_pivot)
         .add_child(text_billboard_entity);
+    commands.entity(robot_entity).add_child(billboard_pivot);
 }
