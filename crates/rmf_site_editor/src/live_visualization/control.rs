@@ -75,11 +75,12 @@ fn cleanup_robot_path_control(
 #[derive(Default, Resource)]
 struct RobotPathControlState {
     current_destinations: HashMap<String, RobotDestination>,
+    sorted_robots: Vec<(Entity, String)>,
 }
 
 impl RobotPathControlState {
     fn is_empty(&self) -> bool {
-        self.current_destinations.is_empty()
+        self.current_destinations.is_empty() && self.sorted_robots.is_empty()
     }
 }
 
@@ -106,19 +107,21 @@ fn update_robot_path_control_ui(
                 .get(robot_name)
                 .copied()
                 .unwrap_or(false);
-            control_state
-                .current_destinations
-                .entry(robot_name.clone())
-                .and_modify(|dest| {
-                    if !path_is_detour {
-                        dest.position = final_pos;
-                    }
-                })
-                .or_insert(RobotDestination {
-                    position: final_pos,
-                    location_name: None,
-                    target_nodes: Vec::new(),
-                });
+
+            if !path_is_detour {
+                if let Some(dest) = control_state.current_destinations.get_mut(robot_name) {
+                    dest.position = final_pos;
+                } else {
+                    control_state.current_destinations.insert(
+                        robot_name.clone(),
+                        RobotDestination {
+                            position: final_pos,
+                            location_name: None,
+                            target_nodes: Vec::new(),
+                        },
+                    );
+                }
+            }
         }
     }
 }
@@ -135,7 +138,7 @@ struct RobotPathControlWidget<'w, 's> {
     robots: Query<
         'w,
         's,
-        (&'static NameInSite, &'static Pose),
+        (Entity, &'static NameInSite, &'static Pose),
         (With<Robot>, Without<Group>, Without<Pending>),
     >,
 }
@@ -170,12 +173,17 @@ impl<'w, 's> RobotPathControlWidget<'w, 's> {
             return;
         }
 
-        let mut robot_list: Vec<(String, Vec2)> = self
-            .robots
-            .iter()
-            .map(|(name, pose)| (name.0.clone(), Vec2::new(pose.trans[0], pose.trans[1])))
-            .collect();
-        robot_list.sort_by(|a, b| a.0.cmp(&b.0));
+        let current_robot_count = self.robots.iter().count();
+        if self.control_state.sorted_robots.len() != current_robot_count {
+            self.control_state.sorted_robots = self
+                .robots
+                .iter()
+                .map(|(entity, name, _)| (entity, name.0.clone()))
+                .collect();
+            self.control_state
+                .sorted_robots
+                .sort_by(|a, b| a.1.cmp(&b.1));
+        }
 
         let mut header_bottom = None;
 
@@ -191,79 +199,89 @@ impl<'w, 's> RobotPathControlWidget<'w, 's> {
                 ui.label("");
                 ui.end_row();
 
-                for (robot_name, robot_pos) in &robot_list {
-                    ui.label(robot_name);
+                for &(entity, ref robot_name) in &self.control_state.sorted_robots {
+                    if let Ok((_, _, pose)) = self.robots.get(entity) {
+                        let robot_pos = Vec2::new(pose.trans[0], pose.trans[1]);
+                        ui.label(robot_name);
 
-                    ui.label(format!("({:.2}, {:.2})", robot_pos.x, robot_pos.y));
+                        ui.label(format!("({:.2}, {:.2})", robot_pos.x, robot_pos.y));
 
-                    let path_data = self.path_state.0.get(robot_name);
-                    let is_detour = self
-                        .destination_state
-                        .detours
-                        .get(robot_name)
-                        .copied()
-                        .unwrap_or(false);
+                        let path_data = self.path_state.0.get(robot_name);
+                        let is_detour = self
+                            .destination_state
+                            .detours
+                            .get(robot_name)
+                            .copied()
+                            .unwrap_or(false);
 
-                    let selected_dest = self.picking_state.selected_destinations.get(robot_name);
-                    let current_dest = self.control_state.current_destinations.get(robot_name);
+                        let selected_dest =
+                            self.picking_state.selected_destinations.get(robot_name);
+                        let current_dest = self.control_state.current_destinations.get(robot_name);
 
-                    // Update Status column
-                    let (status_text, status_color) = match path_data {
-                        // Robot is on path that is not completed
-                        Some(path_data) if !path_data.is_completed() => ("Moving", MOVING_COLOR),
+                        // Update Status column
+                        let (status_text, status_color) = match path_data {
+                            // Robot is on path that is not completed
+                            Some(path_data) if !path_data.is_completed() => {
+                                ("Moving", MOVING_COLOR)
+                            }
 
-                        // Robot has completed path and there is no next destination queued
-                        Some(_) if current_dest.is_some() && selected_dest.is_none() => {
-                            if is_detour {
-                                ("Waiting", WAITING_COLOR)
+                            // Robot has completed path and there is no next destination queued
+                            Some(_)
+                                if (current_dest.is_some() || is_detour)
+                                    && selected_dest.is_none() =>
+                            {
+                                if is_detour {
+                                    ("Waiting", WAITING_COLOR)
+                                } else {
+                                    ("Reached", REACHED_COLOR)
+                                }
+                            }
+
+                            // Robot has no path data
+                            _ => ("Pending", PENDING_COLOR),
+                        };
+                        ui.label(egui::RichText::new(status_text).color(status_color));
+
+                        // Update Goal column
+                        let (goal_text, goal_color) = match (selected_dest, current_dest) {
+                            // Robot has pending destination
+                            (Some(dest), _) => (dest.display_label(), PENDING_COLOR),
+
+                            // Robot has been detoured
+                            (None, opt_dest) if is_detour => {
+                                let detour_pos = path_data
+                                    .and_then(|p| p.final_waypoint())
+                                    .or_else(|| opt_dest.map(|d| d.position))
+                                    .unwrap_or(Vec2::ZERO);
+                                (
+                                    format!("Detour: ({:.2}, {:.2})", detour_pos.x, detour_pos.y),
+                                    status_color,
+                                )
+                            }
+
+                            // Robot has no selected path but has completed destination
+                            (None, Some(dest)) => (dest.display_label(), status_color),
+
+                            // Robot has no destination
+                            (None, None) => ("None".to_string(), Color32::WHITE),
+                        };
+                        ui.label(egui::RichText::new(goal_text).color(goal_color));
+
+                        // Highlight robot that is currently being routed
+                        let is_routing = self.picking_state.active_routing_robot.as_deref()
+                            == Some(robot_name.as_str());
+                        if ui
+                            .add(egui::Button::new("Route").selected(is_routing))
+                            .clicked()
+                        {
+                            if is_routing {
+                                self.picking_state.active_routing_robot = None;
                             } else {
-                                ("Reached", REACHED_COLOR)
+                                self.picking_state.active_routing_robot = Some(robot_name.clone());
                             }
                         }
-
-                        // Robot has no path data
-                        _ => ("Pending", PENDING_COLOR),
-                    };
-                    ui.label(egui::RichText::new(status_text).color(status_color));
-
-                    // Update Goal column
-                    let (goal_text, goal_color) = match (selected_dest, current_dest) {
-                        // Robot has pending destination
-                        (Some(dest), _) => (dest.display_label(), PENDING_COLOR),
-
-                        // Robot has been detoured
-                        (None, Some(dest)) if is_detour => {
-                            let detour_pos = path_data
-                                .and_then(|p| p.final_waypoint())
-                                .unwrap_or(dest.position);
-                            (
-                                format!("Detour: ({:.2}, {:.2})", detour_pos.x, detour_pos.y),
-                                status_color,
-                            )
-                        }
-
-                        // Robot has no selected path but has completed destination
-                        (None, Some(dest)) => (dest.display_label(), status_color),
-
-                        // Robot has no destination
-                        (None, None) => ("None".to_string(), Color32::WHITE),
-                    };
-                    ui.label(egui::RichText::new(goal_text).color(goal_color));
-
-                    // Highlight robot that is currently being routed
-                    let is_routing = self.picking_state.active_routing_robot.as_deref()
-                        == Some(robot_name.as_str());
-                    if ui
-                        .add(egui::Button::new("Route").selected(is_routing))
-                        .clicked()
-                    {
-                        if is_routing {
-                            self.picking_state.active_routing_robot = None;
-                        } else {
-                            self.picking_state.active_routing_robot = Some(robot_name.clone());
-                        }
+                        ui.end_row();
                     }
-                    ui.end_row();
                 }
             });
 

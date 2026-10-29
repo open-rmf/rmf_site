@@ -19,8 +19,8 @@ use bevy::ecs::hierarchy::ChildOf;
 use bevy::prelude::*;
 use rmf_site_egui::InspectFor;
 use rmf_site_format::{
-    Anchor, AssociatedGraphs, FloorMarker, Group, LaneMarker, LevelElevation, LocationTags,
-    NameInSite, NavGraphMarker, Pending, Point, Pose, Robot, SiteID,
+    Anchor, AssociatedGraphs, FloorMarker, LaneMarker, LevelElevation, LocationTags, NameInSite,
+    NavGraphMarker, Pending, Point, Pose, SiteID,
 };
 use rmf_site_msgs::rmf_prototype_msgs::msg::{GraphElementKey, TargetNode};
 use rmf_site_picking::{CursorFrame, Hovering, PickBlockStatus, Select, SelectionServiceStages};
@@ -31,6 +31,7 @@ use crate::site::{LocationBillboardMarker, LANE_WIDTH};
 
 use super::gizmos::{draw_crosshair_symbol, draw_dashed_line, draw_off_limits_symbol};
 use super::live_state::{LiveStreamState, LoadSiteStatus};
+use super::odometry::LiveRobotsState;
 
 const DESTINATION_TARGET_OUTER_RADIUS: f32 = 0.06;
 const DESTINATION_TARGET_INNER_RADIUS: f32 = 0.02;
@@ -246,6 +247,7 @@ fn select_robot_destination(
 fn draw_robot_destination_visuals(
     stream_state: Res<LiveStreamState>,
     mut picking_state: ResMut<DestinationPickingState>,
+    robot_map: Res<LiveRobotsState>,
     mut gizmos: Gizmos,
     cursor: Query<&Transform, With<CursorFrame>>,
     hovering: Res<Hovering>,
@@ -260,7 +262,7 @@ fn draw_robot_destination_visuals(
             With<Anchor>,
         )>,
     >,
-    robots: Query<(&NameInSite, &Pose), (With<Robot>, Without<Group>, Without<Pending>)>,
+    robots: Query<&Pose>,
 ) {
     if !stream_state
         .connection_active
@@ -293,16 +295,18 @@ fn draw_robot_destination_visuals(
             DESTINATION_TARGET_CROSS_RADIUS,
             DESTINATION_TARGET_COLOR,
         );
-        if let Some((_, pose)) = robots.iter().find(|(name, _)| &name.0 == robot_name) {
-            draw_dashed_line(
-                &mut gizmos,
-                Vec3::new(pose.trans[0], pose.trans[1], z_height),
-                target_pos,
-                DESTINATION_LINE_DASH,
-                DESTINATION_LINE_GAP,
-                0.0,
-                DESTINATION_TARGET_COLOR,
-            );
+        if let Some(&entity) = robot_map.0.get(robot_name) {
+            if let Ok(pose) = robots.get(entity) {
+                draw_dashed_line(
+                    &mut gizmos,
+                    Vec3::new(pose.trans[0], pose.trans[1], z_height),
+                    target_pos,
+                    DESTINATION_LINE_DASH,
+                    DESTINATION_LINE_GAP,
+                    0.0,
+                    DESTINATION_TARGET_COLOR,
+                );
+            }
         }
     }
 
@@ -339,15 +343,17 @@ fn draw_robot_destination_visuals(
         DESTINATION_TARGET_CROSS_RADIUS,
         DESTINATION_TARGET_COLOR,
     );
-    if let Some((_, pose)) = robots.iter().find(|(name, _)| &name.0 == active_robot) {
-        draw_dashed_line(
-            &mut gizmos,
-            Vec3::new(pose.trans[0], pose.trans[1], z_height),
-            cursor_pos,
-            DESTINATION_LINE_DASH,
-            DESTINATION_LINE_GAP,
-            0.0,
-            DESTINATION_TARGET_COLOR,
-        );
+    if let Some(&entity) = robot_map.0.get(active_robot) {
+        if let Ok(pose) = robots.get(entity) {
+            draw_dashed_line(
+                &mut gizmos,
+                Vec3::new(pose.trans[0], pose.trans[1], z_height),
+                cursor_pos,
+                DESTINATION_LINE_DASH,
+                DESTINATION_LINE_GAP,
+                0.0,
+                DESTINATION_TARGET_COLOR,
+            );
+        }
     }
 }
