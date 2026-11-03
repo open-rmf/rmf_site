@@ -379,6 +379,14 @@ fn find_entity_with_site_id(
         .unwrap_or(SiteIdLookupResult::NotFound)
 }
 
+/// Clears a lookup error left over from a previous workspace, keeping the
+/// user's input.
+fn clear_stale_site_id_error(lookup: &mut SiteIdLookup, workspace: &Res<CurrentWorkspace>) {
+    if workspace.is_changed() {
+        lookup.error = None;
+    }
+}
+
 /// Parses the user's Site ID input and resolves it to an entity that can be
 /// selected, or returns a message explaining why it cannot.
 fn resolve_site_id_input(
@@ -415,8 +423,10 @@ pub struct Inspector<'w, 's> {
 
 impl<'w, 's> Inspector<'w, 's> {
     /// Renders a small control that lets a user type a raw numeric [`SiteID`]
-    /// and select the matching entity, scoped to the current workspace.
-    fn show_site_id_lookup(&mut self, ui: &mut Ui) {
+    /// and returns the matching entity, scoped to the current workspace.
+    fn show_site_id_lookup(&mut self, ui: &mut Ui) -> Option<Entity> {
+        clear_stale_site_id_error(&mut self.site_id_lookup, &self.current_workspace);
+
         let mut submit = false;
         ui.horizontal(|ui| {
             ui.label("Site ID:");
@@ -436,6 +446,7 @@ impl<'w, 's> Inspector<'w, 's> {
             }
         });
 
+        let mut found = None;
         if submit {
             self.site_id_lookup.error = match resolve_site_id_input(
                 &self.site_id_lookup.input,
@@ -444,9 +455,7 @@ impl<'w, 's> Inspector<'w, 's> {
                 &self.child_of,
             ) {
                 Ok(entity) => {
-                    self.inspect_multi_selection
-                        .select
-                        .write(Select::new(Some(entity)));
+                    found = Some(entity);
                     None
                 }
                 Err(error) => Some(error),
@@ -458,6 +467,7 @@ impl<'w, 's> Inspector<'w, 's> {
         }
 
         ui.separator();
+        found
     }
 }
 
@@ -478,7 +488,9 @@ impl<'w, 's> WidgetSystem<Tile> for Inspector<'w, 's> {
 
         // The Site ID lookup must stay visible even when nothing is selected,
         // so it is shown before the "no entity selected" early return below.
-        state.get_mut(world).show_site_id_lookup(ui);
+        if let Some(entity) = state.get_mut(world).show_site_id_lookup(ui) {
+            world.send_event(Select::new(Some(entity)));
+        }
 
         let Some(selection) = world.get_resource::<Selection>() else {
             ui.label("ERROR: Selection resource is not available");
@@ -578,6 +590,39 @@ mod tests {
         let mut state = SystemState::<LookupParams>::new(world);
         let (site_ids, child_of) = state.get(world);
         resolve_site_id_input(input, root, &site_ids, &child_of)
+    }
+
+    #[test]
+    fn inspector_system_param_initializes() {
+        let mut world = World::new();
+        let _state = SystemState::<Inspector>::new(&mut world);
+    }
+
+    #[test]
+    fn workspace_change_clears_stale_error_only() {
+        let mut world = World::new();
+        world.init_resource::<CurrentWorkspace>();
+        let mut state =
+            SystemState::<(Res<CurrentWorkspace>, Local<SiteIdLookup>)>::new(&mut world);
+        let mut run = |world: &mut World, new_error: Option<&str>| {
+            let (workspace, mut lookup) = state.get_mut(world);
+            clear_stale_site_id_error(&mut lookup, &workspace);
+            if let Some(error) = new_error {
+                lookup.input = "42".to_string();
+                lookup.error = Some(error.to_string());
+            }
+            (lookup.input.clone(), lookup.error.clone())
+        };
+
+        run(&mut world, Some("stale"));
+        assert_eq!(
+            run(&mut world, None),
+            ("42".to_string(), Some("stale".to_string()))
+        );
+
+        let site = world.spawn_empty().id();
+        world.resource_mut::<CurrentWorkspace>().root = Some(site);
+        assert_eq!(run(&mut world, None), ("42".to_string(), None));
     }
 
     #[test]
