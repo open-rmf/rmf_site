@@ -516,22 +516,22 @@ fn backward_arrow_color(lane_color: LinearRgba) -> LinearRgba {
 }
 
 fn lane_entity_visibility(
-  lanes_category: &CategoryVisibility<LaneMarker>,
-  edge: &Edge<Entity>,
-  associated: &AssociatedGraphs<Entity>,
-  child_of: &Query<&ChildOf>,
-  levels: &Query<(), With<LevelElevation>>,
-  current_level: &Res<CurrentLevel>,
-  graphs: &GraphSelect,
+    lanes_category: &CategoryVisibility<LaneMarker>,
+    edge: &Edge<Entity>,
+    associated: &AssociatedGraphs<Entity>,
+    child_of: &Query<&ChildOf>,
+    levels: &Query<(), With<LevelElevation>>,
+    current_level: &Res<CurrentLevel>,
+    graphs: &GraphSelect,
 ) -> Visibility {
-  if !lanes_category.0 {
-      return Visibility::Hidden;
-  }
-  if should_display_lane(edge, associated, child_of, levels, current_level, graphs) {
-      Visibility::Inherited
-  } else {
-      Visibility::Hidden
-  }
+    if !lanes_category.0 {
+        return Visibility::Hidden;
+    }
+    if should_display_lane(edge, associated, child_of, levels, current_level, graphs) {
+        Visibility::Inherited
+    } else {
+        Visibility::Hidden
+    }
 }
 
 // TODO(MXG): Generalize this to all edges
