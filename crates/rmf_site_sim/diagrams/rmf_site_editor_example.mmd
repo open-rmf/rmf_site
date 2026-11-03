@@ -1,0 +1,19 @@
+sequenceDiagram
+    participant request_generator
+    participant planner
+    participant robot
+    participant door
+
+    request_generator->>planner: TaskState::Active
+    planner->>robot: AssignRobotTrajectory
+    robot->>robot: Pose
+    robot->>door: DoorCommand::Open
+    robot->>robot: RobotTrajectory::hold
+    door->>door: DoorState::Opening
+    door->>robot: DoorState::Open
+    robot->>robot: RobotTrajectory::resume
+    robot->>robot: Pose
+    robot->>door: DoorCommand::Close
+    door->>door: DoorState::Closing
+    door->>door: DoorState::Closed
+    robot->>robot: TaskState::Complete

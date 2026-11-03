@@ -31,5 +31,5 @@ bevy_egui = {workspace = true}
 web-time = {workspace = true}
 
 [dev-dependencies]
-bevy = {workspace = true, features = ["dynamic_linking"]}
+bevy = {workspace = true}
 bevy-inspector-egui = {workspace = true}

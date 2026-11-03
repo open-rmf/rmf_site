@@ -1,0 +1,23 @@
+sequenceDiagram
+    participant area_1
+    participant amr_1
+    participant station_1
+    participant conveyor_1
+    participant station_2
+    participant amr_2
+    participant area_2
+
+    area_1->>amr_1: PassProduct(i)
+    area_1->>amr_1: PassProduct(i + 1)
+    amr_1->>amr_1: MoveTo(station_1)
+    amr_1->>amr_1: ArriveAt(station_1)
+    amr_1->>station_1: PassProduct(i)
+    station_1->>station_1: ArriveAt(i)
+    station_1->>conveyor_1: PassProduct(i)
+    conveyor_1->>conveyor_1: ArriveAt(i)
+    conveyor_1->>station_2: PassProduct(i)
+    station_2->>station_2: ArriveAt(i)
+    station_2->>amr_2: PassProduct(i)
+    amr_2->>amr_2: MoveTo(area_2)
+    amr_2->>amr_2: ArriveAt(area_2)
+    amr_2->>area_2: PassProduct(i)

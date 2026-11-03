@@ -16,5 +16,5 @@ smallvec = {workspace = true}
 tracing = {workspace = true}
 
 [dev-dependencies]
-bevy = {workspace = true, features = ["dynamic_linking"]}
+bevy = {workspace = true}
 bevy-inspector-egui = {workspace = true}
