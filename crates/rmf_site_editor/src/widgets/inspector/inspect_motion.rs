@@ -18,7 +18,7 @@
 use crate::{
     site::Change,
     widgets::{
-        inspector::{InspectAngle, InspectOptionF32},
+        inspector::{InspectAngle, InspectOptionF32, InspectOptionString},
         prelude::*,
         Inspect,
     },
@@ -274,7 +274,16 @@ impl<'a> InspectMotionComponent<'a> {
             }
         };
 
-        if new_orientation.is_some() || new_speed.is_some() || new_dock.is_some() {
+        ui.add_space(10.0);
+        let new_workflow =
+            InspectOptionString::new("Workflow", &self.motion.workflow, &self.recall.workflow)
+                .show(ui);
+
+        if new_orientation.is_some()
+            || new_speed.is_some()
+            || new_dock.is_some()
+            || new_workflow.is_some()
+        {
             let mut new_motion = self.motion.clone();
             if let Some(new_orientation) = new_orientation {
                 new_motion.orientation_constraint = new_orientation;
@@ -286,6 +295,10 @@ impl<'a> InspectMotionComponent<'a> {
 
             if let Some(new_dock) = new_dock {
                 new_motion.dock = new_dock;
+            }
+
+            if let Some(new_workflow) = new_workflow {
+                new_motion.workflow = new_workflow;
             }
 
             return Some(new_motion);
