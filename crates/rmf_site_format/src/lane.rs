@@ -55,6 +55,8 @@ pub struct Motion {
     pub speed_limit: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dock: Option<Dock>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workflow: Option<String>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -66,6 +68,7 @@ pub struct RecallMotion {
     pub dock: Option<Dock>,
     pub dock_name: Option<String>,
     pub dock_duration: Option<f32>,
+    pub workflow: Option<String>,
 }
 
 impl Recall for RecallMotion {
@@ -94,6 +97,10 @@ impl Recall for RecallMotion {
             if let Some(duration) = dock.duration {
                 self.dock_duration = Some(duration);
             }
+        }
+
+        if let Some(workflow) = &source.workflow {
+            self.workflow = Some(workflow.clone());
         }
     }
 }
@@ -219,5 +226,58 @@ impl<T: RefTrait> From<Edge<T>> for Lane<T> {
             graphs: Default::default(),
             marker: Default::default(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_lane_workflow_serialization_and_direction() {
+        let lane: Lane<u32> = Lane {
+            anchors: Edge::new(1, 2),
+            forward: Motion {
+                workflow: Some("clean_floor_forward".to_string()),
+                ..Default::default()
+            },
+            reverse: ReverseLane::Different(Motion {
+                workflow: Some("transport_reverse".to_string()),
+                ..Default::default()
+            }),
+            mutex: Default::default(),
+            graphs: Default::default(),
+            marker: Default::default(),
+        };
+
+        let json_str = serde_json::to_string(&lane).unwrap();
+        assert!(json_str.contains("clean_floor_forward"));
+        assert!(json_str.contains("transport_reverse"));
+
+        let deserialized: Lane<u32> = serde_json::from_str(&json_str).unwrap();
+        assert_eq!(lane, deserialized);
+        assert_eq!(
+            deserialized.forward.workflow.as_deref(),
+            Some("clean_floor_forward")
+        );
+        match &deserialized.reverse {
+            ReverseLane::Different(rev_motion) => {
+                assert_eq!(rev_motion.workflow.as_deref(), Some("transport_reverse"));
+            }
+            _ => panic!("Expected ReverseLane::Different"),
+        }
+    }
+
+    #[test]
+    fn test_recall_motion_workflow() {
+        let motion = Motion {
+            workflow: Some("delivery_workflow".to_string()),
+            ..Default::default()
+        };
+
+        let mut recall = RecallMotion::default();
+        assert_eq!(recall.workflow, None);
+        recall.remember(&motion);
+        assert_eq!(recall.workflow.as_deref(), Some("delivery_workflow"));
     }
 }
