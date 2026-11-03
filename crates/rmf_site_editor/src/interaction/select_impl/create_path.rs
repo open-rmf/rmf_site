@@ -175,7 +175,10 @@ pub fn on_hover_for_create_path(
         }
     };
 
-    let path = state.path.or_broken_state()?;
+    let Some(path) = state.path else {
+        // The first click creates the path; hovering before it is valid.
+        return Ok(());
+    };
     let mut path_mut = paths.get_mut(path).or_broken_query()?;
     state.set_last(chosen, path_mut.as_mut(), &mut commands)
 }
@@ -396,4 +399,103 @@ fn finish_path(
     state.provisional_anchors.clear();
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::site::{Dependents, SiteAssets, ZoneBundle};
+    use bevy::ecs::system::SystemState;
+    use crossflow::testing::TestingContext;
+
+    #[test]
+    fn zone_hover_before_first_point_keeps_drawing_active() {
+        let mut context = TestingContext::minimal_plugins();
+        context
+            .app
+            .add_plugins(AssetPlugin::default())
+            .init_asset::<Image>()
+            .init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<StandardMaterial>>()
+            .init_resource::<InteractionAssets>()
+            .init_resource::<SiteAssets>()
+            .init_resource::<Cursor>();
+        let anchor = context.app.world_mut().spawn_empty().id();
+        for hover in [Hover(Some(anchor)), Hover(None)] {
+            let workflow = context.spawn_io_workflow(
+                move |scope: Scope<CreatePath, SelectionNodeResult>, builder| {
+                    let buffer = builder.create_buffer(BufferSettings::keep_all());
+                    builder.connect(scope.input, buffer.input_slot());
+                    builder
+                        .listen(buffer)
+                        .map_block(move |key| (hover, key))
+                        .then(on_hover_for_create_path.into_blocking_callback())
+                        .connect(scope.terminate);
+                },
+            );
+            let creation = CreatePath::new(
+                |path, commands| {
+                    commands.insert((ZoneBundle::from(path), Pending));
+                    Ok(())
+                },
+                3,
+                false,
+                true,
+                AnchorScope::General,
+            );
+            let mut promise =
+                context.command(|commands| commands.request(creation, workflow).take_response());
+            context.run_with_conditions(&mut promise, 10);
+            assert!(promise
+                .take()
+                .available()
+                .is_some_and(|result| result.is_ok()));
+            assert!(context.no_unhandled_errors());
+        }
+    }
+
+    #[test]
+    fn zone_cancel_removes_only_provisional_anchors() {
+        let mut world = World::new();
+        let shared = world.spawn(Dependents::default()).id();
+        let provisional = world.spawn(Dependents::default()).id();
+        let cursor = world.spawn(Dependents::default()).id();
+        let other = world.spawn_empty().id();
+        let zone = world
+            .spawn((
+                ZoneBundle::from(Path(vec![shared, provisional, cursor])),
+                Pending,
+            ))
+            .id();
+        for anchor in [shared, provisional, cursor] {
+            world.get_mut::<Dependents>(anchor).unwrap().insert(zone);
+        }
+        world.get_mut::<Dependents>(shared).unwrap().insert(other);
+        let mut creation = CreatePath::new(
+            |path, commands| {
+                commands.insert((ZoneBundle::from(path), Pending));
+                Ok(())
+            },
+            3,
+            false,
+            true,
+            AnchorScope::General,
+        );
+        creation.path = Some(zone);
+        creation.provisional_anchors.insert(provisional);
+        let mut state: SystemState<(Query<&mut Path<Entity>>, Commands)> =
+            SystemState::new(&mut world);
+        let (mut paths, mut commands) = state.get_mut(&mut world);
+        finish_path(&mut creation, &mut paths, &mut commands).unwrap();
+        state.apply(&mut world);
+        assert!(world.get_entity(zone).is_err());
+        assert!(world.get_entity(provisional).is_err());
+        assert!(world.get_entity(cursor).is_ok());
+        assert_eq!(
+            &world.get::<Dependents>(shared).unwrap().0,
+            &HashSet::from([other])
+        );
+        assert!(!world.get::<Dependents>(cursor).unwrap().contains(&zone));
+        assert!(creation.path.is_none());
+    }
 }

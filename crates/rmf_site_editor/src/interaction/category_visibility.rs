@@ -82,7 +82,7 @@ impl<T: Component + Clone + Debug> Plugin for CategoryVisibilityPlugin<T> {
     }
 }
 
-fn set_category_visibility<T: Component + Clone + Debug>(
+pub(super) fn set_category_visibility<T: Component + Clone + Debug>(
     mut events: EventReader<SetCategoryVisibility<T>>,
     mut category_visibility: ResMut<CategoryVisibility<T>>,
     mut visibilities: Query<&mut Visibility, With<T>>,

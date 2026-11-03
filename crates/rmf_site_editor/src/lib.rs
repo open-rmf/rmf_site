@@ -323,6 +323,7 @@ impl Plugin for SiteEditor {
             app.add_plugins((StandardUiPlugin::default(), MainMenuPlugin))
                 // Note order matters, plugins that edit the menus must be initialized after the UI
                 .add_plugins((site::ViewMenuPlugin, OSMViewPlugin, SiteWireframePlugin))
+                .add_plugins(widgets::ZonesPlugin)
                 .add_plugins(NegotiationPlugin::default());
         }
 

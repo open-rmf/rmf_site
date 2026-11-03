@@ -128,6 +128,9 @@ pub use texture::*;
 pub mod wall;
 pub use wall::*;
 
+mod zone;
+pub use zone::*;
+
 pub mod georeference;
 pub use georeference::*;
 
