@@ -207,9 +207,14 @@ pub struct SceneHandle(pub UntypedHandle);
 pub fn spawn_scene_for_loaded_model(
     In((parent, h, source)): In<(Entity, UntypedHandle, AssetSource)>,
     world: &mut World,
-) -> Option<(Entity, bool)> {
+) -> Result<(Entity, bool), ModelLoadingErrorKind> {
+    // The parent may have been despawned while its asset was loading, e.g. when
+    // a sub-model of a scene is removed because the scene's source changed.
     // TODO(@xiyuoh) make this into a feature
-    world.entity_mut(parent).insert(SceneHandle(h.clone()));
+    world
+        .get_entity_mut(parent)
+        .map_err(|_| ModelLoadingErrorKind::ParentDespawned)?
+        .insert(SceneHandle(h.clone()));
     // For each model that is loading, check if its scene has finished loading
     // yet. If the scene has finished loading, then insert it as a child of the
     // model entity and make it selectable.
@@ -218,14 +223,17 @@ pub fn spawn_scene_for_loaded_model(
         // Note we can't do an `if let Some()` because get(Handle) panics if the type is
         // not the stored type
         let gltfs = world.resource::<Assets<Gltf>>();
-        let gltf = gltfs.get(h.typed::<Gltf>().id())?;
+        let gltf = gltfs
+            .get(h.typed::<Gltf>().id())
+            .ok_or(ModelLoadingErrorKind::NonModelAsset)?;
         // Get default scene if present, otherwise index 0
         let scene = gltf
             .default_scene
             .as_ref()
             .or_else(|| gltf.scenes.get(0))
-            .cloned()?;
-        Some((
+            .cloned()
+            .ok_or(ModelLoadingErrorKind::NonModelAsset)?;
+        Ok((
             world
                 .spawn((
                     SceneRoot(scene),
@@ -237,7 +245,7 @@ pub fn spawn_scene_for_loaded_model(
         ))
     } else if type_id == TypeId::of::<Scene>() {
         let scene = h.typed::<Scene>();
-        Some((
+        Ok((
             world
                 .spawn((
                     SceneRoot(scene),
@@ -250,7 +258,7 @@ pub fn spawn_scene_for_loaded_model(
     } else if type_id == TypeId::of::<Mesh>() {
         let site_assets = world.resource::<SiteAssets>();
         let mesh = h.typed::<Mesh>();
-        Some((
+        Ok((
             world
                 .spawn((
                     Mesh3d(mesh),
@@ -261,7 +269,7 @@ pub fn spawn_scene_for_loaded_model(
             false,
         ))
     } else {
-        None
+        Err(ModelLoadingErrorKind::NonModelAsset)
     }?;
     // Add scene and visibility bundle if not present already
     world
@@ -274,7 +282,7 @@ pub fn spawn_scene_for_loaded_model(
     if world.get::<Visibility>(parent).is_none() {
         world.entity_mut(parent).insert(Visibility::default());
     }
-    Some((model_id, is_scene))
+    Ok((model_id, is_scene))
 }
 
 /// Return Ok(request) if the source changed and we might need to continue downstream operations.
@@ -358,12 +366,8 @@ fn handle_model_loading(
                     ModelLoadingErrorKind::WorkflowExecutionError,
                 )
             })?;
-        let Some((scene_entity, is_scene)) = res else {
-            return Err(ModelLoadingError::new(
-                request.clone(),
-                ModelLoadingErrorKind::NonModelAsset,
-            ));
-        };
+        let (scene_entity, is_scene) =
+            res.map_err(|kind| ModelLoadingError::new(request.clone(), kind))?;
         if is_scene {
             // Wait for the scene to be spawned, if there is one
             channel
@@ -749,6 +753,8 @@ pub enum ModelLoadingErrorKind {
     FailedLoadingAsset,
     #[error("Asset did not contain a model")]
     NonModelAsset,
+    #[error("Model entity was despawned before its asset finished loading")]
+    ParentDespawned,
     #[error("Failed loading dependency for model, error: {0}")]
     FailedLoadingDependency(String),
 }
