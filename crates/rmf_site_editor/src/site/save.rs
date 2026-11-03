@@ -1374,6 +1374,7 @@ fn generate_model_descriptions(
                 &NameInSite,
                 &ModelProperty<AssetSource>,
                 &ModelProperty<IsStatic>,
+                Option<&ModelProperty<KnownObstacle>>,
                 &ModelProperty<Scale>,
             ),
             (With<ModelMarker>, With<Group>, Without<Pending>),
@@ -1385,11 +1386,14 @@ fn generate_model_descriptions(
     let mut res = BTreeMap::<u32, ModelDescriptionBundle>::new();
     if let Ok(children) = children.get(site) {
         for child in children.iter() {
-            if let Ok((site_id, name, source, is_static, scale)) = model_descriptions.get(child) {
+            if let Ok((site_id, name, source, is_static, is_base_occupancy_grid, scale)) =
+                model_descriptions.get(child)
+            {
                 let desc_bundle = ModelDescriptionBundle {
                     name: name.clone(),
                     source: source.clone(),
                     is_static: is_static.clone(),
+                    known_obstacle: is_base_occupancy_grid.cloned().unwrap_or_default(),
                     scale: scale.clone(),
                     ..Default::default()
                 };

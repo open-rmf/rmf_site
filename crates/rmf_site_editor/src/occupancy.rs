@@ -32,7 +32,7 @@ use bevy::{
 };
 use crossflow::*;
 use itertools::Itertools;
-use rmf_site_format::Robot;
+use rmf_site_format::{Affiliation, DoorMarker, KnownObstacle, ModelProperty, Robot};
 use rmf_site_mesh::*;
 use rmf_site_picking::ComputedVisualCue;
 use std::collections::{HashMap, HashSet};
@@ -215,6 +215,13 @@ impl Default for CalculateGrid {
     }
 }
 
+impl CalculateGrid {
+    pub fn exclude<T: Component>(mut self, entities: &Query<Entity, With<T>>) -> Self {
+        self.ignore.extend(entities.iter());
+        self
+    }
+}
+
 enum Group {
     Level(Entity),
     Site(Entity),
@@ -225,6 +232,7 @@ fn calculate_occupancy_grid(
     In(BlockingService { .. }): BlockingServiceInput<()>,
     occupancy_info: Res<OccupancyInfo>,
     robots: Query<Entity, With<Robot>>,
+    doors: Query<Entity, With<DoorMarker>>,
     mut commands: Commands,
     bodies: Query<(Entity, &Mesh3d, &Aabb, &GlobalTransform)>,
     meta: Query<(
@@ -239,12 +247,16 @@ fn calculate_occupancy_grid(
     assets: Res<SiteAssets>,
     grids: Query<Entity, With<Grid>>,
     display_mapf_debug: Res<MAPFDebugDisplay>,
+    is_base_occupancy_grid: Query<&KnownObstacle>,
+    model_properties_is_base_occupancy_grid: Query<&ModelProperty<KnownObstacle>>,
+    affiliations: Query<&Affiliation<Entity>>,
 ) {
     let grid = CalculateGrid {
         cell_size: occupancy_info.cell_size,
-        ignore: robots.iter().collect(),
         ..default()
-    };
+    }
+    .exclude(&robots)
+    .exclude(&doors);
     calculate_grid(
         &grid,
         &mut commands,
@@ -257,6 +269,9 @@ fn calculate_occupancy_grid(
         &assets,
         &grids,
         &display_mapf_debug,
+        &is_base_occupancy_grid,
+        &model_properties_is_base_occupancy_grid,
+        &affiliations,
     );
 }
 
@@ -298,6 +313,40 @@ fn initialize_occupancy_services(world: &mut World) {
     });
 }
 
+fn is_excluded_from_base_occupancy_grid(
+    e: Entity,
+    child_of: &Query<&ChildOf>,
+    is_base_occupancy_grid: &Query<&KnownObstacle>,
+    model_properties_is_base_occupancy_grid: &Query<&ModelProperty<KnownObstacle>>,
+    affiliations: &Query<&Affiliation<Entity>>,
+) -> bool {
+    for p in std::iter::once(e).chain(AncestorIter::new(child_of, e)) {
+        if is_base_occupancy_grid.get(p).is_ok_and(|b| !b.0) {
+            return true;
+        }
+        if model_properties_is_base_occupancy_grid
+            .get(p)
+            .is_ok_and(|b| !b.0 .0)
+        {
+            return true;
+        }
+        if let Ok(affiliation) = affiliations.get(p) {
+            if let Some(desc_entity) = affiliation.0 {
+                if is_base_occupancy_grid.get(desc_entity).is_ok_and(|b| !b.0) {
+                    return true;
+                }
+                if model_properties_is_base_occupancy_grid
+                    .get(desc_entity)
+                    .is_ok_and(|b| !b.0 .0)
+                {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
 pub fn calculate_grid(
     calculate_grid: &CalculateGrid,
     commands: &mut Commands,
@@ -314,6 +363,9 @@ pub fn calculate_grid(
     assets: &Res<SiteAssets>,
     grids: &Query<Entity, With<Grid>>,
     display_mapf_debug: &Res<MAPFDebugDisplay>,
+    is_base_occupancy_grid: &Query<&KnownObstacle>,
+    model_properties_is_base_occupancy_grid: &Query<&ModelProperty<KnownObstacle>>,
+    affiliations: &Query<&Affiliation<Entity>>,
 ) {
     let mut occupied: HashMap<Entity, HashSet<Cell>> = HashMap::new();
     let mut range = GridRange::new();
@@ -332,6 +384,16 @@ pub fn calculate_grid(
             if AncestorIter::new(&child_of, *e).any(|p| calculate_grid.ignore.contains(&p)) {
                 continue;
             }
+        }
+
+        if is_excluded_from_base_occupancy_grid(
+            *e,
+            child_of,
+            is_base_occupancy_grid,
+            model_properties_is_base_occupancy_grid,
+            affiliations,
+        ) {
+            continue;
         }
 
         let (_, mesh, aabb, tf) = match bodies.get(*e) {
