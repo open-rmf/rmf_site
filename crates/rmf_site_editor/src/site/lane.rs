@@ -199,7 +199,7 @@ pub fn add_lane_visuals(
                 MeshMaterial3d(extended_materials.add(ExtendedMaterial {
                     base: StandardMaterial {
                         depth_bias: 3.0,
-                        ..default()
+                        ..old_default_material(lane_color.into())
                     },
                     extension: assets::LaneArrowMaterial {
                         single_arrow_color: forward_arrow_color(lane_color),

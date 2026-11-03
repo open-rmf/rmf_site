@@ -28,8 +28,8 @@ use crate::site::{
     VisualMeshMarker,
 };
 use rmf_site_format::{
-    Angle, AssetSource, Category, IsBaseOccupancyGrid, IsStatic, Model, ModelMarker, NameInSite,
-    Pose, PrimitiveShape, Rotation, Scale,
+    Angle, AssetSource, Category, IsStatic, KnownObstacle, Model, ModelMarker, NameInSite, Pose,
+    PrimitiveShape, Rotation, Scale,
 };
 
 use std::str::Utf8Error;
@@ -46,7 +46,7 @@ impl Plugin for SdfPlugin {
             .register_type::<AssetSource>()
             .register_type::<Pose>()
             .register_type::<IsStatic>()
-            .register_type::<IsBaseOccupancyGrid>()
+            .register_type::<KnownObstacle>()
             .register_type::<Scale>()
             .register_type::<ModelMarker>()
             .register_type::<VisualMeshMarker>()

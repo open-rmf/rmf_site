@@ -32,7 +32,7 @@ use bevy::{
 };
 use crossflow::*;
 use itertools::Itertools;
-use rmf_site_format::{Affiliation, IsBaseOccupancyGrid, ModelProperty, Robot};
+use rmf_site_format::{Affiliation, KnownObstacle, ModelProperty, Robot};
 use rmf_site_mesh::*;
 use rmf_site_picking::ComputedVisualCue;
 use std::collections::{HashMap, HashSet};
@@ -239,8 +239,8 @@ fn calculate_occupancy_grid(
     assets: Res<SiteAssets>,
     grids: Query<Entity, With<Grid>>,
     display_mapf_debug: Res<MAPFDebugDisplay>,
-    is_base_occupancy_grid: Query<&IsBaseOccupancyGrid>,
-    model_properties_is_base_occupancy_grid: Query<&ModelProperty<IsBaseOccupancyGrid>>,
+    is_base_occupancy_grid: Query<&KnownObstacle>,
+    model_properties_is_base_occupancy_grid: Query<&ModelProperty<KnownObstacle>>,
     affiliations: Query<&Affiliation<Entity>>,
 ) {
     let grid = CalculateGrid {
@@ -307,8 +307,8 @@ fn initialize_occupancy_services(world: &mut World) {
 fn is_excluded_from_base_occupancy_grid(
     e: Entity,
     child_of: &Query<&ChildOf>,
-    is_base_occupancy_grid: &Query<&IsBaseOccupancyGrid>,
-    model_properties_is_base_occupancy_grid: &Query<&ModelProperty<IsBaseOccupancyGrid>>,
+    is_base_occupancy_grid: &Query<&KnownObstacle>,
+    model_properties_is_base_occupancy_grid: &Query<&ModelProperty<KnownObstacle>>,
     affiliations: &Query<&Affiliation<Entity>>,
 ) -> bool {
     for p in std::iter::once(e).chain(AncestorIter::new(child_of, e)) {
@@ -354,8 +354,8 @@ pub fn calculate_grid(
     assets: &Res<SiteAssets>,
     grids: &Query<Entity, With<Grid>>,
     display_mapf_debug: &Res<MAPFDebugDisplay>,
-    is_base_occupancy_grid: &Query<&IsBaseOccupancyGrid>,
-    model_properties_is_base_occupancy_grid: &Query<&ModelProperty<IsBaseOccupancyGrid>>,
+    is_base_occupancy_grid: &Query<&KnownObstacle>,
+    model_properties_is_base_occupancy_grid: &Query<&ModelProperty<KnownObstacle>>,
     affiliations: &Query<&Affiliation<Entity>>,
 ) {
     let mut occupied: HashMap<Entity, HashSet<Cell>> = HashMap::new();

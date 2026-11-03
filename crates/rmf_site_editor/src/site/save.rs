@@ -1355,7 +1355,7 @@ fn generate_model_descriptions(
                 &NameInSite,
                 &ModelProperty<AssetSource>,
                 &ModelProperty<IsStatic>,
-                Option<&ModelProperty<IsBaseOccupancyGrid>>,
+                Option<&ModelProperty<KnownObstacle>>,
                 &ModelProperty<Scale>,
             ),
             (With<ModelMarker>, With<Group>, Without<Pending>),
@@ -1374,7 +1374,7 @@ fn generate_model_descriptions(
                     name: name.clone(),
                     source: source.clone(),
                     is_static: is_static.clone(),
-                    is_base_occupancy_grid: is_base_occupancy_grid.cloned().unwrap_or_default(),
+                    known_obstacle: is_base_occupancy_grid.cloned().unwrap_or_default(),
                     scale: scale.clone(),
                     ..Default::default()
                 };

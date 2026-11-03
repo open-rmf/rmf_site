@@ -49,7 +49,7 @@ pub struct ViewLightsPlugin {}
 impl Plugin for ViewLightsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<LightDisplay>()
-            .add_plugins(PropertiesTilePlugin::<ViewLights>::new());
+            .add_plugins(PropertiesTilePlugin::<ViewLights>::new("Lights"));
     }
 }
 
@@ -71,11 +71,7 @@ impl<'w, 's> WidgetSystem<Tile> for ViewLights<'w, 's> {
         if *params.app_state.get() != AppState::SiteEditor {
             return;
         }
-        CollapsingHeader::new("Lights")
-            .default_open(false)
-            .show(ui, |ui| {
-                params.show_widget(ui);
-            });
+        params.show_widget(ui);
     }
 }
 
