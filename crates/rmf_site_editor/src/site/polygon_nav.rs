@@ -102,11 +102,12 @@ impl Plugin for PolygonNavPlugin {
                 PostUpdate,
                 (
                     add_nav_cell_visuals,
+                    add_nav_cell_edge_visuals,
                     update_nav_cells,
                     update_nav_cells_for_moved_anchors,
-                    add_nav_cell_edge_visuals,
                     update_nav_cell_edges,
                 )
+                    .chain()
                     .run_if(crate::AppState::in_displaying_mode())
                     .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
             );
@@ -237,10 +238,14 @@ fn nav_cell_color(direction: PreferredDirection) -> Color {
 
 fn nav_edge_color(guide: PibtGuidePreference) -> Color {
     match guide {
-        PibtGuidePreference::FORWARD => Color::srgb(0.15, 0.90, 0.35),
-        PibtGuidePreference::BACKWARD => Color::srgb(0.95, 0.55, 0.15),
-        PibtGuidePreference::NONE => Color::srgb(0.75, 0.82, 0.88),
+        PibtGuidePreference::FORWARD => Color::srgba(0.12, 0.92, 0.36, 0.96),
+        PibtGuidePreference::BACKWARD => Color::srgba(0.96, 0.48, 0.12, 0.96),
+        PibtGuidePreference::NONE => Color::srgba(0.80, 0.92, 1.0, 0.92),
     }
+}
+
+fn nav_outer_boundary_color() -> Color {
+    Color::srgba(0.15, 0.19, 0.25, 0.95)
 }
 
 pub fn compute_nav_cell_vertices_2d(
@@ -257,10 +262,121 @@ pub fn compute_nav_cell_vertices_2d(
     pts
 }
 
+/// Computes the color for each boundary segment `(anchor_path[i], anchor_path[(i + 1) % n])`
+/// of cell `entity` based on its connected `NavCellEdge`s and `PreferredDirection`.
+fn compute_cell_edge_colors(
+    entity: Entity,
+    anchor_path: &Path<Entity>,
+    verts_2d: &[(f32, f32)],
+    u_dir: PreferredDirection,
+    cells: &Query<
+        (Entity, &NavCellVisuals, &Path<Entity>, &PreferredDirection),
+        With<NavCellMarker>,
+    >,
+    edges: &Query<(&Edge<Entity>, &NavGuidePreference), With<NavCellEdgeMarker>>,
+    anchors: &AnchorParams,
+) -> Vec<[f32; 4]> {
+    let n = anchor_path.len();
+    let outer_rgba = LinearRgba::from(nav_outer_boundary_color()).to_f32_array();
+    if n < 3 || verts_2d.len() != n {
+        return vec![outer_rgba; n];
+    }
+
+    let u_centroid = compute_polygon_centroid_2d(verts_2d);
+
+    // Compute signed area to orient segment outward normals
+    let mut signed_area2 = 0.0f32;
+    for i in 0..n {
+        let (x0, y0) = verts_2d[i];
+        let (x1, y1) = verts_2d[(i + 1) % n];
+        signed_area2 += x0 * y1 - x1 * y0;
+    }
+    let ccw = signed_area2 >= 0.0;
+
+    // Gather all connected neighbors `(neighbor_entity, guide_from_u_to_v)`
+    let mut connected_neighbors: Vec<(Entity, NavGuidePreference)> = Vec::new();
+    for (edge, guide) in edges.iter() {
+        if edge.start() == entity {
+            connected_neighbors.push((edge.end(), *guide));
+        } else if edge.end() == entity {
+            let flipped = match *guide {
+                NavGuidePreference::Forward => NavGuidePreference::Backward,
+                NavGuidePreference::Backward => NavGuidePreference::Forward,
+                other => other,
+            };
+            connected_neighbors.push((edge.start(), flipped));
+        }
+    }
+
+    let mut result = Vec::with_capacity(n);
+    for i in 0..n {
+        let a0 = anchor_path.0[i];
+        let a1 = anchor_path.0[(i + 1) % n];
+        let p0 = verts_2d[i];
+        let p1 = verts_2d[(i + 1) % n];
+        let seg = Vec2::new(p1.0 - p0.0, p1.1 - p0.1);
+        let n_out = if ccw {
+            Vec2::new(seg.y, -seg.x).normalize_or_zero()
+        } else {
+            Vec2::new(-seg.y, seg.x).normalize_or_zero()
+        };
+
+        // 1. Exact shared edge match (neighbor contains both endpoint anchors a0 and a1)
+        let mut matched_neighbor: Option<(Entity, NavGuidePreference)> = None;
+        for &(v_e, guide) in &connected_neighbors {
+            if let Ok((_, _, v_path, _)) = cells.get(v_e) {
+                if v_path.0.contains(&a0) && v_path.0.contains(&a1) {
+                    matched_neighbor = Some((v_e, guide));
+                    break;
+                }
+            }
+        }
+
+        // 2. Fallback for T-junctions after cell merging (shares >= 1 anchor and faces neighbor)
+        if matched_neighbor.is_none() {
+            for &(v_e, guide) in &connected_neighbors {
+                if let Ok((_, _, v_path, _)) = cells.get(v_e) {
+                    if v_path.0.contains(&a0) || v_path.0.contains(&a1) {
+                        let v_verts = compute_nav_cell_vertices_2d(v_e, v_path, anchors);
+                        if !v_verts.is_empty() {
+                            let v_centroid = compute_polygon_centroid_2d(&v_verts);
+                            let dir_to_v =
+                                Vec2::new(v_centroid.0 - u_centroid.0, v_centroid.1 - u_centroid.1)
+                                    .normalize_or_zero();
+                            if dir_to_v.dot(n_out) > 0.55 {
+                                matched_neighbor = Some((v_e, guide));
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if let Some((v_e, guide)) = matched_neighbor {
+            if let Ok((_, _, v_path, v_dir)) = cells.get(v_e) {
+                let v_verts = compute_nav_cell_vertices_2d(v_e, v_path, anchors);
+                if !v_verts.is_empty() {
+                    let v_centroid = compute_polygon_centroid_2d(&v_verts);
+                    let effective_guide =
+                        resolve_guide_preference(u_centroid, v_centroid, u_dir, *v_dir, guide);
+                    result.push(LinearRgba::from(nav_edge_color(effective_guide)).to_f32_array());
+                    continue;
+                }
+            }
+        }
+
+        result.push(outer_rgba);
+    }
+
+    result
+}
+
 fn make_nav_cell_mesh(
     entity: Entity,
     anchor_path: &Path<Entity>,
     preferred_direction: PreferredDirection,
+    edge_colors: Option<&[[f32; 4]]>,
     anchors: &AnchorParams,
 ) -> Mesh {
     if anchor_path.is_empty() {
@@ -286,10 +402,27 @@ fn make_nav_cell_mesh(
                 .fold(Vec3::ZERO, |acc, p| acc + Vec3::from(*p));
             sum / reference_positions.len() as f32
         };
-        return make_flat_square_mesh(0.25)
+        let mut mesh: Mesh = make_flat_square_mesh(0.25)
             .transform_by(Affine3A::from_translation(p))
             .into();
+        let fill_rgba = LinearRgba::from(nav_cell_color(preferred_direction)).to_f32_array();
+        let v_count = mesh.count_vertices();
+        mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vec![fill_rgba; v_count]);
+        return mesh;
     }
+
+    let verts_2d: Vec<(f32, f32)> = reference_positions.iter().map(|p| (p[0], p[1])).collect();
+    let mut min_x = f32::MAX;
+    let mut max_x = f32::MIN;
+    let mut min_y = f32::MAX;
+    let mut max_y = f32::MIN;
+    for &(x, y) in &verts_2d {
+        min_x = min_x.min(x);
+        max_x = max_x.max(x);
+        min_y = min_y.min(y);
+        max_y = max_y.max(y);
+    }
+    let span = (max_x - min_x).min(max_y - min_y).max(0.2);
 
     let polygon = Polygon::new(
         LineString::from(
@@ -301,7 +434,7 @@ fn make_nav_cell_mesh(
         vec![],
     );
 
-    let outline_buffer = make_closed_path_outline(reference_positions.clone());
+    let fill_rgba = LinearRgba::from(nav_cell_color(preferred_direction)).to_f32_array();
 
     let mut positions: Vec<[f32; 3]> = Vec::new();
     if let Ok(triangles) = polygon.constrained_triangulation(Default::default()) {
@@ -311,29 +444,65 @@ fn make_nav_cell_mesh(
         }
     }
 
-    let indices: Vec<u32> = (0..positions.len() as u32).collect();
-    let normals: Vec<[f32; 3]> = vec![[0.0, 0.0, 1.0]; positions.len()];
+    let mut indices: Vec<u32> = (0..positions.len() as u32).collect();
+    let mut normals: Vec<[f32; 3]> = vec![[0.0, 0.0, 1.0]; positions.len()];
+    let mut colors: Vec<[f32; 4]> = vec![fill_rgba; positions.len()];
 
-    let mut buffer = MeshBuffer::new(positions, normals, indices).merge_with(outline_buffer);
+    // Build inset colored boundary strips along each polygon edge of the grid cell
+    let n = verts_2d.len();
+    let mut signed_area2 = 0.0f32;
+    for i in 0..n {
+        let (x0, y0) = verts_2d[i];
+        let (x1, y1) = verts_2d[(i + 1) % n];
+        signed_area2 += x0 * y1 - x1 * y0;
+    }
+    let ccw = signed_area2 >= 0.0;
+    let border_w = (span * 0.08).clamp(0.025, 0.06);
+    let default_border_rgba =
+        LinearRgba::from(nav_edge_color(PibtGuidePreference::NONE)).to_f32_array();
+
+    for i in 0..n {
+        let p0 = verts_2d[i];
+        let p1 = verts_2d[(i + 1) % n];
+        let seg = Vec2::new(p1.0 - p0.0, p1.1 - p0.1);
+        if seg.length_squared() < 1e-6 {
+            continue;
+        }
+        let n_in = if ccw {
+            Vec2::new(-seg.y, seg.x).normalize_or_zero()
+        } else {
+            Vec2::new(seg.y, -seg.x).normalize_or_zero()
+        };
+        let edge_rgba = edge_colors
+            .and_then(|ec| ec.get(i).copied())
+            .unwrap_or(default_border_rgba);
+
+        let z_edge = 0.0006;
+        let v0 = [p0.0, p0.1, z_edge];
+        let v1 = [p1.0, p1.1, z_edge];
+        let v2 = [p1.0 + border_w * n_in.x, p1.1 + border_w * n_in.y, z_edge];
+        let v3 = [p0.0 + border_w * n_in.x, p0.1 + border_w * n_in.y, z_edge];
+
+        let base = positions.len() as u32;
+        positions.extend_from_slice(&[v0, v1, v2, v3]);
+        normals.extend_from_slice(&[[0.0, 0.0, 1.0]; 4]);
+        colors.extend_from_slice(&[edge_rgba; 4]);
+        indices.extend_from_slice(&[base, base + 1, base + 2, base, base + 2, base + 3]);
+    }
+
+    let mut buffer = MeshBuffer::new(positions, normals, indices);
+
+    // Merge closed path outline for bevy_mod_outline hover/select highlight
+    let outline_buffer = make_closed_path_outline(reference_positions.clone());
+    let prev_len = colors.len();
+    buffer = buffer.merge_with(outline_buffer);
+    let outline_added = buffer_vertex_count(&buffer).saturating_sub(prev_len);
+    colors.extend(std::iter::repeat_n(fill_rgba, outline_added));
 
     // If a PreferredDirection is set, render a directional arrow at the polygon centroid
     if let Some(angle) = preferred_direction.angle() {
-        let verts_2d: Vec<(f32, f32)> = reference_positions.iter().map(|p| (p[0], p[1])).collect();
         let (cx, cy) = compute_polygon_centroid_2d(&verts_2d);
-
-        // Scale arrow to fit comfortably inside the cell bounding box
-        let mut min_x = f32::MAX;
-        let mut max_x = f32::MIN;
-        let mut min_y = f32::MAX;
-        let mut max_y = f32::MIN;
-        for &(x, y) in &verts_2d {
-            min_x = min_x.min(x);
-            max_x = max_x.max(x);
-            min_y = min_y.min(y);
-            max_y = max_y.max(y);
-        }
-        let span = (max_x - min_x).min(max_y - min_y).max(0.2);
-        let arrow_len = (span * 0.55).clamp(0.15, 1.2);
+        let arrow_len = (span * 0.52).clamp(0.15, 1.2);
         let handle_len = arrow_len * 0.55;
         let tip_len = arrow_len * 0.45;
         let handle_width = arrow_len * 0.18;
@@ -341,34 +510,54 @@ fn make_nav_cell_mesh(
 
         let yaw = angle.radians();
         let (sin_yaw, cos_yaw) = yaw.sin_cos();
-        // Center the arrow at (cx, cy) slightly above the cell surface
         let start = Vec3::new(
             cx - 0.5 * arrow_len * cos_yaw,
             cy - 0.5 * arrow_len * sin_yaw,
-            0.001,
+            0.0012,
         );
         let arrow_buf = flat_arrow_mesh(handle_len, handle_width, tip_len, tip_width).transform_by(
             Affine3A::from_scale_rotation_translation(Vec3::ONE, Quat::from_rotation_z(yaw), start),
         );
+        let before_arrow = colors.len();
         buffer = buffer.merge_with(arrow_buf);
+        let arrow_added = buffer_vertex_count(&buffer).saturating_sub(before_arrow);
+        let arrow_rgba = LinearRgba::from(Color::srgba(1.0, 0.98, 0.88, 0.96)).to_f32_array();
+        colors.extend(std::iter::repeat_n(arrow_rgba, arrow_added));
     }
 
-    buffer.into()
+    let mut mesh: Mesh = buffer.into();
+    let v_count = mesh.count_vertices();
+    colors.resize(v_count, fill_rgba);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
+    mesh
+}
+
+fn buffer_vertex_count(buffer: &MeshBuffer) -> usize {
+    let m: Mesh = buffer.clone().into();
+    m.count_vertices()
 }
 
 pub fn add_nav_cell_visuals(
     mut commands: Commands,
-    cells: Query<(Entity, &Path<Entity>, &PreferredDirection), Added<NavCellMarker>>,
+    cells: Query<
+        (
+            Entity,
+            &Path<Entity>,
+            &PreferredDirection,
+            Option<&Dependents>,
+        ),
+        Added<NavCellMarker>,
+    >,
     anchors: AnchorParams,
     mut dependents: Query<&mut Dependents>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let z = ZLayer::Floor.to_z() + 0.0005;
-    for (e, path, preferred_direction) in &cells {
-        let mesh = make_nav_cell_mesh(e, path, *preferred_direction, &anchors);
+    for (e, path, preferred_direction, existing_deps) in &cells {
+        let mesh = make_nav_cell_mesh(e, path, *preferred_direction, None, &anchors);
         let material = materials.add(StandardMaterial {
-            base_color: nav_cell_color(*preferred_direction),
+            base_color: Color::WHITE,
             alpha_mode: AlphaMode::Blend,
             perceptual_roughness: 0.2,
             metallic: 0.0,
@@ -386,8 +575,8 @@ pub fn add_nav_cell_visuals(
             .insert(DragPlaneBundle::new(e, Vec3::Z).globally())
             .id();
 
-        commands
-            .entity(e)
+        let mut entity_cmds = commands.entity(e);
+        entity_cmds
             .insert((
                 Transform::from_xyz(0.0, 0.0, z),
                 GlobalTransform::default(),
@@ -397,9 +586,11 @@ pub fn add_nav_cell_visuals(
                 },
                 Category::NavCell,
                 PathBehavior::for_floor(),
-                Dependents::default(),
             ))
             .add_child(mesh_entity_id);
+        if existing_deps.is_none() {
+            entity_cmds.insert(Dependents::default());
+        }
 
         for anchor in &path.0 {
             if let Ok(mut deps) = dependents.get_mut(*anchor) {
@@ -412,26 +603,57 @@ pub fn add_nav_cell_visuals(
 pub fn update_nav_cells(
     cells: Query<
         (Entity, &NavCellVisuals, &Path<Entity>, &PreferredDirection),
+        With<NavCellMarker>,
+    >,
+    changed_cells: Query<
+        Entity,
         (
             With<NavCellMarker>,
-            Or<(Changed<Path<Entity>>, Changed<PreferredDirection>)>,
+            Or<(
+                Added<NavCellMarker>,
+                Changed<Path<Entity>>,
+                Changed<PreferredDirection>,
+            )>,
         ),
     >,
+    edges: Query<(&Edge<Entity>, &NavGuidePreference), With<NavCellEdgeMarker>>,
+    changed_edges: Query<
+        &Edge<Entity>,
+        (
+            With<NavCellEdgeMarker>,
+            Or<(
+                Added<NavCellEdgeMarker>,
+                Changed<Edge<Entity>>,
+                Changed<NavGuidePreference>,
+            )>,
+        ),
+    >,
+    mut removed_edges: RemovedComponents<NavCellEdgeMarker>,
     anchors: AnchorParams,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
     mesh_handles: Query<&Mesh3d>,
-    material_handles: Query<&MeshMaterial3d<StandardMaterial>>,
 ) {
+    let any_edge_removed = removed_edges.read().next().is_some();
+    if changed_cells.is_empty() && changed_edges.is_empty() && !any_edge_removed {
+        return;
+    }
+
+    // Rebuild all cells when topology/directions change so neighbor edge colors stay in sync
     for (e, visuals, path, preferred_direction) in &cells {
         if let Ok(mesh_handle) = mesh_handles.get(visuals.mesh) {
             if let Some(mesh) = meshes.get_mut(&mesh_handle.0) {
-                *mesh = make_nav_cell_mesh(e, path, *preferred_direction, &anchors);
-            }
-        }
-        if let Ok(mat_handle) = material_handles.get(visuals.mesh) {
-            if let Some(mat) = materials.get_mut(&mat_handle.0) {
-                mat.base_color = nav_cell_color(*preferred_direction);
+                let verts_2d = compute_nav_cell_vertices_2d(e, path, &anchors);
+                let edge_colors = compute_cell_edge_colors(
+                    e,
+                    path,
+                    &verts_2d,
+                    *preferred_direction,
+                    &cells,
+                    &edges,
+                    &anchors,
+                );
+                *mesh =
+                    make_nav_cell_mesh(e, path, *preferred_direction, Some(&edge_colors), &anchors);
             }
         }
     }
@@ -442,6 +664,7 @@ pub fn update_nav_cells_for_moved_anchors(
         (Entity, &NavCellVisuals, &Path<Entity>, &PreferredDirection),
         With<NavCellMarker>,
     >,
+    edges: Query<(&Edge<Entity>, &NavGuidePreference), With<NavCellEdgeMarker>>,
     anchors: AnchorParams,
     changed_anchors: Query<
         &Dependents,
@@ -453,13 +676,36 @@ pub fn update_nav_cells_for_moved_anchors(
     mut meshes: ResMut<Assets<Mesh>>,
     mesh_handles: Query<&Mesh3d>,
 ) {
+    let mut dirty_cells: HashSet<Entity> = HashSet::new();
     for deps in &changed_anchors {
         for dep in deps.iter() {
-            if let Ok((e, visuals, path, preferred_direction)) = cells.get(*dep) {
-                if let Ok(mesh_handle) = mesh_handles.get(visuals.mesh) {
-                    if let Some(mesh) = meshes.get_mut(&mesh_handle.0) {
-                        *mesh = make_nav_cell_mesh(e, path, *preferred_direction, &anchors);
-                    }
+            if cells.contains(*dep) {
+                dirty_cells.insert(*dep);
+            }
+        }
+    }
+
+    for e in dirty_cells {
+        if let Ok((e, visuals, path, preferred_direction)) = cells.get(e) {
+            if let Ok(mesh_handle) = mesh_handles.get(visuals.mesh) {
+                if let Some(mesh) = meshes.get_mut(&mesh_handle.0) {
+                    let verts_2d = compute_nav_cell_vertices_2d(e, path, &anchors);
+                    let edge_colors = compute_cell_edge_colors(
+                        e,
+                        path,
+                        &verts_2d,
+                        *preferred_direction,
+                        &cells,
+                        &edges,
+                        &anchors,
+                    );
+                    *mesh = make_nav_cell_mesh(
+                        e,
+                        path,
+                        *preferred_direction,
+                        Some(&edge_colors),
+                        &anchors,
+                    );
                 }
             }
         }
@@ -471,9 +717,18 @@ fn compute_edge_visual_transform_and_color(
     guide: NavGuidePreference,
     cells: &Query<(&Path<Entity>, &PreferredDirection), With<NavCellMarker>>,
     anchors: &AnchorParams,
-) -> Option<(Transform, Color)> {
+) -> Option<(Transform, Color, Visibility)> {
     let (u_path, u_dir) = cells.get(edge.start()).ok()?;
     let (v_path, v_dir) = cells.get(edge.end()).ok()?;
+
+    // If the two connected cells already share at least one boundary anchor,
+    // their connection is visualized directly by coloring their polygon boundary edges!
+    // Only show a centroid-to-centroid connector line for non-adjacent bridge edges.
+    let visibility = if cells_share_boundary(&u_path.0, &v_path.0) > 0 {
+        Visibility::Hidden
+    } else {
+        Visibility::Inherited
+    };
 
     let u_verts = compute_nav_cell_vertices_2d(edge.start(), u_path, anchors);
     let v_verts = compute_nav_cell_vertices_2d(edge.end(), v_path, anchors);
@@ -490,7 +745,7 @@ fn compute_edge_visual_transform_and_color(
     tf.translation.z = ZLayer::Lane.to_z() + 0.0005;
 
     let effective_guide = resolve_guide_preference(u_centroid, v_centroid, *u_dir, *v_dir, guide);
-    Some((tf, nav_edge_color(effective_guide)))
+    Some((tf, nav_edge_color(effective_guide), visibility))
 }
 
 pub fn add_nav_cell_edge_visuals(
@@ -511,10 +766,11 @@ pub fn add_nav_cell_edge_visuals(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     for (e, edge, guide, tf) in &edges {
-        let (transform, color) =
+        let (transform, color, vis) =
             compute_edge_visual_transform_and_color(edge, *guide, &cells, &anchors).unwrap_or((
                 Transform::IDENTITY,
                 nav_edge_color(PibtGuidePreference::NONE),
+                Visibility::Hidden,
             ));
 
         let mat_handle = materials.add(old_default_material(color));
@@ -524,7 +780,7 @@ pub fn add_nav_cell_edge_visuals(
                 Mesh3d(assets.lane_mid_mesh.clone()),
                 MeshMaterial3d(mat_handle),
                 transform,
-                Visibility::default(),
+                vis,
             ))
             .insert(Selectable::new(e))
             .id();
@@ -579,7 +835,7 @@ pub fn update_nav_cell_edges(
     cell_dependents: Query<&Dependents, With<NavCellMarker>>,
     cells: Query<(&Path<Entity>, &PreferredDirection), With<NavCellMarker>>,
     anchors: AnchorParams,
-    mut transforms: Query<&mut Transform>,
+    mut transforms: Query<(&mut Transform, &mut Visibility)>,
     material_handles: Query<&MeshMaterial3d<StandardMaterial>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
@@ -607,13 +863,14 @@ pub fn update_nav_cell_edges(
         let Ok((edge, guide, visuals)) = edges.get(edge_e) else {
             continue;
         };
-        let Some((new_tf, color)) =
+        let Some((new_tf, color, vis)) =
             compute_edge_visual_transform_and_color(edge, *guide, &cells, &anchors)
         else {
             continue;
         };
-        if let Ok(mut tf) = transforms.get_mut(**visuals) {
+        if let Ok((mut tf, mut v)) = transforms.get_mut(**visuals) {
             *tf = new_tf;
+            *v = vis;
         }
         if let Ok(mat_handle) = material_handles.get(**visuals) {
             if let Some(mat) = materials.get_mut(&mat_handle.0) {
