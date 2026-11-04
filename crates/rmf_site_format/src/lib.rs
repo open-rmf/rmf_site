@@ -92,6 +92,9 @@ pub use nav_graph::*;
 pub mod navigation;
 pub use navigation::*;
 
+pub mod polygon_nav;
+pub use polygon_nav::*;
+
 pub mod path;
 pub use path::*;
 

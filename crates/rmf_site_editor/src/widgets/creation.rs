@@ -18,12 +18,14 @@
 use crate::{
     interaction::{AnchorSelection, ObjectPlacement},
     site::{
-        Affiliation, AssetSource, Category, DefaultFile, Delete, Dependents, DrawingBundle,
-        DrawingProperties, Group, IsStatic, Members, ModelDescriptionBundle, ModelInstance,
-        ModelMarker, ModelProperty, NameInSite, Pending, Recall, RecallAssetSource, Scale,
+        Affiliation, AssetSource, Category, CellBoxSelectState, DefaultFile, Delete, Dependents,
+        DrawingBundle, DrawingProperties, ExportPibtNavGraph, Group, IsStatic, Members,
+        ModelDescriptionBundle, ModelInstance, ModelMarker, ModelProperty, NameInSite, NavGrid,
+        Pending, PreferredDirection, Recall, RecallAssetSource, Scale, SpawnNavGrid,
     },
     widgets::{
-        AssetGalleryStatus, Icons, InspectAssetSourceComponent, InspectScaleComponent, TaskWidget,
+        inspector::InspectAngle, AssetGalleryStatus, Icons, InspectAssetSourceComponent,
+        InspectScaleComponent, TaskWidget,
     },
     AppState, CurrentWorkspace,
 };
@@ -33,7 +35,7 @@ use bevy::ecs::{
     system::{SystemParam, SystemState},
 };
 use bevy::prelude::*;
-use bevy_egui::egui::{self, Button, ComboBox, TextEdit, Ui};
+use bevy_egui::egui::{self, Button, ComboBox, DragValue, TextEdit, Ui};
 use rmf_site_egui::*;
 
 /// This plugin creates a standard set of site object creation buttons
@@ -49,6 +51,7 @@ impl Plugin for StandardCreationPlugin {
             DoorCreationPlugin::default(),
             LiftCreationPlugin::default(),
             FloorCreationPlugin::default(),
+            GridCreationPlugin::default(),
             FiducialCreationPlugin::default(),
             MeasurementCreationPlugin::default(),
             DrawingCreationPlugin::default(),
@@ -750,4 +753,214 @@ impl<'w> WidgetSystem<Tile> for TaskPanelToggle<'w> {
 /// Helper funtion to display the button name on hover
 fn button_clicked(ui: &mut Ui, icon: &str, tooltip: &str) -> bool {
     ui.add(Button::new(icon)).on_hover_text(tooltip).clicked()
+}
+
+/// Add widget for polygon navigation grid & cell creation
+#[derive(Default)]
+pub struct GridCreationPlugin {}
+
+impl Plugin for GridCreationPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<PendingNavGrid>()
+            .add_plugins(HeaderTilePlugin::<GridCreation>::new());
+    }
+}
+
+#[derive(Clone, Resource)]
+pub struct PendingNavGrid {
+    pub rows: u32,
+    pub cols: u32,
+    pub grid: NavGrid,
+    pub initial_direction: PreferredDirection,
+    pub export_path: String,
+}
+
+impl Default for PendingNavGrid {
+    fn default() -> Self {
+        Self {
+            rows: 4,
+            cols: 4,
+            grid: NavGrid::default(),
+            initial_direction: PreferredDirection::None,
+            export_path: "polygon_nav.json".to_string(),
+        }
+    }
+}
+
+#[derive(SystemParam)]
+pub struct GridCreation<'w, 's> {
+    app_state: Res<'w, State<AppState>>,
+    pending: ResMut<'w, PendingNavGrid>,
+    box_select: ResMut<'w, CellBoxSelectState>,
+    spawn_grid: EventWriter<'w, SpawnNavGrid>,
+    export_pibt: EventWriter<'w, ExportPibtNavGraph>,
+    anchor_selection: AnchorSelection<'w, 's>,
+}
+
+impl<'w, 's> WidgetSystem<Tile> for GridCreation<'w, 's> {
+    fn show(_: Tile, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) {
+        let mut params = state.get_mut(world);
+        if !matches!(params.app_state.get(), AppState::SiteEditor) {
+            return;
+        }
+
+        // Toggle button for spreadsheet-style drag-box cell selection
+        let box_selected = params.box_select.enabled;
+        if ui
+            .add(Button::new("⬚").selected(box_selected))
+            .on_hover_text(
+                "Toggle Spreadsheet Box-Select Mode for NavCells (or hold Shift + Left-Drag anytime)",
+            )
+            .clicked()
+        {
+            params.box_select.enabled = !params.box_select.enabled;
+        }
+
+        ui.menu_button("⊞", |ui| {
+            ui.reset_style();
+            ui.vertical(|ui| {
+                egui::Resize::default()
+                    .default_width(280.0)
+                    .default_height(0.0)
+                    .show(ui, |ui| {
+                        ui.heading("Polygon Nav Grid");
+                        ui.add_space(4.0);
+
+                        egui::Grid::new("spawn_nav_grid_params")
+                            .num_columns(2)
+                            .spacing([8.0, 4.0])
+                            .show(ui, |ui| {
+                                ui.label("Rows:");
+                                ui.add(DragValue::new(&mut params.pending.rows).range(1..=100));
+                                ui.end_row();
+
+                                ui.label("Columns:");
+                                ui.add(DragValue::new(&mut params.pending.cols).range(1..=100));
+                                ui.end_row();
+
+                                ui.label("Cell Width (m):");
+                                ui.add(
+                                    DragValue::new(&mut params.pending.grid.cell_size[0])
+                                        .speed(0.05)
+                                        .range(0.1..=50.0),
+                                );
+                                ui.end_row();
+
+                                ui.label("Cell Height (m):");
+                                ui.add(
+                                    DragValue::new(&mut params.pending.grid.cell_size[1])
+                                        .speed(0.05)
+                                        .range(0.1..=50.0),
+                                );
+                                ui.end_row();
+
+                                ui.label("Origin X (m):");
+                                ui.add(
+                                    DragValue::new(&mut params.pending.grid.origin[0]).speed(0.1),
+                                );
+                                ui.end_row();
+
+                                ui.label("Origin Y (m):");
+                                ui.add(
+                                    DragValue::new(&mut params.pending.grid.origin[1]).speed(0.1),
+                                );
+                                ui.end_row();
+
+                                ui.label("Rotation (Yaw):");
+                                InspectAngle::new(&mut params.pending.grid.yaw).show(ui);
+                                ui.end_row();
+                            });
+
+                        ui.add_space(4.0);
+                        ui.horizontal(|ui| {
+                            ui.label("Initial Dir:");
+                            if ui
+                                .selectable_label(
+                                    params.pending.initial_direction.is_none(),
+                                    "None",
+                                )
+                                .clicked()
+                            {
+                                params.pending.initial_direction = PreferredDirection::None;
+                            }
+                            if ui
+                                .selectable_label(
+                                    params.pending.initial_direction == PreferredDirection::north(),
+                                    "↑ N",
+                                )
+                                .clicked()
+                            {
+                                params.pending.initial_direction = PreferredDirection::north();
+                            }
+                            if ui
+                                .selectable_label(
+                                    params.pending.initial_direction == PreferredDirection::south(),
+                                    "↓ S",
+                                )
+                                .clicked()
+                            {
+                                params.pending.initial_direction = PreferredDirection::south();
+                            }
+                            if ui
+                                .selectable_label(
+                                    params.pending.initial_direction == PreferredDirection::east(),
+                                    "→ E",
+                                )
+                                .clicked()
+                            {
+                                params.pending.initial_direction = PreferredDirection::east();
+                            }
+                            if ui
+                                .selectable_label(
+                                    params.pending.initial_direction == PreferredDirection::west(),
+                                    "← W",
+                                )
+                                .clicked()
+                            {
+                                params.pending.initial_direction = PreferredDirection::west();
+                            }
+                        });
+
+                        ui.add_space(6.0);
+                        if ui.button("➕ Spawn Nav Grid").clicked() {
+                            params.spawn_grid.write(SpawnNavGrid {
+                                grid: params.pending.grid,
+                                rows: params.pending.rows,
+                                cols: params.pending.cols,
+                                initial_direction: params.pending.initial_direction,
+                            });
+                            ui.close_menu();
+                        }
+
+                        ui.separator();
+                        if ui
+                            .button("✏ Draw Custom Polygon NavCell")
+                            .on_hover_text(
+                                "Click anchors on the level to draw a custom polygon cell",
+                            )
+                            .clicked()
+                        {
+                            params.anchor_selection.create_nav_cell();
+                            ui.close_menu();
+                        }
+
+                        ui.separator();
+                        ui.label("Export PIBT NavGraph JSON:");
+                        ui.horizontal(|ui| {
+                            TextEdit::singleline(&mut params.pending.export_path)
+                                .desired_width(170.0)
+                                .show(ui);
+                            if ui.button("Export").clicked() {
+                                params.export_pibt.write(ExportPibtNavGraph {
+                                    to_file: params.pending.export_path.clone().into(),
+                                });
+                                ui.close_menu();
+                            }
+                        });
+                    });
+            });
+        })
+        .response
+        .on_hover_text("Polygon Nav Grid & Cell Tools");
+    }
 }
