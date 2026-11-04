@@ -15,7 +15,14 @@
  *
 */
 
-use crate::{interaction::IntersectGroundPlaneParams, layers::ZLayer, site::*};
+use crate::{
+    exit_confirmation::SiteChanged,
+    interaction::{
+        DragPlaneBundle, GizmoState, InteractionState, IntersectGroundPlaneParams, MoveTo,
+    },
+    layers::ZLayer,
+    site::*,
+};
 use bevy::{
     ecs::{hierarchy::ChildOf, system::SystemState},
     math::Affine3A,
@@ -33,7 +40,9 @@ use rmf_site_format::{
     RecallPreferredDirection,
 };
 use rmf_site_mesh::*;
-use rmf_site_picking::{PickBlockStatus, Select, Selectable, Selected, Selection};
+use rmf_site_picking::{
+    PickBlockStatus, Select, Selectable, Selected, Selection, SelectionBlockers,
+};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
@@ -45,8 +54,10 @@ pub struct PolygonNavPlugin;
 impl Plugin for PolygonNavPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CellBoxSelectState>()
+            .init_resource::<NavGridDragState>()
             .add_event::<SpawnNavGrid>()
             .add_event::<ExpandNavGrid>()
+            .add_event::<TransformNavGrid>()
             .add_event::<SnapAndStitchCells>()
             .add_event::<MergeSelectedCells>()
             .add_event::<ConnectSelectedCells>()
@@ -63,6 +74,7 @@ impl Plugin for PolygonNavPlugin {
                 (
                     handle_spawn_nav_grid,
                     handle_expand_nav_grid,
+                    handle_transform_nav_grid,
                     handle_snap_and_stitch_cells,
                     handle_merge_selected_cells,
                     handle_connect_selected_cells,
@@ -79,6 +91,12 @@ impl Plugin for PolygonNavPlugin {
                 )
                     .run_if(crate::AppState::in_displaying_mode())
                     .in_set(SiteUpdateSet::AssignOrphans),
+            )
+            .add_systems(
+                PostUpdate,
+                move_nav_grid
+                    .before(update_anchor_transforms)
+                    .run_if(in_state(InteractionState::Enable)),
             )
             .add_systems(
                 PostUpdate,
@@ -162,6 +180,21 @@ impl Default for SpawnNavGrid {
 pub struct ExpandNavGrid {
     pub cells: Vec<Entity>,
     pub direction: GridExpansionDirection,
+}
+
+/// Event to translate and/or rotate the entire `NavGrid` (or selected `NavCell`s) around its 2D centroid.
+#[derive(Event, Debug, Clone)]
+pub struct TransformNavGrid {
+    pub cells: Vec<Entity>,
+    pub translate: [f32; 2],
+    pub rotate: Angle,
+}
+
+/// Resource tracking incremental 2D offset during a 3D viewport drag gesture on a `NavCell`.
+#[derive(Resource, Default, Debug, Clone)]
+pub struct NavGridDragState {
+    pub dragging_gizmo: Option<Entity>,
+    pub last_offset: Vec2,
 }
 
 /// Event to snap nearby boundary anchors across selected `NavCell`s and stitch graph edges.
@@ -350,13 +383,14 @@ pub fn add_nav_cell_visuals(
                 Transform::default(),
                 Visibility::default(),
             ))
-            .insert(Selectable::new(e))
+            .insert(DragPlaneBundle::new(e, Vec3::Z).globally())
             .id();
 
         commands
             .entity(e)
             .insert((
                 Transform::from_xyz(0.0, 0.0, z),
+                GlobalTransform::default(),
                 Visibility::default(),
                 NavCellVisuals {
                     mesh: mesh_entity_id,
@@ -1104,10 +1138,11 @@ pub fn handle_merge_selected_cells(world: &mut World) {
             continue;
         }
 
-        // Gather cell polygons, preferred direction, graphs, and parent level
+        // Gather cell polygons, preferred direction, graphs, grid affiliation, and parent level
         let mut level_entity: Option<Entity> = None;
         let mut merged_pref_dir = PreferredDirection::None;
         let mut merged_graphs = AssociatedGraphs::<Entity>::All;
+        let mut merged_grid_coord = GridCellCoord::<Entity>(None);
         let mut valid_cells: Vec<Entity> = Vec::new();
         let mut cell_anchor_paths: Vec<Vec<Entity>> = Vec::new();
 
@@ -1131,6 +1166,11 @@ pub fn handle_merge_selected_cells(world: &mut World) {
             if let Some(graphs) = world.get::<AssociatedGraphs<Entity>>(cell_e).cloned() {
                 if matches!(merged_graphs, AssociatedGraphs::All) {
                     merged_graphs = graphs;
+                }
+            }
+            if let Some(gc) = world.get::<GridCellCoord<Entity>>(cell_e).copied() {
+                if merged_grid_coord.0.is_none() && gc.0.is_some() {
+                    merged_grid_coord = gc;
                 }
             }
             valid_cells.push(cell_e);
@@ -1257,6 +1297,7 @@ pub fn handle_merge_selected_cells(world: &mut World) {
         let mut merged_cell = NavCell::new(Path(new_path_anchors.clone()));
         merged_cell.preferred_direction = merged_pref_dir;
         merged_cell.graphs = merged_graphs;
+        merged_cell.grid_coord = merged_grid_coord;
 
         let mut recall = RecallPreferredDirection::default();
         recall.remember(&merged_pref_dir);
@@ -1746,6 +1787,334 @@ mod tests {
             vec![(0, PibtGuidePreference::BACKWARD)]
         );
     }
+
+    #[test]
+    fn test_transform_nav_grid() {
+        let mut app = setup_test_app();
+        app.init_resource::<Events<TransformNavGrid>>()
+            .init_resource::<SiteChanged>()
+            .add_systems(Update, handle_transform_nav_grid);
+
+        app.world_mut().send_event(SpawnNavGrid {
+            grid: NavGrid {
+                origin: [0.0, 0.0],
+                cell_size: [1.0, 1.0],
+                yaw: Angle::Deg(0.0),
+            },
+            rows: 2,
+            cols: 2,
+            initial_direction: PreferredDirection::east(),
+        });
+        app.update();
+
+        let first_cell = app
+            .world_mut()
+            .query_filtered::<Entity, With<NavCellMarker>>()
+            .iter(app.world())
+            .next()
+            .unwrap();
+
+        // Translate the entire grid by (+5.0, -3.0) via a single cell reference
+        app.world_mut().send_event(TransformNavGrid {
+            cells: vec![first_cell],
+            translate: [5.0, -3.0],
+            rotate: Angle::Deg(0.0),
+        });
+        app.update();
+
+        let grid = app
+            .world_mut()
+            .query::<&NavGrid>()
+            .iter(app.world())
+            .next()
+            .unwrap();
+        assert!((grid.origin[0] - 5.0).abs() < 1e-4);
+        assert!((grid.origin[1] - (-3.0)).abs() < 1e-4);
+
+        // Verify all 9 anchors of the 2x2 grid translated into [5, 7] x [-3, -1]
+        for anchor in app.world_mut().query::<&Anchor>().iter(app.world()) {
+            let p = anchor.translation_for_category(Category::NavCell);
+            assert!(p[0] >= 4.99 && p[0] <= 7.01, "unexpected x={}", p[0]);
+            assert!(p[1] >= -3.01 && p[1] <= -0.99, "unexpected y={}", p[1]);
+        }
+    }
+}
+
+// ============================================================================
+// Whole-Grid Dragging & Transformation (3D Viewport Drag + Inspector Transform)
+// ============================================================================
+
+/// Helper to collect all `NavGrid` entities, `NavCell` entities, and unique `Anchor` entities
+/// that should move together when `seed_cells` are dragged or transformed.
+fn collect_connected_grid_group(
+    seed_cells: &[Entity],
+    cells_q: &Query<
+        (
+            Entity,
+            &Path<Entity>,
+            &GridCellCoord<Entity>,
+            &ChildOf,
+            &mut PreferredDirection,
+        ),
+        With<NavCellMarker>,
+    >,
+) -> (HashSet<Entity>, HashSet<Entity>, HashSet<Entity>) {
+    let mut target_grids: HashSet<Entity> = HashSet::new();
+    let mut target_cells: HashSet<Entity> = HashSet::new();
+    let mut target_levels: HashSet<Entity> = HashSet::new();
+
+    for &cell_e in seed_cells {
+        if let Ok((e, _, gc, parent, _)) = cells_q.get(cell_e) {
+            target_cells.insert(e);
+            target_levels.insert(parent.parent());
+            if let Some(idx) = gc.0 {
+                target_grids.insert(idx.grid);
+            }
+        }
+    }
+
+    // Include all cells belonging to any of `target_grids`
+    if !target_grids.is_empty() {
+        for (e, _, gc, parent, _) in cells_q.iter() {
+            if target_levels.contains(&parent.parent()) {
+                if gc.0.is_some_and(|idx| target_grids.contains(&idx.grid)) {
+                    target_cells.insert(e);
+                }
+            }
+        }
+    }
+
+    let mut target_anchors: HashSet<Entity> = HashSet::new();
+    for &cell_e in &target_cells {
+        if let Ok((_, path, _, _, _)) = cells_q.get(cell_e) {
+            target_anchors.extend(path.0.iter().copied());
+        }
+    }
+
+    // Also include any custom/merged cells on the same level that share anchors with a target grid
+    // (or vice-versa if dragging a merged cell that shares anchors with a grid).
+    let mut expanded = true;
+    while expanded {
+        expanded = false;
+        for (e, path, gc, parent, _) in cells_q.iter() {
+            if !target_levels.contains(&parent.parent()) || target_cells.contains(&e) {
+                continue;
+            }
+            if path.0.iter().any(|a| target_anchors.contains(a)) {
+                target_cells.insert(e);
+                target_anchors.extend(path.0.iter().copied());
+                if let Some(idx) = gc.0 {
+                    if target_grids.insert(idx.grid) {
+                        for (ge, gpath, ggc, gparent, _) in cells_q.iter() {
+                            if target_levels.contains(&gparent.parent())
+                                && ggc.0.is_some_and(|gidx| gidx.grid == idx.grid)
+                            {
+                                target_cells.insert(ge);
+                                target_anchors.extend(gpath.0.iter().copied());
+                            }
+                        }
+                    }
+                }
+                expanded = true;
+            }
+        }
+    }
+
+    (target_grids, target_cells, target_anchors)
+}
+
+/// Handles 3D viewport dragging (`MoveTo` emitted by `DragPlaneBundle` on a `NavCell` mesh)
+/// by translating the entire connected `NavGrid` (all its cells and shared corner `Anchor`s).
+pub fn move_nav_grid(
+    mut move_to_events: EventReader<MoveTo>,
+    mut drag_state: ResMut<NavGridDragState>,
+    gizmo_state: Option<Res<GizmoState>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
+    box_select: Res<CellBoxSelectState>,
+    selection: Option<Res<Selection>>,
+    cells_q: Query<
+        (
+            Entity,
+            &Path<Entity>,
+            &GridCellCoord<Entity>,
+            &ChildOf,
+            &mut PreferredDirection,
+        ),
+        With<NavCellMarker>,
+    >,
+    mut grids_q: Query<&mut NavGrid>,
+    mut anchors_q: Query<&mut Anchor, Without<Subordinate>>,
+    mut site_changed: Option<ResMut<SiteChanged>>,
+) {
+    let active_gizmo = match gizmo_state.as_deref() {
+        Some(GizmoState::Dragging(g)) => Some(*g),
+        _ => None,
+    };
+    if active_gizmo.is_none() {
+        drag_state.dragging_gizmo = None;
+        drag_state.last_offset = Vec2::ZERO;
+    }
+
+    let shift_held = keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight);
+    if shift_held || box_select.enabled || box_select.drag_start.is_some() {
+        return;
+    }
+
+    for move_to in move_to_events.read() {
+        if !cells_q.contains(move_to.entity) {
+            continue;
+        }
+
+        if active_gizmo.is_some() && drag_state.dragging_gizmo != active_gizmo {
+            drag_state.dragging_gizmo = active_gizmo;
+            drag_state.last_offset = Vec2::ZERO;
+        }
+
+        let current_offset = Vec2::new(
+            move_to.transform.translation.x,
+            move_to.transform.translation.y,
+        );
+        let delta = if active_gizmo.is_some() {
+            let d = current_offset - drag_state.last_offset;
+            drag_state.last_offset = current_offset;
+            d
+        } else {
+            current_offset
+        };
+
+        if delta.length_squared() < 1e-10 {
+            continue;
+        }
+
+        let mut seeds = vec![move_to.entity];
+        if let Some(sel) = selection.as_ref() {
+            if sel.selected.contains(&move_to.entity) {
+                for &s in &sel.selected {
+                    if cells_q.contains(s) && !seeds.contains(&s) {
+                        seeds.push(s);
+                    }
+                }
+            }
+        }
+
+        let (target_grids, _, target_anchors) = collect_connected_grid_group(&seeds, &cells_q);
+
+        for anchor_e in target_anchors {
+            if let Ok(mut anchor) = anchors_q.get_mut(anchor_e) {
+                let mut pos = anchor.translation_for_category(Category::NavCell);
+                pos[0] += delta.x;
+                pos[1] += delta.y;
+                *anchor = Anchor::Translate2D(pos);
+            }
+        }
+
+        for grid_e in target_grids {
+            if let Ok(mut nav_grid) = grids_q.get_mut(grid_e) {
+                nav_grid.origin[0] += delta.x;
+                nav_grid.origin[1] += delta.y;
+            }
+        }
+
+        if let Some(sc) = site_changed.as_mut() {
+            sc.0 = true;
+        }
+    }
+}
+
+/// Handles `TransformNavGrid` events to translate and/or rotate the entire `NavGrid` around its 2D centroid.
+pub fn handle_transform_nav_grid(
+    mut events: EventReader<TransformNavGrid>,
+    mut cells_q: Query<
+        (
+            Entity,
+            &Path<Entity>,
+            &GridCellCoord<Entity>,
+            &ChildOf,
+            &mut PreferredDirection,
+        ),
+        With<NavCellMarker>,
+    >,
+    mut grids_q: Query<&mut NavGrid>,
+    mut anchors_q: Query<&mut Anchor, Without<Subordinate>>,
+    mut site_changed: Option<ResMut<SiteChanged>>,
+) {
+    for event in events.read() {
+        if event.cells.is_empty() {
+            continue;
+        }
+        let dx = event.translate[0];
+        let dy = event.translate[1];
+        let d_rad = event.rotate.radians();
+        if dx.abs() < 1e-7 && dy.abs() < 1e-7 && d_rad.abs() < 1e-7 {
+            continue;
+        }
+
+        let (target_grids, target_cells, target_anchors) =
+            collect_connected_grid_group(&event.cells, &cells_q);
+        if target_anchors.is_empty() {
+            continue;
+        }
+
+        // Compute 2D centroid of all unique anchors in the group
+        let mut sum_x = 0.0f32;
+        let mut sum_y = 0.0f32;
+        let mut count = 0usize;
+        for &a_e in &target_anchors {
+            if let Ok(anchor) = anchors_q.get(a_e) {
+                let p = anchor.translation_for_category(Category::NavCell);
+                sum_x += p[0];
+                sum_y += p[1];
+                count += 1;
+            }
+        }
+        if count == 0 {
+            continue;
+        }
+        let cx = sum_x / count as f32;
+        let cy = sum_y / count as f32;
+        let (sin_r, cos_r) = d_rad.sin_cos();
+
+        for &a_e in &target_anchors {
+            if let Ok(mut anchor) = anchors_q.get_mut(a_e) {
+                let p = anchor.translation_for_category(Category::NavCell);
+                let rx = p[0] - cx;
+                let ry = p[1] - cy;
+                let new_x = cx + (rx * cos_r - ry * sin_r) + dx;
+                let new_y = cy + (rx * sin_r + ry * cos_r) + dy;
+                *anchor = Anchor::Translate2D([new_x, new_y]);
+            }
+        }
+
+        for grid_e in target_grids {
+            if let Ok(mut nav_grid) = grids_q.get_mut(grid_e) {
+                let rx = nav_grid.origin[0] - cx;
+                let ry = nav_grid.origin[1] - cy;
+                nav_grid.origin[0] = cx + (rx * cos_r - ry * sin_r) + dx;
+                nav_grid.origin[1] = cy + (rx * sin_r + ry * cos_r) + dy;
+                if d_rad.abs() > 1e-7 {
+                    nav_grid.yaw = Angle::Deg(
+                        (nav_grid.yaw.degrees() + event.rotate.degrees()).rem_euclid(360.0),
+                    );
+                }
+            }
+        }
+
+        if d_rad.abs() > 1e-7 {
+            for cell_e in target_cells {
+                if let Ok((_, _, _, _, mut pref_dir)) = cells_q.get_mut(cell_e) {
+                    if let PreferredDirection::Angle(a) = *pref_dir {
+                        *pref_dir = PreferredDirection::Angle(Angle::Deg(
+                            (a.degrees() + event.rotate.degrees()).rem_euclid(360.0),
+                        ));
+                    }
+                }
+            }
+        }
+
+        if let Some(sc) = site_changed.as_mut() {
+            sc.0 = true;
+        }
+    }
 }
 
 // ============================================================================
@@ -1769,6 +2138,8 @@ pub fn update_cell_box_selection(
     mouse_button: Res<ButtonInput<MouseButton>>,
     keyboard: Res<ButtonInput<KeyCode>>,
     block_status: Option<Res<PickBlockStatus>>,
+    mut gizmo_state: Option<ResMut<GizmoState>>,
+    mut selection_blockers: Option<ResMut<SelectionBlockers>>,
     ground_plane: IntersectGroundPlaneParams,
     current_level: Res<CurrentLevel>,
     cells_q: Query<(Entity, &Path<Entity>, &ChildOf), With<NavCellMarker>>,
@@ -1779,6 +2150,17 @@ pub fn update_cell_box_selection(
 ) {
     let shift_held = keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight);
     let can_start = state.enabled || shift_held;
+
+    if can_start {
+        if let Some(gs) = gizmo_state.as_mut() {
+            if gs.is_dragging() {
+                **gs = GizmoState::None;
+                if let Some(sb) = selection_blockers.as_mut() {
+                    sb.dragging = false;
+                }
+            }
+        }
+    }
 
     if block_status.as_ref().is_some_and(|b| b.blocked()) && state.drag_start.is_none() {
         return;

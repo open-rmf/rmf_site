@@ -18,7 +18,7 @@
 use crate::{
     site::{
         Change, ConnectSelectedCells, Delete, ExpandNavGrid, GridExpansionDirection,
-        MergeSelectedCells, SnapAndStitchCells,
+        MergeSelectedCells, SnapAndStitchCells, TransformNavGrid,
     },
     widgets::{inspector::InspectAngle, prelude::*, Inspect},
 };
@@ -73,6 +73,7 @@ pub struct InspectNavCell<'w, 's> {
     pub all_grid_cells:
         Query<'w, 's, (Entity, &'static GridCellCoord<Entity>), With<NavCellMarker>>,
     pub expand_grid: EventWriter<'w, ExpandNavGrid>,
+    pub transform_grid: EventWriter<'w, TransformNavGrid>,
     pub snap_stitch: EventWriter<'w, SnapAndStitchCells>,
     pub merge_cells: EventWriter<'w, MergeSelectedCells>,
     pub connect_cells: EventWriter<'w, ConnectSelectedCells>,
@@ -251,6 +252,76 @@ impl<'w, 's> InspectNavCell<'w, 's> {
                             ));
                         }
                     }
+                }
+            }
+        });
+
+        // Whole-Grid Dragging & Rotation Controls
+        ui.separator();
+        ui.label(RichText::new("Move / Rotate Entire Grid").strong());
+        ui.label(
+            RichText::new("Tip: Left-click & drag any cell in the 3D view to move the whole grid.")
+                .small()
+                .italics(),
+        );
+        ui.horizontal(|ui| {
+            ui.label("Drag ΔX / ΔY (m):");
+            let mut dx = 0.0f32;
+            let mut dy = 0.0f32;
+            if ui
+                .add(DragValue::new(&mut dx).speed(0.05).prefix("Δx: "))
+                .changed()
+                && dx.abs() > 1e-5
+            {
+                self.transform_grid.write(TransformNavGrid {
+                    cells: selected_cells.to_vec(),
+                    translate: [dx, 0.0],
+                    rotate: Angle::Deg(0.0),
+                });
+            }
+            if ui
+                .add(DragValue::new(&mut dy).speed(0.05).prefix("Δy: "))
+                .changed()
+                && dy.abs() > 1e-5
+            {
+                self.transform_grid.write(TransformNavGrid {
+                    cells: selected_cells.to_vec(),
+                    translate: [0.0, dy],
+                    rotate: Angle::Deg(0.0),
+                });
+            }
+        });
+        ui.horizontal(|ui| {
+            ui.label("Rotate Grid:");
+            let mut d_deg = 0.0f32;
+            if ui
+                .add(
+                    DragValue::new(&mut d_deg)
+                        .speed(0.5)
+                        .prefix("Δθ: ")
+                        .suffix("°"),
+                )
+                .changed()
+                && d_deg.abs() > 1e-4
+            {
+                self.transform_grid.write(TransformNavGrid {
+                    cells: selected_cells.to_vec(),
+                    translate: [0.0, 0.0],
+                    rotate: Angle::Deg(d_deg),
+                });
+            }
+            for (label, deg) in [
+                ("-90°", -90.0),
+                ("-15°", -15.0),
+                ("+15°", 15.0),
+                ("+90°", 90.0),
+            ] {
+                if ui.button(label).clicked() {
+                    self.transform_grid.write(TransformNavGrid {
+                        cells: selected_cells.to_vec(),
+                        translate: [0.0, 0.0],
+                        rotate: Angle::Deg(deg),
+                    });
                 }
             }
         });
