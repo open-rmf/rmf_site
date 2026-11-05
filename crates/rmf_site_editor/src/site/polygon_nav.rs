@@ -539,22 +539,14 @@ fn buffer_vertex_count(buffer: &MeshBuffer) -> usize {
 
 pub fn add_nav_cell_visuals(
     mut commands: Commands,
-    cells: Query<
-        (
-            Entity,
-            &Path<Entity>,
-            &PreferredDirection,
-            Option<&Dependents>,
-        ),
-        Added<NavCellMarker>,
-    >,
+    cells: Query<(Entity, &Path<Entity>, &PreferredDirection), Added<NavCellMarker>>,
     anchors: AnchorParams,
     mut dependents: Query<&mut Dependents>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let z = ZLayer::Floor.to_z() + 0.0005;
-    for (e, path, preferred_direction, existing_deps) in &cells {
+    for (e, path, preferred_direction) in &cells {
         let mesh = make_nav_cell_mesh(e, path, *preferred_direction, None, &anchors);
         let material = materials.add(StandardMaterial {
             base_color: Color::WHITE,
@@ -575,6 +567,7 @@ pub fn add_nav_cell_visuals(
             .insert(DragPlaneBundle::new(e, Vec3::Z).globally())
             .id();
 
+        let has_deps = dependents.contains(e);
         let mut entity_cmds = commands.entity(e);
         entity_cmds
             .insert((
@@ -588,7 +581,7 @@ pub fn add_nav_cell_visuals(
                 PathBehavior::for_floor(),
             ))
             .add_child(mesh_entity_id);
-        if existing_deps.is_none() {
+        if !has_deps {
             entity_cmds.insert(Dependents::default());
         }
 
