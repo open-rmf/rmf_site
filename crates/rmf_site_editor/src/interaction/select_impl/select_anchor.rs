@@ -211,6 +211,16 @@ impl<'w, 's> AnchorSelection<'w, 's> {
         );
     }
 
+    pub fn create_nav_cell(&mut self) {
+        self.create_path(
+            insert_path_default::<NavCell<Entity>>,
+            3,
+            false,
+            true,
+            AnchorScope::General,
+        );
+    }
+
     pub fn create_location(&mut self) {
         self.create_point::<Location<Entity>>(true, AnchorScope::General);
     }

@@ -24,7 +24,8 @@ use bevy_mod_outline::{
 use rmf_site_camera::*;
 use rmf_site_format::{
     DoorType, FiducialMarker, FloorMarker, LiftCabin, LightKind, LocationTags, MeasurementMarker,
-    ModelMarker, PhysicalCameraProperties, PrimitiveShape, WallMarker,
+    ModelMarker, NavCellEdgeMarker, NavCellMarker, PhysicalCameraProperties, PrimitiveShape,
+    WallMarker,
 };
 use smallvec::SmallVec;
 
@@ -125,6 +126,8 @@ pub fn add_outline_visualization(
             Added<LightKind>,
             Added<LocationTags>,
             Added<PrimitiveShape>,
+            Added<NavCellMarker>,
+            Added<NavCellEdgeMarker>,
         )>,
     >,
 ) {

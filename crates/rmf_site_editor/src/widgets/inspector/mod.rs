@@ -93,6 +93,9 @@ pub use inspect_mutex::*;
 pub mod inspect_name;
 pub use inspect_name::*;
 
+pub mod inspect_nav_cell;
+pub use inspect_nav_cell::*;
+
 pub mod inspect_option_f32;
 pub use inspect_option_f32::*;
 
@@ -219,6 +222,7 @@ impl Plugin for StandardInspectorPlugin {
                 InspectionPlugin::<InspectLevel>::new(),
                 InspectModelDescriptionPlugin::default(),
                 InspectLiftPlugin::default(),
+                InspectNavCellPlugin::default(),
             ))
             .add_plugins(
                 (

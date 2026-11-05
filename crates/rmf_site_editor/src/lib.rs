@@ -60,7 +60,7 @@ use wireframe::*;
 
 use aabb::AabbUpdatePlugin;
 use interaction::InteractionPlugin;
-use site::{OSMViewPlugin, SitePlugin};
+use site::{OSMViewPlugin, PolygonNavPlugin, SitePlugin};
 use site_asset_io::SiteAssetIoPlugin;
 
 pub mod mapf_rse;
@@ -292,6 +292,7 @@ impl Plugin for SiteEditor {
                 ExitConfirmationPlugin,
                 EditorInputPlugin,
                 SitePlugin,
+                PolygonNavPlugin,
                 InteractionPlugin::new().headless(self.is_headless()),
                 VisualCueAnimationsPlugin,
                 OccupancyPlugin,

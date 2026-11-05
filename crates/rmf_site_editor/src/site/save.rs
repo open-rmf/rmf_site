@@ -140,6 +140,9 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
                     With<ModelMarker>,
                     With<PhysicalCameraProperties>,
                     With<WallMarker>,
+                    With<NavGrid>,
+                    With<NavCellMarker>,
+                    With<NavCellEdgeMarker>,
                 )>,
                 Without<Pending>,
             ),
@@ -1705,6 +1708,169 @@ fn generate_tasks(
     Ok(res)
 }
 
+fn generate_polygon_nav(
+    world: &mut World,
+    site: Entity,
+) -> Result<PolygonNav, SiteGenerationError> {
+    let mut state: SystemState<(
+        Query<(Entity, &SiteID, &ChildOf), (With<LevelElevation>, Without<Pending>)>,
+        Query<(Entity, &NavGrid, Option<&SiteID>, &ChildOf), Without<Pending>>,
+        Query<
+            (
+                Entity,
+                &Path<Entity>,
+                Option<&Original<Path<Entity>>>,
+                &PreferredDirection,
+                &AssociatedGraphs<Entity>,
+                &GridCellCoord<Entity>,
+                Option<&SiteID>,
+                &ChildOf,
+            ),
+            (With<NavCellMarker>, Without<Pending>),
+        >,
+        Query<
+            (
+                Entity,
+                &Edge<Entity>,
+                &NavGuidePreference,
+                Option<&SiteID>,
+                &ChildOf,
+            ),
+            (With<NavCellEdgeMarker>, Without<Pending>),
+        >,
+        Query<&SiteID, With<Anchor>>,
+        Query<&SiteID, With<NavGraphMarker>>,
+    )> = SystemState::new(world);
+
+    let (q_levels, q_grids, q_cells, q_edges, q_anchors, q_nav_graphs) = state.get(world);
+
+    let mut level_ids: HashMap<Entity, u32> = HashMap::new();
+    for (level_e, site_id, child_of) in &q_levels {
+        if child_of.parent() == site {
+            level_ids.insert(level_e, site_id.0);
+        }
+    }
+
+    if level_ids.is_empty() {
+        return Ok(PolygonNav::default());
+    }
+
+    // 1. Collect and sort NavGrids deterministically into a dense Vec
+    let mut grid_entries: Vec<(u32, Entity, u32, NavGrid)> = Vec::new();
+    for (grid_e, grid, site_id, child_of) in &q_grids {
+        if let Some(&level_site_id) = level_ids.get(&child_of.parent()) {
+            let sort_key = site_id.map(|s| s.0).unwrap_or(grid_e.index());
+            grid_entries.push((sort_key, grid_e, level_site_id, *grid));
+        }
+    }
+    grid_entries.sort_by_key(|(k, e, _, _)| (*k, e.index()));
+
+    let mut grid_entity_to_idx: HashMap<Entity, u32> = HashMap::new();
+    let mut grids: Vec<Parented<u32, NavGrid>> = Vec::with_capacity(grid_entries.len());
+    for (_, grid_e, level_site_id, grid) in grid_entries {
+        let idx = grids.len() as u32;
+        grid_entity_to_idx.insert(grid_e, idx);
+        grids.push(Parented {
+            parent: level_site_id,
+            bundle: grid,
+        });
+    }
+
+    // 2. Collect and sort NavCells deterministically into a dense Vec
+    let mut cell_entries = Vec::new();
+    for (cell_e, path, o_path, pref_dir, graphs, grid_coord, site_id, child_of) in &q_cells {
+        let Some(&level_site_id) = level_ids.get(&child_of.parent()) else {
+            continue;
+        };
+        let path = o_path.map(|x| &x.0).unwrap_or(path);
+        let mut anchor_ids = Vec::with_capacity(path.len());
+        for &a_e in &path.0 {
+            let a_id = q_anchors
+                .get(a_e)
+                .map_err(|_| SiteGenerationError::BrokenAnchorReference {
+                    object: cell_e,
+                    anchor: a_e,
+                })?
+                .0;
+            anchor_ids.push(a_id);
+        }
+        let graphs = graphs
+            .to_u32(&q_nav_graphs)
+            .map_err(SiteGenerationError::BrokenNavGraphReference)?;
+        let grid_coord_u32 = GridCellCoord(grid_coord.0.and_then(|idx| {
+            grid_entity_to_idx
+                .get(&idx.grid)
+                .map(|&g_idx| GridCellIndex {
+                    grid: g_idx,
+                    row: idx.row,
+                    col: idx.col,
+                })
+        }));
+        let sort_key = site_id.map(|s| s.0).unwrap_or(cell_e.index());
+        cell_entries.push((
+            sort_key,
+            cell_e,
+            level_site_id,
+            NavCell {
+                anchors: Path(anchor_ids),
+                preferred_direction: *pref_dir,
+                graphs,
+                grid_coord: grid_coord_u32,
+                marker: NavCellMarker,
+            },
+        ));
+    }
+    cell_entries.sort_by_key(|(k, e, _, _)| (*k, e.index()));
+
+    let mut cell_entity_to_idx: HashMap<Entity, u32> = HashMap::new();
+    let mut cells: Vec<Parented<u32, NavCell<u32>>> = Vec::with_capacity(cell_entries.len());
+    for (_, cell_e, level_site_id, cell) in cell_entries {
+        let idx = cells.len() as u32;
+        cell_entity_to_idx.insert(cell_e, idx);
+        cells.push(Parented {
+            parent: level_site_id,
+            bundle: cell,
+        });
+    }
+
+    // 3. Collect and sort NavCellEdges deterministically into a dense Vec
+    let mut edge_entries = Vec::new();
+    for (edge_e, edge, guide, site_id, child_of) in &q_edges {
+        let Some(&level_site_id) = level_ids.get(&child_of.parent()) else {
+            continue;
+        };
+        let Some(&u_idx) = cell_entity_to_idx.get(&edge.start()) else {
+            continue;
+        };
+        let Some(&v_idx) = cell_entity_to_idx.get(&edge.end()) else {
+            continue;
+        };
+        let sort_key = site_id.map(|s| s.0).unwrap_or(edge_e.index());
+        edge_entries.push((
+            sort_key,
+            edge_e,
+            level_site_id,
+            NavCellEdge {
+                cells: Edge::new(u_idx, v_idx),
+                guide: *guide,
+                marker: NavCellEdgeMarker,
+            },
+        ));
+    }
+    edge_entries.sort_by_key(|(k, e, _, _)| (*k, e.index()));
+
+    let edges: Vec<Parented<u32, NavCellEdge<u32>>> = edge_entries
+        .into_iter()
+        .map(|(_, _, parent, bundle)| Parented { parent, bundle })
+        .collect();
+
+    Ok(PolygonNav {
+        grids,
+        cells,
+        edges,
+    })
+}
+
 pub fn generate_site(
     world: &mut World,
     site: Entity,
@@ -1723,6 +1889,7 @@ pub fn generate_site(
     let lanes = generate_lanes(world, site)?;
     let locations = generate_locations(world, site)?;
     let graph_ranking = generate_graph_rankings(world, site)?;
+    let polygon_nav = generate_polygon_nav(world, site)?;
     let properties = generate_site_properties(world, site)?;
     let model_descriptions = generate_model_descriptions(site, world)?;
     let robots = generate_robots(site, world)?;
@@ -1785,6 +1952,7 @@ pub fn generate_site(
                 locations,
                 mutex_groups,
             },
+            polygon: polygon_nav,
         },
         model_descriptions,
         robots,
