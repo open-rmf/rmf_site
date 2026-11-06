@@ -328,7 +328,8 @@ mod tests {
                 forward: Some(Motion {
                     orientation_constraint: OrientationConstraint::Forwards,
                     speed_limit: Some(1.5),
-                    dock: None,
+                    workflow: Some("clean_floor".into()),
+                    ..Default::default()
                 }),
                 reverse: Some(ReverseLane::Disable),
                 graphs: Some(AssociatedGraphs::Only(BTreeSet::from([100]))),

@@ -2551,7 +2551,7 @@ mod tests {
         let child_motion = Motion {
             orientation_constraint: OrientationConstraint::Forwards,
             speed_limit: Some(1.5),
-            dock: None,
+            ..Default::default()
         };
         let mut child_scenario = Scenario::from_name_parent(Some("Child".to_string()), Some(50));
         child_scenario.lanes.insert(

@@ -301,7 +301,7 @@ mod tests {
         let child_motion = Motion {
             orientation_constraint: OrientationConstraint::Forwards,
             speed_limit: Some(2.5),
-            dock: None,
+            ..Default::default()
         };
         app.world_mut().entity_mut(lane).insert((
             child_motion.clone(),
