@@ -89,7 +89,9 @@ impl<'w, 's> InspectForwardMotion<'w, 's> {
                 if has_modifier && parent_scenario.0.is_some() {
                     if ui
                         .button("Reset Forward Motion")
-                        .on_hover_text("Reset forward motion to its inherited value in this scenario")
+                        .on_hover_text(
+                            "Reset forward motion to its inherited value in this scenario",
+                        )
                         .clicked()
                     {
                         self.commands
@@ -178,7 +180,9 @@ impl<'w, 's> InspectReverseMotion<'w, 's> {
                 if has_modifier && parent_scenario.0.is_some() {
                     if ui
                         .button("Reset Reverse Motion")
-                        .on_hover_text("Reset reverse motion to its inherited value in this scenario")
+                        .on_hover_text(
+                            "Reset reverse motion to its inherited value in this scenario",
+                        )
                         .clicked()
                     {
                         self.commands.trigger(UpdateModifier::<ReverseLane>::reset(

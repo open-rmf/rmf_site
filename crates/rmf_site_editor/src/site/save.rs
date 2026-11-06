@@ -2658,8 +2658,7 @@ mod tests {
             .send_event(ChangeCurrentScenario(root_entity));
         app.update();
         let active_root_lanes = generate_lanes(app.world_mut(), site_entity, true).unwrap();
-        let active_root_locations =
-            generate_locations(app.world_mut(), site_entity, true).unwrap();
+        let active_root_locations = generate_locations(app.world_mut(), site_entity, true).unwrap();
         assert_eq!(active_root_lanes.len(), 1);
         assert!(active_root_lanes.contains_key(&30));
         assert!(!active_root_lanes.contains_key(&31));

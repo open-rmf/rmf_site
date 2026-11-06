@@ -220,50 +220,49 @@ fn on_use_modifier<T: Property, E: Element>(
         return;
     }
 
-    let new_value: T = if let Some(modifier) =
-        get_modifier.get(event.in_scenario, event.for_element)
-    {
-        (**modifier).clone()
-    } else {
-        // No modifier exists in this tree for this scenario/element pairing.
-        // Make sure that a modifier for this property exists in the root of this scenario tree.
-        let mut target_scenario = event.in_scenario;
-        let mut root_scenario: Option<Entity> = None;
-        while root_scenario.is_none() {
-            let Ok((_, parent_scenario)) = get_modifier.scenarios.get(target_scenario) else {
-                break;
-            };
-            if let Some(parent_entity) = parent_scenario.0 {
-                target_scenario = parent_entity;
-            } else {
-                root_scenario = Some(target_scenario);
-                break;
+    let new_value: T =
+        if let Some(modifier) = get_modifier.get(event.in_scenario, event.for_element) {
+            (**modifier).clone()
+        } else {
+            // No modifier exists in this tree for this scenario/element pairing.
+            // Make sure that a modifier for this property exists in the root of this scenario tree.
+            let mut target_scenario = event.in_scenario;
+            let mut root_scenario: Option<Entity> = None;
+            while root_scenario.is_none() {
+                let Ok((_, parent_scenario)) = get_modifier.scenarios.get(target_scenario) else {
+                    break;
+                };
+                if let Some(parent_entity) = parent_scenario.0 {
+                    target_scenario = parent_entity;
+                } else {
+                    root_scenario = Some(target_scenario);
+                    break;
+                }
             }
-        }
-        if let Some(root_scenario_entity) = root_scenario {
-            if let Some(modifier_entity) = get_modifier
-                .scenarios
-                .get(root_scenario_entity)
-                .ok()
-                .and_then(|(scenario_modifiers, _)| scenario_modifiers.get(&event.for_element))
-                .copied()
-            {
-                world
-                    .commands()
-                    .entity(modifier_entity)
-                    .insert(Modifier::<T>::new(fallback_value.clone()));
-            } else {
-                world
-                    .commands()
-                    .trigger(UpdateModifier::modify_without_trigger(
-                        root_scenario_entity,
-                        event.for_element,
-                        fallback_value.clone(),
-                    ));
+            if let Some(root_scenario_entity) = root_scenario {
+                if let Some(modifier_entity) = get_modifier
+                    .scenarios
+                    .get(root_scenario_entity)
+                    .ok()
+                    .and_then(|(scenario_modifiers, _)| scenario_modifiers.get(&event.for_element))
+                    .copied()
+                {
+                    world
+                        .commands()
+                        .entity(modifier_entity)
+                        .insert(Modifier::<T>::new(fallback_value.clone()));
+                } else {
+                    world
+                        .commands()
+                        .trigger(UpdateModifier::modify_without_trigger(
+                            root_scenario_entity,
+                            event.for_element,
+                            fallback_value.clone(),
+                        ));
+                }
             }
-        }
-        fallback_value
-    };
+            fallback_value
+        };
 
     let changed = values
         .get_mut(world, event.for_element)

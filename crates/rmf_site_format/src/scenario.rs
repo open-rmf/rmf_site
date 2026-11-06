@@ -349,7 +349,10 @@ mod tests {
 
         let id_map = HashMap::from([(1u32, 1001u32), (10, 1010), (20, 1020), (100, 1100)]);
         let converted = scenario.convert(&id_map).unwrap();
-        assert_eq!(converted.properties.parent_scenario, Affiliation(Some(1001)));
+        assert_eq!(
+            converted.properties.parent_scenario,
+            Affiliation(Some(1001))
+        );
         assert_eq!(
             converted.lanes.get(&1010).unwrap().graphs,
             Some(AssociatedGraphs::Only(BTreeSet::from([1100])))
