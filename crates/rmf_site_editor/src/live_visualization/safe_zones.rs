@@ -195,8 +195,7 @@ pub fn update_live_safe_zones(
         let physical_height = event.size_y as f32 * event.resolution;
 
         // Position image on floor plan
-        let target_transform =
-            get_safezone_target_position(&event, physical_width, physical_height);
+        let target_tf = get_safezone_target_position(&event, physical_width, physical_height);
 
         let image_size = event.image_size;
         let rgba_data = event.rgba_data;
@@ -237,7 +236,7 @@ pub fn update_live_safe_zones(
                 }
 
                 marker.incremental_target = event.incremental_target;
-                *transform = target_transform;
+                *transform = target_tf;
             }
         } else {
             // If safe zone does not exist yet, create new image and mesh
@@ -260,7 +259,7 @@ pub fn update_live_safe_zones(
                     },
                     mesh3d,
                     mat3d,
-                    target_transform,
+                    target_tf,
                     Visibility::Hidden,
                     Pickable::IGNORE,
                 ))

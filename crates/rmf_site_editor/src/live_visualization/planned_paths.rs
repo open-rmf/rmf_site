@@ -18,7 +18,7 @@
 use bevy::prelude::*;
 use rmf_site_msgs::rmf_prototype_msgs::msg::{Plan, Progress};
 use roslibrust::rosbridge::ClientHandle;
-use std::collections::HashMap;
+use std::collections::{hash_map::Entry, HashMap};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedSender;
@@ -194,6 +194,10 @@ pub struct PlannedPathData {
 }
 
 impl PlannedPathData {
+    pub fn clear_waypoints(&mut self) {
+        self.waypoints.clear();
+    }
+
     pub fn is_completed(&self) -> bool {
         self.waypoints.is_empty()
             || self
@@ -220,29 +224,29 @@ pub fn update_live_paths(
     mut gizmos: Gizmos,
 ) {
     while let Ok(event) = plan_channel.receiver.try_recv() {
-        let robot_path = path_state
-            .0
-            .entry(event.name.clone())
-            .or_insert(PlannedPathData {
-                waypoints: Vec::new(),
-                target_waypoint: None,
-                completed_waypoint: 0,
-                current_progress: f32::MAX,
-            });
+        // Check if this is a detour/new path
+        match path_state.0.entry(event.name) {
+            Entry::Occupied(mut entry) => {
+                let robot_path = entry.get_mut();
+                if robot_path.waypoints != event.waypoints {
+                    robot_path.waypoints = event.waypoints;
 
-        if robot_path.waypoints != event.waypoints {
-            // Check if this is a detour/new path
-            let has_existing_path = !robot_path.waypoints.is_empty();
-            robot_path.waypoints = event.waypoints;
-
-            // If the robot already had a path, this is a brand new detour.
-            // Target and completed waypoint are reset to the beginning of the new path.
-            // If it did not have an existing path, the Progress message arrived
-            // first, so the target_waypoint and completed_waypoint are left alone.
-            if has_existing_path {
-                robot_path.target_waypoint = None;
-                robot_path.completed_waypoint = 0;
-                robot_path.current_progress = 0.0;
+                    // If the robot already had a path, this is a brand new detour.
+                    // Target and completed waypoint are reset to the beginning of the new path.
+                    // If it did not have an existing path, the Progress message arrived
+                    // first, so the target_waypoint and completed_waypoint are left alone.
+                    robot_path.target_waypoint = None;
+                    robot_path.completed_waypoint = 0;
+                    robot_path.current_progress = 0.0;
+                }
+            }
+            Entry::Vacant(entry) => {
+                entry.insert(PlannedPathData {
+                    waypoints: event.waypoints,
+                    target_waypoint: None,
+                    completed_waypoint: 0,
+                    current_progress: f32::MAX,
+                });
             }
         }
     }

@@ -226,8 +226,9 @@ impl<'w, 's> RobotPathControlWidget<'w, 's> {
                             }
 
                             // Robot has completed path and there is no next destination queued
-                            Some(_)
-                                if (current_dest.is_some() || is_detour)
+                            Some(path_data)
+                                if path_data.final_waypoint().is_some()
+                                    && (current_dest.is_some() || is_detour)
                                     && selected_dest.is_none() =>
                             {
                                 if is_detour {
@@ -317,7 +318,9 @@ impl<'w, 's> RobotPathControlWidget<'w, 's> {
             let goal_msg = dest.to_destination_goal();
             self.goal_sender.publish(robot_name.clone(), goal_msg);
 
-            self.path_state.0.remove(&robot_name);
+            if let Some(path) = self.path_state.0.get_mut(&robot_name) {
+                path.clear_waypoints();
+            }
             self.destination_state
                 .detours
                 .insert(robot_name.clone(), false);
