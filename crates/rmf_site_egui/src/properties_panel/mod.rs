@@ -17,7 +17,7 @@
 
 use bevy_app::prelude::*;
 use bevy_ecs::name::Name;
-use bevy_ecs::prelude::Component;
+use bevy_ecs::prelude::{Bundle, Component, EntityWorldMut};
 
 use crate::*;
 
@@ -36,6 +36,7 @@ where
 {
     name: String,
     group: TabGroup,
+    inserters: Vec<Box<dyn Fn(&mut EntityWorldMut) + Send + Sync>>,
     _ignore: std::marker::PhantomData<W>,
 }
 
@@ -47,12 +48,20 @@ where
         Self {
             name: name.into(),
             group: TabGroup::default(),
+            inserters: Vec::new(),
             _ignore: Default::default(),
         }
     }
 
     pub fn in_group(mut self, group: TabGroup) -> Self {
         self.group = group;
+        self
+    }
+
+    pub fn insert<B: Bundle + Clone>(mut self, bundle: B) -> Self {
+        self.inserters.push(Box::new(move |entity| {
+            entity.insert(bundle.clone());
+        }));
         self
     }
 }
@@ -68,6 +77,9 @@ where
         entity.insert(ChildOf(properties_panel));
         entity.insert(self.group);
         entity.insert(Name::new(self.name.clone()));
+        for insert in &self.inserters {
+            insert(&mut entity);
+        }
     }
 }
 
