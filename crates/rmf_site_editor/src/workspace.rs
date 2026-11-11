@@ -515,7 +515,8 @@ pub struct WorkspaceSavingServices {
     pub save_workspace_to_default_file: Service<(), ()>,
     /// Opens a dialog to pick a folder and exports the requested workspace as an SDF.
     pub export_sdf_to_dialog: Service<(), ()>,
-    /// Exports the requested workspace as an SDF in the requested path.
+    /// Exports the requested workspace as an SDF in the requested path with an optional custom
+    /// base SDF file path.
     pub export_sdf_to_path: Service<(PathBuf, Option<PathBuf>), ()>,
     /// Opens a dialog to pick a folder and exports the nav graphs from the requested site.
     pub export_nav_graphs_to_dialog: Service<(), ()>,
@@ -685,7 +686,8 @@ impl<'w, 's> WorkspaceSaver<'w, 's> {
             .detach();
     }
 
-    /// Request to export the workspace as a sdf to provided folder
+    /// Request to export the workspace as a sdf to provided folder with an optional custom base
+    /// SDF file path.
     pub fn export_sdf_to_path(&mut self, path: PathBuf, base_sdf_path: Option<PathBuf>) {
         self.commands
             .request(

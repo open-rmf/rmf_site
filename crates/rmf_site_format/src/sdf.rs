@@ -1038,6 +1038,23 @@ mod tests {
         let map = BuildingMap::from_bytes(&data).unwrap();
         let site = map.to_site().unwrap();
         // Convert to an sdf
+        let sdf = site.to_sdf().unwrap();
+        let config = yaserde::ser::Config {
+            perform_indent: true,
+            write_document_declaration: true,
+            ..Default::default()
+        };
+        let s = yaserde::ser::to_string_with_config(&sdf, &config).unwrap();
+        let output_dir = testdir!();
+        std::fs::write(output_dir.join("test.sdf"), s).unwrap();
+    }
+
+    #[test]
+    fn serialize_sdf_with_default_base_xml() {
+        let data = std::fs::read("../../assets/demo_maps/office.building.yaml").unwrap();
+        let map = BuildingMap::from_bytes(&data).unwrap();
+        let site = map.to_site().unwrap();
+        // Convert to an sdf using to_sdf_with_base_xml(None)
         let sdf = site.to_sdf_with_base_xml(None).unwrap();
         let config = yaserde::ser::Config {
             perform_indent: true,
