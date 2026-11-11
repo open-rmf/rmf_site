@@ -1972,7 +1972,7 @@ pub fn save_site(world: &mut World) {
                     }
                 };
 
-                let default_file = world.get::<DefaultFile>(save_event.site);
+                let default_file = world.get::<DefaultFile>(save_event.site).cloned();
                 let base_sdf_xml = match &base_sdf_path {
                     Some(path) => match resolve_and_read_base_sdf_file(path, None) {
                         Ok(xml) => Some(xml),
@@ -1991,7 +1991,7 @@ pub fn save_site(world: &mut World) {
                             Some(xml.clone())
                         }
                         BaseSdf::File(path) => {
-                            match resolve_and_read_base_sdf_file(path, default_file) {
+                            match resolve_and_read_base_sdf_file(path, default_file.as_ref()) {
                                 Ok(xml) => Some(xml),
                                 Err(e) => {
                                     error!("{e}");
@@ -2029,7 +2029,6 @@ pub fn save_site(world: &mut World) {
                     continue;
                 }
 
-                migrate_relative_paths(save_event.site, &sdf_path, world);
                 let sdf = match site.to_sdf_with_base_xml(base_sdf_xml.as_deref()) {
                     Ok(sdf) => sdf,
                     Err(err) => {

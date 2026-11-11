@@ -33,6 +33,23 @@ use rmf_site_egui::*;
 use rmf_site_format::BaseSdf;
 use std::path::{Path, PathBuf};
 
+/// Resolve a path to an absolute path (using `current_dir` if relative) so `diff_paths` can
+/// reliably compute relative paths even when `.site.json` was loaded via a relative path.
+fn make_absolute(path: &Path) -> PathBuf {
+    if path.is_absolute() {
+        path.to_path_buf()
+    } else if let Ok(cwd) = std::env::current_dir() {
+        cwd.join(path)
+    } else {
+        path.to_path_buf()
+    }
+}
+
+fn make_relative_to_site(path: &Path, default_file: &DefaultFile) -> Option<PathBuf> {
+    let parent_dir = default_file.0.parent().unwrap_or(Path::new(""));
+    diff_paths(make_absolute(path), make_absolute(parent_dir))
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum FileChoiceTarget {
     LinkFile { is_relative: bool },
@@ -218,7 +235,7 @@ fn show_sdf_export_settings_dialog(
                             let parent_dir = default_file.0.parent().unwrap_or(Path::new(""));
                             if !path.as_os_str().is_empty() {
                                 if is_relative {
-                                    if let Some(rel) = diff_paths(path, parent_dir) {
+                                    if let Some(rel) = make_relative_to_site(path, default_file) {
                                         path_str = rel.to_string_lossy().into_owned();
                                     }
                                 } else {
@@ -379,8 +396,7 @@ fn resolve_sdf_base_file(
             FileChoiceTarget::LinkFile { is_relative } => {
                 let final_path = if is_relative {
                     if let Some(default_file) = default_file {
-                        let parent_dir = default_file.0.parent().unwrap_or(Path::new(""));
-                        diff_paths(&path, parent_dir).unwrap_or(path)
+                        make_relative_to_site(&path, default_file).unwrap_or(path)
                     } else {
                         path
                     }
