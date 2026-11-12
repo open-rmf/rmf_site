@@ -17,11 +17,13 @@
 
 use crate::{
     interaction::*,
-    site::{ChangeDependent, Dependents, Pending, TextureNeedsAssignment},
+    site::{
+        count_connected_conveyors, ChangeDependent, Dependents, Pending, TextureNeedsAssignment,
+    },
 };
 use bevy::prelude::*;
 use crossflow::*;
-use rmf_site_format::{Edge, Group, ModelMarker, Side};
+use rmf_site_format::{Anchor, ConveyorMarker, Edge, Group, ModelMarker, Side};
 use std::borrow::Borrow;
 
 pub fn spawn_create_edges_service(
@@ -265,6 +267,8 @@ pub fn on_select_for_create_edges(
     lifts: Query<(), With<LiftCabin<Entity>>>,
     models: Query<(), (With<ModelMarker>, Without<Group>)>,
     cursor: Res<Cursor>,
+    conveyor_markers: Query<(), With<ConveyorMarker>>,
+    dependents: Query<&Dependents, With<Anchor>>,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.newest_mut().or_broken_state()?;
@@ -296,6 +300,19 @@ pub fn on_select_for_create_edges(
 
     let anchor = selection.candidate;
     if let Some(preview) = &mut state.preview_edge {
+        // Prevent conveyor forks by rejecting anchors that already have 2 connected segments
+        let mut connected_conveyors = 0;
+        if conveyor_markers.contains(preview.edge) {
+            connected_conveyors =
+                count_connected_conveyors(anchor, preview.edge, &conveyor_markers, &dependents);
+            if connected_conveyors >= 2 {
+                error!(
+                    "Invalid selection: Conveyors cannot have more than 2 connected segments at an anchor."
+                );
+                return Ok(());
+            }
+        }
+
         match preview.side {
             Side::Left => {
                 // We are pinning down the first anchor of the edge
@@ -358,20 +375,28 @@ pub fn on_select_for_create_edges(
                         streams.send(SelectionAlignmentBasis::none());
                     }
                     EdgeCreationContinuity::Continuous => {
-                        // Start drawing a new edge, picking up from the end
-                        // point of the previous edge
-                        let edge = Edge::new(anchor, cursor.level_anchor_placement);
-                        let edge = (state.spawn_edge)(edge, &mut commands);
-                        state.preview_edge = Some(PreviewEdge {
-                            edge,
-                            side: Side::end(),
-                            provisional_start: false,
-                        });
-                        commands.queue(ChangeDependent::add(anchor, edge));
-                        commands.queue(ChangeDependent::add(cursor.level_anchor_placement, edge));
+                        if connected_conveyors >= 1 {
+                            // The anchor already has 2 conveyor segments connected to it, so
+                            // a 3rd forked segment should not be started from this anchor.
+                            state.initialize_preview(cursor.level_anchor_placement, &mut commands);
+                            streams.send(SelectionAlignmentBasis::none());
+                        } else {
+                            // Start drawing a new edge, picking up from the end
+                            // point of the previous edge
+                            let edge = Edge::new(anchor, cursor.level_anchor_placement);
+                            let edge = (state.spawn_edge)(edge, &mut commands);
+                            state.preview_edge = Some(PreviewEdge {
+                                edge,
+                                side: Side::end(),
+                                provisional_start: false,
+                            });
+                            commands.queue(ChangeDependent::add(anchor, edge));
+                            commands
+                                .queue(ChangeDependent::add(cursor.level_anchor_placement, edge));
 
-                        // Use the latest selection for the new alignment basis.
-                        streams.send(SelectionAlignmentBasis::new(anchor));
+                            // Use the latest selection for the new alignment basis.
+                            streams.send(SelectionAlignmentBasis::new(anchor));
+                        }
                     }
                 }
             }

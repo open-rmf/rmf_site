@@ -355,6 +355,23 @@ pub fn add_conveyor_visuals(
     }
 }
 
+/// Count how many conveyor segments are connected to an anchor.
+pub fn count_connected_conveyors(
+    anchor: Entity,
+    exclude_edge: Entity,
+    conveyor_markers: &Query<(), With<ConveyorMarker>>,
+    dependents: &Query<&Dependents, With<Anchor>>,
+) -> usize {
+    dependents
+        .get(anchor)
+        .map(|deps| {
+            deps.iter()
+                .filter(|&&dep| dep != exclude_edge && conveyor_markers.contains(dep))
+                .count()
+        })
+        .unwrap_or(0)
+}
+
 fn collect_connected_conveyors(
     start_entity: Entity,
     start_edge: &Edge<Entity>,

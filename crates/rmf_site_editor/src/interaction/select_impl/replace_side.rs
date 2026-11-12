@@ -17,12 +17,12 @@
 
 use crate::{
     interaction::*,
-    site::{ChangeDependent, Original},
+    site::{count_connected_conveyors, ChangeDependent, Dependents, Original},
 };
 use anyhow::Error as Anyhow;
 use bevy::prelude::*;
 use crossflow::*;
-use rmf_site_format::{Edge, Group, ModelMarker, Side};
+use rmf_site_format::{Anchor, ConveyorMarker, Edge, Group, ModelMarker, Side};
 use std::borrow::Borrow;
 
 pub fn spawn_replace_side_service(
@@ -218,11 +218,28 @@ pub fn on_select_for_replace_side(
     parents: Query<&ChildOf>,
     lifts: Query<(), With<LiftCabin<Entity>>>,
     models: Query<(), (With<ModelMarker>, Without<Group>)>,
+    conveyor_markers: Query<(), With<ConveyorMarker>>,
+    dependents: Query<&Dependents, With<Anchor>>,
     cursor: Res<Cursor>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.newest_mut().or_broken_state()?;
+    // Prevent conveyor forks by rejecting anchors that already have 2 connected segments
+    if conveyor_markers.contains(state.edge)
+        && count_connected_conveyors(
+            selection.candidate,
+            state.edge,
+            &conveyor_markers,
+            &dependents,
+        ) >= 2
+    {
+        error!(
+            "Invalid selection: Conveyors cannot have more than 2 connected segments at an anchor."
+        );
+        return Ok(());
+    }
+
     if state.set_chosen(
         selection.candidate,
         &mut edges,
