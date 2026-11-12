@@ -173,7 +173,7 @@ pub fn headless_export(
                         {
                             error!(
                                 "The site already has a base SDF saved in it, \
-                                but --export-sdf-base was specified on the command line. \
+                                but --base-sdf was specified on the command line. \
                                 Add --override-base-sdf to override the site's saved base SDF."
                             );
                             exit.write(bevy::app::AppExit::error());

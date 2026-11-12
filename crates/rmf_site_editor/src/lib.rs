@@ -100,11 +100,17 @@ pub struct CommandLineArgs {
     /// This requires you to specify FILENAME, and it can be used with export_sdf.
     #[cfg_attr(not(target_arch = "wasm32"), arg(long))]
     pub export_nav: Option<String>,
-    /// Base SDF file to use when exporting. If not specified, the default base world is used.
-    #[cfg_attr(not(target_arch = "wasm32"), arg(long))]
-    pub export_sdf_base: Option<String>,
-    /// Override the base SDF saved inside the site file with the file specified by --export-sdf-base.
-    #[cfg_attr(not(target_arch = "wasm32"), arg(long, default_value_t = false))]
+    /// Base SDF file to use when exporting. If not specified, the base SDF saved inside the site
+    /// file (as a file path or embedded XML) is used, or the default base world if none is saved.
+    /// If a base SDF is already saved inside the site file, specifying this option will cause an
+    /// error unless `--override-base-sdf` is also passed.
+    #[cfg_attr(not(target_arch = "wasm32"), arg(long, requires = "export_sdf"))]
+    pub base_sdf: Option<String>,
+    /// Override the base SDF saved inside the site file with the file specified by --base-sdf.
+    #[cfg_attr(
+        not(target_arch = "wasm32"),
+        arg(long, default_value_t = false, requires = "export_sdf")
+    )]
     pub override_base_sdf: bool,
 }
 
@@ -151,9 +157,9 @@ pub struct SiteEditor {
     export_sdf: Option<String>,
     /// Contains Some(path) if the site editor is running in headless mode
     /// using a custom base SDF.
-    export_sdf_base: Option<String>,
+    base_sdf: Option<String>,
     /// Whether to override a base SDF already saved in the site file when
-    /// `export_sdf_base` is specified.
+    /// `base_sdf` is specified.
     override_base_sdf: bool,
     /// Contains Some(path) if the site editor is running in headless mode
     /// exporting its nav graphs.
@@ -172,7 +178,7 @@ impl SiteEditor {
 
     pub fn from_cli_args(command_line_args: Vec<String>) -> Self {
         let mut _export_sdf = None;
-        let mut _export_sdf_base = None;
+        let mut _base_sdf = None;
         let mut _override_base_sdf = false;
         let mut _export_nav = None;
         let mut autoload = None;
@@ -187,14 +193,14 @@ impl SiteEditor {
                 ));
             }
             _export_sdf = command_line_args.export_sdf;
-            _export_sdf_base = command_line_args.export_sdf_base;
+            _base_sdf = command_line_args.base_sdf;
             _override_base_sdf = command_line_args.override_base_sdf;
             _export_nav = command_line_args.export_nav;
         }
 
         Self {
             export_sdf: _export_sdf,
-            export_sdf_base: _export_sdf_base,
+            base_sdf: _base_sdf,
             override_base_sdf: _override_base_sdf,
             export_nav: _export_nav,
             autoload,
@@ -207,8 +213,8 @@ impl SiteEditor {
         self
     }
 
-    pub fn export_sdf_base(mut self, base_file: Option<String>) -> Self {
-        self.export_sdf_base = base_file;
+    pub fn base_sdf(mut self, base_file: Option<String>) -> Self {
+        self.base_sdf = base_file;
         self
     }
 
@@ -363,12 +369,50 @@ impl Plugin for SiteEditor {
             ));
             app.insert_resource(site::HeadlessExportState::new(
                 self.export_sdf.clone(),
-                self.export_sdf_base.clone(),
+                self.base_sdf.clone(),
                 self.override_base_sdf,
                 self.export_nav.clone(),
                 self.save_as_path.clone(),
             ));
             app.add_systems(Last, site::headless_export);
         }
+    }
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    use super::*;
+    use clap::Parser;
+
+    #[test]
+    fn cli_base_sdf_requires_export_sdf() {
+        assert!(CommandLineArgs::try_parse_from([
+            "rmf_site_editor",
+            "office.site.json",
+            "--base-sdf",
+            "base.sdf",
+        ])
+        .is_err());
+
+        assert!(CommandLineArgs::try_parse_from([
+            "rmf_site_editor",
+            "office.site.json",
+            "--override-base-sdf",
+        ])
+        .is_err());
+
+        let args = CommandLineArgs::try_parse_from([
+            "rmf_site_editor",
+            "office.site.json",
+            "--export-sdf",
+            "out_dir",
+            "--base-sdf",
+            "base.sdf",
+            "--override-base-sdf",
+        ])
+        .unwrap();
+        assert_eq!(args.export_sdf.as_deref(), Some("out_dir"));
+        assert_eq!(args.base_sdf.as_deref(), Some("base.sdf"));
+        assert!(args.override_base_sdf);
     }
 }

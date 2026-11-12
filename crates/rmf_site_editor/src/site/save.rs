@@ -2342,7 +2342,7 @@ mod tests {
             None
         }
 
-        // 1. Site has saved BaseSdf::File and --export-sdf-base without --override-base-sdf -> error
+        // 1. Site has saved BaseSdf::File and --base-sdf without --override-base-sdf -> error
         assert_eq!(
             run_headless_check(
                 Some(out_dir_str.clone()),
@@ -2353,7 +2353,7 @@ mod tests {
             Some(AppExit::error())
         );
 
-        // 2. Site has saved BaseSdf::Xml and --export-sdf-base without --override-base-sdf -> error
+        // 2. Site has saved BaseSdf::Xml and --base-sdf without --override-base-sdf -> error
         assert_eq!(
             run_headless_check(
                 Some(out_dir_str.clone()),
@@ -2364,7 +2364,7 @@ mod tests {
             Some(AppExit::error())
         );
 
-        // 3. Site has saved BaseSdf::File and --export-sdf-base WITH --override-base-sdf -> success
+        // 3. Site has saved BaseSdf::File and --base-sdf WITH --override-base-sdf -> success
         assert_eq!(
             run_headless_check(
                 Some(out_dir_str.clone()),
@@ -2375,7 +2375,7 @@ mod tests {
             Some(AppExit::Success)
         );
 
-        // 4. Site has BaseSdf::Default and valid --export-sdf-base without --override-base-sdf -> success
+        // 4. Site has BaseSdf::Default and valid --base-sdf without --override-base-sdf -> success
         assert_eq!(
             run_headless_check(
                 Some(out_dir_str.clone()),
@@ -2386,7 +2386,7 @@ mod tests {
             Some(AppExit::Success)
         );
 
-        // 5. --export-sdf-base with empty filename -> error
+        // 5. --base-sdf with empty filename -> error
         assert_eq!(
             run_headless_check(
                 Some(out_dir_str.clone()),
@@ -2397,7 +2397,7 @@ mod tests {
             Some(AppExit::error())
         );
 
-        // 6. --export-sdf-base with nonexistent filename -> error
+        // 6. --base-sdf with nonexistent filename -> error
         assert_eq!(
             run_headless_check(
                 Some(out_dir_str.clone()),
@@ -2414,7 +2414,7 @@ mod tests {
             Some(AppExit::error())
         );
 
-        // 7. --export-sdf-base pointing to a directory instead of a file -> error
+        // 7. --base-sdf pointing to a directory instead of a file -> error
         assert_eq!(
             run_headless_check(
                 Some(out_dir_str.clone()),
@@ -2425,7 +2425,7 @@ mod tests {
             Some(AppExit::error())
         );
 
-        // 8. --export-sdf-base pointing to an invalid SDF file (missing <world>) -> error
+        // 8. --base-sdf pointing to an invalid SDF file (missing <world>) -> error
         assert_eq!(
             run_headless_check(
                 Some(out_dir_str.clone()),
@@ -2458,7 +2458,7 @@ mod tests {
             Some(AppExit::error())
         );
 
-        // 11. No --export-sdf-base, site has saved BaseSdf::File with empty path -> error
+        // 11. No --base-sdf, site has saved BaseSdf::File with empty path -> error
         assert_eq!(
             run_headless_check(
                 Some(out_dir_str.clone()),
@@ -2469,7 +2469,7 @@ mod tests {
             Some(AppExit::error())
         );
 
-        // 12. No --export-sdf-base, site has saved BaseSdf::File with nonexistent path -> error
+        // 12. No --base-sdf, site has saved BaseSdf::File with nonexistent path -> error
         assert_eq!(
             run_headless_check(
                 Some(out_dir_str.clone()),
@@ -2480,7 +2480,7 @@ mod tests {
             Some(AppExit::error())
         );
 
-        // 13. No --export-sdf-base, site has saved BaseSdf::Xml with empty/invalid XML -> error
+        // 13. No --base-sdf, site has saved BaseSdf::Xml with empty/invalid XML -> error
         assert_eq!(
             run_headless_check(
                 Some(out_dir_str.clone()),
@@ -2500,7 +2500,7 @@ mod tests {
             Some(AppExit::error())
         );
 
-        // 14. No --export-sdf-base, site has valid saved BaseSdf::File or BaseSdf::Xml -> success
+        // 14. No --base-sdf, site has valid saved BaseSdf::File or BaseSdf::Xml -> success
         assert_eq!(
             run_headless_check(
                 Some(out_dir_str.clone()),
