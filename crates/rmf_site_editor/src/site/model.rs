@@ -490,9 +490,11 @@ impl<'w, 's> ModelLoader<'w, 's> {
         impulse: impl FnOnce(Series<InstanceSpawningResult, ()>),
     ) -> EntityCommands<'_> {
         let affiliation = instance.description.clone();
+        let transform = instance.pose.transform();
         let id = self
             .commands
             .spawn(instance)
+            .insert(transform)
             .insert(ChildOf(parent))
             .insert(PendingModel) // Set instance as pending until it completes loading
             .insert(Visibility::Hidden) // Set instance to hidden until it completes loading

@@ -35,7 +35,7 @@ use rmf_site_camera::MODEL_PREVIEW_LAYER;
 use rmf_site_format::{
     Affiliation, AssociatedGraphs, ConveyorHeight, ConveyorMarker, ConveyorPort,
     ConveyorPortDirection, ConveyorThickness, ConveyorWidth, Edge, Group, ModelMarker,
-    NavGraphMarker, Scale, DEFAULT_CONVEYOR_HEIGHT, DEFAULT_CONVEYOR_THICKNESS,
+    NavGraphMarker, Scale, SiteID, DEFAULT_CONVEYOR_HEIGHT, DEFAULT_CONVEYOR_THICKNESS,
     DEFAULT_CONVEYOR_WIDTH,
 };
 use rmf_site_mesh::{make_cuboid, WithOutlineMeshExt};
@@ -824,7 +824,7 @@ pub fn update_visibility_for_conveyors(
     }
 }
 
-fn spawn_conveyor_port(
+pub(crate) fn spawn_conveyor_port(
     commands: &mut Commands,
     model_entity: Entity,
     model_global_tf: &GlobalTransform,
@@ -836,11 +836,7 @@ fn spawn_conveyor_port(
 
     commands
         .spawn(AnchorBundle::new(anchor).parent_transform(model_global_tf))
-        .insert((
-            Subordinate(Some(model_entity)),
-            port,
-            ChildOf(model_entity),
-        ))
+        .insert((Subordinate(Some(model_entity)), port, ChildOf(model_entity)))
         .id()
 }
 
@@ -857,6 +853,8 @@ pub fn add_conveyor_ports(
             Option<&RenderLayers>,
             &Affiliation<Entity>,
             Option<&Children>,
+            Option<&SiteID>,
+            Option<&ConveyorNode>,
         ),
         (
             With<ModelMarker>,
@@ -869,7 +867,9 @@ pub fn add_conveyor_ports(
     mut existing_ports: Query<&mut ConveyorPort>,
 ) {
     // Sync ports configured on the model description for newly placed instances or updated descriptions
-    for (model_entity, scale, model_global_tf, render_layers, affiliation, children) in &models {
+    for (model_entity, scale, model_global_tf, render_layers, affiliation, children, _, _) in
+        &models
+    {
         if render_layers.is_some_and(|r| r.iter().all(|l| l == MODEL_PREVIEW_LAYER)) {
             continue;
         }
@@ -897,8 +897,9 @@ pub fn add_conveyor_ports(
             .collect();
         let common_len = port_entities.len().min(configs.len());
         // Update existing ports in place to preserve connected conveyors
-        for (&port_entity, port_config) in
-            port_entities[..common_len].iter().zip(&configs[..common_len])
+        for (&port_entity, port_config) in port_entities[..common_len]
+            .iter()
+            .zip(&configs[..common_len])
         {
             if let Ok(mut port) = existing_ports.get_mut(port_entity) {
                 if *port != *port_config {
@@ -940,6 +941,8 @@ pub fn add_conveyor_ports(
             render_layers,
             affiliation,
             _,
+            site_id,
+            conveyor_node,
         )) = AncestorIter::new(&child_of, entity).find_map(|ancestor| models.get(ancestor).ok())
         else {
             continue;
@@ -947,6 +950,11 @@ pub fn add_conveyor_ports(
 
         // Skip models rendered only in the offscreen asset preview camera
         if render_layers.is_some_and(|r| r.iter().all(|l| l == MODEL_PREVIEW_LAYER)) {
+            continue;
+        }
+
+        // If ports were already loaded from the site file, skip spawning from GLTF
+        if site_id.is_some() && conveyor_node.is_some() {
             continue;
         }
 
@@ -970,13 +978,7 @@ pub fn add_conveyor_ports(
         }
 
         for port in ports {
-            spawn_conveyor_port(
-                &mut commands,
-                model_entity,
-                &model_global_tf,
-                scale.0,
-                port,
-            );
+            spawn_conveyor_port(&mut commands, model_entity, &model_global_tf, scale.0, port);
         }
     }
 }

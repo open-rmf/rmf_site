@@ -17,9 +17,9 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Reflect, ReflectComponent};
+use bevy::prelude::{Bundle, Component, Deref, DerefMut, Reflect, ReflectComponent};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
@@ -106,6 +106,33 @@ impl Default for ModelDescriptionBundle {
     }
 }
 
+/// Stores conveyor ports for a model instance that acts as a conveyor node
+#[derive(Serialize, Debug, Clone, Default, PartialEq)]
+#[serde(transparent)]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+pub struct ModelConveyorPorts(pub Option<BTreeMap<u32, ConveyorPort>>);
+
+// Parented<u32, ModelInstance<u32>> uses #[serde(flatten)], which buffers map keys as
+// serde::de::value::Value::String and cannot be deserialized directly into u32 keys.
+// A custom deserializer is defined to deseralise the keys as String first then parse each key into u32.
+impl<'de> Deserialize<'de> for ModelConveyorPorts {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let Some(raw_map) = Option::<BTreeMap<String, ConveyorPort>>::deserialize(deserializer)?
+        else {
+            return Ok(Self(None));
+        };
+        let map = raw_map
+            .into_iter()
+            .map(|(k, v)| {
+                k.parse::<u32>()
+                    .map(|id| (id, v))
+                    .map_err(serde::de::Error::custom)
+            })
+            .collect::<Result<BTreeMap<u32, ConveyorPort>, _>>()?;
+        Ok(Self(Some(map)))
+    }
+}
+
 /// Bundle with all required components for a valid model instance
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
@@ -113,6 +140,8 @@ pub struct ModelInstance<T: RefTrait> {
     pub name: NameInSite,
     pub pose: Pose,
     pub description: Affiliation<T>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub conveyor_ports: ModelConveyorPorts,
     #[serde(skip)]
     pub export_data: ExportData,
     #[serde(skip)]
@@ -127,6 +156,7 @@ impl<T: RefTrait> Default for ModelInstance<T> {
             name: NameInSite("<Unnamed>".to_string()),
             pose: Pose::default(),
             description: Affiliation::default(),
+            conveyor_ports: ModelConveyorPorts::default(),
             export_data: ExportData::default(),
             marker: ModelMarker,
             instance_marker: InstanceMarker,
@@ -140,6 +170,7 @@ impl<T: RefTrait> ModelInstance<T> {
             name: self.name.clone(),
             pose: self.pose.clone(),
             description: self.description.convert(id_map)?,
+            conveyor_ports: self.conveyor_ports.clone(),
             ..Default::default()
         })
     }

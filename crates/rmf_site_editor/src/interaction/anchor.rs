@@ -176,7 +176,10 @@ pub fn update_anchor_proximity_xray(
 }
 
 pub fn update_unassigned_anchor_cues(
-    mut anchors: Query<(&Dependents, &mut VisualCue), (With<Anchor>, Changed<Dependents>)>,
+    mut anchors: Query<
+        (&Dependents, &mut VisualCue),
+        (With<Anchor>, Without<Subordinate>, Changed<Dependents>),
+    >,
 ) {
     for (deps, mut cue) in &mut anchors {
         if deps.is_empty() != cue.xray.unassigned() {
