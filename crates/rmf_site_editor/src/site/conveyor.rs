@@ -41,10 +41,12 @@ use rmf_site_format::{
 use rmf_site_mesh::{make_cuboid, WithOutlineMeshExt};
 use rmf_site_picking::{Preview, Selectable};
 use serde_json::Value;
+use smallvec::SmallVec;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     num::NonZero,
 };
+use thiserror::Error;
 
 pub(crate) const CONVEYOR_BELT_THICKNESS: f32 = 0.001;
 const CONVEYOR_BAR_SIZE: f32 = 0.03;
@@ -372,6 +374,136 @@ pub fn count_connected_conveyors(
         .unwrap_or(0)
 }
 
+#[derive(Debug, Error)]
+pub enum ConveyorConnectionError {
+    #[error(
+        "Invalid selection: Conveyors cannot have more than 2 connected segments at an anchor."
+    )]
+    TooManySegments,
+    #[error("Invalid selection: A conveyor segment already connects these two anchors.")]
+    DuplicateSegment,
+    #[error("Invalid selection: A conveyor chain cannot be connected to more than 1 'In' port.")]
+    MultipleInPorts,
+    #[error("Invalid selection: A conveyor chain cannot be connected to more than 1 'Out' port.")]
+    MultipleOutPorts,
+}
+
+/// Checks whether connecting 2 anchors via a conveyor edge is valid.
+/// Returns `Err` if:
+/// - `anchor_b` already has 2 connected conveyor segments (would create a fork)
+/// - another conveyor segment already directly connects `anchor_a` and `anchor_b`
+/// - the resulting conveyor chain would contain >1 'In' port or >1 'Out' port
+pub fn validate_conveyor_connection(
+    anchor_a: Entity,
+    anchor_b: Entity,
+    exclude_edge: Entity,
+    conveyor_markers: &Query<(), With<ConveyorMarker>>,
+    edges: &Query<&mut Edge<Entity>>,
+    conveyor_ports: &Query<&ConveyorPort>,
+    dependents: &Query<&Dependents, With<Anchor>>,
+) -> Result<(), ConveyorConnectionError> {
+    // Reject selecting new anchor if anchor already has >=2 segments connected
+    if count_connected_conveyors(anchor_b, exclude_edge, conveyor_markers, dependents) >= 2 {
+        return Err(ConveyorConnectionError::TooManySegments);
+    }
+
+    if anchor_a == anchor_b {
+        return Ok(());
+    }
+
+    // Traverse the connected conveyor chains from both endpoints to count 'In' and 'Out' ports
+    let mut in_ports = 0;
+    let mut out_ports = 0;
+    let mut visited_anchors = SmallVec::<[Entity; 16]>::new();
+
+    let mut check_port = |anchor: Entity| -> Result<(), ConveyorConnectionError> {
+        if let Ok(port) = conveyor_ports.get(anchor) {
+            match port.direction {
+                ConveyorPortDirection::In => {
+                    in_ports += 1;
+                    if in_ports > 1 {
+                        return Err(ConveyorConnectionError::MultipleInPorts);
+                    }
+                }
+                ConveyorPortDirection::Out => {
+                    out_ports += 1;
+                    if out_ports > 1 {
+                        return Err(ConveyorConnectionError::MultipleOutPorts);
+                    }
+                }
+            }
+        }
+        Ok(())
+    };
+
+    let mut walk_chain = |start_anchor: Entity| -> Result<(), ConveyorConnectionError> {
+        if visited_anchors.contains(&start_anchor) {
+            return Ok(());
+        }
+        visited_anchors.push(start_anchor);
+        check_port(start_anchor)?;
+
+        let Ok(deps) = dependents.get(start_anchor) else {
+            return Ok(());
+        };
+        for &first_edge in deps.iter() {
+            if first_edge == exclude_edge || !conveyor_markers.contains(first_edge) {
+                continue;
+            }
+            let Ok(edge) = edges.get(first_edge) else {
+                continue;
+            };
+            // Ignore stale dependents whose endpoints no longer reference this anchor.
+            if edge.start() != start_anchor && edge.end() != start_anchor {
+                continue;
+            }
+
+            let mut prev_edge = first_edge;
+            let mut curr_anchor = if edge.start() == start_anchor {
+                edge.end()
+            } else {
+                edge.start()
+            };
+            if start_anchor == anchor_a && curr_anchor == anchor_b {
+                return Err(ConveyorConnectionError::DuplicateSegment);
+            }
+
+            while !visited_anchors.contains(&curr_anchor) {
+                visited_anchors.push(curr_anchor);
+                check_port(curr_anchor)?;
+
+                let Some(next_step) = dependents.get(curr_anchor).ok().and_then(|d| {
+                    d.iter().find_map(|&dep| {
+                        if dep == exclude_edge
+                            || dep == prev_edge
+                            || !conveyor_markers.contains(dep)
+                        {
+                            return None;
+                        }
+                        let e = edges.get(dep).ok()?;
+                        if e.start() == curr_anchor {
+                            Some((dep, e.end()))
+                        } else if e.end() == curr_anchor {
+                            Some((dep, e.start()))
+                        } else {
+                            None
+                        }
+                    })
+                }) else {
+                    break;
+                };
+
+                prev_edge = next_step.0;
+                curr_anchor = next_step.1;
+            }
+        }
+        Ok(())
+    };
+
+    walk_chain(anchor_a)?;
+    walk_chain(anchor_b)
+}
+
 fn collect_connected_conveyors(
     start_entity: Entity,
     start_edge: &Edge<Entity>,
@@ -501,9 +633,14 @@ pub fn update_conveyor_dimensions(
             continue;
         }
 
+        let start_edge = if pending.is_some() {
+            Edge::new(edge.start(), edge.start())
+        } else {
+            *edge
+        };
         let connected_conveyors = collect_connected_conveyors(
             e,
-            &edge,
+            &start_edge,
             |other_e| {
                 let (_, other_edge, _, _, _, other_pending, other_original) =
                     conveyors.get(other_e).ok()?;
@@ -513,42 +650,34 @@ pub fn update_conveyor_dimensions(
         );
 
         if pending.is_some() {
-            // If previewing a new conveyor, adopt port/neighbor dimensions or fall back to defaults
+            // If previewing a new conveyor, adopt port dimensions or fall back to defaults
             let mut port = find_port(&edge);
-            let mut neighbor_dims = None;
+            let mut neighbor_t = None;
             for &member in &connected_conveyors {
                 if member == e {
                     continue;
                 }
-                let Ok((_, member_edge, h, w, t, ..)) = conveyors.get(member) else {
+                let Ok((_, member_edge, _, _, t, ..)) = conveyors.get(member) else {
                     continue;
                 };
                 port = port.or_else(|| find_port(&member_edge));
-                neighbor_dims.get_or_insert((h.0, w.0, t.0));
+                neighbor_t.get_or_insert(t.0);
             }
 
             // Inherit thickness from a neighbor (or default), and prioritize a connected
-            // port's width and top-aligned height before falling back to neighbor or default.
-            let target_t = neighbor_dims
-                .map(|(_, _, t)| t)
-                .unwrap_or(DEFAULT_CONVEYOR_THICKNESS);
+            // port's width and top-aligned height before falling back to defaults.
+            let target_t = neighbor_t.unwrap_or(DEFAULT_CONVEYOR_THICKNESS);
             let target_w = port
                 .as_ref()
                 .and_then(|(p, _)| p.width)
-                .or_else(|| neighbor_dims.map(|(_, w, _)| w))
                 .unwrap_or(DEFAULT_CONVEYOR_WIDTH);
             let target_h = port
                 .as_ref()
                 .map(|(_, h)| snap_height_to_port(*h, target_t))
-                .or_else(|| neighbor_dims.map(|(h, _, _)| h))
                 .unwrap_or(DEFAULT_CONVEYOR_HEIGHT);
 
             let dims = (target_h, target_w, target_t);
-            if port.is_some() {
-                updates.extend(connected_conveyors.into_iter().map(|m| (m, dims)));
-            } else {
-                updates.insert(e, dims);
-            }
+            updates.extend(connected_conveyors.into_iter().map(|m| (m, dims)));
         } else {
             // If it is a placed chain, prioritize inspector dimension edits over existing
             // stationary members, falling back to the newly connected segment's dimensions.

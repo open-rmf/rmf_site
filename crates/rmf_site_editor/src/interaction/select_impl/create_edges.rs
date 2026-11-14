@@ -18,12 +18,13 @@
 use crate::{
     interaction::*,
     site::{
-        count_connected_conveyors, ChangeDependent, Dependents, Pending, TextureNeedsAssignment,
+        count_connected_conveyors, validate_conveyor_connection, ChangeDependent, Dependents,
+        Pending, TextureNeedsAssignment,
     },
 };
 use bevy::prelude::*;
 use crossflow::*;
-use rmf_site_format::{Anchor, ConveyorMarker, Edge, Group, ModelMarker, Side};
+use rmf_site_format::{Anchor, ConveyorMarker, ConveyorPort, Edge, Group, ModelMarker, Side};
 use std::borrow::Borrow;
 
 pub fn spawn_create_edges_service(
@@ -200,14 +201,49 @@ pub fn on_hover_for_create_edges(
     mut cursor: ResMut<Cursor>,
     mut visibility: Query<&mut Visibility>,
     mut edges: Query<&mut Edge<Entity>>,
+    conveyor_markers: Query<(), With<ConveyorMarker>>,
+    conveyor_ports: Query<&ConveyorPort>,
+    dependents: Query<&Dependents, With<Anchor>>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.newest_mut().or_broken_state()?;
 
+    // Ignore hovered anchors that would form an invalid conveyor connection
+    let valid_hover = hover.0.filter(|&anchor| {
+        let Some(preview) = &state.preview_edge else {
+            return true;
+        };
+        if !conveyor_markers.contains(preview.edge) {
+            return true;
+        }
+        let anchor_a = match preview.side {
+            Side::Left => anchor,
+            Side::Right => {
+                let Ok(edge) = edges.get(preview.edge) else {
+                    return false;
+                };
+                if edge.left() == anchor {
+                    return false;
+                }
+                edge.left()
+            }
+        };
+        validate_conveyor_connection(
+            anchor_a,
+            anchor,
+            preview.edge,
+            &conveyor_markers,
+            &edges,
+            &conveyor_ports,
+            &dependents,
+        )
+        .is_ok()
+    });
+
     // TODO(@mxgrey): Consider moving this logic into AnchorFilter since it gets
     // used by all the different anchor selection modes.
-    let anchor = match hover.0 {
+    let anchor = match valid_hover {
         Some(anchor) => {
             cursor.remove_mode(SELECT_ANCHOR_MODE_LABEL, &mut visibility);
             anchor
@@ -268,6 +304,7 @@ pub fn on_select_for_create_edges(
     models: Query<(), (With<ModelMarker>, Without<Group>)>,
     cursor: Res<Cursor>,
     conveyor_markers: Query<(), With<ConveyorMarker>>,
+    conveyor_ports: Query<&ConveyorPort>,
     dependents: Query<&Dependents, With<Anchor>>,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
@@ -300,15 +337,22 @@ pub fn on_select_for_create_edges(
 
     let anchor = selection.candidate;
     if let Some(preview) = &mut state.preview_edge {
-        // Prevent conveyor forks by rejecting anchors that already have 2 connected segments
-        let mut connected_conveyors = 0;
+        // Prevent invalid conveyor connections
         if conveyor_markers.contains(preview.edge) {
-            connected_conveyors =
-                count_connected_conveyors(anchor, preview.edge, &conveyor_markers, &dependents);
-            if connected_conveyors >= 2 {
-                error!(
-                    "Invalid selection: Conveyors cannot have more than 2 connected segments at an anchor."
-                );
+            let anchor_a = match preview.side {
+                Side::Left => anchor,
+                Side::Right => edges.get(preview.edge).or_broken_query()?.left(),
+            };
+            if let Err(err) = validate_conveyor_connection(
+                anchor_a,
+                anchor,
+                preview.edge,
+                &conveyor_markers,
+                &edges,
+                &conveyor_ports,
+                &dependents,
+            ) {
+                error!("{err}");
                 return Ok(());
             }
         }
@@ -375,7 +419,14 @@ pub fn on_select_for_create_edges(
                         streams.send(SelectionAlignmentBasis::none());
                     }
                     EdgeCreationContinuity::Continuous => {
-                        if connected_conveyors >= 1 {
+                        if conveyor_markers.contains(preview.edge)
+                            && count_connected_conveyors(
+                                anchor,
+                                preview.edge,
+                                &conveyor_markers,
+                                &dependents,
+                            ) >= 1
+                        {
                             // The anchor already has 2 conveyor segments connected to it, so
                             // a 3rd forked segment should not be started from this anchor.
                             state.initialize_preview(cursor.level_anchor_placement, &mut commands);

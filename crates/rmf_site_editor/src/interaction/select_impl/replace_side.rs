@@ -17,12 +17,12 @@
 
 use crate::{
     interaction::*,
-    site::{count_connected_conveyors, ChangeDependent, Dependents, Original},
+    site::{validate_conveyor_connection, ChangeDependent, Dependents, Original},
 };
 use anyhow::Error as Anyhow;
 use bevy::prelude::*;
 use crossflow::*;
-use rmf_site_format::{Anchor, ConveyorMarker, Edge, Group, ModelMarker, Side};
+use rmf_site_format::{Anchor, ConveyorMarker, ConveyorPort, Edge, Group, ModelMarker, Side};
 use std::borrow::Borrow;
 
 pub fn spawn_replace_side_service(
@@ -182,12 +182,41 @@ pub fn on_hover_for_replace_side(
     parents: Query<&ChildOf>,
     lifts: Query<(), With<LiftCabin<Entity>>>,
     models: Query<(), (With<ModelMarker>, Without<Group>)>,
+    conveyor_markers: Query<(), With<ConveyorMarker>>,
+    conveyor_ports: Query<&ConveyorPort>,
+    dependents: Query<&Dependents, With<Anchor>>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.newest_mut().or_broken_state()?;
 
-    let chosen = match hover.0 {
+    // Ignore hovered anchors that would form an invalid conveyor connection
+    let valid_hover = hover.0.filter(|&anchor| {
+        if !conveyor_markers.contains(state.edge) {
+            return true;
+        }
+        let Some(original) = state.original else {
+            return true;
+        };
+        let opp_anchor = original.array()[state.side.opposite().index()];
+        let (anchor_a, anchor_b) = if anchor == opp_anchor {
+            (original.left(), original.right())
+        } else {
+            (opp_anchor, anchor)
+        };
+        validate_conveyor_connection(
+            anchor_a,
+            anchor_b,
+            state.edge,
+            &conveyor_markers,
+            &edges,
+            &conveyor_ports,
+            &dependents,
+        )
+        .is_ok()
+    });
+
+    let chosen = match valid_hover {
         Some(anchor) => {
             cursor.remove_mode(SELECT_ANCHOR_MODE_LABEL, &mut visibility);
             anchor
@@ -219,25 +248,34 @@ pub fn on_select_for_replace_side(
     lifts: Query<(), With<LiftCabin<Entity>>>,
     models: Query<(), (With<ModelMarker>, Without<Group>)>,
     conveyor_markers: Query<(), With<ConveyorMarker>>,
+    conveyor_ports: Query<&ConveyorPort>,
     dependents: Query<&Dependents, With<Anchor>>,
     cursor: Res<Cursor>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.newest_mut().or_broken_state()?;
-    // Prevent conveyor forks by rejecting anchors that already have 2 connected segments
-    if conveyor_markers.contains(state.edge)
-        && count_connected_conveyors(
-            selection.candidate,
+    // Prevent invalid conveyor connections
+    if conveyor_markers.contains(state.edge) {
+        let original = state.original.or_broken_buffer()?;
+        let opp_anchor = original.array()[state.side.opposite().index()];
+        let (anchor_a, anchor_b) = if selection.candidate == opp_anchor {
+            (original.left(), original.right())
+        } else {
+            (opp_anchor, selection.candidate)
+        };
+        if let Err(err) = validate_conveyor_connection(
+            anchor_a,
+            anchor_b,
             state.edge,
             &conveyor_markers,
+            &edges,
+            &conveyor_ports,
             &dependents,
-        ) >= 2
-    {
-        error!(
-            "Invalid selection: Conveyors cannot have more than 2 connected segments at an anchor."
-        );
-        return Ok(());
+        ) {
+            error!("{err}");
+            return Ok(());
+        }
     }
 
     if state.set_chosen(
