@@ -16,9 +16,12 @@
 */
 
 use super::demo_world::*;
+use crate::live_visualization::LiveStreamState;
 use crate::{site::LoadSite, AppState, Autoload, WorkspaceLoader};
 use bevy::{app::AppExit, prelude::*, window::PrimaryWindow};
 use bevy_egui::{egui, EguiContexts};
+
+const MAIN_MENU_PADDING: f32 = 10.0;
 
 fn egui_ui(
     mut egui_context: EguiContexts,
@@ -27,6 +30,7 @@ fn egui_ui(
     mut _app_state: ResMut<State<AppState>>,
     autoload: Option<ResMut<Autoload>>,
     primary_windows: Query<Entity, With<PrimaryWindow>>,
+    mut live_stream_state: ResMut<LiveStreamState>,
 ) {
     if let Some(mut autoload) = autoload {
         #[cfg(not(target_arch = "wasm32"))]
@@ -50,36 +54,93 @@ fn egui_ui(
         .collapsible(false)
         .resizable(false)
         .title_bar(false)
+        .fixed_size(egui::vec2(700.0, 500.0))
         .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0., 0.))
         .show(ctx, |ui| {
-            ui.heading("Welcome to The RMF Site Editor!");
-            ui.add_space(10.);
+            ui.add_space(MAIN_MENU_PADDING);
+            ui.vertical_centered(|ui| {
+                ui.heading("Welcome to The RMF Site Editor!");
+            });
+            ui.add_space(MAIN_MENU_PADDING);
 
-            ui.horizontal(|ui| {
-                if ui.button("View demo map").clicked() {
-                    workspace_loader
-                        .load_site(async move { LoadSite::from_data(&demo_office(), None) });
-                }
+            ui.columns(2, |columns| {
+                egui::Frame::NONE
+                    .inner_margin(MAIN_MENU_PADDING)
+                    .show(&mut columns[0], |ui| {
+                        ui.heading("Create a Site:");
+                        ui.add_space(MAIN_MENU_PADDING);
 
-                if ui.button("Open a file").clicked() {
-                    workspace_loader.load_from_dialog();
-                }
+                        ui.vertical_centered_justified(|ui| {
+                            if ui.button("View demo map").clicked() {
+                                workspace_loader.load_site(async move {
+                                    LoadSite::from_data(&demo_office(), None)
+                                });
+                            }
+                            ui.add_space(MAIN_MENU_PADDING * 0.5);
 
-                if ui.button("Create new file").clicked() {
-                    workspace_loader.create_empty_from_dialog();
-                }
+                            if ui.button("Open a file").clicked() {
+                                workspace_loader.load_from_dialog();
+                            }
+                            ui.add_space(MAIN_MENU_PADDING * 0.5);
+
+                            if ui.button("Create new file").clicked() {
+                                workspace_loader.create_empty_from_dialog();
+                            }
+                        });
+                    });
+
+                egui::Frame::NONE
+                    .inner_margin(MAIN_MENU_PADDING)
+                    .show(&mut columns[1], |ui| {
+                        ui.heading("Visualize from Stream:");
+                        ui.add_space(MAIN_MENU_PADDING);
+
+                        ui.horizontal(|ui| {
+                            ui.label("ROSBridge WS URL:");
+                            ui.text_edit_singleline(&mut live_stream_state.url);
+                        });
+
+                        ui.horizontal(|ui| {
+                            ui.label("Site Data HTTP URL:");
+                            ui.text_edit_singleline(&mut live_stream_state.site_url);
+                        });
+
+                        ui.add_space(MAIN_MENU_PADDING * 0.5);
+
+                        let connection_initiated = live_stream_state.is_streaming();
+
+                        ui.vertical_centered_justified(|ui| {
+                            if connection_initiated {
+                                ui.label("Stream requested...");
+                            } else if ui.button("Connect").clicked() {
+                                live_stream_state.request_connection();
+                            }
+                        });
+                    });
+
+                let x = (columns[0].max_rect().right() + columns[1].max_rect().left()) * 0.5;
+                let top = columns[0].min_rect().top().min(columns[1].min_rect().top())
+                    + MAIN_MENU_PADDING;
+                let bottom = columns[0]
+                    .min_rect()
+                    .bottom()
+                    .max(columns[1].min_rect().bottom());
+                let stroke = columns[0].visuals().widgets.noninteractive.bg_stroke;
+                columns[0].painter().vline(x, top..=bottom, stroke);
             });
 
             #[cfg(not(target_arch = "wasm32"))]
             {
-                ui.add_space(20.);
+                ui.add_space(MAIN_MENU_PADDING);
                 ui.horizontal(|ui| {
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if ui.button("Exit").clicked() {
+                        ui.add_space(MAIN_MENU_PADDING);
+                        if ui.button("  Exit  ").clicked() {
                             _exit.write(AppExit::Success);
                         }
                     });
                 });
+                ui.add_space(MAIN_MENU_PADDING);
             }
         });
 }
