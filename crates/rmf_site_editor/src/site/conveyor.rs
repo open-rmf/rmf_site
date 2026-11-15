@@ -28,7 +28,7 @@ use bevy::{
     gltf::GltfSceneExtras,
     math::Affine3A,
     prelude::*,
-    render::view::RenderLayers,
+    render::{mesh::VertexAttributeValues, view::RenderLayers},
 };
 use bevy_rich_text3d::*;
 use rmf_site_camera::MODEL_PREVIEW_LAYER;
@@ -48,13 +48,52 @@ use std::{
 };
 use thiserror::Error;
 
-pub(crate) const CONVEYOR_BELT_THICKNESS: f32 = 0.001;
+const CONVEYOR_MID_BELT_THICKNESS: f32 = 0.001;
+pub(crate) const CONVEYOR_END_BELT_THICKNESS: f32 = 0.002;
 const CONVEYOR_BAR_SIZE: f32 = 0.03;
 const CONVEYOR_BAR_ELEVATION: f32 = 0.05;
 const CONVEYOR_MARGIN: f32 = 0.0145;
 const DEFAULT_CONVEYOR_STAND_HEIGHT: f32 =
     DEFAULT_CONVEYOR_HEIGHT - DEFAULT_CONVEYOR_THICKNESS / 2.0;
 const CONVEYOR_PORT_TEXT_OFFSET: f32 = 0.2;
+
+/// Tracks the flow direction of a conveyor segment derived from connected ports.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ConveyorFlow {
+    #[default]
+    None,
+    Forward,
+    Backward,
+}
+
+fn scale_conveyor_uvs(mesh: &mut Mesh, flow: ConveyorFlow) {
+    if flow == ConveyorFlow::None {
+        return;
+    }
+
+    let Some(VertexAttributeValues::Float32x3(positions)) =
+        mesh.attribute(Mesh::ATTRIBUTE_POSITION)
+    else {
+        return;
+    };
+
+    // Maintain texture square aspect ratio based on the conveyor belt width.
+    let uvs: Vec<[f32; 2]> = positions
+        .iter()
+        .map(|&[x, y, _]| {
+            let half_len = x.abs();
+            let half_width = y.abs().max(0.0005);
+            let u = if y < 0.0 { 1.0 } else { 0.0 };
+            let v = match flow {
+                ConveyorFlow::Forward => (half_len - x) / (2.0 * half_width),
+                ConveyorFlow::Backward => (half_len + x) / (2.0 * half_width),
+                ConveyorFlow::None => 0.0,
+            };
+            [u, v]
+        })
+        .collect();
+    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+}
 
 pub(crate) fn make_conveyor_stand_mesh() -> Mesh {
     let y_offset = (DEFAULT_CONVEYOR_WIDTH - CONVEYOR_BAR_SIZE) / 2.0;
@@ -146,6 +185,7 @@ fn make_conveyor_visuals(
     height: f32,
     width: f32,
     thickness: f32,
+    flow: ConveyorFlow,
     anchors: &AnchorParams,
     child_of: &Query<&ChildOf>,
     global_transforms: &Query<&GlobalTransform>,
@@ -169,7 +209,8 @@ fn make_conveyor_visuals(
     let width = width.max(0.001);
     let thickness = thickness.max(0.001);
     let belt_width = (width - CONVEYOR_MARGIN).max(0.001);
-    let belt_z = (thickness + CONVEYOR_BELT_THICKNESS) / 2.0;
+    let mid_belt_z = (thickness + CONVEYOR_MID_BELT_THICKNESS) / 2.0;
+    let end_belt_z = (thickness + CONVEYOR_END_BELT_THICKNESS) / 2.0;
     let flat_rotation = Quat::from_rotation_x(std::f32::consts::FRAC_PI_2);
 
     let start_to_end = end_anchor - start_anchor;
@@ -194,7 +235,7 @@ fn make_conveyor_visuals(
         let end_cap = Transform::from_xyz(anchor_pos.x, anchor_pos.y, 0.0)
             .with_rotation(flat_rotation)
             .with_scale(Vec3::new(width, thickness, width));
-        let belt = Transform::from_xyz(anchor_pos.x, anchor_pos.y, belt_z)
+        let belt = Transform::from_xyz(anchor_pos.x, anchor_pos.y, end_belt_z)
             .with_rotation(flat_rotation)
             .with_scale(Vec3::new(belt_width, 1.0, belt_width));
         let stand = Transform::from_xyz(stand_center.x, stand_center.y, stand_z)
@@ -208,7 +249,7 @@ fn make_conveyor_visuals(
     let (end, end_belt, end_stand) = end_transforms(local_end, local_end - direction * offset);
 
     let mid = Transform::from_rotation(rot);
-    let mid_belt = Transform::from_xyz(0.0, 0.0, belt_z).with_rotation(rot);
+    let mid_belt = Transform::from_xyz(0.0, 0.0, mid_belt_z).with_rotation(rot);
 
     // Bake dimensions into the cuboid mesh to ensure uniform outline normals are generated.
     let mesh_length = length.max(0.001);
@@ -219,7 +260,8 @@ fn make_conveyor_visuals(
             .ok()
     };
     let mid_mesh = make_mid_mesh(width, thickness)?;
-    let mid_belt_mesh = make_mid_mesh(belt_width, CONVEYOR_BELT_THICKNESS)?;
+    let mut mid_belt_mesh = make_mid_mesh(belt_width, CONVEYOR_MID_BELT_THICKNESS)?;
+    scale_conveyor_uvs(&mut mid_belt_mesh, flow);
 
     Some(ConveyorVisuals {
         root,
@@ -275,6 +317,7 @@ pub fn add_conveyor_visuals(
             height.0,
             width.0,
             thickness.0,
+            ConveyorFlow::None,
             &anchors,
             &child_of,
             &global_transforms,
@@ -348,6 +391,7 @@ pub fn add_conveyor_visuals(
                 start_stand,
                 end_stand,
             },
+            ConveyorFlow::default(),
             visuals.root,
             visuals.root_global_tf,
             visibility,
@@ -554,14 +598,14 @@ fn collect_connected_conveyors(
     start_edge: &Edge<Entity>,
     get_edge: impl Fn(Entity) -> Option<Edge<Entity>>,
     dependents: &Query<&Dependents, With<Anchor>>,
-) -> Vec<Entity> {
-    // BFS to find the connected conveyor chain.
-    let mut visited_conveyors = vec![start_entity];
+) -> Vec<(Entity, bool)> {
+    // BFS to find the connected conveyor chain and each segment's orientation
+    let mut visited_conveyors = vec![(start_entity, true)];
     let mut visited_conveyor_set = HashSet::from([start_entity]);
-    let mut anchor_queue = VecDeque::from(start_edge.array());
+    let mut anchor_queue = VecDeque::from([(start_edge.start(), false), (start_edge.end(), true)]);
     let mut visited_anchors = HashSet::from(start_edge.array());
 
-    while let Some(anchor) = anchor_queue.pop_front() {
+    while let Some((anchor, away_from_start)) = anchor_queue.pop_front() {
         let Ok(deps) = dependents.get(anchor) else {
             continue;
         };
@@ -577,10 +621,11 @@ fn collect_connected_conveyors(
                 continue;
             }
             visited_conveyor_set.insert(other_entity);
-            visited_conveyors.push(other_entity);
+            let same_dir = (other_edge.start() == anchor) == away_from_start;
+            visited_conveyors.push((other_entity, same_dir));
             for next_anchor in other_edge.array() {
                 if visited_anchors.insert(next_anchor) {
-                    anchor_queue.push_back(next_anchor);
+                    anchor_queue.push_back((next_anchor, away_from_start));
                 }
             }
         }
@@ -698,7 +743,7 @@ pub fn update_conveyor_dimensions(
             // If previewing a new conveyor, adopt port dimensions or fall back to defaults
             let mut port = find_port(&edge);
             let mut neighbor_dims = None;
-            for &member in &connected_conveyors {
+            for &(member, _) in &connected_conveyors {
                 if member == e {
                     continue;
                 }
@@ -733,8 +778,8 @@ pub fn update_conveyor_dimensions(
             if is_point_preview {
                 updates.insert(e, dims);
             } else {
-                visited.extend(connected_conveyors.iter().copied());
-                updates.extend(connected_conveyors.into_iter().map(|m| (m, dims)));
+                visited.extend(connected_conveyors.iter().map(|&(m, _)| m));
+                updates.extend(connected_conveyors.into_iter().map(|(m, _)| (m, dims)));
             }
         } else {
             // If it is a placed chain, prioritize inspector dimension edits over existing
@@ -747,7 +792,7 @@ pub fn update_conveyor_dimensions(
             let mut snap_to_port = false;
             let mut thickness_edited = false;
 
-            for &member in &connected_conveyors {
+            for &(member, _) in &connected_conveyors {
                 let Ok((_, member_edge, h, w, t, member_pending, member_original)) =
                     conveyors.get(member)
                 else {
@@ -807,7 +852,7 @@ pub fn update_conveyor_dimensions(
             }
 
             let dims = (target_h, target_w, target_t);
-            updates.extend(connected_conveyors.into_iter().map(|m| (m, dims)));
+            updates.extend(connected_conveyors.into_iter().map(|(m, _)| (m, dims)));
         }
     }
 
@@ -827,6 +872,78 @@ pub fn update_conveyor_dimensions(
     }
 }
 
+pub fn update_conveyor_flows(
+    mut conveyors: Query<(&Edge<Entity>, &mut ConveyorFlow), With<ConveyorMarker>>,
+    changed_conveyors: Query<Entity, (With<ConveyorMarker>, Changed<Edge<Entity>>)>,
+    changed_anchors: Query<
+        &Dependents,
+        (
+            With<Anchor>,
+            Or<(Changed<Dependents>, Changed<ConveyorPort>)>,
+        ),
+    >,
+    dependents: Query<&Dependents, With<Anchor>>,
+    conveyor_ports: Query<&ConveyorPort>,
+) {
+    let mut visited: HashSet<Entity> = HashSet::new();
+    for e in changed_conveyors
+        .iter()
+        .chain(changed_anchors.iter().flat_map(|deps| deps.iter().copied()))
+    {
+        if !visited.insert(e) {
+            continue;
+        }
+        let Ok((&edge, mut flow)) = conveyors.get_mut(e) else {
+            continue;
+        };
+        if edge.start() == edge.end() {
+            if *flow != ConveyorFlow::None {
+                *flow = ConveyorFlow::None;
+            }
+            continue;
+        }
+
+        // Traverse the connected chain to determine its overall flow direction from
+        // attached port and assign each segment's flow based on its relative orientation.
+        let chain_segments = collect_connected_conveyors(
+            e,
+            &edge,
+            |dep| {
+                let (other_edge, _) = conveyors.get(dep).ok()?;
+                (other_edge.start() != other_edge.end()).then_some(*other_edge)
+            },
+            &dependents,
+        );
+
+        visited.extend(chain_segments.iter().map(|&(seg, _)| seg));
+        let chain_forward = chain_segments.iter().find_map(|&(seg, same_dir)| {
+            let (seg_edge, _) = conveyors.get(seg).ok()?;
+            [
+                (seg_edge.start(), ConveyorPortDirection::Out),
+                (seg_edge.end(), ConveyorPortDirection::In),
+            ]
+            .into_iter()
+            .find_map(|(anchor, forward_dir)| {
+                let port = conveyor_ports.get(anchor).ok()?;
+                Some((port.direction == forward_dir) == same_dir)
+            })
+        });
+
+        for (seg, same_dir) in chain_segments {
+            let new_flow = match chain_forward {
+                Some(forward) if forward == same_dir => ConveyorFlow::Forward,
+                Some(_) => ConveyorFlow::Backward,
+                None => ConveyorFlow::None,
+            };
+            if let Ok((_, mut flow)) = conveyors.get_mut(seg) {
+                if *flow != new_flow {
+                    *flow = new_flow;
+                }
+            }
+        }
+    }
+}
+
 fn update_conveyor_visuals(
     entity: Entity,
     edge: &Edge<Entity>,
@@ -834,6 +951,7 @@ fn update_conveyor_visuals(
     height: f32,
     width: f32,
     thickness: f32,
+    flow: ConveyorFlow,
     child_of: &Query<&ChildOf>,
     tf_params: &mut ParamSet<(
         (AnchorParams, Query<&GlobalTransform>),
@@ -850,6 +968,7 @@ fn update_conveyor_visuals(
             height,
             width,
             thickness,
+            flow,
             &anchors,
             child_of,
             &global_transforms,
@@ -905,6 +1024,7 @@ pub fn update_conveyor_for_moved_anchor(
             &ConveyorHeight,
             &ConveyorWidth,
             &ConveyorThickness,
+            &ConveyorFlow,
         ),
         With<ConveyorMarker>,
     >,
@@ -925,7 +1045,9 @@ pub fn update_conveyor_for_moved_anchor(
 ) {
     for dependents in &changed_anchors {
         for dependent in dependents.iter() {
-            if let Ok((e, edge, segments, height, width, thickness)) = conveyors.get(*dependent) {
+            if let Ok((e, edge, segments, height, width, thickness, flow)) =
+                conveyors.get(*dependent)
+            {
                 update_conveyor_visuals(
                     e,
                     edge,
@@ -933,6 +1055,7 @@ pub fn update_conveyor_for_moved_anchor(
                     height.0,
                     width.0,
                     thickness.0,
+                    *flow,
                     &child_of,
                     &mut tf_params,
                     &mesh_handles,
@@ -952,6 +1075,7 @@ pub fn update_changed_conveyor(
             &ConveyorHeight,
             &ConveyorWidth,
             &ConveyorThickness,
+            &ConveyorFlow,
         ),
         (
             With<ConveyorMarker>,
@@ -971,7 +1095,7 @@ pub fn update_changed_conveyor(
     mesh_handles: Query<&Mesh3d>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    for (e, edge, segments, height, width, thickness) in &conveyors {
+    for (e, edge, segments, height, width, thickness, flow) in &conveyors {
         update_conveyor_visuals(
             e,
             edge,
@@ -979,11 +1103,45 @@ pub fn update_changed_conveyor(
             height.0,
             width.0,
             thickness.0,
+            *flow,
             &child_of,
             &mut tf_params,
             &mesh_handles,
             &mut meshes,
         );
+    }
+}
+
+pub fn update_conveyor_flow_visuals(
+    conveyors: Query<
+        (&ConveyorSegments, &ConveyorFlow),
+        (With<ConveyorMarker>, Changed<ConveyorFlow>),
+    >,
+    mesh_handles: Query<&Mesh3d>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: Query<&mut MeshMaterial3d<StandardMaterial>>,
+    assets: Res<SiteAssets>,
+) {
+    for (segments, &flow) in &conveyors {
+        let belt_material = match flow {
+            ConveyorFlow::None => &assets.conveyor_belt_material,
+            ConveyorFlow::Forward | ConveyorFlow::Backward => &assets.conveyor_belt_arrow_material,
+        };
+        if let Ok(mut mat) = materials.get_mut(segments.mid_belt) {
+            if mat.0 != *belt_material {
+                mat.0 = belt_material.clone();
+            }
+        }
+        if flow == ConveyorFlow::None {
+            continue;
+        }
+        if let Some(mesh) = mesh_handles
+            .get(segments.mid_belt)
+            .ok()
+            .and_then(|h| meshes.get_mut(&h.0))
+        {
+            scale_conveyor_uvs(mesh, flow);
+        }
     }
 }
 

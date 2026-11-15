@@ -42,6 +42,7 @@ pub(crate) fn add_site_assets(app: &mut App) {
     embedded_asset!(app, "src/", "textures/empty.png");
     embedded_asset!(app, "src/", "textures/door_cue.png");
     embedded_asset!(app, "src/", "textures/door_cue_highlighted.png");
+    embedded_asset!(app, "src/", "textures/conveyor.png");
     embedded_asset!(app, "src/", "shaders/lane_arrow_shader.wgsl");
 }
 
@@ -147,6 +148,7 @@ pub struct SiteAssets {
     pub default_mesh_grey_material: Handle<StandardMaterial>,
     pub conveyor_metal_material: Handle<StandardMaterial>,
     pub conveyor_belt_material: Handle<StandardMaterial>,
+    pub conveyor_belt_arrow_material: Handle<StandardMaterial>,
     pub conveyor_end_mesh: Handle<Mesh>,
     pub conveyor_stand_mesh: Handle<Mesh>,
     pub conveyor_belt_end_mesh: Handle<Mesh>,
@@ -210,6 +212,8 @@ impl FromWorld for SiteAssets {
             asset_server.load("embedded://rmf_site_editor/site/textures/door_cue.png");
         let door_cue_highlighted_texture =
             asset_server.load("embedded://rmf_site_editor/site/textures/door_cue_highlighted.png");
+        let conveyor_texture =
+            asset_server.load("embedded://rmf_site_editor/site/textures/conveyor.png");
 
         let mut materials = world
             .get_resource_mut::<Assets<StandardMaterial>>()
@@ -308,6 +312,12 @@ impl FromWorld for SiteAssets {
             perceptual_roughness: 0.8,
             ..default()
         });
+        let conveyor_belt_arrow_material = materials.add(StandardMaterial {
+            base_color_texture: Some(conveyor_texture),
+            metallic: 0.01,
+            perceptual_roughness: 0.8,
+            ..default()
+        });
         let conveyor_port_in_material =
             materials.add(billboard_material(Color::srgba(0.0, 1.0, 0.0, 0.5)));
         let conveyor_port_out_material =
@@ -333,7 +343,7 @@ impl FromWorld for SiteAssets {
         );
         let conveyor_stand_mesh = meshes.add(make_conveyor_stand_mesh());
         let conveyor_belt_end_mesh = meshes.add(
-            Mesh::from(Cylinder::new(0.5, CONVEYOR_BELT_THICKNESS))
+            Mesh::from(Cylinder::new(0.5, CONVEYOR_END_BELT_THICKNESS))
                 .with_generated_outline_normals()
                 .unwrap(),
         );
@@ -442,6 +452,7 @@ impl FromWorld for SiteAssets {
             default_mesh_grey_material,
             conveyor_metal_material,
             conveyor_belt_material,
+            conveyor_belt_arrow_material,
             conveyor_end_mesh,
             conveyor_stand_mesh,
             conveyor_belt_end_mesh,

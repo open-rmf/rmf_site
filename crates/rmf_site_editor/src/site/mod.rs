@@ -458,8 +458,10 @@ impl Plugin for SitePlugin {
                 add_conveyor_port_visuals,
                 update_conveyor_ports,
                 update_conveyor_dimensions,
+                update_conveyor_flows,
                 update_changed_conveyor,
                 update_conveyor_for_moved_anchor,
+                update_conveyor_flow_visuals,
             )
                 .chain()
                 .after(add_conveyor_visuals)
