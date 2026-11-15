@@ -652,32 +652,45 @@ pub fn update_conveyor_dimensions(
         if pending.is_some() {
             // If previewing a new conveyor, adopt port dimensions or fall back to defaults
             let mut port = find_port(&edge);
-            let mut neighbor_t = None;
+            let mut neighbor_dims = None;
             for &member in &connected_conveyors {
                 if member == e {
                     continue;
                 }
-                let Ok((_, member_edge, _, _, t, ..)) = conveyors.get(member) else {
+                let Ok((_, member_edge, h, w, t, ..)) = conveyors.get(member) else {
                     continue;
                 };
                 port = port.or_else(|| find_port(&member_edge));
-                neighbor_t.get_or_insert(t.0);
+                neighbor_dims.get_or_insert((h.0, w.0, t.0));
             }
+
+            let is_point_preview = edge.start() == edge.end();
+            let (default_h, default_w) = neighbor_dims
+                .filter(|_| is_point_preview)
+                .map(|(h, w, _)| (h, w))
+                .unwrap_or((DEFAULT_CONVEYOR_HEIGHT, DEFAULT_CONVEYOR_WIDTH));
 
             // Inherit thickness from a neighbor (or default), and prioritize a connected
             // port's width and top-aligned height before falling back to defaults.
-            let target_t = neighbor_t.unwrap_or(DEFAULT_CONVEYOR_THICKNESS);
+            let target_t = neighbor_dims
+                .map(|(_, _, t)| t)
+                .unwrap_or(DEFAULT_CONVEYOR_THICKNESS);
             let target_w = port
                 .as_ref()
                 .and_then(|(p, _)| p.width)
-                .unwrap_or(DEFAULT_CONVEYOR_WIDTH);
+                .unwrap_or(default_w);
             let target_h = port
                 .as_ref()
                 .map(|(_, h)| snap_height_to_port(*h, target_t))
-                .unwrap_or(DEFAULT_CONVEYOR_HEIGHT);
+                .unwrap_or(default_h);
 
             let dims = (target_h, target_w, target_t);
-            updates.extend(connected_conveyors.into_iter().map(|m| (m, dims)));
+            if is_point_preview {
+                updates.insert(e, dims);
+            } else {
+                visited.extend(connected_conveyors.iter().copied());
+                updates.extend(connected_conveyors.into_iter().map(|m| (m, dims)));
+            }
         } else {
             // If it is a placed chain, prioritize inspector dimension edits over existing
             // stationary members, falling back to the newly connected segment's dimensions.

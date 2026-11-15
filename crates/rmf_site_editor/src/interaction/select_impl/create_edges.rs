@@ -214,15 +214,16 @@ pub fn on_hover_for_create_edges(
         let Some(preview) = &state.preview_edge else {
             return true;
         };
-        if !conveyor_markers.contains(preview.edge) {
+        let Ok(edge) = edges.get(preview.edge) else {
+            return false;
+        };
+        if !conveyor_markers.contains(preview.edge) || edge.array()[preview.side.index()] == anchor
+        {
             return true;
         }
         let anchor_a = match preview.side {
             Side::Left => anchor,
             Side::Right => {
-                let Ok(edge) = edges.get(preview.edge) else {
-                    return false;
-                };
                 if edge.left() == anchor {
                     return false;
                 }
@@ -257,18 +258,33 @@ pub fn on_hover_for_create_edges(
     if let Some(preview) = &mut state.preview_edge {
         // If we already have an active preview, then use the new anchor for the
         // side that we currently need to select for.
-        let index = preview.side.index();
         let mut edge = edges.get_mut(preview.edge).or_broken_query()?;
-
-        let old_anchor = edge.array()[index];
-        if old_anchor != anchor {
-            let opposite_anchor = edge.array()[preview.side.opposite().index()];
-            if opposite_anchor != old_anchor {
-                commands.queue(ChangeDependent::remove(old_anchor, preview.edge));
+        if conveyor_markers.contains(preview.edge) && preview.side == Side::Left {
+            // Keep both endpoints at the hovered anchor so the preview remains a
+            // zero-length point until the first anchor is clicked.
+            if edge.left() != anchor || edge.right() != anchor {
+                for old_anchor in edge.array() {
+                    if old_anchor != anchor {
+                        commands.queue(ChangeDependent::remove(old_anchor, preview.edge));
+                    }
+                }
+                *edge = Edge::new(anchor, anchor);
+                commands.queue(ChangeDependent::add(anchor, preview.edge));
             }
+        } else {
+            // Update only the endpoint corresponding to the side currently being
+            // selected while keeping the opposite endpoint pinned.
+            let index = preview.side.index();
+            let old_anchor = edge.array()[index];
+            if old_anchor != anchor {
+                let opposite_anchor = edge.array()[preview.side.opposite().index()];
+                if opposite_anchor != old_anchor {
+                    commands.queue(ChangeDependent::remove(old_anchor, preview.edge));
+                }
 
-            edge.array_mut()[index] = anchor;
-            commands.queue(ChangeDependent::add(anchor, preview.edge));
+                edge.array_mut()[index] = anchor;
+                commands.queue(ChangeDependent::add(anchor, preview.edge));
+            }
         }
     } else {
         // There is currently no active preview, so we need to create one.

@@ -204,6 +204,12 @@ pub fn on_hover_for_replace_side(
         } else {
             (opp_anchor, anchor)
         };
+        if edges
+            .get(state.edge)
+            .is_ok_and(|e| e.array() == [anchor_a, anchor_b] || e.array() == [anchor_b, anchor_a])
+        {
+            return true;
+        }
         validate_conveyor_connection(
             anchor_a,
             anchor_b,
