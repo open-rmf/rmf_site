@@ -33,7 +33,7 @@ use bevy::{
 use bevy_rich_text3d::*;
 use rmf_site_camera::MODEL_PREVIEW_LAYER;
 use rmf_site_format::{
-    Affiliation, AssociatedGraphs, ConveyorHeight, ConveyorMarker, ConveyorPort,
+    Affiliation, AssociatedGraphs, ConveyorHeight, ConveyorMarker, ConveyorMetadata, ConveyorPort,
     ConveyorPortDirection, ConveyorThickness, ConveyorWidth, Edge, Group, ModelMarker,
     NavGraphMarker, Scale, SiteID, DEFAULT_CONVEYOR_HEIGHT, DEFAULT_CONVEYOR_THICKNESS,
     DEFAULT_CONVEYOR_WIDTH,
@@ -559,6 +559,7 @@ pub fn validate_conveyor_port_direction(
             &ConveyorHeight,
             &ConveyorWidth,
             &ConveyorThickness,
+            &ConveyorMetadata,
         ),
         With<ConveyorMarker>,
     >,
@@ -641,6 +642,7 @@ pub fn update_conveyor_dimensions(
             &mut ConveyorHeight,
             &mut ConveyorWidth,
             &mut ConveyorThickness,
+            &mut ConveyorMetadata,
             Option<&Pending>,
             Option<&Original<Edge<Entity>>>,
         ),
@@ -663,21 +665,22 @@ pub fn update_conveyor_dimensions(
             .any(|e| conveyor_ports.get(e).is_ok_and(|(p, _)| p.is_changed()))
     };
 
-    // Collect conveyors whose endpoints, dimensions, ports, or placement state changed.
-    let mut changed_dims: HashMap<Entity, bool> = HashMap::new();
+    // Collect conveyors whose endpoints, dimensions, metadata, ports, or placement state changed.
+    let mut changed_properties: HashMap<Entity, bool> = HashMap::new();
     let changed_conveyors: Vec<Entity> = conveyors
         .iter_mut()
-        .filter_map(|(e, edge, h, w, t, _, original)| {
+        .filter_map(|(e, edge, h, w, t, m, _, original)| {
             // Skip conveyors that are mid-replacement.
             if original.is_some() {
                 return None;
             }
-            let dim_changed = h.is_changed() || w.is_changed() || t.is_changed();
-            if dim_changed {
-                changed_dims.insert(e, t.is_changed() && !h.is_changed());
+            let property_changed =
+                h.is_changed() || w.is_changed() || t.is_changed() || m.is_changed();
+            if property_changed {
+                changed_properties.insert(e, t.is_changed() && !h.is_changed());
             }
             (edge.is_changed()
-                || dim_changed
+                || property_changed
                 || placed_conveyors.contains(&e)
                 || has_changed_port(&edge))
             .then_some(e)
@@ -710,10 +713,10 @@ pub fn update_conveyor_dimensions(
     };
 
     let mut visited: HashSet<Entity> = HashSet::new();
-    let mut updates: HashMap<Entity, (f32, f32, f32)> = HashMap::new();
+    let mut updates: HashMap<Entity, (f32, f32, f32, ConveyorMetadata)> = HashMap::new();
 
     for e in changed_conveyors {
-        let Ok((_, edge, _, _, _, pending, original)) = conveyors.get(e) else {
+        let Ok((_, edge, e_h, e_w, e_t, e_m, pending, original)) = conveyors.get(e) else {
             continue;
         };
         if original.is_some() {
@@ -732,7 +735,7 @@ pub fn update_conveyor_dimensions(
             e,
             &start_edge,
             |other_e| {
-                let (_, other_edge, _, _, _, other_pending, other_original) =
+                let (_, other_edge, _, _, _, _, other_pending, other_original) =
                     conveyors.get(other_e).ok()?;
                 (other_pending.is_none() && other_original.is_none()).then_some(*other_edge)
             },
@@ -742,28 +745,28 @@ pub fn update_conveyor_dimensions(
         if pending.is_some() {
             // If previewing a new conveyor, adopt port dimensions or fall back to defaults
             let mut port = find_port(&edge);
-            let mut neighbor_dims = None;
+            let mut neighbor_properties = None;
             for &(member, _) in &connected_conveyors {
                 if member == e {
                     continue;
                 }
-                let Ok((_, member_edge, h, w, t, ..)) = conveyors.get(member) else {
+                let Ok((_, member_edge, h, w, t, m, ..)) = conveyors.get(member) else {
                     continue;
                 };
                 port = port.or_else(|| find_port(&member_edge));
-                neighbor_dims.get_or_insert((h.0, w.0, t.0));
+                neighbor_properties.get_or_insert((h.0, w.0, t.0, *m));
             }
 
             let is_point_preview = edge.start() == edge.end();
-            let (default_h, default_w) = neighbor_dims
+            let (default_h, default_w) = neighbor_properties
                 .filter(|_| is_point_preview)
-                .map(|(h, w, _)| (h, w))
+                .map(|(h, w, _, _)| (h, w))
                 .unwrap_or((DEFAULT_CONVEYOR_HEIGHT, DEFAULT_CONVEYOR_WIDTH));
 
-            // Inherit thickness from a neighbor (or default), and prioritize a connected
-            // port's width and top-aligned height before falling back to defaults.
-            let target_t = neighbor_dims
-                .map(|(_, _, t)| t)
+            // Inherit thickness and metadata from a neighbor (or default), and prioritize a
+            // connected port's width and top-aligned height before falling back to defaults.
+            let target_t = neighbor_properties
+                .map(|(_, _, t, _)| t)
                 .unwrap_or(DEFAULT_CONVEYOR_THICKNESS);
             let target_w = port
                 .as_ref()
@@ -773,27 +776,31 @@ pub fn update_conveyor_dimensions(
                 .as_ref()
                 .map(|(_, h)| snap_height_to_port(*h, target_t))
                 .unwrap_or(default_h);
+            let target_meta = neighbor_properties
+                .map(|(_, _, _, m)| m)
+                .unwrap_or_default();
 
-            let dims = (target_h, target_w, target_t);
+            let properties = (target_h, target_w, target_t, target_meta);
             if is_point_preview {
-                updates.insert(e, dims);
+                updates.insert(e, properties);
             } else {
                 visited.extend(connected_conveyors.iter().map(|&(m, _)| m));
-                updates.extend(connected_conveyors.into_iter().map(|(m, _)| (m, dims)));
+                updates.extend(
+                    connected_conveyors
+                        .into_iter()
+                        .map(|(m, _)| (m, properties)),
+                );
             }
         } else {
-            // If it is a placed chain, prioritize inspector dimension edits over existing
-            // stationary members, falling back to the newly connected segment's dimensions.
-            let mut active_port = None;
-            let mut fallback_port = None;
-            let mut edited_dims = None;
-            let mut existing_dims = None;
-            let mut fallback_dims = None;
+            // If it is a placed chain, prioritize values from inspector edits over
+            // existing stationary members, falling back to the newly connected segment.
+            let (mut active_port, mut fallback_port) = (None, None);
+            let (mut edited_properties, mut existing_properties) = (None, None);
             let mut snap_to_port = false;
             let mut thickness_edited = false;
 
             for &(member, _) in &connected_conveyors {
-                let Ok((_, member_edge, h, w, t, member_pending, member_original)) =
+                let Ok((_, member_edge, h, w, t, m, member_pending, member_original)) =
                     conveyors.get(member)
                 else {
                     continue;
@@ -820,23 +827,20 @@ pub fn update_conveyor_dimensions(
                 }
 
                 // Ignore newly placed/reconnected segments when picking edited or stationary
-                // chain dimensions, and track thickness edits to keep the top surface aligned.
-                let dims = (h.0, w.0, t.0);
+                // chain properties, and track thickness edits to keep the top surface aligned.
                 if !member_edge_changed {
-                    if let Some(&t_changed) = changed_dims.get(&member) {
-                        edited_dims = Some(dims);
+                    let properties = (h.0, w.0, t.0, *m);
+                    if let Some(&t_changed) = changed_properties.get(&member) {
+                        edited_properties = Some(properties);
                         thickness_edited = t_changed;
                     }
-                    existing_dims.get_or_insert(dims);
+                    existing_properties.get_or_insert(properties);
                 }
-                fallback_dims.get_or_insert(dims);
             }
 
-            let Some((mut target_h, mut target_w, target_t)) =
-                edited_dims.or(existing_dims).or(fallback_dims)
-            else {
-                continue;
-            };
+            let (mut target_h, mut target_w, target_t, target_meta) = edited_properties
+                .or(existing_properties)
+                .unwrap_or((e_h.0, e_w.0, e_t.0, *e_m));
 
             // Snap chain height/width to a connected conveyor port when a connection,
             // port configuration, or belt thickness changes.
@@ -851,14 +855,20 @@ pub fn update_conveyor_dimensions(
                 }
             }
 
-            let dims = (target_h, target_w, target_t);
-            updates.extend(connected_conveyors.into_iter().map(|(m, _)| (m, dims)));
+            let properties = (target_h, target_w, target_t, target_meta);
+            updates.extend(
+                connected_conveyors
+                    .into_iter()
+                    .map(|(m, _)| (m, properties)),
+            );
         }
     }
 
-    // Apply dimension updates only when values differ.
-    for (entity, (new_h, new_w, new_t)) in updates {
-        if let Ok((_, _, mut height, mut width, mut thickness, ..)) = conveyors.get_mut(entity) {
+    // Apply dimension and metadata updates only when values differ.
+    for (entity, (new_h, new_w, new_t, new_m)) in updates {
+        if let Ok((_, _, mut height, mut width, mut thickness, mut metadata, ..)) =
+            conveyors.get_mut(entity)
+        {
             if height.0 != new_h {
                 height.0 = new_h;
             }
@@ -867,6 +877,9 @@ pub fn update_conveyor_dimensions(
             }
             if thickness.0 != new_t {
                 thickness.0 = new_t;
+            }
+            if *metadata != new_m {
+                *metadata = new_m;
             }
         }
     }

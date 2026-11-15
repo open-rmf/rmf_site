@@ -280,6 +280,7 @@ impl Plugin for SitePlugin {
             ChangePlugin::<ConveyorHeight>::default(),
             ChangePlugin::<ConveyorWidth>::default(),
             ChangePlugin::<ConveyorThickness>::default(),
+            ChangePlugin::<ConveyorMetadata>::default(),
             ChangePlugin::<ConveyorPort>::default(),
         ))
         .add_plugins((

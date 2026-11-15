@@ -24,6 +24,8 @@ use std::collections::HashMap;
 pub const DEFAULT_CONVEYOR_HEIGHT: f32 = 0.5;
 pub const DEFAULT_CONVEYOR_WIDTH: f32 = 0.319;
 pub const DEFAULT_CONVEYOR_THICKNESS: f32 = 0.05;
+pub const DEFAULT_CONVEYOR_SPEED: f32 = 1.0;
+pub const DEFAULT_CONVEYOR_CAPACITY: u32 = 1;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
@@ -36,9 +38,38 @@ pub struct Conveyor<T: RefTrait> {
     #[serde(default, skip_serializing_if = "is_default")]
     pub thickness: ConveyorThickness,
     #[serde(default, skip_serializing_if = "is_default")]
+    pub metadata: ConveyorMetadata,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub graphs: AssociatedGraphs<T>,
     #[serde(skip)]
     pub marker: ConveyorMarker,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct ConveyorMetadata {
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub speed: ConveyorSpeed,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub capacity: ConveyorCapacity,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+pub struct ConveyorSpeed(pub f32);
+
+impl Default for ConveyorSpeed {
+    fn default() -> Self {
+        Self(DEFAULT_CONVEYOR_SPEED)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ConveyorCapacity(pub u32);
+
+impl Default for ConveyorCapacity {
+    fn default() -> Self {
+        Self(DEFAULT_CONVEYOR_CAPACITY)
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
@@ -82,6 +113,7 @@ impl<T: RefTrait> Conveyor<T> {
             height: self.height,
             width: self.width,
             thickness: self.thickness,
+            metadata: self.metadata,
             graphs: self.graphs.convert(id_map)?,
             marker: Default::default(),
         })
@@ -95,6 +127,7 @@ impl<T: RefTrait> From<Edge<T>> for Conveyor<T> {
             height: Default::default(),
             width: Default::default(),
             thickness: Default::default(),
+            metadata: Default::default(),
             graphs: Default::default(),
             marker: Default::default(),
         }

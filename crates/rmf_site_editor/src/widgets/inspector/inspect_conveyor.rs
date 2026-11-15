@@ -17,10 +17,10 @@
 
 use crate::{
     site::{
-        validate_conveyor_port_direction, Anchor, AnchorBundle, Change, ConveyorHeight,
-        ConveyorNode, ConveyorNodePortConfigs, ConveyorPort, ConveyorPortDirection,
-        ConveyorThickness, ConveyorWidth, Delete, Dependents, Subordinate, DEFAULT_CONVEYOR_HEIGHT,
-        DEFAULT_CONVEYOR_WIDTH,
+        validate_conveyor_port_direction, Anchor, AnchorBundle, Change, ConveyorCapacity,
+        ConveyorHeight, ConveyorMetadata, ConveyorNode, ConveyorNodePortConfigs, ConveyorPort,
+        ConveyorPortDirection, ConveyorSpeed, ConveyorThickness, ConveyorWidth, Delete, Dependents,
+        Subordinate, DEFAULT_CONVEYOR_HEIGHT, DEFAULT_CONVEYOR_WIDTH,
     },
     widgets::{inspector::InspectValue, prelude::*, Icons, Inspect},
 };
@@ -40,6 +40,7 @@ pub struct InspectConveyor<'w, 's> {
             &'static ConveyorHeight,
             &'static ConveyorWidth,
             &'static ConveyorThickness,
+            &'static ConveyorMetadata,
         ),
         With<ConveyorMarker>,
     >,
@@ -253,7 +254,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectConveyor<'w, 's> {
             return;
         }
 
-        let Ok((_, height, width, thickness)) = params.conveyors.get(selection) else {
+        let Ok((_, height, width, thickness, metadata)) = params.conveyors.get(selection) else {
             return;
         };
 
@@ -283,6 +284,25 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectConveyor<'w, 's> {
             params
                 .commands
                 .trigger(Change::new(ConveyorThickness(new_thickness), selection));
+        }
+
+        let mut new_metadata = *metadata;
+        if let Some(new_speed) = InspectValue::<f32>::new("Speed", metadata.speed.0)
+            .clamp_range(0.0..=std::f32::INFINITY)
+            .speed(0.01)
+            .suffix(" m/s")
+            .show(ui)
+        {
+            new_metadata.speed = ConveyorSpeed(new_speed);
+        }
+        if let Some(new_capacity) = InspectValue::<u32>::new("Capacity", metadata.capacity.0).show(ui)
+        {
+            new_metadata.capacity = ConveyorCapacity(new_capacity);
+        }
+        if new_metadata != *metadata {
+            params
+                .commands
+                .trigger(Change::new(new_metadata, selection));
         }
         ui.add_space(10.0);
     }
