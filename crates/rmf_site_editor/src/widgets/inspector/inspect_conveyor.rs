@@ -295,7 +295,8 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectConveyor<'w, 's> {
         {
             new_metadata.speed = ConveyorSpeed(new_speed);
         }
-        if let Some(new_capacity) = InspectValue::<u32>::new("Capacity", metadata.capacity.0).show(ui)
+        if let Some(new_capacity) =
+            InspectValue::<u32>::new("Capacity", metadata.capacity.0).show(ui)
         {
             new_metadata.capacity = ConveyorCapacity(new_capacity);
         }
