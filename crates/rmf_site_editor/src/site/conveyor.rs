@@ -504,6 +504,51 @@ pub fn validate_conveyor_connection(
     walk_chain(anchor_b)
 }
 
+/// Checks if changing port's direction results in multiple ports with the
+/// same direction in the connected chain
+pub fn validate_conveyor_port_direction(
+    port_anchor: Entity,
+    new_dir: ConveyorPortDirection,
+    conveyors: &Query<
+        (
+            &Edge<Entity>,
+            &ConveyorHeight,
+            &ConveyorWidth,
+            &ConveyorThickness,
+        ),
+        With<ConveyorMarker>,
+    >,
+    ports: &Query<(&ConveyorPort, &ChildOf)>,
+    dependents: &Query<&Dependents, With<Anchor>>,
+) -> Result<(), ConveyorConnectionError> {
+    let mut prev_edge = None;
+    let mut curr_anchor = port_anchor;
+    while let Some((edge_entity, next_anchor)) = dependents.get(curr_anchor).ok().and_then(|deps| {
+        deps.iter().find_map(|&dep| {
+            if Some(dep) == prev_edge {
+                return None;
+            }
+            let (edge, ..) = conveyors.get(dep).ok()?;
+            (edge.start() == curr_anchor)
+                .then_some((dep, edge.end()))
+                .or_else(|| (edge.end() == curr_anchor).then_some((dep, edge.start())))
+        })
+    }) {
+        if ports
+            .get(next_anchor)
+            .is_ok_and(|(p, _)| p.direction == new_dir)
+        {
+            return Err(match new_dir {
+                ConveyorPortDirection::In => ConveyorConnectionError::MultipleInPorts,
+                ConveyorPortDirection::Out => ConveyorConnectionError::MultipleOutPorts,
+            });
+        }
+        prev_edge = Some(edge_entity);
+        curr_anchor = next_anchor;
+    }
+    Ok(())
+}
+
 fn collect_connected_conveyors(
     start_entity: Entity,
     start_edge: &Edge<Entity>,

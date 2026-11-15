@@ -17,16 +17,17 @@
 
 use crate::{
     site::{
-        Anchor, AnchorBundle, Change, ConveyorHeight, ConveyorNode, ConveyorNodePortConfigs,
-        ConveyorPort, ConveyorPortDirection, ConveyorThickness, ConveyorWidth, Delete, Subordinate,
-        DEFAULT_CONVEYOR_HEIGHT, DEFAULT_CONVEYOR_WIDTH,
+        validate_conveyor_port_direction, Anchor, AnchorBundle, Change, ConveyorHeight,
+        ConveyorNode, ConveyorNodePortConfigs, ConveyorPort, ConveyorPortDirection,
+        ConveyorThickness, ConveyorWidth, Delete, Dependents, Subordinate, DEFAULT_CONVEYOR_HEIGHT,
+        DEFAULT_CONVEYOR_WIDTH,
     },
     widgets::{inspector::InspectValue, prelude::*, Icons, Inspect},
 };
 use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 use bevy_egui::egui::{ComboBox, DragValue, Grid, ImageButton, RichText, Ui};
 use rmf_site_egui::WidgetSystem;
-use rmf_site_format::{Affiliation, ConveyorMarker, Group, ModelMarker, Scale};
+use rmf_site_format::{Affiliation, ConveyorMarker, Edge, Group, ModelMarker, Scale};
 
 #[derive(SystemParam)]
 pub struct InspectConveyor<'w, 's> {
@@ -35,6 +36,7 @@ pub struct InspectConveyor<'w, 's> {
         'w,
         's,
         (
+            &'static Edge<Entity>,
             &'static ConveyorHeight,
             &'static ConveyorWidth,
             &'static ConveyorThickness,
@@ -53,6 +55,7 @@ pub struct InspectConveyor<'w, 's> {
         (With<ModelMarker>, Without<Group>, With<ConveyorNode>),
     >,
     ports: Query<'w, 's, (&'static ConveyorPort, &'static ChildOf)>,
+    dependents: Query<'w, 's, &'static Dependents, With<Anchor>>,
     icons: Res<'w, Icons>,
     delete: EventWriter<'w, Delete>,
     new_port_direction: Local<'s, ConveyorPortDirection>,
@@ -127,6 +130,21 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectConveyor<'w, 's> {
         world: &mut World,
     ) {
         let mut params = state.get_mut(world);
+        let validate_port = |entity: Entity, old_port: &ConveyorPort, new_port: &ConveyorPort| {
+            if new_port.direction != old_port.direction {
+                if let Err(err) = validate_conveyor_port_direction(
+                    entity,
+                    new_port.direction,
+                    &params.conveyors,
+                    &params.ports,
+                    &params.dependents,
+                ) {
+                    error!("{err}");
+                    return false;
+                }
+            }
+            true
+        };
 
         if let Ok((children, scale, affiliation, model_global_tf)) = params.models.get(selection) {
             ui.separator();
@@ -158,7 +176,9 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectConveyor<'w, 's> {
                             }
                             ui.end_row();
 
-                            if let Some(new_port) = changed_port {
+                            if let Some(new_port) =
+                                changed_port.filter(|new_port| validate_port(child, port, new_port))
+                            {
                                 params.commands.trigger(Change::new(new_port, child));
                             }
                         }
@@ -223,7 +243,9 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectConveyor<'w, 's> {
             ui.separator();
             ui.label(RichText::new("Conveyor Port").size(18.0));
             Grid::new("inspect_single_conveyor_port").show(ui, |ui| {
-                if let Some(new_port) = show_port(ui, selection, port, scale.0, true) {
+                if let Some(new_port) = show_port(ui, selection, port, scale.0, true)
+                    .filter(|new_port| validate_port(selection, port, new_port))
+                {
                     params.commands.trigger(Change::new(new_port, selection));
                 }
             });
@@ -231,7 +253,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectConveyor<'w, 's> {
             return;
         }
 
-        let Ok((height, width, thickness)) = params.conveyors.get(selection) else {
+        let Ok((_, height, width, thickness)) = params.conveyors.get(selection) else {
             return;
         };
 
