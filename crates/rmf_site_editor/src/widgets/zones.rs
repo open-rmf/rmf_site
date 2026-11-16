@@ -26,48 +26,39 @@ use crate::{
     AppState, CurrentWorkspace,
 };
 use bevy::prelude::*;
-use bevy_egui::egui::{ComboBox, ImageButton, RichText, TextEdit};
+use bevy_egui::egui::{Button, ComboBox, ImageButton, RichText, TextEdit};
 use rmf_site_egui::*;
 
 pub(crate) struct ZonesPlugin;
 
-#[derive(Resource)]
-struct ZoneMenu(Entity);
-
 impl Plugin for ZonesPlugin {
     fn build(&self, app: &mut App) {
-        let tool = app.world().resource::<ToolMenu>().get();
-        let item = app
-            .world_mut()
-            .spawn((MenuItem::Text("Add Zone".into()), ChildOf(tool)))
-            .id();
         app.add_plugins((
             PropertiesTilePlugin::<ViewZoneSets>::new("Zones"),
+            HeaderTilePlugin::<ZoneCreation>::new(),
             InspectionPlugin::<InspectZoneSets>::new(),
-        ))
-        .insert_resource(ZoneMenu(item))
-        .add_systems(Update, draw_zone.run_if(in_state(AppState::SiteEditor)));
+        ));
     }
 }
 
-fn draw_zone(
-    mut events: EventReader<MenuEvent>,
-    menu: Res<ZoneMenu>,
-    level: Res<CurrentLevel>,
-    mut selection: AnchorSelection,
-    mouse: Res<ButtonInput<MouseButton>>,
-    mut pending: Local<bool>,
-) {
-    // Don't let the menu click place the first vertex.
-    if *pending && !mouse.pressed(MouseButton::Left) && !mouse.just_released(MouseButton::Left) {
-        *pending = false;
-        if level.0.is_some() {
-            selection.create_zone();
-        }
-    }
-    for event in events.read() {
-        if event.clicked() && event.source() == menu.0 {
-            *pending = true;
+#[derive(SystemParam)]
+struct ZoneCreation<'w, 's> {
+    app_state: Res<'w, State<AppState>>,
+    level: Res<'w, CurrentLevel>,
+    anchor_selection: AnchorSelection<'w, 's>,
+}
+
+impl WidgetSystem<Tile> for ZoneCreation<'_, '_> {
+    fn show(_: Tile, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) {
+        let mut params = state.get_mut(world);
+        if let AppState::SiteEditor = params.app_state.get() {
+            if ui
+                .add_enabled(params.level.0.is_some(), Button::new("⬡"))
+                .on_hover_text("Zone")
+                .clicked()
+            {
+                params.anchor_selection.create_zone();
+            }
         }
     }
 }
