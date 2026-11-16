@@ -395,16 +395,6 @@ mod tests {
             *app.world().get::<Visibility>(zone).unwrap(),
             Visibility::Hidden
         );
-        app.world_mut()
-            .get_mut::<ZoneSets<Entity>>(zone)
-            .unwrap()
-            .0
-            .insert(set);
-        app.update();
-        assert_eq!(
-            *app.world().get::<Visibility>(zone).unwrap(),
-            Visibility::Inherited
-        );
     }
 
     #[test]

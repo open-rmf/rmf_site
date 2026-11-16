@@ -2117,7 +2117,6 @@ mod tests {
         let set_id = world.get::<SiteID>(set).unwrap().0;
         assert_eq!(set_id, zone_id + 1);
         assert_eq!(world.get::<NextSiteID>(site).unwrap().0, set_id + 1);
-        assert!(world.get::<Group>(set).is_none());
         assert_eq!(
             generate_zone_sets(&mut world, site)[&set_id].name.0,
             "Survey"

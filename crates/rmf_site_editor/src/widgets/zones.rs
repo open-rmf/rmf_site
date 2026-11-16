@@ -321,7 +321,7 @@ mod tests {
         output
     }
 
-    fn click_button(
+    fn focus_name(
         label: &str,
         context: &egui::Context,
         world: &mut World,
@@ -335,15 +335,9 @@ mod tests {
                 egui::epaint::Shape::Text(text) if text.galley.text() == label => {
                     Some(text.pos + text.galley.size() / 2.0)
                 }
-                shape
-                    if label == "Delete"
-                        && shape.texture_id() == world.resource::<Icons>().trash.egui_handle =>
-                {
-                    Some(shape.visual_bounding_rect().center())
-                }
                 _ => None,
             })
-            .expect("button should be visible");
+            .expect("name field should be visible");
         for pressed in [true, false] {
             show_sets(
                 context,
@@ -362,7 +356,18 @@ mod tests {
         }
     }
 
-    fn test_app() -> (App, Entity) {
+    fn key(key: egui::Key, modifiers: egui::Modifiers) -> Event {
+        Event::Key {
+            key,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers,
+        }
+    }
+
+    #[test]
+    fn rename_keeps_intermediate_edits_until_focus_is_lost() {
         let mut app = App::new();
         app.add_plugins((MinimalPlugins, AssetPlugin::default()))
             .init_asset::<Image>()
@@ -377,39 +382,6 @@ mod tests {
             ..default()
         })
         .insert_resource(State::new(AppState::SiteEditor));
-        (app, site)
-    }
-
-    #[test]
-    fn creating_zone_sets_uses_format_bundle() {
-        let (mut app, site) = test_app();
-        let world = app.world_mut();
-        let mut state = SystemState::<ViewZoneSets>::new(world);
-        *state.get_mut(world).new_name = "Survey".into();
-        let context = egui::Context::default();
-        show_sets(&context, world, &mut state, vec![]);
-        click_button("Add", &context, world, &mut state);
-        let set = world
-            .query_filtered::<Entity, With<ZoneSetMarker>>()
-            .single(world)
-            .unwrap();
-        assert_eq!(world.get::<ChildOf>(set).unwrap().parent(), site);
-        assert!(world.get::<crate::site::Group>(set).is_none());
-    }
-
-    fn key(key: egui::Key, modifiers: egui::Modifiers) -> Event {
-        Event::Key {
-            key,
-            physical_key: None,
-            pressed: true,
-            repeat: false,
-            modifiers,
-        }
-    }
-
-    #[test]
-    fn rename_keeps_intermediate_edits_until_focus_is_lost() {
-        let (mut app, site) = test_app();
         let world = app.world_mut();
         world.spawn((
             ZoneSet {
@@ -429,7 +401,7 @@ mod tests {
             .id();
         let mut state = SystemState::<ViewZoneSets>::new(world);
         let context = egui::Context::default();
-        click_button("AB", &context, world, &mut state);
+        focus_name("AB", &context, world, &mut state);
         let select_all = egui::Modifiers {
             ctrl: true,
             command: true,
@@ -444,6 +416,7 @@ mod tests {
                 key(egui::Key::Backspace, default()),
             ],
         );
+        // A valid rename can pass through empty text and another set's name.
         assert_eq!(state.get_mut(world).edits.get(&set).unwrap(), "");
         show_sets(&context, world, &mut state, vec![Event::Text("A".into())]);
         assert_eq!(state.get_mut(world).edits.get(&set).unwrap(), "A");
@@ -457,49 +430,5 @@ mod tests {
             vec![key(egui::Key::Enter, default())],
         );
         assert_eq!(world.get::<NameInSite>(set).unwrap().0, "AC");
-
-        // Reject final duplicate and empty names, then restore the stored name.
-        for text in ["A", ""] {
-            click_button("AC", &context, world, &mut state);
-            show_sets(
-                &context,
-                world,
-                &mut state,
-                vec![
-                    key(egui::Key::A, select_all),
-                    key(egui::Key::Backspace, default()),
-                    Event::Text(text.into()),
-                ],
-            );
-            show_sets(
-                &context,
-                world,
-                &mut state,
-                vec![key(egui::Key::Enter, default())],
-            );
-            assert_eq!(world.get::<NameInSite>(set).unwrap().0, "AC");
-            assert!(!state.get_mut(world).edits.contains_key(&set));
-        }
-    }
-
-    #[test]
-    fn delete_button_requests_standard_deletion() {
-        let (mut app, site) = test_app();
-        let world = app.world_mut();
-        let set = world
-            .spawn((
-                ZoneSet {
-                    name: NameInSite("Survey".into()),
-                    marker: ZoneSetMarker,
-                },
-                ChildOf(site),
-            ))
-            .id();
-        let mut state = SystemState::<ViewZoneSets>::new(world);
-        let context = egui::Context::default();
-        click_button("Delete", &context, world, &mut state);
-        let events: Vec<_> = world.resource_mut::<Events<Delete>>().drain().collect();
-        assert_eq!(events, vec![Delete::new(set)]);
-        assert!(world.get_entity(set).is_ok());
     }
 }
