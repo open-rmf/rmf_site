@@ -15,11 +15,7 @@
  *
 */
 
-use crate::{
-    interaction::{CategoryVisibility, CursorHoverVisualization, OutlineVisualization},
-    layers::ZLayer,
-    site::*,
-};
+use crate::{interaction::CategoryVisibility, layers::ZLayer, site::*};
 use bevy::prelude::*;
 use geo::{
     line_intersection::{line_intersection, LineIntersection},
@@ -115,7 +111,7 @@ fn zone_mesh(entity: Entity, path: &Path<Entity>, anchors: &AnchorParams) -> Mes
         .iter()
         .map(|anchor| {
             anchors
-                .point_in_parent_frame_of(*anchor, Category::General, entity)
+                .point_in_parent_frame_of(*anchor, Category::Zone, entity)
                 .map(|p| [p.x, p.y, 0.0])
         })
         .collect();
@@ -227,7 +223,7 @@ pub(super) fn add_zone_visuals(
     anchors: AnchorParams,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    assets: Res<SiteAssets>,
     visibility: Res<CategoryVisibility<ZoneMarker>>,
     filter: Res<ZoneFilter>,
 ) {
@@ -241,13 +237,7 @@ pub(super) fn add_zone_visuals(
         let visual = commands
             .spawn((
                 Mesh3d(mesh.clone()),
-                MeshMaterial3d(materials.add(StandardMaterial {
-                    base_color: Color::srgba(1.0, 0.55, 0.1, 0.35),
-                    alpha_mode: AlphaMode::Blend,
-                    unlit: true,
-                    cull_mode: None,
-                    ..default()
-                })),
+                MeshMaterial3d(assets.zone_material.clone()),
                 Transform::default(),
                 Visibility::Inherited,
                 Selectable::new(entity),
@@ -263,11 +253,8 @@ pub(super) fn add_zone_visuals(
                     Visibility::Hidden
                 },
                 ZoneMesh(mesh),
-                Category::Custom("Zone".into()),
+                Category::Zone,
                 PathBehavior::for_floor(),
-                OutlineVisualization::default(),
-                CursorHoverVisualization,
-                Selectable::new(entity),
             ))
             .add_child(visual);
         for anchor in &path.0 {
@@ -537,7 +524,7 @@ mod tests {
 
     fn visual_test_app() -> App {
         let mut app = App::new();
-        app.add_plugins((MinimalPlugins, StatesPlugin))
+        app.add_plugins((MinimalPlugins, StatesPlugin, AssetPlugin::default()))
             .insert_state(InteractionState::Enable)
             .add_plugins((
                 CategoryVisibilityPlugin::<ZoneMarker>::visible(true),
@@ -545,6 +532,8 @@ mod tests {
             ))
             .init_resource::<Assets<Mesh>>()
             .init_resource::<Assets<StandardMaterial>>()
+            .init_asset::<Image>()
+            .init_resource::<SiteAssets>()
             .init_resource::<ZoneFilter>()
             .init_resource::<Selection>()
             .init_resource::<Hovering>()

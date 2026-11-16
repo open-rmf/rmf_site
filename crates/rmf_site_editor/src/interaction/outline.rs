@@ -119,6 +119,7 @@ pub fn add_outline_visualization(
             Added<MeasurementMarker>,
             Added<FiducialMarker>,
             Added<FloorMarker>,
+            Added<ZoneMarker>,
             Added<DrawingMarker>,
             Added<ModelMarker>,
             Added<PhysicalCameraProperties>,
