@@ -101,11 +101,14 @@ pub struct RankingsInLevel {
     pub floors: Vec<u32>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub drawings: Vec<u32>,
+    /// Zones ordered from bottom to top in the editor.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub zones: Vec<u32>,
 }
 
 impl RankingsInLevel {
     pub fn is_empty(&self) -> bool {
-        self.floors.is_empty() && self.drawings.is_empty()
+        self.floors.is_empty() && self.drawings.is_empty() && self.zones.is_empty()
     }
 }
 

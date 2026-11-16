@@ -17,11 +17,12 @@
 
 use crate::{
     interaction::AnchorSelection,
+    recency::ChangeRank,
     site::{
-        Change, CurrentLevel, Delete, NameInSite, ZoneFilter, ZoneMarker, ZoneSet, ZoneSetFilter,
-        ZoneSetMarker, ZoneSets,
+        Change, CurrentLevel, Delete, DisplayColor, NameInSite, ZoneFilter, ZoneMarker, ZoneSet,
+        ZoneSetMarker, ZoneSets, DEFAULT_NAV_GRAPH_COLORS,
     },
-    widgets::{prelude::*, Icons, Inspect, InspectionPlugin},
+    widgets::{prelude::*, Icons, Inspect, InspectionPlugin, MoveLayer},
     AppState, CurrentWorkspace,
 };
 use bevy::prelude::*;
@@ -66,6 +67,7 @@ impl WidgetSystem<Tile> for ZoneCreation<'_, '_> {
 #[derive(SystemParam)]
 struct ViewZoneSets<'w, 's> {
     sets: Query<'w, 's, (Entity, &'static NameInSite, &'static ChildOf), With<ZoneSetMarker>>,
+    colors: Query<'w, 's, &'static DisplayColor, With<ZoneSetMarker>>,
     workspace: Res<'w, CurrentWorkspace>,
     app_state: Res<'w, State<AppState>>,
     filter: ResMut<'w, ZoneFilter>,
@@ -93,41 +95,47 @@ impl WidgetSystem<Tile> for ViewZoneSets<'_, '_> {
             .collect();
         sets.sort_by(|a, b| a.1.cmp(&b.1));
         if params.filter.site != Some(site) {
-            params.filter.site = Some(site);
-            params.filter.selection = ZoneSetFilter::All;
+            *params.filter = ZoneFilter {
+                site: Some(site),
+                ..default()
+            };
         }
-        let selected = match params.filter.selection {
-            ZoneSetFilter::All => "All zones",
-            ZoneSetFilter::Unassigned => "Without a set",
-            ZoneSetFilter::Set(set) => sets
-                .iter()
-                .find(|(entity, _)| *entity == set)
-                .map(|(_, name)| name.as_str())
-                .unwrap_or("All zones"),
-        };
-        let mut filter = params.filter.selection;
-        ui.horizontal(|ui| {
-            ui.label("Filter viewport:");
-            ComboBox::from_id_salt("zone_filter")
-                .selected_text(selected)
-                .show_ui(ui, |ui| {
-                    ui.selectable_value(&mut filter, ZoneSetFilter::All, "All zones");
-                    ui.selectable_value(&mut filter, ZoneSetFilter::Unassigned, "Without a set");
-                    for (entity, name) in &sets {
-                        ui.selectable_value(&mut filter, ZoneSetFilter::Set(*entity), name);
-                    }
-                });
-        });
-        if filter != params.filter.selection {
-            params.filter.selection = filter;
+        ui.label("Filter viewport:");
+        let mut unassigned = !params.filter.hide_unassigned;
+        if ui.checkbox(&mut unassigned, "Without a set").changed() {
+            params.filter.hide_unassigned = !unassigned;
         }
-        ui.separator();
         params
             .edits
             .retain(|entity, _| sets.iter().any(|(set, _)| set == entity));
         for (entity, name) in &sets {
             ui.push_id(entity, |ui| {
                 ui.horizontal(|ui| {
+                    let mut visible = !params.filter.hidden_sets.contains(entity);
+                    if ui
+                        .checkbox(&mut visible, "")
+                        .on_hover_text("Show zones in this set")
+                        .changed()
+                    {
+                        if visible {
+                            params.filter.hidden_sets.remove(entity);
+                        } else {
+                            params.filter.hidden_sets.insert(*entity);
+                        }
+                    }
+                    if let Ok(color) = params.colors.get(*entity) {
+                        // The picker uses linear RGB, while DisplayColor stores sRGB.
+                        let linear = color.to_bevy().to_linear();
+                        let mut new_color = [linear.red, linear.green, linear.blue];
+                        if ui.color_edit_button_rgb(&mut new_color).changed() {
+                            let [red, green, blue] = new_color;
+                            let srgb = Color::linear_rgb(red, green, blue).to_srgba();
+                            params.commands.trigger(Change::new(
+                                DisplayColor([srgb.red, srgb.green, srgb.blue]),
+                                *entity,
+                            ));
+                        }
+                    }
                     let draft = params.edits.entry(*entity).or_insert_with(|| name.clone());
                     let response = ui.add(TextEdit::singleline(draft).desired_width(160.0));
                     if response.lost_focus() {
@@ -156,6 +164,14 @@ impl WidgetSystem<Tile> for ViewZoneSets<'_, '_> {
                 });
             });
         }
+        if !sets.is_empty() {
+            ui.label(
+                RichText::new("Shared zones stay visible while any of their sets is checked.")
+                    .weak()
+                    .italics(),
+            );
+        }
+        ui.separator();
         if sets.is_empty() {
             ui.label(
                 RichText::new("No zone sets currently exist. Add a named set below.")
@@ -175,6 +191,9 @@ impl WidgetSystem<Tile> for ViewZoneSets<'_, '_> {
                 params.commands.spawn((
                     ZoneSet {
                         name: NameInSite(name),
+                        color: DisplayColor(
+                            DEFAULT_NAV_GRAPH_COLORS[sets.len() % DEFAULT_NAV_GRAPH_COLORS.len()],
+                        ),
                         marker: ZoneSetMarker,
                     },
                     ChildOf(site),
@@ -193,6 +212,7 @@ struct InspectZoneSets<'w, 's> {
     commands: Commands<'w, 's>,
     icons: Res<'w, Icons>,
     choice: Local<'s, Option<Entity>>,
+    change_rank: EventWriter<'w, ChangeRank<ZoneMarker>>,
 }
 
 impl ShareableWidget for InspectZoneSets<'_, '_> {}
@@ -211,6 +231,14 @@ impl WidgetSystem<Inspect> for InspectZoneSets<'_, '_> {
         let Some(site) = params.workspace.root else {
             return;
         };
+        ui.horizontal(|ui| {
+            ui.label("Zone layer");
+            MoveLayer::<ZoneMarker>::new(selection, &mut params.change_rank, &params.icons)
+                .show(ui);
+        });
+        ui.add_space(5.0);
+        ui.separator();
+        ui.add_space(5.0);
         let mut membership = membership.clone();
         let mut sets: Vec<_> = params
             .sets
@@ -386,7 +414,7 @@ mod tests {
         world.spawn((
             ZoneSet {
                 name: NameInSite("A".into()),
-                marker: ZoneSetMarker,
+                ..default()
             },
             ChildOf(site),
         ));
@@ -394,7 +422,7 @@ mod tests {
             .spawn((
                 ZoneSet {
                     name: NameInSite("AB".into()),
-                    marker: ZoneSetMarker,
+                    ..default()
                 },
                 ChildOf(site),
             ))

@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{NameInSite, Path, RefTrait};
+use crate::{DisplayColor, NameInSite, Path, RefTrait};
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Bundle, Component};
 use serde::{Deserialize, Serialize};
@@ -91,15 +91,36 @@ impl<T: RefTrait> From<Path<T>> for Zone<T> {
 ///
 /// Membership is stored on each [`Zone::sets`], allowing a zone to belong to
 /// multiple sets. Removing a set should remove its references from those
-/// memberships while keeping the zones.
+/// memberships while keeping the zones. Colors are display metadata and do not
+/// affect the meaning of a zone. When a zone belongs to several sets, the editor
+/// uses the color of the visible set with the lowest set ID.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct ZoneSet {
     /// The name used to identify the set in the editor.
     pub name: NameInSite,
+    /// Display color shared by the set's zones. Older files default to orange.
+    #[serde(default = "ZoneSet::default_color")]
+    pub color: DisplayColor,
     /// Identifies a zone set entity in the editor.
     #[serde(skip)]
     pub marker: ZoneSetMarker,
+}
+
+impl ZoneSet {
+    fn default_color() -> DisplayColor {
+        DisplayColor([1.0, 0.55, 0.1])
+    }
+}
+
+impl Default for ZoneSet {
+    fn default() -> Self {
+        Self {
+            name: NameInSite("<Unnamed>".to_owned()),
+            color: Self::default_color(),
+            marker: ZoneSetMarker,
+        }
+    }
 }
 
 /// Identifies a site-wide zone set.
@@ -160,6 +181,7 @@ mod tests {
         site.zone_sets.insert(
             10,
             ZoneSet {
+                color: ZoneSet::default_color(),
                 marker: ZoneSetMarker,
                 name: NameInSite("Wi-Fi survey".into()),
             },
@@ -167,6 +189,7 @@ mod tests {
         site.zone_sets.insert(
             20,
             ZoneSet {
+                color: DisplayColor([0.1, 0.6, 0.9]),
                 marker: ZoneSetMarker,
                 name: NameInSite("Inspection areas".into()),
             },

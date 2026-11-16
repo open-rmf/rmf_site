@@ -16,7 +16,11 @@
 */
 
 use crate::{
-    exit_confirmation::SiteChanged, interaction::CategoryVisibility, layers::ZLayer, site::*,
+    exit_confirmation::SiteChanged,
+    interaction::CategoryVisibility,
+    layers::ZLayer,
+    recency::{ChangeRank, RecencyRanking},
+    site::*,
     CurrentWorkspace,
 };
 use bevy::prelude::*;
@@ -28,26 +32,19 @@ use rmf_site_mesh::{line_stroke_mesh, make_closed_path_outline, MeshBuffer};
 use rmf_site_picking::{Hovered, Hovering, Selectable, Selected, Selection};
 use std::collections::HashSet;
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum ZoneSetFilter {
-    #[default]
-    All,
-    Unassigned,
-    Set(Entity),
-}
-
 #[derive(Default, Resource)]
 pub(crate) struct ZoneFilter {
     pub(crate) site: Option<Entity>,
-    pub(crate) selection: ZoneSetFilter,
+    pub(crate) hidden_sets: HashSet<Entity>,
+    pub(crate) hide_unassigned: bool,
 }
 
-impl ZoneSetFilter {
-    fn matches(self, sets: &ZoneSets<Entity>) -> bool {
-        match self {
-            Self::All => true,
-            Self::Unassigned => sets.0.is_empty(),
-            Self::Set(set) => sets.0.contains(&set),
+impl ZoneFilter {
+    fn matches(&self, sets: &ZoneSets<Entity>) -> bool {
+        if sets.0.is_empty() {
+            !self.hide_unassigned
+        } else {
+            sets.0.iter().any(|set| !self.hidden_sets.contains(set))
         }
     }
 }
@@ -61,8 +58,10 @@ pub(super) fn update_zone_sets(
     mut site_changed: ResMut<SiteChanged>,
 ) {
     if filter.site != workspace.root {
-        filter.site = workspace.root;
-        filter.selection = ZoneSetFilter::All;
+        *filter = ZoneFilter {
+            site: workspace.root,
+            ..default()
+        };
     }
     if !added.is_empty() {
         site_changed.0 = true;
@@ -74,8 +73,8 @@ pub(super) fn update_zone_sets(
                 sets.0.remove(&set);
             }
         }
-        if filter.selection == ZoneSetFilter::Set(set) {
-            filter.selection = ZoneSetFilter::All;
+        if filter.hidden_sets.contains(&set) {
+            filter.hidden_sets.remove(&set);
         }
     }
 }
@@ -189,15 +188,7 @@ fn make_zone_mesh(positions: &[[f32; 3]]) -> Mesh {
 
 pub(super) fn add_zone_visuals(
     mut commands: Commands,
-    mut zones: Query<
-        (
-            Entity,
-            &Path<Entity>,
-            &mut ZoneSets<Entity>,
-            Option<&SiteID>,
-        ),
-        Added<ZoneMarker>,
-    >,
+    zones: Query<(Entity, &Path<Entity>, &ZoneSets<Entity>), Added<ZoneMarker>>,
     anchors: AnchorParams,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -205,12 +196,7 @@ pub(super) fn add_zone_visuals(
     visibility: Res<CategoryVisibility<ZoneMarker>>,
     filter: Res<ZoneFilter>,
 ) {
-    for (entity, path, mut sets, id) in &mut zones {
-        if id.is_none() {
-            if let ZoneSetFilter::Set(set) = filter.selection {
-                sets.0.insert(set);
-            }
-        }
+    for (entity, path, sets) in &zones {
         let mesh = meshes.add(zone_mesh(entity, path, &anchors));
         let visual = commands
             .spawn((
@@ -225,7 +211,7 @@ pub(super) fn add_zone_visuals(
             .entity(entity)
             .insert((
                 Transform::from_xyz(0.0, 0.0, ZLayer::Zone.to_z()),
-                if visibility.0 && filter.selection.matches(&sets) {
+                if visibility.0 && filter.matches(sets) {
                     Visibility::Inherited
                 } else {
                     Visibility::Hidden
@@ -266,6 +252,83 @@ pub(super) fn update_zone_visuals(
         };
         if let Some(mesh) = meshes.get_mut(&handle.0) {
             *mesh = zone_mesh(entity, path, &anchors);
+        }
+    }
+}
+
+/// Share each set's display material, using visible sets in stable ID order.
+pub(super) fn update_zone_colors(
+    sets: Query<
+        (
+            Ref<DisplayColor>,
+            Option<Ref<SiteID>>,
+            Ref<MeshMaterial3d<StandardMaterial>>,
+        ),
+        With<ZoneSetMarker>,
+    >,
+    zones: Query<(Ref<ZoneSets<Entity>>, Ref<Children>), With<ZoneMarker>>,
+    mut visuals: Query<&mut MeshMaterial3d<StandardMaterial>, Without<ZoneSetMarker>>,
+    mut removed: RemovedComponents<ZoneSetMarker>,
+    filter: Res<ZoneFilter>,
+    assets: Res<SiteAssets>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    let mut refresh = filter.is_changed() || removed.read().count() > 0;
+    for (color, id, handle) in &sets {
+        if color.is_changed() || handle.is_changed() {
+            if let Some(material) = materials.get_mut(&handle.0) {
+                material.base_color = color.to_bevy().with_alpha(0.35);
+                material.alpha_mode = AlphaMode::Blend;
+                material.unlit = true;
+                material.cull_mode = None;
+            }
+            refresh = true;
+        }
+        refresh |= id.is_some_and(|id| id.is_changed());
+    }
+    for (membership, children) in &zones {
+        if !refresh && !membership.is_changed() && !children.is_changed() {
+            continue;
+        }
+        let handle = membership
+            .0
+            .iter()
+            .filter(|entity| !filter.hidden_sets.contains(entity))
+            .filter_map(|entity| {
+                sets.get(*entity)
+                    .ok()
+                    .map(|(_, id, material)| (*entity, id.map(|id| id.0), material))
+            })
+            .min_by_key(|(entity, id, _)| (id.unwrap_or(u32::MAX), entity.to_bits()))
+            .map(|(_, _, material)| material.0.clone())
+            .unwrap_or_else(|| assets.zone_material.clone());
+        for child in children.iter() {
+            if let Ok(mut material) = visuals.get_mut(child) {
+                if material.0 != handle {
+                    material.0 = handle.clone();
+                }
+            }
+        }
+    }
+}
+
+/// Keep zone surfaces in the band above floors and below measurements.
+pub(super) fn update_zone_ranks(
+    rankings: Query<&RecencyRanking<ZoneMarker>, Changed<RecencyRanking<ZoneMarker>>>,
+    mut zones: Query<&mut Transform, With<ZoneMarker>>,
+    mut changes: EventReader<ChangeRank<ZoneMarker>>,
+    mut site_changed: ResMut<SiteChanged>,
+) {
+    if changes.read().count() > 0 {
+        site_changed.0 = true;
+    }
+    for ranking in &rankings {
+        let step =
+            ZLayer::get_z_offset(ZLayer::Zone, ZLayer::Measurement) / (ranking.len() + 1) as f32;
+        for (rank, entity) in ranking.iter().enumerate() {
+            if let Ok(mut transform) = zones.get_mut(*entity) {
+                transform.translation.z = ZLayer::Zone.to_z() + step * (rank + 1) as f32;
+            }
         }
     }
 }
@@ -315,7 +378,7 @@ pub(crate) fn clear_hidden_zone_selection(
         else {
             continue;
         };
-        let visible = category.0 && (pending.is_some() || filter.selection.matches(sets));
+        let visible = category.0 && (pending.is_some() || filter.matches(sets));
         let next = if visible {
             Visibility::Inherited
         } else {
@@ -353,6 +416,71 @@ mod tests {
     };
 
     #[test]
+    fn shared_zone_uses_visible_set_color_with_stable_priority() {
+        let mut app = visual_test_app();
+        app.add_systems(
+            PostUpdate,
+            (
+                add_material_for_display_colors,
+                ApplyDeferred,
+                update_zone_colors,
+            )
+                .chain()
+                .after(add_zone_visuals),
+        );
+        // Spawn in the opposite order to the site IDs: entity order must not
+        // change a saved zone's color when the site is reloaded.
+        let [second, first] = [(20, [0.0, 0.0, 1.0]), (10, [1.0, 0.0, 0.0])].map(|(id, color)| {
+            app.world_mut()
+                .spawn((
+                    ZoneSet {
+                        color: DisplayColor(color),
+                        ..default()
+                    },
+                    SiteID(id),
+                ))
+                .id()
+        });
+        let (zone, _) = spawn_zone(app.world_mut(), 0.0);
+        app.world_mut()
+            .get_mut::<ZoneSets<Entity>>(zone)
+            .unwrap()
+            .0
+            .extend([first, second]);
+        let color = |world: &World| {
+            let visual = world.get::<Children>(zone).unwrap()[0];
+            let handle = &world
+                .get::<MeshMaterial3d<StandardMaterial>>(visual)
+                .unwrap()
+                .0;
+            world
+                .resource::<Assets<StandardMaterial>>()
+                .get(handle)
+                .unwrap()
+                .base_color
+        };
+        app.update();
+        let red = Color::srgba(1.0, 0.0, 0.0, 0.35);
+        let blue = Color::srgba(0.0, 0.0, 1.0, 0.35);
+        assert_eq!(color(app.world()), red);
+        app.world_mut()
+            .resource_mut::<ZoneFilter>()
+            .hidden_sets
+            .insert(first);
+        app.update();
+        assert_eq!(color(app.world()), blue);
+        app.world_mut()
+            .resource_mut::<ZoneFilter>()
+            .hidden_sets
+            .clear();
+        app.update();
+        assert_eq!(color(app.world()), red);
+        app.world_mut().despawn(first);
+        app.update();
+        assert_eq!(color(app.world()), blue);
+    }
+
+    #[test]
     fn visibility_changes_only_when_needed_and_handles_finished_previews() {
         #[derive(Resource, Default)]
         struct VisibilityChanges(usize);
@@ -364,10 +492,9 @@ mod tests {
                 changes.0 += zones.iter().count();
             },
         );
-        let set = app.world_mut().spawn(ZoneSetMarker).id();
         let (zone, _) = spawn_zone(app.world_mut(), 0.0);
         app.world_mut().entity_mut(zone).insert(SiteID(1));
-        app.world_mut().resource_mut::<ZoneFilter>().selection = ZoneSetFilter::Set(set);
+        app.world_mut().resource_mut::<ZoneFilter>().hide_unassigned = true;
         app.update();
         app.update();
         let changes = app.world().resource::<VisibilityChanges>().0;
@@ -410,7 +537,11 @@ mod tests {
             .extend([first, second]);
         let (unassigned, _) = spawn_zone(app.world_mut(), 0.0);
         app.update();
-        app.world_mut().resource_mut::<ZoneFilter>().selection = ZoneSetFilter::Set(first);
+        {
+            let mut filter = app.world_mut().resource_mut::<ZoneFilter>();
+            filter.hidden_sets.insert(second);
+            filter.hide_unassigned = true;
+        }
         app.world_mut()
             .run_system_once(clear_hidden_zone_selection)
             .unwrap();
@@ -422,7 +553,11 @@ mod tests {
             *app.world().get::<Visibility>(unassigned).unwrap(),
             Visibility::Hidden
         );
-        app.world_mut().resource_mut::<ZoneFilter>().selection = ZoneSetFilter::Set(second);
+        {
+            let mut filter = app.world_mut().resource_mut::<ZoneFilter>();
+            filter.hidden_sets.remove(&second);
+            filter.hidden_sets.insert(first);
+        }
         app.world_mut()
             .run_system_once(clear_hidden_zone_selection)
             .unwrap();
@@ -438,7 +573,11 @@ mod tests {
             is_selected: true,
             ..default()
         });
-        app.world_mut().resource_mut::<ZoneFilter>().selection = ZoneSetFilter::Unassigned;
+        {
+            let mut filter = app.world_mut().resource_mut::<ZoneFilter>();
+            filter.hidden_sets.insert(second);
+            filter.hide_unassigned = false;
+        }
         app.world_mut()
             .run_system_once(clear_hidden_zone_selection)
             .unwrap();
@@ -499,7 +638,10 @@ mod tests {
             .0
             .extend([first, second]);
         app.update();
-        app.world_mut().resource_mut::<ZoneFilter>().selection = ZoneSetFilter::Set(first);
+        app.world_mut()
+            .resource_mut::<ZoneFilter>()
+            .hidden_sets
+            .insert(first);
         app.world_mut().resource_mut::<SiteChanged>().0 = false;
         app.world_mut()
             .entity_mut(first)
@@ -520,37 +662,7 @@ mod tests {
             app.world().get::<ZoneSets<Entity>>(zone).unwrap().0,
             std::collections::BTreeSet::from([second])
         );
-        assert_eq!(
-            app.world().resource::<ZoneFilter>().selection,
-            ZoneSetFilter::All
-        );
-    }
-
-    #[test]
-    fn drawing_in_a_filtered_set_assigns_new_zones_but_preserves_loaded_membership() {
-        let mut app = visual_test_app();
-        let set = app.world_mut().spawn(ZoneSetMarker).id();
-        app.world_mut().resource_mut::<ZoneFilter>().selection = ZoneSetFilter::Set(set);
-        let (new_zone, _) = spawn_zone(app.world_mut(), 0.0);
-        let (loaded_zone, _) = spawn_zone(app.world_mut(), 0.0);
-        app.world_mut().entity_mut(loaded_zone).insert(SiteID(50));
-        app.update();
-        assert!(app
-            .world()
-            .get::<ZoneSets<Entity>>(new_zone)
-            .unwrap()
-            .0
-            .contains(&set));
-        assert!(app
-            .world()
-            .get::<ZoneSets<Entity>>(loaded_zone)
-            .unwrap()
-            .0
-            .is_empty());
-        assert_eq!(
-            *app.world().get::<Visibility>(loaded_zone).unwrap(),
-            Visibility::Hidden
-        );
+        assert!(app.world().resource::<ZoneFilter>().hidden_sets.is_empty());
     }
 
     #[test]

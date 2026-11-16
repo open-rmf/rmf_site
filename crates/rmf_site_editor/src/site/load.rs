@@ -474,6 +474,10 @@ fn generate_site_entities(
         commands
             .entity(level_entity)
             .insert(
+                RecencyRanking::<ZoneMarker>::from_u32(&level_data.rankings.zones, &id_to_entity)
+                    .unwrap_or(RecencyRanking::new()),
+            )
+            .insert(
                 RecencyRanking::<FloorMarker>::from_u32(&level_data.rankings.floors, &id_to_entity)
                     .unwrap_or(RecencyRanking::new()),
             )

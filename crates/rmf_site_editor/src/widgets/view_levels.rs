@@ -18,7 +18,7 @@
 use crate::{
     site::{
         Category, Change, CurrentLevel, Delete, DrawingMarker, FloorMarker, LevelElevation,
-        LevelProperties, NameInSite,
+        LevelProperties, NameInSite, ZoneMarker,
     },
     widgets::{prelude::*, Icons},
     AppState, CurrentWorkspace, RecencyRanking,
@@ -102,6 +102,7 @@ impl<'w, 's> ViewLevels<'w, 's> {
                             Category::Level,
                             RecencyRanking::<DrawingMarker>::default(),
                             RecencyRanking::<FloorMarker>::default(),
+                            RecencyRanking::<ZoneMarker>::default(),
                         ))
                         .id();
                     self.current_level.0 = Some(new_level);

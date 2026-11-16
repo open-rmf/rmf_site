@@ -158,8 +158,10 @@ pub mod wall;
 pub use wall::*;
 
 mod zone;
-use zone::{add_zone_visuals, update_zone_sets, update_zone_visuals};
-pub(crate) use zone::{clear_hidden_zone_selection, ZoneFilter, ZoneSetFilter};
+use zone::{
+    add_zone_visuals, update_zone_colors, update_zone_ranks, update_zone_sets, update_zone_visuals,
+};
+pub(crate) use zone::{clear_hidden_zone_selection, ZoneFilter};
 
 use crate::recency::{RecencyRank, RecencyRankingPlugin};
 use crate::{AppState, RegisterIssueType};
@@ -396,12 +398,21 @@ impl Plugin for SitePlugin {
         )
         .add_systems(
             PostUpdate,
-            (add_zone_visuals, ApplyDeferred, update_zone_visuals)
+            (
+                add_zone_visuals,
+                ApplyDeferred,
+                update_zone_visuals,
+                update_zone_colors,
+                update_zone_ranks,
+            )
                 .chain()
                 .in_set(SiteUpdateSet::BetweenTransformAndVisibility)
                 .run_if(AppState::in_displaying_mode()),
         )
-        .add_plugins(ChangePlugin::<ZoneSets<Entity>>::default())
+        .add_plugins((
+            ChangePlugin::<ZoneSets<Entity>>::default(),
+            RecencyRankingPlugin::<ZoneMarker>::default(),
+        ))
         .init_resource::<ZoneFilter>()
         .add_systems(Update, update_zone_sets.before(clear_hidden_zone_selection))
         .add_systems(Update, save_site)

@@ -484,6 +484,7 @@ fn generate_levels(
                 &Children,
                 Option<&RecencyRanking<FloorMarker>>,
                 Option<&RecencyRanking<DrawingMarker>>,
+                Option<&RecencyRanking<ZoneMarker>>,
             ),
             Without<Pending>,
         >,
@@ -552,6 +553,7 @@ fn generate_levels(
                 level_children,
                 floor_ranking,
                 drawing_ranking,
+                zone_ranking,
             )) = q_levels.get(c)
             {
                 let mut level = Level::new(
@@ -566,6 +568,9 @@ fn generate_levels(
                             .map(|r| r.to_u32(&q_site_ids))
                             .unwrap_or(Vec::new()),
                         drawings: drawing_ranking
+                            .map(|r| r.to_u32(&q_site_ids))
+                            .unwrap_or(Vec::new()),
+                        zones: zone_ranking
                             .map(|r| r.to_u32(&q_site_ids))
                             .unwrap_or(Vec::new()),
                     },
@@ -746,6 +751,10 @@ fn generate_levels(
                         );
                     }
                 }
+                level
+                    .rankings
+                    .zones
+                    .retain(|id| level.zones.contains_key(id));
                 levels.insert(level_id.0, level);
             }
         }
@@ -1770,17 +1779,18 @@ fn generate_tasks(
 fn generate_zone_sets(world: &mut World, site: Entity) -> BTreeMap<u32, ZoneSet> {
     let mut state: SystemState<(
         Query<&Children>,
-        Query<(&SiteID, &NameInSite), With<ZoneSetMarker>>,
+        Query<(&SiteID, &NameInSite, &DisplayColor), With<ZoneSetMarker>>,
     )> = SystemState::new(world);
     let (children, sets) = state.get(world);
     let mut result = BTreeMap::new();
     if let Ok(children) = children.get(site) {
         for child in children {
-            if let Ok((id, name)) = sets.get(*child) {
+            if let Ok((id, name, color)) = sets.get(*child) {
                 result.insert(
                     id.0,
                     ZoneSet {
                         name: name.clone(),
+                        color: *color,
                         marker: ZoneSetMarker,
                     },
                 );
@@ -2199,14 +2209,27 @@ mod tests {
         assert_eq!(zone_id, 200);
         assign_site_ids(&mut world, site).unwrap();
         assert_eq!(world.get::<SiteID>(zone_entity).unwrap().0, zone_id);
-        // Hidden zones are still saved.
+        let ranking = RecencyRanking::<ZoneMarker>::from_u32(
+            &vec![zone_id],
+            &HashMap::from([(zone_id, zone_entity)]),
+        )
+        .unwrap();
+        world.entity_mut(level).insert(ranking);
+        // Hidden zones and their order are still saved.
         let saved = generate_levels(&mut world, site).unwrap();
+        assert_eq!(saved[&10].rankings.zones, vec![zone_id]);
         let saved = &saved[&10].zones[&zone_id];
         assert_eq!(saved.anchors.0, vec![101, 102, 103]);
         assert_eq!(saved.name.0, "Weak Wi-Fi");
 
         let set = world
-            .spawn((NameInSite("Survey".into()), ZoneSetMarker, ChildOf(site)))
+            .spawn((
+                ZoneSet {
+                    name: NameInSite("Survey".into()),
+                    ..default()
+                },
+                ChildOf(site),
+            ))
             .id();
         world
             .get_mut::<ZoneSets<Entity>>(zone_entity)
@@ -2227,11 +2250,11 @@ mod tests {
             std::collections::BTreeSet::from([set_id])
         );
 
-        // Unfinished polygons are omitted.
+        // Unfinished polygons are omitted from both geometry and display order.
         world.entity_mut(zone_entity).insert(Pending);
-        assert!(generate_levels(&mut world, site).unwrap()[&10]
-            .zones
-            .is_empty());
+        let saved = generate_levels(&mut world, site).unwrap();
+        assert!(saved[&10].zones.is_empty());
+        assert!(saved[&10].rankings.zones.is_empty());
     }
 
     #[test]
