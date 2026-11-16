@@ -404,7 +404,7 @@ fn finish_path(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::site::{Dependents, SiteAssets, ZoneBundle};
+    use crate::site::{Dependents, SiteAssets, Zone};
     use bevy::ecs::system::SystemState;
     use crossflow::testing::TestingContext;
 
@@ -435,7 +435,7 @@ mod tests {
             );
             let creation = CreatePath::new(
                 |path, commands| {
-                    commands.insert((ZoneBundle::from(path), Pending));
+                    commands.insert((Zone::from(path), Pending));
                     Ok(())
                 },
                 3,
@@ -462,10 +462,7 @@ mod tests {
         let cursor = world.spawn(Dependents::default()).id();
         let other = world.spawn_empty().id();
         let zone = world
-            .spawn((
-                ZoneBundle::from(Path(vec![shared, provisional, cursor])),
-                Pending,
-            ))
+            .spawn((Zone::from(Path(vec![shared, provisional, cursor])), Pending))
             .id();
         for anchor in [shared, provisional, cursor] {
             world.get_mut::<Dependents>(anchor).unwrap().insert(zone);
@@ -473,7 +470,7 @@ mod tests {
         world.get_mut::<Dependents>(shared).unwrap().insert(other);
         let mut creation = CreatePath::new(
             |path, commands| {
-                commands.insert((ZoneBundle::from(path), Pending));
+                commands.insert((Zone::from(path), Pending));
                 Ok(())
             },
             3,

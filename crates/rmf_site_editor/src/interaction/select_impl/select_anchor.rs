@@ -24,7 +24,7 @@ use crossflow::*;
 
 use crate::interaction::{set_visibility, Cursor, GizmoBlockers, HighlightAnchors};
 use crate::site::{
-    AnchorBundle, ChildCabinAnchorGroup, CurrentEditDrawing, DrawingMarker, Pending, ZoneBundle,
+    AnchorBundle, ChildCabinAnchorGroup, CurrentEditDrawing, DrawingMarker, Pending, Zone,
 };
 use crate::workspace::CurrentWorkspace;
 use crate::{interaction::select_impl::*, site::CurrentLevel};
@@ -216,7 +216,7 @@ impl<'w, 's> AnchorSelection<'w, 's> {
     pub(crate) fn create_zone(&mut self) {
         self.create_path(
             |path, commands| {
-                commands.insert((ZoneBundle::from(path), Pending));
+                commands.insert((Zone::from(path), Pending));
                 Ok(())
             },
             3,

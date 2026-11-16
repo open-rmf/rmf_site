@@ -159,9 +159,7 @@ pub use wall::*;
 
 mod zone;
 use zone::{add_zone_visuals, update_zone_sets, update_zone_visuals};
-pub(crate) use zone::{
-    clear_hidden_zone_selection, ZoneBundle, ZoneFilter, ZoneMarker, ZoneSetFilter, ZoneSetMarker,
-};
+pub(crate) use zone::{clear_hidden_zone_selection, ZoneFilter, ZoneSetFilter};
 
 use crate::recency::{RecencyRank, RecencyRankingPlugin};
 use crate::{AppState, RegisterIssueType};

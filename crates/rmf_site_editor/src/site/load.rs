@@ -326,13 +326,7 @@ fn generate_site_entities(
 
     for (set_id, set) in &site_data.zone_sets {
         let entity = commands
-            .spawn((
-                set.name.clone(),
-                ZoneSetMarker,
-                Group,
-                SiteID(*set_id),
-                ChildOf(site_id),
-            ))
+            .spawn((set.clone(), SiteID(*set_id), ChildOf(site_id)))
             .id();
         id_to_entity.insert(*set_id, entity);
         consider_id(*set_id);
@@ -420,7 +414,7 @@ fn generate_site_entities(
                 .convert(&id_to_entity)
                 .as_broken_error(site_id, "zone")?;
             commands
-                .spawn(ZoneBundle::from(zone))
+                .spawn(zone)
                 .insert(SiteID(*zone_id))
                 .insert(ChildOf(level_entity));
             consider_id(*zone_id);

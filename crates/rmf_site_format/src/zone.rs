@@ -17,7 +17,7 @@
 
 use crate::{NameInSite, Path, RefTrait};
 #[cfg(feature = "bevy")]
-use bevy::prelude::Component;
+use bevy::prelude::{Bundle, Component};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, HashMap};
 
@@ -42,6 +42,7 @@ use std::collections::{BTreeSet, HashMap};
 /// empty. Names, boundaries, and memberships are saved with the site; editor
 /// visibility and set filters are not part of the format.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct Zone<T: RefTrait> {
     /// Ordered boundary anchors. The first anchor does not need to be repeated
     /// at the end.
@@ -51,7 +52,15 @@ pub struct Zone<T: RefTrait> {
     /// References to the site-wide sets that this zone belongs to.
     #[serde(default, skip_serializing_if = "ZoneSets::is_empty")]
     pub sets: ZoneSets<T>,
+    /// Identifies a zone entity in the editor.
+    #[serde(skip)]
+    pub marker: ZoneMarker,
 }
+
+/// Identifies a polygon zone.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct ZoneMarker;
 
 impl<T: RefTrait> Zone<T> {
     /// Remap anchor and set references, preserving the zone's name.
@@ -62,6 +71,7 @@ impl<T: RefTrait> Zone<T> {
             anchors: self.anchors.convert(id_map)?,
             name: self.name.clone(),
             sets: self.sets.convert(id_map)?,
+            marker: ZoneMarker,
         })
     }
 }
@@ -72,6 +82,7 @@ impl<T: RefTrait> From<Path<T>> for Zone<T> {
             anchors,
             name: NameInSite("<Unnamed>".to_owned()),
             sets: ZoneSets::default(),
+            marker: ZoneMarker,
         }
     }
 }
@@ -82,10 +93,19 @@ impl<T: RefTrait> From<Path<T>> for Zone<T> {
 /// multiple sets. Removing a set should remove its references from those
 /// memberships while keeping the zones.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct ZoneSet {
     /// The name used to identify the set in the editor.
     pub name: NameInSite,
+    /// Identifies a zone set entity in the editor.
+    #[serde(skip)]
+    pub marker: ZoneSetMarker,
 }
+
+/// Identifies a site-wide zone set.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct ZoneSetMarker;
 
 /// References to the site-wide [`ZoneSet`]s that a zone belongs to.
 ///
@@ -130,6 +150,7 @@ mod tests {
             anchors: Path(vec![1_u32, 2, 3]),
             name: NameInSite("Desk aisle".into()),
             sets: ZoneSets(BTreeSet::from([10, 20])),
+            marker: ZoneMarker,
         };
         let mapping = HashMap::from([(1, 101_u32), (2, 102), (3, 103), (10, 110), (20, 120)]);
         let converted = zone.convert(&mapping).unwrap();
@@ -139,12 +160,14 @@ mod tests {
         site.zone_sets.insert(
             10,
             ZoneSet {
+                marker: ZoneSetMarker,
                 name: NameInSite("Wi-Fi survey".into()),
             },
         );
         site.zone_sets.insert(
             20,
             ZoneSet {
+                marker: ZoneSetMarker,
                 name: NameInSite("Inspection areas".into()),
             },
         );
@@ -222,6 +245,7 @@ mod tests {
             anchors: Path(vec![1_u32, 2, 3]),
             name: NameInSite("Poor Wi-Fi corridor".into()),
             sets: ZoneSets::default(),
+            marker: ZoneMarker,
         };
         let converted = zone
             .convert(&HashMap::from([(1, 11_u32), (2, 12), (3, 13)]))

@@ -451,6 +451,7 @@ fn generate_levels(
             ),
             (With<ZoneMarker>, Without<Pending>),
         >,
+        Query<&SiteID, With<ZoneSetMarker>>,
         Query<(&LightKind, &Pose, &SiteID)>,
         Query<
             (
@@ -499,6 +500,7 @@ fn generate_levels(
         q_fiducials,
         q_floors,
         q_zones,
+        q_zone_sets,
         q_lights,
         q_measurements,
         q_physical_cameras,
@@ -674,12 +676,20 @@ fn generate_levels(
                         level.zones.insert(
                             id.0,
                             Zone {
+                                marker: ZoneMarker,
                                 anchors: get_anchor_id_path(c, &path.0)?,
                                 name: name.clone(),
                                 sets: ZoneSets(
                                     sets.0
                                         .iter()
-                                        .map(|set| get_group_id(c, *set))
+                                        .map(|set| {
+                                            q_zone_sets.get(*set).map(|id| id.0).map_err(|_| {
+                                                SiteGenerationError::BrokenAffiliation {
+                                                    object: c,
+                                                    group: *set,
+                                                }
+                                            })
+                                        })
                                         .collect::<Result<_, _>>()?,
                                 ),
                             },
@@ -1744,7 +1754,13 @@ fn generate_zone_sets(world: &mut World, site: Entity) -> BTreeMap<u32, ZoneSet>
     if let Ok(children) = children.get(site) {
         for child in children {
             if let Ok((id, name)) = sets.get(*child) {
-                result.insert(id.0, ZoneSet { name: name.clone() });
+                result.insert(
+                    id.0,
+                    ZoneSet {
+                        name: name.clone(),
+                        marker: ZoneSetMarker,
+                    },
+                );
             }
         }
     }
@@ -2073,7 +2089,7 @@ mod tests {
         .unwrap();
         let zone_entity = world
             .spawn((
-                ZoneBundle::from(zone.convert(&mapping).unwrap()),
+                zone.convert(&mapping).unwrap(),
                 ChildOf(level),
                 Visibility::Hidden,
             ))
@@ -2090,12 +2106,7 @@ mod tests {
         assert_eq!(saved.name.0, "Weak Wi-Fi");
 
         let set = world
-            .spawn((
-                NameInSite("Survey".into()),
-                ZoneSetMarker,
-                Group,
-                ChildOf(site),
-            ))
+            .spawn((NameInSite("Survey".into()), ZoneSetMarker, ChildOf(site)))
             .id();
         world
             .get_mut::<ZoneSets<Entity>>(zone_entity)
@@ -2104,6 +2115,9 @@ mod tests {
             .insert(set);
         assign_site_ids(&mut world, site).unwrap();
         let set_id = world.get::<SiteID>(set).unwrap().0;
+        assert_eq!(set_id, zone_id + 1);
+        assert_eq!(world.get::<NextSiteID>(site).unwrap().0, set_id + 1);
+        assert!(world.get::<Group>(set).is_none());
         assert_eq!(
             generate_zone_sets(&mut world, site)[&set_id].name.0,
             "Survey"
@@ -2131,7 +2145,7 @@ mod tests {
             .id();
         let missing_anchor = world.spawn_empty().id();
         world.spawn((
-            ZoneBundle::from(rmf_site_format::Path(vec![missing_anchor])),
+            Zone::from(rmf_site_format::Path(vec![missing_anchor])),
             SiteID(20),
             ChildOf(level),
         ));

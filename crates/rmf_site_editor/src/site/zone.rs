@@ -25,12 +25,6 @@ use rmf_site_mesh::{line_stroke_mesh, make_closed_path_outline, MeshBuffer};
 use rmf_site_picking::{Hovered, Hovering, Selectable, Selected, Selection};
 use std::collections::HashSet;
 
-#[derive(Component, Clone, Copy, Debug, Default)]
-pub(crate) struct ZoneMarker;
-
-#[derive(Component)]
-pub(crate) struct ZoneSetMarker;
-
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ZoneSetFilter {
     #[default]
@@ -74,31 +68,6 @@ pub(super) fn update_zone_sets(
         if filter.selection == ZoneSetFilter::Set(set) {
             filter.selection = ZoneSetFilter::All;
         }
-    }
-}
-
-#[derive(Bundle)]
-pub(crate) struct ZoneBundle {
-    anchors: Path<Entity>,
-    name: NameInSite,
-    sets: ZoneSets<Entity>,
-    marker: ZoneMarker,
-}
-
-impl From<Zone<Entity>> for ZoneBundle {
-    fn from(zone: Zone<Entity>) -> Self {
-        Self {
-            anchors: zone.anchors,
-            name: zone.name,
-            sets: zone.sets,
-            marker: ZoneMarker,
-        }
-    }
-}
-
-impl From<Path<Entity>> for ZoneBundle {
-    fn from(anchors: Path<Entity>) -> Self {
-        Self::from(Zone::from(anchors))
     }
 }
 
@@ -561,7 +530,7 @@ mod tests {
             })
             .collect::<Vec<_>>();
         let zone = world
-            .spawn((ZoneBundle::from(Path(anchors.clone())), ChildOf(level)))
+            .spawn((Zone::from(Path(anchors.clone())), ChildOf(level)))
             .id();
         (zone, anchors)
     }
@@ -687,7 +656,7 @@ mod tests {
         let (zone, anchors) = spawn_zone(app.world_mut(), 0.0);
         let other = app
             .world_mut()
-            .spawn(ZoneBundle::from(Path(anchors.clone())))
+            .spawn(Zone::from(Path(anchors.clone())))
             .id();
         app.update();
         app.world_mut().send_event(Delete::new(zone));

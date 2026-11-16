@@ -19,7 +19,7 @@ use crate::{
     exit_confirmation::SiteChanged,
     interaction::AnchorSelection,
     site::{
-        Change, CurrentLevel, Group, NameInSite, ZoneFilter, ZoneMarker, ZoneSetFilter,
+        Change, CurrentLevel, NameInSite, ZoneFilter, ZoneMarker, ZoneSet, ZoneSetFilter,
         ZoneSetMarker, ZoneSets,
     },
     widgets::{prelude::*, Icons, Inspect, InspectionPlugin},
@@ -175,9 +175,13 @@ impl WidgetSystem<Tile> for ViewZoneSets<'_, '_> {
                 .add_enabled(valid, bevy_egui::egui::Button::new("Add"))
                 .clicked()
             {
-                params
-                    .commands
-                    .spawn((NameInSite(name), ZoneSetMarker, Group, ChildOf(site)));
+                params.commands.spawn((
+                    ZoneSet {
+                        name: NameInSite(name),
+                        marker: ZoneSetMarker,
+                    },
+                    ChildOf(site),
+                ));
                 params.site_changed.0 = true;
                 params.new_name.clear();
             }
@@ -351,6 +355,7 @@ mod tests {
             .single(&world)
             .unwrap();
         assert_eq!(world.get::<ChildOf>(set).unwrap().parent(), site);
+        assert!(world.get::<crate::site::Group>(set).is_none());
 
         // Saving clears the flag; deleting must mark the site changed again.
         world.resource_mut::<SiteChanged>().0 = false;
