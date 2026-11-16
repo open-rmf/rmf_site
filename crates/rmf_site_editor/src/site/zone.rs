@@ -15,7 +15,10 @@
  *
 */
 
-use crate::{interaction::CategoryVisibility, layers::ZLayer, site::*};
+use crate::{
+    exit_confirmation::SiteChanged, interaction::CategoryVisibility, layers::ZLayer, site::*,
+    CurrentWorkspace,
+};
 use bevy::prelude::*;
 use geo::{
     line_intersection::{line_intersection, LineIntersection},
@@ -53,13 +56,19 @@ pub(super) fn update_zone_sets(
     mut deleted: RemovedComponents<ZoneSetMarker>,
     mut zones: Query<&mut ZoneSets<Entity>>,
     mut filter: ResMut<ZoneFilter>,
-    workspace: Res<crate::CurrentWorkspace>,
+    workspace: Res<CurrentWorkspace>,
+    added: Query<(), (Added<ZoneSetMarker>, Without<SiteID>)>,
+    mut site_changed: ResMut<SiteChanged>,
 ) {
     if filter.site != workspace.root {
         filter.site = workspace.root;
         filter.selection = ZoneSetFilter::All;
     }
+    if !added.is_empty() {
+        site_changed.0 = true;
+    }
     for set in deleted.read() {
+        site_changed.0 = true;
         for mut sets in &mut zones {
             if sets.0.contains(&set) {
                 sets.0.remove(&set);
@@ -403,7 +412,12 @@ mod tests {
     #[test]
     fn deleting_a_zone_set_preserves_zones_and_other_memberships() {
         let mut app = visual_test_app();
-        app.init_resource::<crate::CurrentWorkspace>()
+        app.init_resource::<CurrentWorkspace>()
+            .init_resource::<CurrentLevel>()
+            .init_resource::<Trashcan>()
+            .add_event::<rmf_site_picking::Select>()
+            .add_event::<crate::log::Log>()
+            .add_plugins(DeletionPlugin)
             .add_systems(Update, update_zone_sets);
         let first = app.world_mut().spawn(ZoneSetMarker).id();
         let second = app.world_mut().spawn(ZoneSetMarker).id();
@@ -415,8 +429,22 @@ mod tests {
             .extend([first, second]);
         app.update();
         app.world_mut().resource_mut::<ZoneFilter>().selection = ZoneSetFilter::Set(first);
-        app.world_mut().despawn(first);
+        app.world_mut().resource_mut::<SiteChanged>().0 = false;
+        app.world_mut()
+            .entity_mut(first)
+            .insert(PreventDeletion::default());
+        app.world_mut().send_event(Delete::new(first));
         app.update();
+        assert!(app.world().get_entity(first).is_ok());
+        assert!(!app.world().resource::<SiteChanged>().0);
+        app.world_mut()
+            .entity_mut(first)
+            .remove::<PreventDeletion>();
+        app.world_mut().send_event(Delete::new(first));
+        app.update();
+        app.world_mut().run_system_once(clear_trashcan).unwrap();
+        app.update();
+        assert!(app.world().resource::<SiteChanged>().0);
         assert_eq!(
             app.world().get::<ZoneSets<Entity>>(zone).unwrap().0,
             std::collections::BTreeSet::from([second])
@@ -503,6 +531,7 @@ mod tests {
             .init_resource::<Assets<StandardMaterial>>()
             .init_asset::<Image>()
             .init_resource::<SiteAssets>()
+            .init_resource::<SiteChanged>()
             .init_resource::<ZoneFilter>()
             .init_resource::<Selection>()
             .init_resource::<Hovering>()

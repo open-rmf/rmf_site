@@ -16,10 +16,9 @@
 */
 
 use crate::{
-    exit_confirmation::SiteChanged,
     interaction::AnchorSelection,
     site::{
-        Change, CurrentLevel, NameInSite, ZoneFilter, ZoneMarker, ZoneSet, ZoneSetFilter,
+        Change, CurrentLevel, Delete, NameInSite, ZoneFilter, ZoneMarker, ZoneSet, ZoneSetFilter,
         ZoneSetMarker, ZoneSets,
     },
     widgets::{prelude::*, Icons, Inspect, InspectionPlugin},
@@ -69,7 +68,7 @@ struct ViewZoneSets<'w, 's> {
     workspace: Res<'w, CurrentWorkspace>,
     app_state: Res<'w, State<AppState>>,
     filter: ResMut<'w, ZoneFilter>,
-    site_changed: ResMut<'w, SiteChanged>,
+    delete: EventWriter<'w, Delete>,
     icons: Res<'w, Icons>,
     commands: Commands<'w, 's>,
     new_name: Local<'s, String>,
@@ -150,8 +149,7 @@ impl WidgetSystem<Tile> for ViewZoneSets<'_, '_> {
                         .on_hover_text("Delete zone set")
                         .clicked()
                     {
-                        params.commands.entity(*entity).despawn();
-                        params.site_changed.0 = true;
+                        params.delete.write(Delete::new(*entity));
                     }
                 });
             });
@@ -182,7 +180,6 @@ impl WidgetSystem<Tile> for ViewZoneSets<'_, '_> {
                     },
                     ChildOf(site),
                 ));
-                params.site_changed.0 = true;
                 params.new_name.clear();
             }
         });
@@ -326,41 +323,59 @@ mod tests {
         }
     }
 
-    #[test]
-    fn creating_and_deleting_zone_sets_marks_unsaved_changes() {
+    fn test_app() -> (App, Entity) {
         let mut app = App::new();
         app.add_plugins((MinimalPlugins, AssetPlugin::default()))
             .init_asset::<Image>()
             .init_resource::<bevy_egui::EguiUserTextures>()
-            .init_resource::<Icons>();
-        let mut world = std::mem::take(app.world_mut());
-        let site = world.spawn_empty().id();
-        world.insert_resource(CurrentWorkspace {
+            .init_resource::<Icons>()
+            .init_resource::<ZoneFilter>()
+            .add_event::<Delete>()
+            .add_plugins(crate::site::ChangePlugin::<NameInSite>::default());
+        let site = app.world_mut().spawn_empty().id();
+        app.insert_resource(CurrentWorkspace {
             root: Some(site),
             ..default()
-        });
-        world.insert_resource(State::new(AppState::SiteEditor));
-        world.init_resource::<ZoneFilter>();
-        world.init_resource::<SiteChanged>();
-        let mut state = SystemState::<ViewZoneSets>::new(&mut world);
-        *state.get_mut(&mut world).new_name = "Survey".into();
-        let context = egui::Context::default();
-        show_sets(&context, &mut world, &mut state, vec![]);
-        assert!(!world.resource::<SiteChanged>().0);
+        })
+        .insert_resource(State::new(AppState::SiteEditor));
+        (app, site)
+    }
 
-        click_button("Add", &context, &mut world, &mut state);
-        assert!(world.resource::<SiteChanged>().0);
+    #[test]
+    fn creating_zone_sets_uses_format_bundle() {
+        let (mut app, site) = test_app();
+        let world = app.world_mut();
+        let mut state = SystemState::<ViewZoneSets>::new(world);
+        *state.get_mut(world).new_name = "Survey".into();
+        let context = egui::Context::default();
+        show_sets(&context, world, &mut state, vec![]);
+        click_button("Add", &context, world, &mut state);
         let set = world
             .query_filtered::<Entity, With<ZoneSetMarker>>()
-            .single(&world)
+            .single(world)
             .unwrap();
         assert_eq!(world.get::<ChildOf>(set).unwrap().parent(), site);
         assert!(world.get::<crate::site::Group>(set).is_none());
+    }
 
-        // Saving clears the flag; deleting must mark the site changed again.
-        world.resource_mut::<SiteChanged>().0 = false;
-        click_button("Delete", &context, &mut world, &mut state);
-        assert!(world.resource::<SiteChanged>().0);
-        assert!(world.get_entity(set).is_err());
+    #[test]
+    fn delete_button_requests_standard_deletion() {
+        let (mut app, site) = test_app();
+        let world = app.world_mut();
+        let set = world
+            .spawn((
+                ZoneSet {
+                    name: NameInSite("Survey".into()),
+                    marker: ZoneSetMarker,
+                },
+                ChildOf(site),
+            ))
+            .id();
+        let mut state = SystemState::<ViewZoneSets>::new(world);
+        let context = egui::Context::default();
+        click_button("Delete", &context, world, &mut state);
+        let events: Vec<_> = world.resource_mut::<Events<Delete>>().drain().collect();
+        assert_eq!(events, vec![Delete::new(set)]);
+        assert!(world.get_entity(set).is_ok());
     }
 }
