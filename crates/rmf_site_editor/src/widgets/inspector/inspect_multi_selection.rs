@@ -36,7 +36,7 @@ pub struct InspectMultiSelection<'w, 's> {
     model_instances:
         Query<'w, 's, (Entity, &'static NameInSite, &'static SiteID), With<InstanceMarker>>,
     delete: EventWriter<'w, Delete>,
-    select: EventWriter<'w, Select>,
+    pub(super) select: EventWriter<'w, Select>,
     multi_edit_pose_widget: MultiEditPoseWidget<'w, 's>,
     hover: EventWriter<'w, Hover>,
 }
