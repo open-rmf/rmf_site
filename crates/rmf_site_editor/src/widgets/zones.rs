@@ -22,11 +22,11 @@ use crate::{
         Change, CurrentLevel, Group, NameInSite, ZoneFilter, ZoneMarker, ZoneSetFilter,
         ZoneSetMarker, ZoneSets,
     },
-    widgets::{prelude::*, Inspect, InspectionPlugin},
+    widgets::{prelude::*, Icons, Inspect, InspectionPlugin},
     AppState, CurrentWorkspace,
 };
 use bevy::prelude::*;
-use bevy_egui::egui::{ComboBox, TextEdit};
+use bevy_egui::egui::{ComboBox, ImageButton, RichText, TextEdit};
 use rmf_site_egui::*;
 
 pub(crate) struct ZonesPlugin;
@@ -42,7 +42,7 @@ impl Plugin for ZonesPlugin {
             .spawn((MenuItem::Text("Add Zone".into()), ChildOf(tool)))
             .id();
         app.add_plugins((
-            PropertiesTilePlugin::<ViewZoneSets>::new("Zone Sets"),
+            PropertiesTilePlugin::<ViewZoneSets>::new("Zones"),
             InspectionPlugin::<InspectZoneSets>::new(),
         ))
         .insert_resource(ZoneMenu(item))
@@ -79,6 +79,7 @@ struct ViewZoneSets<'w, 's> {
     app_state: Res<'w, State<AppState>>,
     filter: ResMut<'w, ZoneFilter>,
     site_changed: ResMut<'w, SiteChanged>,
+    icons: Res<'w, Icons>,
     commands: Commands<'w, 's>,
     new_name: Local<'s, String>,
 }
@@ -112,27 +113,30 @@ impl WidgetSystem<Tile> for ViewZoneSets<'_, '_> {
                 .map(|(_, name)| name.as_str())
                 .unwrap_or("All zones"),
         };
-        ComboBox::from_label("Show")
-            .selected_text(selected)
-            .show_ui(ui, |ui| {
-                ui.selectable_value(
-                    &mut params.filter.selection,
-                    ZoneSetFilter::All,
-                    "All zones",
-                );
-                ui.selectable_value(
-                    &mut params.filter.selection,
-                    ZoneSetFilter::Unassigned,
-                    "Without a set",
-                );
-                for (entity, name) in &sets {
+        ui.horizontal(|ui| {
+            ui.label("Filter viewport:");
+            ComboBox::from_id_salt("zone_filter")
+                .selected_text(selected)
+                .show_ui(ui, |ui| {
                     ui.selectable_value(
                         &mut params.filter.selection,
-                        ZoneSetFilter::Set(*entity),
-                        name,
+                        ZoneSetFilter::All,
+                        "All zones",
                     );
-                }
-            });
+                    ui.selectable_value(
+                        &mut params.filter.selection,
+                        ZoneSetFilter::Unassigned,
+                        "Without a set",
+                    );
+                    for (entity, name) in &sets {
+                        ui.selectable_value(
+                            &mut params.filter.selection,
+                            ZoneSetFilter::Set(*entity),
+                            name,
+                        );
+                    }
+                });
+        });
         ui.separator();
         for (entity, name) in &sets {
             ui.push_id(entity, |ui| {
@@ -150,17 +154,28 @@ impl WidgetSystem<Tile> for ViewZoneSets<'_, '_> {
                             .commands
                             .trigger(Change::new(NameInSite(new_name), *entity));
                     }
-                    if ui.button("Delete").clicked() {
+                    if ui
+                        .add(ImageButton::new(params.icons.trash.egui()))
+                        .on_hover_text("Delete zone set")
+                        .clicked()
+                    {
                         params.commands.entity(*entity).despawn();
                         params.site_changed.0 = true;
                     }
                 });
             });
         }
+        if sets.is_empty() {
+            ui.label(
+                RichText::new("No zone sets currently exist. Add a named set below.")
+                    .weak()
+                    .italics(),
+            );
+        }
         ui.horizontal(|ui| {
             ui.add(
                 TextEdit::singleline(&mut *params.new_name)
-                    .hint_text("Set name")
+                    .hint_text(RichText::new("Set name").weak().italics())
                     .desired_width(160.0),
             );
             let name = params.new_name.trim().to_owned();
@@ -211,9 +226,13 @@ impl WidgetSystem<Inspect> for InspectZoneSets<'_, '_> {
             .map(|(entity, name, _)| (entity, name.0.clone()))
             .collect();
         sets.sort_by(|a, b| a.1.cmp(&b.1));
-        ui.label("Zone sets");
+        ui.label("Associated Zone Sets");
         if sets.is_empty() {
-            ui.label("Create a set in the Zone Sets tab.");
+            ui.label(
+                RichText::new("No zone sets currently exist. Create a set in the Zones tab.")
+                    .weak()
+                    .italics(),
+            );
         }
         let mut changed = false;
         for (entity, name) in sets {
@@ -285,6 +304,12 @@ mod tests {
                 egui::epaint::Shape::Text(text) if text.galley.text() == label => {
                     Some(text.pos + text.galley.size() / 2.0)
                 }
+                shape
+                    if label == "Delete"
+                        && shape.texture_id() == world.resource::<Icons>().trash.egui_handle =>
+                {
+                    Some(shape.visual_bounding_rect().center())
+                }
                 _ => None,
             })
             .expect("button should be visible");
@@ -308,7 +333,12 @@ mod tests {
 
     #[test]
     fn creating_and_deleting_zone_sets_marks_unsaved_changes() {
-        let mut world = World::new();
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+            .init_asset::<Image>()
+            .init_resource::<bevy_egui::EguiUserTextures>()
+            .init_resource::<Icons>();
+        let mut world = std::mem::take(app.world_mut());
         let site = world.spawn_empty().id();
         world.insert_resource(CurrentWorkspace {
             root: Some(site),
