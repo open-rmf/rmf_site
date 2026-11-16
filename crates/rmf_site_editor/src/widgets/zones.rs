@@ -105,30 +105,22 @@ impl WidgetSystem<Tile> for ViewZoneSets<'_, '_> {
                 .map(|(_, name)| name.as_str())
                 .unwrap_or("All zones"),
         };
+        let mut filter = params.filter.selection;
         ui.horizontal(|ui| {
             ui.label("Filter viewport:");
             ComboBox::from_id_salt("zone_filter")
                 .selected_text(selected)
                 .show_ui(ui, |ui| {
-                    ui.selectable_value(
-                        &mut params.filter.selection,
-                        ZoneSetFilter::All,
-                        "All zones",
-                    );
-                    ui.selectable_value(
-                        &mut params.filter.selection,
-                        ZoneSetFilter::Unassigned,
-                        "Without a set",
-                    );
+                    ui.selectable_value(&mut filter, ZoneSetFilter::All, "All zones");
+                    ui.selectable_value(&mut filter, ZoneSetFilter::Unassigned, "Without a set");
                     for (entity, name) in &sets {
-                        ui.selectable_value(
-                            &mut params.filter.selection,
-                            ZoneSetFilter::Set(*entity),
-                            name,
-                        );
+                        ui.selectable_value(&mut filter, ZoneSetFilter::Set(*entity), name);
                     }
                 });
         });
+        if filter != params.filter.selection {
+            params.filter.selection = filter;
+        }
         ui.separator();
         params
             .edits

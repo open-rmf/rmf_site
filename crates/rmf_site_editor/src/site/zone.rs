@@ -272,23 +272,49 @@ pub(super) fn update_zone_visuals(
 
 /// Clear selection and hover cues when zones are hidden.
 pub(crate) fn clear_hidden_zone_selection(
-    mut zones: Query<
-        (
+    mut zones: ParamSet<(
+        Query<
+            (
+                Entity,
+                &mut Visibility,
+                &ZoneSets<Entity>,
+                Option<&Pending>,
+                Option<&mut Selected>,
+                Option<&mut Hovered>,
+            ),
+            With<ZoneMarker>,
+        >,
+        Query<
             Entity,
-            &mut Visibility,
-            &ZoneSets<Entity>,
-            Option<&Pending>,
-            Option<&mut Selected>,
-            Option<&mut Hovered>,
-        ),
-        With<ZoneMarker>,
-    >,
+            (
+                With<ZoneMarker>,
+                Or<(
+                    Added<Visibility>,
+                    Changed<ZoneSets<Entity>>,
+                    Changed<Pending>,
+                    Changed<Selected>,
+                    Changed<Hovered>,
+                )>,
+            ),
+        >,
+    )>,
     category: Res<CategoryVisibility<ZoneMarker>>,
     filter: Res<ZoneFilter>,
+    mut removed_pending: RemovedComponents<Pending>,
     mut selection: ResMut<Selection>,
     mut hovering: ResMut<Hovering>,
 ) {
-    for (entity, mut visibility, sets, pending, selected, hovered) in &mut zones {
+    let mut changed: HashSet<_> = zones.p1().iter().collect();
+    let mut zones = zones.p0();
+    changed.extend(removed_pending.read());
+    if category.is_changed() || filter.is_changed() {
+        changed.extend(zones.iter().map(|(entity, ..)| entity));
+    }
+    for entity in changed {
+        let Ok((entity, mut visibility, sets, pending, selected, hovered)) = zones.get_mut(entity)
+        else {
+            continue;
+        };
         let visible = category.0 && (pending.is_some() || filter.selection.matches(sets));
         let next = if visible {
             Visibility::Inherited
@@ -325,6 +351,61 @@ mod tests {
     use bevy::{
         ecs::system::RunSystemOnce, render::mesh::VertexAttributeValues, state::app::StatesPlugin,
     };
+
+    #[test]
+    fn visibility_changes_only_when_needed_and_handles_finished_previews() {
+        #[derive(Resource, Default)]
+        struct VisibilityChanges(usize);
+        let mut app = visual_test_app();
+        app.init_resource::<VisibilityChanges>().add_systems(
+            Last,
+            |zones: Query<(), (With<ZoneMarker>, Changed<Visibility>)>,
+             mut changes: ResMut<VisibilityChanges>| {
+                changes.0 += zones.iter().count();
+            },
+        );
+        let set = app.world_mut().spawn(ZoneSetMarker).id();
+        let (zone, _) = spawn_zone(app.world_mut(), 0.0);
+        app.world_mut().entity_mut(zone).insert(SiteID(1));
+        app.world_mut().resource_mut::<ZoneFilter>().selection = ZoneSetFilter::Set(set);
+        app.update();
+        app.update();
+        let changes = app.world().resource::<VisibilityChanges>().0;
+        app.update();
+        assert_eq!(app.world().resource::<VisibilityChanges>().0, changes);
+        for visible in [false, true] {
+            app.world_mut()
+                .send_event(SetCategoryVisibility::<ZoneMarker>::from(visible));
+            app.update();
+            assert_eq!(
+                *app.world().get::<Visibility>(zone).unwrap(),
+                Visibility::Hidden
+            );
+            assert_eq!(app.world().resource::<VisibilityChanges>().0, changes);
+        }
+        app.world_mut().entity_mut(zone).insert(Pending);
+        app.update();
+        assert_eq!(
+            *app.world().get::<Visibility>(zone).unwrap(),
+            Visibility::Inherited
+        );
+        app.world_mut().entity_mut(zone).remove::<Pending>();
+        app.update();
+        assert_eq!(
+            *app.world().get::<Visibility>(zone).unwrap(),
+            Visibility::Hidden
+        );
+        app.world_mut()
+            .get_mut::<ZoneSets<Entity>>(zone)
+            .unwrap()
+            .0
+            .insert(set);
+        app.update();
+        assert_eq!(
+            *app.world().get::<Visibility>(zone).unwrap(),
+            Visibility::Inherited
+        );
+    }
 
     #[test]
     fn zone_set_filter_preserves_membership_and_global_visibility() {
@@ -524,7 +605,7 @@ mod tests {
         app.add_plugins((MinimalPlugins, StatesPlugin, AssetPlugin::default()))
             .insert_state(InteractionState::Enable)
             .add_plugins((
-                CategoryVisibilityPlugin::<ZoneMarker>::visible(true),
+                CategoryVisibilityPlugin::<ZoneMarker>::visible(true).with_custom_visibility(),
                 CategoryVisibilityPlugin::<FloorMarker>::visible(true),
             ))
             .init_resource::<Assets<Mesh>>()
@@ -535,6 +616,12 @@ mod tests {
             .init_resource::<ZoneFilter>()
             .init_resource::<Selection>()
             .init_resource::<Hovering>()
+            .add_systems(
+                Update,
+                clear_hidden_zone_selection.after(
+                    crate::interaction::category_visibility::update_category_visibility::<ZoneMarker>,
+                ),
+            )
             .add_systems(
                 PostUpdate,
                 (add_zone_visuals, ApplyDeferred, update_zone_visuals).chain(),

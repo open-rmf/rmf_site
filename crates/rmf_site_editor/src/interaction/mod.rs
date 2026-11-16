@@ -167,7 +167,7 @@ impl Plugin for InteractionPlugin {
                 OutlinePlugin,
                 CategoryVisibilityPlugin::<DoorMarker>::visible(true),
                 CategoryVisibilityPlugin::<FloorMarker>::visible(true),
-                CategoryVisibilityPlugin::<ZoneMarker>::visible(true),
+                CategoryVisibilityPlugin::<ZoneMarker>::visible(true).with_custom_visibility(),
                 CategoryVisibilityPlugin::<LaneMarker>::visible(true),
                 CategoryVisibilityPlugin::<LiftCabin<Entity>>::visible(true),
                 CategoryVisibilityPlugin::<LiftCabinDoorMarker>::visible(true),
@@ -192,7 +192,7 @@ impl Plugin for InteractionPlugin {
             app.add_systems(
                 Update,
                 clear_hidden_zone_selection
-                    .after(category_visibility::set_category_visibility::<ZoneMarker>)
+                    .after(category_visibility::update_category_visibility::<ZoneMarker>)
                     .after(SelectionServiceStages::Select)
                     .before(update_path_visual_cues)
                     .before(update_outline_visualization)
