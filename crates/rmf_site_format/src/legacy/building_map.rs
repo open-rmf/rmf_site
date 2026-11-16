@@ -682,6 +682,7 @@ impl BuildingMap {
                     },
                     speed_limit: None,
                     dock: right_dock,
+                    workflow: None,
                 };
 
                 let reverse = if !lane.2.bidirectional.1 {
