@@ -107,7 +107,7 @@ impl<'w, 's> WidgetSystem<Tile> for ConveyorCreation<'w, 's> {
     fn show(_: Tile, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) {
         let mut params = state.get_mut(world);
         if let AppState::SiteEditor = params.app_state.get() {
-            if button_clicked(ui, "〰", "Conveyor") {
+            if button_clicked(ui, "∏", "Conveyor") {
                 params.anchor_selection.create_conveyors();
             }
         }
