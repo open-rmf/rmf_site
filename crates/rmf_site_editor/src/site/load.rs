@@ -413,10 +413,12 @@ fn generate_site_entities(
             let zone = zone
                 .convert(&id_to_entity)
                 .as_broken_error(site_id, "zone")?;
-            commands
+            let zone_entity = commands
                 .spawn(zone)
                 .insert(SiteID(*zone_id))
-                .insert(ChildOf(level_entity));
+                .insert(ChildOf(level_entity))
+                .id();
+            id_to_entity.insert(*zone_id, zone_entity);
             consider_id(*zone_id);
         }
 

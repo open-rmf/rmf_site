@@ -2279,6 +2279,41 @@ mod tests {
 
     #[test]
     #[cfg(not(target_arch = "wasm32"))]
+    fn zone_layer_order_survives_reopening() {
+        use rmf_site_format::{Anchor, Path as AnchorPath, Site, Zone};
+
+        let target_test_dir = testdir!();
+        let original = target_test_dir.join("original.site.json");
+        let destination = target_test_dir.join("reopened.site.json");
+        let mut site = Site::blank_L1("Zone ordering".into());
+        let level = site.levels.get_mut(&1).unwrap();
+        for (id, point) in [(10, [0.0, 0.0]), (11, [4.0, 0.0]), (12, [0.0, 4.0])] {
+            level.anchors.insert(id, Anchor::from(point));
+        }
+        for id in [20, 21] {
+            level
+                .zones
+                .insert(id, Zone::from(AnchorPath(vec![10, 11, 12])));
+        }
+        // Reverse creation order so rebuilding the ranking cannot pass unnoticed.
+        level.rankings.zones = vec![21, 20];
+        std::fs::write(&original, serde_json::to_vec(&site).unwrap()).unwrap();
+
+        let mut app = App::new();
+        app.insert_resource(Autoload::file(original, None))
+            .add_plugins(
+                SiteEditor::default().save_as_path(Some(destination.to_str().unwrap().to_owned())),
+            )
+            .add_plugins(TestTimeoutPlugin::new(Duration::from_secs(10)));
+        app.run();
+
+        let reopened = Site::from_bytes_json(&std::fs::read(destination).unwrap()).unwrap();
+        assert_eq!(reopened.levels[&1].rankings.zones, vec![21, 20]);
+        std::fs::remove_dir_all(target_test_dir).unwrap();
+    }
+
+    #[test]
+    #[cfg(not(target_arch = "wasm32"))]
     fn headless_load_and_save_roundtrip() {
         let target_test_dir = testdir!();
         let rmf_site_editor_manifest_dir_str = std::env::var("CARGO_MANIFEST_DIR").unwrap();
