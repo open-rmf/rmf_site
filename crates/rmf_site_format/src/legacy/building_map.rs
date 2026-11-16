@@ -807,6 +807,7 @@ impl BuildingMap {
                     locations,
                     mutex_groups,
                 },
+                polygon: Default::default(),
             },
             scenarios,
             model_instances,

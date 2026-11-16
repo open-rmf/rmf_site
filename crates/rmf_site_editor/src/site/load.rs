@@ -577,6 +577,67 @@ fn generate_site_entities(
         id_to_entity.insert(*location_id, location);
         consider_id(*location_id);
     }
+
+    // Load polygon navigation grids, cells, and edges (indexed densely by u32 0..len)
+    let mut grid_idx_to_entity = HashMap::<u32, Entity>::new();
+    for (idx, parented_grid) in site_data.navigation.polygon.grids.iter().enumerate() {
+        let level_entity = *id_to_entity
+            .get(&parented_grid.parent)
+            .ok_or(parented_grid.parent)
+            .as_broken_error(site_id, "polygon nav grid parent")?;
+        let grid_entity = commands
+            .spawn((
+                parented_grid.bundle,
+                Category::NavGrid,
+                ChildOf(level_entity),
+                Dependents::default(),
+            ))
+            .id();
+        grid_idx_to_entity.insert(idx as u32, grid_entity);
+    }
+
+    let mut cell_idx_to_entity = HashMap::<u32, Entity>::new();
+    let mut grid_dependents = HashMap::<Entity, HashSet<Entity>>::new();
+    for (idx, parented_cell) in site_data.navigation.polygon.cells.iter().enumerate() {
+        let level_entity = *id_to_entity
+            .get(&parented_cell.parent)
+            .ok_or(parented_cell.parent)
+            .as_broken_error(site_id, "polygon nav cell parent")?;
+        let cell = parented_cell
+            .bundle
+            .convert(&id_to_entity, &id_to_entity, &grid_idx_to_entity)
+            .as_broken_error(site_id, "polygon nav cell")?;
+        let grid_opt = cell.grid_coord.0.map(|g| g.grid);
+        let mut recall = RecallPreferredDirection::default();
+        recall.remember(&cell.preferred_direction);
+        let cell_entity = commands
+            .spawn(cell)
+            .insert(recall)
+            .insert(ChildOf(level_entity))
+            .id();
+        cell_idx_to_entity.insert(idx as u32, cell_entity);
+        if let Some(grid_e) = grid_opt {
+            grid_dependents
+                .entry(grid_e)
+                .or_default()
+                .insert(cell_entity);
+        }
+    }
+    for (grid_e, deps) in grid_dependents {
+        commands.entity(grid_e).insert(Dependents(deps));
+    }
+
+    for parented_edge in &site_data.navigation.polygon.edges {
+        let level_entity = *id_to_entity
+            .get(&parented_edge.parent)
+            .ok_or(parented_edge.parent)
+            .as_broken_error(site_id, "polygon nav edge parent")?;
+        let edge = parented_edge
+            .bundle
+            .convert(&cell_idx_to_entity)
+            .as_broken_error(site_id, "polygon nav edge")?;
+        commands.spawn(edge).insert(ChildOf(level_entity));
+    }
     // Properties require the id_to_entity map to be fully populated to load suppressed issues
     commands.entity(site_id).insert(
         site_data
