@@ -27,6 +27,7 @@ use crate::{
 use bevy::prelude::*;
 use bevy_egui::egui::{Button, ComboBox, ImageButton, RichText, TextEdit};
 use rmf_site_egui::*;
+use std::collections::HashMap;
 
 pub(crate) struct ZonesPlugin;
 
@@ -70,6 +71,7 @@ struct ViewZoneSets<'w, 's> {
     filter: ResMut<'w, ZoneFilter>,
     delete: EventWriter<'w, Delete>,
     icons: Res<'w, Icons>,
+    edits: Local<'s, HashMap<Entity, String>>,
     commands: Commands<'w, 's>,
     new_name: Local<'s, String>,
 }
@@ -128,21 +130,29 @@ impl WidgetSystem<Tile> for ViewZoneSets<'_, '_> {
                 });
         });
         ui.separator();
+        params
+            .edits
+            .retain(|entity, _| sets.iter().any(|(set, _)| set == entity));
         for (entity, name) in &sets {
             ui.push_id(entity, |ui| {
                 ui.horizontal(|ui| {
-                    let mut new_name = name.clone();
-                    if ui
-                        .add(TextEdit::singleline(&mut new_name).desired_width(160.0))
-                        .changed()
-                        && !new_name.trim().is_empty()
-                        && !sets
-                            .iter()
-                            .any(|(other, name)| other != entity && *name == new_name)
-                    {
-                        params
-                            .commands
-                            .trigger(Change::new(NameInSite(new_name), *entity));
+                    let draft = params.edits.entry(*entity).or_insert_with(|| name.clone());
+                    let response = ui.add(TextEdit::singleline(draft).desired_width(160.0));
+                    if response.lost_focus() {
+                        let new_name = draft.trim().to_owned();
+                        if new_name != *name
+                            && !new_name.is_empty()
+                            && !sets
+                                .iter()
+                                .any(|(other, name)| other != entity && *name == new_name)
+                        {
+                            params
+                                .commands
+                                .trigger(Change::new(NameInSite(new_name), *entity));
+                        }
+                        params.edits.remove(entity);
+                    } else if !response.has_focus() {
+                        params.edits.remove(entity);
                     }
                     if ui
                         .add(ImageButton::new(params.icons.trash.egui()))
@@ -169,10 +179,7 @@ impl WidgetSystem<Tile> for ViewZoneSets<'_, '_> {
             );
             let name = params.new_name.trim().to_owned();
             let valid = !name.is_empty() && !sets.iter().any(|(_, existing)| *existing == name);
-            if ui
-                .add_enabled(valid, bevy_egui::egui::Button::new("Add"))
-                .clicked()
-            {
+            if ui.add_enabled(valid, Button::new("Add")).clicked() {
                 params.commands.spawn((
                     ZoneSet {
                         name: NameInSite(name),
@@ -192,6 +199,8 @@ struct InspectZoneSets<'w, 's> {
     sets: Query<'w, 's, (Entity, &'static NameInSite, &'static ChildOf), With<ZoneSetMarker>>,
     workspace: Res<'w, CurrentWorkspace>,
     commands: Commands<'w, 's>,
+    icons: Res<'w, Icons>,
+    choice: Local<'s, Option<Entity>>,
 }
 
 impl ShareableWidget for InspectZoneSets<'_, '_> {}
@@ -227,16 +236,54 @@ impl WidgetSystem<Inspect> for InspectZoneSets<'_, '_> {
             );
         }
         let mut changed = false;
-        for (entity, name) in sets {
-            let mut member = membership.0.contains(&entity);
-            if ui.checkbox(&mut member, name).changed() {
-                if member {
-                    membership.0.insert(entity);
-                } else {
-                    membership.0.remove(&entity);
-                }
-                changed = true;
+        for (entity, name) in &sets {
+            if !membership.0.contains(entity) {
+                continue;
             }
+            ui.push_id(entity, |ui| {
+                ui.horizontal(|ui| {
+                    if ui
+                        .add(ImageButton::new(params.icons.trash.egui()))
+                        .on_hover_text("Remove from zone set")
+                        .clicked()
+                    {
+                        membership.0.remove(entity);
+                        changed = true;
+                    }
+                    ui.label(name);
+                });
+            });
+        }
+        let unused: Vec<_> = sets
+            .iter()
+            .filter(|(entity, _)| !membership.0.contains(entity))
+            .collect();
+        if let Some((first, _)) = unused.first() {
+            let mut choice = params
+                .choice
+                .filter(|choice| unused.iter().any(|(entity, _)| entity == choice))
+                .unwrap_or(*first);
+            ui.horizontal(|ui| {
+                let add = ui.button("Add").clicked();
+                ComboBox::from_id_salt(("add_zone_set", selection))
+                    .selected_text(
+                        &unused
+                            .iter()
+                            .find(|(entity, _)| *entity == choice)
+                            .unwrap()
+                            .1,
+                    )
+                    .show_ui(ui, |ui| {
+                        for (entity, name) in &unused {
+                            ui.selectable_value(&mut choice, *entity, name);
+                        }
+                    });
+                if add {
+                    membership.0.insert(choice);
+                    changed = true;
+                }
+            });
+            *params.choice = Some(choice);
         }
         if changed {
             params.commands.trigger(Change::new(membership, selection));
@@ -356,6 +403,91 @@ mod tests {
             .unwrap();
         assert_eq!(world.get::<ChildOf>(set).unwrap().parent(), site);
         assert!(world.get::<crate::site::Group>(set).is_none());
+    }
+
+    fn key(key: egui::Key, modifiers: egui::Modifiers) -> Event {
+        Event::Key {
+            key,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers,
+        }
+    }
+
+    #[test]
+    fn rename_keeps_intermediate_edits_until_focus_is_lost() {
+        let (mut app, site) = test_app();
+        let world = app.world_mut();
+        world.spawn((
+            ZoneSet {
+                name: NameInSite("A".into()),
+                marker: ZoneSetMarker,
+            },
+            ChildOf(site),
+        ));
+        let set = world
+            .spawn((
+                ZoneSet {
+                    name: NameInSite("AB".into()),
+                    marker: ZoneSetMarker,
+                },
+                ChildOf(site),
+            ))
+            .id();
+        let mut state = SystemState::<ViewZoneSets>::new(world);
+        let context = egui::Context::default();
+        click_button("AB", &context, world, &mut state);
+        let select_all = egui::Modifiers {
+            ctrl: true,
+            command: true,
+            ..default()
+        };
+        show_sets(
+            &context,
+            world,
+            &mut state,
+            vec![
+                key(egui::Key::A, select_all),
+                key(egui::Key::Backspace, default()),
+            ],
+        );
+        assert_eq!(state.get_mut(world).edits.get(&set).unwrap(), "");
+        show_sets(&context, world, &mut state, vec![Event::Text("A".into())]);
+        assert_eq!(state.get_mut(world).edits.get(&set).unwrap(), "A");
+        assert_eq!(world.get::<NameInSite>(set).unwrap().0, "AB");
+        show_sets(&context, world, &mut state, vec![Event::Text("C".into())]);
+        assert_eq!(world.get::<NameInSite>(set).unwrap().0, "AB");
+        show_sets(
+            &context,
+            world,
+            &mut state,
+            vec![key(egui::Key::Enter, default())],
+        );
+        assert_eq!(world.get::<NameInSite>(set).unwrap().0, "AC");
+
+        // Reject final duplicate and empty names, then restore the stored name.
+        for text in ["A", ""] {
+            click_button("AC", &context, world, &mut state);
+            show_sets(
+                &context,
+                world,
+                &mut state,
+                vec![
+                    key(egui::Key::A, select_all),
+                    key(egui::Key::Backspace, default()),
+                    Event::Text(text.into()),
+                ],
+            );
+            show_sets(
+                &context,
+                world,
+                &mut state,
+                vec![key(egui::Key::Enter, default())],
+            );
+            assert_eq!(world.get::<NameInSite>(set).unwrap().0, "AC");
+            assert!(!state.get_mut(world).edits.contains_key(&set));
+        }
     }
 
     #[test]
