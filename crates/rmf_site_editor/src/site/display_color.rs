@@ -15,7 +15,7 @@
  *
 */
 
-use crate::site::{assets::old_default_material, DisplayColor};
+use crate::site::{assets::old_default_material, DisplayColor, ZoneSetMarker};
 use bevy::prelude::*;
 
 pub fn add_material_for_display_colors(
@@ -31,7 +31,10 @@ pub fn add_material_for_display_colors(
 }
 
 pub fn update_material_for_display_color(
-    changed_color: Query<(&DisplayColor, &MeshMaterial3d<StandardMaterial>), Changed<DisplayColor>>,
+    changed_color: Query<
+        (&DisplayColor, &MeshMaterial3d<StandardMaterial>),
+        (Changed<DisplayColor>, Without<ZoneSetMarker>),
+    >,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     for (color, material) in &changed_color {

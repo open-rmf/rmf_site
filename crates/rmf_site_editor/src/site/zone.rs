@@ -80,9 +80,15 @@ pub(super) fn update_zone_sets(
 }
 
 #[derive(Component)]
-pub(super) struct ZoneMesh(Handle<Mesh>);
+pub(super) struct ZoneMesh {
+    fill: Handle<Mesh>,
+    border: Handle<Mesh>,
+}
 
-fn zone_mesh(entity: Entity, path: &Path<Entity>, anchors: &AnchorParams) -> Mesh {
+#[derive(Component)]
+pub(super) struct ZoneBorder;
+
+fn zone_mesh(entity: Entity, path: &Path<Entity>, anchors: &AnchorParams) -> (Mesh, Mesh) {
     let positions: Result<Vec<[f32; 3]>, _> = path
         .0
         .iter()
@@ -138,7 +144,7 @@ fn valid_polygon(positions: &[[f32; 3]]) -> Option<Polygon<f64>> {
     Some(polygon)
 }
 
-fn make_zone_mesh(positions: &[[f32; 3]]) -> Mesh {
+fn make_zone_mesh(positions: &[[f32; 3]]) -> (Mesh, Mesh) {
     // Preview vertices can overlap; zero-length edges break outline normals.
     let mut positions = if positions.iter().flatten().all(|v| v.is_finite()) {
         positions.to_vec()
@@ -163,7 +169,8 @@ fn make_zone_mesh(positions: &[[f32; 3]]) -> Mesh {
     }
     let normals = vec![[0.0, 0.0, 1.0]; vertices.len()];
     let indices = (0..vertices.len() as u32).collect();
-    let mut buffer = MeshBuffer::new(vertices, normals, indices);
+    let mut fill = MeshBuffer::new(vertices, normals, indices);
+    let mut border = MeshBuffer::default();
     if positions.len() >= 2 {
         // Edge strips keep unfilled boundaries visible and pickable.
         let edge_count = if positions.len() == 2 {
@@ -172,18 +179,15 @@ fn make_zone_mesh(positions: &[[f32; 3]]) -> Mesh {
             positions.len()
         };
         for i in 0..edge_count {
-            buffer = buffer.merge_with(line_stroke_mesh(
+            border = border.merge_with(line_stroke_mesh(
                 positions[i].into(),
                 positions[(i + 1) % positions.len()].into(),
-                0.03,
+                0.06,
             ));
         }
-        buffer
-            .merge_with(make_closed_path_outline(positions))
-            .into()
-    } else {
-        buffer.into()
+        fill = fill.merge_with(make_closed_path_outline(positions));
     }
+    (fill.into(), border.into())
 }
 
 pub(super) fn add_zone_visuals(
@@ -197,11 +201,23 @@ pub(super) fn add_zone_visuals(
     filter: Res<ZoneFilter>,
 ) {
     for (entity, path, sets) in &zones {
-        let mesh = meshes.add(zone_mesh(entity, path, &anchors));
+        let (fill, border) = zone_mesh(entity, path, &anchors);
+        let mesh = meshes.add(fill);
+        let border = meshes.add(border);
         let visual = commands
             .spawn((
                 Mesh3d(mesh.clone()),
                 MeshMaterial3d(assets.zone_material.clone()),
+                Transform::default(),
+                Visibility::Inherited,
+                Selectable::new(entity),
+            ))
+            .id();
+        let border_visual = commands
+            .spawn((
+                ZoneBorder,
+                Mesh3d(border.clone()),
+                MeshMaterial3d(assets.zone_border_material.clone()),
                 Transform::default(),
                 Visibility::Inherited,
                 Selectable::new(entity),
@@ -216,11 +232,11 @@ pub(super) fn add_zone_visuals(
                 } else {
                     Visibility::Hidden
                 },
-                ZoneMesh(mesh),
+                ZoneMesh { fill: mesh, border },
                 Category::Zone,
                 PathBehavior::for_floor(),
             ))
-            .add_child(visual);
+            .add_children(&[visual, border_visual]);
         for anchor in &path.0 {
             if let Ok(mut deps) = dependents.get_mut(*anchor) {
                 deps.insert(entity);
@@ -250,8 +266,11 @@ pub(super) fn update_zone_visuals(
         let Ok((entity, handle, path)) = zones.get(entity) else {
             continue;
         };
-        if let Some(mesh) = meshes.get_mut(&handle.0) {
-            *mesh = zone_mesh(entity, path, &anchors);
+        let (fill, border) = zone_mesh(entity, path, &anchors);
+        for (handle, updated) in [(&handle.fill, fill), (&handle.border, border)] {
+            if let Some(mesh) = meshes.get_mut(handle) {
+                *mesh = updated;
+            }
         }
     }
 }
@@ -267,7 +286,10 @@ pub(super) fn update_zone_colors(
         With<ZoneSetMarker>,
     >,
     zones: Query<(Ref<ZoneSets<Entity>>, Ref<Children>), With<ZoneMarker>>,
-    mut visuals: Query<&mut MeshMaterial3d<StandardMaterial>, Without<ZoneSetMarker>>,
+    mut visuals: Query<
+        &mut MeshMaterial3d<StandardMaterial>,
+        (Without<ZoneSetMarker>, Without<ZoneBorder>),
+    >,
     mut removed: RemovedComponents<ZoneSetMarker>,
     filter: Res<ZoneFilter>,
     assets: Res<SiteAssets>,
@@ -418,6 +440,7 @@ mod tests {
     #[test]
     fn shared_zone_uses_visible_set_color_with_stable_priority() {
         let mut app = visual_test_app();
+        app.add_systems(PreUpdate, update_material_for_display_color);
         app.add_systems(
             PostUpdate,
             (
@@ -478,6 +501,25 @@ mod tests {
         app.world_mut().despawn(first);
         app.update();
         assert_eq!(color(app.world()), blue);
+        // Set colors must not replace the border's opaque material.
+        let border = app.world().get::<Children>(zone).unwrap()[1];
+        assert_eq!(
+            app.world()
+                .get::<MeshMaterial3d<StandardMaterial>>(border)
+                .unwrap()
+                .0,
+            app.world().resource::<SiteAssets>().zone_border_material
+        );
+        // An edit after PreUpdate must stay translucent on the following frame.
+        app.add_systems(Update, move |mut colors: Query<&mut DisplayColor>| {
+            let mut color = colors.get_mut(second).unwrap();
+            if color.0 != [0.0, 1.0, 0.0] {
+                color.0 = [0.0, 1.0, 0.0];
+            }
+        });
+        app.update();
+        app.update();
+        assert_eq!(color(app.world()), Color::srgba(0.0, 1.0, 0.0, 0.35));
     }
 
     #[test]
@@ -690,7 +732,7 @@ mod tests {
             assert!(valid_polygon(&invalid).is_none());
         }
         // Invalid boundaries remain editable as outlines.
-        let mesh = make_zone_mesh(&crossing);
+        let (_, mesh) = make_zone_mesh(&crossing);
         let Some(VertexAttributeValues::Float32x3(vertices)) =
             mesh.attribute(Mesh::ATTRIBUTE_POSITION)
         else {
@@ -932,13 +974,15 @@ mod tests {
                 [0.0, 0.0, 0.0],
             ],
         ] {
-            let mesh = make_zone_mesh(&positions);
-            for attribute in [Mesh::ATTRIBUTE_POSITION, Mesh::ATTRIBUTE_NORMAL] {
-                let Some(VertexAttributeValues::Float32x3(values)) = mesh.attribute(attribute)
-                else {
-                    panic!("missing mesh attribute");
-                };
-                assert!(values.iter().flatten().all(|v| v.is_finite()));
+            let (fill, border) = make_zone_mesh(&positions);
+            for mesh in [fill, border] {
+                for attribute in [Mesh::ATTRIBUTE_POSITION, Mesh::ATTRIBUTE_NORMAL] {
+                    let Some(VertexAttributeValues::Float32x3(values)) = mesh.attribute(attribute)
+                    else {
+                        panic!("missing mesh attribute");
+                    };
+                    assert!(values.iter().flatten().all(|v| v.is_finite()));
+                }
             }
         }
     }
