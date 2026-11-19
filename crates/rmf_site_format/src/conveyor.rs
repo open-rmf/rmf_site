@@ -41,6 +41,8 @@ pub struct Conveyor<T: RefTrait> {
     pub metadata: ConveyorMetadata,
     #[serde(default, skip_serializing_if = "is_default")]
     pub graphs: AssociatedGraphs<T>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub extensions: Extensions,
     #[serde(skip)]
     pub marker: ConveyorMarker,
 }
@@ -115,6 +117,7 @@ impl<T: RefTrait> Conveyor<T> {
             thickness: self.thickness,
             metadata: self.metadata,
             graphs: self.graphs.convert(id_map)?,
+            extensions: self.extensions.clone(),
             marker: Default::default(),
         })
     }
@@ -129,6 +132,7 @@ impl<T: RefTrait> From<Edge<T>> for Conveyor<T> {
             thickness: Default::default(),
             metadata: Default::default(),
             graphs: Default::default(),
+            extensions: Default::default(),
             marker: Default::default(),
         }
     }

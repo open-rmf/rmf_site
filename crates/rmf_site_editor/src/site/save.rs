@@ -1177,6 +1177,7 @@ fn generate_conveyors(
                 &ConveyorThickness,
                 &ConveyorMetadata,
                 &AssociatedGraphs<Entity>,
+                &Extensions,
                 &SiteID,
             ),
             (With<ConveyorMarker>, Without<Pending>),
@@ -1202,7 +1203,9 @@ fn generate_conveyors(
     };
 
     let mut conveyors = BTreeMap::new();
-    for (e, edge, o_edge, height, width, thickness, metadata, graphs, conveyor_id) in &q_conveyors {
+    for (e, edge, o_edge, height, width, thickness, metadata, graphs, extensions, conveyor_id) in
+        &q_conveyors
+    {
         if !AncestorIter::new(&q_child_of, e).any(|p| p == site) {
             continue;
         }
@@ -1222,6 +1225,7 @@ fn generate_conveyors(
                 thickness: *thickness,
                 metadata: *metadata,
                 graphs,
+                extensions: extensions.clone(),
                 marker: ConveyorMarker,
             },
         );
