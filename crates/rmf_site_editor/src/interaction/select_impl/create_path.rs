@@ -21,7 +21,7 @@ use crate::{
 };
 use bevy::prelude::*;
 use crossflow::*;
-use rmf_site_format::Path;
+use rmf_site_format::{Group, ModelMarker, Path};
 use std::borrow::Borrow;
 
 use std::collections::HashSet;
@@ -195,6 +195,7 @@ pub fn on_select_for_create_path(
     mut paths: Query<&mut Path<Entity>>,
     parents: Query<&ChildOf>,
     lifts: Query<(), With<LiftCabin<Entity>>>,
+    models: Query<(), (With<ModelMarker>, Without<Group>)>,
     mut commands: Commands,
     cursor: Res<Cursor>,
 ) -> SelectionNodeResult {
@@ -211,7 +212,13 @@ pub fn on_select_for_create_path(
                 // will just be the cursor preview anchor.
                 if path_ref.len() > 1 {
                     if let Some(last) = path_ref.first() {
-                        if !are_anchors_siblings(*last, selection.candidate, &parents, &lifts)? {
+                        if !are_anchors_siblings(
+                            *last,
+                            selection.candidate,
+                            &parents,
+                            &lifts,
+                            &models,
+                        )? {
                             // Finish the current path and start a new one because there
                             // is a break in the level continuity.
                             let _ = finish_path(state, &mut paths, &mut commands)?;

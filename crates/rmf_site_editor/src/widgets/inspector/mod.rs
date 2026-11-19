@@ -27,6 +27,9 @@ pub use inspect_angle::*;
 pub mod inspect_asset_source;
 pub use inspect_asset_source::*;
 
+pub mod inspect_conveyor;
+pub use inspect_conveyor::*;
+
 pub mod inspect_door;
 pub use inspect_door::*;
 
@@ -219,6 +222,7 @@ impl Plugin for StandardInspectorPlugin {
                 InspectionPlugin::<InspectLevel>::new(),
                 InspectModelDescriptionPlugin::default(),
                 InspectLiftPlugin::default(),
+                InspectionPlugin::<InspectConveyor>::new(),
             ))
             .add_plugins(
                 (

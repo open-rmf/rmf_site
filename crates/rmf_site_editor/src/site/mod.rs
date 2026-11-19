@@ -33,6 +33,9 @@ pub use display_color::*;
 pub mod drawing_editor;
 pub use drawing_editor::{alignment, *};
 
+pub mod conveyor;
+pub use conveyor::*;
+
 pub mod door;
 pub use door::*;
 
@@ -275,6 +278,11 @@ impl Plugin for SitePlugin {
             RecallPlugin::<RecallBottom>::default(),
             ChangePlugin::<Top>::default(),
             RecallPlugin::<RecallTop>::default(),
+            ChangePlugin::<ConveyorHeight>::default(),
+            ChangePlugin::<ConveyorWidth>::default(),
+            ChangePlugin::<ConveyorThickness>::default(),
+            ChangePlugin::<ConveyorMetadata>::default(),
+            ChangePlugin::<ConveyorPort>::default(),
         ))
         .add_plugins((
             ChangePlugin::<DoorType>::default(),
@@ -399,6 +407,7 @@ impl Plugin for SitePlugin {
                 assign_orphan_elements_to_level::<ModelMarker>,
                 assign_orphan_elements_to_level::<PhysicalCameraProperties>,
                 assign_orphan_elements_to_level::<WallMarker>,
+                assign_orphan_elements_to_level::<ConveyorMarker>,
                 add_category_to_graphs,
                 add_tags_to_lift,
                 add_material_for_display_colors,
@@ -435,6 +444,7 @@ impl Plugin for SitePlugin {
                 update_floor_visibility,
                 update_drawing_visibility,
                 add_lane_visuals,
+                add_conveyor_visuals,
                 add_location_visuals,
                 add_fiducial_visuals,
                 update_level_visibility,
@@ -442,6 +452,24 @@ impl Plugin for SitePlugin {
                 update_current_scenario.before(handle_create_scenarios),
                 handle_create_scenarios,
             )
+                .run_if(AppState::in_displaying_mode())
+                .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
+        )
+        .add_systems(
+            PostUpdate,
+            (
+                add_conveyor_ports,
+                add_conveyor_port_visuals,
+                update_conveyor_ports,
+                update_conveyor_dimensions,
+                update_conveyor_flows,
+                update_changed_conveyor,
+                update_conveyor_for_moved_anchor,
+                update_conveyor_flow_visuals,
+            )
+                .chain()
+                .after(add_conveyor_visuals)
+                .after(update_anchor_transforms)
                 .run_if(AppState::in_displaying_mode())
                 .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
         )
@@ -457,6 +485,9 @@ impl Plugin for SitePlugin {
                 update_visibility_for_lanes
                     .after(remove_association_for_deleted_graphs)
                     .after(add_lane_visuals),
+                update_visibility_for_conveyors
+                    .after(remove_association_for_deleted_graphs)
+                    .after(add_conveyor_visuals),
                 update_visibility_for_locations.after(remove_association_for_deleted_graphs),
                 update_changed_location,
                 update_location_for_moved_anchors,

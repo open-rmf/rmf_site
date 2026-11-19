@@ -17,11 +17,14 @@
 
 use crate::{
     interaction::*,
-    site::{ChangeDependent, Dependents, Pending, TextureNeedsAssignment},
+    site::{
+        count_connected_conveyors, validate_conveyor_connection, ChangeDependent, Dependents,
+        Pending, TextureNeedsAssignment,
+    },
 };
 use bevy::prelude::*;
 use crossflow::*;
-use rmf_site_format::{Edge, Side};
+use rmf_site_format::{Anchor, ConveyorMarker, ConveyorPort, Edge, Group, ModelMarker, Side};
 use std::borrow::Borrow;
 
 pub fn spawn_create_edges_service(
@@ -198,14 +201,50 @@ pub fn on_hover_for_create_edges(
     mut cursor: ResMut<Cursor>,
     mut visibility: Query<&mut Visibility>,
     mut edges: Query<&mut Edge<Entity>>,
+    conveyor_markers: Query<(), With<ConveyorMarker>>,
+    conveyor_ports: Query<&ConveyorPort>,
+    dependents: Query<&Dependents, With<Anchor>>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.newest_mut().or_broken_state()?;
 
+    // Ignore hovered anchors that would form an invalid conveyor connection
+    let valid_hover = hover.0.filter(|&anchor| {
+        let Some(preview) = &state.preview_edge else {
+            return true;
+        };
+        let Ok(edge) = edges.get(preview.edge) else {
+            return false;
+        };
+        if !conveyor_markers.contains(preview.edge) || edge.array()[preview.side.index()] == anchor
+        {
+            return true;
+        }
+        let anchor_a = match preview.side {
+            Side::Left => anchor,
+            Side::Right => {
+                if edge.left() == anchor {
+                    return false;
+                }
+                edge.left()
+            }
+        };
+        validate_conveyor_connection(
+            anchor_a,
+            anchor,
+            preview.edge,
+            &conveyor_markers,
+            &edges,
+            &conveyor_ports,
+            &dependents,
+        )
+        .is_ok()
+    });
+
     // TODO(@mxgrey): Consider moving this logic into AnchorFilter since it gets
     // used by all the different anchor selection modes.
-    let anchor = match hover.0 {
+    let anchor = match valid_hover {
         Some(anchor) => {
             cursor.remove_mode(SELECT_ANCHOR_MODE_LABEL, &mut visibility);
             anchor
@@ -219,18 +258,33 @@ pub fn on_hover_for_create_edges(
     if let Some(preview) = &mut state.preview_edge {
         // If we already have an active preview, then use the new anchor for the
         // side that we currently need to select for.
-        let index = preview.side.index();
         let mut edge = edges.get_mut(preview.edge).or_broken_query()?;
-
-        let old_anchor = edge.array()[index];
-        if old_anchor != anchor {
-            let opposite_anchor = edge.array()[preview.side.opposite().index()];
-            if opposite_anchor != old_anchor {
-                commands.queue(ChangeDependent::remove(old_anchor, preview.edge));
+        if conveyor_markers.contains(preview.edge) && preview.side == Side::Left {
+            // Keep both endpoints at the hovered anchor so the preview remains a
+            // zero-length point until the first anchor is clicked.
+            if edge.left() != anchor || edge.right() != anchor {
+                for old_anchor in edge.array() {
+                    if old_anchor != anchor {
+                        commands.queue(ChangeDependent::remove(old_anchor, preview.edge));
+                    }
+                }
+                *edge = Edge::new(anchor, anchor);
+                commands.queue(ChangeDependent::add(anchor, preview.edge));
             }
+        } else {
+            // Update only the endpoint corresponding to the side currently being
+            // selected while keeping the opposite endpoint pinned.
+            let index = preview.side.index();
+            let old_anchor = edge.array()[index];
+            if old_anchor != anchor {
+                let opposite_anchor = edge.array()[preview.side.opposite().index()];
+                if opposite_anchor != old_anchor {
+                    commands.queue(ChangeDependent::remove(old_anchor, preview.edge));
+                }
 
-            edge.array_mut()[index] = anchor;
-            commands.queue(ChangeDependent::add(anchor, preview.edge));
+                edge.array_mut()[index] = anchor;
+                commands.queue(ChangeDependent::add(anchor, preview.edge));
+            }
         }
     } else {
         // There is currently no active preview, so we need to create one.
@@ -263,7 +317,11 @@ pub fn on_select_for_create_edges(
     mut commands: Commands,
     parents: Query<&ChildOf>,
     lifts: Query<(), With<LiftCabin<Entity>>>,
+    models: Query<(), (With<ModelMarker>, Without<Group>)>,
     cursor: Res<Cursor>,
+    conveyor_markers: Query<(), With<ConveyorMarker>>,
+    conveyor_ports: Query<&ConveyorPort>,
+    dependents: Query<&Dependents, With<Anchor>>,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.newest_mut().or_broken_state()?;
@@ -275,7 +333,13 @@ pub fn on_select_for_create_edges(
                 let edge = edges.get(preview.edge).or_broken_query()?;
                 if preview.side == Side::end() {
                     // Check if the current level matches the level of the previously placed anchor
-                    if !are_anchors_siblings(edge.start(), selection.candidate, &parents, &lifts)? {
+                    if !are_anchors_siblings(
+                        edge.start(),
+                        selection.candidate,
+                        &parents,
+                        &lifts,
+                        &models,
+                    )? {
                         // Perform the backout before assigning the candidate anchor
                         let _ = backout(state, &mut edges, &cursor, &mut commands);
                     }
@@ -289,6 +353,26 @@ pub fn on_select_for_create_edges(
 
     let anchor = selection.candidate;
     if let Some(preview) = &mut state.preview_edge {
+        // Prevent invalid conveyor connections
+        if conveyor_markers.contains(preview.edge) {
+            let anchor_a = match preview.side {
+                Side::Left => anchor,
+                Side::Right => edges.get(preview.edge).or_broken_query()?.left(),
+            };
+            if let Err(err) = validate_conveyor_connection(
+                anchor_a,
+                anchor,
+                preview.edge,
+                &conveyor_markers,
+                &edges,
+                &conveyor_ports,
+                &dependents,
+            ) {
+                error!("{err}");
+                return Ok(());
+            }
+        }
+
         match preview.side {
             Side::Left => {
                 // We are pinning down the first anchor of the edge
@@ -351,20 +435,36 @@ pub fn on_select_for_create_edges(
                         streams.send(SelectionAlignmentBasis::none());
                     }
                     EdgeCreationContinuity::Continuous => {
-                        // Start drawing a new edge, picking up from the end
-                        // point of the previous edge
-                        let edge = Edge::new(anchor, cursor.level_anchor_placement);
-                        let edge = (state.spawn_edge)(edge, &mut commands);
-                        state.preview_edge = Some(PreviewEdge {
-                            edge,
-                            side: Side::end(),
-                            provisional_start: false,
-                        });
-                        commands.queue(ChangeDependent::add(anchor, edge));
-                        commands.queue(ChangeDependent::add(cursor.level_anchor_placement, edge));
+                        if conveyor_markers.contains(preview.edge)
+                            && (conveyor_ports.contains(anchor)
+                                || count_connected_conveyors(
+                                    anchor,
+                                    preview.edge,
+                                    &conveyor_markers,
+                                    &dependents,
+                                ) >= 1)
+                        {
+                            // A conveyor port is a terminal endpoint and an anchor with >=2
+                            // segments cannot fork, so do not chain a new segment from it.
+                            state.initialize_preview(cursor.level_anchor_placement, &mut commands);
+                            streams.send(SelectionAlignmentBasis::none());
+                        } else {
+                            // Start drawing a new edge, picking up from the end
+                            // point of the previous edge
+                            let edge = Edge::new(anchor, cursor.level_anchor_placement);
+                            let edge = (state.spawn_edge)(edge, &mut commands);
+                            state.preview_edge = Some(PreviewEdge {
+                                edge,
+                                side: Side::end(),
+                                provisional_start: false,
+                            });
+                            commands.queue(ChangeDependent::add(anchor, edge));
+                            commands
+                                .queue(ChangeDependent::add(cursor.level_anchor_placement, edge));
 
-                        // Use the latest selection for the new alignment basis.
-                        streams.send(SelectionAlignmentBasis::new(anchor));
+                            // Use the latest selection for the new alignment basis.
+                            streams.send(SelectionAlignmentBasis::new(anchor));
+                        }
                     }
                 }
             }

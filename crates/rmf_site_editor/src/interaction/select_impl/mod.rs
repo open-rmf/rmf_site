@@ -42,7 +42,7 @@ pub use select_anchor::*;
 pub mod selection_alignment;
 pub use selection_alignment::*;
 
-use rmf_site_format::{LiftCabin, Pending};
+use rmf_site_format::{Group, LiftCabin, ModelMarker, Pending};
 use rmf_site_picking::{
     CommonNodeErrors, Hover, InspectionSettings, Select, Selectable, SelectionFilter,
 };
@@ -94,15 +94,24 @@ pub enum LevelChangeContinuity {
 }
 
 /// Check if these anchors co-exist in the same level. This will account for
-/// cases where you are connecting to site or lift anchors.
+/// cases where you are connecting to site, lift, or model port anchors.
 pub fn are_anchors_siblings(
     a: Entity,
     b: Entity,
     parents: &Query<&ChildOf>,
     lifts: &Query<(), With<LiftCabin<Entity>>>,
+    models: &Query<(), (With<ModelMarker>, Without<Group>)>,
 ) -> Result<bool, Option<Anyhow>> {
-    let parent_of_a = parents.get(a).or_broken_query()?.parent();
-    let parent_of_b = parents.get(b).or_broken_query()?.parent();
+    let resolve_parent = |anchor: Entity| -> Result<Entity, Option<Anyhow>> {
+        let parent = parents.get(anchor).or_broken_query()?.parent();
+        if models.contains(parent) {
+            Ok(parents.get(parent).or_broken_query()?.parent())
+        } else {
+            Ok(parent)
+        }
+    };
+    let parent_of_a = resolve_parent(a)?;
+    let parent_of_b = resolve_parent(b)?;
     let mut are_siblings =
         AncestorIter::new(&parents, b).any(|e| e == parent_of_a || lifts.contains(e));
     if !are_siblings {

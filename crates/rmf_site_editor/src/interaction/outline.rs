@@ -15,16 +15,20 @@
  *
 */
 
-use crate::{interaction::*, site::DrawingMarker};
+use crate::{
+    interaction::*,
+    site::{CollisionMeshMarker, DrawingMarker, VisualMeshMarker},
+};
 use bevy::color::palettes::css as Colors;
 use bevy::render::view::RenderLayers;
 use bevy_mod_outline::{
-    ComputedOutline, OutlineMode, OutlineRenderLayers, OutlineStencil, OutlineVolume,
+    ComputedOutline, InheritOutline, OutlineMode, OutlineRenderLayers, OutlineStencil,
+    OutlineVolume,
 };
 use rmf_site_camera::*;
 use rmf_site_format::{
-    DoorType, FiducialMarker, FloorMarker, LiftCabin, LightKind, LocationTags, MeasurementMarker,
-    ModelMarker, PhysicalCameraProperties, PrimitiveShape, WallMarker,
+    ConveyorMarker, DoorType, FiducialMarker, FloorMarker, LiftCabin, LightKind, LocationTags,
+    MeasurementMarker, ModelMarker, PhysicalCameraProperties, PrimitiveShape, WallMarker,
 };
 use smallvec::SmallVec;
 
@@ -33,6 +37,7 @@ use smallvec::SmallVec;
 #[derive(Component)]
 pub enum OutlineVisualization {
     Ordinary,
+    Silhouette,
     Anchor { body: Entity },
 }
 
@@ -45,7 +50,7 @@ impl Default for OutlineVisualization {
 impl OutlineVisualization {
     pub fn color(&self, hovered: &Hovered, selected: &Selected) -> Option<Color> {
         match self {
-            OutlineVisualization::Ordinary => {
+            OutlineVisualization::Ordinary | OutlineVisualization::Silhouette => {
                 if !hovered.cue() && !selected.cue() {
                     None
                 } else if hovered.cue() && selected.cue() {
@@ -75,7 +80,7 @@ impl OutlineVisualization {
         layer: Option<&RenderLayers>,
     ) -> OutlineRenderLayers {
         match self {
-            OutlineVisualization::Ordinary => {
+            OutlineVisualization::Ordinary | OutlineVisualization::Silhouette => {
                 if hovered.cue() {
                     OutlineRenderLayers(RenderLayers::layer(HOVERED_OUTLINE_LAYER))
                 } else if selected.cue() {
@@ -98,9 +103,13 @@ impl OutlineVisualization {
     /// highlighting then that will be given here.
     pub fn root(&self) -> Option<Entity> {
         match self {
-            OutlineVisualization::Ordinary => None,
+            OutlineVisualization::Ordinary | OutlineVisualization::Silhouette => None,
             OutlineVisualization::Anchor { body } => Some(*body),
         }
+    }
+
+    pub fn inherit_descendants(&self) -> bool {
+        matches!(self, OutlineVisualization::Silhouette)
     }
 }
 
@@ -108,30 +117,46 @@ impl OutlineVisualization {
 #[derive(Component)]
 pub struct SuppressOutline;
 
-pub fn add_outline_visualization(
+pub fn add_outline_ordinary_visualization(
     mut commands: Commands,
     new_entities: Query<
         Entity,
-        Or<(
-            Added<WallMarker>,
-            Added<DoorType>,
-            Added<LiftCabin<Entity>>,
-            Added<MeasurementMarker>,
-            Added<FiducialMarker>,
-            Added<FloorMarker>,
-            Added<DrawingMarker>,
-            Added<ModelMarker>,
-            Added<PhysicalCameraProperties>,
-            Added<LightKind>,
-            Added<LocationTags>,
-            Added<PrimitiveShape>,
-        )>,
+        (
+            Or<(
+                Added<WallMarker>,
+                Added<DoorType>,
+                Added<LiftCabin<Entity>>,
+                Added<MeasurementMarker>,
+                Added<FiducialMarker>,
+                Added<FloorMarker>,
+                Added<DrawingMarker>,
+                Added<ModelMarker>,
+                Added<PhysicalCameraProperties>,
+                Added<LightKind>,
+                Added<LocationTags>,
+                Added<PrimitiveShape>,
+            )>,
+            Without<VisualMeshMarker>,
+            Without<CollisionMeshMarker>,
+        ),
     >,
 ) {
     for e in &new_entities {
         commands
             .entity(e)
-            .insert(OutlineVisualization::default())
+            .insert(OutlineVisualization::Ordinary)
+            .insert(Selectable::new(e));
+    }
+}
+
+pub fn add_outline_silhouette_visualization(
+    mut commands: Commands,
+    new_entities: Query<Entity, Added<ConveyorMarker>>,
+) {
+    for e in &new_entities {
+        commands
+            .entity(e)
+            .insert(OutlineVisualization::Silhouette)
             .insert(Selectable::new(e));
     }
 }
@@ -154,7 +179,11 @@ pub fn update_outline_visualization(
             Changed<ComputedVisualCue>,
         )>,
     >,
-    descendants: Query<(Option<&Children>, Option<&ComputedVisualCue>)>,
+    descendants: Query<(
+        Option<&Children>,
+        Option<&ComputedVisualCue>,
+        Option<&OutlineVisualization>,
+    )>,
 ) {
     for (e, hovered, selected, vis, suppress, layer) in &outlinable {
         let color = if suppress.is_some() {
@@ -169,7 +198,13 @@ pub fn update_outline_visualization(
         let mut queue: SmallVec<[Entity; 10]> = SmallVec::new();
         queue.push(root);
         while let Some(top) = queue.pop() {
-            if let Ok((children, cue)) = descendants.get(top) {
+            if let Ok((children, cue, child_vis)) = descendants.get(top) {
+                // Skip descendants with their own OutlineVisualization (and their
+                // subtrees) so parent hover/selection updates do not overwrite or
+                // strip a child entity's independent outline components.
+                if top != root && child_vis.is_some() {
+                    continue;
+                }
                 if let Some(cue) = cue {
                     if !cue.allow_outline {
                         // TODO(MXG): Consider if we should allow the children
@@ -179,19 +214,28 @@ pub fn update_outline_visualization(
                     }
                 }
                 if let Some(color) = color {
-                    commands
-                        .entity(top)
-                        .insert((
-                            OutlineVolume {
-                                visible: true,
-                                width: 3.0,
-                                colour: color,
-                            },
-                            OutlineStencil::default(),
-                            ComputedOutline::default(),
-                        ))
-                        .insert(depth.clone())
-                        .insert(layers.clone());
+                    // For Silhouette hierarchies, place OutlineVolume only on the
+                    // root and InheritOutline on descendants so child meshes merge
+                    // into a single outer outline.
+                    if top == root || !vis.inherit_descendants() {
+                        commands
+                            .entity(top)
+                            .insert((
+                                OutlineVolume {
+                                    visible: true,
+                                    width: 3.0,
+                                    colour: color,
+                                },
+                                OutlineStencil::default(),
+                                ComputedOutline::default(),
+                            ))
+                            .insert(depth.clone())
+                            .insert(layers.clone());
+                    } else {
+                        commands
+                            .entity(top)
+                            .insert((InheritOutline, ComputedOutline::default()));
+                    }
                 } else {
                     commands
                         .entity(top)
@@ -199,7 +243,8 @@ pub fn update_outline_visualization(
                         .remove::<OutlineStencil>()
                         .remove::<ComputedOutline>()
                         .remove::<OutlineMode>()
-                        .remove::<OutlineRenderLayers>();
+                        .remove::<OutlineRenderLayers>()
+                        .remove::<InheritOutline>();
                 }
 
                 if let Some(children) = children {
