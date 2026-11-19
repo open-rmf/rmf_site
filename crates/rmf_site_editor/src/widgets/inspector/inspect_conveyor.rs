@@ -258,6 +258,8 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectConveyor<'w, 's> {
             return;
         };
 
+        ui.separator();
+        ui.label(RichText::new("Dimensions").size(14.0));
         if let Some(new_height) = InspectValue::<f32>::new("Height", height.0)
             .clamp_range(0.001..=std::f32::INFINITY)
             .speed(0.01)
@@ -286,6 +288,8 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectConveyor<'w, 's> {
                 .trigger(Change::new(ConveyorThickness(new_thickness), selection));
         }
 
+        ui.separator();
+        ui.label(RichText::new("Metadata").size(14.0));
         let mut new_metadata = *metadata;
         if let Some(new_speed) = InspectValue::<f32>::new("Speed", metadata.speed.0)
             .clamp_range(0.0..=std::f32::INFINITY)

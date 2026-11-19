@@ -436,15 +436,16 @@ pub fn on_select_for_create_edges(
                     }
                     EdgeCreationContinuity::Continuous => {
                         if conveyor_markers.contains(preview.edge)
-                            && count_connected_conveyors(
-                                anchor,
-                                preview.edge,
-                                &conveyor_markers,
-                                &dependents,
-                            ) >= 1
+                            && (conveyor_ports.contains(anchor)
+                                || count_connected_conveyors(
+                                    anchor,
+                                    preview.edge,
+                                    &conveyor_markers,
+                                    &dependents,
+                                ) >= 1)
                         {
-                            // The anchor already has 2 conveyor segments connected to it, so
-                            // a 3rd forked segment should not be started from this anchor.
+                            // A conveyor port is a terminal endpoint and an anchor with >=2
+                            // segments cannot fork, so do not chain a new segment from it.
                             state.initialize_preview(cursor.level_anchor_placement, &mut commands);
                             streams.send(SelectionAlignmentBasis::none());
                         } else {

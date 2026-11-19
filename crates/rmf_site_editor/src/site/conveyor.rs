@@ -598,12 +598,19 @@ fn collect_connected_conveyors(
     start_entity: Entity,
     start_edge: &Edge<Entity>,
     get_edge: impl Fn(Entity) -> Option<Edge<Entity>>,
+    is_port: impl Fn(Entity) -> bool,
     dependents: &Query<&Dependents, With<Anchor>>,
 ) -> Vec<(Entity, bool)> {
-    // BFS to find the connected conveyor chain and each segment's orientation
+    // BFS to find the connected conveyor chain and each segment's orientation,
+    // and stop at port terminals so separate chains on a port don't bleed together.
     let mut visited_conveyors = vec![(start_entity, true)];
     let mut visited_conveyor_set = HashSet::from([start_entity]);
-    let mut anchor_queue = VecDeque::from([(start_edge.start(), false), (start_edge.end(), true)]);
+    let mut anchor_queue = VecDeque::new();
+    for (anchor, away_from_start) in [(start_edge.start(), false), (start_edge.end(), true)] {
+        if !is_port(anchor) {
+            anchor_queue.push_back((anchor, away_from_start));
+        }
+    }
     let mut visited_anchors = HashSet::from(start_edge.array());
 
     while let Some((anchor, away_from_start)) = anchor_queue.pop_front() {
@@ -625,7 +632,7 @@ fn collect_connected_conveyors(
             let same_dir = (other_edge.start() == anchor) == away_from_start;
             visited_conveyors.push((other_entity, same_dir));
             for next_anchor in other_edge.array() {
-                if visited_anchors.insert(next_anchor) {
+                if !is_port(next_anchor) && visited_anchors.insert(next_anchor) {
                     anchor_queue.push_back((next_anchor, away_from_start));
                 }
             }
@@ -739,6 +746,7 @@ pub fn update_conveyor_dimensions(
                     conveyors.get(other_e).ok()?;
                 (other_pending.is_none() && other_original.is_none()).then_some(*other_edge)
             },
+            |a| conveyor_ports.contains(a),
             &dependents,
         );
 
@@ -925,6 +933,7 @@ pub fn update_conveyor_flows(
                 let (other_edge, _) = conveyors.get(dep).ok()?;
                 (other_edge.start() != other_edge.end()).then_some(*other_edge)
             },
+            |a| conveyor_ports.contains(a),
             &dependents,
         );
 
