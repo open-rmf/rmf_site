@@ -16,10 +16,9 @@
 */
 
 use crate::site::{
-    clear_hidden_zone_selection, update_anchor_transforms,
-    update_location_for_changed_location_tags, CollisionMeshMarker, CurrentEditDrawing,
-    CurrentLevel, DoorMarker, FiducialMarker, FloorMarker, LaneMarker, LiftCabin,
-    LiftCabinDoorMarker, LocationTags, MeasurementMarker, SiteUpdateSet,
+    update_anchor_transforms, update_location_for_changed_location_tags, update_zone_visibility,
+    CollisionMeshMarker, CurrentEditDrawing, CurrentLevel, DoorMarker, FiducialMarker, FloorMarker,
+    LaneMarker, LiftCabin, LiftCabinDoorMarker, LocationTags, MeasurementMarker, SiteUpdateSet,
     ToggleLiftDoorAvailability, VisualMeshMarker, WallMarker, ZoneMarker,
 };
 
@@ -191,7 +190,7 @@ impl Plugin for InteractionPlugin {
         if !self.headless {
             app.add_systems(
                 Update,
-                clear_hidden_zone_selection
+                update_zone_visibility
                     .after(category_visibility::update_category_visibility::<ZoneMarker>)
                     .after(SelectionServiceStages::Select)
                     .before(update_path_visual_cues)

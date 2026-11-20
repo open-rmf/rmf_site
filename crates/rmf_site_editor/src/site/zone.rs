@@ -355,8 +355,8 @@ pub(super) fn update_zone_ranks(
     }
 }
 
-/// Clear selection and hover cues when zones are hidden.
-pub(crate) fn clear_hidden_zone_selection(
+/// Update zone visibility and clear selection and hover cues for hidden zones.
+pub(crate) fn update_zone_visibility(
     mut zones: ParamSet<(
         Query<
             (
@@ -585,7 +585,7 @@ mod tests {
             filter.hide_unassigned = true;
         }
         app.world_mut()
-            .run_system_once(clear_hidden_zone_selection)
+            .run_system_once(update_zone_visibility)
             .unwrap();
         assert_eq!(
             *app.world().get::<Visibility>(zone).unwrap(),
@@ -601,7 +601,7 @@ mod tests {
             filter.hidden_sets.insert(first);
         }
         app.world_mut()
-            .run_system_once(clear_hidden_zone_selection)
+            .run_system_once(update_zone_visibility)
             .unwrap();
         assert_eq!(
             *app.world().get::<Visibility>(zone).unwrap(),
@@ -621,7 +621,7 @@ mod tests {
             filter.hide_unassigned = false;
         }
         app.world_mut()
-            .run_system_once(clear_hidden_zone_selection)
+            .run_system_once(update_zone_visibility)
             .unwrap();
         assert_eq!(
             *app.world().get::<Visibility>(zone).unwrap(),
@@ -635,7 +635,7 @@ mod tests {
         assert!(!app.world().get::<Selected>(zone).unwrap().cue());
         app.world_mut().entity_mut(zone).insert(Pending);
         app.world_mut()
-            .run_system_once(clear_hidden_zone_selection)
+            .run_system_once(update_zone_visibility)
             .unwrap();
         assert_eq!(
             *app.world().get::<Visibility>(zone).unwrap(),
@@ -645,7 +645,7 @@ mod tests {
             .resource_mut::<CategoryVisibility<ZoneMarker>>()
             .0 = false;
         app.world_mut()
-            .run_system_once(clear_hidden_zone_selection)
+            .run_system_once(update_zone_visibility)
             .unwrap();
         assert_eq!(
             *app.world().get::<Visibility>(zone).unwrap(),
@@ -762,7 +762,7 @@ mod tests {
             .init_resource::<Hovering>()
             .add_systems(
                 Update,
-                clear_hidden_zone_selection.after(
+                update_zone_visibility.after(
                     crate::interaction::category_visibility::update_category_visibility::<ZoneMarker>,
                 ),
             )
@@ -870,7 +870,7 @@ mod tests {
             .send_event(SetCategoryVisibility::<ZoneMarker>::from(false));
         app.update();
         app.world_mut()
-            .run_system_once(clear_hidden_zone_selection)
+            .run_system_once(update_zone_visibility)
             .unwrap();
         assert_eq!(
             *app.world().get::<Visibility>(zone).unwrap(),

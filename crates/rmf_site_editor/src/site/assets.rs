@@ -256,6 +256,7 @@ impl FromWorld for SiteAssets {
         });
         let zone_border_material = materials.add(StandardMaterial {
             base_color: Color::srgb(0.05, 0.05, 0.05),
+            depth_bias: 1.0,
             unlit: true,
             cull_mode: None,
             ..default()
