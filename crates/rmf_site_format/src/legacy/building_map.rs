@@ -640,6 +640,7 @@ impl BuildingMap {
                     doors,
                     drawings,
                     floors,
+                    zones: Default::default(),
                     lights,
                     physical_cameras,
                     walls,
@@ -795,6 +796,7 @@ impl BuildingMap {
                 ..Default::default()
             },
             levels,
+            zone_sets: Default::default(),
             lifts,
             fiducial_groups,
             fiducials: cartesian_fiducials,

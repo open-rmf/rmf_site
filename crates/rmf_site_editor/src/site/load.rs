@@ -324,6 +324,14 @@ fn generate_site_entities(
         consider_id(*group_id);
     }
 
+    for (set_id, set) in &site_data.zone_sets {
+        let entity = commands
+            .spawn((set.clone(), SiteID(*set_id), ChildOf(site_id)))
+            .id();
+        id_to_entity.insert(*set_id, entity);
+        consider_id(*set_id);
+    }
+
     for (level_id, level_data) in &site_data.levels {
         let level_entity = commands
             .spawn(SiteID(*level_id))
@@ -401,6 +409,19 @@ fn generate_site_entities(
             consider_id(*drawing_id);
         }
 
+        for (zone_id, zone) in &level_data.zones {
+            let zone = zone
+                .convert(&id_to_entity)
+                .as_broken_error(site_id, "zone")?;
+            let zone_entity = commands
+                .spawn(zone)
+                .insert(SiteID(*zone_id))
+                .insert(ChildOf(level_entity))
+                .id();
+            id_to_entity.insert(*zone_id, zone_entity);
+            consider_id(*zone_id);
+        }
+
         for (floor_id, floor) in &level_data.floors {
             commands
                 .spawn(
@@ -454,6 +475,10 @@ fn generate_site_entities(
         // TODO(MXG): Log when a RecencyRanking fails to load correctly.
         commands
             .entity(level_entity)
+            .insert(
+                RecencyRanking::<ZoneMarker>::from_u32(&level_data.rankings.zones, &id_to_entity)
+                    .unwrap_or(RecencyRanking::new()),
+            )
             .insert(
                 RecencyRanking::<FloorMarker>::from_u32(&level_data.rankings.floors, &id_to_entity)
                     .unwrap_or(RecencyRanking::new()),

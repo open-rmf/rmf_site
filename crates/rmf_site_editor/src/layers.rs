@@ -8,6 +8,7 @@ pub const Z_MAX: f32 = 0.01;
 pub enum ZLayer {
     Drawing = 0,
     Floor,
+    Zone,
     Measurement,
     Lane,
     Doormat,

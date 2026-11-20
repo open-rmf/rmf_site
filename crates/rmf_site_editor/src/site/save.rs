@@ -136,6 +136,7 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
                     With<DoorType>,
                     With<DrawingMarker>,
                     With<FloorMarker>,
+                    With<ZoneMarker>,
                     With<LightKind>,
                     With<ModelMarker>,
                     With<PhysicalCameraProperties>,
@@ -151,7 +152,12 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
         Query<
             Entity,
             (
-                Or<(With<LaneMarker>, With<LocationTags>, With<NavGraphMarker>)>,
+                Or<(
+                    With<LaneMarker>,
+                    With<LocationTags>,
+                    With<NavGraphMarker>,
+                    With<ZoneSetMarker>,
+                )>,
                 Without<Pending>,
             ),
         >,
@@ -435,6 +441,17 @@ fn generate_levels(
             ),
             (With<FloorMarker>, Without<Pending>),
         >,
+        Query<
+            (
+                &Path<Entity>,
+                Option<&Original<Path<Entity>>>,
+                &NameInSite,
+                &ZoneSets<Entity>,
+                &SiteID,
+            ),
+            (With<ZoneMarker>, Without<Pending>),
+        >,
+        Query<&SiteID, With<ZoneSetMarker>>,
         Query<(&LightKind, &Pose, &SiteID)>,
         Query<
             (
@@ -467,6 +484,7 @@ fn generate_levels(
                 &Children,
                 Option<&RecencyRanking<FloorMarker>>,
                 Option<&RecencyRanking<DrawingMarker>>,
+                Option<&RecencyRanking<ZoneMarker>>,
             ),
             Without<Pending>,
         >,
@@ -482,6 +500,8 @@ fn generate_levels(
         q_drawings,
         q_fiducials,
         q_floors,
+        q_zones,
+        q_zone_sets,
         q_lights,
         q_measurements,
         q_physical_cameras,
@@ -533,6 +553,7 @@ fn generate_levels(
                 level_children,
                 floor_ranking,
                 drawing_ranking,
+                zone_ranking,
             )) = q_levels.get(c)
             {
                 let mut level = Level::new(
@@ -547,6 +568,9 @@ fn generate_levels(
                             .map(|r| r.to_u32(&q_site_ids))
                             .unwrap_or(Vec::new()),
                         drawings: drawing_ranking
+                            .map(|r| r.to_u32(&q_site_ids))
+                            .unwrap_or(Vec::new()),
+                        zones: zone_ranking
                             .map(|r| r.to_u32(&q_site_ids))
                             .unwrap_or(Vec::new()),
                     },
@@ -652,6 +676,30 @@ fn generate_levels(
                             },
                         );
                     }
+                    if let Ok((path, original, name, sets, id)) = q_zones.get(c) {
+                        let path = original.map(|p| &p.0).unwrap_or(path);
+                        level.zones.insert(
+                            id.0,
+                            Zone {
+                                marker: ZoneMarker,
+                                anchors: get_anchor_id_path(c, &path.0)?,
+                                name: name.clone(),
+                                sets: ZoneSets(
+                                    sets.0
+                                        .iter()
+                                        .map(|set| {
+                                            q_zone_sets.get(*set).map(|id| id.0).map_err(|_| {
+                                                SiteGenerationError::BrokenAffiliation {
+                                                    object: c,
+                                                    group: *set,
+                                                }
+                                            })
+                                        })
+                                        .collect::<Result<_, _>>()?,
+                                ),
+                            },
+                        );
+                    }
                     if let Ok((kind, pose, id)) = q_lights.get(c) {
                         level.lights.insert(
                             id.0,
@@ -703,6 +751,10 @@ fn generate_levels(
                         );
                     }
                 }
+                level
+                    .rankings
+                    .zones
+                    .retain(|id| level.zones.contains_key(id));
                 levels.insert(level_id.0, level);
             }
         }
@@ -1724,6 +1776,30 @@ fn generate_tasks(
     Ok(res)
 }
 
+fn generate_zone_sets(world: &mut World, site: Entity) -> BTreeMap<u32, ZoneSet> {
+    let mut state: SystemState<(
+        Query<&Children>,
+        Query<(&SiteID, &NameInSite, &DisplayColor), With<ZoneSetMarker>>,
+    )> = SystemState::new(world);
+    let (children, sets) = state.get(world);
+    let mut result = BTreeMap::new();
+    if let Ok(children) = children.get(site) {
+        for child in children {
+            if let Ok((id, name, color)) = sets.get(*child) {
+                result.insert(
+                    id.0,
+                    ZoneSet {
+                        name: name.clone(),
+                        color: *color,
+                        marker: ZoneSetMarker,
+                    },
+                );
+            }
+        }
+    }
+    result
+}
+
 pub fn generate_site(
     world: &mut World,
     site: Entity,
@@ -1733,6 +1809,7 @@ pub fn generate_site(
     assign_site_ids(world, site)?;
     let anchors = collect_site_anchors(world, site);
     let levels = generate_levels(world, site)?;
+    let zone_sets = generate_zone_sets(world, site);
     let lifts = generate_lifts(world, site)?;
     let fiducials = generate_fiducials(world, site)?;
     let fiducial_groups = generate_fiducial_groups(world, site)?;
@@ -1792,6 +1869,7 @@ pub fn generate_site(
         anchors,
         properties,
         levels,
+        zone_sets,
         lifts,
         fiducials,
         fiducial_groups,
@@ -2097,6 +2175,142 @@ mod tests {
     use crate::*;
     use std::{path::Path, time::Duration};
     use testdir::testdir;
+
+    #[test]
+    fn zone_entity_roundtrip() {
+        use super::*;
+        let mut world = World::new();
+        let site = world
+            .spawn((NameOfSite("Zones".into()), NextSiteID(200)))
+            .id();
+        let level = world
+            .spawn((LevelProperties::default(), SiteID(10), ChildOf(site)))
+            .id();
+        let mut mapping = HashMap::new();
+        for (id, point) in [(1, [0.0, 0.0]), (2, [4.0, 0.0]), (3, [0.0, 4.0])] {
+            let entity = world
+                .spawn((Anchor::from(point), SiteID(id + 100), ChildOf(level)))
+                .id();
+            mapping.insert(id, entity);
+        }
+        let zone: Zone<u32> = serde_json::from_value(serde_json::json!({
+            "anchors": [1, 2, 3], "name": "Weak Wi-Fi"
+        }))
+        .unwrap();
+        let zone_entity = world
+            .spawn((
+                zone.convert(&mapping).unwrap(),
+                ChildOf(level),
+                Visibility::Hidden,
+            ))
+            .id();
+        assign_site_ids(&mut world, site).unwrap();
+        let zone_id = world.get::<SiteID>(zone_entity).unwrap().0;
+        assert_eq!(zone_id, 200);
+        assign_site_ids(&mut world, site).unwrap();
+        assert_eq!(world.get::<SiteID>(zone_entity).unwrap().0, zone_id);
+        let ranking = RecencyRanking::<ZoneMarker>::from_u32(
+            &vec![zone_id],
+            &HashMap::from([(zone_id, zone_entity)]),
+        )
+        .unwrap();
+        world.entity_mut(level).insert(ranking);
+        // Hidden zones and their order are still saved.
+        let saved = generate_levels(&mut world, site).unwrap();
+        assert_eq!(saved[&10].rankings.zones, vec![zone_id]);
+        let saved = &saved[&10].zones[&zone_id];
+        assert_eq!(saved.anchors.0, vec![101, 102, 103]);
+        assert_eq!(saved.name.0, "Weak Wi-Fi");
+
+        let set = world
+            .spawn((
+                ZoneSet {
+                    name: NameInSite("Survey".into()),
+                    ..default()
+                },
+                ChildOf(site),
+            ))
+            .id();
+        world
+            .get_mut::<ZoneSets<Entity>>(zone_entity)
+            .unwrap()
+            .0
+            .insert(set);
+        assign_site_ids(&mut world, site).unwrap();
+        let set_id = world.get::<SiteID>(set).unwrap().0;
+        assert_eq!(set_id, zone_id + 1);
+        assert_eq!(world.get::<NextSiteID>(site).unwrap().0, set_id + 1);
+        assert_eq!(
+            generate_zone_sets(&mut world, site)[&set_id].name.0,
+            "Survey"
+        );
+        let saved = generate_levels(&mut world, site).unwrap();
+        assert_eq!(
+            saved[&10].zones[&zone_id].sets.0,
+            std::collections::BTreeSet::from([set_id])
+        );
+
+        // Unfinished polygons are omitted from both geometry and display order.
+        world.entity_mut(zone_entity).insert(Pending);
+        let saved = generate_levels(&mut world, site).unwrap();
+        assert!(saved[&10].zones.is_empty());
+        assert!(saved[&10].rankings.zones.is_empty());
+    }
+
+    #[test]
+    fn zone_save_rejects_broken_anchor() {
+        use super::*;
+        let mut world = World::new();
+        let site = world.spawn(NameOfSite("Zones".into())).id();
+        let level = world
+            .spawn((LevelProperties::default(), SiteID(10), ChildOf(site)))
+            .id();
+        let missing_anchor = world.spawn_empty().id();
+        world.spawn((
+            Zone::from(rmf_site_format::Path(vec![missing_anchor])),
+            SiteID(20),
+            ChildOf(level),
+        ));
+        assert!(matches!(
+            generate_levels(&mut world, site),
+            Err(SiteGenerationError::BrokenAnchorReference { .. })
+        ));
+    }
+
+    #[test]
+    #[cfg(not(target_arch = "wasm32"))]
+    fn zone_layer_order_survives_reopening() {
+        use rmf_site_format::{Anchor, Path as AnchorPath, Site, Zone};
+
+        let target_test_dir = testdir!();
+        let original = target_test_dir.join("original.site.json");
+        let destination = target_test_dir.join("reopened.site.json");
+        let mut site = Site::blank_L1("Zone ordering".into());
+        let level = site.levels.get_mut(&1).unwrap();
+        for (id, point) in [(10, [0.0, 0.0]), (11, [4.0, 0.0]), (12, [0.0, 4.0])] {
+            level.anchors.insert(id, Anchor::from(point));
+        }
+        for id in [20, 21] {
+            level
+                .zones
+                .insert(id, Zone::from(AnchorPath(vec![10, 11, 12])));
+        }
+        // Reverse creation order so rebuilding the ranking cannot pass unnoticed.
+        level.rankings.zones = vec![21, 20];
+        std::fs::write(&original, serde_json::to_vec(&site).unwrap()).unwrap();
+
+        let mut app = App::new();
+        app.insert_resource(Autoload::file(original, None))
+            .add_plugins(
+                SiteEditor::default().save_as_path(Some(destination.to_str().unwrap().to_owned())),
+            )
+            .add_plugins(TestTimeoutPlugin::new(Duration::from_secs(10)));
+        app.run();
+
+        let reopened = Site::from_bytes_json(&std::fs::read(destination).unwrap()).unwrap();
+        assert_eq!(reopened.levels[&1].rankings.zones, vec![21, 20]);
+        std::fs::remove_dir_all(target_test_dir).unwrap();
+    }
 
     #[test]
     #[cfg(not(target_arch = "wasm32"))]

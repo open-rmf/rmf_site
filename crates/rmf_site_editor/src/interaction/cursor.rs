@@ -346,7 +346,7 @@ pub struct CursorHoverVisualization;
 
 pub fn add_cursor_hover_visualization(
     mut commands: Commands,
-    new_entities: Query<Entity, Or<(Added<FloorMarker>, Added<WallMarker>)>>,
+    new_entities: Query<Entity, Or<(Added<FloorMarker>, Added<ZoneMarker>, Added<WallMarker>)>>,
 ) {
     for e in &new_entities {
         commands
