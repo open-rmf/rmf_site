@@ -1177,6 +1177,7 @@ fn generate_conveyors(
                 &ConveyorThickness,
                 &ConveyorMetadata,
                 &AssociatedGraphs<Entity>,
+                Option<&ConveyorFlow>,
                 &Extensions,
                 &SiteID,
             ),
@@ -1203,15 +1204,31 @@ fn generate_conveyors(
     };
 
     let mut conveyors = BTreeMap::new();
-    for (e, edge, o_edge, height, width, thickness, metadata, graphs, extensions, conveyor_id) in
-        &q_conveyors
+    for (
+        e,
+        edge,
+        o_edge,
+        height,
+        width,
+        thickness,
+        metadata,
+        graphs,
+        flow,
+        extensions,
+        conveyor_id,
+    ) in &q_conveyors
     {
         if !AncestorIter::new(&q_child_of, e).any(|p| p == site) {
             continue;
         }
 
         let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
-        let anchors = get_anchor_id_edge(e, edge)?;
+        let mut anchors = get_anchor_id_edge(e, edge)?;
+
+        // Ensure saved anchor order is from 'In' to 'Out' port
+        if flow == Some(&ConveyorFlow::Backward) {
+            anchors = Edge::new(anchors.right(), anchors.left());
+        }
         let graphs = graphs
             .to_u32(&q_nav_graphs)
             .map_err(|e| SiteGenerationError::BrokenNavGraphReference(e))?;

@@ -7,7 +7,10 @@
 
 use rmf_site_format::{ConveyorPortDirection, Site};
 use serde::Serialize;
-use std::{collections::BTreeMap, env, fs};
+use std::{
+    collections::{BTreeMap, HashMap, HashSet, VecDeque},
+    env, fs,
+};
 
 /// A node in the inferred Material Flow graph, identified by its Anchor ID
 #[derive(Serialize, Debug, Clone)]
@@ -61,6 +64,88 @@ fn extract_topology(site: &Site) -> ConveyorTopology {
         }
     }
 
+    // Resolve conveyor flow direction using connected ports
+    let mut port_directions = HashMap::new();
+    for (&anchor_id, node) in &nodes {
+        if let FlowNode::WorkcellPort { direction, .. } = node {
+            port_directions.insert(anchor_id, *direction);
+        }
+    }
+
+    let mut anchor_to_conveyors: HashMap<u32, Vec<u32>> = HashMap::new();
+    for (&conveyor_id, conveyor) in &site.navigation.guided.conveyors {
+        if conveyor.anchors.start() != conveyor.anchors.end() {
+            anchor_to_conveyors
+                .entry(conveyor.anchors.start())
+                .or_default()
+                .push(conveyor_id);
+            anchor_to_conveyors
+                .entry(conveyor.anchors.end())
+                .or_default()
+                .push(conveyor_id);
+        }
+    }
+
+    let mut is_reversed: HashMap<u32, bool> = HashMap::new();
+    for (&start_id, start_conveyor) in &site.navigation.guided.conveyors {
+        if is_reversed.contains_key(&start_id)
+            || start_conveyor.anchors.start() == start_conveyor.anchors.end()
+        {
+            continue;
+        }
+        let mut chain = vec![(start_id, true)];
+        let mut visited_conveyors = HashSet::from([start_id]);
+        let mut queue = VecDeque::new();
+        for (anchor, away_from_start) in [
+            (start_conveyor.anchors.start(), false),
+            (start_conveyor.anchors.end(), true),
+        ] {
+            if !port_directions.contains_key(&anchor) {
+                queue.push_back((anchor, away_from_start));
+            }
+        }
+        let mut visited_anchors = HashSet::from(start_conveyor.anchors.array());
+
+        while let Some((anchor, away_from_start)) = queue.pop_front() {
+            let Some(neighbors) = anchor_to_conveyors.get(&anchor) else {
+                continue;
+            };
+            for &other_id in neighbors {
+                if !visited_conveyors.insert(other_id) {
+                    continue;
+                }
+                let other_edge = &site.navigation.guided.conveyors[&other_id].anchors;
+                let same_dir = (other_edge.start() == anchor) == away_from_start;
+                chain.push((other_id, same_dir));
+                for next_anchor in other_edge.array() {
+                    if !port_directions.contains_key(&next_anchor)
+                        && visited_anchors.insert(next_anchor)
+                    {
+                        queue.push_back((next_anchor, away_from_start));
+                    }
+                }
+            }
+        }
+
+        let chain_forward = chain.iter().find_map(|&(seg_id, same_dir)| {
+            let seg_edge = &site.navigation.guided.conveyors[&seg_id].anchors;
+            [
+                (seg_edge.start(), ConveyorPortDirection::Out),
+                (seg_edge.end(), ConveyorPortDirection::In),
+            ]
+            .into_iter()
+            .find_map(|(anchor, forward_dir)| {
+                let dir = port_directions.get(&anchor)?;
+                Some((*dir == forward_dir) == same_dir)
+            })
+        });
+
+        for (seg_id, same_dir) in chain {
+            let reversed = chain_forward.is_some_and(|forward| forward != same_dir);
+            is_reversed.insert(seg_id, reversed);
+        }
+    }
+
     // Conveyor segments share Anchor IDs at their endpoints.
     // If an endpoint's Anchor ID is not a workcell port, it is a floor anchor on a Level
     // used to chain multiple conveyor segments together.
@@ -78,10 +163,15 @@ fn extract_topology(site: &Site) -> ConveyorTopology {
             }
         }
 
+        let (from_anchor, to_anchor) = if is_reversed.get(&conveyor_id) == Some(&true) {
+            (conveyor.anchors.end(), conveyor.anchors.start())
+        } else {
+            (conveyor.anchors.start(), conveyor.anchors.end())
+        };
         edges.push(FlowEdge {
             conveyor_id,
-            from_anchor: conveyor.anchors.start(),
-            to_anchor: conveyor.anchors.end(),
+            from_anchor,
+            to_anchor,
             speed: conveyor.metadata.speed.0,
             capacity: conveyor.metadata.capacity.0,
         });
