@@ -1232,8 +1232,8 @@ pub fn add_conveyor_ports(
     models: Query<
         (
             Entity,
-            &Scale,
-            Ref<GlobalTransform>,
+            Option<&Scale>,
+            &GlobalTransform,
             Option<&RenderLayers>,
             &Affiliation<Entity>,
             Option<&Children>,
@@ -1251,8 +1251,16 @@ pub fn add_conveyor_ports(
     mut existing_ports: Query<&mut ConveyorPort>,
 ) {
     // Sync ports configured on the model description for newly placed instances or updated descriptions
-    for (model_entity, scale, model_global_tf, render_layers, affiliation, children, _, _) in
-        &models
+    for (
+        model_entity,
+        scale,
+        model_global_tf,
+        render_layers,
+        affiliation,
+        children,
+        _,
+        conveyor_node,
+    ) in &models
     {
         if render_layers.is_some_and(|r| r.iter().all(|l| l == MODEL_PREVIEW_LAYER)) {
             continue;
@@ -1263,7 +1271,7 @@ pub fn add_conveyor_ports(
         else {
             continue;
         };
-        if !model_global_tf.is_added() && !port_configs.is_changed() {
+        if conveyor_node.is_some() && !port_configs.is_changed() {
             continue;
         }
 
@@ -1295,13 +1303,14 @@ pub fn add_conveyor_ports(
         for &port_entity in &port_entities[common_len..] {
             delete.write(Delete::new(port_entity).and_dependents());
         }
+        let model_scale = if let Some(s) = scale { s.0 } else { Vec3::ONE };
         // Spawn any newly added ports from the description config
         for port_config in &configs[common_len..] {
             spawn_conveyor_port(
                 &mut commands,
                 model_entity,
                 &model_global_tf,
-                scale.0,
+                model_scale,
                 port_config.clone(),
             );
         }
@@ -1347,7 +1356,6 @@ pub fn add_conveyor_ports(
             .0
             .and_then(|desc| conveyor_node_port_configs.get(desc).ok())
             .is_some_and(|cfg| cfg.0.is_some());
-
         if has_desc_override {
             continue;
         }
@@ -1361,8 +1369,15 @@ pub fn add_conveyor_ports(
             }
         }
 
+        let model_scale = if let Some(s) = scale { s.0 } else { Vec3::ONE };
         for port in ports {
-            spawn_conveyor_port(&mut commands, model_entity, &model_global_tf, scale.0, port);
+            spawn_conveyor_port(
+                &mut commands,
+                model_entity,
+                &model_global_tf,
+                model_scale,
+                port,
+            );
         }
     }
 }
@@ -1370,14 +1385,16 @@ pub fn add_conveyor_ports(
 pub fn add_conveyor_port_visuals(
     mut commands: Commands,
     new_ports: Query<(Entity, &ConveyorPort, &ChildOf), Added<ConveyorPort>>,
-    models: Query<&Scale, With<ModelMarker>>,
+    models: Query<Option<&Scale>, With<ModelMarker>>,
     assets: Res<SiteAssets>,
 ) {
     for (e, port, child_of) in &new_ports {
-        let Ok(scale) = models.get(child_of.parent()) else {
-            continue;
+        let model_scale = if let Ok(Some(s)) = models.get(child_of.parent()) {
+            s.0
+        } else {
+            Vec3::ONE
         };
-        let z = port.location[2] * scale.0.z;
+        let z = port.location[2] * model_scale.z;
 
         let arrow_material = match port.direction {
             ConveyorPortDirection::In => assets.conveyor_port_in_material.clone(),

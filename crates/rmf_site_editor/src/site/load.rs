@@ -590,7 +590,6 @@ fn generate_site_entities(
 
     let mut model_description_dependents = HashMap::<Entity, HashSet<Entity>>::new();
     let mut model_description_to_source = HashMap::<Entity, AssetSource>::new();
-    let mut model_description_to_scale = HashMap::<Entity, Vec3>::new();
     for (model_description_id, model_description) in &site_data.model_descriptions {
         let model_description_entity = commands
             .spawn(model_description.clone())
@@ -603,7 +602,6 @@ fn generate_site_entities(
         model_description_dependents.insert(model_description_entity, HashSet::new());
         model_description_to_source
             .insert(model_description_entity, model_description.source.0.clone());
-        model_description_to_scale.insert(model_description_entity, model_description.scale.0 .0);
     }
 
     for (robot_id, robot_data) in &site_data.robots {
@@ -666,21 +664,14 @@ fn generate_site_entities(
                     .entity(desc_entity)
                     .insert(ConveyorNodePortConfigs(None));
             }
-            let model_scale = model_instance
-                .description
-                .0
-                .and_then(|e| model_description_to_scale.get(&e).copied())
-                .unwrap_or(Vec3::ONE);
-            commands
-                .entity(model_instance_entity)
-                .insert((ConveyorNode, Scale(model_scale)));
+            commands.entity(model_instance_entity).insert(ConveyorNode);
             let model_global_tf = GlobalTransform::from(model_instance.pose.transform());
             for (port_id, port) in ports_map {
                 let port_entity = spawn_conveyor_port(
                     commands,
                     model_instance_entity,
                     &model_global_tf,
-                    model_scale,
+                    Vec3::ONE,
                     port.clone(),
                 );
                 commands.entity(port_entity).insert(SiteID(*port_id));
