@@ -56,6 +56,8 @@ const CONVEYOR_MARGIN: f32 = 0.0145;
 const DEFAULT_CONVEYOR_STAND_HEIGHT: f32 =
     DEFAULT_CONVEYOR_HEIGHT - DEFAULT_CONVEYOR_THICKNESS / 2.0;
 const CONVEYOR_PORT_TEXT_OFFSET: f32 = 0.2;
+const MAX_CONVEYOR_PORT_SEGMENTS: usize = 1;
+const MAX_CONVEYOR_FLOOR_ANCHOR_SEGMENTS: usize = 2;
 
 /// Tracks the flow direction of a conveyor segment derived from connected ports.
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -446,8 +448,19 @@ pub fn validate_conveyor_connection(
     conveyor_ports: &Query<&ConveyorPort>,
     dependents: &Query<&Dependents, With<Anchor>>,
 ) -> Result<(), ConveyorConnectionError> {
-    // Reject selecting new anchor if anchor already has >=2 segments connected
-    if count_connected_conveyors(anchor_b, exclude_edge, conveyor_markers, dependents) >= 2 {
+    // Reject if a port already has >=1 segment or a floor anchor already has >=2 segments
+    let max_segments = |anchor: Entity| {
+        if conveyor_ports.contains(anchor) {
+            MAX_CONVEYOR_PORT_SEGMENTS
+        } else {
+            MAX_CONVEYOR_FLOOR_ANCHOR_SEGMENTS
+        }
+    };
+    if count_connected_conveyors(anchor_a, exclude_edge, conveyor_markers, dependents)
+        >= max_segments(anchor_a)
+        || count_connected_conveyors(anchor_b, exclude_edge, conveyor_markers, dependents)
+            >= max_segments(anchor_b)
+    {
         return Err(ConveyorConnectionError::TooManySegments);
     }
 
@@ -566,30 +579,40 @@ pub fn validate_conveyor_port_direction(
     ports: &Query<(&ConveyorPort, &ChildOf)>,
     dependents: &Query<&Dependents, With<Anchor>>,
 ) -> Result<(), ConveyorConnectionError> {
-    let mut prev_edge = None;
-    let mut curr_anchor = port_anchor;
-    while let Some((edge_entity, next_anchor)) = dependents.get(curr_anchor).ok().and_then(|deps| {
-        deps.iter().find_map(|&dep| {
-            if Some(dep) == prev_edge {
-                return None;
+    let mut queue = VecDeque::new();
+    queue.push_back(port_anchor);
+    let mut visited: SmallVec<[Entity; 16]> = SmallVec::new();
+    visited.push(port_anchor);
+    while let Some(curr_anchor) = queue.pop_front() {
+        let Ok(deps) = dependents.get(curr_anchor) else {
+            continue;
+        };
+        for &dep in deps.iter() {
+            let Ok((edge, ..)) = conveyors.get(dep) else {
+                continue;
+            };
+            let Some(next_anchor) = (edge.start() == curr_anchor)
+                .then_some(edge.end())
+                .or_else(|| (edge.end() == curr_anchor).then_some(edge.start()))
+            else {
+                continue;
+            };
+            if visited.contains(&next_anchor) {
+                continue;
             }
-            let (edge, ..) = conveyors.get(dep).ok()?;
-            (edge.start() == curr_anchor)
-                .then_some((dep, edge.end()))
-                .or_else(|| (edge.end() == curr_anchor).then_some((dep, edge.start())))
-        })
-    }) {
-        if ports
-            .get(next_anchor)
-            .is_ok_and(|(p, _)| p.direction == new_dir)
-        {
-            return Err(match new_dir {
-                ConveyorPortDirection::In => ConveyorConnectionError::MultipleInPorts,
-                ConveyorPortDirection::Out => ConveyorConnectionError::MultipleOutPorts,
-            });
+            visited.push(next_anchor);
+            // Stop at port terminals and reject if another port already has `new_dir`.
+            if let Ok((p, _)) = ports.get(next_anchor) {
+                if p.direction == new_dir {
+                    return Err(match new_dir {
+                        ConveyorPortDirection::In => ConveyorConnectionError::MultipleInPorts,
+                        ConveyorPortDirection::Out => ConveyorConnectionError::MultipleOutPorts,
+                    });
+                }
+            } else {
+                queue.push_back(next_anchor);
+            }
         }
-        prev_edge = Some(edge_entity);
-        curr_anchor = next_anchor;
     }
     Ok(())
 }
@@ -1498,5 +1521,274 @@ pub fn update_conveyor_ports(
                 }
             }
         }
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::ecs::system::SystemState;
+    use rmf_site_format::Conveyor;
+
+    fn spawn_test_port(world: &mut World, direction: ConveyorPortDirection) -> Entity {
+        world
+            .spawn((
+                Anchor::Translate2D([0.0, 0.0]),
+                Dependents::default(),
+                ConveyorPort {
+                    direction,
+                    location: [0.0, 0.0, 0.5],
+                    width: None,
+                },
+            ))
+            .id()
+    }
+
+    fn spawn_test_edge(world: &mut World, u: Entity, v: Entity) -> Entity {
+        let edge = world.spawn(Conveyor::from(Edge::new(u, v))).id();
+        world.get_mut::<Dependents>(u).unwrap().insert(edge);
+        world.get_mut::<Dependents>(v).unwrap().insert(edge);
+        edge
+    }
+
+    #[test]
+    fn port_direction_validation_terminates_on_closed_chain() {
+        let mut world = World::new();
+        let model = world.spawn_empty().id();
+        let port_p = spawn_test_port(&mut world, ConveyorPortDirection::In);
+        world.entity_mut(port_p).insert(ChildOf(model));
+        let floor_a = world
+            .spawn((Anchor::Translate2D([1.0, 0.0]), Dependents::default()))
+            .id();
+        let floor_b = world
+            .spawn((Anchor::Translate2D([1.0, 1.0]), Dependents::default()))
+            .id();
+
+        for (u, v) in [(port_p, floor_a), (floor_a, floor_b), (floor_b, port_p)] {
+            spawn_test_edge(&mut world, u, v);
+        }
+
+        let mut state: SystemState<(
+            Query<
+                (
+                    &Edge<Entity>,
+                    &ConveyorHeight,
+                    &ConveyorWidth,
+                    &ConveyorThickness,
+                    &ConveyorMetadata,
+                ),
+                With<ConveyorMarker>,
+            >,
+            Query<(&ConveyorPort, &ChildOf)>,
+            Query<&Dependents, With<Anchor>>,
+        )> = SystemState::new(&mut world);
+        let (conveyors, ports, dependents) = state.get(&world);
+
+        assert!(validate_conveyor_port_direction(
+            port_p,
+            ConveyorPortDirection::Out,
+            &conveyors,
+            &ports,
+            &dependents,
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn validate_connection_rejects_fork_and_duplicate_ports() {
+        let mut world = World::new();
+        let a0 = world
+            .spawn((Anchor::Translate2D([0.0, 0.0]), Dependents::default()))
+            .id();
+        let a1 = world
+            .spawn((Anchor::Translate2D([1.0, 0.0]), Dependents::default()))
+            .id();
+        let a2 = world
+            .spawn((Anchor::Translate2D([2.0, 0.0]), Dependents::default()))
+            .id();
+        let a3 = world
+            .spawn((Anchor::Translate2D([1.0, 1.0]), Dependents::default()))
+            .id();
+        spawn_test_edge(&mut world, a0, a1);
+        spawn_test_edge(&mut world, a1, a2);
+        let fork_preview = world.spawn(Conveyor::from(Edge::new(a3, a3))).id();
+
+        let in1 = spawn_test_port(&mut world, ConveyorPortDirection::In);
+        let mid = world
+            .spawn((Anchor::Translate2D([3.0, 0.0]), Dependents::default()))
+            .id();
+        let in2 = spawn_test_port(&mut world, ConveyorPortDirection::In);
+        let out = spawn_test_port(&mut world, ConveyorPortDirection::Out);
+        spawn_test_edge(&mut world, in1, mid);
+        let chain_preview = world.spawn(Conveyor::from(Edge::new(mid, mid))).id();
+
+        let mut state: SystemState<(
+            Query<(), With<ConveyorMarker>>,
+            Query<&mut Edge<Entity>>,
+            Query<&ConveyorPort>,
+            Query<&Dependents, With<Anchor>>,
+        )> = SystemState::new(&mut world);
+        let (markers, edges, ports, dependents) = state.get_mut(&mut world);
+
+        assert!(matches!(
+            validate_conveyor_connection(
+                a3,
+                a1,
+                fork_preview,
+                &markers,
+                &edges,
+                &ports,
+                &dependents
+            ),
+            Err(ConveyorConnectionError::TooManySegments)
+        ));
+        assert!(matches!(
+            validate_conveyor_connection(
+                mid,
+                in2,
+                chain_preview,
+                &markers,
+                &edges,
+                &ports,
+                &dependents
+            ),
+            Err(ConveyorConnectionError::MultipleInPorts)
+        ));
+        assert!(validate_conveyor_connection(
+            mid,
+            out,
+            chain_preview,
+            &markers,
+            &edges,
+            &ports,
+            &dependents
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn validate_port_direction_rejects_conflicting_port() {
+        let mut world = World::new();
+        let model = world.spawn_empty().id();
+        let port_out = spawn_test_port(&mut world, ConveyorPortDirection::Out);
+        let port_in = spawn_test_port(&mut world, ConveyorPortDirection::In);
+        world.entity_mut(port_out).insert(ChildOf(model));
+        world.entity_mut(port_in).insert(ChildOf(model));
+        let mid = world
+            .spawn((Anchor::Translate2D([1.0, 0.0]), Dependents::default()))
+            .id();
+        spawn_test_edge(&mut world, port_out, mid);
+        spawn_test_edge(&mut world, mid, port_in);
+
+        let mut state: SystemState<(
+            Query<
+                (
+                    &Edge<Entity>,
+                    &ConveyorHeight,
+                    &ConveyorWidth,
+                    &ConveyorThickness,
+                    &ConveyorMetadata,
+                ),
+                With<ConveyorMarker>,
+            >,
+            Query<(&ConveyorPort, &ChildOf)>,
+            Query<&Dependents, With<Anchor>>,
+        )> = SystemState::new(&mut world);
+        let (conveyors, ports, dependents) = state.get(&world);
+
+        assert!(matches!(
+            validate_conveyor_port_direction(
+                port_out,
+                ConveyorPortDirection::In,
+                &conveyors,
+                &ports,
+                &dependents,
+            ),
+            Err(ConveyorConnectionError::MultipleInPorts)
+        ));
+        assert!(validate_conveyor_port_direction(
+            port_out,
+            ConveyorPortDirection::Out,
+            &conveyors,
+            &ports,
+            &dependents,
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn validate_port_direction_checks_all_branches_on_port() {
+        let mut world = World::new();
+        let model = world.spawn_empty().id();
+        let port_p = spawn_test_port(&mut world, ConveyorPortDirection::Out);
+        let port_in = spawn_test_port(&mut world, ConveyorPortDirection::In);
+        world.entity_mut(port_p).insert(ChildOf(model));
+        world.entity_mut(port_in).insert(ChildOf(model));
+        let floor_a = world
+            .spawn((Anchor::Translate2D([1.0, 0.0]), Dependents::default()))
+            .id();
+
+        spawn_test_edge(&mut world, port_p, floor_a);
+        spawn_test_edge(&mut world, port_p, port_in);
+
+        let mut state: SystemState<(
+            Query<
+                (
+                    &Edge<Entity>,
+                    &ConveyorHeight,
+                    &ConveyorWidth,
+                    &ConveyorThickness,
+                    &ConveyorMetadata,
+                ),
+                With<ConveyorMarker>,
+            >,
+            Query<(&ConveyorPort, &ChildOf)>,
+            Query<&Dependents, With<Anchor>>,
+        )> = SystemState::new(&mut world);
+        let (conveyors, ports, dependents) = state.get(&world);
+
+        assert!(matches!(
+            validate_conveyor_port_direction(
+                port_p,
+                ConveyorPortDirection::In,
+                &conveyors,
+                &ports,
+                &dependents,
+            ),
+            Err(ConveyorConnectionError::MultipleInPorts)
+        ));
+    }
+
+    #[test]
+    fn validate_connection_rejects_second_segment_on_port() {
+        let mut world = World::new();
+        let port_out = spawn_test_port(&mut world, ConveyorPortDirection::Out);
+        let port_in_1 = spawn_test_port(&mut world, ConveyorPortDirection::In);
+        let port_in_2 = spawn_test_port(&mut world, ConveyorPortDirection::In);
+
+        spawn_test_edge(&mut world, port_out, port_in_1);
+        let preview = world
+            .spawn(Conveyor::from(Edge::new(port_out, port_out)))
+            .id();
+
+        let mut state: SystemState<(
+            Query<(), With<ConveyorMarker>>,
+            Query<&mut Edge<Entity>>,
+            Query<&ConveyorPort>,
+            Query<&Dependents, With<Anchor>>,
+        )> = SystemState::new(&mut world);
+        let (markers, edges, ports, dependents) = state.get_mut(&mut world);
+
+        assert!(matches!(
+            validate_conveyor_connection(
+                port_out,
+                port_in_2,
+                preview,
+                &markers,
+                &edges,
+                &ports,
+                &dependents,
+            ),
+            Err(ConveyorConnectionError::TooManySegments)
+        ));
     }
 }
