@@ -17,7 +17,7 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Deref, DerefMut, Reflect, ReflectComponent};
+use bevy::prelude::{Bundle, Component, Reflect, ReflectComponent};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 
@@ -109,7 +109,6 @@ impl Default for ModelDescriptionBundle {
 /// Stores conveyor ports for a model instance that acts as a conveyor node
 #[derive(Serialize, Debug, Clone, Default, PartialEq)]
 #[serde(transparent)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
 pub struct ModelConveyorPorts(pub Option<BTreeMap<u32, ConveyorPort>>);
 
 // Parented<u32, ModelInstance<u32>> uses #[serde(flatten)], which buffers map keys as
@@ -141,6 +140,7 @@ pub struct ModelInstance<T: RefTrait> {
     pub pose: Pose,
     pub description: Affiliation<T>,
     #[serde(default, skip_serializing_if = "is_default")]
+    #[cfg_attr(feature = "bevy", bundle(ignore))]
     pub conveyor_ports: ModelConveyorPorts,
     #[serde(skip)]
     pub export_data: ExportData,

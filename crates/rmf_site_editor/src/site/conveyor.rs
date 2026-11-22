@@ -19,9 +19,11 @@ use crate::{
     interaction::billboard::Billboard,
     recency::RecencyRank,
     site::{
-        Anchor, AnchorBundle, AnchorParams, Category, Delete, Dependents, EdgeLabels, GraphSelect,
-        Original, Pending, SiteAssets, Subordinate,
+        remove_association_for_deleted_graphs, update_anchor_transforms, Anchor, AnchorBundle,
+        AnchorParams, Category, ChangePlugin, Delete, Dependents, EdgeLabels, GraphSelect,
+        Original, Pending, SiteAssets, SiteUpdateSet, Subordinate,
     },
+    AppState,
 };
 use bevy::{
     ecs::{hierarchy::ChildOf, relationship::AncestorIter},
@@ -66,6 +68,52 @@ pub enum ConveyorFlow {
     None,
     Forward,
     Backward,
+}
+
+pub struct ConveyorPlugin;
+
+impl Plugin for ConveyorPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_plugins((
+            ChangePlugin::<ConveyorHeight>::default(),
+            ChangePlugin::<ConveyorWidth>::default(),
+            ChangePlugin::<ConveyorThickness>::default(),
+            ChangePlugin::<ConveyorMetadata>::default(),
+            ChangePlugin::<ConveyorPort>::default(),
+        ))
+        .add_systems(
+            PostUpdate,
+            add_conveyor_visuals
+                .run_if(AppState::in_displaying_mode())
+                .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
+        )
+        .add_systems(
+            PostUpdate,
+            (
+                add_conveyor_ports,
+                add_conveyor_port_visuals,
+                update_conveyor_ports,
+                update_conveyor_dimensions,
+                update_conveyor_flows,
+                update_changed_conveyor,
+                update_conveyor_for_moved_anchor,
+                update_conveyor_flow_visuals,
+            )
+                .chain()
+                .after(add_conveyor_visuals)
+                .after(update_anchor_transforms)
+                .run_if(AppState::in_displaying_mode())
+                .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
+        )
+        .add_systems(
+            PostUpdate,
+            update_visibility_for_conveyors
+                .after(remove_association_for_deleted_graphs)
+                .after(add_conveyor_visuals)
+                .run_if(AppState::in_displaying_mode())
+                .in_set(SiteUpdateSet::BetweenTransformAndVisibility),
+        );
+    }
 }
 
 fn scale_conveyor_uvs(mesh: &mut Mesh, flow: ConveyorFlow) {
@@ -1523,6 +1571,7 @@ pub fn update_conveyor_ports(
         }
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
