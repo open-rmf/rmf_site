@@ -25,8 +25,8 @@ use bevy_gltf_export::{export_meshes, CompressGltfOptions, MeshData};
 use std::{collections::HashMap, path::Path};
 
 use crate::site::{
-    ChildLiftCabinGroup, CollisionMeshMarker, DoorSegments, FloorSegments, Group, LiftDoormat,
-    VisualMeshMarker,
+    ChildLiftCabinGroup, CollisionMeshMarker, ConveyorSegments, DoorSegments, FloorSegments, Group,
+    LiftDoormat, VisualMeshMarker,
 };
 use rmf_site_format::{
     Affiliation, IsStatic, LevelElevation, LiftCabin, ModelMarker, NameInSite, SiteID, WallMarker,
@@ -74,6 +74,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
         Query<Entity, With<WallMarker>>,
         Query<&FloorSegments>,
         Query<(Option<&NameInSite>, &DoorSegments)>,
+        Query<&ConveyorSegments>,
         Query<(&NameInSite, &IsStatic, &Affiliation<Entity>), (With<ModelMarker>, Without<Group>)>,
         Query<(), With<CollisionMeshMarker>>,
         Query<(), With<VisualMeshMarker>>,
@@ -90,6 +91,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
         q_walls,
         q_floors,
         q_doors,
+        q_conveyors,
         q_models,
         q_collisions,
         q_visuals,
@@ -266,6 +268,16 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                             filename,
                         )?;
                     }
+                } else if let Ok(segments) = q_conveyors.get(child) {
+                    // Export conveyors parented to this level
+                    export_conveyor_meshes(
+                        get_site_id(child)?,
+                        segments,
+                        folder,
+                        &q_tfs,
+                        get_mesh_and_material,
+                        write_meshes_to_file,
+                    )?;
                 } else {
                     continue;
                 };
@@ -369,6 +381,18 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                 }
             }
         }
+
+        // Export site-parented conveyors
+        if let Ok(segments) = q_conveyors.get(site_child) {
+            export_conveyor_meshes(
+                get_site_id(site_child)?,
+                segments,
+                folder,
+                &q_tfs,
+                get_mesh_and_material,
+                write_meshes_to_file,
+            )?;
+        }
     }
 
     for (description, meshes) in description_meshes {
@@ -397,6 +421,50 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
         )?;
     }
 
+    Ok(())
+}
+
+fn export_conveyor_meshes<'a>(
+    conveyor_id: u32,
+    segments: &ConveyorSegments,
+    folder: &Path,
+    q_tfs: &Query<&Transform>,
+    get_mesh_and_material: impl Fn(Entity) -> Option<(&'a Mesh, &'a StandardMaterial)>,
+    write_meshes_to_file: impl Fn(
+        Vec<MeshData<'a>>,
+        Option<String>,
+        CompressGltfOptions,
+        String,
+    ) -> Result<(), String>,
+) -> Result<(), String> {
+    for (link_name, entities) in segments.links() {
+        let mut data = vec![];
+        for entity in entities {
+            let Some((mesh, material)) = get_mesh_and_material(entity) else {
+                continue;
+            };
+            let Ok(tf) = q_tfs.get(entity) else {
+                continue;
+            };
+            data.push(MeshData {
+                mesh,
+                material: Some(material),
+                transform: Some(tf.clone()),
+            });
+        }
+        let filename = format!(
+            "{}/conveyor_{}_{}.glb",
+            folder.display(),
+            conveyor_id,
+            link_name,
+        );
+        write_meshes_to_file(
+            data,
+            Some(format!("conveyor_{}_{}", conveyor_id, link_name)),
+            CompressGltfOptions::default(),
+            filename,
+        )?;
+    }
     Ok(())
 }
 

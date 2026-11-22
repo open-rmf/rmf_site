@@ -199,6 +199,24 @@ pub struct ConveyorSegments {
     end_stand: Entity,
 }
 
+impl ConveyorSegments {
+    pub fn links(&self) -> [(&'static str, Vec<Entity>); 2] {
+        [
+            (
+                "frame",
+                vec![
+                    self.start,
+                    self.start_stand,
+                    self.mid,
+                    self.end,
+                    self.end_stand,
+                ],
+            ),
+            ("belt", vec![self.start_belt, self.mid_belt, self.end_belt]),
+        ]
+    }
+}
+
 struct ConveyorVisuals {
     root: Transform,
     root_global_tf: GlobalTransform,
