@@ -324,8 +324,6 @@ fn generate_site_entities(
         consider_id(*group_id);
     }
 
-    let mut anchor_to_level = HashMap::<Entity, Entity>::new();
-
     for (level_id, level_data) in &site_data.levels {
         let level_entity = commands
             .spawn(SiteID(*level_id))
@@ -339,7 +337,6 @@ fn generate_site_entities(
                 .insert(ChildOf(level_entity))
                 .id();
             id_to_entity.insert(*anchor_id, anchor_entity);
-            anchor_to_level.insert(anchor_entity, level_entity);
             consider_id(*anchor_id);
         }
 
@@ -676,7 +673,6 @@ fn generate_site_entities(
                 );
                 commands.entity(port_entity).insert(SiteID(*port_id));
                 id_to_entity.insert(*port_id, port_entity);
-                anchor_to_level.insert(port_entity, parent);
                 consider_id(*port_id);
             }
         }
@@ -708,15 +704,10 @@ fn generate_site_entities(
         let conveyor = conveyor_data
             .convert(&id_to_entity)
             .as_broken_error(site_id, "conveyor")?;
-        let parent = anchor_to_level
-            .get(&conveyor.anchors.left())
-            .or_else(|| anchor_to_level.get(&conveyor.anchors.right()))
-            .copied()
-            .unwrap_or(site_id);
         let conveyor_entity = commands
             .spawn(conveyor)
             .insert(SiteID(*conveyor_id))
-            .insert(ChildOf(parent))
+            .insert(ChildOf(site_id))
             .id();
         id_to_entity.insert(*conveyor_id, conveyor_entity);
         consider_id(*conveyor_id);

@@ -221,7 +221,7 @@ fn get_conveyor_anchor_position(
     anchors: &AnchorParams,
 ) -> Option<Vec3> {
     match anchors.point_in_parent_frame_of(anchor, Category::Conveyor, conveyor) {
-        Ok(p) => Some(p.with_z(0.0)),
+        Ok(p) => Some(p),
         Err(_) => {
             error!("Failed to find {label} anchor {anchor:?} for conveyor {conveyor:?}");
             None
@@ -243,9 +243,9 @@ fn make_conveyor_visuals(
     let start_anchor = get_conveyor_anchor_position(edge.start(), "start", entity, anchors)?;
     let end_anchor = get_conveyor_anchor_position(edge.end(), "end", entity, anchors)?;
     let center = (start_anchor + end_anchor) / 2.0;
-    let local_start = start_anchor - center;
-    let local_end = end_anchor - center;
-    let root = Transform::from_xyz(center.x, center.y, height);
+    let local_start = (start_anchor - center).with_z(0.0);
+    let local_end = (end_anchor - center).with_z(0.0);
+    let root = Transform::from_xyz(center.x, center.y, center.z + height);
 
     // Sync GlobalTransform to align end caps and resize mid mesh within the same frame.
     let parent_global_tf = child_of
@@ -263,7 +263,7 @@ fn make_conveyor_visuals(
     let end_belt_z = (thickness + CONVEYOR_END_BELT_THICKNESS) / 2.0;
     let flat_rotation = Quat::from_rotation_x(std::f32::consts::FRAC_PI_2);
 
-    let start_to_end = end_anchor - start_anchor;
+    let start_to_end = (end_anchor - start_anchor).with_z(0.0);
     let length = start_to_end.length();
     let direction = if length > 0.001 {
         start_to_end / length
