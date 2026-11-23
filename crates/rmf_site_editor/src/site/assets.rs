@@ -176,7 +176,7 @@ pub fn old_default_material(base_color: Color) -> StandardMaterial {
     }
 }
 
-fn billboard_material(base_color: Color) -> StandardMaterial {
+pub fn billboard_material_color(base_color: Color) -> StandardMaterial {
     StandardMaterial {
         base_color,
         alpha_mode: AlphaMode::Blend,
@@ -186,10 +186,10 @@ fn billboard_material(base_color: Color) -> StandardMaterial {
     }
 }
 
-pub fn billboard_texture_material(texture: Handle<Image>) -> StandardMaterial {
+pub fn billboard_material(base_color_texture: Handle<Image>) -> StandardMaterial {
     StandardMaterial {
-        base_color_texture: Some(texture),
-        ..billboard_material(Color::WHITE)
+        base_color_texture: Some(base_color_texture),
+        ..billboard_material_color(Color::WHITE)
     }
 }
 
@@ -319,21 +319,21 @@ impl FromWorld for SiteAssets {
             ..default()
         });
         let conveyor_port_in_material =
-            materials.add(billboard_material(Color::srgba(0.0, 1.0, 0.0, 0.5)));
+            materials.add(billboard_material_color(Color::srgba(0.0, 1.0, 0.0, 0.5)));
         let conveyor_port_out_material =
-            materials.add(billboard_material(Color::srgba(1.0, 0.0, 0.0, 0.5)));
+            materials.add(billboard_material_color(Color::srgba(1.0, 0.0, 0.0, 0.5)));
 
         let location_billboard_base_material =
-            materials.add(billboard_texture_material(location_billboard_base_texture));
+            materials.add(billboard_material(location_billboard_base_texture));
         let location_billboard_charger_material: Handle<StandardMaterial> =
-            materials.add(billboard_texture_material(charger_texture));
+            materials.add(billboard_material(charger_texture));
         let location_billboard_holding_point_material =
-            materials.add(billboard_texture_material(holding_point_texture));
+            materials.add(billboard_material(holding_point_texture));
         let location_billboard_parking_material =
-            materials.add(billboard_texture_material(parking_texture));
-        let lockpad_material = materials.add(billboard_texture_material(lockpad_texture));
+            materials.add(billboard_material(parking_texture));
+        let lockpad_material = materials.add(billboard_material(lockpad_texture));
         let location_billboard_empty_material =
-            materials.add(billboard_texture_material(location_billboard_empty_texture));
+            materials.add(billboard_material(location_billboard_empty_texture));
 
         let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
         let conveyor_end_mesh = meshes.add(
