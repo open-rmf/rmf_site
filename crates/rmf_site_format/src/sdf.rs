@@ -16,13 +16,13 @@
 */
 
 use crate::{
-    Anchor, Angle, AssetSource, BaseSdf, Category, Conveyor, DoorType, Level, LiftCabin, Pose,
-    Rotation, Site, Swing,
+    Anchor, Angle, AssetSource, BaseSdf, Category, DoorType, Level, LiftCabin, Pose, Rotation,
+    Site, Swing,
 };
 use glam::Vec3;
 use once_cell::sync::Lazy;
 use sdformat::*;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use thiserror::Error;
 
 const DEFAULT_CABIN_MASS: f64 = 1200.0;
@@ -79,10 +79,10 @@ impl Pose {
     }
 }
 
-fn make_sdf_link(mesh_prefix: &str, link_name: &str, collide_bitmask: Option<&str>) -> SdfLink {
-    let collision = collide_bitmask
-        .into_iter()
-        .map(|bitmask| SdfCollision {
+fn make_sdf_door_link(mesh_prefix: &str, link_name: &str) -> SdfLink {
+    SdfLink {
+        name: link_name.to_string(),
+        collision: vec![SdfCollision {
             name: format!("{link_name}_collision"),
             geometry: SdfGeometry::Mesh(SdfMeshShape {
                 uri: format!("meshes/{mesh_prefix}_{link_name}.glb"),
@@ -90,17 +90,13 @@ fn make_sdf_link(mesh_prefix: &str, link_name: &str, collide_bitmask: Option<&st
             }),
             surface: Some(SdfSurface {
                 contact: Some(SdfSurfaceContact {
-                    collide_bitmask: Some(bitmask.into()),
+                    collide_bitmask: Some("0x02".into()),
                     ..Default::default()
                 }),
                 ..Default::default()
             }),
             ..Default::default()
-        })
-        .collect();
-    SdfLink {
-        name: link_name.to_string(),
-        collision,
+        }],
         visual: vec![SdfVisual {
             name: format!("{link_name}_visual"),
             geometry: SdfGeometry::Mesh(SdfMeshShape {
@@ -109,36 +105,6 @@ fn make_sdf_link(mesh_prefix: &str, link_name: &str, collide_bitmask: Option<&st
             }),
             ..Default::default()
         }],
-        ..Default::default()
-    }
-}
-
-fn make_sdf_conveyor(
-    start_pos: [f32; 3],
-    end_pos: [f32; 3],
-    conveyor: &Conveyor<u32>,
-    mesh_prefix: &str,
-    model_name: &str,
-) -> SdfModel {
-    let center = [
-        (start_pos[0] + end_pos[0]) / 2.0,
-        (start_pos[1] + end_pos[1]) / 2.0,
-        (start_pos[2] + end_pos[2]) / 2.0,
-    ];
-    SdfModel {
-        name: model_name.to_owned(),
-        pose: Some(
-            Pose {
-                trans: [center[0], center[1], center[2] + conveyor.height.0],
-                ..Default::default()
-            }
-            .to_sdf(),
-        ),
-        r#static: Some(true),
-        link: vec![
-            make_sdf_link(mesh_prefix, "frame", Some("0x01")),
-            make_sdf_link(mesh_prefix, "belt", None),
-        ],
         ..Default::default()
     }
 }
@@ -199,9 +165,7 @@ fn make_sdf_door(
         ..Default::default()
     };
     for label in labels.iter() {
-        door_model
-            .link
-            .push(make_sdf_link(mesh_prefix, label, Some("0x02")));
+        door_model.link.push(make_sdf_door_link(mesh_prefix, label));
     }
     let mut door_motion_params = vec![];
     let joints = match kind {
@@ -546,76 +510,6 @@ impl Site {
             .scenarios
             .first_key_value()
             .ok_or(SdfConversionError::UnableToFindScenario)?;
-
-        // Precompute site-frame coordinates and parent level for conveyor ports on model instances,
-        // as conveyor ports are stored in local unscaled model coordinates.
-        let mut conveyor_port_anchors = HashMap::new();
-        for instance in self.model_instances.values() {
-            let Some(ports) = &instance.bundle.conveyor_ports.0 else {
-                continue;
-            };
-            let model_scale = instance
-                .bundle
-                .description
-                .0
-                .and_then(|desc_id| self.model_descriptions.get(&desc_id))
-                .map(|desc| desc.scale.0.0)
-                .unwrap_or(Vec3::ONE);
-            let rot = instance.bundle.pose.rot.as_glam_quat();
-            let model_trans = Vec3::from_array(instance.bundle.pose.trans);
-            let port_level = self
-                .levels
-                .contains_key(&instance.parent)
-                .then_some(instance.parent);
-            let level_z = port_level
-                .and_then(|id| self.levels.get(&id))
-                .map(|lvl| lvl.properties.elevation.0)
-                .unwrap_or(0.0);
-            for (&port_id, port) in ports {
-                let local_xy = Vec3::new(
-                    port.location[0] * model_scale.x,
-                    port.location[1] * model_scale.y,
-                    0.0,
-                );
-                let world_pos = model_trans + rot * local_xy;
-                conveyor_port_anchors.insert(
-                    port_id,
-                    (
-                        [world_pos.x, world_pos.y, level_z + world_pos.z],
-                        port_level,
-                    ),
-                );
-            }
-        }
-        // Resolve endpoints across model ports, site anchors, and level anchors
-        // as endpoints can belong to either a level or the site.
-        let get_conveyor_endpoints = |conveyor: &Conveyor<u32>| -> Result<
-            ([f32; 3], [f32; 3], Option<u32>),
-            SdfConversionError,
-        > {
-            let get_anchor = |id: u32| -> Result<([f32; 3], Option<u32>), SdfConversionError> {
-                if let Some(&(pos, level_id)) = conveyor_port_anchors.get(&id) {
-                    return Ok((pos, level_id));
-                }
-                if let Some(site_anchor) = self.anchors.get(&id) {
-                    let p = site_anchor.translation_for_category(Category::Conveyor);
-                    return Ok(([p[0], p[1], 0.0], None));
-                }
-                self.levels
-                    .iter()
-                    .find_map(|(&lvl_id, lvl)| {
-                        lvl.anchors.get(&id).map(|anchor| {
-                            let p = anchor.translation_for_category(Category::Conveyor);
-                            ([p[0], p[1], lvl.properties.elevation.0], Some(lvl_id))
-                        })
-                    })
-                    .ok_or(SdfConversionError::BrokenAnchorReference(id))
-            };
-            let (left_pos, left_level) = get_anchor(conveyor.anchors.left())?;
-            let (right_pos, right_level) = get_anchor(conveyor.anchors.right())?;
-            Ok((left_pos, right_pos, left_level.or(right_level)))
-        };
-
         for (level_id, level) in &self.levels {
             let mut level_model_names = vec![];
             let mut model_element_map = ElementMap::default();
@@ -813,23 +707,6 @@ impl Site {
                 level_model_names.push(door_model.name.clone());
                 world.model.push(door_model);
             }
-            // Export conveyors associated with this level
-            for (conveyor_id, conveyor) in &self.navigation.guided.conveyors {
-                let (left_pos, right_pos, conveyor_level) = get_conveyor_endpoints(conveyor)?;
-                if conveyor_level != Some(*level_id) {
-                    continue;
-                }
-                let conveyor_name = format!("conveyor_{conveyor_id}");
-                let conveyor_model = make_sdf_conveyor(
-                    left_pos,
-                    right_pos,
-                    conveyor,
-                    &conveyor_name,
-                    &conveyor_name,
-                );
-                level_model_names.push(conveyor_model.name.clone());
-                world.model.push(conveyor_model);
-            }
             for model_name in level_model_names.into_iter() {
                 let model_element = XmlElement {
                     name: "model".into(),
@@ -840,21 +717,6 @@ impl Site {
             }
             floor_models_ele.data = ElementData::Nested(model_element_map);
             toggle_floors_plugin.elements.push(floor_models_ele);
-        }
-        // Export conveyors associated with site-level anchors
-        for (conveyor_id, conveyor) in &self.navigation.guided.conveyors {
-            let (left_pos, right_pos, conveyor_level) = get_conveyor_endpoints(conveyor)?;
-            if conveyor_level.is_some() {
-                continue;
-            }
-            let conveyor_name = format!("conveyor_{conveyor_id}");
-            world.model.push(make_sdf_conveyor(
-                left_pos,
-                right_pos,
-                conveyor,
-                &conveyor_name,
-                &conveyor_name,
-            ));
         }
         for (lift_id, lift) in &self.lifts {
             let get_lift_anchor = |id: u32| -> Result<&Anchor, SdfConversionError> {
