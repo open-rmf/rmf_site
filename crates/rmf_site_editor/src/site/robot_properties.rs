@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 use crate::site::{
     update_model_instances, Change, Group, ModelMarker, ModelProperty, ModelPropertyData,

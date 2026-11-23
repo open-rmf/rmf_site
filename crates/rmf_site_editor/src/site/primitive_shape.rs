@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 use bevy::ecs::{hierarchy::ChildOf, relationship::AncestorIter, system::EntityCommands};
 use bevy::math::primitives;
