@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 use crate::{CURRENT_MAJOR_VERSION, CURRENT_MINOR_VERSION};
 use serde::{Deserialize, Serialize, de::Visitor};

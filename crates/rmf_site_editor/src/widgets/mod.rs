@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 //! The site editor allows you to insert your own egui widgets into the UI.
 //! Simple examples of custom widgets can be found in the docs for

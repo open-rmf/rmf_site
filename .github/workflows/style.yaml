@@ -21,6 +21,8 @@ jobs:
     - name: rustfmt
       run: |
         rustup component add rustfmt
+        rustup --version
+        cargo fmt --version
 
     - name: style
       run: cargo fmt --check
