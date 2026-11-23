@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 use crate::{recency::RankAdjustment, site::LayerVisibility};
 use bevy::{asset::embedded_asset, ecs::system::SystemState, prelude::*};

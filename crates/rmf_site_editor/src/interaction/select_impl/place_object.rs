@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 use crate::{
     interaction::{spawn_place_object_2d_workflow, PlaceObject2d, PlaceObjectContinuity},

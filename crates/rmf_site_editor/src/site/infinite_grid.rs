@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 use bevy::prelude::{ChildOf, Color, Commands, Deref, Entity, Quat, Resource, Transform, Vec3};
 use bevy_infinite_grid::{InfiniteGridBundle, InfiniteGridSettings};

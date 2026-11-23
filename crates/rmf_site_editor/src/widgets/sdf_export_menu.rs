@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 use crate::{
     site::{resolve_and_read_base_sdf_file, Change, DefaultFile},
