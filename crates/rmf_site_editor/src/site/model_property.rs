@@ -15,7 +15,7 @@
  *
 */
 
-use crate::site::{AssetSource, IsStatic, ModelProperty, Scale};
+use crate::site::{AssetSource, IsStatic, KnownObstacle, ModelProperty, Scale};
 use bevy::{
     ecs::{component::ComponentId, system::EntityCommands},
     prelude::*,
@@ -84,6 +84,18 @@ impl FromWorld for ModelPropertyData {
                 "Is Static".to_string(),
                 get_insert_model_property_fn::<IsStatic>(),
                 get_remove_model_property_fn::<IsStatic>(),
+            ),
+        );
+        world.register_component::<ModelProperty<KnownObstacle>>();
+        required.insert(
+            world
+                .components()
+                .component_id::<ModelProperty<KnownObstacle>>()
+                .unwrap(),
+            (
+                "Base Occupancy Grid".to_string(),
+                get_insert_model_property_fn::<ModelProperty<KnownObstacle>>(),
+                get_remove_model_property_fn::<ModelProperty<KnownObstacle>>(),
             ),
         );
         let optional = HashMap::new();

@@ -16,7 +16,6 @@
 */
 
 use bevy_app::prelude::*;
-use bevy_ecs::prelude::*;
 use bevy_egui::egui::{self, Button, Ui};
 
 use crate::*;

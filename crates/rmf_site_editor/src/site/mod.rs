@@ -266,6 +266,7 @@ impl Plugin for SitePlugin {
             ChangePlugin::<ReverseLane>::default(),
             RecallPlugin::<RecallReverseLane>::default(),
             ChangePlugin::<NameOfSite>::default(),
+            ChangePlugin::<BaseSdf>::default(),
             ChangePlugin::<NameInSite>::default(),
             ChangePlugin::<Pose>::default(),
             ChangePlugin::<Scale>::default(),
@@ -316,6 +317,8 @@ impl Plugin for SitePlugin {
             ChangePlugin::<ModelProperty<AssetSource>>::default(),
             ChangePlugin::<ModelProperty<Scale>>::default(),
             ChangePlugin::<ModelProperty<IsStatic>>::default(),
+            ChangePlugin::<ModelProperty<KnownObstacle>>::default(),
+            ChangePlugin::<KnownObstacle>::default(),
             ChangePlugin::<ModelProperty<Robot>>::default(),
             ChangePlugin::<Task<Entity>>::default(),
             PropertyPlugin::<Pose, InstanceMarker>::default(),
@@ -326,8 +329,8 @@ impl Plugin for SitePlugin {
             SlotcarSdfPlugin,
             MaterialPlugin::<ExtendedMaterial<StandardMaterial, LaneArrowMaterial>>::default(),
             InfiniteGridPlugin,
-            ConveyorPlugin,
         ))
+        .add_plugins(ConveyorPlugin)
         .add_plugins((
             RobotPropertiesPlugin::default(),
             RobotPropertyPlugin::<Mobility, RecallMobility>::default(),
@@ -484,6 +487,7 @@ impl Plugin for SitePlugin {
                 update_model_instances::<AssetSource>,
                 update_model_instances::<Scale>,
                 update_model_instances::<IsStatic>,
+                update_model_instances::<KnownObstacle>,
                 update_affiliations,
                 update_members_of_groups.after(update_affiliations),
                 update_model_scales,
