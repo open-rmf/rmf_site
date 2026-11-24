@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 use crate::site::{
     Battery, Change, DifferentialDrive, ExportHandler, ExportHandlers, ExportWith, Group, IsStatic,

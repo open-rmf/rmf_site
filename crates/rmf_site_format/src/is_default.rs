@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 pub fn is_default<T: Default + PartialEq>(v: &T) -> bool {
     *v == T::default()

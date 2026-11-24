@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 use crate::site::{
     update_anchor_transforms, update_location_for_changed_location_tags, update_zone_visibility,

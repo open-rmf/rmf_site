@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 use super::{
     get_selected_description_entity, inspect_robot_properties::show_robot_property_widget,
