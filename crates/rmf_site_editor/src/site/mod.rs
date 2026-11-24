@@ -157,6 +157,12 @@ pub use view_menu::*;
 pub mod wall;
 pub use wall::*;
 
+mod zone;
+use zone::{
+    add_zone_visuals, update_zone_colors, update_zone_ranks, update_zone_sets, update_zone_visuals,
+};
+pub(crate) use zone::{update_zone_visibility, ZoneFilter};
+
 use crate::recency::{RecencyRank, RecencyRankingPlugin};
 use crate::{AppState, RegisterIssueType};
 pub use rmf_site_format::{DirectionalLight, PointLight, SpotLight, *};
@@ -384,6 +390,31 @@ impl Plugin for SitePlugin {
                 .after(SiteUpdateSet::ProcessChangesFlush)
                 .run_if(AppState::in_displaying_mode()),
         )
+        .add_systems(
+            PostUpdate,
+            assign_orphan_elements_to_level::<ZoneMarker>
+                .in_set(SiteUpdateSet::AssignOrphans)
+                .run_if(AppState::in_displaying_mode()),
+        )
+        .add_systems(
+            PostUpdate,
+            (
+                add_zone_visuals,
+                ApplyDeferred,
+                update_zone_visuals,
+                update_zone_colors,
+                update_zone_ranks,
+            )
+                .chain()
+                .in_set(SiteUpdateSet::BetweenTransformAndVisibility)
+                .run_if(AppState::in_displaying_mode()),
+        )
+        .add_plugins((
+            ChangePlugin::<ZoneSets<Entity>>::default(),
+            RecencyRankingPlugin::<ZoneMarker>::default(),
+        ))
+        .init_resource::<ZoneFilter>()
+        .add_systems(Update, update_zone_sets.before(update_zone_visibility))
         .add_systems(Update, save_site)
         .add_systems(
             PostUpdate,

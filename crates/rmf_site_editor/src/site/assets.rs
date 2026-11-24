@@ -109,6 +109,8 @@ impl MaterialExtension for LaneArrowMaterial {
 
 #[derive(Resource)]
 pub struct SiteAssets {
+    pub(super) zone_material: Handle<StandardMaterial>,
+    pub(super) zone_border_material: Handle<StandardMaterial>,
     pub lift_floor_material: Handle<StandardMaterial>,
     pub location_billboard_base_mesh: Handle<Mesh>,
     pub location_billboard_mesh: Handle<Mesh>,
@@ -245,6 +247,20 @@ impl FromWorld for SiteAssets {
         });
         let lift_wall_material =
             materials.add(old_default_material(Color::srgba(0.7, 0.7, 0.7, 1.0)));
+        let zone_material = materials.add(StandardMaterial {
+            base_color: Color::srgba(1.0, 0.55, 0.1, 0.35),
+            alpha_mode: AlphaMode::Blend,
+            unlit: true,
+            cull_mode: None,
+            ..default()
+        });
+        let zone_border_material = materials.add(StandardMaterial {
+            base_color: Color::srgb(0.05, 0.05, 0.05),
+            depth_bias: 1.0,
+            unlit: true,
+            cull_mode: None,
+            ..default()
+        });
         let lift_floor_material = materials.add(old_default_material(Color::srgb(0.3, 0.3, 0.3)));
         let door_body_material = materials.add(StandardMaterial {
             alpha_mode: AlphaMode::Blend,
@@ -364,6 +380,8 @@ impl FromWorld for SiteAssets {
             level_anchor_mesh,
             lift_anchor_mesh,
             site_anchor_mesh,
+            zone_material,
+            zone_border_material,
             lift_floor_material,
             lane_mid_mesh,
             lane_mid_outline,

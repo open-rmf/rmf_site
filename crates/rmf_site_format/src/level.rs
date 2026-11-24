@@ -58,6 +58,13 @@ pub struct Level {
     pub drawings: BTreeMap<u32, Drawing>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub floors: BTreeMap<u32, Floor<u32>>,
+    /// Named polygon annotations keyed by site entity ID. Boundary anchors
+    /// reference this level's anchors.
+    ///
+    /// Defaults to an empty collection when absent and is omitted when empty,
+    /// preserving compatibility with older site files.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub zones: BTreeMap<u32, Zone<u32>>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub lights: BTreeMap<u32, Light>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -79,6 +86,7 @@ impl Level {
             doors: Default::default(),
             drawings: Default::default(),
             floors: Default::default(),
+            zones: Default::default(),
             lights: Default::default(),
             physical_cameras: Default::default(),
             walls: Default::default(),
@@ -93,11 +101,14 @@ pub struct RankingsInLevel {
     pub floors: Vec<u32>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub drawings: Vec<u32>,
+    /// Zones ordered from bottom to top in the editor.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub zones: Vec<u32>,
 }
 
 impl RankingsInLevel {
     pub fn is_empty(&self) -> bool {
-        self.floors.is_empty() && self.drawings.is_empty()
+        self.floors.is_empty() && self.drawings.is_empty() && self.zones.is_empty()
     }
 }
 

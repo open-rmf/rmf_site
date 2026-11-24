@@ -44,6 +44,7 @@ impl<T: Component + Clone + Debug> From<bool> for SetCategoryVisibility<T> {
 pub struct CategoryVisibilityPlugin<T: Component + Clone + Debug> {
     visible: bool,
     initialize: bool,
+    custom_visibility: bool,
     _ignore: std::marker::PhantomData<T>,
 }
 
@@ -52,8 +53,15 @@ impl<T: Component + Clone + Debug> CategoryVisibilityPlugin<T> {
         Self {
             visible,
             initialize: false,
+            custom_visibility: false,
             _ignore: Default::default(),
         }
+    }
+
+    /// Let a category-specific system combine category visibility with its own filters.
+    pub(crate) fn with_custom_visibility(mut self) -> Self {
+        self.custom_visibility = true;
+        self
     }
 
     /// When a new entity of this category is created, initialize its visibility
@@ -69,20 +77,36 @@ impl<T: Component + Clone + Debug> CategoryVisibilityPlugin<T> {
 impl<T: Component + Clone + Debug> Plugin for CategoryVisibilityPlugin<T> {
     fn build(&self, app: &mut App) {
         app.add_event::<SetCategoryVisibility<T>>()
-            .insert_resource(CategoryVisibility::<T>::visible(self.visible))
-            // TODO(luca) Check that this is at the right stage
-            .add_systems(
+            .insert_resource(CategoryVisibility::<T>::visible(self.visible));
+        if self.custom_visibility {
+            app.add_systems(
+                Update,
+                update_category_visibility::<T>.run_if(in_state(InteractionState::Enable)),
+            );
+        } else {
+            app.add_systems(
                 Update,
                 set_category_visibility::<T>.run_if(in_state(InteractionState::Enable)),
             );
-
+        }
         if self.initialize {
             app.add_systems(Update, initialize_visibility_for_category::<T>);
         }
     }
 }
 
-fn set_category_visibility<T: Component + Clone + Debug>(
+pub(crate) fn update_category_visibility<T: Component + Clone + Debug>(
+    mut events: EventReader<SetCategoryVisibility<T>>,
+    mut category_visibility: ResMut<CategoryVisibility<T>>,
+) {
+    if let Some(event) = events.read().last() {
+        if event.0 != category_visibility.0 {
+            category_visibility.0 = event.0;
+        }
+    }
+}
+
+pub(super) fn set_category_visibility<T: Component + Clone + Debug>(
     mut events: EventReader<SetCategoryVisibility<T>>,
     mut category_visibility: ResMut<CategoryVisibility<T>>,
     mut visibilities: Query<&mut Visibility, With<T>>,
