@@ -2,6 +2,17 @@
 members = [
     "crates/*"
 ]
+# rmf_site_viz and rmf_site_msgs are left out so that `cargo run` at root only runs the editor
+default-members = [
+    "crates/rmf_site_animate",
+    "crates/rmf_site_camera",
+    "crates/rmf_site_editor",
+    "crates/rmf_site_editor_web",
+    "crates/rmf_site_egui",
+    "crates/rmf_site_format",
+    "crates/rmf_site_mesh",
+    "crates/rmf_site_picking",
+]
 
 # This is needed for packages that are part of a workspace to use the 2nd version
 # of the cargo dependency resolving algorithm. In ordinary crates this would be
@@ -39,6 +50,9 @@ serde_json = "1.0"
 roslibrust = { git = "https://github.com/althea-tan/roslibrust", default-features = false, features = ["rosbridge", "codegen"] }
 roslibrust_codegen = { git = "https://github.com/althea-tan/roslibrust" }
 rmf_site_msgs = { path = "crates/rmf_site_msgs", version = "0.1.0" }
+tokio = { version = "1.0", default-features = false }
+wasm-bindgen-futures = "0.4"
+gloo-timers = "0.3"
 thiserror = "1.0"
 glam = { version = "0.29" } # Ensure that this match's bevy_math's glam before updating.
 uuid = { version = "1.20", features = ["js"] }

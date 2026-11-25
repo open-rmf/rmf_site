@@ -1,0 +1,38 @@
+[package]
+name = "rmf_site_viz"
+version = "0.0.1"
+# We need to keep this on edition 2021 because of a strange linking issue:
+# https://github.com/rust-lang/cargo/issues/8531#issuecomment-3446171638
+edition = "2021"
+description = "Live visualization for the rmf_site_editor"
+license = "Apache-2.0"
+repository = "https://github.com/open-rmf/rmf_site"
+readme = "../../README.md"
+
+[lib]
+name = "rmf_site_viz"
+
+[[bin]]
+path = "src/main.rs"
+name = "rmf_site_viz"
+
+[dependencies]
+rmf_site_editor = { workspace = true }
+rmf_site_egui = { workspace = true }
+rmf_site_format = { workspace = true, features = ["bevy"] }
+rmf_site_picking = { workspace = true }
+rmf_site_msgs = { workspace = true }
+roslibrust = { workspace = true, default-features = false, features = ["rosbridge"] }
+bevy = { workspace = true }
+bevy_egui = { workspace = true }
+bevy_rich_text3d = { workspace = true }
+ehttp = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }
+tokio = { workspace = true, features = ["sync", "macros", "rt"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "time"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures = { workspace = true }
+gloo-timers = { workspace = true, features = ["futures"] }

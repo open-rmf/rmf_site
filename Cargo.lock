@@ -5955,7 +5955,6 @@ dependencies = [
  "file_diff",
  "futures-lite 1.13.0",
  "geo",
- "gloo-timers",
  "gz-fuel",
  "image",
  "itertools 0.11.0",
@@ -5969,9 +5968,7 @@ dependencies = [
  "rmf_site_egui",
  "rmf_site_format",
  "rmf_site_mesh",
- "rmf_site_msgs",
  "rmf_site_picking",
- "roslibrust",
  "sdformat",
  "serde",
  "serde_json",
@@ -5981,14 +5978,12 @@ dependencies = [
  "testdir",
  "thiserror 1.0.69",
  "thread_local",
- "tokio",
  "tracing",
  "tracing-subscriber",
  "urdf-rs",
  "utm",
  "uuid",
  "wasm-bindgen",
- "wasm-bindgen-futures",
  "web-sys",
  "web-time",
 ]
@@ -6090,6 +6085,26 @@ dependencies = [
  "smallvec",
  "tracing",
  "web-time",
+]
+
+[[package]]
+name = "rmf_site_viz"
+version = "0.0.1"
+dependencies = [
+ "bevy",
+ "bevy_egui",
+ "bevy_rich_text3d",
+ "ehttp",
+ "gloo-timers",
+ "rmf_site_editor",
+ "rmf_site_egui",
+ "rmf_site_format",
+ "rmf_site_msgs",
+ "rmf_site_picking",
+ "roslibrust",
+ "tokio",
+ "uuid",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]

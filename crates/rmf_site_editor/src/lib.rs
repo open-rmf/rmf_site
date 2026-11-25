@@ -7,8 +7,6 @@ use bevy_egui::EguiPlugin;
 use clap::Parser;
 use main_menu::MainMenuPlugin;
 
-extern crate self as rmf_site_editor;
-
 pub mod aabb;
 pub mod autoload;
 pub use autoload::*;
@@ -67,9 +65,6 @@ use site_asset_io::SiteAssetIoPlugin;
 
 pub mod mapf_rse;
 use mapf_rse::NegotiationPlugin;
-
-mod live_visualization;
-use live_visualization::LiveVisualizationPlugin;
 
 pub mod osm_slippy_map;
 use bevy::render::{
@@ -338,8 +333,7 @@ impl Plugin for SiteEditor {
             app.add_plugins((StandardUiPlugin::default(), MainMenuPlugin))
                 // Note order matters, plugins that edit the menus must be initialized after the UI
                 .add_plugins((site::ViewMenuPlugin, OSMViewPlugin, SiteWireframePlugin))
-                .add_plugins(NegotiationPlugin::default())
-                .add_plugins(LiveVisualizationPlugin);
+                .add_plugins(NegotiationPlugin::default());
         }
 
         if self.is_headless_export() {

@@ -31,10 +31,11 @@ mod view_menu;
 
 use bevy::prelude::*;
 use rmf_site_editor::{
+    build_app,
     interaction::{CategoryVisibilityPlugin, InteractionState},
     main_menu::MainMenuSectionPlugin,
     site::LoadSite,
-    AppState,
+    AppState, SiteEditor,
 };
 use rmf_site_egui::HeaderTilePlugin;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -63,6 +64,16 @@ use safe_zones::{
 };
 use stream_menu_section::StreamMenuSection;
 use view_menu::LiveViewMenuPlugin;
+
+pub fn run(command_line_args: Vec<String>) {
+    let editor = SiteEditor::from_cli_args(command_line_args);
+    let headless = editor.is_headless();
+    let mut app = build_app(editor);
+    if !headless {
+        app.add_plugins(LiveVisualizationPlugin);
+    }
+    app.run();
+}
 
 pub struct LiveVisualizationPlugin;
 
