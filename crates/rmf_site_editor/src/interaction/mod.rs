@@ -15,9 +15,6 @@
  *
  */
 
-use crate::live_visualization::{
-    LiveSafeZoneMarker, LocalPathMarker, PathDependencyMarker, PlannedPathMarker,
-};
 use crate::site::{
     update_anchor_transforms, update_location_for_changed_location_tags, CollisionMeshMarker,
     CurrentEditDrawing, CurrentLevel, DoorMarker, FiducialMarker, FloorMarker, LaneMarker,
@@ -179,12 +176,6 @@ impl Plugin for InteractionPlugin {
                     .with_initialization(),
                 CategoryVisibilityPlugin::<MeasurementMarker>::visible(true),
                 CategoryVisibilityPlugin::<WallMarker>::visible(true),
-            ))
-            .add_plugins((
-                CategoryVisibilityPlugin::<PlannedPathMarker>::visible(true),
-                CategoryVisibilityPlugin::<PathDependencyMarker>::visible(true),
-                CategoryVisibilityPlugin::<LocalPathMarker>::visible(true),
-                CategoryVisibilityPlugin::<LiveSafeZoneMarker>::visible(true),
             ))
             .add_plugins((
                 CameraSetupPlugin,

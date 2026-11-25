@@ -26,11 +26,15 @@ mod network_client;
 mod odometry;
 mod planned_paths;
 mod safe_zones;
-mod stream_menu;
+mod stream_menu_section;
+mod view_menu;
 
 use bevy::prelude::*;
 use rmf_site_editor::{
-    interaction::InteractionState, main_menu::MainMenuSectionPlugin, site::LoadSite, AppState,
+    interaction::{CategoryVisibilityPlugin, InteractionState},
+    main_menu::MainMenuSectionPlugin,
+    site::LoadSite,
+    AppState,
 };
 use rmf_site_egui::HeaderTilePlugin;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -40,26 +44,38 @@ use control::RobotPathControlPlugin;
 use destination_picking::DestinationPickingPlugin;
 use destinations::{update_live_destinations, LiveDestinationsState, LiveEventDestination};
 use goal_publishing::DestinationGoalSender;
-pub use live_state::LiveStreamState;
 use live_state::{
     auto_fetch_site_on_connect, check_load_site_completion, load_site_status_ui,
-    process_site_download, LiveStreamStatusWidget, LoadSiteStatus, SiteFetchReceiver,
+    process_site_download, LiveStreamState, LiveStreamStatusWidget, LoadSiteStatus,
+    SiteFetchReceiver,
 };
-pub use local_paths::LocalPathMarker;
-use local_paths::{update_live_local_paths, LiveEventLocalPlan, LiveLocalPathsState};
+use local_paths::{
+    update_live_local_paths, LiveEventLocalPlan, LiveLocalPathsState, LocalPathMarker,
+};
 use network_client::{start_rosbridge_subscriber, StreamPlugin, StreamRegistry};
 use odometry::{update_live_robots, LiveEventOdom, LiveRobotsState};
-use planned_paths::{update_live_paths, LiveEventPlan, LiveEventProgress, LivePathsState};
-pub use planned_paths::{PathDependencyMarker, PlannedPathMarker};
-pub use safe_zones::LiveSafeZoneMarker;
-use safe_zones::{update_live_safe_zones, LiveEventSafeZone, LiveSafeZonesState};
-use stream_menu::StreamMenuSection;
+use planned_paths::{
+    update_live_paths, LiveEventPlan, LiveEventProgress, LivePathsState, PathDependencyMarker,
+    PlannedPathMarker,
+};
+use safe_zones::{
+    update_live_safe_zones, LiveEventSafeZone, LiveSafeZoneMarker, LiveSafeZonesState,
+};
+use stream_menu_section::StreamMenuSection;
+use view_menu::LiveViewMenuPlugin;
 
 pub struct LiveVisualizationPlugin;
 
 impl Plugin for LiveVisualizationPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
+            CategoryVisibilityPlugin::<PlannedPathMarker>::visible(true),
+            CategoryVisibilityPlugin::<PathDependencyMarker>::visible(true),
+            CategoryVisibilityPlugin::<LocalPathMarker>::visible(true),
+            CategoryVisibilityPlugin::<LiveSafeZoneMarker>::visible(true),
+        ))
+        .add_plugins((
+            LiveViewMenuPlugin::default(),
             StreamPlugin::<LiveEventOdom>::default(),
             StreamPlugin::<LiveEventPlan>::default(),
             StreamPlugin::<LiveEventProgress>::default(),
