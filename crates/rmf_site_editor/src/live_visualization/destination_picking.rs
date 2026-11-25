@@ -26,8 +26,9 @@ use rmf_site_msgs::rmf_prototype_msgs::msg::{GraphElementKey, TargetNode};
 use rmf_site_picking::{CursorFrame, Hovering, PickBlockStatus, Select, SelectionServiceStages};
 use std::collections::HashMap;
 
-use crate::layers::ZLayer;
-use crate::site::{LocationBillboardMarker, LANE_WIDTH};
+use rmf_site_editor::layers::ZLayer;
+use rmf_site_editor::site::{LocationBillboardMarker, LANE_WIDTH};
+use rmf_site_editor::AppState;
 
 use super::gizmos::{draw_crosshair_symbol, draw_dashed_line, draw_off_limits_symbol};
 use super::live_state::{LiveStreamState, LoadSiteStatus};
@@ -61,7 +62,7 @@ impl Plugin for DestinationPickingPlugin {
                 .chain()
                 .after(SelectionServiceStages::Hover)
                 .before(SelectionServiceStages::Select)
-                .run_if(in_state(crate::AppState::SiteStream)),
+                .run_if(in_state(AppState::SiteReadOnly)),
         );
     }
 }

@@ -23,8 +23,8 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::interaction::CategoryVisibility;
-use crate::layers::ZLayer;
+use rmf_site_editor::interaction::CategoryVisibility;
+use rmf_site_editor::layers::ZLayer;
 
 use super::network_client::{
     run_subscription_loop, spawn_network_task, LiveStreamHandler, VisualizationStreamChannel,

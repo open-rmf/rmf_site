@@ -28,6 +28,7 @@ mod planned_paths;
 mod safe_zones;
 
 use bevy::prelude::*;
+use rmf_site_editor::{interaction::InteractionState, site::LoadSite, AppState};
 use rmf_site_egui::{HeaderPanel, HeaderTilePlugin};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -73,7 +74,7 @@ impl Plugin for LiveVisualizationPlugin {
         .init_resource::<DestinationGoalSender>()
         .add_systems(
             Update,
-            start_live_stream.run_if(in_state(crate::AppState::MainMenu)),
+            start_live_stream.run_if(in_state(AppState::MainMenu)),
         )
         .add_systems(
             Update,
@@ -83,7 +84,7 @@ impl Plugin for LiveVisualizationPlugin {
                 load_site_status_ui,
                 check_load_site_completion,
             )
-                .run_if(in_state(crate::AppState::SiteStream)),
+                .run_if(in_state(AppState::SiteReadOnly)),
         )
         .add_systems(
             Update,
@@ -94,10 +95,10 @@ impl Plugin for LiveVisualizationPlugin {
                 update_live_local_paths,
                 update_live_destinations,
             )
-                .run_if(in_state(crate::AppState::SiteStream))
+                .run_if(in_state(AppState::SiteReadOnly))
                 .run_if(LiveStreamState::in_connected_mode()),
         )
-        .add_systems(OnExit(crate::AppState::SiteStream), disconnect_live_stream);
+        .add_systems(OnExit(AppState::SiteReadOnly), disconnect_live_stream);
 
         if app.world().get_resource::<HeaderPanel>().is_some() {
             app.add_plugins(HeaderTilePlugin::<LiveStreamStatusWidget>::new());
@@ -109,9 +110,9 @@ fn start_live_stream(
     mut live_stream_state: ResMut<LiveStreamState>,
     registry: Res<StreamRegistry>,
     mut goal_sender: ResMut<DestinationGoalSender>,
-    mut next_app_state: ResMut<NextState<crate::AppState>>,
-    mut next_interaction_state: ResMut<NextState<crate::interaction::InteractionState>>,
-    mut load_site: EventWriter<crate::site::LoadSite>,
+    mut next_app_state: ResMut<NextState<AppState>>,
+    mut next_interaction_state: ResMut<NextState<InteractionState>>,
+    mut load_site: EventWriter<LoadSite>,
 ) {
     if live_stream_state.is_streaming() {
         live_stream_state.connection_requested = Arc::new(AtomicBool::new(true));
@@ -128,9 +129,9 @@ fn start_live_stream(
             destination_goal_receiver,
         );
 
-        next_app_state.set(crate::AppState::SiteStream);
-        next_interaction_state.set(crate::interaction::InteractionState::Enable);
-        load_site.write(crate::site::LoadSite::blank_L1("live".to_owned(), None));
+        next_app_state.set(AppState::SiteReadOnly);
+        next_interaction_state.set(InteractionState::Enable);
+        load_site.write(LoadSite::blank_L1("live".to_owned(), None));
     }
 }
 

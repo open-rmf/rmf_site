@@ -7,6 +7,8 @@ use bevy_egui::EguiPlugin;
 use clap::Parser;
 use main_menu::MainMenuPlugin;
 
+extern crate self as rmf_site_editor;
+
 pub mod aabb;
 pub mod autoload;
 pub use autoload::*;
@@ -112,7 +114,7 @@ pub enum AppState {
     SiteEditor,
     SiteVisualizer,
     SiteDrawingEditor,
-    SiteStream,
+    SiteReadOnly,
 }
 
 impl AppState {
@@ -122,7 +124,7 @@ impl AppState {
             AppState::SiteEditor
             | AppState::SiteVisualizer
             | AppState::SiteDrawingEditor
-            | AppState::SiteStream => true,
+            | AppState::SiteReadOnly => true,
         })
     }
 }
@@ -136,13 +138,19 @@ fn handle_errors(error: BevyError, ctx: bevy::ecs::error::ErrorContext) {
     );
 }
 
-pub fn run(command_line_args: Vec<String>) {
+/// Builds the site editor app without running it, so that downstream crates can
+/// add their own plugins before calling `App::run`.
+pub fn build_app(editor: SiteEditor) -> App {
     bevy::ecs::error::GLOBAL_ERROR_HANDLER
         .set(handle_errors)
         .expect("The error handler can only be set once, globally.");
     let mut app = App::new();
-    app.add_plugins(SiteEditor::from_cli_args(command_line_args));
-    app.run();
+    app.add_plugins(editor);
+    app
+}
+
+pub fn run(command_line_args: Vec<String>) {
+    build_app(SiteEditor::from_cli_args(command_line_args)).run();
 }
 
 #[derive(Default)]

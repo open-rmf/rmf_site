@@ -23,6 +23,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
+use rmf_site_editor::AppState;
 use rmf_site_msgs::rmf_prototype_msgs::msg::ParticipantList;
 use roslibrust::rosbridge::{ClientHandle, Subscriber};
 use roslibrust::RosMessageType;
@@ -96,7 +97,7 @@ impl<T: LiveStreamHandler> Plugin for StreamPlugin<T> {
                 },
             ));
 
-        app.add_systems(OnExit(crate::AppState::SiteStream), T::cleanup)
+        app.add_systems(OnExit(AppState::SiteReadOnly), T::cleanup)
             .add_systems(
                 PreUpdate,
                 (|world: &mut World| {
@@ -107,7 +108,7 @@ impl<T: LiveStreamHandler> Plugin for StreamPlugin<T> {
                         T::cleanup(world);
                     }
                 })
-                .run_if(in_state(crate::AppState::SiteStream)),
+                .run_if(in_state(AppState::SiteReadOnly)),
             );
     }
 }

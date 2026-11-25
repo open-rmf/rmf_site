@@ -28,29 +28,30 @@ use rmf_site_egui::{
 const TAB_BAR_HEIGHT: f32 = 24.0;
 const CLOSE_TAB_ACTIVE_COLOR: egui::Color32 = egui::Color32::from_rgb(240, 80, 80);
 
-/// Controls whether a properties panel tab is shown and interactive in streaming mode.
+/// Controls whether a properties panel tab is shown and interactive while the
+/// site is in the read-only state.
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum ShowInStream {
-    /// Shown only outside of streaming mode
+pub enum ShowInReadOnly {
+    /// Shown only outside of the read-only state
     #[default]
     Hidden,
-    /// Shown in all modes, read-only in streaming mode
+    /// Shown in all states, but disabled in the read-only state
     ReadOnly,
-    /// Shown only in streaming mode, interactive while streaming
+    /// Shown only in the read-only state, and interactive there
     Interactive,
 }
 
-impl ShowInStream {
-    pub fn should_show(self, is_streaming_mode: bool) -> bool {
-        if is_streaming_mode {
+impl ShowInReadOnly {
+    pub fn should_show(self, is_read_only: bool) -> bool {
+        if is_read_only {
             self != Self::Hidden
         } else {
             self != Self::Interactive
         }
     }
 
-    pub fn should_disable(self, is_streaming_mode: bool) -> bool {
-        is_streaming_mode && self != Self::Interactive
+    pub fn should_disable(self, is_read_only: bool) -> bool {
+        is_read_only && self != Self::Interactive
     }
 }
 
@@ -58,7 +59,7 @@ impl ShowInStream {
 pub struct PropertiesPanelState {
     pub dock_state: DockState<Entity>,
     pub known_tabs: HashSet<Entity>,
-    pub is_streaming_mode: Option<bool>,
+    pub is_read_only: Option<bool>,
 }
 
 impl Default for PropertiesPanelState {
@@ -66,7 +67,7 @@ impl Default for PropertiesPanelState {
         Self {
             dock_state: DockState::new(vec![]),
             known_tabs: HashSet::new(),
-            is_streaming_mode: None,
+            is_read_only: None,
         }
     }
 }
@@ -74,7 +75,7 @@ impl Default for PropertiesPanelState {
 pub struct PropertiesTabViewer<'a> {
     pub world: &'a mut World,
     pub settings: PanelSettings,
-    is_streaming_mode: bool,
+    is_read_only: bool,
 }
 
 impl<'a> TabViewer for PropertiesTabViewer<'a> {
@@ -103,10 +104,10 @@ impl<'a> TabViewer for PropertiesTabViewer<'a> {
     fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {
         let show = self
             .world
-            .get::<ShowInStream>(*tab)
+            .get::<ShowInReadOnly>(*tab)
             .copied()
             .unwrap_or_default();
-        if show.should_disable(self.is_streaming_mode) {
+        if show.should_disable(self.is_read_only) {
             ui.disable();
         }
 
@@ -134,7 +135,7 @@ pub fn show_properties_panel(
             AppState::SiteEditor
                 | AppState::SiteVisualizer
                 | AppState::SiteDrawingEditor
-                | AppState::SiteStream
+                | AppState::SiteReadOnly
         )
     );
 
@@ -146,7 +147,7 @@ pub fn show_properties_panel(
         world.init_resource::<PropertiesPanelState>();
     }
 
-    let is_streaming_mode = matches!(app_state, Some(AppState::SiteStream));
+    let is_read_only = matches!(app_state, Some(AppState::SiteReadOnly));
 
     let tabs: Vec<Entity> = world
         .get::<Children>(id)
@@ -154,19 +155,19 @@ pub fn show_properties_panel(
             c.iter()
                 .filter(|&tab| {
                     world
-                        .get::<ShowInStream>(tab)
+                        .get::<ShowInReadOnly>(tab)
                         .copied()
                         .unwrap_or_default()
-                        .should_show(is_streaming_mode)
+                        .should_show(is_read_only)
                 })
                 .collect()
         })
         .unwrap_or_default();
 
     world.resource_scope::<PropertiesPanelState, ()>(|world, mut state| {
-        if state.is_streaming_mode != Some(is_streaming_mode) {
+        if state.is_read_only != Some(is_read_only) {
             state.known_tabs.clear();
-            state.is_streaming_mode = Some(is_streaming_mode);
+            state.is_read_only = Some(is_read_only);
         }
 
         let is_initial_load = state.known_tabs.is_empty();
@@ -287,7 +288,7 @@ pub fn show_properties_panel(
                 let mut tab_viewer = PropertiesTabViewer {
                     world,
                     settings,
-                    is_streaming_mode,
+                    is_read_only,
                 };
                 DockArea::new(&mut state.dock_state)
                     .style(style)

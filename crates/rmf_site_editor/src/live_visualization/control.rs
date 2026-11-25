@@ -22,7 +22,7 @@ use rmf_site_egui::{PropertiesPanel, PropertiesTilePlugin, TabGroup, Tile, Widge
 use rmf_site_format::{Group, NameInSite, Pending, Pose, Robot};
 use std::collections::HashMap;
 
-use crate::widgets::ShowInStream;
+use rmf_site_editor::{widgets::ShowInReadOnly, AppState};
 
 use super::destination_picking::{DestinationPickingState, RobotDestination};
 use super::destinations::LiveDestinationsState;
@@ -43,18 +43,15 @@ impl Plugin for RobotPathControlPlugin {
         app.init_resource::<RobotPathControlState>()
             .add_systems(
                 Update,
-                update_robot_path_control_ui.run_if(in_state(crate::AppState::SiteStream)),
+                update_robot_path_control_ui.run_if(in_state(AppState::SiteReadOnly)),
             )
-            .add_systems(
-                OnExit(crate::AppState::SiteStream),
-                cleanup_robot_path_control,
-            );
+            .add_systems(OnExit(AppState::SiteReadOnly), cleanup_robot_path_control);
 
         if app.world().get_resource::<PropertiesPanel>().is_some() {
             app.add_plugins(
                 PropertiesTilePlugin::<RobotPathControlWidget>::new("Fleet")
                     .in_group(TabGroup::Top)
-                    .insert(ShowInStream::Interactive),
+                    .insert(ShowInReadOnly::Interactive),
             );
         }
     }
@@ -128,7 +125,7 @@ fn update_robot_path_control_ui(
 
 #[derive(SystemParam)]
 struct RobotPathControlWidget<'w, 's> {
-    app_state: Res<'w, State<crate::AppState>>,
+    app_state: Res<'w, State<AppState>>,
     livestream_state: Res<'w, LiveStreamState>,
     control_state: ResMut<'w, RobotPathControlState>,
     picking_state: ResMut<'w, DestinationPickingState>,
@@ -146,7 +143,7 @@ struct RobotPathControlWidget<'w, 's> {
 impl<'w, 's> WidgetSystem<Tile> for RobotPathControlWidget<'w, 's> {
     fn show(_: Tile, ui: &mut egui::Ui, state: &mut SystemState<Self>, world: &mut World) {
         let mut params = state.get_mut(world);
-        if *params.app_state.get() != crate::AppState::SiteStream {
+        if *params.app_state.get() != AppState::SiteReadOnly {
             return;
         }
         params.show_widget(ui);

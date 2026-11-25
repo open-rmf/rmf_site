@@ -102,7 +102,7 @@ pub fn dispatch_new_workspace_events(
             AppState::SiteEditor
             | AppState::SiteDrawingEditor
             | AppState::SiteVisualizer
-            | AppState::SiteStream => {
+            | AppState::SiteReadOnly => {
                 app_state.set(AppState::SiteEditor);
                 load_site.write(LoadSite {
                     site: Site::blank_L1("new".to_owned()),
@@ -503,7 +503,7 @@ fn send_file_save(
                 format: request.1,
             });
         }
-        AppState::MainMenu | AppState::SiteStream => { /* Noop */ }
+        AppState::MainMenu | AppState::SiteReadOnly => { /* Noop */ }
     }
 }
 

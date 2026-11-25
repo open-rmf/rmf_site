@@ -120,7 +120,7 @@ use rmf_site_picking::Selection;
 
 use crate::{
     site::{Category, SiteID},
-    widgets::ShowInStream,
+    widgets::ShowInReadOnly,
 };
 use bevy::{
     ecs::{
@@ -326,7 +326,7 @@ impl FromWorld for MainInspector {
         let widget = Widget::new::<Inspector>(world);
         let properties_panel = world.resource::<PropertiesPanel>().id();
         let id = world
-            .spawn((widget, Name::new("Inspect"), ShowInStream::ReadOnly))
+            .spawn((widget, Name::new("Inspect"), ShowInReadOnly::ReadOnly))
             .insert(ChildOf(properties_panel))
             .id();
         Self { id }

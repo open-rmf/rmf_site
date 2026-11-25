@@ -15,10 +15,10 @@
  *
 */
 
-use crate::interaction::billboard::Billboard;
-use crate::site::SiteAssets;
 use bevy::prelude::*;
 use bevy_rich_text3d::*;
+use rmf_site_editor::interaction::billboard::Billboard;
+use rmf_site_editor::site::SiteAssets;
 use rmf_site_format::{Angle, NameInSite, Pose, Rotation};
 use rmf_site_msgs::nav_msgs::msg::Odometry;
 use roslibrust::rosbridge::ClientHandle;

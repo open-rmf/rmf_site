@@ -15,10 +15,11 @@
  *
 */
 
-use crate::site::{LoadSite, ModelFailedLoading, PendingModel};
 use bevy::ecs::system::{SystemParam, SystemState};
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
+use rmf_site_editor::site::{LoadSite, ModelFailedLoading, PendingModel};
+use rmf_site_editor::AppState;
 use rmf_site_egui::{Tile, WidgetSystem};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -88,7 +89,7 @@ impl Default for LiveStreamState {
 
 #[derive(SystemParam)]
 pub struct LiveStreamStatusWidget<'w> {
-    app_state: Res<'w, State<crate::AppState>>,
+    app_state: Res<'w, State<AppState>>,
     state: Res<'w, LiveStreamState>,
 }
 
@@ -96,7 +97,7 @@ impl<'w> WidgetSystem<Tile> for LiveStreamStatusWidget<'w> {
     fn show(_: Tile, ui: &mut egui::Ui, state: &mut SystemState<Self>, world: &mut World) {
         let params = state.get(world);
 
-        if *params.app_state.get() != crate::AppState::SiteStream {
+        if *params.app_state.get() != AppState::SiteReadOnly {
             return;
         }
 
