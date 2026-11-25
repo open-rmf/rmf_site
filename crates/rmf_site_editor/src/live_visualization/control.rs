@@ -18,7 +18,7 @@
 use bevy::ecs::system::{SystemParam, SystemState};
 use bevy::prelude::*;
 use bevy_egui::egui::{self, Color32};
-use rmf_site_egui::{PropertiesPanel, PropertiesTilePlugin, TabGroup, Tile, WidgetSystem};
+use rmf_site_egui::{PropertiesTilePlugin, TabGroup, Tile, WidgetSystem};
 use rmf_site_format::{Group, NameInSite, Pending, Pose, Robot};
 use std::collections::HashMap;
 
@@ -45,15 +45,12 @@ impl Plugin for RobotPathControlPlugin {
                 Update,
                 update_robot_path_control_ui.run_if(in_state(AppState::SiteReadOnly)),
             )
-            .add_systems(OnExit(AppState::SiteReadOnly), cleanup_robot_path_control);
-
-        if app.world().get_resource::<PropertiesPanel>().is_some() {
-            app.add_plugins(
+            .add_systems(OnExit(AppState::SiteReadOnly), cleanup_robot_path_control)
+            .add_plugins(
                 PropertiesTilePlugin::<RobotPathControlWidget>::new("Fleet")
                     .in_group(TabGroup::Top)
                     .insert(ShowInReadOnly::Interactive),
             );
-        }
     }
 }
 

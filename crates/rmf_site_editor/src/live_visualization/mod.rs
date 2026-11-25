@@ -26,10 +26,13 @@ mod network_client;
 mod odometry;
 mod planned_paths;
 mod safe_zones;
+mod stream_menu;
 
 use bevy::prelude::*;
-use rmf_site_editor::{interaction::InteractionState, site::LoadSite, AppState};
-use rmf_site_egui::{HeaderPanel, HeaderTilePlugin};
+use rmf_site_editor::{
+    interaction::InteractionState, main_menu::MainMenuSectionPlugin, site::LoadSite, AppState,
+};
+use rmf_site_egui::HeaderTilePlugin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
@@ -50,6 +53,7 @@ use planned_paths::{update_live_paths, LiveEventPlan, LiveEventProgress, LivePat
 pub use planned_paths::{PathDependencyMarker, PlannedPathMarker};
 pub use safe_zones::LiveSafeZoneMarker;
 use safe_zones::{update_live_safe_zones, LiveEventSafeZone, LiveSafeZonesState};
+use stream_menu::StreamMenuSection;
 
 pub struct LiveVisualizationPlugin;
 
@@ -98,11 +102,11 @@ impl Plugin for LiveVisualizationPlugin {
                 .run_if(in_state(AppState::SiteReadOnly))
                 .run_if(LiveStreamState::in_connected_mode()),
         )
-        .add_systems(OnExit(AppState::SiteReadOnly), disconnect_live_stream);
-
-        if app.world().get_resource::<HeaderPanel>().is_some() {
-            app.add_plugins(HeaderTilePlugin::<LiveStreamStatusWidget>::new());
-        }
+        .add_systems(OnExit(AppState::SiteReadOnly), disconnect_live_stream)
+        .add_plugins((
+            HeaderTilePlugin::<LiveStreamStatusWidget>::new(),
+            MainMenuSectionPlugin::<StreamMenuSection>::new(),
+        ));
     }
 }
 
