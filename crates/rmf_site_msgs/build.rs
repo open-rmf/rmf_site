@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 use roslibrust_codegen::find_and_generate_ros_messages_without_ros_package_path;
 use std::fs;

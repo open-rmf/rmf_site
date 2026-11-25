@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 use crate::site::{assets::old_default_material, DisplayColor};
 use bevy::prelude::*;

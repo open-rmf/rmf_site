@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 use bevy_ecs::prelude::*;
 use bevy_math::Ray3d;

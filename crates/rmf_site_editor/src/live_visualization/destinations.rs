@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 use bevy::prelude::*;
 use rmf_site_msgs::rmf_prototype_msgs::msg::Destination;

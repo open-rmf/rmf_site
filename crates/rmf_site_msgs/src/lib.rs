@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 // Pulls the auto-generated code file from Cargo's temporary directory and wraps the raw structs into namespaces
 mod gen {

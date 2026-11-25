@@ -18,7 +18,7 @@ use std::{
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 use bevy_core_pipeline::{prelude::*, tonemapping::Tonemapping};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, query::QuerySingleError, system::SystemParam};
