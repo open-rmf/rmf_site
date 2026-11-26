@@ -41,6 +41,9 @@ pub struct Guided {
     pub ranking: Vec<u32>,
     /// Properties of each robot traffic lane
     pub lanes: BTreeMap<u32, Lane<u32>>,
+    /// Properties of each conveyor belt
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub conveyors: BTreeMap<u32, Conveyor<u32>>,
     /// Properties of each special location
     pub locations: BTreeMap<u32, Location<u32>>,
     /// Mutex groups associated with this site
@@ -50,6 +53,9 @@ pub struct Guided {
 
 impl Guided {
     pub fn is_empty(&self) -> bool {
-        self.graphs.is_empty() && self.lanes.is_empty() && self.locations.is_empty()
+        self.graphs.is_empty()
+            && self.lanes.is_empty()
+            && self.conveyors.is_empty()
+            && self.locations.is_empty()
     }
 }

@@ -22,6 +22,7 @@ use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, sync::Arc};
 
 #[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bevy", derive(Component))]
 pub struct Extensions {
     /// Hook for downstream extensions to put their own serialized data into
     /// the site file.

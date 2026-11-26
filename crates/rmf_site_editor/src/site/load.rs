@@ -637,6 +637,7 @@ fn generate_site_entities(
         // an error instead
         let parent = id_to_entity
             .get(&parented_model_instance.parent)
+            .copied()
             .ok_or_else(|| SiteLoadingError {
                 site: site_id,
                 error: BrokenEntityError::new(
@@ -647,11 +648,34 @@ fn generate_site_entities(
             })?;
 
         let model_instance_entity = model_loader
-            .spawn_model_instance(*parent, model_instance.clone())
+            .spawn_model_instance(parent, model_instance.clone())
             .insert((Category::Model, SiteID(*model_instance_id)))
             .id();
         id_to_entity.insert(*model_instance_id, model_instance_entity);
         consider_id(*model_instance_id);
+
+        // Spawn conveyor port anchors for model instances configured as conveyor nodes
+        if let Some(ports_map) = &model_instance.conveyor_ports.0 {
+            if let Some(desc_entity) = model_instance.description.0 {
+                commands
+                    .entity(desc_entity)
+                    .insert(ConveyorNodePortConfigs(None));
+            }
+            commands.entity(model_instance_entity).insert(ConveyorNode);
+            let model_global_tf = GlobalTransform::from(model_instance.pose.transform());
+            for (port_id, port) in ports_map {
+                let port_entity = spawn_conveyor_port(
+                    commands,
+                    model_instance_entity,
+                    &model_global_tf,
+                    Vec3::ONE,
+                    port.clone(),
+                );
+                commands.entity(port_entity).insert(SiteID(*port_id));
+                id_to_entity.insert(*port_id, port_entity);
+                consider_id(*port_id);
+            }
+        }
 
         if let Some(instances) = model_instance
             .description
@@ -674,6 +698,19 @@ fn generate_site_entities(
         commands
             .entity(model_description_entity)
             .insert(Dependents(dependents));
+    }
+
+    for (conveyor_id, conveyor_data) in &site_data.navigation.guided.conveyors {
+        let conveyor = conveyor_data
+            .convert(&id_to_entity)
+            .as_broken_error(site_id, "conveyor")?;
+        let conveyor_entity = commands
+            .spawn(conveyor)
+            .insert(SiteID(*conveyor_id))
+            .insert(ChildOf(site_id))
+            .id();
+        id_to_entity.insert(*conveyor_id, conveyor_entity);
+        consider_id(*conveyor_id);
     }
 
     for (task_id, task_data) in &site_data.tasks {

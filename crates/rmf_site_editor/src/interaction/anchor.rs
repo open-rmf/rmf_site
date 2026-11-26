@@ -51,7 +51,7 @@ pub fn add_anchor_visual_cues(
         };
 
         let body_mesh = match category {
-            Category::Level => site_assets.level_anchor_mesh.clone(),
+            Category::Level | Category::Model => site_assets.level_anchor_mesh.clone(),
             Category::Lift => site_assets.lift_anchor_mesh.clone(),
             _ => site_assets.site_anchor_mesh.clone(),
         };
@@ -176,7 +176,10 @@ pub fn update_anchor_proximity_xray(
 }
 
 pub fn update_unassigned_anchor_cues(
-    mut anchors: Query<(&Dependents, &mut VisualCue), (With<Anchor>, Changed<Dependents>)>,
+    mut anchors: Query<
+        (&Dependents, &mut VisualCue),
+        (With<Anchor>, Without<Subordinate>, Changed<Dependents>),
+    >,
 ) {
     for (deps, mut cue) in &mut anchors {
         if deps.is_empty() != cue.xray.unassigned() {

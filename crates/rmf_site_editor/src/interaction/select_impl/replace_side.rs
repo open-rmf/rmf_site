@@ -17,12 +17,12 @@
 
 use crate::{
     interaction::*,
-    site::{ChangeDependent, Original},
+    site::{validate_conveyor_connection, ChangeDependent, Dependents, Original},
 };
 use anyhow::Error as Anyhow;
 use bevy::prelude::*;
 use crossflow::*;
-use rmf_site_format::{Edge, Side};
+use rmf_site_format::{Anchor, ConveyorMarker, ConveyorPort, Edge, Group, ModelMarker, Side};
 use std::borrow::Borrow;
 
 pub fn spawn_replace_side_service(
@@ -84,13 +84,14 @@ impl ReplaceSide {
         edges: &mut Query<&mut Edge<Entity>>,
         parents: &Query<&ChildOf>,
         lifts: &Query<(), With<LiftCabin<Entity>>>,
+        models: &Query<(), (With<ModelMarker>, Without<Group>)>,
         cursor_anchor: Entity,
         commands: &mut Commands,
     ) -> Result<bool, Option<Anyhow>> {
         let original = self.original.or_broken_buffer()?;
         if self.level_consistency && chosen != cursor_anchor {
             let a = original.array()[self.side.index()];
-            if !are_anchors_siblings(a, chosen, &parents, &lifts)? {
+            if !are_anchors_siblings(a, chosen, &parents, &lifts, &models)? {
                 warn!("Unable to use selected anchor because it is on an incompatible level");
                 return Ok(false);
             }
@@ -143,6 +144,7 @@ pub fn replace_side_setup(
     mut edges: Query<&mut Edge<Entity>>,
     parents: Query<&ChildOf>,
     lifts: Query<(), With<LiftCabin<Entity>>>,
+    models: Query<(), (With<ModelMarker>, Without<Group>)>,
     cursor: Res<Cursor>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
@@ -158,6 +160,7 @@ pub fn replace_side_setup(
         &mut edges,
         &parents,
         &lifts,
+        &models,
         cursor.level_anchor_placement,
         &mut commands,
     )?;
@@ -178,12 +181,48 @@ pub fn on_hover_for_replace_side(
     mut edges: Query<&mut Edge<Entity>>,
     parents: Query<&ChildOf>,
     lifts: Query<(), With<LiftCabin<Entity>>>,
+    models: Query<(), (With<ModelMarker>, Without<Group>)>,
+    conveyor_markers: Query<(), With<ConveyorMarker>>,
+    conveyor_ports: Query<&ConveyorPort>,
+    dependents: Query<&Dependents, With<Anchor>>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.newest_mut().or_broken_state()?;
 
-    let chosen = match hover.0 {
+    // Ignore hovered anchors that would form an invalid conveyor connection
+    let valid_hover = hover.0.filter(|&anchor| {
+        if !conveyor_markers.contains(state.edge) {
+            return true;
+        }
+        let Some(original) = state.original else {
+            return true;
+        };
+        let opp_anchor = original.array()[state.side.opposite().index()];
+        let (anchor_a, anchor_b) = if anchor == opp_anchor {
+            (original.left(), original.right())
+        } else {
+            (opp_anchor, anchor)
+        };
+        if edges
+            .get(state.edge)
+            .is_ok_and(|e| e.array() == [anchor_a, anchor_b] || e.array() == [anchor_b, anchor_a])
+        {
+            return true;
+        }
+        validate_conveyor_connection(
+            anchor_a,
+            anchor_b,
+            state.edge,
+            &conveyor_markers,
+            &edges,
+            &conveyor_ports,
+            &dependents,
+        )
+        .is_ok()
+    });
+
+    let chosen = match valid_hover {
         Some(anchor) => {
             cursor.remove_mode(SELECT_ANCHOR_MODE_LABEL, &mut visibility);
             anchor
@@ -199,6 +238,7 @@ pub fn on_hover_for_replace_side(
         &mut edges,
         &parents,
         &lifts,
+        &models,
         cursor.level_anchor_placement,
         &mut commands,
     )?;
@@ -212,16 +252,44 @@ pub fn on_select_for_replace_side(
     mut edges: Query<&mut Edge<Entity>>,
     parents: Query<&ChildOf>,
     lifts: Query<(), With<LiftCabin<Entity>>>,
+    models: Query<(), (With<ModelMarker>, Without<Group>)>,
+    conveyor_markers: Query<(), With<ConveyorMarker>>,
+    conveyor_ports: Query<&ConveyorPort>,
+    dependents: Query<&Dependents, With<Anchor>>,
     cursor: Res<Cursor>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
     let mut access = access.get_mut(&key).or_broken_buffer()?;
     let state = access.newest_mut().or_broken_state()?;
+    // Prevent invalid conveyor connections
+    if conveyor_markers.contains(state.edge) {
+        let original = state.original.or_broken_buffer()?;
+        let opp_anchor = original.array()[state.side.opposite().index()];
+        let (anchor_a, anchor_b) = if selection.candidate == opp_anchor {
+            (original.left(), original.right())
+        } else {
+            (opp_anchor, selection.candidate)
+        };
+        if let Err(err) = validate_conveyor_connection(
+            anchor_a,
+            anchor_b,
+            state.edge,
+            &conveyor_markers,
+            &edges,
+            &conveyor_ports,
+            &dependents,
+        ) {
+            error!("{err}");
+            return Ok(());
+        }
+    }
+
     if state.set_chosen(
         selection.candidate,
         &mut edges,
         &parents,
         &lifts,
+        &models,
         cursor.level_anchor_placement,
         &mut commands,
     )? {
@@ -239,6 +307,7 @@ pub fn cleanup_replace_side(
     mut edges: Query<&'static mut Edge<Entity>>,
     parents: Query<&ChildOf>,
     lifts: Query<(), With<LiftCabin<Entity>>>,
+    models: Query<(), (With<ModelMarker>, Without<Group>)>,
     cursor: Res<Cursor>,
     mut commands: Commands,
 ) -> SelectionNodeResult {
@@ -266,6 +335,7 @@ pub fn cleanup_replace_side(
         &mut edges,
         &parents,
         &lifts,
+        &models,
         cursor.level_anchor_placement,
         &mut commands,
     )?;

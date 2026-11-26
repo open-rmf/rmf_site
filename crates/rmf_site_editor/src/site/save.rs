@@ -19,6 +19,7 @@ use bevy::{
     ecs::{
         event::Events,
         hierarchy::ChildOf,
+        relationship::AncestorIter,
         system::{BoxedSystem, SystemParam, SystemState},
     },
     prelude::*,
@@ -133,6 +134,7 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
             (
                 Or<(
                     With<Anchor>,
+                    With<ConveyorMarker>,
                     With<DoorType>,
                     With<DrawingMarker>,
                     With<FloorMarker>,
@@ -189,7 +191,7 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
         drawing_children,
         drawings,
         cabin_anchor_groups,
-        cabin_anchor_group_children,
+        anchors,
         site_ids,
         children,
         mut assign_site_ids,
@@ -225,6 +227,18 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
                                 for drawing_child in drawing_children {
                                     if !site_ids.contains(*drawing_child) {
                                         new_entities.push(*drawing_child);
+                                    }
+                                }
+                            }
+                        }
+
+                        if model_instances.contains(*child) {
+                            if let Ok(instance_children) = children.get(*child) {
+                                for instance_child in instance_children {
+                                    if let Ok(e) = anchors.get(*instance_child) {
+                                        if !site_ids.contains(e) {
+                                            new_entities.push(e);
+                                        }
                                     }
                                 }
                             }
@@ -293,7 +307,7 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
             if let Ok(anchor_group) = cabin_anchor_groups.get(*site_child) {
                 if let Ok(anchor_children) = children.get(**anchor_group) {
                     for anchor_child in anchor_children {
-                        if let Ok(e) = cabin_anchor_group_children.get(*anchor_child) {
+                        if let Ok(e) = anchors.get(*anchor_child) {
                             if !site_ids.contains(e) {
                                 new_entities.push(e);
                             }
@@ -1148,6 +1162,95 @@ fn generate_lanes(
     Ok(lanes)
 }
 
+fn generate_conveyors(
+    world: &mut World,
+    site: Entity,
+) -> Result<BTreeMap<u32, Conveyor<u32>>, SiteGenerationError> {
+    let mut state: SystemState<(
+        Query<
+            (
+                Entity,
+                &Edge<Entity>,
+                Option<&Original<Edge<Entity>>>,
+                &ConveyorHeight,
+                &ConveyorWidth,
+                &ConveyorThickness,
+                &ConveyorMetadata,
+                &AssociatedGraphs<Entity>,
+                Option<&ConveyorFlow>,
+                &Extensions,
+                &SiteID,
+            ),
+            (With<ConveyorMarker>, Without<Pending>),
+        >,
+        Query<&SiteID, With<NavGraphMarker>>,
+        Query<&SiteID, With<Anchor>>,
+        Query<&ChildOf>,
+    )> = SystemState::new(world);
+
+    let (q_conveyors, q_nav_graphs, q_anchors, q_child_of) = state.get(world);
+
+    let get_anchor_id = |object, anchor| {
+        let site_id = q_anchors
+            .get(anchor)
+            .map_err(|_| SiteGenerationError::BrokenAnchorReference { object, anchor })?;
+        Ok(site_id.0)
+    };
+
+    let get_anchor_id_edge = |object, edge: &Edge<Entity>| {
+        let left = get_anchor_id(object, edge.left())?;
+        let right = get_anchor_id(object, edge.right())?;
+        Ok(Edge::new(left, right))
+    };
+
+    let mut conveyors = BTreeMap::new();
+    for (
+        e,
+        edge,
+        o_edge,
+        height,
+        width,
+        thickness,
+        metadata,
+        graphs,
+        flow,
+        extensions,
+        conveyor_id,
+    ) in &q_conveyors
+    {
+        if !AncestorIter::new(&q_child_of, e).any(|p| p == site) {
+            continue;
+        }
+
+        let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
+        let mut anchors = get_anchor_id_edge(e, edge)?;
+
+        // Ensure saved anchor order is from 'In' to 'Out' port
+        if flow == Some(&ConveyorFlow::Backward) {
+            anchors = Edge::new(anchors.right(), anchors.left());
+        }
+        let graphs = graphs
+            .to_u32(&q_nav_graphs)
+            .map_err(|e| SiteGenerationError::BrokenNavGraphReference(e))?;
+
+        conveyors.insert(
+            conveyor_id.0,
+            Conveyor {
+                anchors,
+                height: *height,
+                width: *width,
+                thickness: *thickness,
+                metadata: *metadata,
+                graphs,
+                extensions: extensions.clone(),
+                marker: ConveyorMarker,
+            },
+        );
+    }
+
+    Ok(conveyors)
+}
+
 fn generate_locations(
     world: &mut World,
     site: Entity,
@@ -1435,13 +1538,23 @@ fn generate_model_instances(
     let mut state: SystemState<(
         Query<(&SiteID, &ExportWith), (With<ModelMarker>, With<Group>, Without<Pending>)>,
         Query<
-            (Entity, &SiteID, &NameInSite, &Pose, &Affiliation<Entity>),
+            (
+                Entity,
+                &SiteID,
+                &NameInSite,
+                &Pose,
+                &Affiliation<Entity>,
+                Option<&ConveyorNode>,
+                Option<&Children>,
+            ),
             (With<ModelMarker>, Without<Group>, Without<Pending>),
         >,
         Query<(Entity, &SiteID), With<LevelElevation>>,
         Query<&ChildOf>,
+        Query<(&SiteID, &ConveyorPort), Without<Pending>>,
     )> = SystemState::new(world);
-    let (model_descriptions, model_instances, levels, child_of) = state.get(world);
+    let (model_descriptions, model_instances, levels, child_of, model_conveyor_ports) =
+        state.get(world);
 
     let mut site_levels_ids = HashMap::<Entity, u32>::new();
     for (level_entity, site_id) in levels.iter() {
@@ -1462,10 +1575,18 @@ fn generate_model_instances(
             u32,
             Option<SiteID>,
             HashMap<String, serde_json::Value>,
+            ModelConveyorPorts,
         ),
     >::new();
-    for (instance_entity, instance_id, instance_name, instance_pose, instance_affiliation) in
-        model_instances.iter()
+    for (
+        instance_entity,
+        instance_id,
+        instance_name,
+        instance_pose,
+        instance_affiliation,
+        conveyor_node,
+        instance_children,
+    ) in model_instances.iter()
     {
         let Some(level_id) = child_of
             .get(instance_entity)
@@ -1481,6 +1602,20 @@ fn generate_model_instances(
             .and_then(|e| model_descriptions.get(e).ok())
             .unzip();
 
+        let mut ports_map = BTreeMap::new();
+        if let Some(instance_children) = instance_children {
+            for child in instance_children.iter() {
+                if let Ok((port_site_id, port)) = model_conveyor_ports.get(child) {
+                    ports_map.insert(port_site_id.0, port.clone());
+                }
+            }
+        }
+        let conveyor_ports = if conveyor_node.is_some() || !ports_map.is_empty() {
+            ModelConveyorPorts(Some(ports_map))
+        } else {
+            ModelConveyorPorts(None)
+        };
+
         model_instances_data.insert(
             instance_entity,
             (
@@ -1492,12 +1627,13 @@ fn generate_model_instances(
                 description_export
                     .map(|e| e.0.clone())
                     .unwrap_or(HashMap::new()),
+                conveyor_ports,
             ),
         );
     }
 
     let mut res = BTreeMap::<u32, Parented<u32, ModelInstance<u32>>>::new();
-    for (entity, (id, name, pose, level_id, description_id, description_export)) in
+    for (entity, (id, name, pose, level_id, description_id, description_export, conveyor_ports)) in
         model_instances_data.iter()
     {
         let mut export_data = HashMap::<String, sdformat::XmlElement>::new();
@@ -1521,6 +1657,7 @@ fn generate_model_instances(
             pose: pose.clone(),
             description: Affiliation(description_id.map(|d| d.0)),
             export_data: ExportData(export_data),
+            conveyor_ports: conveyor_ports.clone(),
             ..Default::default()
         };
         res.insert(
@@ -1740,6 +1877,7 @@ pub fn generate_site(
     let nav_graphs = generate_nav_graphs(world, site)?;
     let mutex_groups = generate_mutex_groups(world, site)?;
     let lanes = generate_lanes(world, site)?;
+    let conveyors = generate_conveyors(world, site)?;
     let locations = generate_locations(world, site)?;
     let graph_ranking = generate_graph_rankings(world, site)?;
     let properties = generate_site_properties(world, site)?;
@@ -1801,6 +1939,7 @@ pub fn generate_site(
                 graphs: nav_graphs,
                 ranking: graph_ranking,
                 lanes,
+                conveyors,
                 locations,
                 mutex_groups,
             },

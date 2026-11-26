@@ -18,9 +18,10 @@
 use crate::{
     interaction::{AnchorSelection, ObjectPlacement},
     site::{
-        Affiliation, AssetSource, Category, DefaultFile, Delete, Dependents, DrawingBundle,
-        DrawingProperties, Group, IsStatic, Members, ModelDescriptionBundle, ModelInstance,
-        ModelMarker, ModelProperty, NameInSite, Pending, Recall, RecallAssetSource, Scale,
+        Affiliation, AssetSource, Category, ConveyorNodePortConfigs, DefaultFile, Delete,
+        Dependents, DrawingBundle, DrawingProperties, Group, IsStatic, Members,
+        ModelDescriptionBundle, ModelInstance, ModelMarker, ModelProperty, NameInSite, Pending,
+        Recall, RecallAssetSource, Scale,
     },
     widgets::{
         AssetGalleryStatus, Icons, InspectAssetSourceComponent, InspectScaleComponent, TaskWidget,
@@ -44,6 +45,7 @@ impl Plugin for StandardCreationPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
             LaneCreationPlugin::default(),
+            ConveyorCreationPlugin::default(),
             LocationCreationPlugin::default(),
             WallCreationPlugin::default(),
             DoorCreationPlugin::default(),
@@ -81,6 +83,32 @@ impl<'w, 's> WidgetSystem<Tile> for LaneCreation<'w, 's> {
         if let AppState::SiteEditor = params.app_state.get() {
             if button_clicked(ui, "↔", "Lane") {
                 params.anchor_selection.create_lanes();
+            }
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct ConveyorCreationPlugin {}
+
+impl Plugin for ConveyorCreationPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_plugins(HeaderTilePlugin::<ConveyorCreation>::new());
+    }
+}
+
+#[derive(SystemParam)]
+struct ConveyorCreation<'w, 's> {
+    app_state: Res<'w, State<AppState>>,
+    anchor_selection: AnchorSelection<'w, 's>,
+}
+
+impl<'w, 's> WidgetSystem<Tile> for ConveyorCreation<'w, 's> {
+    fn show(_: Tile, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) {
+        let mut params = state.get_mut(world);
+        if let AppState::SiteEditor = params.app_state.get() {
+            if button_clicked(ui, "∏", "Conveyor") {
+                params.anchor_selection.create_conveyors();
             }
         }
     }
@@ -558,31 +586,42 @@ impl<'w, 's> WidgetSystem<Tile> for ModelCreation<'w, 's> {
                                 }
 
                                 ui.add_space(5.0);
-                                if ui
-                                    .add(Button::image_and_text(
-                                        params.icons.add.egui(),
-                                        "Add Description",
-                                    ))
-                                    .clicked()
-                                {
-                                    let description = ModelDescriptionBundle {
-                                        name: NameInSite(params.pending.name.clone()),
-                                        source: ModelProperty(params.pending.source.clone()),
-                                        is_static: ModelProperty(IsStatic::default()),
-                                        scale: ModelProperty(params.pending.scale.clone()),
-                                        ..Default::default()
-                                    };
+                                ui.horizontal(|ui| {
+                                    let add_desc = ui
+                                        .add(Button::image_and_text(
+                                            params.icons.add.egui(),
+                                            "Add Description",
+                                        ))
+                                        .clicked();
+                                    let add_conveyor_node = ui
+                                        .add(Button::image_and_text(
+                                            params.icons.add.egui(),
+                                            "Add as Conveyor Node",
+                                        ))
+                                        .clicked();
 
-                                    let description_entity = params
-                                        .commands
-                                        .spawn(description)
-                                        .insert(Category::ModelDescription)
-                                        .insert(ChildOf(site_entity))
-                                        .id();
+                                    if add_desc || add_conveyor_node {
+                                        let description = ModelDescriptionBundle {
+                                            name: NameInSite(params.pending.name.clone()),
+                                            source: ModelProperty(params.pending.source.clone()),
+                                            is_static: ModelProperty(IsStatic::default()),
+                                            scale: ModelProperty(params.pending.scale.clone()),
+                                            ..Default::default()
+                                        };
 
-                                    params.pending.selected = Some(description_entity);
-                                    add_instance = Some(format!("{}_0", params.pending.name));
-                                }
+                                        let mut desc_cmd = params.commands.spawn(description);
+                                        desc_cmd
+                                            .insert(Category::ModelDescription)
+                                            .insert(ChildOf(site_entity));
+                                        if add_conveyor_node {
+                                            desc_cmd.insert(ConveyorNodePortConfigs(None));
+                                        }
+                                        let description_entity = desc_cmd.id();
+
+                                        params.pending.selected = Some(description_entity);
+                                        add_instance = Some(format!("{}_0", params.pending.name));
+                                    }
+                                });
 
                                 ui.add_space(10.0);
                             });

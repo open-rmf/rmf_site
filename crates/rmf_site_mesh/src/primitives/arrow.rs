@@ -158,3 +158,16 @@ pub fn make_triangular_arrow() -> MeshBuffer {
 pub fn make_triangular_arrow_mesh() -> Mesh {
     make_triangular_arrow().into()
 }
+
+pub fn make_downward_triangular_arrow_mesh() -> Mesh {
+    let positions = vec![
+        [0.05, 0.1, 0.0],  // 0
+        [0.0, 0.08, 0.0],  // 1
+        [-0.05, 0.1, 0.0], // 2
+        [0.0, 0.0, 0.0],   // 3
+    ];
+    let normals = vec![[0.0, 0.0, 1.0]; positions.len()];
+    let indices = vec![0, 1, 3, 1, 2, 3];
+
+    MeshBuffer::new(positions, normals, indices).into()
+}

@@ -33,6 +33,9 @@ pub use display_color::*;
 pub mod drawing_editor;
 pub use drawing_editor::{alignment, *};
 
+pub mod conveyor;
+pub use conveyor::*;
+
 pub mod door;
 pub use door::*;
 
@@ -327,6 +330,7 @@ impl Plugin for SitePlugin {
             MaterialPlugin::<ExtendedMaterial<StandardMaterial, LaneArrowMaterial>>::default(),
             InfiniteGridPlugin,
         ))
+        .add_plugins(ConveyorPlugin)
         .add_plugins((
             RobotPropertiesPlugin::default(),
             RobotPropertyPlugin::<Mobility, RecallMobility>::default(),
@@ -399,6 +403,7 @@ impl Plugin for SitePlugin {
                 assign_orphan_elements_to_level::<ModelMarker>,
                 assign_orphan_elements_to_level::<PhysicalCameraProperties>,
                 assign_orphan_elements_to_level::<WallMarker>,
+                assign_orphan_elements_to_level::<ConveyorMarker>,
                 add_category_to_graphs,
                 add_tags_to_lift,
                 add_material_for_display_colors,

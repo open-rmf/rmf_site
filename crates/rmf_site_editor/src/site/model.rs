@@ -490,9 +490,11 @@ impl<'w, 's> ModelLoader<'w, 's> {
         impulse: impl FnOnce(Series<InstanceSpawningResult, ()>),
     ) -> EntityCommands<'_> {
         let affiliation = instance.description.clone();
+        let transform = instance.pose.transform();
         let id = self
             .commands
             .spawn(instance)
+            .insert(transform)
             .insert(ChildOf(parent))
             .insert(PendingModel) // Set instance as pending until it completes loading
             .insert(Visibility::Hidden) // Set instance to hidden until it completes loading
@@ -867,6 +869,7 @@ pub fn make_models_selectable(
     In(req): In<ModelLoadingRequest>,
     mut commands: Commands,
     pending_or_previews: Query<(), Or<(With<Pending>, With<Preview>)>>,
+    model_scenes: Query<&ModelScene>,
     scene_roots: Query<&RenderLayers, With<ModelMarker>>,
     all_children: Query<&Children>,
     mesh_handles: Query<&Mesh3d>,
@@ -890,7 +893,17 @@ pub fn make_models_selectable(
     let Some(interaction) = req.interaction.clone() else {
         return req;
     };
-    queue.push(req.parent);
+    // A model should only become selectable once its 3D asset scene has spawned,
+    // as we need `scene_root` to scope traversal and avoid making a sceneless
+    // model interactive.
+    let Ok(model_scene) = model_scenes.get(req.parent) else {
+        return req;
+    };
+    // Attach interaction to the model entity itself and traverse only its loaded
+    // 3D scene subtree so sibling editor attachments (e.g. subordinate anchors)
+    // keep their own selection behavior.
+    commands.entity(req.parent).insert(interaction.clone());
+    queue.push(model_scene.scene_root);
 
     while let Some(e) = queue.pop() {
         commands.entity(e).insert(interaction.clone());

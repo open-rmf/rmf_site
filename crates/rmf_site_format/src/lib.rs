@@ -29,6 +29,9 @@ pub use category::*;
 pub mod camera_poses;
 pub use camera_poses::*;
 
+pub mod conveyor;
+pub use conveyor::*;
+
 pub mod dock;
 pub use dock::*;
 

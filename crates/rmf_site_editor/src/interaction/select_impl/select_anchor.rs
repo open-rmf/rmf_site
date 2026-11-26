@@ -166,6 +166,13 @@ impl<'w, 's> AnchorSelection<'w, 's> {
         self.create_edges::<Lane<Entity>>(EdgeCreationContinuity::Continuous, AnchorScope::General);
     }
 
+    pub fn create_conveyors(&mut self) {
+        self.create_edges::<Conveyor<Entity>>(
+            EdgeCreationContinuity::Continuous,
+            AnchorScope::General,
+        );
+    }
+
     pub fn create_measurements(&mut self) {
         self.create_edges::<Measurement<Entity>>(
             EdgeCreationContinuity::Separate,
@@ -249,7 +256,9 @@ impl<'w, 's> AnchorSelection<'w, 's> {
 
     pub fn replace_side(&mut self, edge: Entity, side: Side, category: Category) -> bool {
         let scope = match category {
-            Category::Lane | Category::Wall | Category::Door => AnchorScope::General,
+            Category::Lane | Category::Wall | Category::Door | Category::Conveyor => {
+                AnchorScope::General
+            }
             Category::Measurement => AnchorScope::Drawing,
             Category::Lift => AnchorScope::Site,
             _ => return false,
@@ -619,6 +628,7 @@ pub struct AnchorFilter<'w, 's> {
     drawings: Query<'w, 's, &'static PixelsPerMeter, With<DrawingMarker>>,
     child_of: Query<'w, 's, &'static ChildOf>,
     levels: Query<'w, 's, (), With<LevelElevation>>,
+    models: Query<'w, 's, (), (With<ModelMarker>, Without<Group>)>,
     lifts: Query<
         'w,
         's,
@@ -758,7 +768,8 @@ impl<'w, 's> AnchorFilter<'w, 's> {
                 let is_level = || self.levels.contains(parent);
                 let is_lift =
                     || AncestorIter::new(&self.child_of, target).any(|e| self.lifts.contains(e));
-                if is_site() || is_level() || is_lift() {
+                let is_model = || self.models.contains(parent);
+                if is_site() || is_level() || is_lift() || is_model() {
                     Some(target)
                 } else {
                     None

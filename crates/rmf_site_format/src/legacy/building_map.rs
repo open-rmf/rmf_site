@@ -804,6 +804,7 @@ impl BuildingMap {
                     graphs: nav_graphs,
                     ranking: Vec::new(),
                     lanes,
+                    conveyors: Default::default(),
                     locations,
                     mutex_groups,
                 },
