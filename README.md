@@ -74,9 +74,38 @@ $ tar xf ~/binaryen-version_123-x86_64-linux.tar.gz -C ~/
 $ export PATH=$PATH:~/binaryen-version_123/bin
 ```
 
-# Fetch Message Definitions (Required for Live Visualization)
+# Build and Run (Desktop)
 
-The Site Editor features a Live Fleet Visualization tool that communicates with ROS 2 backends via WebSockets. To compile the necessary Rust structs without requiring a local ROS 2 installation, you must initialize the message submodules and install `vcstool`.
+Currently tested on Ubuntu 20.04.4 LTS and windows 11.
+
+From the root directory:
+
+```bash
+$ cargo run
+```
+
+Use the `--features bevy/dynamic_linking` flag to improve compile time through dynamic linking.
+Use the `--release` flag for better runtime performance.
+
+# Build and Run (WebAssembly)
+
+TODO: The web assembly version is highly experimental, currently it lacks important features like
+saving/loading of map files. However, you may opt to export the JSON file via download or copy/paste.
+
+```bash
+$ scripts/build-web.sh
+$ scripts/serve-web.sh
+```
+
+Then use your favorite web browser to visit `http://localhost:1234`
+
+# Live Visualization (rmf_site_viz)
+
+`rmf_site_viz` is the site editor plus a Live Fleet Visualization tool that communicates with ROS 2 backends via WebSockets. It lives in `crates/rmf_site_viz` and is not built by a plain `cargo build` or `cargo run` from the root directory.
+
+## Fetch Message Definitions
+
+To compile the necessary Rust structs without requiring a local ROS 2 installation, you must initialize the message submodules and install `vcstool`.
 
 **1. Initialize the custom messages submodule:**
 If you did not clone this repository with the `--recursive` flag, you must initialize the submodule containing the custom Open-RMF messages:
@@ -103,29 +132,23 @@ If you are compiling inside an Ubuntu or ROS 2 Docker/distrobox environment, you
 $ sudo apt update && sudo apt install -y python3-vcstool
 ```
 
-# Build and Run (Desktop)
-
-Currently tested on Ubuntu 20.04.4 LTS and windows 11.
+## Build and Run (Desktop)
 
 From the root directory:
 
 ```bash
-$ cargo run
+$ cargo run -p rmf_site_viz
 ```
 
 *(Note: During the very first build, the compiler will pause to automatically run `vcs import` and download standard ROS 2 blueprints into the `external/ros2_interfaces/` directory).*
 
-Use the `--features bevy/dynamic_linking` flag to improve compile time through dynamic linking.
-Use the `--release` flag for better runtime performance.
+## Build and Run (WebAssembly)
 
-# Build and Run (WebAssembly)
-
-TODO: The web assembly version is highly experimental, currently it lacks important features like
-saving/loading of map files. However, you may opt to export the JSON file via download or copy/paste.
+This needs the [WebAssembly dependencies](#install-extra-dependencies-for-webassembly) above and has the same limitations as the editor's web build.
 
 ```bash
-$ scripts/build-web.sh
+$ scripts/build-web.sh --viz
 $ scripts/serve-web.sh
 ```
 
-Then use your favorite web browser to visit `http://localhost:1234`
+Then use your favorite web browser to visit `http://localhost:1234/viz.html`
