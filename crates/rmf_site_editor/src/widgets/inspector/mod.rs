@@ -118,7 +118,10 @@ pub mod inspect_value;
 pub use inspect_value::*;
 use rmf_site_picking::Selection;
 
-use crate::site::{Category, SiteID};
+use crate::{
+    site::{Category, SiteID},
+    widgets::ShowInReadOnly,
+};
 use bevy::{
     ecs::{
         hierarchy::ChildOf,
@@ -327,7 +330,7 @@ impl FromWorld for MainInspector {
         let widget = Widget::new::<Inspector>(world);
         let properties_panel = world.resource::<PropertiesPanel>().id();
         let id = world
-            .spawn((widget, Name::new("Inspect")))
+            .spawn((widget, Name::new("Inspect"), ShowInReadOnly::ReadOnly))
             .insert(ChildOf(properties_panel))
             .id();
         Self { id }

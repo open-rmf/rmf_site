@@ -121,13 +121,17 @@ pub enum AppState {
     SiteEditor,
     SiteVisualizer,
     SiteDrawingEditor,
+    SiteReadOnly,
 }
 
 impl AppState {
     pub fn in_displaying_mode() -> impl Condition<()> {
         IntoSystem::into_system(|state: Res<State<AppState>>| match state.get() {
             AppState::MainMenu => false,
-            AppState::SiteEditor | AppState::SiteVisualizer | AppState::SiteDrawingEditor => true,
+            AppState::SiteEditor
+            | AppState::SiteVisualizer
+            | AppState::SiteDrawingEditor
+            | AppState::SiteReadOnly => true,
         })
     }
 }
@@ -141,13 +145,19 @@ fn handle_errors(error: BevyError, ctx: bevy::ecs::error::ErrorContext) {
     );
 }
 
-pub fn run(command_line_args: Vec<String>) {
+/// Builds the site editor app without running it, so that downstream crates can
+/// add their own plugins before calling `App::run`.
+pub fn build_app(editor: SiteEditor) -> App {
     bevy::ecs::error::GLOBAL_ERROR_HANDLER
         .set(handle_errors)
         .expect("The error handler can only be set once, globally.");
     let mut app = App::new();
-    app.add_plugins(SiteEditor::from_cli_args(command_line_args));
-    app.run();
+    app.add_plugins(editor);
+    app
+}
+
+pub fn run(command_line_args: Vec<String>) {
+    build_app(SiteEditor::from_cli_args(command_line_args)).run();
 }
 
 #[derive(Default)]

@@ -44,18 +44,30 @@ pub struct GizmoMaterialSet {
 #[derive(Resource)]
 pub struct GizmoBlockers {
     pub selecting: bool,
+    pub read_only: bool,
 }
 
 impl GizmoBlockers {
     pub fn blocking(&self) -> bool {
-        self.selecting
+        self.selecting || self.read_only
     }
 }
 
 impl Default for GizmoBlockers {
     fn default() -> Self {
-        Self { selecting: false }
+        Self {
+            selecting: false,
+            read_only: false,
+        }
     }
+}
+
+pub fn block_gizmos(mut gizmo_blockers: ResMut<GizmoBlockers>) {
+    gizmo_blockers.read_only = true;
+}
+
+pub fn unblock_gizmos(mut gizmo_blockers: ResMut<GizmoBlockers>) {
+    gizmo_blockers.read_only = false;
 }
 
 impl GizmoMaterialSet {

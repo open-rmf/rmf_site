@@ -17,7 +17,7 @@
 
 use crate::{
     site::{AlignSiteDrawings, Delete},
-    CreateNewWorkspace, CurrentWorkspace, DebugMode, WorkspaceLoader, WorkspaceSaver,
+    AppState, CreateNewWorkspace, CurrentWorkspace, DebugMode, WorkspaceLoader, WorkspaceSaver,
 };
 use bevy::{prelude::*, window::PrimaryWindow};
 use bevy_egui::EguiContexts;
@@ -48,6 +48,7 @@ fn handle_keyboard_input(
     primary_windows: Query<Entity, With<PrimaryWindow>>,
     mut workspace_loader: WorkspaceLoader,
     mut workspace_saver: WorkspaceSaver,
+    app_state: Res<State<AppState>>,
 ) {
     let Some(egui_context) = primary_windows
         .single()
@@ -64,6 +65,8 @@ fn handle_keyboard_input(
         return;
     }
 
+    let read_only = *app_state.get() == AppState::SiteReadOnly;
+
     if keyboard_input.just_pressed(KeyCode::F2) {
         *projection_mode = ProjectionMode::Orthographic;
     }
@@ -75,7 +78,9 @@ fn handle_keyboard_input(
     if keyboard_input.just_pressed(KeyCode::Delete)
         || keyboard_input.just_pressed(KeyCode::Backspace)
     {
-        if !selection.selected.is_empty() {
+        if read_only {
+            warn!("Cannot delete while the site is read-only");
+        } else if !selection.selected.is_empty() {
             for e in &selection.selected {
                 delete.write(Delete::new(*e));
             }
@@ -99,7 +104,7 @@ fn handle_keyboard_input(
             }
         }
 
-        if keyboard_input.just_pressed(KeyCode::KeyT) {
+        if !read_only && keyboard_input.just_pressed(KeyCode::KeyT) {
             if let Some(site) = current_workspace.root {
                 align_site.write(AlignSiteDrawings(site));
             }

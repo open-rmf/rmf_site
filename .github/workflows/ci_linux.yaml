@@ -53,3 +53,22 @@ jobs:
         cd site_ws
         source /opt/ros/jazzy/setup.bash
         colcon build --packages-select rmf_site_format
+
+  build_live_viz:
+    runs-on: ubuntu-latest
+    steps:
+    - name: deps
+      run: |
+        sudo apt-get update
+        sudo apt-get install libasound2-dev libudev-dev libgtk-3-dev
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+    - name: Install vcstool
+      run: |
+        pipx install vcstool
+        pipx inject --force vcstool "setuptools<70.0.0"
+    - name: Test rmf_site_viz
+      run: |
+        cd crates/rmf_site_viz
+        cargo test

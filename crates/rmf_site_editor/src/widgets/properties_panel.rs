@@ -28,10 +28,38 @@ use rmf_site_egui::{
 const TAB_BAR_HEIGHT: f32 = 24.0;
 const CLOSE_TAB_ACTIVE_COLOR: egui::Color32 = egui::Color32::from_rgb(240, 80, 80);
 
+/// Controls whether a properties panel tab is shown and interactive while the
+/// site is in the read-only state.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ShowInReadOnly {
+    /// Shown only outside of the read-only state
+    #[default]
+    Hidden,
+    /// Shown in all states, but disabled in the read-only state
+    ReadOnly,
+    /// Shown only in the read-only state, and interactive there
+    Interactive,
+}
+
+impl ShowInReadOnly {
+    pub fn should_show(self, is_read_only: bool) -> bool {
+        if is_read_only {
+            self != Self::Hidden
+        } else {
+            self != Self::Interactive
+        }
+    }
+
+    pub fn should_disable(self, is_read_only: bool) -> bool {
+        is_read_only && self != Self::Interactive
+    }
+}
+
 #[derive(Resource)]
 pub struct PropertiesPanelState {
     pub dock_state: DockState<Entity>,
     pub known_tabs: HashSet<Entity>,
+    pub is_read_only: Option<bool>,
 }
 
 impl Default for PropertiesPanelState {
@@ -39,6 +67,7 @@ impl Default for PropertiesPanelState {
         Self {
             dock_state: DockState::new(vec![]),
             known_tabs: HashSet::new(),
+            is_read_only: None,
         }
     }
 }
@@ -46,6 +75,7 @@ impl Default for PropertiesPanelState {
 pub struct PropertiesTabViewer<'a> {
     pub world: &'a mut World,
     pub settings: PanelSettings,
+    is_read_only: bool,
 }
 
 impl<'a> TabViewer for PropertiesTabViewer<'a> {
@@ -72,6 +102,15 @@ impl<'a> TabViewer for PropertiesTabViewer<'a> {
     }
 
     fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {
+        let show = self
+            .world
+            .get::<ShowInReadOnly>(*tab)
+            .copied()
+            .unwrap_or_default();
+        if show.should_disable(self.is_read_only) {
+            ui.disable();
+        }
+
         let _ = self.world.try_show_in(
             *tab,
             Tile {
@@ -87,12 +126,18 @@ pub fn show_properties_panel(
     In(PanelWidgetInput { id, context }): In<PanelWidgetInput>,
     world: &mut World,
 ) {
-    let in_display_mode = world
+    let app_state = world
         .get_resource::<State<AppState>>()
-        .is_some_and(|s| match s.get() {
-            AppState::MainMenu => false,
-            AppState::SiteEditor | AppState::SiteVisualizer | AppState::SiteDrawingEditor => true,
-        });
+        .map(|s| s.get().clone());
+    let in_display_mode = matches!(
+        app_state,
+        Some(
+            AppState::SiteEditor
+                | AppState::SiteVisualizer
+                | AppState::SiteDrawingEditor
+                | AppState::SiteReadOnly
+        )
+    );
 
     if !in_display_mode {
         return;
@@ -102,12 +147,29 @@ pub fn show_properties_panel(
         world.init_resource::<PropertiesPanelState>();
     }
 
+    let is_read_only = matches!(app_state, Some(AppState::SiteReadOnly));
+
     let tabs: Vec<Entity> = world
         .get::<Children>(id)
-        .map(|c| c.to_vec())
+        .map(|c| {
+            c.iter()
+                .filter(|&tab| {
+                    world
+                        .get::<ShowInReadOnly>(tab)
+                        .copied()
+                        .unwrap_or_default()
+                        .should_show(is_read_only)
+                })
+                .collect()
+        })
         .unwrap_or_default();
 
     world.resource_scope::<PropertiesPanelState, ()>(|world, mut state| {
+        if state.is_read_only != Some(is_read_only) {
+            state.known_tabs.clear();
+            state.is_read_only = Some(is_read_only);
+        }
+
         let is_initial_load = state.known_tabs.is_empty();
 
         let mut new_tabs = Vec::new();
@@ -215,10 +277,6 @@ pub fn show_properties_panel(
                                 }
                             }
                         });
-
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.label(egui::RichText::new("Properties").weak());
-                    });
                 });
 
                 ui.separator();
@@ -227,7 +285,11 @@ pub fn show_properties_panel(
                     .get::<PanelSettings>(id)
                     .copied()
                     .unwrap_or(PanelSettings::right());
-                let mut tab_viewer = PropertiesTabViewer { world, settings };
+                let mut tab_viewer = PropertiesTabViewer {
+                    world,
+                    settings,
+                    is_read_only,
+                };
                 DockArea::new(&mut state.dock_state)
                     .style(style)
                     .show_close_buttons(true)

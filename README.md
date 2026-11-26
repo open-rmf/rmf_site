@@ -98,3 +98,57 @@ $ scripts/serve-web.sh
 ```
 
 Then use your favorite web browser to visit `http://localhost:1234`
+
+# Live Visualization (rmf_site_viz)
+
+`rmf_site_viz` is the site editor plus a Live Fleet Visualization tool that communicates with ROS 2 backends via WebSockets. It lives in `crates/rmf_site_viz` and is not built by a plain `cargo build` or `cargo run` from the root directory.
+
+## Fetch Message Definitions
+
+To compile the necessary Rust structs without requiring a local ROS 2 installation, you must initialize the message submodules and install `vcstool`.
+
+**1. Initialize the custom messages submodule:**
+If you did not clone this repository with the `--recursive` flag, you must initialize the submodule containing the custom Open-RMF messages:
+```bash
+$ git submodule update --init --recursive
+```
+
+**2. Install `vcstool`:**
+The build script automatically downloads standard ROS 2 message blueprints (e.g., `nav_msgs`) during compilation. It requires the `vcs` command-line tool to be installed on your system.
+
+*Option A: Install via pipx (Native Host Machine - Mac/Windows/Linux)*
+```bash
+# Install the vcs tool using pipx
+$ pipx install vcstool
+
+# (For Python 3.12+ Users): Fix missing legacy dependencies by forcing 
+# the injection of an older setuptools version that still contains pkg_resources
+$ pipx inject --force vcstool "setuptools<70.0.0"
+```
+
+*Option B: Use a ROS 2 Container (Alternative)*
+If you are compiling inside an Ubuntu or ROS 2 Docker/distrobox environment, you can install it directly via `apt`:
+```bash
+$ sudo apt update && sudo apt install -y python3-vcstool
+```
+
+## Build and Run (Desktop)
+
+From the root directory:
+
+```bash
+$ cargo run -p rmf_site_viz
+```
+
+*(Note: During the very first build, the compiler will pause to automatically run `vcs import` and download standard ROS 2 blueprints into the `external/ros2_interfaces/` directory).*
+
+## Build and Run (WebAssembly)
+
+This needs the [WebAssembly dependencies](#install-extra-dependencies-for-webassembly) above and has the same limitations as the editor's web build.
+
+```bash
+$ scripts/build-web.sh --viz
+$ scripts/serve-web.sh
+```
+
+Then use your favorite web browser to visit `http://localhost:1234/viz.html`

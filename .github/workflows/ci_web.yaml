@@ -45,3 +45,41 @@ jobs:
 
     - name: build rmf_site_editor
       run: scripts/build-web.sh
+
+  build_live_viz:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - name: rust-wasm-target
+      run: |
+        rustup target add wasm32-unknown-unknown
+
+    - name: apt-deps
+      run: |
+        sudo apt-get update
+        sudo apt-get install libasound2-dev libudev-dev
+
+    - name: wasm-opt
+      uses: sigoden/install-binary@v1
+      with:
+        repo: WebAssembly/binaryen
+        tag: version_123
+        name: wasm-opt
+
+    - name: cargo-deps
+      run: |
+        cargo install -f wasm-bindgen-cli --version 0.2.100
+
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+
+    - name: Install vcstool
+      run: |
+        pipx install vcstool
+        pipx inject --force vcstool "setuptools<70.0.0"
+
+    - name: build rmf_site_viz
+      run: scripts/build-web.sh --viz
