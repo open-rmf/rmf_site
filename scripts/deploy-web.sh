@@ -26,6 +26,7 @@ git checkout --orphan gh-pages
 git reset
 scripts/build-web.sh
 
+rm -f web/viz.html
 git add -f web
 cp web/root_index.html index.html
 git add index.html

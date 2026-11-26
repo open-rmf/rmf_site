@@ -6108,6 +6108,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rmf_site_viz_web"
+version = "0.0.1"
+dependencies = [
+ "console_error_panic_hook",
+ "getrandom 0.3.4",
+ "rmf_site_viz",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "robust"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
