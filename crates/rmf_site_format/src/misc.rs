@@ -411,6 +411,16 @@ impl Rotation {
             }
         }
     }
+
+    pub fn as_glam_quat(&self) -> Quat {
+        match self {
+            Self::Yaw(yaw) => Quat::from_rotation_z(yaw.radians()),
+            Self::EulerExtrinsicXYZ([x, y, z]) => {
+                Quat::from_euler(glam::EulerRot::ZYX, z.radians(), y.radians(), x.radians())
+            }
+            Self::Quat(quat) => Quat::from_array(*quat),
+        }
+    }
 }
 
 #[cfg(feature = "bevy")]
@@ -419,7 +429,7 @@ impl Rotation {
         match self {
             Self::Yaw(yaw) => *yaw,
             Self::EulerExtrinsicXYZ([_, _, yaw]) => *yaw,
-            Self::Quat(_) => Angle::Rad(self.as_bevy_quat().to_euler(EulerRot::ZYX).0),
+            Self::Quat(_) => Angle::Rad(self.as_glam_quat().to_euler(EulerRot::ZYX).0),
         }
     }
 
@@ -432,24 +442,14 @@ impl Rotation {
             Self::Yaw(yaw) => Self::EulerExtrinsicXYZ([Angle::Deg(0.0), Angle::Deg(0.0), *yaw]),
             Self::EulerExtrinsicXYZ(_) => self.clone(),
             Self::Quat(_) => {
-                let (z, y, x) = self.as_bevy_quat().to_euler(EulerRot::ZYX);
+                let (z, y, x) = self.as_glam_quat().to_euler(EulerRot::ZYX);
                 Self::EulerExtrinsicXYZ([Angle::Rad(x), Angle::Rad(y), Angle::Rad(z)])
             }
         }
     }
 
     pub fn as_quat(&self) -> Self {
-        Self::Quat(self.as_bevy_quat().to_array())
-    }
-
-    pub fn as_bevy_quat(&self) -> Quat {
-        match self {
-            Self::Yaw(yaw) => Quat::from_rotation_z(yaw.radians()),
-            Self::EulerExtrinsicXYZ([x, y, z]) => {
-                Quat::from_euler(EulerRot::ZYX, z.radians(), y.radians(), x.radians())
-            }
-            Self::Quat(quat) => Quat::from_array(*quat),
-        }
+        Self::Quat(self.as_glam_quat().to_array())
     }
 
     pub fn label(&self) -> &str {
@@ -524,7 +524,7 @@ impl Pose {
     pub fn transform(&self) -> Transform {
         Transform {
             translation: self.trans.clone().into(),
-            rotation: self.rot.as_bevy_quat(),
+            rotation: self.rot.as_glam_quat(),
             ..default()
         }
     }
