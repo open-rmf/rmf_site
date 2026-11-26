@@ -18,9 +18,9 @@
 use crate::{
     interaction::{AnchorSelection, ObjectPlacement},
     site::{
-        Affiliation, AssetSource, Category, DefaultFile, DrawingBundle, DrawingProperties, Group,
-        IsStatic, Members, ModelDescriptionBundle, ModelInstance, ModelMarker, ModelProperty,
-        NameInSite, Recall, RecallAssetSource, Scale,
+        Affiliation, AssetSource, Category, DefaultFile, Delete, Dependents, DrawingBundle,
+        DrawingProperties, Group, IsStatic, Members, ModelDescriptionBundle, ModelInstance,
+        ModelMarker, ModelProperty, NameInSite, Pending, Recall, RecallAssetSource, Scale,
     },
     widgets::{
         AssetGalleryStatus, Icons, InspectAssetSourceComponent, InspectScaleComponent, TaskWidget,
@@ -415,6 +415,7 @@ pub struct ModelCreation<'w, 's> {
     object_placement: ObjectPlacement<'w, 's>,
     next_instance_name: GetNextInstanceName<'w, 's>,
     commands: Commands<'w, 's>,
+    delete: EventWriter<'w, Delete>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for ModelCreation<'w, 's> {
@@ -423,6 +424,14 @@ impl<'w, 's> WidgetSystem<Tile> for ModelCreation<'w, 's> {
         let Some(site_entity) = params.current_workspace.root else {
             return;
         };
+
+        if params
+            .pending
+            .selected
+            .is_some_and(|e| params.descriptions.get(e).is_err())
+        {
+            params.pending.selected = None;
+        }
 
         match params.app_state.get() {
             AppState::SiteEditor => {
@@ -451,6 +460,26 @@ impl<'w, 's> WidgetSystem<Tile> for ModelCreation<'w, 's> {
                                         add_instance = params.pending.selected.map(|description| {
                                             params.next_instance_name.get_for(description)
                                         });
+                                    }
+
+                                    let can_delete = params.pending.selected.is_some_and(|d| {
+                                        !params.next_instance_name.has_instances(d)
+                                    });
+                                    if ui
+                                        .add_enabled(
+                                            can_delete,
+                                            egui::ImageButton::new(params.icons.trash.egui()),
+                                        )
+                                        .on_hover_text("Delete Description")
+                                        .clicked()
+                                    {
+                                        if let Some(description) = params.pending.selected.take() {
+                                            params
+                                                .commands
+                                                .entity(description)
+                                                .remove::<Dependents>();
+                                            params.delete.write(Delete::new(description));
+                                        }
                                     }
 
                                     let selected_description_text =
@@ -486,11 +515,6 @@ impl<'w, 's> WidgetSystem<Tile> for ModelCreation<'w, 's> {
                                     if let Some(selected_new_description) = selected_new_description
                                     {
                                         params.pending.selected = Some(selected_new_description);
-                                        add_instance = Some(
-                                            params
-                                                .next_instance_name
-                                                .get_for(selected_new_description),
-                                        );
                                     }
                                 })
                                 .response
@@ -589,11 +613,17 @@ impl<'w, 's> WidgetSystem<Tile> for ModelCreation<'w, 's> {
 
 #[derive(SystemParam)]
 pub struct GetNextInstanceName<'w, 's> {
-    names: Query<'w, 's, &'static NameInSite>,
+    names: Query<'w, 's, &'static NameInSite, Without<Pending>>,
     members: Query<'w, 's, &'static Members>,
 }
 
 impl<'w, 's> GetNextInstanceName<'w, 's> {
+    pub fn has_instances(&self, description: Entity) -> bool {
+        self.members
+            .get(description)
+            .is_ok_and(|members| members.iter().any(|m| self.names.contains(*m)))
+    }
+
     pub fn get_for(&self, description: Entity) -> String {
         let base_name = self
             .names

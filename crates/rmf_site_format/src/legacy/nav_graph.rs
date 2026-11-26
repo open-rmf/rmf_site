@@ -277,6 +277,8 @@ pub struct NavLaneProperties {
     pub orientation_constraint: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mutex: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workflow: Option<String>,
 }
 
 impl NavLaneProperties {
@@ -299,6 +301,7 @@ impl NavLaneProperties {
             orientation_constraint,
             door_name,
             mutex,
+            workflow: motion.workflow.clone(),
         }
     }
 }
