@@ -157,6 +157,7 @@ pub use view_menu::*;
 pub mod wall;
 pub use wall::*;
 
+use crate::interaction::{block_gizmos, unblock_gizmos};
 use crate::recency::{RecencyRank, RecencyRankingPlugin};
 use crate::{AppState, RegisterIssueType};
 pub use rmf_site_format::{DirectionalLight, PointLight, SpotLight, *};
@@ -309,6 +310,8 @@ impl Plugin for SitePlugin {
             ModelLoadingPlugin::default(),
             FuelPlugin::default(),
         ))
+        .add_systems(OnEnter(AppState::SiteReadOnly), block_gizmos)
+        .add_systems(OnExit(AppState::SiteReadOnly), unblock_gizmos)
         .add_plugins((
             ChangePlugin::<ModelProperty<AssetSource>>::default(),
             ChangePlugin::<ModelProperty<Scale>>::default(),
