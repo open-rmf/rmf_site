@@ -148,6 +148,15 @@ pub fn insert_path_with_texture<T: Bundle + From<Path<Entity>>>(
     Ok(())
 }
 
+pub fn insert_path_default<T: Bundle + From<Path<Entity>>>(
+    path: Path<Entity>,
+    commands: &mut EntityCommands,
+) -> SelectionNodeResult {
+    let new_bundle: T = path.into();
+    commands.insert((new_bundle, Pending));
+    Ok(())
+}
+
 pub fn create_path_setup(In(_): In<BufferKey<CreatePath>>) -> SelectionNodeResult {
     // Do nothing. No setup is needed for paths.
     Ok(())

@@ -108,6 +108,9 @@ pub use physical_camera::*;
 pub mod pose;
 pub use pose::*;
 
+pub mod polygon_nav;
+pub use polygon_nav::*;
+
 pub mod property_plugin;
 pub use property_plugin::*;
 

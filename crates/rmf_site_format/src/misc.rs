@@ -624,7 +624,7 @@ pub struct PreviewableMarker;
 pub struct SiteID(pub u32);
 
 /// Helper structure to serialize / deserialize entities with parents
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Parented<P: RefTrait, T> {
     pub parent: P,
     #[serde(flatten)]

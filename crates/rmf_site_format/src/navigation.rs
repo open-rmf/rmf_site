@@ -23,11 +23,13 @@ use std::collections::BTreeMap;
 pub struct Navigation {
     #[serde(default, skip_serializing_if = "Guided::is_empty")]
     pub guided: Guided,
+    #[serde(default, skip_serializing_if = "PolygonNav::is_empty")]
+    pub polygon: PolygonNav,
 }
 
 impl Navigation {
     pub fn is_empty(&self) -> bool {
-        self.guided.is_empty()
+        self.guided.is_empty() && self.polygon.is_empty()
     }
 }
 

@@ -483,7 +483,8 @@ pub fn multi_select_on_shift(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut inspection_settings: ResMut<InspectionSettings>,
 ) {
-    let multi_select = keyboard_input.pressed(KeyCode::ShiftLeft);
+    let multi_select =
+        keyboard_input.pressed(KeyCode::ShiftLeft) || keyboard_input.pressed(KeyCode::ShiftRight);
 
     if inspection_settings.multi_select != multi_select {
         inspection_settings.multi_select = multi_select;
